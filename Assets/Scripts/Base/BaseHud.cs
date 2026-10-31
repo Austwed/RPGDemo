@@ -33,7 +33,7 @@ namespace BaseConquest.Base
         private string nearbyId;
         private string activeObject = "", activePage = "";
         private string interactionObject="";
-        private static readonly HashSet<string> facilityInteractions=new HashSet<string>{"home","government","farm","workshop","barracks","watchtower","warehouse","town_market","town_inn","town_recruit","fixed_fieldworks"};
+        private static readonly HashSet<string> facilityInteractions=new HashSet<string>{"home","government","farm","workshop","barracks","warehouse","town_market","town_inn","town_recruit","fixed_fieldworks"};
         private float nextInspectionRefresh;
         public BaseJoystick Joystick { get; }
         public bool PanelOpen => modal.gameObject.activeSelf;
@@ -312,7 +312,6 @@ namespace BaseConquest.Base
             if (id.StartsWith("exit_") || id.StartsWith("travel_") || id.StartsWith("campaign_")) { OpenTravel(id); return; }
             if (id == "home") OpenHome();
             else if (owner.State.Leaders.Any(l=>l.Id==id)) OpenPartner(id);
-            else if(id=="watchtower")ConstructionRules(ClosePanel);
             else if (id == "government") { activePage = "workers"; OpenGovernment(); }
             else if (id == "farm" || id == "workshop") { activePage = "workers"; OpenFacility(); }
             else if (id == "barracks") { activePage = "armyinfo"; OpenBarracks(); }

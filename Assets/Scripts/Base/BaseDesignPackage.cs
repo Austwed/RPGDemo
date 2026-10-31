@@ -46,7 +46,7 @@ namespace BaseConquest.Base
             {
                 foreach(var marker in map.Objects??new List<BaseMapPlacement>())
                 {
-                    string allowed=map.Region=="base" ? "home government farm workshop barracks watchtower partner_farm partner_craft exit_west exit_east exit_south exit_north" : map.Region=="town" ? "town_market town_recruit town_quest travel_base" : map.Region=="perimeter" ? "fixed_fieldworks travel_base campaign_defense" : map.Region=="world" ? "travel_base campaign_attack" : "travel_world campaign_attack";
+                    string allowed=map.Region=="base" ? "home government farm workshop barracks partner_farm partner_craft exit_west exit_east exit_south exit_north" : map.Region=="town" ? "town_market town_recruit town_quest travel_base" : map.Region=="perimeter" ? "fixed_fieldworks travel_base campaign_defense" : map.Region=="world" ? "travel_base campaign_attack" : "travel_world campaign_attack";
                     bool generic=marker.DefinitionId=="map_exit"&&marker.Id==marker.SourceObjectId;
                     if(!Regex.IsMatch(marker.SourceObjectId??"","^[a-zA-Z0-9_-]{1,80}$")||!new[]{"facility","npc","interaction","obstacle","decoration","wildlife"}.Contains(marker.Kind)||!marker.VisualOnly&&!generic&&!allowed.Split(' ').Contains(marker.Id)||marker.Id?.StartsWith("planned.")==true&&!marker.VisualOnly)throw new ArgumentException(map.Title+"：未支持的对象声明 "+marker.Name);
                     if(marker.VisualOnly&&marker.Id!=marker.SourceObjectId&&marker.Id?.StartsWith("planned.")!=true&&marker.Id!="exit_north")throw new ArgumentException(map.Title+"：外观不得借用现有功能标识 "+marker.Id);

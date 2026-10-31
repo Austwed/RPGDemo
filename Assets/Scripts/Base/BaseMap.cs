@@ -30,7 +30,6 @@ namespace BaseConquest.Base
             new BaseMapObject("farm", "粮田", 4, 3.2, 5, 3),
             new BaseMapObject("workshop", "工坊", 19, 3.2, 4, 3),
             new BaseMapObject("barracks", "兵营", 12, 10.5, 4, 2.6),
-            new BaseMapObject("watchtower", "瞭望塔", 14.5, 3.2, 1.8, 1.8),
             new BaseMapObject("partner_farm", "伙伴 · 阿禾", 2.7, 7.8, 0.45, 0.45),
             new BaseMapObject("partner_craft", "伙伴 · 阿铸", 5.4, 7.8, 0.45, 0.45),
             new BaseMapObject("exit_west", "← 迎敌战场", 0.7, 6.5, 1.2, 2, false),
@@ -47,7 +46,6 @@ namespace BaseConquest.Base
             return true;
         }
         public static bool RelocateLegacyBarracks(ref double x, ref double y) => RelocateLegacyBuilding("barracks",ref x,ref y);
-        public static bool RelocateLegacyWatchtower(ref double x,ref double y) => RelocateLegacyBuilding("watchtower",ref x,ref y);
         private static bool RelocateLegacyBuilding(string id,ref double x,ref double y)
         {
             var barracks = Objects.First(o => o.Id == id);

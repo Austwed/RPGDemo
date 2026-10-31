@@ -31,7 +31,7 @@ namespace BaseConquest.Base
         public static void Install(BaseState s)
         {
             s.Campaign.Layouts.Single(m=>m.Region=="base").Objects.Add(new BaseMapPlacement {Id="demo_long_sword",Name="营帐中的王室式长剑",X=4,Y=9.2,Width=.7,Height=1.8,Kind="demo-prop",AssetId="demo-long-sword",VisualOnly=true,SourceObjectId="demo:prop:long-sword"});
-            var town=s.Campaign.Layouts.Single(m=>m.Region=="town");town.Objects.Add(new BaseMapPlacement {Id="town_market",Name="补给摊位 · 买卖与战利品出售",X=14,Y=9,Width=3,Height=1.5,Blocks=true,AssetId="workshop",Kind="facility",SourceObjectId="demo:town:market"});
+            var town=s.Campaign.Layouts.Single(m=>m.Region=="town");town.Objects.Add(new BaseMapPlacement {Id="town_market",Name="补给摊位 · 买卖与战利品出售",X=14,Y=9,Width=3,Height=1.5,Blocks=true,AssetId="market-stall",Kind="facility",SourceObjectId="demo:town:market"});
             town.Objects.Add(new BaseMapPlacement {Id="town_smith",Name="铁匠铺 · 武器与护具",X=10,Y=10.5,Width=2.4,Height=1.5,Blocks=true,AssetId="workshop-small",Kind="facility"});
             town.Objects.Add(new BaseMapPlacement {Id="town_blacksmith",Name="老铁匠 · 交易",X=9.5,Y=9,Width=.5,Height=.5,AssetId="chenan",Kind="npc"});
             foreach(string region in new[]{"outpost","perimeter"})

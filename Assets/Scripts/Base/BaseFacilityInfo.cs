@@ -26,7 +26,6 @@ namespace BaseConquest.Base
             var info = new BaseFacilityInfo { FacilityId = id, Name = obj.Name, Administrator = "", Workers = "", Production = "", Status = "" };
             if (id.StartsWith("exit_")) { info.Production = id == "exit_west" ? "前往基地外围迎敌战场" : id == "exit_east" ? "前往城镇" : id == "exit_south" ? "前往世界地图并选择敌点进攻" : "北侧预留"; info.Status = "接近入口后交互"; return info; }
             if (id == "government") { info.Production = "统一管理设施管理员、工人和仓库"; info.Status = "接近管理所后交互，进入全局管理"; return info; }
-            if(id=="watchtower"){info.Production="防守方拥有全图视野，进攻方受迷雾限制";info.Status="被动信息优势；迎敌战场固定工事可剧情解锁，普通路障可营造";return info;}
             if (id == "home") { info.Production = "休息一天：结算生产，推进至下一天"; info.Status = "第" + state.Day + "天 · " + (state.TodayFoodMissing > 0 ? "今天缺粮" : "今天口粮充足"); return info; }
             if (id == "barracks") { info.Production = "全军 " + state.Workers.Sum(w => w.Count) + "兵／" + state.Leaders.Count + "队长；士兵休养 " + state.Workers.Where(w => w.Resting).Sum(w => w.Count) + "人"; info.Status = "查看名册与士兵休养；队长每日自然恢复"; return info; }
             if(id!="farm"&&id!="workshop"){info.Status=obj.Kind=="npc"?"人物 · 接近后交谈":obj.VisualOnly?"场景装饰":"接近后交互";return info;}

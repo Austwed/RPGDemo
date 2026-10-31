@@ -29,11 +29,6 @@ namespace BaseConquest.Base
             BaseCampaign.Normalize(s);
             BaseRpg.Bind(s);
             BaseSceneRules.Validate(s);BaseInn.Validate(s);
-            if(s.Campaign.MapVersion<3){
-                if(s.Campaign.Location=="base")BaseMap.RelocateLegacyWatchtower(ref s.PlayerX,ref s.PlayerY);
-                BaseMap.RelocateLegacyWatchtower(ref s.Campaign.BaseX,ref s.Campaign.BaseY);
-                foreach(var l in s.Leaders.Where(l=>l.HasMapPosition))BaseMap.RelocateLegacyWatchtower(ref l.MapX,ref l.MapY);
-            }
             if (s.Campaign.Location == "base" && (s.Development == null || s.Development.Version == 0)) BaseMap.RelocateLegacyBarracks(ref s.PlayerX, ref s.PlayerY);
             if (!Finite(s.PlayerX) || !Finite(s.PlayerY) || !BaseSpatial.Geometry(s,s.PlayerX,s.PlayerY)) throw new ArgumentException("角色位置不可通行");
             if(s.Leaders.Any(l=>l.HasHomePosition&&(!Finite(l.HomeX)||!Finite(l.HomeY)||!BaseSpatial.Geometry(s,l.HomeX,l.HomeY,"base"))))throw new ArgumentException("伙伴待命位置非法");

@@ -65,7 +65,7 @@ namespace BaseConquest.Base
             if(map?.Board?.Cells!=null)foreach(var p in map.Board.Positions())
             {
                 var cell=map.Board.Cell(p);var o=BuildingAt(p);
-                if(o!=null&&(cell.Terrain==TerrainKind.Wall||cell.Terrain==TerrainKind.Building||o.Id=="watchtower"&&cell.Terrain==TerrainKind.Ground)){cell.Terrain=TerrainKind.Building;cell.BuildingId=o.Id;cell.Zone=DeploymentZone.None;}
+                if(o!=null&&(cell.Terrain==TerrainKind.Wall||cell.Terrain==TerrainKind.Building)){cell.Terrain=TerrainKind.Building;cell.BuildingId=o.Id;cell.Zone=DeploymentZone.None;}
             }
             foreach(var e in c.Events??new System.Collections.Generic.List<BaseCampaignEvent>())if(e.Kind=="defense"&&e.Status=="pending"&&e.HoldRounds>0&&e.HoldRounds<=12&&(!c.HasActiveBattle||c.ActiveBattle?.EventId!=e.Id))e.HoldRounds=30;
             c.MapVersion=3;
