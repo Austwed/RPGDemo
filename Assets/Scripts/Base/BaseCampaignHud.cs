@@ -34,6 +34,7 @@ namespace BaseConquest.Base
                 string id = e.Id; Line(e.Title + " · " + (e.Status == "resolved" ? "已处理" : e.AvailableDay > owner.State.Day ? "第" + e.AvailableDay + "天出现" : "待处理"), 52, 22);
                 if(e.Kind=="defense")ThreatEventLines(e);
                 if (e.Kind == "defense" && e.Status == "pending") Line("坚守 "+(e.HoldRounds>0?e.HoldRounds:30)+"秒（旧轮数暂按1秒）或提前歼灭；最后处理日第"+e.DeadlineDay+"天，过夜仍会自动迎战。", 70, 18);
+                if (e.Kind == "defense" && e.Status == "pending") Line(BaseAutoResolve.Skippable(owner.State,e.Id)?"这一战可按战力自动迎战；推算不能取胜时仍要亲自指挥。":"这一战必须亲自指挥。", 62, 18);
                 var source=BaseThreats.Site(owner.State,e.SourceSiteId);
                 bool unopposed=e.Kind=="attack"&&source?.Owner=="enemy"&&!source.Garrison.Any(u=>u.Kind==SoldierKind.Hero);
                 RowButton(source?.Owner=="player"&&e.Kind=="attack" ? "已占领" : unopposed ? "接管无指挥者的据点" : kind == "defense" ? "预览迎战" : "预览进攻", 0, 800, () => {if(unopposed)owner.ClaimOutpost(source.Id);else OpenCampaignPreview(id, "full");}, e.Status == "pending" && e.AvailableDay <= owner.State.Day && !owner.State.Campaign.HasActiveBattle); row += 60;

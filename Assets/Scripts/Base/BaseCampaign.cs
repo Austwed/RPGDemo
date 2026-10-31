@@ -382,6 +382,15 @@ namespace BaseConquest.Base
                 if (!session.Battle.Start(out var reason)) throw new InvalidOperationException("被动部署不能开始：" + reason);
                 if(realtime)
                 {
+                    // 白名单内（基地自动迎战）且推算能取胜，就用战力结算跳过真实作战；
+                    // 不能跳过或推算不胜／僵持的，照旧由玩家亲自指挥的真实战斗处理。
+                    if(BaseAutoResolve.TryResolve(s,session,e.Id))
+                    {
+                        Settle(s,session,true);
+                        var passive=s.Campaign.Reports.FirstOrDefault(r=>r.BattleId==session.Opening.Id);
+                        if(passive!=null){passive.Passive=true;passive.Title=e.Title+" · 自动迎战";}
+                        if(s.Aftermath.GameOver)return true;continue;
+                    }
                     var simulation=new RealtimeCampaignBattle(session);simulation.Model.SetPaused(false);
                     for(int frame=0;frame<(a.Scenario.MaxRounds+1)*4&&session.Battle.Phase!=BattlePhase.Finished;frame++)simulation.Tick(.25);
                     if(session.Battle.Phase!=BattlePhase.Finished)throw new InvalidOperationException("即时自动战斗未在时限内结束，整次过夜取消");

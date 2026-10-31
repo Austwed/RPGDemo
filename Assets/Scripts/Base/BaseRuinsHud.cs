@@ -77,7 +77,7 @@ namespace BaseConquest.Base
         public void OpenRuinsSweep(string mode="full")
         {
             var s=owner.State;var p=BaseRuinsSweep.Preview(s,mode);BeginPanel(BaseScriptNames.Ruins+" · 扫荡确认","ruins-sweep");activeObject="ruins-sweep";interactionObject="";
-            Line("已首通且当前战力不低于敌方才可扫荡；按战力估算伤损，保证胜利，队长最低保留1生命。",52,21);
+            Line("已首通，且战力推算能取胜才可扫荡；按战力估算伤损，队长最低保留1生命。推算不胜或僵持不下时只能亲自指挥。",48,21);
             RowButton("尽量配足军需"+(mode=="full"?" · 已选":""),-205,390,()=>OpenRuinsSweep("full"));RowButton("不使用军需"+(mode=="none"?" · 已选":""),205,390,()=>OpenRuinsSweep("none"));row+=60;
             Line("我方战力 "+p.AllyPower.ToString("0.00")+" / 敌方 "+p.EnemyPower.ToString("0.00")+"；体力 "+BaseRuinsRewards.Energy(s)+" / "+BaseRuinsRewards.Maximum(s)+"，胜利后领奖消耗"+BaseRuinsRewards.Cost(s)+"。",50,21);
             if(p.Problem!="")Line(p.Problem,85,21);
