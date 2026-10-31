@@ -76,7 +76,7 @@ namespace BaseConquest.Base
             else
             {
                 BeginPanel("序章 · 撤离");Line(BaseDemo.Objective(state),75,23);
-                Line(state.Demo.PrologueAttempts>0?"上一轮教学未完成，已无损回到追兵出现前。再次向东进入撤离区域即可重试。":"带村民向东走。达到撤离区域后，两名被队长打伤的精英追兵将从村头方向出现。",115,21);
+                Line(state.Demo.PrologueAttempts>0?"［以剑撑地］还不能倒在这儿……我答应过要去"+BaseScriptNames.Town+"汇合的！（再次向东进入撤离区域即可重战）":"带村民向东走。达到撤离区域后，两名被队长打伤的精英追兵将从村头方向出现。",115,21);
                 RowButton("继续",0,800,ClosePanel);row+=60;
             }
             EndPanel();
@@ -87,13 +87,30 @@ namespace BaseConquest.Base
             if(state.Demo.Stage==BaseDemoStage.RuinsCleared||BaseDemoDefense.Delivered(state))
             {
                 bool deliver=state.Demo.Stage==BaseDemoStage.RuinsCleared;bool unassigned=deliver&&state.Demo.AcceptedDay==0;var reward=state.Demo.RuinsReward;
-                NpcDialogue(new[]{
-                    new NpcLine(deliver?"获救镇民":BaseScriptNames.Lord,deliver?"villager":BaseScriptNames.Portrait("lord"),deliver?(unassigned?"我在"+BaseScriptNames.Ruins+"救出了失踪的人，也带回了控制来源留下的证据。":"恩人来了！爵士大人，就是他把我们从古窟的毒雾里救出来的！") :"营地的工坊与兵营还需要分别修复。",deliver),
-                    new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),deliver?(unassigned?"你还没接委托，就已经把人救了回来。多谢，这份许可和酬劳是你应得的。":"干得漂亮！古裔居然敢在灰岩镇眼皮底下施展“织魂术”，看来山雨欲来啊。") :"有了许可，你可以到募兵处招募人手。"),
-                    new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),deliver?"这是答应你的赏金与【建设许可】。断流滩的工坊与兵营，即日起准予重修！":"回营地修复设施之前，记得安排好建设人手。"),
-                    new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),deliver?"镇上的【募兵处】也已为你放行。先去募齐剑士、弓兵与骑兵，替我守好南面门户！":"回营地修复设施之前，记得安排好建设人手。"),
-                    new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"调查奖赏：粮草 "+reward.Food+"，原料 "+reward.Materials+"，钱币 "+reward.Coins+"。修复各需原料"+BaseDemoDefense.RepairMaterialCost(state)+"、钱币"+BaseDemoDefense.RepairCoinCost(state)+"。")
-                },new[]{new NpcReply(deliver?"交付证据并领取许可":"已领取",owner.DeliverDemoRuins,deliver),new NpcReply("告辞",ClosePanel)});return;
+                // TOWN_03_B（没接委托就先把人救回来）／TOWN_03_C（接了委托正常交付）／未交付时的日常催促。
+                var questLines=new List<NpcLine>();
+                if(unassigned)
+                {
+                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"哦？正要找人去查探镇西的"+BaseScriptNames.Ruins+"，你竟已经把里面的古裔祭司给料理了？"));
+                    questLines.Add(new NpcLine("获救镇民","villager","爵士大人！多亏这位壮士手下留情，斩断了古裔妖术，不然我们哥俩早没命了！"));
+                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"［抚掌赞叹］果然是王都禁卫出身，干净利落！这份赏金与【建设许可】归你了。"));
+                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"我已传令募兵官向你敞开兵源。快去招募人手、重修"+BaseScriptNames.Camp+"的工坊与兵营吧！"));
+                }
+                else if(deliver)
+                {
+                    questLines.Add(new NpcLine("获救镇民","villager","恩人来了！爵士大人，就是他把我们从古窟的毒雾里救出来的！"));
+                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"干得漂亮！古裔居然敢在"+BaseScriptNames.Town+"眼皮底下施展“织魂术”，看来山雨欲来啊。"));
+                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"这是答应你的赏金与【建设许可】。"+BaseScriptNames.Camp+"的工坊与兵营，即日起准予重修！"));
+                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"镇上的【募兵处】也已为你放行。先去募齐剑士、弓兵与骑兵，替我守好南面门户！"));
+                }
+                else
+                {
+                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"营地的工坊与兵营还需要分别修复。"));
+                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"有了许可，你可以到募兵处招募人手。"));
+                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"回营地修复设施之前，记得安排好建设人手。"));
+                }
+                questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"调查奖赏：粮草 "+reward.Food+"，原料 "+reward.Materials+"，钱币 "+reward.Coins+"。修复各需原料"+BaseDemoDefense.RepairMaterialCost(state)+"、钱币"+BaseDemoDefense.RepairCoinCost(state)+"。"));
+                NpcDialogue(questLines.ToArray(),new[]{new NpcReply(deliver?"交付证据并领取许可":"已领取",owner.DeliverDemoRuins,deliver),new NpcReply("告辞",ClosePanel)});return;
             }
             bool available=state.Demo.Stage==BaseDemoStage.VisitLord;
             var lordLines=new List<NpcLine>{

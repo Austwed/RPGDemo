@@ -128,6 +128,8 @@ namespace BaseConquest.Base
                     owner.Change(next=>{var st=next.Demo.Intro;if(st.Talked==null)st.Talked=new List<string>();if(!st.Talked.Contains(id))st.Talked.Add(id);},"");
                     ClosePanel();})});return true;
             }
+            if(id=="intro_militia_1"||id=="intro_militia_2")
+            {NpcDialogue(new[]{new NpcLine("护村剑士","infantry","刀枪都擦亮了，只要二位一声令下，随时能上阵！")},new[]{new NpcReply("辛苦了",ClosePanel)});return true;}
             if(i.Step>=6&&i.Step<=8)return false;
             return false;
         }

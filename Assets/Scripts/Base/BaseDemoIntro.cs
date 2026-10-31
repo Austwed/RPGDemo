@@ -142,13 +142,22 @@ namespace BaseConquest.Base
             {
                 result.Add(new BaseMapObject("intro_villager","阿禾 · 交谈",12,10,.5,.5,false,"demo-npc:intro-villager","ahe","npc"));
 
-                if(!BaseSceneRules.Active(s))result.Add(new BaseMapObject("intro_militia_1","东队民兵",18,10,.5,.5,false,"demo-npc:militia-1","infantry","npc"));
-                if(!BaseSceneRules.Active(s))result.Add(new BaseMapObject("intro_militia_2","西队民兵",3,8,.5,.5,false,"demo-npc:militia-2","infantry","npc"));
+                // PRO_02_MILITIA_IDLE：护村剑士在序章日常阶段可点击搭话；演练与撤离阶段不出现，免得挡路。
+                if(!BaseSceneRules.Active(s)||Daily(s)&&i.Step>=2)
+                {
+                    result.Add(new BaseMapObject("intro_militia_1","东队民兵",18,10,.5,.5,false,"demo-npc:militia-1","infantry","npc"));
+                    result.Add(new BaseMapObject("intro_militia_2","西队民兵",3,8,.5,.5,false,"demo-npc:militia-2","infantry","npc"));
+                }
             }
             return result.ToArray();
         }
         public static bool AssignFarm(BaseState s,int workers)
-        {if(!Daily(s)||!(At(s,"intro_farm")||At(s,"intro_smith"))||workers<2||workers>4)return false;s.Demo.Intro.FarmWorkers=workers;return true;}
+        {
+            if(!Daily(s)||!(At(s,"intro_farm")||At(s,"intro_smith"))||workers<2||workers>4)return false;
+            // PRO_02_LOCK_FARM／LOCK_SMITH：还没听阿禾说完人手安排，先别动粮田与铁匠铺的岗位。
+            if(s.Demo.Intro.Step<9)throw new InvalidOperationException(At(s,"intro_farm")?"阿禾正在田埂边清点麦种，先过去听听他的盘算吧。":"炉火正旺，先去麦田问问阿禾今天的人手安排。");
+            s.Demo.Intro.FarmWorkers=workers;return true;
+        }
         public static int FarmOutput(BaseState s)=>(int)Math.Floor(s.Demo.Intro.FarmWorkers*s.Rules.FarmPerWorker);
         public static int VillageFood(BaseState s)=>4*s.Rules.SoldierFood+2*(BaseRpg.Active(s)?s.Demo.Rpg.LeaderFood:s.Rules.LeaderFood);
         public static double SmithWork(BaseState s)=>(4-s.Demo.Intro.FarmWorkers)*s.Rules.WorkshopPerWorker;
