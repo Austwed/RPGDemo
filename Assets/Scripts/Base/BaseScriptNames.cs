@@ -39,10 +39,10 @@ namespace BaseConquest.Base
         public const string Girl="镇民小芸";           // 公园角喂鸟的镇民
 
         // ===== 头像占位（规格 2.3）=====
-        // 现有真实资源（Assets/Resources/PixelDemo/Characters）：
-        // player／female／ahe／azhu／chenan／controller／enemy-captain／villager／laozhou／merchant／
-        // archer／cavalry／infantry／horse／mounted-azhu／mounted-cavalry
-        // 其中 laozhou 与 merchant 已有专属图，直接沿用；其余缺图的角色先用气质相近的图占位，
+        // 现有真实资源（Assets/Resources/PixelDemo/Characters，2026-10-31 复核）：
+        // player／female／ahe／azhu／chenan／controller／enemy／enemy-captain／villager／
+        // laozhou／chunshen／merchant／archer／cavalry／infantry／horse／mounted-azhu／mounted-cavalry
+        // 其中 laozhou、chunshen、merchant 已有专属图，直接沿用；其余缺图的角色先用气质相近的图占位，
         // 新美术到位后只改这里的返回值即可全局生效。
         public static string Portrait(string role)
         {
@@ -51,6 +51,7 @@ namespace BaseConquest.Base
                 case "hero":return "player";
                 case "heroine":return "female";
                 case "laozhou":return "laozhou";     // 已有专属图
+                case "chunshen":return "chunshen";   // 已有专属图
                 case "merchant":return "merchant";   // 已有专属图（像素样板）
                 case "lord":return "chenan";         // TODO 美术：horn
                 case "blacksmith":return "chenan";   // TODO 美术：baron
