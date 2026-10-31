@@ -45,11 +45,11 @@ namespace BaseConquest.Presentation
         public readonly Renderer Renderer;
         private readonly Material material;
         private readonly Texture2D atlas,mountedAtlas,idleAtlas,walkAtlas,attackAtlas,downAtlas,mountedIdleAtlas,mountedWalkAtlas,mountedAttackAtlas,mountedDownAtlas;
-        private readonly bool bowAttack;
+        private readonly bool bowAttack,staticMerchantIdle;
         private readonly MaterialPropertyBlock ink=new MaterialPropertyBlock();
         public PixelCharacterSheet(Transform parent,Material source,Texture2D texture,Texture2D mounted=null,string identity="")
         {
-            atlas=texture;mountedAtlas=mounted;
+            atlas=texture;mountedAtlas=mounted;staticMerchantIdle=identity=="merchant";
             if(!string.IsNullOrEmpty(identity))
             {
                 idleAtlas=PixelDemoArt.Motion(identity,"idle");walkAtlas=PixelDemoArt.Motion(identity,"walk");attackAtlas=PixelDemoArt.Motion(identity,"attack");downAtlas=PixelDemoArt.Motion(identity,"down");
@@ -71,7 +71,7 @@ namespace BaseConquest.Presentation
             var walk=riding?mountedWalkAtlas:walkAtlas;
             var motion=pose==HeroPose.Attack?(riding?mountedAttackAtlas:attackAtlas):pose==HeroPose.Down?(riding?mountedDownAtlas:downAtlas):pose==HeroPose.Walk?walk:idle;
             // The previous player walk supplied its own resting frame before idle sheets existed.
-            if(motion==null&&!riding&&(pose==HeroPose.Idle||pose==HeroPose.Hurt)&&walk!=null&&walk.width==walk.height*2)motion=walk;
+            if(motion==null&&!riding&&!staticMerchantIdle&&(pose==HeroPose.Idle||pose==HeroPose.Hurt)&&walk!=null&&walk.width==walk.height*2)motion=walk;
             int columns=motion==null?4:motion.width/(motion.height/4);
             double phase=System.Math.Max(0,time);
             int column=0;

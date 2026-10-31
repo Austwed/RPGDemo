@@ -64,7 +64,7 @@ namespace BaseConquest.Presentation
             bool moving=delta.sqrMagnitude>.000001f;if(moving)distance+=new Vector2(delta.x,delta.z).magnitude;
             if(moving)defaultFacing=PlayerHeroFrames.Face(delta.x,delta.z,defaultFacing);
             bool near=observer.HasValue&&new Vector2(observer.Value.x-feet.x,observer.Value.z-feet.z).sqrMagnitude<=4*BattleBoardView.CellSize*BattleBoardView.CellSize+.0001f;
-            if(autonomous){facing=defaultFacing;looking=wasNear=false;lookUntil=0;}
+            if(moving||autonomous){facing=defaultFacing;looking=wasNear=false;lookUntil=0;}
             else if(near){facing=PlayerHeroFrames.Face(observer.Value.x-feet.x,observer.Value.z-feet.z,facing);looking=true;}
             else
             {
