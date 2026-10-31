@@ -1,1 +1,1 @@
-{"Enabled":true,"DirectionX":1,"DirectionZ":-1,"Projection":0.65,"Ambient":1,"ShadowOpacity":0.25,"ShadeBrightness":0.8,"SunColor":{"r":1,"g":0.98,"b":0.94,"a":1},"ShadowColor":{"r":0.13,"g":0.12,"b":0.1,"a":1}}
+{"Enabled":false,"DirectionX":1,"DirectionZ":-1,"Projection":0.65,"Ambient":1,"ShadowOpacity":0.25,"ShadeBrightness":0.8,"SunColor":{"r":1,"g":0.98,"b":0.94,"a":1},"ShadowColor":{"r":0.13,"g":0.12,"b":0.1,"a":1},"FeetShadow":true,"FeetShadowRadius":0.3,"FeetShadowOpacity":0.2}

@@ -10,11 +10,13 @@ namespace BaseConquest.Presentation
     {
         public bool Enabled=true;public float DirectionX=1,DirectionZ=-1,Projection=.65f,Ambient=1,ShadowOpacity=.25f,ShadeBrightness=.8f;
         public Color SunColor=new Color(1,.98f,.94f,1),ShadowColor=new Color(.13f,.12f,.1f,1);
+        // Feet shadows are a contact-shadow convention, not lighting: they stay on when Enabled is false.
+        public bool FeetShadow=true;public float FeetShadowRadius=.3f,FeetShadowOpacity=.2f;
     }
     public sealed class DemoSunlight:MonoBehaviour
     {
         public DemoSunSettings Settings;public BaseSceneController Owner{get;private set;}public bool Outdoors{get;private set;}private int boardWidth,boardHeight,children;
-        private Texture2D shadowTexture;private Material shadowMaterial;private Mesh shadowMesh;private byte[] shade;private int width,height;private string tacticalKey;private Transform field;
+        private Texture2D shadowTexture;private Material shadowMaterial;private Mesh shadowMesh;private byte[] shade;private int width,height;private string tacticalKey;private Transform field;private bool shadeBuilt;
         private const int Density=16;private float nextScan;
         public static DemoSunlight Create(BaseSceneController owner,Transform parent)
         {
@@ -43,7 +45,12 @@ namespace BaseConquest.Presentation
                 for(int iz=z0;iz<=z1;iz++)for(int ix=x0;ix<=x1;ix++)
                 {float v=((iz+.5f)/Density-z)/dir.y,u=((ix+.5f)/Density-x-dir.x*v)/w+metric.RootX;float a=metric.Sample(u,v);int index=iz*width+ix;shade[index]=(byte)Mathf.Max(shade[index],a*255);}
             }
+            shadeBuilt=Outdoors&&Settings.Enabled;
             if(field!=null)BattleBoardView.DestroyObject(field.gameObject);BattleBoardView.DestroyObject(shadowTexture);BattleBoardView.DestroyObject(shadowMaterial);BattleBoardView.DestroyObject(shadowMesh);
+            field=null;shadowTexture=null;shadowMaterial=null;shadowMesh=null;
+            // Lighting is off by default (2026-11-01). Skip the projection entirely instead of building it and hiding it.
+            if(shadeBuilt)
+            {
             field=new GameObject("GroundSunProjection",typeof(MeshFilter),typeof(MeshRenderer)).transform;field.SetParent(transform,false);shadowTexture=new Texture2D(width,height,TextureFormat.RGBA32,false){filterMode=FilterMode.Point,wrapMode=TextureWrapMode.Clamp};
             var pixels=new Color32[shade.Length];var tint=Settings.ShadowColor;for(int i=0;i<pixels.Length;i++)pixels[i]=new Color(tint.r,tint.g,tint.b,shade[i]/255f*Settings.ShadowOpacity);shadowTexture.SetPixels32(pixels);shadowTexture.Apply(false,true);
             shadowMaterial=new Material(Shader.Find("Universal Render Pipeline/Unlit"));shadowMaterial=MakeTransparent(shadowMaterial);shadowMaterial.SetTexture("_BaseMap",shadowTexture);shadowMaterial.SetColor("_BaseColor",Color.white);
@@ -55,7 +62,8 @@ namespace BaseConquest.Presentation
                 {var local=new Vector3((p.X+d.x-b.Width*.5f)*BattleBoardView.CellSize,BaseTerrainView.Height(b,p,d.x,d.y)+.055f,(p.Z+d.y-b.Height*.5f)*BattleBoardView.CellSize);vertices.Add(local);uv.Add(new Vector2((p.X+d.x)/b.Width,(p.Z+d.y)/b.Height));}
                 triangles.AddRange(new[]{start,start+1,start+2,start,start+2,start+3});
             }
-            shadowMesh=new Mesh{name="SunGroundProjection"};shadowMesh.SetVertices(vertices);shadowMesh.SetUVs(0,uv);shadowMesh.SetTriangles(triangles,0);shadowMesh.RecalculateBounds();field.GetComponent<MeshFilter>().sharedMesh=shadowMesh;field.GetComponent<Renderer>().sharedMaterial=shadowMaterial;field.GetComponent<Renderer>().sortingOrder=-28500;field.gameObject.SetActive(Outdoors&&Settings.Enabled);
+            shadowMesh=new Mesh{name="SunGroundProjection"};shadowMesh.SetVertices(vertices);shadowMesh.SetUVs(0,uv);shadowMesh.SetTriangles(triangles,0);shadowMesh.RecalculateBounds();field.GetComponent<MeshFilter>().sharedMesh=shadowMesh;field.GetComponent<Renderer>().sharedMaterial=shadowMaterial;field.GetComponent<Renderer>().sortingOrder=-28500;field.gameObject.SetActive(true);
+            }
             tacticalKey=Key();BindArt();
         }
         private string Key()=>string.Join("|",(BaseSpatial.Layout(Owner.State)?.TacticalObjects??new List<BattleTacticalObject>()).Select(o=>o.Id+":"+o.Fallen+":"+o.X+":"+o.Y+":"+string.Join(",",o.Trunk)));
@@ -64,8 +72,12 @@ namespace BaseConquest.Presentation
         public void BindArt()
         {
             children=Owner.transform.childCount;
-            foreach(var facade in Owner.GetComponentsInChildren<SpriteFacade>(true))SunInfluence.Attach(facade.Surface,this,facade.transform,false,facade.Feet);
-            foreach(var decor in Owner.GetComponentsInChildren<EnvironmentDecorView>(true))foreach(var renderer in decor.GetComponentsInChildren<Renderer>(true))if(renderer.GetComponentInParent<SpriteFacade>()==null)SunInfluence.Attach(renderer,this,decor.transform,false,decor.transform.position);
+            // Static scenery only needs a SunInfluence while lighting is on; characters always need one for the feet shadow.
+            if(Settings.Enabled)
+            {
+                foreach(var facade in Owner.GetComponentsInChildren<SpriteFacade>(true))SunInfluence.Attach(facade.Surface,this,facade.transform,false,facade.Feet);
+                foreach(var decor in Owner.GetComponentsInChildren<EnvironmentDecorView>(true))foreach(var renderer in decor.GetComponentsInChildren<Renderer>(true))if(renderer.GetComponentInParent<SpriteFacade>()==null)SunInfluence.Attach(renderer,this,decor.transform,false,decor.transform.position);
+            }
             foreach(var pawn in Owner.GetComponentsInChildren<BattlePawn2D>(true))foreach(var renderer in pawn.GetComponentsInChildren<MeshRenderer>(true))if(renderer.gameObject.name=="PixelDemoCharacter"||renderer.gameObject.name.StartsWith("主角形象"))SunInfluence.Attach(renderer,this,pawn.transform,true,Vector3.zero);
         }
         public float Brightness(Vector3 point)
@@ -80,19 +92,25 @@ namespace BaseConquest.Presentation
         public static void Attach(Renderer surface,DemoSunlight sun,Transform anchor,bool moving,Vector3 fixedPoint)
         {
             var existing=surface.GetComponent<SunInfluence>();if(existing!=null){existing.Refresh();return;}var component=surface.gameObject.AddComponent<SunInfluence>();component.surface=surface;component.sun=sun;component.anchor=anchor;component.moving=moving;component.fixedPoint=fixedPoint;
-            surface.sharedMaterial.shader=Resources.Load<Shader>("Presentation/SunSprite");
+            // With lighting off there is nothing to shade, so leave the sprite on its plain unlit material.
+            if(sun.Settings.Enabled)surface.sharedMaterial.shader=Resources.Load<Shader>("Presentation/SunSprite");
             if(moving)component.CreateBlob();component.Refresh();
         }
         private void CreateBlob()
         {
             blob=new GameObject("FeetShadow",typeof(MeshFilter),typeof(MeshRenderer));blob.transform.SetParent(anchor,false);blobMesh=new Mesh();var verts=new List<Vector3>{Vector3.zero};var tris=new List<int>();
-            for(int n=0;n<17;n++)verts.Add(new Vector3(Mathf.Cos(n*Mathf.PI/8)*.3f,0,Mathf.Sin(n*Mathf.PI/8)*.17f));for(int n=1;n<=16;n++)tris.AddRange(new[]{0,n,n+1});blobMesh.SetVertices(verts);blobMesh.SetTriangles(tris,0);blobMesh.RecalculateBounds();blob.GetComponent<MeshFilter>().sharedMesh=blobMesh;
-            blobMaterial=DemoSunlight.MakeTransparent(new Material(Shader.Find("Universal Render Pipeline/Unlit")));blobMaterial.SetColor("_BaseColor",new Color(.13f,.12f,.1f,.2f));blob.GetComponent<Renderer>().sharedMaterial=blobMaterial;
+            // A true circle on the ground plane: it stays round in the top-down view and reads as a circle
+            // in the 60-degree view too (a ground circle only foreshortens to about 0.87 there).
+            float r=Mathf.Max(.05f,sun.Settings.FeetShadowRadius);
+            for(int n=0;n<=32;n++)verts.Add(new Vector3(Mathf.Cos(n*Mathf.PI/16)*r,0,Mathf.Sin(n*Mathf.PI/16)*r));for(int n=1;n<=32;n++)tris.AddRange(new[]{0,n,n+1});blobMesh.SetVertices(verts);blobMesh.SetTriangles(tris,0);blobMesh.RecalculateBounds();blob.GetComponent<MeshFilter>().sharedMesh=blobMesh;
+            blobMaterial=DemoSunlight.MakeTransparent(new Material(Shader.Find("Universal Render Pipeline/Unlit")));blobMaterial.SetColor("_BaseColor",new Color(.13f,.12f,.1f,sun.Settings.FeetShadowOpacity));blob.GetComponent<Renderer>().sharedMaterial=blobMaterial;
         }
         public void Refresh()
         {
-            if(sun==null||surface==null)return;block??=new MaterialPropertyBlock();var point=moving?anchor.position:fixedPoint;surface.GetPropertyBlock(block);block.SetFloat("_SunFactor",sun.Brightness(point));block.SetColor("_SunTint",sun.DayColor);surface.SetPropertyBlock(block);
-            if(blob!=null){blob.SetActive(sun.Outdoors&&sun.Settings.Enabled&&surface.enabled&&surface.gameObject.activeInHierarchy);blob.transform.position=anchor.position+Vector3.up*.06f;blob.transform.rotation=Quaternion.identity;blob.transform.localScale=Vector3.one;blob.GetComponent<Renderer>().sortingOrder=-28000;}
+            if(sun==null||surface==null)return;block??=new MaterialPropertyBlock();var point=moving?anchor.position:fixedPoint;
+            if(sun.Settings.Enabled){surface.GetPropertyBlock(block);block.SetFloat("_SunFactor",sun.Brightness(point));block.SetColor("_SunTint",sun.DayColor);surface.SetPropertyBlock(block);}
+            // Contact shadow is a readability convention, not lighting: it stays on when the sun is off.
+            if(blob!=null){blob.SetActive(sun.Outdoors&&sun.Settings.FeetShadow&&surface.enabled&&surface.gameObject.activeInHierarchy);blob.transform.position=anchor.position+Vector3.up*.06f;blob.transform.rotation=Quaternion.identity;blob.transform.localScale=Vector3.one;blob.GetComponent<Renderer>().sortingOrder=-28000;}
         }
         private void LateUpdate(){if(moving)Refresh();}
         private void OnDestroy(){BattleBoardView.DestroyObject(blobMaterial);BattleBoardView.DestroyObject(blobMesh);if(blob!=null)BattleBoardView.DestroyObject(blob);}
