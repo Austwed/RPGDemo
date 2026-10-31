@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using BaseConquest.Battle;
 using BaseConquest.Presentation;
@@ -114,7 +115,19 @@ namespace BaseConquest.Base
                 NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"我就在附近，慢慢来。")},new[]{new NpcReply("继续",ClosePanel)});return true;
             }
             if(id=="demo_villager_1"||id=="demo_villager_2"||id=="intro_villager")
-            {NpcDialogue(new[]{new NpcLine(id=="intro_villager"?"阿禾":"村民",id=="intro_villager"?"ahe":"villager",id=="demo_villager_1"?"今天天气不错，田里的麦子也快熟了。":id=="demo_villager_2"?"你们回乡以后，村里踏实多了。":"多谢帮忙，忙完了再一起聊聊。")},new[]{new NpcReply("回头见",ClosePanel)});return true;}
+            {
+                // PRO_02：村民按交谈次数给首次／再次两套台词，记在序章场景状态里。
+                bool zhou=id=="demo_villager_1";
+                bool again=i.Talked!=null&&i.Talked.Contains(id);
+                string text=id=="intro_villager"?"多谢帮忙，忙完了再一起聊聊。"
+                    :zhou?(again?"有你们俩禁卫出身的大人守着村子，咱们睡得踏实！":"前两天进西山捡柴，林子里安静得邪门，连只山雀都见不着。")
+                    :(again?"等这茬晚麦收进仓，冬里大伙儿就能喝上热麦粥了。":"阿禾那孩子心细，天没亮就去翻晒麦种了，快去搭把手吧。");
+                string who=id=="intro_villager"?"阿禾":zhou?BaseScriptNames.LaoZhou:BaseScriptNames.ChunShen;
+                string art=id=="intro_villager"?"ahe":zhou?BaseScriptNames.Portrait("laozhou"):BaseScriptNames.Portrait("chunshen");
+                NpcDialogue(new[]{new NpcLine(who,art,text)},new[]{new NpcReply("回头见",()=>{
+                    owner.Change(next=>{var st=next.Demo.Intro;if(st.Talked==null)st.Talked=new List<string>();if(!st.Talked.Contains(id))st.Talked.Add(id);},"");
+                    ClosePanel();})});return true;
+            }
             if(i.Step>=6&&i.Step<=8)return false;
             return false;
         }

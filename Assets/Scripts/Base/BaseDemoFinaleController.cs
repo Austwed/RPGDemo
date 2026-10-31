@@ -54,10 +54,10 @@ namespace BaseConquest.Base
     {
         public void OpenBanditCampBriefing(Action proceed)
         {
-            var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine("大当家","enemy-captain","你们倒敢找上门来。弟兄们，守住寨子！")};
-            if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine("巴图","enemy-captain","这次我不会再小看你们。"));
-            else lines.Add(new NpcLine("大当家","enemy-captain","巴图死在你们手里，这笔账得算清楚。"));
-            lines.Add(new NpcLine("豁牙","enemy-captain","弓手看住两边，别让他们冲散阵形！"));
+            var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"你们倒敢找上门来。弟兄们，守住寨子！")};
+            if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"这次我不会再小看你们。"));
+            else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"巴图死在你们手里，这笔账得算清楚。"));
+            lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"弓手看住两边，别让他们冲散阵形！"));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备攻营",proceed),new NpcReply("暂不进攻",ClosePanel)});
         }
         private bool OpenDemoFinaleInteraction(string id)
@@ -67,13 +67,13 @@ namespace BaseConquest.Base
             {
                 if(owner.State.Demo.Defense.BatuStoryDay==0){OpenDemoDefenseAftermath();return true;}
                 activeObject="demo-roads";interactionObject="";
-                NpcDialogue(new[]{new NpcLine("营地斥候","chenan","缴获记录确认了敌营位置，就在营地和你的故乡之间。无论是否招降俘虏，我们都掌握了这条线索。"),new NpcLine("营地斥候","chenan","先整备损失，再带队沿路出发吧。两段道路各走一天；攻下敌营并处理战果后，就能通往故乡。")},new[]{new NpcReply("查看路线并选择出征队",owner.PrepareDemoJourney,!BaseBattleLoot.Pending(owner.State)),new NpcReply("先留营整备",ClosePanel)});return true;
+                NpcDialogue(new[]{new NpcLine("营地斥候","chenan","缴获记录确认了敌营位置，就在营地和你的"+BaseScriptNames.Village+"之间。无论是否招降俘虏，我们都掌握了这条线索。"),new NpcLine("营地斥候","chenan","先整备损失，再带队沿路出发吧。两段道路各走一天；攻下敌营并处理战果后，就能通往"+BaseScriptNames.Village+"。")},new[]{new NpcReply("查看路线并选择出征队",owner.PrepareDemoJourney,!BaseBattleLoot.Pending(owner.State)),new NpcReply("先留营整备",ClosePanel)});return true;
             }
             if(id=="demo_camp_attack")
             {
                 if(BaseDemoFinale.Later(owner.State)){OpenDemoStory();return true;}
-                activeObject="demo-attack";interactionObject="";BeginPanel("阻路土匪营地 · 军需与进攻");
-                Line("使用已经沿路抵达的真实出征队。确认后就近落位，直接进入暂停指挥。击败驻军后保留实际战损、处理战利品，再前往故乡。",125,22);
+                activeObject="demo-attack";interactionObject="";BeginPanel(BaseScriptNames.Bandit+" · 军需与进攻");
+                Line("使用已经沿路抵达的真实出征队。确认后就近落位，直接进入暂停指挥。击败驻军后保留实际战损、处理战利品，再前往"+BaseScriptNames.Village+"。",125,22);
                 Line("开战后失败／撤退保留双方战损和军需消耗，退回当地进攻点，不重复耗日。整备时可重选军需；改队伍需沿世界道路返营。",110,21);
                 foreach(string choice in new[]{"full","half","none"}){string mode=choice;RowButton("确认进攻 · "+(mode=="full"?"尽量配足军需":mode=="half"?"最多半数供给":"不使用军需"),0,800,()=>owner.BeginDemoAttack(mode));row+=60;}
                 RowButton("暂不进攻",0,800,ClosePanel);row+=60;EndPanel();return true;

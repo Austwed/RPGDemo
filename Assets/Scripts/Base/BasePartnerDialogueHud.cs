@@ -48,7 +48,7 @@ namespace BaseConquest.Base
         {
             string title=action=="pause"?"确认暂离队伍":action=="resume"?"确认恢复随行":"确认本队回营";
             BeginPanel(title,"partner-disposition:"+id);
-            Line(action=="pause"?"伙伴入住当地旅店，释放随行与营帐名额，保留装备和背包。每人每天2金币、先付首日，最多额外寄存3人；故乡扎营点免费。士兵留在出征队，不入住旅店。":action=="resume"?"恢复伙伴随行及暂存的实际编组，不补血、不复制人员。":"队长、本队实际士兵与随身物品立即回到本领地基地，不耗日；保留战损，今日不生产。",110,21);
+            Line(action=="pause"?"伙伴入住当地旅店，释放随行与营帐名额，保留装备和背包。每人每天2金币、先付首日，最多额外寄存3人；"+BaseScriptNames.Village+"扎营点免费。士兵留在出征队，不入住旅店。":action=="resume"?"恢复伙伴随行及暂存的实际编组，不补血、不复制人员。":"队长、本队实际士兵与随身物品立即回到本领地基地，不耗日；保留战损，今日不生产。",110,21);
             RowButton("确认",-210,400,()=>
             {
                 bool changed=owner.Change(next=>

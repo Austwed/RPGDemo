@@ -170,7 +170,7 @@ namespace BaseConquest.Base
             var s=owner.State;if(!BaseDemoPrologue.Village(s)||!BaseDemoIntro.Active(s))return;
             var i=s.Demo.Intro;int key=i.Step*100+i.FarmWorkers*4+(i.Walked>0?1:0)+(i.Zoomed?2:0);if(key==introObjectiveKey)return;introObjectiveKey=key;
             int food=BaseDemoIntro.FarmOutput(s),need=BaseDemoIntro.VillageFood(s),net=food-need;string color=net>0?"#EE7777":net<0?"#7BCB93":"#C6D4CE";
-            summary.text="故乡 · "+(BaseDemoIntro.Daily(s)?"清晨巡村":"风起村头")+"   粮食 "+s.Inventory.Food+"（<color="+color+">"+net.ToString("+0;-0;0")+"</color>） 日产 "+food+"／口粮 "+need+"  工坊 "+BaseDemoIntro.SmithWork(s)+"工点";
+            summary.text=BaseScriptNames.Village+" · "+(BaseDemoIntro.Daily(s)?"清晨巡村":"风起村头")+"   粮食 "+s.Inventory.Food+"（<color="+color+">"+net.ToString("+0;-0;0")+"</color>） 日产 "+food+"／口粮 "+need+"  工坊 "+BaseDemoIntro.SmithWork(s)+"工点";
         }
         public void RefreshMovement()
         {

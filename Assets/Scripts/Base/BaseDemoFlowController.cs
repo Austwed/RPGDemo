@@ -62,11 +62,15 @@ namespace BaseConquest.Base
         public void OpenDemoMerchant()
         {
             int arrival=BaseDemoDefense.SecondArrival(owner.State);string warning=arrival>0?"我听说他们的主力还会来，大约还有 "+Math.Max(0,arrival-owner.State.Day)+" 天。":"敌寨的动静我也听说了，路上要小心。";
-            NpcDialogue(new[]{new NpcLine("行商","villager","我常走这条路，听说营地遇袭，特意来送个消息。"),new NpcLine("行商","villager",warning),new NpcLine("行商","villager","他们的寨子就在通往故乡的路上。从营地南边上世界道路，走一天就到。")},
+            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"我常走这条路，听说营地遇袭，特意来送个消息。"),new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),warning),new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"他们的寨子就在通往"+BaseScriptNames.Village+"的路上。从营地南边上世界道路，走一天就到。")},
                 new[]{new NpcReply("记下敌营位置",()=>{if(owner.Change(next=>{next.Demo.Defense.MerchantDone=true;next.Campaign.Layouts.Single(map=>map.Region=="base").Objects.RemoveAll(obj=>obj.Id=="demo_merchant");},"已记录敌营位置与道路")){ClosePanel();owner.RefreshDemoRegion();}})});
         }
-        public void OpenRecruitmentComplete()=>NpcDialogue(new[]{new NpcLine("建设人手已到齐","","剑士、弓兵和骑兵已招募。现在就能安排他们生产。已经通关的遗迹可以反复挑战，消耗体力领取副本奖励；部分遗迹会严重侵蚀普通士兵，进入前请查看警告并调整队伍。")},new[]{new NpcReply("回营地安排生产",ClosePanel)});
-        public void OpenSmithGoods()=>NpcDialogue(new[]{new NpcLine("老铁匠","chenan","听说你拔掉了古窟那颗毒钉！老头子连夜赶制了一批轻重甲胄和兵刃，快来看看！")},new[]{new NpcReply("去看看新装备",ClosePanel)});
+        public void OpenRecruitmentComplete()=>NpcDialogue(new[]{
+            new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"兵强马壮！新募的弟兄今天就能下地干活，或是进工坊打铁。"),
+            new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"对了，城外那座"+BaseScriptNames.Ruins+"虽已破除主阵，底下仍有残余财货，消耗体力即可反复搜刮。"),
+            new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"但切记——古窟瘴气蚀骨，普通士卒进去会不断折损生机，千万慎用凡躯涉险！")
+        },new[]{new NpcReply("回营地安排生产",ClosePanel)});
+        public void OpenSmithGoods()=>NpcDialogue(new[]{new NpcLine(BaseScriptNames.Blacksmith,BaseScriptNames.Portrait("blacksmith"),"听说你拔掉了古窟那颗毒钉！老头子连夜赶制了一批轻重甲胄和兵刃，快来看看！")},new[]{new NpcReply("去看看新装备",ClosePanel)});
         public void OpenFieldReminder()
         {
             bool azhu=BaseAdventure.Following(owner.State,"partner_craft");

@@ -34,7 +34,7 @@ namespace BaseConquest.Base
             new BaseMapObject("partner_farm", "伙伴 · 阿禾", 2.7, 7.8, 0.45, 0.45),
             new BaseMapObject("partner_craft", "伙伴 · 阿铸", 5.4, 7.8, 0.45, 0.45),
             new BaseMapObject("exit_west", "← 迎敌战场", 0.7, 6.5, 1.2, 2, false),
-            new BaseMapObject("exit_east", "城镇 →", 23.3, 6.5, 1.2, 2, false),
+            new BaseMapObject("exit_east", BaseScriptNames.Town+" →", 23.3, 6.5, 1.2, 2, false),
             new BaseMapObject("exit_south", "↓ 世界地图", 12, 0.7, 2, 1.2, false),
             new BaseMapObject("exit_north", "上方预留", 12, 13.3, 2, 1.2, false)
         };

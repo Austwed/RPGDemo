@@ -17,11 +17,11 @@ namespace BaseConquest.Base
             {
                 RuleInfo("Demo招兵规则","普通兵满血加入基地，进入既有岗位、编队、军需与战损流程，不自动补进在外队伍。新兵"+production+"，从明日计入口粮。\n\n默认每日兵源=floor(B/2×(1-p))，在日初按全体实际兵力计算；当天招走后不补货，重进或读档不刷新。单价=ceil(基础价×(1+p))，每次新报价按当前兵力计算；整单按报价结算，人员、日期、钱币或库存改变后旧报价失效。兵力越富余，价格越高、下一日供应越少；没有按份额保证最低供给。\n\nB暂用战士10／弓箭手8／骑兵4，基础价沿用当前快照。p是双方共用的普通兵即死率，N包括基地与所有外出队伍，同一士兵只计一次。出征调岗不会降低N或全军口粮；只有真实死亡、招募／收编等人员变化才改变兵力。",back);return;
             }
-            RuleInfo("城镇交易与招募规则","交易摊位买卖粮草、原料和两级剑／弓／甲。卖出价低于买入价，价格固定；仅可出售库存中未被军需配额锁定的部分。出售由商人单独回收，不增加今日可购数量。\n\n商品与三种普通兵源每天限量补满；仅在经营日过夜后刷新，重复进出、查看页面和存读档均不补货。买卖与招募不推进日期。\n\n新募士兵满血加入基地普通兵源，按正常单位参与编队、军需、伤亡、休养与岗位管理，不自动追加到在外队伍，也不带劝降的黄色姓名。今日已实际行动，招募当天不生产；次日起按现有策略分配。今天的口粮已经结清，不重复扣粮，新增人员从明天开始计入口粮；今日缺粮效果不会被购物重算。\n\n招募确定成功并消耗钱币；难度中的劝降概率用于俘虏，不影响付费招募。本版先接普通兵，居民、队长雇佣及动态物价后续再做。",back);
+            RuleInfo(BaseScriptNames.Town+"交易与招募规则","交易摊位买卖粮草、原料和两级剑／弓／甲。卖出价低于买入价，价格固定；仅可出售库存中未被军需配额锁定的部分。出售由商人单独回收，不增加今日可购数量。\n\n商品与三种普通兵源每天限量补满；仅在经营日过夜后刷新，重复进出、查看页面和存读档均不补货。买卖与招募不推进日期。\n\n新募士兵满血加入基地普通兵源，按正常单位参与编队、军需、伤亡、休养与岗位管理，不自动追加到在外队伍，也不带劝降的黄色姓名。今日已实际行动，招募当天不生产；次日起按现有策略分配。今天的口粮已经结清，不重复扣粮，新增人员从明天开始计入口粮；今日缺粮效果不会被购物重算。\n\n招募确定成功并消耗钱币；难度中的劝降概率用于俘虏，不影响付费招募。本版先接普通兵，居民、队长雇佣及动态物价后续再做。",back);
         }
         private void OpenTownMarket()
         {
-            BeginPanel("城镇 · 交易摊位","town-market:"+townBuying);
+            BeginPanel(BaseScriptNames.Town+" · 交易摊位","town-market:"+townBuying);
             RowButton(townBuying ? "买入 ✓" : "买入",-290,270,()=>{townBuying=true;OpenTownMarket();});
             RowButton(townBuying ? "卖出" : "卖出 ✓",0,270,()=>{townBuying=false;OpenTownMarket();});
             RowButton("规则 i",290,270,()=>TownRules(OpenTownMarket));row+=62;
@@ -68,10 +68,20 @@ namespace BaseConquest.Base
         private void OpenTownRecruit()
         {
             if(BaseDemo.Active(owner.State)&&!BaseDemoDefense.Delivered(owner.State))
-            {NpcDialogue(new[]{new NpcLine("募兵官","villager","陌生人不能在此招募，请先取得领主认可。")},new[]{new NpcReply("先去拜访领主",ClosePanel)});return;}
+            {NpcDialogue(new[]{new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"［斜睨一眼］生面孔？没领主大人的手令，私募甲兵可是掉脑袋的罪过，请回吧。")},new[]{new NpcReply("先去拜访领主",ClosePanel)});return;}
+            // TOWN_01_OPEN：拿到许可后首次进募兵处，由雷恩说明开放范围与建议兵种，只播一次。
+            if(BaseDemoFlow.Active(owner.State)&&!owner.State.Demo.Flow.RecruitOpened)
+            {
+                owner.Change(next=>next.Demo.Flow.RecruitOpened=true,"");
+                NpcDialogue(new[]{
+                    new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),BaseScriptNames.Lord+"的手令到了！"+BaseScriptNames.Camp+"既已立寨，我这儿的剑士、弓手和骑兵任你挑。"),
+                    new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"刚立营寨百废待兴，建议先将【剑士、弓兵、骑兵】各募一人，能战也能垦荒。")
+                },new[]{new NpcReply("开始招募",()=>{ClosePanel();OpenTownRecruit();})});
+                return;
+            }
             var s=owner.State;var offer=s.Town.Recruits.Single(r=>r.Kind==townKind);int max=BaseTown.MaxHire(s,townKind),price=BaseTown.HirePrice(s,townKind);
             townQuantity=max==0 ? 0 : Math.Max(1,Math.Min(townQuantity,max));
-            BeginPanel("城镇 · 募兵处","town-recruit");
+            BeginPanel(BaseScriptNames.Town+" · 募兵处","town-recruit");
             foreach(var r in s.Town.Recruits)
             {
                 var kind=r.Kind;float x=kind==BaseTroopKind.Melee ? -290 : kind==BaseTroopKind.Ranged ? 0 : 290;

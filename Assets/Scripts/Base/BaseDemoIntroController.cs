@@ -24,7 +24,7 @@ namespace BaseConquest.Base
         }
         public void SelectDemoHero(string hero)
         {
-            if(!Change(next=>{if(!BaseDemoIntro.Choose(next,hero))throw new InvalidOperationException("请在新旅程选择主角");},"故乡的清晨 · 走近搭档交谈"))return;
+            if(!Change(next=>{if(!BaseDemoIntro.Choose(next,hero))throw new InvalidOperationException("请在新旅程选择主角");},BaseScriptNames.Village+"的清晨 · 走近搭档交谈"))return;
             RebuildRegion();RebuildHud();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();Hud.ClosePanel();Hud.OpenDemoStory();
         }
         public void AdvanceDemoIntro(Func<BaseState,bool> action,string message)

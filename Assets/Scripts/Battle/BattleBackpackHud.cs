@@ -13,7 +13,7 @@ namespace BaseConquest.Battle
         private bool preparationInventoryOpen;
         public void OpenBattleQuests()
         {
-            if(IsSceneEncounter){ManualPause();feedback=SceneEncounterObjective+(IsDemoAttack?"：击败驻军，处理完战果后开放故乡道路；队长倒地不立即判负，撤退保留双方战损。":IsDemoDefense?(sceneEncounter.Opening.EventId==BaseDemoDefense.SecondEventId?"：守住时限或击退敌军；失败扣一次经济损失，不再有第三波。":"：守住时限后敌军撤退，可继续追击；失败扣经济损失后残军次日再袭。"):IsDemoRuins?"：击败控制来源，受控村民可制服，不会误杀。":"：先掩护村民离开，击倒一名追兵并重创另一名。");return;}
+            if(IsSceneEncounter){ManualPause();feedback=SceneEncounterObjective+(IsDemoAttack?"：击败驻军，处理完战果后开放"+BaseScriptNames.Village+"道路；队长倒地不立即判负，撤退保留双方战损。":IsDemoDefense?(sceneEncounter.Opening.EventId==BaseDemoDefense.SecondEventId?"：守住时限或击退敌军；失败扣一次经济损失，不再有第三波。":"：守住时限后敌军撤退，可继续追击；失败扣经济损失后残军次日再袭。"):IsDemoRuins?"：击败控制来源，受控村民可制服，不会误杀。":"：先掩护村民离开，击倒一名追兵并重创另一名。");return;}
             if(!IsCampaignBattle||CampaignGameOver)return;autoRun=false;skipping=false;CancelGesture();PersistCampaignCheckpoint(true);
             try{BuildBattleBackpack(BaseBattleGateway.Store().Load(),"quests",null);}catch(Exception e){feedback="任务读取失败："+e.Message;}
         }

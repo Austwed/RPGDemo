@@ -77,22 +77,22 @@ namespace BaseConquest.Base
         public void OpenDefenseIntel(Action proceed)
         {
             root.GetComponent<UnityEngine.Canvas>().sortingOrder=300;
-            NpcDialogue(new[]{new NpcLine("匪兵","enemy-captain","别打了！寨子就在通往故乡的路上，我们只是先头部队！"),
+            NpcDialogue(new[]{new NpcLine("匪兵","enemy-captain","别打了！寨子就在通往"+BaseScriptNames.Village+"的路上，我们只是先头部队！"),
                 new NpcLine("你","","记下位置。先守住营地，再查清他们的打算。",true)},new[]{new NpcReply("继续战斗",proceed)});
         }
         public void OpenSecondRaidBriefing(Action proceed)
         {
-            var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine("大当家","enemy-captain","上次没能拿下这营地，这回我亲自来。")};
-            if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine("巴图","enemy-captain","我说过我们还会回来。"));
-            else lines.Add(new NpcLine("大当家","enemy-captain","巴图的账，今天一起算！"));
-            lines.Add(new NpcLine("豁牙","enemy-captain","弟兄们，跟紧我，别乱了阵脚！"));
+            var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"上次没能拿下这营地，这回我亲自来。")};
+            if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"我说过我们还会回来。"));
+            else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"巴图的账，今天一起算！"));
+            lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"弟兄们，跟紧我，别乱了阵脚！"));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备迎战",proceed),new NpcReply("暂缓迎战",OpenDemoDefenseSupply)});
         }
         public void OpenDemoDefenseAftermath()
         {
             var state=owner.State;if(!BaseDemoDefense.Won(state)||state.Demo.Defense.BatuStoryDay>0){if(BaseBattleLoot.Pending(state))OpenLoot();else OpenDemoStory();return;}
             bool dead=state.Demo.Defense.BatuFate=="dead";
-            NpcDialogue(new[]{new NpcLine("巴图","enemy-captain",dead?"咳……你们守得住这一回，也挡不住大当家亲自来。":"是我们低估了你们。告诉大当家，这笔账还没完。"),
+            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),dead?"咳……你们守得住这一回，也挡不住大当家亲自来。":"是我们低估了你们。告诉大当家，这笔账还没完。"),
                 new NpcLine("你","","他们还会回来。先清点伤损，再查清敌营的位置。",true)},
                 new[]{new NpcReply("处理战果",()=>{if(owner.Change(next=>{BaseDemoDefense.AcknowledgeBatu(next);},"已记录敌军威胁")){ClosePanel();owner.RefreshDemoRegion();if(BaseBattleLoot.Pending(owner.State))owner.Hud.OpenLoot();else owner.Hud.OpenDemoStory();}})});
         }

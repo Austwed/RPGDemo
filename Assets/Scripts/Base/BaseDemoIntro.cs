@@ -18,7 +18,9 @@ namespace BaseConquest.Base
         public double ReporterX=.6,ReporterY=7.2;
         public bool ReporterArrived,ReporterLeaving,ReporterGone;
         public double TutorialDelay;
-        public BaseDemoIntroState Copy(){var i=(BaseDemoIntroState)MemberwiseClone();i.Captain=Captain?.Copy();i.Militia=Militia.Select(v=>v.Copy()).ToList();return i;}
+        // 村民闲聊过的 NPC id（PRO_02 首次／再次两套台词；旧档读进来为 null，按空处理）。
+        public List<string> Talked=new List<string>();
+        public BaseDemoIntroState Copy(){var i=(BaseDemoIntroState)MemberwiseClone();i.Captain=Captain?.Copy();i.Militia=Militia.Select(v=>v.Copy()).ToList();i.Talked=Talked==null?new List<string>():Talked.ToList();return i;}
     }
 
     public static class BaseDemoIntro
@@ -32,7 +34,14 @@ namespace BaseConquest.Base
         public static string PlayerArt(BaseState s)=>Active(s)&&s.Demo.Intro.Hero=="female"?"female":"player";
         public static string CaptainArt(BaseState s)=>PlayerArt(s)=="female"?"player":"female";
         public static string Address(BaseState s)=>PlayerArt(s)=="female"?"姑娘":"少侠";
-        public static string PartnerName(BaseState s)=>s.Leaders.FirstOrDefault(l=>l.Id=="demo_captain")?.Name??"搭档";
+        // 搭档名：优先取队长的实际名字；旧档把名字写死为「搭档」时按所选性别回填本名，不回写存档字段。
+        public static string PartnerName(BaseState s)
+        {
+            var captain=s.Leaders.FirstOrDefault(l=>l.Id=="demo_captain");
+            if(captain==null||string.IsNullOrEmpty(captain.Name)||captain.Name==BaseScriptNames.LegacyPartner)
+                return BaseScriptNames.PartnerName(s);
+            return captain.Name;
+        }
         private static string PracticeObjective(BaseDemoIntroState i)
         {
             int ex=NextExercise(i);
@@ -43,7 +52,7 @@ namespace BaseConquest.Base
             var i=s.Demo.Intro;
             switch(i.Step)
             {
-                case 0:return "选择你的主角，开启故乡的清晨";
+                case 0:return "选择你的主角，开启"+BaseScriptNames.Village+"的清晨";
                 case 1:return "走近搭档，按 E 交谈";
                 case 2:return "前往麦田问候阿禾";
                 case 9:return (i.FarmWorkers==4?"■ ":"□ ")+"为粮田调配 4 名劳力（"+i.FarmWorkers+"/4）";
@@ -95,7 +104,7 @@ namespace BaseConquest.Base
         public static void JoinCaptain(BaseState s)
         {
             if(s.Leaders.Any(l=>l.Id=="demo_captain"))return;
-            var captain=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).Copy();captain.Id="demo_captain";captain.Name="搭档";captain.AppearanceId=CaptainArt(s);captain.AcquisitionSource="故乡 · 临时同行";captain.AcquisitionDay=s.Day;
+            var captain=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).Copy();captain.Id="demo_captain";captain.Name=BaseScriptNames.PartnerName(s);captain.AppearanceId=CaptainArt(s);captain.AcquisitionSource=BaseScriptNames.Village+" · 临时同行";captain.AcquisitionDay=s.Day;
             captain.PreferredStrategy=SquadStrategy.Attack;
             captain.HasMapPosition=true;captain.MapX=s.Demo.Intro.CaptainX;captain.MapY=s.Demo.Intro.CaptainY;captain.MapRegion="base";
             if(captain.Rpg!=null)captain.Rpg.Id=captain.Id;
@@ -128,7 +137,7 @@ namespace BaseConquest.Base
         {
             if(!Active(s)||!BaseDemoPrologue.Village(s)||s.Demo.Stage!=BaseDemoStage.PrologueBriefing)return Array.Empty<BaseMapObject>();
             var i=s.Demo.Intro;var result=new List<BaseMapObject>();
-            if(i.Step!=8&&!s.Leaders.Any(l=>l.Id=="demo_captain"))result.Add(new BaseMapObject("demo_captain","搭档 · 交谈",i.CaptainX,i.CaptainY,.5,.5,false,"demo-npc:captain",CaptainArt(s),"npc"));
+            if(i.Step!=8&&!s.Leaders.Any(l=>l.Id=="demo_captain"))result.Add(new BaseMapObject("demo_captain",PartnerName(s)+" · 交谈",i.CaptainX,i.CaptainY,.5,.5,false,"demo-npc:captain",CaptainArt(s),"npc"));
             if(Daily(s)||!i.ReporterArrived)
             {
                 result.Add(new BaseMapObject("intro_villager","阿禾 · 交谈",12,10,.5,.5,false,"demo-npc:intro-villager","ahe","npc"));
@@ -187,7 +196,7 @@ namespace BaseConquest.Base
         }
         public static BaseCampaignSession Practice(BaseState s)
         {
-            if(!Daily(s)||s.Demo.Intro.Step!=4||!(At(s,"demo_captain")||At(s,DummyId)))throw new InvalidOperationException("请先装备练习短剑，再与搭档或木桩交互");
+            if(!Daily(s)||s.Demo.Intro.Step!=4||!(At(s,"demo_captain")||At(s,DummyId)))throw new InvalidOperationException(PartnerName(s)+"：［挑眉］赤手空拳就敢过招？快打开【背包】把【旧制短剑】装备上。");
             var player=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).Copy();if(player.Rpg!=null)player.Rpg.AutoSkill=false;
             var stats=BaseCommanderIdentity.Stats(player,new ArmyDefinition().Hero);player.Health=player.MaxHealth;var opponent=s.Demo.Intro.Captain?.Copy()??player.Copy();var target=BaseCommanderIdentity.Stats(opponent,new ArmyDefinition().Hero);
             var board=BaseSceneCombat.Project(s);foreach(var c in board.Cells)c.Zone=DeploymentZone.None;

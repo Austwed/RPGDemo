@@ -15,7 +15,7 @@ namespace BaseConquest.Base
         public static bool CanExplore(BaseState state)=>Enabled(state)&&!BaseDemoPrologue.Village(state)&&state.Demo.Stage!=BaseDemoStage.Waking;
         public static bool BattleActive(BaseState state)=>CanExplore(state)&&InRuins(state)&&state.Campaign.HasActiveBattle&&state.Campaign.ActiveBattle.EventId==EventId;
         public static bool Encounter(BaseCampaignSession session)=>session?.Opening.EventId==EventId;
-        public static string Objective(BaseState state)=>!Enabled(state)?"旧Demo不含遗迹快照；继续原阶段，重新开始可体验新增内容":state.Demo.Stage==BaseDemoStage.RuinsCleared?"当前目标：带救助证据返回领主处交差":BaseDemoDefense.Delivered(state)?BaseDemoDefense.Objective(state):"当前目标：可邀请阿禾／阿铸，经城镇东侧进入遗迹调查";
+        public static string Objective(BaseState state)=>!Enabled(state)?"旧Demo不含"+BaseScriptNames.Ruins+"快照；继续原阶段，重新开始可体验新增内容":state.Demo.Stage==BaseDemoStage.RuinsCleared?"当前目标：带救助证据返回领主处交差":BaseDemoDefense.Delivered(state)?BaseDemoDefense.Objective(state):"当前目标：可邀请阿禾／阿铸，经"+BaseScriptNames.Town+"东侧进入"+BaseScriptNames.Ruins+"调查";
         public static void PrepareOpening(BaseState state)
         {
             var progress=state.Demo;progress.RuinsVersion=1;
@@ -28,18 +28,18 @@ namespace BaseConquest.Base
         public static void InstallMap(BaseState state)
         {
             var town=state.Campaign.Layouts.Single(map=>map.Region=="town");
-            town.Objects.Add(new BaseMapPlacement {Id="demo_ruins_exit",Name="遗迹调查 →",X=23.2,Y=6.5,Width=1.2,Height=2});
+            town.Objects.Add(new BaseMapPlacement {Id="demo_ruins_exit",Name=BaseScriptNames.Ruins+"调查 →",X=23.2,Y=6.5,Width=1.2,Height=2});
             if(!state.Leaders.Any(person=>person.Id=="partner_farm"))state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Add(new BaseMapPlacement {Id="demo_ahe",Name="阿禾 · 可选伙伴",X=8,Y=7,Width=.5,Height=.5});
             if(!state.Leaders.Any(person=>person.Id=="partner_craft"))town.Objects.Add(new BaseMapPlacement {Id="demo_azhu",Name="阿铸 · 询问短剑",X=9,Y=8,Width=.5,Height=.5});
-            state.Campaign.Layouts.Add(new BaseMapLayout {Region="outpost",Title="野外遗迹 · 失踪者",SpawnX=2.5,SpawnY=7.5,Objects=new List<BaseMapPlacement> {
-                new BaseMapPlacement {Id="demo_ruins_return",Name="← 返回城镇",X=.7,Y=7.5,Width=1,Height=2},
+            state.Campaign.Layouts.Add(new BaseMapLayout {Region="outpost",Title="野外"+BaseScriptNames.Ruins+" · 失踪者",SpawnX=2.5,SpawnY=7.5,Objects=new List<BaseMapPlacement> {
+                new BaseMapPlacement {Id="demo_ruins_return",Name="← 返回"+BaseScriptNames.Town,X=.7,Y=7.5,Width=1,Height=2},
                 new BaseMapPlacement {Id="demo_ruins_investigate",Name="异常者与控制来源 · 调查",X=12,Y=7,Width=1,Height=1},
-                new BaseMapPlacement {Id="ruins_wall",Name="遗迹残墙",X=12,Y=11.5,Width=6,Height=1,Blocks=true,VisualOnly=true,SourceObjectId="demo:ruins:wall",Kind="obstacle"}
+                new BaseMapPlacement {Id="ruins_wall",Name=BaseScriptNames.Ruins+"残墙",X=12,Y=11.5,Width=6,Height=1,Blocks=true,VisualOnly=true,SourceObjectId="demo:ruins:wall",Kind="obstacle"}
             }});
             var board=BattleBoard.CreateDefault(24,14);
             foreach(var position in board.Positions()) {var cell=board.Cell(position);cell.Terrain=TerrainKind.Ground;cell.Zone=position.X>=4&&position.X<=6?DeploymentZone.A:position.X>=17&&position.X<=19?DeploymentZone.B:DeploymentZone.None;}
             state.Campaign.RegionMaps.RemoveAll(map=>map.Id=="outpost");state.Campaign.RegionMaps.Add(new BaseRegionMap {Id="outpost",Board=board});
-            if(!state.Campaign.Events.Any(mission=>mission.Id==EventId))state.Campaign.Events.Add(new BaseCampaignEvent {Id=EventId,Title="遗迹 · 制服受控者并击败控制来源",Kind="attack",ScenarioFile="24_据点进攻.json",FoodReward=0,MaterialReward=0,CoinReward=0,ItemRewards=new List<BaseLootReward>()});
+            if(!state.Campaign.Events.Any(mission=>mission.Id==EventId))state.Campaign.Events.Add(new BaseCampaignEvent {Id=EventId,Title=BaseScriptNames.Ruins+" · 制服受控者并击败控制来源",Kind="attack",ScenarioFile="24_据点进攻.json",FoodReward=0,MaterialReward=0,CoinReward=0,ItemRewards=new List<BaseLootReward>()});
         }
         public static string Marker(string id)=>id=="partner_farm"?"demo_ahe":"demo_azhu";
         public static string Region(string id)=>id=="partner_farm"?"base":"town";
@@ -54,7 +54,7 @@ namespace BaseConquest.Base
             if(!Enabled(state)||!state.Demo.MetCompanions.Contains(id)||!Meet(state,id)||state.Leaders.Any(person=>person.Id==id)||!BaseRpg.HasRoom(state)||state.Muster.Parties.Count>0)return false;
             bool follow=state.Adventure.Members.Count<BaseAdventure.Capacity;
             var person=state.Demo.Candidates.Single(candidate=>candidate.Id==id).Copy();person.FacilityId=person.DesiredFacility=person.PartyId="";person.PostLocked=person.Away=person.Resting=false;
-            person.AcquisitionSource=id=="partner_farm"?"剧情结识 · 新营地邀请":"剧情结识 · 城镇邀请";person.AcquisitionDay=state.Day;
+            person.AcquisitionSource=id=="partner_farm"?"剧情结识 · 新营地邀请":"剧情结识 · "+BaseScriptNames.Town+"邀请";person.AcquisitionDay=state.Day;
             person.HasHomePosition=true;person.HomeX=id=="partner_farm"?8:10;person.HomeY=7;person.HasMapPosition=true;person.MapRegion=state.Campaign.Location;
             person.MapId=BaseSceneInstances.Active(state)?state.Campaign.CurrentMapId:null;
             var point=BaseSpatial.Nearest(state,new BasePoint(state.PlayerX,state.PlayerY-.8));person.MapX=point.X;person.MapY=point.Y;person.UnavailableDay=state.Day;
@@ -64,11 +64,11 @@ namespace BaseConquest.Base
         public static string TravelProblem(BaseState state,string target)
         {
             if(BaseDemoDefense.Enabled(state)&&(target=="perimeter"||state.Campaign.Location=="perimeter"||state.Demo.Stage==BaseDemoStage.DefenseWarned&&!BaseTown.DemoRecruitment(state)))return BaseDemoDefense.TravelProblem(state,target);
-            if(state.Demo.Stage==BaseDemoStage.DefenseWarned&&target=="outpost")return "先处理营地入侵，可往返城镇招兵整备";
+            if(state.Demo.Stage==BaseDemoStage.DefenseWarned&&target=="outpost")return "先处理营地入侵，可往返"+BaseScriptNames.Town+"招兵整备";
             if(BaseDemoPrologue.Village(state)||state.Demo.Stage==BaseDemoStage.Waking)return "请先完成当前序章／醒来目标";
             if(BaseSceneCombat.Active(state)||BaseBattleLoot.Pending(state)||state.Aftermath.GameOver)return "请先处理当前战斗／战果";
             bool at(string region,string id)=>BaseInteraction.At(state,region,id);
-            if(target=="outpost")return at("town","demo_ruins_exit")?"":"从城镇东侧遗迹出口进入，无需先接取委托";
+            if(target=="outpost")return at("town","demo_ruins_exit")?"":"从"+BaseScriptNames.Town+"东侧"+BaseScriptNames.Ruins+"出口进入，无需先接取委托";
             if(target=="town"&&(at("base","exit_east")||at("outpost","demo_ruins_return")))return "";
             if(target=="base"&&at("town","travel_base"))return "";
             return "请到对应出口同层一格以内通行";
@@ -83,19 +83,19 @@ namespace BaseConquest.Base
         }
         public static BattleScenarioDocument Document(BaseState state)
         {
-            if(!Enabled(state))throw new InvalidOperationException("此旧Demo没有遗迹属性快照，请新开Demo");
+            if(!Enabled(state))throw new InvalidOperationException("此旧Demo没有"+BaseScriptNames.Ruins+"属性快照，请新开Demo");
             var army=state.Demo.RuinsArmy.Clone();var controller=army.Hero.Clone();controller.Health*=1.5f;controller.Damage*=1.2f;
             army.HeroCount=1;army.MeleeCount=2;army.RangedCount=army.CavalryCount=0;
-            army.CommanderStats=new List<SoldierStats>{controller};army.CommanderNames=new List<string>{"遗迹异族队长"};army.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};
+            army.CommanderStats=new List<SoldierStats>{controller};army.CommanderNames=new List<string>{BaseScriptNames.Galan};army.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};
             BaseDemoEncounterConfig.ConfigureArmy(state,EventId,army);
             var own=army.Clone();own.MeleeCount=2;own.RangedCount=own.CavalryCount=0;own.HeroCount=1;own.CaptainSlot=0;own.CommanderStats.Clear();own.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};own.CommanderNames.Clear();
             foreach(var kind in BattleSimulation.TroopKinds){var source=state.Workers.FirstOrDefault(worker=>BaseCampaign.ToBattle(worker.Kind)==kind&&worker.HasCombatProfile);if(source!=null){if(kind==SoldierKind.Melee)own.Melee=source.CombatStats.Clone();else if(kind==SoldierKind.Ranged)own.Ranged=source.CombatStats.Clone();else own.Cavalry=source.CombatStats.Clone();}}
-            return new BattleScenarioDocument {Title="Demo遗迹救助",Scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),A=own,B=army,MaxRounds=90,FogEnabled=false,Objective=new ObjectiveConfig {Title="击败控制来源，救助失踪者"}}};
+            return new BattleScenarioDocument {Title="Demo"+BaseScriptNames.Ruins+"救助",Scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),A=own,B=army,MaxRounds=90,FogEnabled=false,Objective=new ObjectiveConfig {Title="击败控制来源，救助失踪者"}}};
         }
         public static BaseCampaignSession Begin(BaseState state,string mode="full")
         {
             if(BaseSceneRules.Entrance(state))BaseSceneRules.EnterDungeon(state);
-            if(!CanExplore(state)||!InRuins(state)||!BaseInteraction.CanReach(state,BaseSpatial.Objects(state).SingleOrDefault(o=>o.Id=="demo_ruins_investigate")))throw new InvalidOperationException("请在遗迹调查点旁确认交战，无需先接取委托");
+            if(!CanExplore(state)||!InRuins(state)||!BaseInteraction.CanReach(state,BaseSpatial.Objects(state).SingleOrDefault(o=>o.Id=="demo_ruins_investigate")))throw new InvalidOperationException("请在"+BaseScriptNames.Ruins+"调查点旁确认交战，无需先接取委托");
             var mission=state.Campaign.Events.Single(e=>e.Id==EventId);
             if(state.Demo.RuinsRewards==null)BaseRuinsRewards.Enable(state);
             state.Demo.RuinsRewards.PendingBattleId="";
@@ -164,12 +164,12 @@ namespace BaseConquest.Base
         public static void Validate(BaseState state)
         {
             var progress=state.Demo;
-            if(progress.RuinsVersion==0){if(progress.RuinsDay!=0||progress.DeliveredDay!=0||progress.Candidates?.Count>0||progress.MetCompanions?.Count>0||progress.Stage==BaseDemoStage.RuinsCleared||progress.Stage==BaseDemoStage.RuinsDelivered)throw new ArgumentException("遗迹内容缺版本");return;}
-            if(progress.RuinsVersion!=1||progress.Candidates==null||progress.Candidates.Count!=2||!progress.Candidates.Select(person=>person?.Id).OrderBy(id=>id).SequenceEqual(new[]{"partner_craft","partner_farm"})||progress.Candidates.Any(person=>person.Health<=0||person.PersonalEquipment?.Version!=1||!BaseAftermath.ValidStats(BasePersonalEquipment.Stats(person)))||progress.MetCompanions==null||progress.MetCompanions.Distinct().Count()!=progress.MetCompanions.Count||progress.MetCompanions.Any(id=>!progress.Candidates.Any(person=>person.Id==id))||progress.RuinsArmy==null||!BaseAftermath.ValidStats(progress.RuinsArmy.Hero)||!BaseAftermath.ValidStats(progress.RuinsArmy.Melee)||progress.RuinsReward==null||new[]{progress.RuinsReward.Food,progress.RuinsReward.Materials,progress.RuinsReward.Coins}.Any(value=>value<0||value>1000000))throw new ArgumentException("遗迹版本、伙伴、属性或奖赏非法");
+            if(progress.RuinsVersion==0){if(progress.RuinsDay!=0||progress.DeliveredDay!=0||progress.Candidates?.Count>0||progress.MetCompanions?.Count>0||progress.Stage==BaseDemoStage.RuinsCleared||progress.Stage==BaseDemoStage.RuinsDelivered)throw new ArgumentException(BaseScriptNames.Ruins+"内容缺版本");return;}
+            if(progress.RuinsVersion!=1||progress.Candidates==null||progress.Candidates.Count!=2||!progress.Candidates.Select(person=>person?.Id).OrderBy(id=>id).SequenceEqual(new[]{"partner_craft","partner_farm"})||progress.Candidates.Any(person=>person.Health<=0||person.PersonalEquipment?.Version!=1||!BaseAftermath.ValidStats(BasePersonalEquipment.Stats(person)))||progress.MetCompanions==null||progress.MetCompanions.Distinct().Count()!=progress.MetCompanions.Count||progress.MetCompanions.Any(id=>!progress.Candidates.Any(person=>person.Id==id))||progress.RuinsArmy==null||!BaseAftermath.ValidStats(progress.RuinsArmy.Hero)||!BaseAftermath.ValidStats(progress.RuinsArmy.Melee)||progress.RuinsReward==null||new[]{progress.RuinsReward.Food,progress.RuinsReward.Materials,progress.RuinsReward.Coins}.Any(value=>value<0||value>1000000))throw new ArgumentException(BaseScriptNames.Ruins+"版本、伙伴、属性或奖赏非法");
             bool delivered=BaseDemoDefense.Delivered(state),cleared=progress.Stage==BaseDemoStage.RuinsCleared||delivered;
             var expected=progress.AcceptedDay>0?new List<string>{BaseDemo.Assignment}:new List<string>();if(cleared)expected.Add(Proof);if(delivered)expected.Add(Permit);if(BaseDemoDefense.Won(state))expected.Add(BaseDemoDefense.Proof);if(BaseDemoFinale.Later(state))expected.Add(BaseDemoFinale.AttackProof);if(progress.Stage==BaseDemoStage.Finished)expected.Add(BaseDemoFinale.Sword);
-            if(!progress.Evidence.SequenceEqual(expected)||(cleared?(progress.RuinsDay<progress.WakeDay||progress.RuinsDay>state.Day||!state.Campaign.Reports.Any(report=>report.EventId==EventId&&report.Outcome=="SideAWin")):progress.RuinsDay!=0))throw new ArgumentException("遗迹证据与真实战果不一致");
-            if(delivered?(progress.DeliveredDay<progress.RuinsDay||progress.DeliveredDay>state.Day):progress.DeliveredDay!=0)throw new ArgumentException("遗迹许可与交付日期不一致");
+            if(!progress.Evidence.SequenceEqual(expected)||(cleared?(progress.RuinsDay<progress.WakeDay||progress.RuinsDay>state.Day||!state.Campaign.Reports.Any(report=>report.EventId==EventId&&report.Outcome=="SideAWin")):progress.RuinsDay!=0))throw new ArgumentException(BaseScriptNames.Ruins+"证据与真实战果不一致");
+            if(delivered?(progress.DeliveredDay<progress.RuinsDay||progress.DeliveredDay>state.Day):progress.DeliveredDay!=0)throw new ArgumentException(BaseScriptNames.Ruins+"许可与交付日期不一致");
             if(state.Leaders.Any(person=>(person.Id=="partner_farm"||person.Id=="partner_craft")&&!progress.MetCompanions.Contains(person.Id))||InRuins(state)&&!CanExplore(state)||state.Campaign.HasActiveBattle&&!BattleActive(state)&&!BaseDemoDefense.BattleActive(state)&&!BaseDemoFinale.BattleActive(state))throw new ArgumentException("伙伴或剧情战阶段非法");
         }
     }

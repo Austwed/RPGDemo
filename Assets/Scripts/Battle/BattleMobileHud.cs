@@ -420,7 +420,7 @@ namespace BaseConquest.Battle
             if(owner.IsSceneEncounter)
             {
                 objectiveTitle.text=owner.SceneEncounterObjective;
-                objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsDemoPractice?(owner.Realtime?.TutorialProgress?.Invoke()??"完成六项指挥练习"):owner.IsDemoAttack?"击败驻军 · 战果处理后开放故乡道路":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0.0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 可提前击退":owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":"村民先离开 · 击倒一人，重创另一人";
+                objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsDemoPractice?(owner.Realtime?.TutorialProgress?.Invoke()??"完成六项指挥练习"):owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0.0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 可提前击退":owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":"村民先离开 · 击倒一人，重创另一人";
                 status.text=(battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.RealtimeStatus)+"\n"+owner.Feedback;
             }
             if(owner.DetailsVisible)

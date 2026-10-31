@@ -25,7 +25,7 @@ namespace BaseConquest.Base
             state.PlayerX=state.Campaign.BaseX=village.SpawnX;state.PlayerY=state.Campaign.BaseY=village.SpawnY;
             foreach(var cell in BaseBattlefield.Board(state).Cells){cell.Terrain=TerrainKind.Ground;cell.Zone=DeploymentZone.None;}
         }
-        public static BaseMapLayout CreateVillage(bool tutorial=false)=>tutorial?new BaseMapLayout {Region="base",Title="故乡 · 撤离",SpawnX=9,SpawnY=7,Objects=new List<BaseMapPlacement> {
+        public static BaseMapLayout CreateVillage(bool tutorial=false)=>tutorial?new BaseMapLayout {Region="base",Title=BaseScriptNames.Village+" · 撤离",SpawnX=9,SpawnY=7,Objects=new List<BaseMapPlacement> {
                 new BaseMapPlacement {Id="village_house",Name="村舍",SourceObjectId="prologue:house",AssetId="home",X=6,Y=11,Width=4,Height=3,Blocks=true,VisualOnly=true},
                 new BaseMapPlacement {Id="intro_farm",Name="粮田 · 调动工人",AssetId="farm-small",X=10.8,Y=4.1,Width=3,Height=1.6,Blocks=true,Kind="facility"},
                 new BaseMapPlacement {Id="intro_smith",Name="小铁匠铺",AssetId="workshop-small",X=15.8,Y=10.5,Width=2.4,Height=1.4,Blocks=true,Kind="facility"},
@@ -33,7 +33,7 @@ namespace BaseConquest.Base
                 new BaseMapPlacement {Id="village_bench",Name="长椅",AssetId="bench",Kind="decoration",DefinitionId="env_bench",SourceObjectId="intro:bench",X=9,Y=9.8,Width=1.1,Height=.4,Blocks=true,VisualOnly=true},
                 new BaseMapPlacement {Id="prologue_report",Name="村民与队长 · 来袭消息",X=9,Y=8.3,Width=1,Height=1},
                 new BaseMapPlacement {Id="prologue_trigger",Name="向东撤离 →",X=22,Y=7,Width=2,Height=3,VisualOnly=true}
-            }}:new BaseMapLayout {Region="base",Title="故乡 · 撤离",SpawnX=9,SpawnY=7,Objects=new List<BaseMapPlacement>{
+            }}:new BaseMapLayout {Region="base",Title=BaseScriptNames.Village+" · 撤离",SpawnX=9,SpawnY=7,Objects=new List<BaseMapPlacement>{
                 new BaseMapPlacement{Id="village_house",Name="村舍",AssetId="home",X=6,Y=11,Width=4,Height=3,Blocks=true,VisualOnly=true},
                 new BaseMapPlacement{Id="village_field",Name="粮田",AssetId="farm",X=5,Y=3,Width=5,Height=3,Blocks=true,VisualOnly=true},
                 new BaseMapPlacement{Id="prologue_report",Name="村民与队长 · 来袭消息",X=9,Y=8.3,Width=1,Height=1},

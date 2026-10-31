@@ -7,7 +7,7 @@ namespace BaseConquest.Base
         public void OpenInn()
         {
             var s=owner.State;activeObject=interactionObject="town_inn";
-            BeginPanel(BaseInn.Free(s)?"故乡 · 临时扎营点":"城镇 · 旅店","town-inn");
+            BeginPanel(BaseInn.Free(s)?BaseScriptNames.Village+" · 临时扎营点":BaseScriptNames.Town+" · 旅店","town-inn");
             Line("当地寄存 "+BaseInn.Occupied(s)+" / "+BaseInn.Capacity+" · 随行 "+s.Adventure.Members.Count+" / 3 · 营帐 "+BaseRpg.Population(s)+" / "+BaseRpg.Capacity(s),60,21);
             Line(BaseInn.Free(s)?"此处免费休息、留队，最多额外留守3名队长。":"住宿费用：每人每天 "+BaseInn.Fee(s)+" 金币（入住预付首日）",55,20);
             Line("过日自动结算各旅店住客费用，钱不足记欠费，接走前补清；免费扎营者不计费。",60,18);
