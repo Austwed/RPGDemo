@@ -23,7 +23,17 @@ namespace BaseConquest.Editor
         private static readonly int[] Seeds = { 12345, 23456, 34567 };
         private static RpgRules rules;
         private static string only;
+        private static bool diag;
+        // 队长拴绳半径（CommanderLoadout.AttackRange，默认9）。调大用于验证「骑兵够不到敌人」是否由它造成。
+        private static int lead = 9;
         private static readonly List<string> Rows = new List<string>();
+
+        // 单位级诊断：逐帧采样，回答「这个单位到底有没有在打、有没有在走」。
+        private sealed class UnitDiag
+        {
+            public int Frames, MoveFrames, IdleFrames, WindupFrames, NoTargetFrames, NoGoalFrames, Attacks, Landed, GoalHereFrames, StuckFrames;
+            public double Distance = 0, MinEnemyGap = double.PositiveInfinity, Damage = 0;
+        }
 
         private sealed class Side
         {
@@ -45,6 +55,9 @@ namespace BaseConquest.Editor
             {
                 rules = LoadRules();
                 only = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--only="))?.Substring("--only=".Length) ?? "";
+                diag = Environment.GetCommandLineArgs().Any(a => a == "--diag");
+                lead = int.TryParse(Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--lead="))?.Substring("--lead=".Length), out int parsed) ? parsed : 9;
+                if (lead != 9) Debug.Log("[PowerCalibration] 队长拴绳半径改为 " + lead + "（默认9）");
                 if (only != "") Debug.Log("[PowerCalibration] 只跑前缀 " + only);
                 var header = "match,swap,seed,outcome,seconds,aAlive,bAlive,aHp,bHp,aEscaped,bEscaped,oldA,oldB"
                     + ",aM,aR,aC,aH,aLvl,aProf,aSkill,aTrait,bM,bR,bC,bH,bLvl,bProf,bSkill,bTrait"
@@ -144,7 +157,13 @@ namespace BaseConquest.Editor
             var run = new RealtimeCampaignBattle(session);
             run.Model.SetPaused(false);
             int cap = (scenario.MaxRounds + 1) * 4;
-            for (int frame = 0; frame < cap && session.Battle.Phase != BattlePhase.Finished; frame++) run.Tick(Step);
+            var diagMap = diag ? new Dictionary<int, UnitDiag>() : null;
+            for (int frame = 0; frame < cap && session.Battle.Phase != BattlePhase.Finished; frame++)
+            {
+                run.Tick(Step);
+                if (diagMap != null) Sample(run, diagMap);
+            }
+            if (diagMap != null) DumpDiag(m, swap, session, run, diagMap);
 
             double aFull = 0, aNow = 0, bFull = 0, bNow = 0;
             int aAlive = 0, bAlive = 0, aEscaped = 0, bEscaped = 0;
@@ -184,6 +203,50 @@ namespace BaseConquest.Editor
             Debug.Log("[PowerCalibration] " + m.Name + (swap ? " 镜像" : " 正序") + " → " + outcome
                 + " 旧战力 " + oldA.ToString("0.00") + " vs " + oldB.ToString("0.00")
                 + " 血量比 " + (aNow / Math.Max(1e-9, aFull)).ToString("0.00") + " / " + (bNow / Math.Max(1e-9, bFull)).ToString("0.00"));
+        }
+
+        private static void Sample(RealtimeCampaignBattle run, Dictionary<int, UnitDiag> map)
+        {
+            foreach (var u in run.Model.Units)
+            {
+                if (!map.TryGetValue(u.Id, out var d)) map[u.Id] = d = new UnitDiag();
+                if (!u.Alive) continue;
+                d.Frames++;
+                if (u.Moving) d.MoveFrames++; else d.IdleFrames++;
+                if (u.HitAt >= 0 && !u.HitResolved) d.WindupFrames++;
+                if (u.TargetId < 0) d.NoTargetFrames++;
+                if (!u.Moving && u.MoveGoal < 0) d.NoGoalFrames++;
+                // 想去别处却没动＝被堵；目标格就是脚下＝自锁（攻击位判定与实际攻击判定不一致的典型症状）
+                if (!u.Moving && u.MoveGoal >= 0) { if (u.MoveGoal == u.Cell) d.GoalHereFrames++; else d.StuckFrames++; }
+                foreach (var e in run.Model.Units)
+                    if (e.Alive && e.Side != u.Side)
+                        d.MinEnemyGap = Math.Min(d.MinEnemyGap, RealtimeBattlePrototype.BodyGap(u, e));
+                d.Distance = u.DistanceTravelled;
+            }
+        }
+
+        private static void DumpDiag(Match m, bool swap, BaseCampaignSession session, RealtimeCampaignBattle run, Dictionary<int, UnitDiag> map)
+        {
+            foreach (var packet in run.RpgAttackHistory)
+            {
+                if (!map.TryGetValue(packet.SourceId, out var d)) continue;
+                d.Attacks++; d.Damage += packet.Attack; if (packet.Hit) d.Landed++;
+            }
+            Debug.Log("[PowerCalibration] 诊断 " + m.Name + (swap ? " 镜像" : " 正序") + "  用时" + run.Model.Elapsed.ToString("0.0") + "秒  帧数≈" + (int)(run.Model.Elapsed / (Step / 4)));
+            foreach (var side in new[] { BattleSide.A, BattleSide.B })
+            {
+                var units = session.Battle.Soldiers.Where(u => u.Side == side).ToArray();
+                foreach (var u in units)
+                {
+                    var d = map.TryGetValue(u.Id + 1, out var found) ? found : new UnitDiag();
+                    Debug.Log("[PowerCalibration]   诊断单位 " + side + " " + u.CombatKind + " 血" + u.Health.ToString("0") + "/" + u.Stats.Health.ToString("0")
+                        + " 存活帧" + d.Frames + " 移动帧" + d.MoveFrames + "(" + (100.0 * d.MoveFrames / Math.Max(1, d.Frames)).ToString("0") + "%)"
+                        + " 前摇帧" + d.WindupFrames + " 无目标帧" + d.NoTargetFrames + " 无去向帧" + d.NoGoalFrames
+                        + " 被堵帧" + d.StuckFrames + " 自锁帧" + d.GoalHereFrames
+                        + " 走了" + d.Distance.ToString("0.0") + " 最近敌距" + (double.IsPositiveInfinity(d.MinEnemyGap) ? "从未" : d.MinEnemyGap.ToString("0.00"))
+                        + " 出手" + d.Attacks + " 命中" + d.Landed + " 攻击力合计" + d.Damage.ToString("0"));
+                }
+            }
         }
 
         // 乙方没有战役敌军清单，BindBattle 会跳过它们的RPG档案，导致两边战力口径不一致。
@@ -266,7 +329,7 @@ namespace BaseConquest.Editor
                 var character = BaseRpg.Character("calib:hero:" + slot, side.Profession, false, false, rules, side.Level);
                 army.CommanderStats.Add(rules.Bare(character, side.Level));
                 army.CommanderNames.Add("队长" + slot);
-                army.Commanders.Add(new CommanderLoadout { Melee = side.Melee, Ranged = side.Ranged, Cavalry = side.Cavalry });
+                army.Commanders.Add(new CommanderLoadout { Melee = side.Melee, Ranged = side.Ranged, Cavalry = side.Cavalry, AttackRange = lead, AlertRange = Math.Min(lead, 6), GuardRange = 3 });
             }
             return army;
         }
