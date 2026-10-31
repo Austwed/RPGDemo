@@ -12,6 +12,9 @@ namespace BaseConquest.Base
             switch(original.Id)
             {
                 case "town_quest":name="领主 · 交谈";break;
+                case "town_guard":name="镇卫兵 · 交谈";appearance="villager";break;
+                case "town_peddler":name="行商老莫 · 交谈";appearance="merchant";break;
+                case "town_girl":name="镇民小芸 · 交谈";appearance="villager";break;
                 case "prologue_report":
                     if(BaseDemoIntro.Active(state)){var report=state.Demo.Intro;return new BaseMapObject(original.Id,"报信村民 · 交谈",report.ReporterX,report.ReporterY,.5,.5,false,"demo-npc:reporter","villager","npc");}
                     name="报信村民";appearance="villager";break;

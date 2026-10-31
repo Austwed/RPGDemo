@@ -34,6 +34,9 @@ namespace BaseConquest.Base
         public const string InnKeeper="旅店麦格";
         public const string Merchant="行商";
         public const string Scout="营地斥候";
+        public const string Guard="镇卫兵";            // 城镇闲聊
+        public const string Peddler="行商老莫";        // 商铺街闲聊
+        public const string Girl="镇民小芸";           // 公园角喂鸟的镇民
 
         // ===== 头像占位（规格 2.3）=====
         // 现有真实资源（Assets/Resources/PixelDemo/Characters）：

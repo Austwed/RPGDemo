@@ -23,6 +23,10 @@ namespace BaseConquest.Base
         }
         public void BeginDemoDefense(string mode,bool briefingConfirmed=false)
         {
+            // DEF_01_START：首次防守开战前由巴图叫阵，只播一次。
+            if(!BaseDemoDefense.SecondDue(State)&&!State.Demo.Defense.FirstBriefingSeen&&!briefingConfirmed)
+            {Hud.OpenFirstRaidBriefing(()=>BeginDemoDefense(mode,true));return;}
+            if(!BaseDemoDefense.SecondDue(State)&&briefingConfirmed&&!Change(next=>next.Demo.Defense.FirstBriefingSeen=true,"首防战前对白已记录"))return;
             if(BaseDemoDefense.SecondDue(State)&&!State.Demo.Defense.SecondBriefingSeen&&!briefingConfirmed)
             {Hud.OpenSecondRaidBriefing(()=>BeginDemoDefense(mode,true));return;}
             if(briefingConfirmed&&!Change(next=>next.Demo.Defense.SecondBriefingSeen=true,"第二波战前对白已记录"))return;
@@ -74,11 +78,23 @@ namespace BaseConquest.Base
             Line(facility=="workshop"?"修复后可安排岗位，日结制作已有一级军需；岗位／耗料使用35号开局保存的规则。":"修复后开放现有招募与军事整备入口；首次防守仍需真实选兵、军需整备。",115,21);
             if(problem!="")Line(problem,65,20);RowButton("确认修复",-210,400,()=>owner.RepairDemoFacility(facility),problem=="");RowButton("暂不修复",210,400,ClosePanel);row+=60;EndPanel();return true;
         }
+        // DEF_01_START_01/02：首次防守开战前巴图叫阵，主角拔剑回应。
+        public void OpenFirstRaidBriefing(Action proceed)
+        {
+            NpcDialogue(new[]{
+                new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"哈哈！新出炉的军械，还有"+BaseScriptNames.Village+"漏网的余党，今天全归"+BaseScriptNames.Bandit+"！"),
+                new NpcLine("你","","冲着"+BaseScriptNames.Village+"幸存者来的？正好，拿你的脑袋问问幕后雇主是谁！",true)
+            },new[]{new NpcReply("拔剑迎战",proceed),new NpcReply("先看布防",OpenDemoDefenseSupply)});
+        }
+        // DEF_01_MID_INTEL：敌军只剩一人时崩溃泄密，供出敌营位置。同场只播一次（BattleIntelSeen 由调用方记录）。
         public void OpenDefenseIntel(Action proceed)
         {
             root.GetComponent<UnityEngine.Canvas>().sortingOrder=300;
-            NpcDialogue(new[]{new NpcLine("匪兵","enemy-captain","别打了！寨子就在通往"+BaseScriptNames.Village+"的路上，我们只是先头部队！"),
-                new NpcLine("你","","记下位置。先守住营地，再查清他们的打算。",true)},new[]{new NpcReply("继续战斗",proceed)});
+            NpcDialogue(new[]{
+                new NpcLine(BaseScriptNames.Bandit+"匪兵","enemy-captain","完了完了！寨子里就留了老弱，大当家带人下山，谁守得住营盘啊……"),
+                new NpcLine("你","","大当家带了多少人？营盘在哪个方向？快说！",true),
+                new NpcLine(BaseScriptNames.Bandit+"匪兵","enemy-captain","在……在营地南边官道拐口！山道两边全是枯树和大石，你们攻不上去的！")
+            },new[]{new NpcReply("继续战斗",proceed)});
         }
         public void OpenSecondRaidBriefing(Action proceed)
         {

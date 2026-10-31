@@ -5,8 +5,8 @@ namespace BaseConquest.Base
     [Serializable] public sealed class BaseDemoFlowState
     {
         public int HiredKinds, ReadyStakes;
-        public bool RecruitmentNotice, RecruitOpened, InnWelcomed, RestLessonDone, FarmOfferPending, FarmOfferShown, NoviceShop, StakesGranted, StakesNotice;
-        public bool AzhuDuelWon, SmithGiftOffered, ControllerAccepted, ControllerPledged;
+        public bool RecruitmentNotice, RecruitOpened, InnWelcomed, HomeEnterSeen, RestLessonDone, FarmOfferPending, FarmOfferShown, NoviceShop, StakesGranted, StakesNotice;
+        public bool AzhuDuelWon, SmithGiftOffered, ControllerAccepted, ControllerPledged, BanditCleared;
         public string FirstControllerId="";
         public double FarmX,FarmY,FarmNpcX,FarmNpcY;public bool FarmWalking;
         public BaseDemoFlowState Copy()=>(BaseDemoFlowState)MemberwiseClone();

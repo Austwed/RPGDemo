@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using BaseConquest.Battle;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -36,7 +38,8 @@ namespace BaseConquest.Base
             if(!victory&&run!=null)BaseDemoCombat.RetreatPosition(next,false);
             if(victory)BattleScenePlacement.Capture(next,run);
             BaseEconomy.Validate(next);SaveStore.Save(next);State=next;beforeDemoAttack=null;
-            if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,()=>{if(BaseBattleLoot.Pending(State))Hud.OpenLoot();else Hud.OpenDemoStory();});return true;}
+            // BANDIT_01_WIN：攻下敌营后先搜主帐拿物证，只播一次，再走战果处理。
+            if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,()=>{if(victory&&BaseDemoFlow.Active(State)&&!State.Demo.Flow.BanditCleared)Hud.OpenBanditVictory();else if(BaseBattleLoot.Pending(State))Hud.OpenLoot();else Hud.OpenDemoStory();});return true;}
             if(Application.isPlaying){BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;BaseBattleGateway.ShowPrisoners=BaseBattleLoot.Pending(next);SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
             else
             {
@@ -52,12 +55,23 @@ namespace BaseConquest.Base
     }
     public sealed partial class BaseHud
     {
+        // BANDIT_01_WIN_01/02：匪首伏诛后搜主帐，拿到密信与金叶，南下返乡的路打通。
+        public void OpenBanditVictory()
+        {
+            owner.Change(next=>next.Demo.Flow.BanditCleared=true,"");
+            NpcDialogue(new[]{
+                new NpcLine("你","","匪首已伏诛。搜一下主帐，看看他们和王都来人留了什么书信。",true),
+                new NpcLine("搜出物证","","在火盆旁寻获半封未烧尽的密信与王都金叶——南下返回【"+BaseScriptNames.Village+"】的道路已彻底畅通！")
+            },new[]{new NpcReply("处理战果",()=>{ClosePanel();if(BaseBattleLoot.Pending(owner.State))OpenLoot();else OpenDemoStory();})});
+        }
         public void OpenBanditCampBriefing(Action proceed)
         {
             var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"你们倒敢找上门来。弟兄们，守住寨子！")};
             if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"这次我不会再小看你们。"));
             else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"巴图死在你们手里，这笔账得算清楚。"));
             lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"弓手看住两边，别让他们冲散阵形！"));
+            // BANDIT_01_START_02：顺带点出山道两侧的枯树与巨石可以拿来用（两者都有实际交互与伤害）。
+            lines.Add(new NpcLine("你","","山道狭窄，注意利用两侧的【枯树】阻路，击碎高处【巨石】可顺势碾碎敌阵！",true));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备攻营",proceed),new NpcReply("暂不进攻",ClosePanel)});
         }
         private bool OpenDemoFinaleInteraction(string id)
@@ -80,6 +94,21 @@ namespace BaseConquest.Base
             }
             if(id!="demo_broken_sword"&&id!="demo_survivor")return false;
             if(owner.State.Demo.Stage==BaseDemoStage.Finished){OpenDemoStory();return true;}
+            // HOME_01_ENTER：首次踏入废墟只播一次，随行者各追加一句。
+            // 断剑是搭档的佩剑，与古裔无关——迦兰只评论现场残留的织魂术气息，不碰断剑（规格 §2.4）。
+            if(BaseDemoFlow.Active(owner.State)&&!owner.State.Demo.Flow.HomeEnterSeen)
+            {
+                owner.Change(next=>next.Demo.Flow.HomeEnterSeen=true,"");
+                var s=owner.State;
+                var enterLines=new List<NpcLine>{
+                    new NpcLine("你","","［环顾四周焦黑的残垣］十天前还炊烟袅袅的村子……如今只剩断壁残垣了。",true)};
+                if(BaseAdventure.Following(s,"partner_farm"))enterLines.Add(new NpcLine("阿禾","ahe","［眼圈泛红］我家的老屋和麦场全塌了……但只要人还在，总有一天能重建起来。"));
+                if(BaseAdventure.Following(s,"partner_craft"))enterLines.Add(new NpcLine("阿铸","azhu","村口铁匠炉都被砸穿了。走，去西桥头看看，你同伴一定留下了线索！"));
+                if(s.Leaders.Any(l=>BaseAdventure.Following(s,l.Id)&&l.IsAlien))
+                    enterLines.Add(new NpcLine(BaseScriptNames.Galan,BaseScriptNames.Portrait("galan"),"这片焦土上还残留着织魂术的气息……下手的不是寻常部族。"));
+                NpcDialogue(enterLines.ToArray(),new[]{new NpcReply("走向西桥头",()=>{ClosePanel();OpenDemoFinaleInteraction(id);})});
+                return true;
+            }
             activeObject="demo-sword";interactionObject="";
             NpcDialogue(new[]{
                 new NpcLine("旁白","","在烧焦的桥桩与乱箭之间，半截断裂的剑刃正斜插在冻土里。"),

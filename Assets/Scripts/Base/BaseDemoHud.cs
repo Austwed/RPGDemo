@@ -81,6 +81,17 @@ namespace BaseConquest.Base
             }
             EndPanel();
         }
+        // TOWN_04_NPC_GUARD／MERCHANT／GIRL：镇上三个闲聊路人，只给世界观与线索，不推进流程。
+        public void OpenTownChat(string id)
+        {
+            activeObject=id;
+            string who=id=="town_guard"?BaseScriptNames.Guard:id=="town_peddler"?BaseScriptNames.Peddler:BaseScriptNames.Girl;
+            string art=id=="town_peddler"?BaseScriptNames.Portrait("merchant"):BaseScriptNames.Portrait(id=="town_guard"?"guard":"girl");
+            string text=id=="town_guard"?"爵士老爷嘴上硬气，其实镇里的卫队连守城墙都勉强，哪腾得出手管外头的荒滩。"
+                :id=="town_peddler"?"南边通往"+BaseScriptNames.Village+"的官道被【"+BaseScriptNames.Bandit+"】彻底封死了，听说他们最近发了一笔来路不明的横财。"
+                :"只要一靠近镇西的树林，家里的猎犬就会夹着尾巴狂叫，那座"+BaseScriptNames.Ruins+"底下一定藏着脏东西。";
+            NpcDialogue(new[]{new NpcLine(who,art,text)},new[]{new NpcReply("点点头走开",ClosePanel)});
+        }
         private void OpenDemoLord()
         {
             var state=owner.State;activeObject="demo-lord";interactionObject="town_quest";

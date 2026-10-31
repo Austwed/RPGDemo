@@ -298,6 +298,7 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(owner.State)&&id=="demo_rescuer"){OpenDemoStory();return;}
             if(id=="town_inn"){OpenInn();return;}
             if(BaseDemo.Active(owner.State)&&id=="town_quest"){OpenDemoLord();return;}
+            if(BaseDemo.Active(owner.State)&&(id=="town_guard"||id=="town_peddler"||id=="town_girl")){OpenTownChat(id);return;}
             if(BaseDemoPrologue.Village(owner.State)){if(!OpenIntroInteraction(id))OpenDemoStory();return;}
             if(OpenDemoInteraction(id))return;
             if(BaseWorldJourney.EntryForObject(owner.State,id)!=null||BaseDesignRoutes.ForObject(owner.State,id)!=null){owner.TravelConnection(id);return;}

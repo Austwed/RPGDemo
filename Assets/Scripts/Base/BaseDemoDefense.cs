@@ -11,12 +11,12 @@ namespace BaseConquest.Base
         public int Version, GearDay, GearCount, WarningDay, ArrivalDay, VictoryDay, RetryDay, BatuStoryDay;
         public bool WorkshopRepaired, BarracksRepaired;
         public string GearProduct="", BatuFate="", SecondOutcome="";
-        public bool MerchantDone,SecondBriefingSeen,BattleIntelSeen;public double MerchantX,MerchantY;
+        public bool MerchantDone,FirstBriefingSeen,SecondBriefingSeen,BattleIntelSeen;public double MerchantX,MerchantY;
         public List<BaseEnemyMember> MainForce=new List<BaseEnemyMember>();
         public BaseFacilityProtection Workshop;
         public ArmyDefinition Army;
         public BaseCampaignEvent Mission;
-        public BaseDemoDefenseProgress Copy()=>new BaseDemoDefenseProgress {Version=Version,GearDay=GearDay,GearCount=GearCount,WarningDay=WarningDay,ArrivalDay=ArrivalDay,VictoryDay=VictoryDay,RetryDay=RetryDay,BatuStoryDay=BatuStoryDay,WorkshopRepaired=WorkshopRepaired,BarracksRepaired=BarracksRepaired,GearProduct=GearProduct,BatuFate=BatuFate,SecondOutcome=SecondOutcome,MerchantDone=MerchantDone,SecondBriefingSeen=SecondBriefingSeen,BattleIntelSeen=BattleIntelSeen,MerchantX=MerchantX,MerchantY=MerchantY,MainForce=MainForce?.Select(unit=>unit.Copy()).ToList(),Workshop=Workshop?.Copy(),Army=Army?.Clone(),Mission=Mission?.Copy()};
+        public BaseDemoDefenseProgress Copy()=>new BaseDemoDefenseProgress {Version=Version,GearDay=GearDay,GearCount=GearCount,WarningDay=WarningDay,ArrivalDay=ArrivalDay,VictoryDay=VictoryDay,RetryDay=RetryDay,BatuStoryDay=BatuStoryDay,WorkshopRepaired=WorkshopRepaired,BarracksRepaired=BarracksRepaired,GearProduct=GearProduct,BatuFate=BatuFate,SecondOutcome=SecondOutcome,MerchantDone=MerchantDone,FirstBriefingSeen=FirstBriefingSeen,SecondBriefingSeen=SecondBriefingSeen,BattleIntelSeen=BattleIntelSeen,MerchantX=MerchantX,MerchantY=MerchantY,MainForce=MainForce?.Select(unit=>unit.Copy()).ToList(),Workshop=Workshop?.Copy(),Army=Army?.Clone(),Mission=Mission?.Copy()};
     }
     public static class BaseDemoDefense
     {
