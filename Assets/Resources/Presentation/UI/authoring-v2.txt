@@ -1,0 +1,1 @@
+UI authoring schema 2. Existing prefabs are never regenerated or overwritten automatically.

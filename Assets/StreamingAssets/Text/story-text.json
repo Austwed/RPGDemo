@@ -1,0 +1,179 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "key": "story.partner_farm.greeting",
+      "group": "伙伴／阿禾",
+      "text": "我在这里。要一起看看周围吗？",
+      "notes": "可编辑测试台词；不新增身世或剧情事实。未知新角色使用通用伙伴。"
+    },
+    {
+      "key": "story.partner_farm.chat.1",
+      "group": "伙伴／阿禾",
+      "text": "弓弦要稳，出手也要稳。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_farm.chat.2",
+      "group": "伙伴／阿禾",
+      "text": "停下来看看四周，总能找到合适的落脚点。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_farm.chat.3",
+      "group": "伙伴／阿禾",
+      "text": "准备好了再出发，我会照看附近。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_farm.jobs",
+      "group": "伙伴／阿禾",
+      "text": "要安排岗位吗？先看看现在的人员和产量。",
+      "notes": "任职子页开场；实际资格仍由经营规则判定。"
+    },
+    {
+      "key": "story.partner_craft.greeting",
+      "group": "伙伴／阿铸",
+      "text": "来了。接下来怎么安排？",
+      "notes": "可编辑测试台词；不新增身世或剧情事实。未知新角色使用通用伙伴。"
+    },
+    {
+      "key": "story.partner_craft.chat.1",
+      "group": "伙伴／阿铸",
+      "text": "长枪握稳了，脚下也不能乱。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_craft.chat.2",
+      "group": "伙伴／阿铸",
+      "text": "走一段，停一停，也好看看前面的路。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_craft.chat.3",
+      "group": "伙伴／阿铸",
+      "text": "需要我同行，招呼一声就行。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_craft.jobs",
+      "group": "伙伴／阿铸",
+      "text": "要安排岗位吗？先看看现在的人员和产量。",
+      "notes": "任职子页开场；实际资格仍由经营规则判定。"
+    },
+    {
+      "key": "story.partner_test.greeting",
+      "group": "伙伴／陈安",
+      "text": "我在听，你说。",
+      "notes": "可编辑测试台词；不新增身世或剧情事实。未知新角色使用通用伙伴。"
+    },
+    {
+      "key": "story.partner_test.chat.1",
+      "group": "伙伴／陈安",
+      "text": "近身时，站稳比着急出剑更要紧。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_test.chat.2",
+      "group": "伙伴／陈安",
+      "text": "这会儿安静，正好检查一下装备。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_test.chat.3",
+      "group": "伙伴／陈安",
+      "text": "路上多留一点余地，转身才方便。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_test.jobs",
+      "group": "伙伴／陈安",
+      "text": "要安排岗位吗？先看看现在的人员和产量。",
+      "notes": "任职子页开场；实际资格仍由经营规则判定。"
+    },
+    {
+      "key": "story.partner_default.greeting",
+      "group": "伙伴／通用伙伴",
+      "text": "你好，有什么安排？",
+      "notes": "可编辑测试台词；不新增身世或剧情事实。未知新角色使用通用伙伴。"
+    },
+    {
+      "key": "story.partner_default.chat.1",
+      "group": "伙伴／通用伙伴",
+      "text": "先看看周围，再决定往哪儿走。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_default.chat.2",
+      "group": "伙伴／通用伙伴",
+      "text": "稍作休整也不错。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_default.chat.3",
+      "group": "伙伴／通用伙伴",
+      "text": "需要同行时告诉我。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_default.jobs",
+      "group": "伙伴／通用伙伴",
+      "text": "要安排岗位吗？先看看现在的人员和产量。",
+      "notes": "任职子页开场；实际资格仍由经营规则判定。"
+    },
+    {
+      "key": "story.partner.invite_nearby",
+      "group": "伙伴／通用提示",
+      "text": "请走到伙伴旁对话，才能邀请或移出队伍。",
+      "notes": "既有对话提示；编辑文案不会改变交互距离。"
+    },
+    {
+      "key": "story.quest.town_defence.title",
+      "group": "任务／城镇防务",
+      "text": "营造入门 · 城镇防务委托",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.description",
+      "group": "任务／城镇防务",
+      "text": "“附近的军队威胁着往来商旅。协助我们恢复安全，城镇会提供营造图册，帮助你建设据点。”",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.objective",
+      "group": "任务／城镇防务",
+      "text": "目标：亲自赢得1场迎战／进攻，或让荒野据点归属己方。",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.reward",
+      "group": "任务／城镇防务",
+      "text": "奖励：营造图册 ×1 ＋ 营造入门剧情条件",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.accepted",
+      "group": "任务／城镇防务",
+      "text": "已接取城镇防务委托",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.delivered",
+      "group": "任务／城镇防务",
+      "text": "获得营造图册1本，已开放营造入门剧情条件",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.ready",
+      "group": "任务／城镇防务",
+      "text": "可以交付，确认后发放一次奖励。",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.claimed",
+      "group": "任务／城镇防务",
+      "text": "第{day}天已领取。图册使用后不会自动补发。",
+      "notes": "原有委托文案；不修改目标、奖励或事务。保留{day}占位符。"
+    }
+  ]
+}

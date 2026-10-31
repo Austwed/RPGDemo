@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d0ef37dd75d1ac47a2e1d12748bde65, type: 3}
+  m_Name: BuildingAppearances
+  m_EditorClassIdentifier:
+  Buildings:
+  - BuildingId: home
+    Texture: {fileID: 2800000, guid: 8c52a95657254075817305477275df89, type: 3}
+    Tint: {r: 1, g: 1, b: 1, a: 1}
+  - BuildingId: government
+    Texture: {fileID: 2800000, guid: b3e2a79ace6d4f7384a877efa8aa6281, type: 3}
+    Tint: {r: 1, g: 1, b: 1, a: 1}
+  - BuildingId: farm
+    Texture: {fileID: 2800000, guid: 17c8262353cc4a49871855ef83ec9407, type: 3}
+    Tint: {r: 1, g: 1, b: 1, a: 1}
+  - BuildingId: workshop
+    Texture: {fileID: 2800000, guid: 7747f6e9c74c4b808be714815545d555, type: 3}
+    Tint: {r: 1, g: 1, b: 1, a: 1}
+  - BuildingId: barracks
+    Texture: {fileID: 2800000, guid: bb40fa7acfc642f6ae6970f1175e9628, type: 3}
+    Tint: {r: 1, g: 1, b: 1, a: 1}
+  - BuildingId: watchtower
+    Texture: {fileID: 2800000, guid: 5b71ba9c223647a7a43dc556764f825f, type: 3}
+    Tint: {r: 1, g: 1, b: 1, a: 1}
