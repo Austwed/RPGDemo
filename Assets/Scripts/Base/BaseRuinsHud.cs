@@ -38,10 +38,10 @@ namespace BaseConquest.Base
         {
             if(BaseSceneRules.Active(owner.State)&&BaseSceneRules.Entrance(owner.State))
             {
-                NpcDialogue(new[]{new NpcLine("获救百姓甲","villager","出了那道门，脑袋里才真正清净。谢谢你，我们这就回城。"),new NpcLine("获救百姓乙","villager","领主大人一直在找我们。我们会把你救人的事告诉他，你也快些回去吧。")},new[]{new NpcReply("路上小心，我们城里见",owner.ReturnRescuedVillagers),new NpcReply("稍后再谈",ClosePanel)});return;
+                NpcDialogue(new[]{new NpcLine("获救百姓乙","villager","总算呼吸到外头的活气了！要不是你剑下留情，我们哥俩就交代在里头了。"),new NpcLine("获救百姓甲","villager","我们这就回灰岩镇面见霍恩爵士，一定在老爷面前替你好好美言几句！")},new[]{new NpcReply("路上小心，我们城里见",owner.ReturnRescuedVillagers),new NpcReply("稍后再谈",ClosePanel)});return;
             }
             bool first=id=="demo_rescued_1";
-            NpcDialogue(new[]{new NpcLine(first?"获救百姓甲":"获救百姓乙","villager",first?"控制消失后，我们终于能自己行动了。多谢你救命，我们会向领主说明一切。":"你若想重建营地，就去找领主吧。我们会替你说好话；这份恩情不会忘。")},new[]{new NpcReply("查看遗迹副本奖励",OpenRuinsReward,!string.IsNullOrEmpty(owner.State.Demo.RuinsRewards?.PendingBattleId)),new NpcReply("保重，尽快离开遗迹",ClosePanel)});
+            NpcDialogue(new[]{new NpcLine(first?"获救百姓甲":"获救百姓乙","villager",first?"啊……我这是在哪儿？刚才脑子里一片空白，多谢壮士救命！":"你若想重建营地，就去找领主吧。我们会替你说好话；这份恩情不会忘。")},new[]{new NpcReply("查看遗迹副本奖励",OpenRuinsReward,!string.IsNullOrEmpty(owner.State.Demo.RuinsRewards?.PendingBattleId)),new NpcReply("保重，尽快离开遗迹",ClosePanel)});
         }
         public void OpenRuinsReward()
         {

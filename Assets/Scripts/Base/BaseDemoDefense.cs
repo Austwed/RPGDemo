@@ -87,7 +87,7 @@ namespace BaseConquest.Base
         public static string RepairProblem(BaseState state,string id)
         {
             if(!Enabled(state)||!new[]{"workshop","barracks"}.Contains(id))return "此旧Demo没有设施／防守快照，请新开Demo";
-            if(!Delivered(state)||!state.Demo.Evidence.Contains(BaseDemoRuins.Permit))return "先向领主交付遗迹证据，取得建设许可";
+            if(!Delivered(state)||!state.Demo.Evidence.Contains(BaseDemoRuins.Permit))return id=="workshop"?"坍塌的旧工坊。未获灰岩领主许可，私自开炉锻造军械将被视作谋逆。":"荒废的校场围栏。需先前往灰岩镇高台，向霍恩爵士取得驻军与建设手令。";
             if(Repaired(state,id))return "已经修复，不会再次扣款";
             if(!BaseInteraction.At(state,"base","demo_fix_"+id)||BaseBattleLoot.Pending(state)||state.Muster.Parties.Count>0)return "请结束外出／战果，到建筑前修复点同层一格内确认";
             int materials=RepairMaterialCost(state),coins=RepairCoinCost(state);
@@ -124,8 +124,8 @@ namespace BaseConquest.Base
         {
             if(!Enabled(state))return "此旧Demo没有修复／防守快照；请新开Demo体验新增流程";
             if(SecondDue(state))return "第二波入侵已到达：前往营地外围迎战";
-            if(Won(state)){int arrival=SecondArrival(state);return (arrival>0?"距第二波来袭 "+Math.Max(0,arrival-state.Day)+" 天 · ":state.Demo.Defense.SecondOutcome=="damaged"?"营地受创 · ":"")+(BaseDemoFinale.Enabled(state)?BaseDemoFinale.Objective(state):"首次防守已完成：处理战果并返营补损");}
-            if(state.Demo.Stage==BaseDemoStage.DefenseWarned)return Due(state)?"入侵已到达：营地最左侧前往迎敌战场（不可休息）":"入侵预告：第"+NextArrival(state)+"天抵达（还剩"+(NextArrival(state)-state.Day)+"天），请整备";
+            if(Won(state)){int arrival=SecondArrival(state);return (arrival>0?"距黑鸦寨来袭 "+Math.Max(0,arrival-state.Day)+" 天 · ":state.Demo.Defense.SecondOutcome=="damaged"?"营防失守！匪众趁乱掠走部分物资，残敌将于明日卷土重来。 · ":"")+(BaseDemoFinale.Enabled(state)?BaseDemoFinale.Objective(state):"黑鸦寨匪众退去，营地守住了。他们没有伤筋动骨，这只是第一回——处理战果并返营补损");}
+            if(state.Demo.Stage==BaseDemoStage.DefenseWarned)return Due(state)?"黑鸦寨匪众已杀至营门外，此刻歇息无异引颈受戮，即刻前往迎敌战场！":"黑鸦寨探子嗅到了工坊开炉的动静，大批匪众"+(NextArrival(state)-state.Day)+"天后兵临断流滩！";
             if(BaseDemoFlow.Active(state)&&!BaseDemoFlow.Recruited(state))return "招募建设人手："+BaseDemoFlow.RecruitProgress(state);
             if(!state.Demo.Defense.WorkshopRepaired||!state.Demo.Defense.BarracksRepaired)return "建设许可已取得：修复工坊与兵营";
             return "安排工坊岗位，过日完成首次军需生产";

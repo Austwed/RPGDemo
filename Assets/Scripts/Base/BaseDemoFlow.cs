@@ -31,8 +31,8 @@ namespace BaseConquest.Base
         public static string RestProblem(BaseState s)
         {
             if(!Active(s)||s.Day<2||s.Demo.Flow.RestLessonDone||!Recruited(s)||!s.Demo.Defense.WorkshopRepaired||!s.Demo.Defense.BarracksRepaired)return "";
-            if(BaseEconomy.EligibleWorkers(s,"workshop")<1)return "经营教学：请先为工坊安排至少1名可工作的工人";
-            return BaseDailyDelta.Read(s).Food>0?"":"经营教学：请增加粮田工人，使预计粮食净增大于0";
+            if(BaseEconomy.EligibleWorkers(s,"workshop")<1)return "【工坊】尚无人手值守。外患将至，请先安排至少 1 名工人打制军需再行歇息。";
+            return BaseDailyDelta.Read(s).Food>0?"":"眼下口粮入不敷出（预计净增需大于 0）。先去【粮田】增派人手，免得弟兄们明早饿肚子。";
         }
         public static void Validate(BaseState s)
         {

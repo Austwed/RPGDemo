@@ -364,7 +364,7 @@ namespace BaseConquest.Base
         }
         public static bool Rest(BaseState s, int day, Func<string, BattleScenarioDocument> resolve,bool realtime=false)
         {
-            if(BaseDemoDefense.AnyDue(s))throw new InvalidOperationException("入侵已到达，必须主动迎战，不能休息跳过");
+            if(BaseDemoDefense.AnyDue(s))throw new InvalidOperationException("黑鸦寨匪众已杀至营门外，此刻歇息无异引颈受戮，即刻前往迎敌战场！");
             BaseEconomy.Validate(s); if (s.Aftermath.GameOver || s.Day != day || s.LastCompletedDay >= day) return false;
             if (s.Campaign.HasActiveBattle || s.Muster.Parties.Any(p => p.InCombat)) throw new InvalidOperationException("先结束当前战斗");
             foreach (var e in Due(s).ToArray())

@@ -14,7 +14,7 @@ namespace BaseConquest.Base
             {TickDemoMerchant(seconds);return;}
             if(State.Campaign.Location=="perimeter"&&!f.StakesNotice)
             {
-                if(Change(s=>{BaseDemoFlow.GrantStakes(s);s.Demo.Flow.StakesNotice=true;},"已获得20个拒马，可在战前布置")){Hud.OpenFieldReminder();}return;
+                if(Change(s=>{BaseDemoFlow.GrantStakes(s);s.Demo.Flow.StakesNotice=true;},"获得【成品拒马×20】")){Hud.OpenFieldReminder();}return;
             }
             if(BaseDemoFlow.Recruited(State)&&!f.RecruitmentNotice)
             {if(Change(s=>s.Demo.Flow.RecruitmentNotice=true,"招募建设人手已完成"))Hud.OpenRecruitmentComplete();return;}
@@ -66,16 +66,16 @@ namespace BaseConquest.Base
                 new[]{new NpcReply("记下敌营位置",()=>{if(owner.Change(next=>{next.Demo.Defense.MerchantDone=true;next.Campaign.Layouts.Single(map=>map.Region=="base").Objects.RemoveAll(obj=>obj.Id=="demo_merchant");},"已记录敌营位置与道路")){ClosePanel();owner.RefreshDemoRegion();}})});
         }
         public void OpenRecruitmentComplete()=>NpcDialogue(new[]{new NpcLine("建设人手已到齐","","剑士、弓兵和骑兵已招募。现在就能安排他们生产。已经通关的遗迹可以反复挑战，消耗体力领取副本奖励；部分遗迹会严重侵蚀普通士兵，进入前请查看警告并调整队伍。")},new[]{new NpcReply("回营地安排生产",ClosePanel)});
-        public void OpenSmithGoods()=>NpcDialogue(new[]{new NpcLine("阿铸","azhu","听说你已经查明了遗迹的事。我手里正好有些好货！新手武器、轻甲和重甲都备好了，去铁匠铺看看，有合适的就换上。")},new[]{new NpcReply("去看看新装备",ClosePanel)});
+        public void OpenSmithGoods()=>NpcDialogue(new[]{new NpcLine("老铁匠","chenan","听说你拔掉了古窟那颗毒钉！老头子连夜赶制了一批轻重甲胄和兵刃，快来看看！")},new[]{new NpcReply("去看看新装备",ClosePanel)});
         public void OpenFieldReminder()
         {
             bool azhu=BaseAdventure.Following(owner.State,"partner_craft");
-            NpcDialogue(new[]{new NpcLine(azhu?"阿铸":"战前准备",azhu?"azhu":"","可以先布置拒马。这里有20个成品，之后每个只需原料1。拒马会减慢步兵，挡住骑兵；无路可绕的骑兵会攻击拒马。开战前先安排好防线。")},new[]{new NpcReply("开始战前布置",()=>{ClosePanel();owner.ArmConstruction();}),new NpcReply("先查看战场",ClosePanel)});
+            NpcDialogue(new[]{new NpcLine(azhu?"阿铸":"战前准备",azhu?"azhu":"","获得【成品拒马×20】。战前可在右侧小菜单布置，能减速步卒、阻断骑兵。")},new[]{new NpcReply("开始战前布置",()=>{ClosePanel();owner.ArmConstruction();}),new NpcReply("先查看战场",ClosePanel)});
         }
         public void OpenAheFarmOffer(bool recruited)
         {
-            var lines=new[]{new NpcLine("阿禾","ahe","我叫阿禾，种地是我的拿手活。让我管理粮田，产量能提高10%。要不要带我一起走，或者让我留下照看粮田，由你安排。"),new NpcLine("角色特性","","打开背包，点击角色详情可以查看特性与实际效果。安排管理员会让该队员退出随行，小队和生产岗位可按需要调整。")};
-            NpcDialogue(lines,new[]{new NpcReply(recruited?"我会查看你的特性":"邀请阿禾加入",()=>{if(recruited)ClosePanel();else owner.JoinDemoPartner("partner_farm");}),new NpcReply("这次先不安排",ClosePanel)});
+            var lines=new[]{new NpcLine("阿禾","ahe","看你往田里派了人手，有件事我可得毛遂自荐！"),new NpcLine("阿禾","ahe","我从小跟庄稼打交道，要是让我当粮田管事，收成还能多一成！"),new NpcLine("角色特性","","可在角色详情页查看阿禾特性【种植专精：粮田产出 +10%】。任命管事将退出随行小队，次日结算起生效。")};
+            NpcDialogue(lines,new[]{new NpcReply(recruited?"我会查看你的特性":"任命阿禾为粮田管事",()=>{if(recruited)ClosePanel();else owner.JoinDemoPartner("partner_farm");}),new NpcReply("这次先不安排",ClosePanel)});
         }
     }
 }
