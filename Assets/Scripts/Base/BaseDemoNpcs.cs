@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 namespace BaseConquest.Base
 {
@@ -58,6 +59,17 @@ namespace BaseConquest.Base
             return optional?"?":"";
         }
         private static BaseMapObject[] RescuedTown(BaseState s)=>s.Demo.Rescue?.Stage==3?new[]{new BaseMapObject("demo_rescued_1","获救百姓甲 · 交谈",19.8,9.5,.5,.5,false,"demo-npc:rescued:1","villager","npc"),new BaseMapObject("demo_rescued_2","获救百姓乙 · 交谈",18.2,9.5,.5,.5,false,"demo-npc:rescued:2","villager","npc")}:Array.Empty<BaseMapObject>();
+        // 旧档兼容：三个镇上闲聊 NPC 是在 156f189 才写进 town 布局的，而布局随存档序列化，
+        // 旧档里不存在。这里参照 MarketMerchant 的运行时注入先例，缺哪个补哪个，新档不受影响。
+        public static IEnumerable<BaseMapObject> TownChatCompat(BaseState state,string region)
+        {
+            if(!BaseDemo.Active(state)||(region??state.Campaign.Location)!="town")yield break;
+            var objects=BaseSpatial.Layout(state,"town")?.Objects;
+            if(objects==null)yield break;
+            if(objects.All(o=>o.Id!="town_guard"))yield return new BaseMapObject("town_guard","镇卫兵 · 交谈",21,4,.6,.6,false,"demo-npc:town_guard","villager","npc");
+            if(objects.All(o=>o.Id!="town_peddler"))yield return new BaseMapObject("town_peddler","行商老莫 · 交谈",5.5,4.5,.6,.6,false,"demo-npc:town_peddler","merchant","npc");
+            if(objects.All(o=>o.Id!="town_girl"))yield return new BaseMapObject("town_girl","镇民小芸 · 交谈",15,11.5,.6,.6,false,"demo-npc:town_girl","villager","npc");
+        }
         public static BaseMapObject[] Additional(BaseState state)
         {
             if(!BaseDemo.Active(state))return Array.Empty<BaseMapObject>();
