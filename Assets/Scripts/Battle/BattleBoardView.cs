@@ -465,7 +465,7 @@ namespace BaseConquest.Battle
             foreach(var p in new[] {a,b}) if(board.Contains(p)){int i=p.Z*board.Width+p.X;tileColors[i]=new Color(.1f,.55f,.32f);tiles[i].GetPropertyBlock(properties);properties.SetColor("_BaseColor",tileColors[i]);tiles[i].SetPropertyBlock(properties);}visionRevision=-1;
         }
         private BattleVision renderedVision;
-        private Material heightFogMaterial;private Mesh heightFogMesh;
+        private Material heightFogMaterial;private Mesh heightFogMesh;private readonly Dictionary<int,Mesh> rampFogMeshes=new Dictionary<int,Mesh>();
         public void RefreshVision(BattleVision vision, BattleSide side, bool showMapEditor, bool reveal = false)
         {
             if (renderedVision==vision&&visionRevision == vision.Revision && visionSide == side && editingMap == showMapEditor && visionReveal == reveal) return;
@@ -479,14 +479,24 @@ namespace BaseConquest.Battle
                     bool known=showMapEditor||vision.TerrainVisible(side,p);gridKnown[index]=known;
                     tiles[index].enabled=known;fogTiles[index].gameObject.SetActive(!visible);
                     if(heightFogMaterial==null){heightFogMaterial=new Material(Resources.Load<Shader>("Presentation/GreyFog"));heightFogMesh=new Mesh {vertices=new[]{new Vector3(-.5f,0,-.5f),new Vector3(-.5f,0,.5f),new Vector3(.5f,0,.5f),new Vector3(.5f,0,-.5f)},triangles=new[]{0,1,2,0,2,3}};heightFogMesh.RecalculateBounds();}
-                    fogTiles[index].GetComponent<MeshFilter>().sharedMesh=heightFogMesh;fogTiles[index].sharedMaterial=heightFogMaterial;
-                    fogTiles[index].transform.position=World(p,board)+Vector3.up*(.03f+(ObliqueExploration?ExplorationHeight(p.X+.5,p.Z+.5):0));fogTiles[index].transform.localScale=new Vector3(CellSize,1,CellSize);
+                    bool sloped=ObliqueExploration&&board.Cell(p).Ramp!=RampAxis.None;
+                    var fogMesh=heightFogMesh;
+                    if(sloped)
+                    {
+                        if(!rampFogMeshes.TryGetValue(index,out fogMesh)){fogMesh=new Mesh{name="RampFog_"+index};fogMesh.vertices=heightFogMesh.vertices;fogMesh.triangles=heightFogMesh.triangles;rampFogMeshes[index]=fogMesh;}
+                        var vertices=fogMesh.vertices;
+                        for(int corner=0;corner<vertices.Length;corner++)vertices[corner].y=BaseConquest.Presentation.BaseTerrainView.Height(board,p,vertices[corner].x+.5f,vertices[corner].z+.5f);
+                        fogMesh.vertices=vertices;fogMesh.RecalculateBounds();
+                    }
+                    fogTiles[index].GetComponent<MeshFilter>().sharedMesh=fogMesh;fogTiles[index].sharedMaterial=heightFogMaterial;
+                    fogTiles[index].transform.position=World(p,board)+Vector3.up*(.03f+(ObliqueExploration&&!sloped?ExplorationHeight(p.X+.5,p.Z+.5):0));fogTiles[index].transform.localScale=new Vector3(CellSize,1,CellSize);
                     properties.Clear();properties.SetColor("_BaseColor",new Color(.4f,.42f,.44f,known?.3f:1));fogTiles[index].SetPropertyBlock(properties);
                     properties.Clear();properties.SetColor("_BaseColor",tileColors[index]);tiles[index].SetPropertyBlock(properties);
                     if(wallCaps[index]!=null)wallCaps[index].SetActive(known&&DisplayCell(p).Terrain==TerrainKind.Wall);
                     continue;
                 }
                 bool deploy = vision.DeploymentKnown(side, p);
+                fogTiles[index].GetComponent<MeshFilter>().sharedMesh=cubeMesh;
                 gridKnown[index]=visible||deploy||showMapEditor;
                 tiles[index].enabled = visible || deploy || reveal || showMapEditor; fogTiles[index].gameObject.SetActive(!visible && !deploy);
                 if (reveal) { fogTiles[index].transform.position = World(p, board) + Vector3.up * 1.3f; fogTiles[index].transform.localScale = new Vector3(CellSize - 0.04f, 0.025f, CellSize - 0.04f); }
@@ -558,7 +568,7 @@ namespace BaseConquest.Battle
             }
             texture.SetPixels(colors); texture.Apply(); return texture;
         }
-        public void Dispose() {DestroyObject(heightFogMaterial);DestroyObject(heightFogMesh);foreach(var m in dungeonMaterials.Values)DestroyObject(m); elevationView?.Dispose();groundEdges?.Dispose();fieldworkArt?.Dispose();DestroyObject(baseGrassMaterial);DestroyObject(baseRaisedGrassMaterial);DestroyObject(baseRaisedRoadMaterial);DestroyObject(baseCliffMaterial);DestroyObject(baseStairMaterial);foreach(var mesh in buildingMeshes)DestroyObject(mesh);foreach(var mesh in raisedMeshes)DestroyObject(mesh);foreach(var skin in buildingMaterials.Values)DestroyObject(skin);foreach(var skin in surfaceMaterials.Values)DestroyObject(skin);DestroyObject(buildingMaterial);DestroyObject(buildingTexture);DestroyObject(gridMesh); DestroyObject(swampMaterial); DestroyObject(swampTexture); DestroyObject(translucentFog); DestroyObject(waterMaterial); DestroyObject(wallMaterial); DestroyObject(waterTexture); DestroyObject(wallTexture); }
+        public void Dispose() {DestroyObject(heightFogMaterial);DestroyObject(heightFogMesh);foreach(var mesh in rampFogMeshes.Values)DestroyObject(mesh);foreach(var m in dungeonMaterials.Values)DestroyObject(m); elevationView?.Dispose();groundEdges?.Dispose();fieldworkArt?.Dispose();DestroyObject(baseGrassMaterial);DestroyObject(baseRaisedGrassMaterial);DestroyObject(baseRaisedRoadMaterial);DestroyObject(baseCliffMaterial);DestroyObject(baseStairMaterial);foreach(var mesh in buildingMeshes)DestroyObject(mesh);foreach(var mesh in raisedMeshes)DestroyObject(mesh);foreach(var skin in buildingMaterials.Values)DestroyObject(skin);foreach(var skin in surfaceMaterials.Values)DestroyObject(skin);DestroyObject(buildingMaterial);DestroyObject(buildingTexture);DestroyObject(gridMesh); DestroyObject(swampMaterial); DestroyObject(swampTexture); DestroyObject(translucentFog); DestroyObject(waterMaterial); DestroyObject(wallMaterial); DestroyObject(waterTexture); DestroyObject(wallTexture); }
         public void ShowOutline(GridPosition from, GridPosition to, bool visible)
         {
             outline.enabled = visible; if (!visible) return;

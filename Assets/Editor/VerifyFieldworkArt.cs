@@ -44,19 +44,22 @@ namespace BaseConquest.Editor
                     var mesh=edge.GetComponent<MeshFilter>().sharedMesh;Need(mesh.vertexCount==4,"道路过渡夹具应只生成一片");
                     int high=axis==RampAxis.EastWest?3:1;
                     Need(Mathf.Abs(mesh.vertices[0].y-.035f)<.001f&&Mathf.Abs(mesh.vertices[high].y-(BaseTerrainView.LevelHeight+.035f))<.001f,"道路过渡层没有按坡道方向贴合两端");
+                    var fog=boardView.Root.transform.Find("Unexplored_4_4");var cube=fog.GetComponent<MeshFilter>().sharedMesh;
                     var vision=new BattleVision(board);boardView.RefreshVision(vision,BattleSide.A,false);Need(mesh.GetTriangles(1).Length==0,"未知地形的道路过渡层不应透出迷雾");
+                    var fogMesh=fog.GetComponent<MeshFilter>().sharedMesh;Need(Mathf.Abs(fogMesh.vertices[0].y)<.001f&&Mathf.Abs(fogMesh.vertices[high].y-BaseTerrainView.LevelHeight)<.001f,"坡道迷雾没有贴合高低端");
                     var known=new bool[board.Width*board.Height];known[slope.Z*board.Width+slope.X]=true;vision.RememberTerrain(BattleSide.A,known);
                     boardView.RefreshVision(vision,BattleSide.A,false);Need(mesh.GetTriangles(1).Length==6,"已知地形的道路过渡层未恢复");
                     boardView.SetCombatMode(true);Need(mesh.vertices.All(v=>Mathf.Abs(v.y-.035f)<.001f),"战斗平面视图的道路过渡层未降回地面");
                     var legacy=new BattleSimulation(new BattleScenario{Board=board,FogEnabled=true,HeightVision=false});
                     boardView.RefreshVision(legacy.Vision,BattleSide.A,false);Need(mesh.GetTriangles(1).Length==0,"普通迷雾未隐藏未知道路过渡层");
+                    Need(fog.GetComponent<MeshFilter>().sharedMesh==cube,"从高度迷雾切换后普通迷雾未恢复立方体网格");
                     boardView.RefreshVision(legacy.Vision,BattleSide.A,false,true);Need(mesh.GetTriangles(1).Length==6,"显示全图未恢复道路过渡层");
                     boardView.SetCombatMode(false);Need(Mathf.Abs(mesh.vertices[high].y-(BaseTerrainView.LevelHeight+.035f))<.001f,"恢复探索后道路过渡层高度错误");
                     Need(JsonUtility.ToJson(board)==before,"道路过渡层改变了棋盘数据");
                 }
                 finally{boardView?.Dispose();UnityEngine.Object.DestroyImmediate(source);UnityEngine.Object.DestroyImmediate(host);}
             }
-            Directory.CreateDirectory("Logs");File.WriteAllText("Logs/road-edge-verification.txt","PASS: east-west and north-south ramp heights, fog visibility, flat combat view, exploration restore, board unchanged.\n");Debug.Log("[VerifyRoadEdges] PASS");
+            Directory.CreateDirectory("Logs");File.WriteAllText("Logs/road-edge-verification.txt","PASS: east-west and north-south ramp and fog heights, legacy fog mesh restore, edge visibility, view switching, board unchanged.\n");Debug.Log("[VerifyRoadEdges] PASS");
         }
         public static void RunInn()
         {
