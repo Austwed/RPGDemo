@@ -12,7 +12,8 @@ namespace BaseConquest.RealtimePrototype
             if(d.Goal!=u.MoveGoal||d.Revision!=Arena.NavigationRevision){d.Route.Clear();d.Goal=u.MoveGoal;d.Revision=Arena.NavigationRevision;}
             while(d.Route.Count>0&&d.Route.Peek()==u.Cell)d.Route.Dequeue();
             if(d.Route.Count>0){int next=d.Route.Peek();if(Arena.CanStep(u.Cell,next)&&CanTurnStep(u,u.Cell,next,u.Facing,true))return next;d.Route.Clear();}
-            if(u.BlockedFor<.6||Elapsed<d.RetryAt)return -1;d.RetryAt=Elapsed+.6+u.Id%7*.03;
+            // 骑兵占两格，一旦堵住恢复得比步兵慢得多，给它更短的等待窗口，更早开始绕行。
+            if(u.BlockedFor<(u.FootprintLength==2?.2:.6)||Elapsed<d.RetryAt)return -1;d.RetryAt=Elapsed+.6+u.Id%7*.03;
             // Dynamic occupancy is consulted only after a stable wait; ordinary routing stays shared.
             if(u.FootprintLength==2){foreach(int cell in PlanFootprint(u,u.Cell,u.MoveGoal,true))d.Route.Enqueue(cell);}
             else

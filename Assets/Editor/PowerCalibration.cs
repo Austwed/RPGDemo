@@ -26,6 +26,8 @@ namespace BaseConquest.Editor
         private static bool diag;
         // 队长拴绳半径（CommanderLoadout.AttackRange，默认9）。调大用于验证「骑兵够不到敌人」是否由它造成。
         private static int lead = 9;
+        // 骑兵特权档位：off=全关（历史基线）／priority=只给寻路优先级／ally=优先级+挤开同阵营／all=优先级+敌我一并挤开
+        private static string shove = "off";
         private static readonly List<string> Rows = new List<string>();
 
         // 单位级诊断：逐帧采样，回答「这个单位到底有没有在打、有没有在走」。
@@ -57,11 +59,14 @@ namespace BaseConquest.Editor
                 only = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--only="))?.Substring("--only=".Length) ?? "";
                 diag = Environment.GetCommandLineArgs().Any(a => a == "--diag");
                 lead = int.TryParse(Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--lead="))?.Substring("--lead=".Length), out int parsed) ? parsed : 9;
+                shove = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--shove="))?.Substring("--shove=".Length) ?? "off";
+                if (!new[] { "off", "priority", "ally", "all" }.Contains(shove)) throw new ArgumentException("未知骑兵档位：" + shove);
                 if (lead != 9) Debug.Log("[PowerCalibration] 队长拴绳半径改为 " + lead + "（默认9）");
+                Debug.Log("[PowerCalibration] 骑兵特权档位 " + shove);
                 if (only != "") Debug.Log("[PowerCalibration] 只跑前缀 " + only);
                 var header = "match,swap,seed,outcome,seconds,aAlive,bAlive,aHp,bHp,aEscaped,bEscaped,oldA,oldB"
                     + ",aM,aR,aC,aH,aLvl,aProf,aSkill,aTrait,bM,bR,bC,bH,bLvl,bProf,bSkill,bTrait"
-                    + ",newWin,newA,newB,newSec";
+                    + ",newWin,newA,newB,newSec,shove,shoveMoves,shovedUnits";
                 Rows.Add(header);
                 int total = 0, done = 0, failed = 0;
                 foreach (var match in Matches().Where(m => only == "" || m.Name.StartsWith(only)))
@@ -155,6 +160,7 @@ namespace BaseConquest.Editor
                 session.Battle.Soldiers.Where(u => u.Side == BattleSide.A).ToList(),
                 session.Battle.Soldiers.Where(u => u.Side == BattleSide.B).ToList(), rules);
             var run = new RealtimeCampaignBattle(session);
+            ApplyShove(run.Model);
             run.Model.SetPaused(false);
             int cap = (scenario.MaxRounds + 1) * 4;
             var diagMap = diag ? new Dictionary<int, UnitDiag>() : null;
@@ -198,13 +204,29 @@ namespace BaseConquest.Editor
                 aEscaped.ToString(), bEscaped.ToString(), oldA.ToString("0.000"), oldB.ToString("0.000"),
                 first.Melee.ToString(), first.Ranged.ToString(), first.Cavalry.ToString(), first.Heroes.ToString(), first.Level.ToString(), first.Profession.ToString(), first.Skill, first.Trait,
                 second.Melee.ToString(), second.Ranged.ToString(), second.Cavalry.ToString(), second.Heroes.ToString(), second.Level.ToString(), second.Profession.ToString(), second.Skill, second.Trait,
-                (forecast.AllyWins ? "SideAWin" : "SideBWin"), forecast.AllySurvival.ToString("0.000"), forecast.EnemySurvival.ToString("0.000"), forecast.Seconds.ToString("0.00")
+                (forecast.AllyWins ? "SideAWin" : "SideBWin"), forecast.AllySurvival.ToString("0.000"), forecast.EnemySurvival.ToString("0.000"), forecast.Seconds.ToString("0.00"),
+                shove, run.Model.ShoveMoves.ToString(), run.Model.Units.Sum(u => u.ShovedTimes).ToString()
             }));
             Debug.Log("[PowerCalibration] " + m.Name + (swap ? " 镜像" : " 正序") + " → " + outcome
                 + " 旧战力 " + oldA.ToString("0.00") + " vs " + oldB.ToString("0.00")
-                + " 血量比 " + (aNow / Math.Max(1e-9, aFull)).ToString("0.00") + " / " + (bNow / Math.Max(1e-9, bFull)).ToString("0.00"));
+                + " 血量比 " + (aNow / Math.Max(1e-9, aFull)).ToString("0.00") + " / " + (bNow / Math.Max(1e-9, bFull)).ToString("0.00")
+                + " 挤开" + run.Model.ShoveMoves + "次" + ShoveReason(run.Model));
         }
 
+        private static string ShoveReason(RealtimeBattlePrototype model)
+        {
+            if (model.ShoveStats.Count == 0) return "";
+            var parts = new List<string>();
+            foreach (var kv in model.ShoveStats) parts.Add(kv.Key + kv.Value);
+            parts.Sort(StringComparer.Ordinal);
+            return " 原因" + string.Join(" ", parts.ToArray());
+        }
+        private static void ApplyShove(RealtimeBattlePrototype model)
+        {
+            model.CavalryPathPriority = shove != "off";
+            model.CavalryShove = shove == "ally" || shove == "all";
+            model.ShoveAlliesOnly = shove != "all";
+        }
         private static void Sample(RealtimeCampaignBattle run, Dictionary<int, UnitDiag> map)
         {
             foreach (var u in run.Model.Units)
@@ -244,7 +266,8 @@ namespace BaseConquest.Editor
                         + " 前摇帧" + d.WindupFrames + " 无目标帧" + d.NoTargetFrames + " 无去向帧" + d.NoGoalFrames
                         + " 被堵帧" + d.StuckFrames + " 自锁帧" + d.GoalHereFrames
                         + " 走了" + d.Distance.ToString("0.0") + " 最近敌距" + (double.IsPositiveInfinity(d.MinEnemyGap) ? "从未" : d.MinEnemyGap.ToString("0.00"))
-                        + " 出手" + d.Attacks + " 命中" + d.Landed + " 攻击力合计" + d.Damage.ToString("0"));
+                        + " 出手" + d.Attacks + " 命中" + d.Landed + " 攻击力合计" + d.Damage.ToString("0")
+                        + " 被挤" + (run.Model.Units.FirstOrDefault(x => x.Id == u.Id + 1)?.ShovedTimes ?? 0) + "次");
                 }
             }
         }
