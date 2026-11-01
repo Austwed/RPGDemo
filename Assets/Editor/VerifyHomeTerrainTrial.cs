@@ -110,7 +110,15 @@ namespace BaseConquest.Editor
                 Need(Math.Abs(probe.SurfaceLevel(slope,0,.5))<1e-6&&Math.Abs(probe.SurfaceLevel(slope,1,.5)-1)<1e-6,"东西坡道夹具未从H0连接至H1");
                 boardView=new BattleBoardView(probe,host.transform,skinSource,skinSource){FlatView=true,ObliqueBaseView=true};
                 boardView.SetCombatMode(false);boardView.UpdateCamera(0,0);boardView.Zoom(.65f);
-                var pawn=new GameObject("ProbePawn"){hideFlags=HideFlags.HideAndDontSave};pawn.transform.SetParent(boardView.Root.transform,false);pawn.transform.localPosition=new Vector3(1.5f,.25f,-2.5f);
+                var pawn=new GameObject("ProbePawn"){hideFlags=HideFlags.HideAndDontSave};pawn.transform.SetParent(boardView.Root.transform,false);
+                var pawnView=pawn.AddComponent<BattlePawn2D>();pawnView.Initialize(new BattleSoldier{Kind=SoldierKind.Hero,Stats=new SoldierStats{Health=100},Health=100},skinSource);
+                Need(pawnView.EnablePlayerHero("player"),"坡道夹具缺少主角图集");pawnView.UprightExploration=true;pawn.transform.localRotation=BattleBoardView.BasePawnTilt;pawn.transform.localScale=new Vector3(1,1,2);
+                foreach(float x in new[]{0f,.5f,1f})
+                {
+                    var feet=BattleBoardView.World(slope,probe)+new Vector3((x-.5f)*BattleBoardView.CellSize,BaseConquest.Presentation.BaseTerrainView.Height(probe,slope,x,.5f),0);
+                    pawnView.SyncExploration(feet,Color.white);Need(Mathf.Abs(pawn.transform.position.y-feet.y)<.001f,"角色坡道脚点高度与地面不一致");
+                }
+                var mid=BattleBoardView.World(slope,probe)+Vector3.up*BaseConquest.Presentation.BaseTerrainView.Height(probe,slope,.5f,.5f);pawnView.SyncExploration(mid,Color.white);
                 boardView.Refresh();
                 Need(Top(boardView,0,0)==BaseConquest.Presentation.MapSurfaceView.Texture(GroundSurface.Cobble),"原版石板高台未使用石板路面");
                 Need(Top(boardView,9,6)==BaseConquest.Presentation.MapSurfaceView.Texture(GroundSurface.DirtPath),"原版泥径高台未使用泥径路面");
@@ -138,6 +146,7 @@ namespace BaseConquest.Editor
                 report.AppendLine("PASS board JSON, camera, zoom, scene transforms unchanged across trail on/off/on/off.");
                 report.AppendLine("PASS material set fully restored to pre-trial textures, scales and offsets.");
                 report.AppendLine("PASS raised cobble and dirt surfaces follow original/trial textures and restore; ramps retain stair texture.");
+                report.AppendLine("PASS runtime player view sampled at ramp low, middle and high foot heights (edit-mode fixture).");
                 var sides=new[]{"wallMaterial","waterMaterial","swampMaterial"};
                 var changed=new List<string>();var constant=new List<string>();
                 foreach(var pair in Skins(boardView))
