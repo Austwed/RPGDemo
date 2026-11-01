@@ -11,6 +11,7 @@ namespace BaseConquest.Presentation
         private readonly Transform root;
         private readonly Material trap,sandbag;
         private readonly Dictionary<int,(GameObject Object,Mesh Mesh)> items=new Dictionary<int,(GameObject,Mesh)>();
+        private bool[] known;
         public FieldworkArtView(BattleBoard board,Transform parent,Material source)
         {
             this.board=board;root=new GameObject("FieldworkArt").transform;root.SetParent(parent,false);
@@ -41,8 +42,13 @@ namespace BaseConquest.Presentation
                 float u0=isSandbag?Mathf.Clamp(segment,0,2)/3f:0,u1=isSandbag?(Mathf.Clamp(segment,0,2)+1)/3f:1;
                 item.Mesh.uv=new[]{new Vector2(u0,0),new Vector2(u0,1),new Vector2(u1,1),new Vector2(u1,0)};
                 item.Mesh.triangles=new[]{0,1,2,0,2,3};item.Mesh.RecalculateNormals();item.Mesh.RecalculateBounds();
-                item.Object.transform.localPosition=BattleBoardView.World(p,board);var renderer=item.Object.GetComponent<MeshRenderer>();renderer.sharedMaterial=material;renderer.sortingOrder=-31000;item.Object.SetActive(true);
+                item.Object.transform.localPosition=BattleBoardView.World(p,board);var renderer=item.Object.GetComponent<MeshRenderer>();renderer.sharedMaterial=material;renderer.sortingOrder=-31000;renderer.enabled=known==null||known[index];item.Object.SetActive(true);
             }
+        }
+        public void SetKnown(bool[] visible)
+        {
+            known=visible;
+            foreach(var item in items)item.Value.Object.GetComponent<MeshRenderer>().enabled=known==null||known[item.Key];
         }
         public void Dispose(){foreach(var item in items.Values)BattleBoardView.DestroyObject(item.Mesh);BattleBoardView.DestroyObject(trap);BattleBoardView.DestroyObject(sandbag);BattleBoardView.DestroyObject(root.gameObject);}
     }

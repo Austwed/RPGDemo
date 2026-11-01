@@ -128,6 +128,7 @@ namespace BaseConquest.Battle
         public void SetCombatMode(bool combat,bool preserveView=false)
         {
             if(combat&&!CombatMode&&!preserveView){zoomFactor=1;panOffset=Vector3.zero;}
+            fieldworkArt?.SetKnown(null);
             CombatMode=combat; SelectCell(null); Refresh();
             foreach(var fog in fogTiles) fog.gameObject.SetActive(false);
             foreach(var tile in tiles) tile.enabled=true;
@@ -501,6 +502,7 @@ namespace BaseConquest.Battle
             }
             RebuildGridEdges();
             elevationView?.Rebuild(reveal&&!vision.HeightMode ? null : gridKnown);
+            fieldworkArt?.SetKnown(reveal&&!vision.HeightMode ? null : gridKnown);
         }
         private Bounds TileBounds(GridPosition point)
         {
