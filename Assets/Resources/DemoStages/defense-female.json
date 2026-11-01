@@ -708,7 +708,7 @@
         ],
         "Parties": [],
         "ReturnedIds": [
-            "904dd9fc303140788d51cd1cce48f13a"
+            "062bd973c4cf4ff793965a302398e21d"
         ],
         "AppliedAppendIds": []
     },
@@ -745,7 +745,7 @@
             }
         ],
         "FinishedIds": [
-            "85306e7b10f44071a3d8ae82186733e8"
+            "a9f3d97160f743b8b06e7c6a74a29579"
         ]
     },
     "Campaign": {
@@ -831,13 +831,26 @@
                             "Version": 1,
                             "Id": "demo:ruins:rescue:spawn:0:unit:0",
                             "TemplateId": "captain_normal_warrior",
-                            "SkillId": "heal",
+                            "SkillId": "inspire",
                             "HomeBaseId": "base",
                             "Profession": 0,
                             "Level": 1,
                             "Story": false,
                             "AutoSkill": true,
-                            "Traits": []
+                            "Traits": [
+                                {
+                                    "Id": "hasty",
+                                    "Value": 4.0
+                                },
+                                {
+                                    "Id": "appraiser",
+                                    "Value": 4.0
+                                },
+                                {
+                                    "Id": "tough",
+                                    "Value": 6.0
+                                }
+                            ]
                         },
                         "Kind": 2,
                         "CommanderSlot": 0,
@@ -1078,17 +1091,17 @@
         ],
         "SettledIds": [
             "demo:smith:parting-gift",
-            "85306e7b10f44071a3d8ae82186733e8",
-            "85306e7b10f44071a3d8ae82186733e8:ruins-reward"
+            "a9f3d97160f743b8b06e7c6a74a29579",
+            "a9f3d97160f743b8b06e7c6a74a29579:ruins-reward"
         ],
         "Reports": [
             {
-                "BattleId": "85306e7b10f44071a3d8ae82186733e8",
+                "BattleId": "a9f3d97160f743b8b06e7c6a74a29579",
                 "EventId": "demo:ruins:rescue",
                 "Title": "沉眠古窟 · 制服受控者并击败控制来源",
                 "Outcome": "SideAWin",
                 "Day": 1,
-                "Rounds": 14,
+                "Rounds": 13,
                 "Deployed": 0,
                 "Killed": 0,
                 "Missing": 0,
@@ -1109,7 +1122,7 @@
                 "EnemyDispersed": 0,
                 "Passive": false,
                 "Realtime": true,
-                "Seconds": 14.083333333333613
+                "Seconds": 13.083333333333563
             }
         ],
         "HasActiveBattle": false,
@@ -7718,7 +7731,6 @@
             "Difficulty": {
                 "Version": 1,
                 "Preset": "normal",
-                "TestPersuasion": true,
                 "LeaderDeath": 0.05,
                 "TroopDeath": 0.65,
                 "LeaderRecruit": 0.2,
@@ -7816,7 +7828,7 @@
                 "BaseInterval": 1.0,
                 "MinimumInterval": 0.2,
                 "ArrowSpeed": 14.0,
-                "HeightAdvantage": 0.5,
+                "HeightAdvantage": 2.0,
                 "HealThreshold": 0.7,
                 "AttackEquipmentScale": 0.12,
                 "HealthEquipmentScale": 0.1,
@@ -76856,8 +76868,8 @@
                         "VisualOnly": false,
                         "X": 11.0,
                         "Y": 3.0,
-                        "Width": 2.0,
-                        "Height": 1.5,
+                        "Width": 3.2,
+                        "Height": 1.9668100799016597,
                         "Blocks": true,
                         "Shape": "",
                         "Rotation": 0
@@ -76886,8 +76898,8 @@
                         "AssetId": "",
                         "Kind": "",
                         "VisualOnly": false,
-                        "X": 5.5,
-                        "Y": 4.5,
+                        "X": 14.0,
+                        "Y": 7.75,
                         "Width": 0.6,
                         "Height": 0.6,
                         "Blocks": false,
@@ -77296,7 +77308,6 @@
         "Difficulty": {
             "Version": 1,
             "Preset": "normal",
-            "TestPersuasion": true,
             "LeaderDeath": 0.05,
             "TroopDeath": 0.65,
             "LeaderRecruit": 0.2,
@@ -77306,8 +77317,8 @@
         },
         "Prisoners": [
             {
-                "Id": "85306e7b10f44071a3d8ae82186733e8:0",
-                "BattleId": "85306e7b10f44071a3d8ae82186733e8",
+                "Id": "a9f3d97160f743b8b06e7c6a74a29579:0",
+                "BattleId": "a9f3d97160f743b8b06e7c6a74a29579",
                 "Name": "乙方迦兰",
                 "Status": "released",
                 "CaptureSource": "沉眠古窟 · 制服受控者并击败控制来源",
@@ -77318,13 +77329,26 @@
                     "Version": 1,
                     "Id": "demo:ruins:rescue:spawn:0:unit:0",
                     "TemplateId": "captain_normal_warrior",
-                    "SkillId": "heal",
+                    "SkillId": "inspire",
                     "HomeBaseId": "base",
                     "Profession": 0,
                     "Level": 1,
                     "Story": false,
                     "AutoSkill": true,
-                    "Traits": []
+                    "Traits": [
+                        {
+                            "Id": "hasty",
+                            "Value": 4.0
+                        },
+                        {
+                            "Id": "appraiser",
+                            "Value": 4.0
+                        },
+                        {
+                            "Id": "tough",
+                            "Value": 6.0
+                        }
+                    ]
                 },
                 "AppearanceId": "galan",
                 "Kind": 2,
@@ -77381,7 +77405,7 @@
                 ]
             },
             {
-                "BattleId": "85306e7b10f44071a3d8ae82186733e8",
+                "BattleId": "a9f3d97160f743b8b06e7c6a74a29579",
                 "Title": "遗迹挑战奖励",
                 "Closed": true,
                 "Food": 20,
@@ -77389,10 +77413,10 @@
                 "Coins": 100,
                 "Items": [
                     {
-                        "Id": "85306e7b10f44071a3d8ae82186733e8:ruins-reward:loot:0",
+                        "Id": "a9f3d97160f743b8b06e7c6a74a29579:ruins-reward:loot:0",
                         "Status": "discarded",
                         "Reward": {
-                            "Template": "novice_spear",
+                            "Template": "novice_light_armor",
                             "ItemId": "",
                             "Count": 1,
                             "Quality": 2,
@@ -77400,7 +77424,7 @@
                         }
                     },
                     {
-                        "Id": "85306e7b10f44071a3d8ae82186733e8:ruins-reward:loot:1",
+                        "Id": "a9f3d97160f743b8b06e7c6a74a29579:ruins-reward:loot:1",
                         "Status": "discarded",
                         "Reward": {
                             "Template": "",
@@ -77761,7 +77785,7 @@
         "AcceptedDay": 1,
         "ReleaseVersion": 1,
         "Rpg": {
-            "GenerationSeed": 1312980913,
+            "GenerationSeed": 122319812,
             "SceneRulesVersion": 1,
             "Version": 1,
             "CampLevel": 1,
@@ -77850,7 +77874,7 @@
             "BaseInterval": 1.0,
             "MinimumInterval": 0.2,
             "ArrowSpeed": 14.0,
-            "HeightAdvantage": 0.5,
+            "HeightAdvantage": 2.0,
             "HealThreshold": 0.7,
             "AttackEquipmentScale": 0.12,
             "HealthEquipmentScale": 0.1,
@@ -78568,7 +78592,7 @@
         "Stage": 9,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "23c82277fae097461c6638295eb766a8d271915646a0d0f883236d841741a6f0",
-        "ConfigHash": "1d79012d89ee8deefee4d02454d8caefcdbd9d0c0fe56d16f239520ab6973fb3",
+        "ConfigHash": "34bcd2203ef93ec510ff7b91d8d27e58d9684148b9a6c7d947ca4dc16c7a265c",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -95040,7 +95064,7 @@
             "ControllerAccepted": false,
             "ControllerPledged": false,
             "BanditCleared": false,
-            "FirstControllerId": "85306e7b10f44071a3d8ae82186733e8:0",
+            "FirstControllerId": "a9f3d97160f743b8b06e7c6a74a29579:0",
             "FarmX": 0.0,
             "FarmY": 0.0,
             "FarmNpcX": 0.0,

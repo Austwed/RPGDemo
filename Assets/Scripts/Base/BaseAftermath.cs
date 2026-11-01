@@ -10,6 +10,7 @@ namespace BaseConquest.Base
         public string Preset = "normal";
         // Demo 快速收尾阶段的裁决：难度只影响战斗伤害（含遗迹侵蚀受伤），即死率／劝降率／奖励倍率／掉落率一律与难度解耦。
         // 下列六个字段仅为存档兼容保留，取值恒等于 Neutral* 基准（等同原 normal 档）；特殊场景仍可临时覆盖（如遗迹战把 DropRate 置 0）。
+        // 2026-11-01 再裁：招降概率取消，LeaderRecruit／TroopRecruit 已无读取点，字段留作旧档兼容。
         public const double NeutralLeaderDeath = 0.05, NeutralTroopDeath = 0.65, NeutralLeaderRecruit = 0.2, NeutralTroopRecruit = 0.75, NeutralRewardFactor = 1, NeutralDropRate = 0.8;
         public double LeaderDeath = NeutralLeaderDeath, TroopDeath = NeutralTroopDeath, LeaderRecruit = NeutralLeaderRecruit, TroopRecruit = NeutralTroopRecruit, RewardFactor = NeutralRewardFactor, DropRate = NeutralDropRate;
         public BaseDifficulty Copy() => (BaseDifficulty)MemberwiseClone();
@@ -68,9 +69,8 @@ namespace BaseConquest.Base
             bool controller=BaseDemoStories.ControllerDialogue(s,id);
             if(controller&&!s.Demo.Flow.ControllerAccepted)return false;
             if (p.Kind == SoldierKind.Hero ? BaseInn.Enabled(s)?!BaseInn.CanRecruit(s):!BaseRpg.HasRoom(s) : s.Workers.Sum(w => w.Count) >= 10000) return false;
-            // 2026-11-01 用户裁决：删除测试劝降开关，招降一律按固定概率判定（控制者剧情必成功除外）。
-            double chance = controller ? 1 : p.Kind == SoldierKind.Hero ? s.Aftermath.Difficulty.LeaderRecruit : s.Aftermath.Difficulty.TroopRecruit;
-            if (BattleSimulation.StableRoll(StableIdentity(p.Id), 0, 37) >= chance) { p.Status = "refused"; return true; }
+            // 2026-11-01 用户裁决：取消招降概率。战场上没死的目标只要容量允许就固定招募成功，
+            // 即死率已承担损失角色；特殊剧情（迦兰）由 ControllerAccepted 前置自行把关。
             string destination=BaseInn.Enabled(s)&&p.Kind==SoldierKind.Hero?BaseInn.RecruitDestination(s):"base";
             if (p.Kind == SoldierKind.Hero) {var door=BasePersonnel.BarracksDoor(s);s.Leaders.Add(new BaseLeader { Id = "partner_recruit:" + p.Id, Name = UnitDisplayNames.RecruitedName(p.Name),AcquisitionSource="战后招降 · "+(string.IsNullOrEmpty(p.CaptureSource)?p.BattleId:p.CaptureSource),AcquisitionDay=s.Day,IsAlien=p.IsAlien,IsAwakened=p.IsAwakened, AppearanceId=p.AppearanceId, Recruited=true,HasHomePosition=true,HomeX=door.X,HomeY=door.Y,HasMapPosition=true,MapX=door.X,MapY=door.Y, Health = p.Health, MaxHealth = p.Stats.Health, Resting = false, UnavailableDay = s.Day, HasCombatProfile = true, CombatStats = p.Stats.Clone(), Training=BaseTraining.FromProfile(p.Stats),Rpg=p.Rpg?.Copy(),PersonalEquipment=p.Rpg?.Version!=1?null:new BasePersonalLoadout {Version=1,Weapon=new[]{"sword","bow","spear"}[p.Rpg.Profession],InitialWeapon=new[]{"sword","bow","spear"}[p.Rpg.Profession],BaseStats=p.Stats.Clone()} });}
             else s.Workers.Add(new BaseWorkerBucket { Kind = BaseCampaign.ToBase(p.Kind), Recruited=true, Count = 1, Health = p.Health, MaxHealth = p.Stats.Health, Resting = p.Health < p.Stats.Health, UnavailableDay = s.Day, HasCombatProfile = true, CombatStats = p.Stats.Clone() });

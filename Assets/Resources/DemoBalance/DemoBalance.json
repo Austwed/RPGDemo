@@ -1,6 +1,6 @@
 {
     "Version": 1,
-    "WorkbookSha256": "1d79012d89ee8deefee4d02454d8caefcdbd9d0c0fe56d16f239520ab6973fb3",
+    "WorkbookSha256": "34bcd2203ef93ec510ff7b91d8d27e58d9684148b9a6c7d947ca4dc16c7a265c",
     "Rules": {
         "GenerationSeed": 0,
         "SceneRulesVersion": 0,
@@ -91,7 +91,7 @@
         "BaseInterval": 1.0,
         "MinimumInterval": 0.2,
         "ArrowSpeed": 14.0,
-        "HeightAdvantage": 0.5,
+        "HeightAdvantage": 2.0,
         "HealThreshold": 0.7,
         "AttackEquipmentScale": 0.12,
         "HealthEquipmentScale": 0.1,

@@ -77,7 +77,7 @@ namespace BaseConquest.Base
             foreach(string key in new[] { "easy","normal","hard" }) { string id=key; RowButton((owner.State.Aftermath.Difficulty.Preset==id ? "● " : "")+(id=="easy" ? "简单" : id=="hard" ? "困难" : "普通"),id=="easy" ? -290 : id=="normal" ? 0 : 290,270,()=>{owner.Change(s=>s.Aftermath.Difficulty.Set(id),"难度已保存：只影响战斗伤害，下场生效");OpenDifficulty();}); } row+=66;
             RowButton("返回菜单",0,800,OpenMenu); row+=60;
             var d=owner.State.Aftermath.Difficulty; bool demo=BaseRpg.Active(owner.State);
-            Line("即死率："+(demo?"我方队长 ":"指挥者 ")+(d.LeaderDeath*100)+"%"+(demo?"；敌方队长基础 "+(owner.State.Demo.Rpg.EnemyLeaderDeath*100)+"%（Demo固定结果优先）；普通兵按兵力和配表计算":"／小兵 "+(d.TroopDeath*100)+"%")+"；正常劝降率 "+(d.LeaderRecruit*100)+"%／"+(d.TroopRecruit*100)+"%；任务奖励×"+d.RewardFactor+"，敌军掉落／俘获率 "+(d.DropRate*100)+"%。即死／劝降／奖励／掉落为固定值，不随难度变化。",140,19);
+            Line("即死率："+(demo?"我方队长 ":"指挥者 ")+(d.LeaderDeath*100)+"%"+(demo?"；敌方队长基础 "+(owner.State.Demo.Rpg.EnemyLeaderDeath*100)+"%（Demo固定结果优先）；普通兵按兵力和配表计算":"／小兵 "+(d.TroopDeath*100)+"%")+"；未阵亡目标可直接招降；任务奖励×"+d.RewardFactor+"，敌军掉落／俘获率 "+(d.DropRate*100)+"%。即死／奖励／掉落为固定值，不随难度变化。",140,19);
             if(demo)Line("战斗伤害：简单时我方攻击×2、受伤×0.5；困难时我方受伤×1.3。",52,19);
             Line("主角倒地必须实际救出，其他人独自撤离不能带回主角。难度是测试预设，正式平衡后续调整。",95,18); EndPanel();
         }

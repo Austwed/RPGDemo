@@ -70,7 +70,7 @@ namespace BaseConquest.Base
         public double[] EquipmentQuality={.5,.75,1,1.25,1.5,2};
         public int[] BowQualityRange={0,0,0,0,1,2};
         public double SupplyAttackLow=10,SupplyAttackHigh=16,SupplyDefenseLow=2,SupplyDefenseHigh=4;
-        public double ArmorK=8,ArmorCap=.8,CriticalMultiplier=1.5,BaseInterval=1,MinimumInterval=.2,ArrowSpeed=14,HeightAdvantage=.5,HealThreshold=.7;
+        public double ArmorK=8,ArmorCap=.8,CriticalMultiplier=1.5,BaseInterval=1,MinimumInterval=.2,ArrowSpeed=14,HeightAdvantage=2,HealThreshold=.7;
         public double AttackEquipmentScale=.12,HealthEquipmentScale=.1,DefenseEquipmentScale=.2,BuyFactor=1.3,SellFactor=.7;
         public double WeaponAttackScale=.12;
         public float EquipmentScale(float value,int quality)=>(float)(value>=0?value*EquipmentQuality[quality]:value/EquipmentQuality[quality]);
