@@ -308,6 +308,11 @@ namespace BaseConquest.Battle
         {
             exitMarkers=false;
             visionRevision = -1;
+            Material DungeonSkin(string id)
+            {
+                if(!dungeonMaterials.TryGetValue(id,out var skin)){var texture=BaseConquest.Presentation.PixelDemoArt.Load("Terrain",id);if(texture!=null)dungeonMaterials[id]=skin=MakeMaterial(groundMaterial,texture,id);}
+                return skin;
+            }
             var footprints=BuildingFootprint.Read(board);
             foreach (GridPosition p in board.Positions())
             {
@@ -407,7 +412,7 @@ namespace BaseConquest.Battle
                 if(surfaceRegion=="dungeon")
                 {
                     string id=cell.Terrain==TerrainKind.Wall?"dungeon-wall":cell.Ramp!=RampAxis.None?"dungeon-stair":p.Z>=12&&(p.X+p.Z)%7<3?"dungeon-damp":"dungeon-floor";
-                    if(!dungeonMaterials.TryGetValue(id,out var skin)){var texture=BaseConquest.Presentation.PixelDemoArt.Load("Terrain",id);if(texture!=null)dungeonMaterials[id]=skin=MakeMaterial(groundMaterial,texture,id);}
+                    var skin=DungeonSkin(id);
                     if(skin!=null)
                     {
                         if(cell.Terrain==TerrainKind.Wall)
@@ -415,7 +420,7 @@ namespace BaseConquest.Battle
                             if(!dungeonMaterials.TryGetValue("wall-sorted",out var sorted)){sorted=BattlePawn2D.Transparent(skin);dungeonMaterials["wall-sorted"]=sorted;}skin=sorted;
                             tile.sortingOrder=BaseConquest.Presentation.MapSpriteOrder.At(World(p,board).z-CellSize*.5f);
                         }
-                        tile.sharedMaterials=Enumerable.Repeat(skin,tile.sharedMaterials.Length).ToArray();if(ground!=null)ground.GetComponent<Renderer>().sharedMaterials=new[]{skin,skin};color=cell.Terrain==TerrainKind.Wall?new Color(.55f,.52f,.45f):Color.white;
+                        tile.sharedMaterials=raisedMeshes[index]!=null&&cell.Terrain==TerrainKind.Ground ? new[]{skin,DungeonSkin("dungeon-wall")??skin} : Enumerable.Repeat(skin,tile.sharedMaterials.Length).ToArray();if(ground!=null)ground.GetComponent<Renderer>().sharedMaterials=new[]{skin,skin};color=cell.Terrain==TerrainKind.Wall?new Color(.55f,.52f,.45f):Color.white;
                         if(wallCaps[index]!=null)foreach(var cap in wallCaps[index].GetComponentsInChildren<Renderer>()){cap.sharedMaterial=skin;cap.sortingOrder=tile.sortingOrder+1;var tint=new MaterialPropertyBlock();tint.SetColor("_BaseColor",new Color(1,.94f,.77f));cap.SetPropertyBlock(tint);}
                     }
                 }

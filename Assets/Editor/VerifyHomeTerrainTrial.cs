@@ -161,6 +161,14 @@ namespace BaseConquest.Editor
                 }
                 report.AppendLine("全程不动: wall（构造期即换 Cainos 砖，与开关无关）・water・swamp；cliff/stair/路/草地随试点切换：确认");
                 Directory.CreateDirectory("Logs/home-terrain-trial");report.AppendLine(Shots(boardView));
+                boardView.SetSurfaceRegion("dungeon");
+                var platform=boardView.Root.transform.Find("Cell_9_6").GetComponent<Renderer>().sharedMaterials;
+                var ramp=boardView.Root.transform.Find("Cell_8_6").GetComponent<Renderer>().sharedMaterials;
+                var wall=BaseConquest.Presentation.PixelDemoArt.Load("Terrain","dungeon-wall");
+                Need(wall!=null&&platform.Length==2&&platform[0].GetTexture("_BaseMap")==BaseConquest.Presentation.PixelDemoArt.Load("Terrain","dungeon-floor")&&platform[1].GetTexture("_BaseMap")==wall,"地牢高台顶面与侧壁材质未分开");
+                Need(ramp.Length==2&&ramp[0].GetTexture("_BaseMap")==BaseConquest.Presentation.PixelDemoArt.Load("Terrain","dungeon-stair")&&ramp[1].GetTexture("_BaseMap")==wall,"地牢坡道顶面与侧壁材质未分开");
+                Need(Board(boardView.Board)==board,"切换地牢表现改动了棋盘数据");
+                report.AppendLine("PASS dungeon platform and ramp tops retain floor/stair textures with wall-textured sides; board unchanged.");
                 File.WriteAllText("Logs/home-terrain-trial/invariance.txt",report.ToString());
                 Debug.Log("[VerifyHomeTerrainTrial] PASS");
             }
