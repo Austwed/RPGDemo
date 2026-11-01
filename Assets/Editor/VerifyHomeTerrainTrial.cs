@@ -141,6 +141,8 @@ namespace BaseConquest.Editor
                 Need(Row(trialSkins,"baseCliffMaterial").Contains("cliff-64-v1"),"试点开启后崖壁侧面应使用 cliff-64-v1");
                 Need(Row(trialSkins,"baseRaisedRoadMaterial").Contains("path-64-v1"),"试点开启后路面应使用 Cainos path-64-v1");
                 Need(Row(trialSkins,"baseStairMaterial").Contains("stair-64-v1"),"试点开启后阶梯应使用 Cainos stair-64-v1");
+                Need(Row(trialSkins,"surfaceMaterials[Cobble]").Contains("stone-64-v1"),"试点开启后石板路面应与路缘使用相同贴图");
+                Need(!Row(skins,"surfaceMaterials[Cobble]").StartsWith("<missing:",StringComparison.Ordinal),"夹具未创建石板路面材质");
                 report.AppendLine("跟随试点换图: "+(changed.Count==0?"（无）":string.Join(", ",changed)));
                 report.AppendLine("全程不动: "+(constant.Count==0?"（无）":string.Join(", ",constant)));
                 foreach(string name in sides)
@@ -172,7 +174,8 @@ namespace BaseConquest.Editor
             foreach(var p in board.Positions())
             {
                 var cell=board.Cell(p);cell.Terrain=TerrainKind.Ground;cell.BuildingId="";
-                if(p.Z>=6)cell.Surface=GroundSurface.DirtPath;
+                if(p.X<2&&p.Z<2)cell.Surface=GroundSurface.Cobble;
+                else if(p.Z>=6)cell.Surface=GroundSurface.DirtPath;
                 else if(p.X>=4&&p.X<=7)cell.Surface=GroundSurface.Road;
                 else cell.Surface=GroundSurface.Grass;
                 if(p.X>=9&&p.Z>=6)cell.Elevation=1;

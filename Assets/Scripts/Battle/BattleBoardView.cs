@@ -67,7 +67,7 @@ namespace BaseConquest.Battle
         private readonly Dictionary<Material,(Texture Texture,Vector2 Scale,Vector2 Offset)> originalTrialMaterials=new Dictionary<Material,(Texture,Vector2,Vector2)>();
         public bool SetHomeTerrainTrial(bool enabled)
         {
-            if(enabled&&(BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Grass)==null||BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Road)==null||BaseConquest.Presentation.HomeTerrainTrial.Cliff()==null||BaseConquest.Presentation.HomeTerrainTrial.Stair()==null))return false;
+            if(enabled&&(BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Grass)==null||BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Road)==null||BaseConquest.Presentation.HomeTerrainTrial.Stone()==null||BaseConquest.Presentation.HomeTerrainTrial.Cliff()==null||BaseConquest.Presentation.HomeTerrainTrial.Stair()==null))return false;
             if(homeTerrainTrial==enabled)return true;
             homeTerrainTrial=enabled;
             void Apply(Material skin,GroundSurface surface)
@@ -106,7 +106,7 @@ namespace BaseConquest.Battle
                 {skin.SetTexture("_BaseMap",original.Texture);skin.SetTextureScale("_BaseMap",original.Scale);skin.SetTextureOffset("_BaseMap",original.Offset);}
             }
             Apply(baseGrassMaterial,GroundSurface.Grass);Apply(baseRaisedGrassMaterial,GroundSurface.Grass);Apply(baseRaisedRoadMaterial,GroundSurface.Road);ApplyCliff(baseCliffMaterial);ApplyStair(baseStairMaterial);
-            foreach(var entry in surfaceMaterials)if(entry.Key==GroundSurface.Grass||entry.Key==GroundSurface.Road||entry.Key==GroundSurface.DirtPath)Apply(entry.Value,entry.Key);
+            foreach(var entry in surfaceMaterials)if(entry.Key==GroundSurface.Grass||entry.Key==GroundSurface.Road||entry.Key==GroundSurface.DirtPath||entry.Key==GroundSurface.Cobble)Apply(entry.Value,entry.Key);
             if(!enabled)originalTrialMaterials.Clear();
             Refresh();return true;
         }

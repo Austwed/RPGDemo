@@ -10,7 +10,7 @@ namespace BaseConquest.Presentation
         // 旧 GPT 规范化贴图（grass-64-v1 / dirt-64-v1）与 PixelDemoArt 地面图暂不使用，仅留文件回滚。
         public static bool Enabled;
         public static bool Eligible(BaseState state)=>BaseDemo.Active(state)&&(BaseDemoPrologue.Village(state)||state.Campaign.CurrentMapId==BaseDemoFinale.Home);
-        public static Texture2D Texture(GroundSurface surface)=>Resources.Load<Texture2D>("HomeTerrainTrial/"+(surface==GroundSurface.Grass?"grass-64-v2":surface==GroundSurface.Road||surface==GroundSurface.DirtPath?"path-64-v1":"missing"));
+        public static Texture2D Texture(GroundSurface surface)=>surface==GroundSurface.Cobble?Stone():Resources.Load<Texture2D>("HomeTerrainTrial/"+(surface==GroundSurface.Grass?"grass-64-v2":surface==GroundSurface.Road||surface==GroundSurface.DirtPath?"path-64-v1":"missing"));
         // 抬升地崖壁侧立面：TX Tileset Wall 砖墙裁块（也用于全高墙 wallMaterial）。
         public static Texture2D Cliff()=>Resources.Load<Texture2D>("HomeTerrainTrial/cliff-64-v1");
         // 阶梯踏步：TX Tileset Wall 的水平层理砖块，读作台阶。
