@@ -95,9 +95,53 @@ namespace BaseConquest.Editor
             boardView.SetHomeTerrainTrial(false);return notes.ToString();
         }
         private static string Camera(Camera lens)=>"pos="+Fix(lens.transform.position)+" rot="+Fix(lens.transform.eulerAngles)+" ortho="+lens.orthographicSize.ToString("0.###");
+        private static void CheckRampGeometry()
+        {
+            foreach(int level in new[]{1,2})foreach(var axis in new[]{RampAxis.EastWest,RampAxis.NorthSouth})foreach(int lowDirection in new[]{-1,1})
+            {
+                var board=BattleBoard.CreateDefault(8,8);foreach(var p in board.Positions())board.Cell(p).Elevation=level;
+                var ramp=new GridPosition(4,4);var step=axis==RampAxis.EastWest?new GridPosition(1,0):new GridPosition(0,1);
+                var low=ramp+new GridPosition(step.X*lowDirection,step.Z*lowDirection);var high=ramp+new GridPosition(-step.X*lowDirection,-step.Z*lowDirection);
+                board.Cell(low).Elevation=level-1;board.Cell(ramp).Ramp=axis;
+                float lowAlong=lowDirection<0?0:1,highAlong=1-lowAlong;
+                float Sample(float along)=>BaseConquest.Presentation.BaseTerrainView.Height(board,ramp,axis==RampAxis.EastWest?along:.5f,axis==RampAxis.NorthSouth?along:.5f);
+                Need(Math.Abs(Sample(lowAlong)-(level-1)*BaseConquest.Presentation.BaseTerrainView.LevelHeight)<.001f&&Math.Abs(Sample(highAlong)-level*BaseConquest.Presentation.BaseTerrainView.LevelHeight)<.001f,"坡道高低端不匹配："+axis+" "+lowDirection+" H"+level);
+                Need(board.CanStep(low,ramp)&&board.CanStep(ramp,high),"坡道端点与现有通行关系不一致");
+                var mesh=BaseConquest.Presentation.BaseTerrainView.Ground(board,ramp);
+                try
+                {
+                    var vertices=mesh.vertices;
+                    for(int i=0;i<4;i++)
+                    {
+                        float x=vertices[i].x/BattleBoardView.CellSize+.5f,z=vertices[i].z/BattleBoardView.CellSize+.5f;
+                        Need(Math.Abs(vertices[i].y-(BaseConquest.Presentation.BaseTerrainView.Height(board,ramp,x,z)-.01f))<.001f,"坡面顶点未贴合高度数据");
+                    }
+                    Need(mesh.GetTriangles(1).Length==0,"连续坡道端点或邻接高台产生多余坡道侧壁");
+                }
+                finally{UnityEngine.Object.DestroyImmediate(mesh);}
+                var side=ramp+(axis==RampAxis.EastWest?new GridPosition(0,1):new GridPosition(1,0));
+                var sideMesh=BaseConquest.Presentation.BaseTerrainView.Ground(board,side);
+                try{Need(sideMesh.GetTriangles(1).Length>0,"坡道旁高台缺少侧壁");}
+                finally{UnityEngine.Object.DestroyImmediate(sideMesh);}
+            }
+            var terraces=BattleBoard.CreateDefault(8,8);var center=new GridPosition(3,3);
+            terraces.Cell(center).Elevation=2;terraces.Cell(new GridPosition(4,3)).Elevation=1;terraces.Cell(new GridPosition(2,3)).Elevation=2;
+            var terraceMesh=BaseConquest.Presentation.BaseTerrainView.Ground(terraces,center);
+            try
+            {
+                var vertices=terraceMesh.vertices;var triangles=terraceMesh.GetTriangles(1);float r=BattleBoardView.CellSize*.5f;
+                Vector3[] Face(Func<Vector3,bool> match)=>triangles.Select(i=>vertices[i]).Where(match).ToArray();
+                var east=Face(v=>Math.Abs(v.x-r)<.001f);var north=Face(v=>Math.Abs(v.z-r)<.001f);
+                Need(east.Any(v=>Math.Abs(v.y-(BaseConquest.Presentation.BaseTerrainView.LevelHeight-.01f))<.001f),"H2 至 H1 侧壁底边高度错误");
+                Need(north.Any(v=>Math.Abs(v.y+.01f)<.001f),"H2 至 H0 侧壁底边高度错误");
+                Need(!Enumerable.Range(0,triangles.Length/3).Any(t=>Enumerable.Range(0,3).All(i=>Math.Abs(vertices[triangles[t*3+i]].x+r)<.001f)),"同高平台之间出现侧壁");
+            }
+            finally{UnityEngine.Object.DestroyImmediate(terraceMesh);}
+        }
         [MenuItem("SLG/其他工具/验证/故乡地形试点不变性")]
         public static void Run()
         {
+            CheckRampGeometry();
             Need(BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Grass)!=null&&BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.DirtPath)!=null,"试点贴图缺失，先跑「生成/故乡地形64像素候选」");
             bool restore=BaseConquest.Presentation.HomeTerrainTrial.Enabled;
             var report=new StringBuilder();GameObject host=null;Material skinSource=null;BattleBoardView boardView=null;
@@ -147,6 +191,7 @@ namespace BaseConquest.Editor
                 report.AppendLine("PASS material set fully restored to pre-trial textures, scales and offsets.");
                 report.AppendLine("PASS raised cobble and dirt surfaces follow original/trial textures and restore; ramps retain stair texture.");
                 report.AppendLine("PASS runtime player view sampled at ramp low, middle and high foot heights (edit-mode fixture).");
+                report.AppendLine("PASS H0/H1 and H1/H2 ramp endpoints, both axes and low-end directions, top vertices and side geometry; H2/H1/H0 terrace faces.");
                 var sides=new[]{"wallMaterial","waterMaterial","swampMaterial"};
                 var changed=new List<string>();var constant=new List<string>();
                 foreach(var pair in Skins(boardView))
