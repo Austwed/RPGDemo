@@ -77,12 +77,17 @@ namespace BaseConquest.Editor
             try
             {
                 var placement=new BaseMapObject("farm","farm",3,3,3,2,true,"farm","farm","facility");
-                var view=AuthoredMapView.Create(host.transform,placement,Vector3.zero,source,true);
+                var view=AuthoredMapView.Create(host.transform,placement,Vector3.up*BaseTerrainView.LevelHeight,source,true);
                 var renderer=view.GetComponentInChildren<Renderer>();
                 Need(renderer!=null&&renderer.sharedMaterial.GetTexture("_BaseMap")==mature,"粮田未使用成熟状态贴图");
                 Need(renderer.sortingOrder< -30000,"粮田未处于直立角色和物件下方");
-                view.SetExploration(false);view.SetExploration(true);
+                view.SetExploration(false);Need(Mathf.Abs(view.transform.localPosition.y)<.001f,"战斗视图的高台粮田未降回平面");
+                view.SetExploration(true);Need(Mathf.Abs(view.transform.localPosition.y-BaseTerrainView.LevelHeight)<.001f,"探索视图的高台粮田高度未恢复");
                 Need(renderer.sortingOrder< -30000,"视图切换改变了粮田排序");
+                var prop=new BaseMapObject("rock","rock",3,3,1,1,true,"rock","boulder","tactical-rock");
+                var propView=AuthoredMapView.Create(host.transform,prop,Vector3.up*BaseTerrainView.LevelHeight,source,true);
+                propView.SetExploration(false);Need(Mathf.Abs(propView.transform.localPosition.y)<.001f,"战斗视图的高台道具未降回平面");
+                propView.SetExploration(true);Need(Mathf.Abs(propView.transform.localPosition.y-BaseTerrainView.LevelHeight)<.001f,"探索视图的高台道具高度未恢复");
                 var stage=Resources.Load<TextAsset>("DemoStages/camp-male");Need(stage!=null,"缺少营地阶段档");
                 var state=JsonUtility.FromJson<BaseState>(stage.text);
                 state.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,Health=100,MaxHealth=100,FacilityId="farm",DesiredFacility="farm",PostLocked=true});
@@ -93,7 +98,7 @@ namespace BaseConquest.Editor
                     view.RefreshFarmAppearance(state);Need(renderer.sharedMaterial.GetTexture("_BaseMap")==item.texture,"粮食净增跨零后粮田贴图未正确切换");
                     Need(JsonUtility.ToJson(state)==before,"粮田贴图刷新改变了经营状态");
                 }
-                Directory.CreateDirectory("Logs");File.WriteAllText("Logs/farm-art-verification.txt","PASS: A/B textures, negative/zero/positive refresh and return, ground sorting, state unchanged.\n");
+                Directory.CreateDirectory("Logs");File.WriteAllText("Logs/farm-art-verification.txt","PASS: A/B textures, negative/zero/positive refresh, farm and prop view heights, ground sorting, state unchanged.\n");
                 Debug.Log("[VerifyFarmArt] PASS");
             }
             finally{UnityEngine.Object.DestroyImmediate(host);UnityEngine.Object.DestroyImmediate(source);}

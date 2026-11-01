@@ -103,6 +103,7 @@ namespace BaseConquest.Presentation
         }
         public void SetExploration(bool exploration)
         {
+            var position=transform.localPosition;position.y=exploration?feet.y:0;transform.localPosition=position;
             transform.localRotation=exploration&&!shaped ? person ? BattleBoardView.BasePawnTilt : BattleBoardView.BaseArtTilt : Quaternion.identity;
             transform.localScale=person&&exploration ? new Vector3(1,1,2) : Vector3.one;
             var pawn=GetComponent<BattlePawn2D>();if(pawn!=null){pawn.UprightExploration=exploration;pawn.SyncExploration(feet,Color.white);}
