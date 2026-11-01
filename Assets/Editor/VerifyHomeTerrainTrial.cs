@@ -105,7 +105,9 @@ namespace BaseConquest.Editor
                 BaseConquest.Presentation.HomeTerrainTrial.Enabled=false;
                 host=new GameObject("VerifyHomeTerrainTrial"){hideFlags=HideFlags.HideAndDontSave};
                 skinSource=new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-                boardView=new BattleBoardView(BattleBattlefieldProbe.Create(),host.transform,skinSource,skinSource){FlatView=true,ObliqueBaseView=true};
+                var probe=BattleBattlefieldProbe.Create();var slope=new GridPosition(8,6);
+                Need(Math.Abs(probe.SurfaceLevel(slope,0,.5))<1e-6&&Math.Abs(probe.SurfaceLevel(slope,1,.5)-1)<1e-6,"东西坡道夹具未从H0连接至H1");
+                boardView=new BattleBoardView(probe,host.transform,skinSource,skinSource){FlatView=true,ObliqueBaseView=true};
                 boardView.SetCombatMode(false);boardView.UpdateCamera(0,0);boardView.Zoom(.65f);
                 var pawn=new GameObject("ProbePawn"){hideFlags=HideFlags.HideAndDontSave};pawn.transform.SetParent(boardView.Root.transform,false);pawn.transform.localPosition=new Vector3(1.5f,.25f,-2.5f);
                 boardView.Refresh();
@@ -174,7 +176,8 @@ namespace BaseConquest.Editor
                 else if(p.X>=4&&p.X<=7)cell.Surface=GroundSurface.Road;
                 else cell.Surface=GroundSurface.Grass;
                 if(p.X>=9&&p.Z>=6)cell.Elevation=1;
-                if(p.X==8&&p.Z>=6){cell.Elevation=0;cell.Ramp=RampAxis.EastWest;cell.Surface=GroundSurface.Road;}
+                // Ramp stores the high-end level: west H0 -> ramp H0..H1 -> east H1.
+                if(p.X==8&&p.Z>=6){cell.Elevation=1;cell.Ramp=RampAxis.EastWest;cell.Surface=GroundSurface.Road;}
             }
             board.EnsureValid();return board;
         }

@@ -13,6 +13,7 @@ namespace BaseConquest.Battle
         private Mesh gridMesh;
         private BattleElevationView elevationView;
         private BaseConquest.Presentation.BaseGroundEdgeView groundEdges;
+        private BaseConquest.Presentation.FieldworkArtView fieldworkArt;
         private GameObject gridRoot;
         private bool[] gridKnown;
         public bool GridOutlinesVisible { get; private set; }
@@ -360,9 +361,6 @@ namespace BaseConquest.Battle
                 }
                 if(cell.FixedCover){height=.30f;position.y=.05f;color=new Color(.56f,.55f,.42f);}
                 if(cell.ObstacleHealth>0){height=.68f;position.y=.24f;tile.sharedMaterial=groundMaterial;color=new Color(.48f,.29f,.13f);}
-                // Construction indicators remain visible to the player; traps are hidden in battle.
-                if(cell.SandbagGroup>0){tile.sharedMaterial=groundMaterial;color=new Color(.60f,.51f,.34f);}
-                if(cell.HiddenTrap&&!CombatMode){tile.sharedMaterial=groundMaterial;color=new Color(.42f,.31f,.22f);}
                 if(cell.Walkable&&cell.Elevation>0)color=Color.Lerp(color,new Color(.60f,.63f,.42f),cell.Elevation*.12f);
                 if (wallCaps[index] != null) wallCaps[index].SetActive(cell.Terrain == TerrainKind.Wall);
                 if(wallCaps[index]!=null)wallCaps[index].transform.position=World(p,board)+Vector3.up*(1+(ObliqueExploration ? cell.Elevation*BaseConquest.Presentation.BaseTerrainView.LevelHeight : 0));
@@ -424,6 +422,7 @@ namespace BaseConquest.Battle
                 tileColors[index] = color;
             }
             elevationView??=new BattleElevationView(board,Root.transform,groundMaterial);elevationView.Rebuild(gridKnown);
+            fieldworkArt??=new BaseConquest.Presentation.FieldworkArtView(board,Root.transform,groundMaterial);fieldworkArt.Rebuild(CombatMode,ObliqueExploration);
             elevationView.Root.SetActive(!ObliqueExploration);
             groundEdges??=new BaseConquest.Presentation.BaseGroundEdgeView(board,Root.transform,groundMaterial);groundEdges.Rebuild(ObliqueExploration);
             var landmarks = Root.transform.Find("RegionLandmarks");
@@ -548,7 +547,7 @@ namespace BaseConquest.Battle
             }
             texture.SetPixels(colors); texture.Apply(); return texture;
         }
-        public void Dispose() {DestroyObject(heightFogMaterial);DestroyObject(heightFogMesh);foreach(var m in dungeonMaterials.Values)DestroyObject(m); elevationView?.Dispose();groundEdges?.Dispose();DestroyObject(baseGrassMaterial);DestroyObject(baseRaisedGrassMaterial);DestroyObject(baseRaisedRoadMaterial);DestroyObject(baseCliffMaterial);DestroyObject(baseStairMaterial);foreach(var mesh in buildingMeshes)DestroyObject(mesh);foreach(var mesh in raisedMeshes)DestroyObject(mesh);foreach(var skin in buildingMaterials.Values)DestroyObject(skin);foreach(var skin in surfaceMaterials.Values)DestroyObject(skin);DestroyObject(buildingMaterial);DestroyObject(buildingTexture);DestroyObject(gridMesh); DestroyObject(swampMaterial); DestroyObject(swampTexture); DestroyObject(translucentFog); DestroyObject(waterMaterial); DestroyObject(wallMaterial); DestroyObject(waterTexture); DestroyObject(wallTexture); }
+        public void Dispose() {DestroyObject(heightFogMaterial);DestroyObject(heightFogMesh);foreach(var m in dungeonMaterials.Values)DestroyObject(m); elevationView?.Dispose();groundEdges?.Dispose();fieldworkArt?.Dispose();DestroyObject(baseGrassMaterial);DestroyObject(baseRaisedGrassMaterial);DestroyObject(baseRaisedRoadMaterial);DestroyObject(baseCliffMaterial);DestroyObject(baseStairMaterial);foreach(var mesh in buildingMeshes)DestroyObject(mesh);foreach(var mesh in raisedMeshes)DestroyObject(mesh);foreach(var skin in buildingMaterials.Values)DestroyObject(skin);foreach(var skin in surfaceMaterials.Values)DestroyObject(skin);DestroyObject(buildingMaterial);DestroyObject(buildingTexture);DestroyObject(gridMesh); DestroyObject(swampMaterial); DestroyObject(swampTexture); DestroyObject(translucentFog); DestroyObject(waterMaterial); DestroyObject(wallMaterial); DestroyObject(waterTexture); DestroyObject(wallTexture); }
         public void ShowOutline(GridPosition from, GridPosition to, bool visible)
         {
             outline.enabled = visible; if (!visible) return;
