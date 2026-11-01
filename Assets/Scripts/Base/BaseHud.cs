@@ -338,7 +338,7 @@ namespace BaseConquest.Base
             else if(!owner.AtBase){RowButton(BaseDesignRoutes.Active(owner.State) ? "经绑定出口返回基地" : "返回基地",0,800,()=>owner.Travel("base"),!BaseDesignRoutes.Active(owner.State)||BaseDesignRoutes.Reachable(owner.State,"base")!=null);row+=60;}
             if(BaseAchievements.Active(owner.State)){RowButton("成就 · "+owner.State.Achievements.Records.Count+"/9",0,800,OpenAchievements);row+=60;}
             if(BaseDemoFlow.Active(owner.State)&&!BaseDemoPrologue.Village(owner.State)&&owner.State.Campaign.Location=="perimeter"&&!BaseSceneCombat.Active(owner.State)){RowButton("战前布置工事",0,800,owner.ArmConstruction);row+=60;}
-            RowButton("选项",-210,400,OpenOptions);RowButton("难度设置",210,400,OpenDifficulty);row+=60;
+            RowButton("选项",0,800,OpenOptions);row+=60;
             RowButton("帮助",-210,400,OpenHelp);RowButton("回主菜单",210,400,owner.ToMainMenu);row+=60;
             if(BaseDemo.Active(owner.State)&&RuntimeDeveloperOptions.Enabled){RowButton("独立即时战斗测试",0,800,OpenStandaloneBattleTest);row+=60;}
             if(BaseDemo.Active(owner.State)){RowButton("当前剧情目标",0,800,OpenDemoStory);row+=60;EndPanel();return;}

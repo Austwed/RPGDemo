@@ -37,7 +37,7 @@ namespace BaseConquest.Base
                 if(owner.State!=null&&!owner.State.Aftermath.GameOver){RowButton("继续Demo",0,800,()=>{BaseBattleGateway.MainMenu=false;owner.LoadSaved();});row+=60;}
                 RowButton("读取Demo存档",0,800,()=>OpenSlots(false));row+=60;
                 RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;
-                AddTemplates();RowButton("选项",0,800,OpenOptions);row+=60;EndPanel();return;
+                AddTemplates();RowButton("难度设置",0,800,OpenDifficulty);row+=60;RowButton("选项",0,800,OpenOptions);row+=60;EndPanel();return;
             }
             BeginPanel("基地征服 · 即时格战隔离流程");Line("3手动／6节点自动档；退出游戏将丢失未保存的会话更改。技能／救援／追击待接入。",58,18);
             RowButton("进入Demo流程起步（独立存档）",0,800,owner.EnterDemo);row+=60;
@@ -45,7 +45,7 @@ namespace BaseConquest.Base
             RowButton("读取存档",0,800,()=>OpenSlots(false));row+=60;
             RowButton("开始推荐测试",0,800,()=>owner.NewTemplate(owner.RecommendedTemplate)); row+=60;
             RowButton("开始新游戏",0,800,()=>{ BeginPanel("选择新开局"); AddTemplates(); EndPanel(); }); row+=60;
-            RowButton("选项",0,800,OpenOptions);row+=60;
+            RowButton("难度设置",0,800,OpenDifficulty);row+=60;RowButton("选项",0,800,OpenOptions);row+=60;
             RowButton("难度规则 i",0,800,()=>RuleInfo("难度规则","新游戏默认普通难度。进入后在菜单选择简单／普通／困难；目前只影响战斗伤害。",OpenMainMenu)); row+=60; EndPanel();
         }
         public void OpenGameOver()
@@ -74,12 +74,10 @@ namespace BaseConquest.Base
         private void OpenDifficulty()
         {
             BeginPanel("游戏难度");
-            foreach(string key in new[] { "easy","normal","hard" }) { string id=key; RowButton((owner.State.Aftermath.Difficulty.Preset==id ? "● " : "")+(id=="easy" ? "简单" : id=="hard" ? "困难" : "普通"),id=="easy" ? -290 : id=="normal" ? 0 : 290,270,()=>{owner.Change(s=>s.Aftermath.Difficulty.Set(id),"难度已保存：只影响战斗伤害，下场生效");OpenDifficulty();}); } row+=66;
-            RowButton("返回菜单",0,800,OpenMenu); row+=60;
-            var d=owner.State.Aftermath.Difficulty; bool demo=BaseRpg.Active(owner.State);
-            Line("即死率："+(demo?"我方队长 ":"指挥者 ")+(d.LeaderDeath*100)+"%"+(demo?"；敌方队长基础 "+(owner.State.Demo.Rpg.EnemyLeaderDeath*100)+"%（Demo固定结果优先）；普通兵按兵力和配表计算":"／小兵 "+(d.TroopDeath*100)+"%")+"；未阵亡目标可直接招降；任务奖励×"+d.RewardFactor+"，敌军掉落／俘获率 "+(d.DropRate*100)+"%。即死／奖励／掉落为固定值，不随难度变化。",140,19);
-            if(demo)Line("战斗伤害：简单时我方攻击×2、受伤×0.5；困难时我方受伤×1.3。",52,19);
-            Line("主角倒地必须实际救出，其他人独自撤离不能带回主角。难度是测试预设，正式平衡后续调整。",95,18); EndPanel();
+            var difficulty=new BaseDifficulty();
+            foreach(string key in new[] { "easy","normal","hard" }) { string id=key; RowButton((difficulty.Preset==id ? "● " : "")+(id=="easy" ? "简单" : id=="hard" ? "困难" : "普通"),id=="easy" ? -290 : id=="normal" ? 0 : 290,270,()=>{difficulty.Set(id);OpenDifficulty();}); } row+=66;
+            RowButton("返回菜单",0,800,OpenMainMenu); row+=60;
+            Line("战斗伤害：简单时我方攻击×2、受伤×0.5；困难时我方受伤×1.3。",52,19); EndPanel();
         }
         public void OpenPrisoners()=>OpenLoot();
     }

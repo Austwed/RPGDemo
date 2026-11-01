@@ -13,6 +13,30 @@ namespace BaseConquest.Editor
     public static class VerifyDemoCheckpoint
     {
         private static void Need(bool yes,string reason){if(!yes)throw new InvalidOperationException(reason);}
+        public static void VerifyGlobalDifficulty()
+        {
+            const string key="BaseConquest.GlobalDifficulty";bool had=PlayerPrefs.HasKey(key);string previous=PlayerPrefs.GetString(key,"");
+            try
+            {
+                var asset=Resources.Load<TextAsset>("DemoStages/defense-male");Need(asset!=null,"缺少首防阶段档");
+                var state=JsonUtility.FromJson<BaseState>(asset.text);var session=BaseDemoDefense.Begin(state,"none");BattleScenePlacement.Start(state,session);
+                var run=new RealtimeCampaignBattle(session);BattleScenePlacement.Snap(state,run);
+                var attack=run.Battle.Soldiers.First(s=>s.Side==BattleSide.A);var target=run.Battle.Soldiers.First(s=>s.Side==BattleSide.B);
+                var damage=typeof(RealtimeCampaignBattle).GetMethod("RpgDamage",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
+                var incoming=typeof(RealtimeCampaignBattle).GetMethod("DifficultyIncoming",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
+                Need(damage!=null&&incoming!=null,"缺少伤害或侵蚀难度读取入口");
+                double Hit(BattleSoldier a,BattleSoldier b)=>(double)damage.Invoke(run,new object[]{100d,1,1d,a,b});
+                double Exposure()=>(double)incoming.Invoke(run,new object[]{BattleSide.A});
+                var settings=new BaseDifficulty();settings.Set("normal");double normalHit=Hit(attack,target),normalTaken=Hit(target,attack);
+                var copied=session.Opening.Difficulty.Copy();settings.Set("easy");
+                Need(copied.Preset=="easy"&&Math.Abs(Hit(attack,target)/normalHit-2)<.0001&&Math.Abs(Hit(target,attack)/normalTaken-.5)<.0001&&Math.Abs(Exposure()-.5)<.0001,"简单难度未在当前战斗即时生效");
+                settings.Set("hard");Need(Math.Abs(Hit(attack,target)/normalHit-1)<.0001&&Math.Abs(Hit(target,attack)/normalTaken-1.3)<.0001&&Math.Abs(Exposure()-1.3)<.0001,"困难难度未在当前战斗即时生效");
+                Need(!JsonUtility.ToJson(state.Aftermath.Difficulty).Contains("\"Preset\"")&&!JsonUtility.ToJson(session.Opening.Difficulty).Contains("\"Preset\""),"难度档位仍写入存档或战斗快照");
+                var legacy=JsonUtility.FromJson<BaseDifficulty>("{\"Version\":1,\"Preset\":\"easy\"}");Need(legacy.Preset=="hard","旧档难度覆盖了全局设置");
+                Directory.CreateDirectory("Logs/checkpoint-verification");File.WriteAllText("Logs/checkpoint-verification/global-difficulty.txt","PASS: live damage and exposure factors, global setting, legacy save ignored, no serialized preset.\n");
+            }
+            finally{if(had)PlayerPrefs.SetString(key,previous);else PlayerPrefs.DeleteKey(key);PlayerPrefs.Save();}
+        }
         public static void VerifySecondRules(){VerifySecondOutcome();VerifySecondFailure();}
         public static void VerifySecondFailure()
         {

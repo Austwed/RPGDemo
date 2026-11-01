@@ -7,7 +7,12 @@ namespace BaseConquest.Base
     [Serializable] public sealed class BaseDifficulty
     {
         public int Version = 1;
-        public string Preset = "normal";
+        private const string PresetKey="BaseConquest.GlobalDifficulty";
+        public string Preset
+        {
+            get {var value=UnityEngine.PlayerPrefs.GetString(PresetKey,"normal");return value=="easy"||value=="hard"?value:"normal";}
+            set {if(!new[]{"easy","normal","hard"}.Contains(value))throw new ArgumentException("未知难度");UnityEngine.PlayerPrefs.SetString(PresetKey,value);UnityEngine.PlayerPrefs.Save();}
+        }
         // Demo 快速收尾阶段的裁决：难度只影响战斗伤害（含遗迹侵蚀受伤），即死率／劝降率／奖励倍率／掉落率一律与难度解耦。
         // 下列六个字段仅为存档兼容保留，取值恒等于 Neutral* 基准（等同原 normal 档）；特殊场景仍可临时覆盖（如遗迹战把 DropRate 置 0）。
         // 2026-11-01 再裁：招降概率取消，LeaderRecruit／TroopRecruit 已无读取点，字段留作旧档兼容。
