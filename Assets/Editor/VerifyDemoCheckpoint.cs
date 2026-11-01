@@ -13,6 +13,34 @@ namespace BaseConquest.Editor
     public static class VerifyDemoCheckpoint
     {
         private static void Need(bool yes,string reason){if(!yes)throw new InvalidOperationException(reason);}
+        public static void VerifySecondRules(){VerifySecondOutcome();VerifySecondFailure();}
+        public static void VerifySecondFailure()
+        {
+            var asset=Resources.Load<TextAsset>("DemoStages/defense-male");Need(asset!=null,"缺少首防阶段档");
+            var state=JsonUtility.FromJson<BaseState>(asset.text);var first=BaseDemoDefense.Begin(state,"none");BattleScenePlacement.Start(state,first);
+            var firstRun=new RealtimeCampaignBattle(first);BattleScenePlacement.Snap(state,firstRun);BaseDemoDefense.Configure(firstRun);
+            foreach(var enemy in firstRun.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))enemy.Escaped=true;
+            firstRun.Model.SetPaused(false);firstRun.Tick(.02);Need(firstRun.Battle.Report?.Outcome==BattleOutcome.SideAWin,"首防夹具未获胜");
+            Need(BaseDemoDefense.Complete(state,firstRun),"首防结算夹具失败");BaseDemoDefense.AcknowledgeBatu(state);
+            var advance=typeof(BaseEconomy).GetMethod("CompleteProductionDay",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic);
+            Need(advance!=null,"缺少日结入口");while(state.Day<BaseDemoDefense.SecondArrival(state))advance.Invoke(null,new object[]{state,false});
+            state.Campaign.Location="perimeter";var marker=BaseSpatial.Objects(state,"perimeter").Single(o=>o.Id=="demo_defense_start");state.PlayerX=marker.X;state.PlayerY=marker.Y;BaseAdventure.Arrive(state);
+            var second=BaseDemoDefense.Begin(state,"none");BattleScenePlacement.Start(state,second);var run=new RealtimeCampaignBattle(second);BattleScenePlacement.Snap(state,run);BaseDemoDefense.Configure(run);
+            Need(!run.RetreatAll()&&run.Battle.Phase==BattlePhase.Fighting,"第二波撤退入口未被逻辑层阻止");
+            foreach(var ally in run.Model.Units.Where(u=>u.Side==PrototypeSide.Ally)){ally.Health=1;ally.KnockedDown=true;var soldier=run.Battle.Soldier(ally.Id-1);soldier.Health=1;soldier.KnockedDown=true;soldier.DeathResolved=true;}
+            run.Model.SetPaused(false);run.Tick(.02);Need(run.Battle.Report?.Outcome==BattleOutcome.SideBWin,"第二波我方全倒未判失败");
+            Need(BaseDemoCombat.Fail(state,run)&&state.Aftermath.GameOver&&state.Demo.Defense.SecondOutcome=="failed","第二波失败未进入游戏结束状态");
+            BaseEconomy.Validate(state);
+            var legacy=state.Copy();legacy.Demo.Defense.SecondOutcome="damaged";bool rejected=false;try{BaseEconomy.Validate(legacy);}catch(ArgumentException){rejected=true;}
+            Need(rejected,"旧的第二波受创状态应判为不兼容");
+            string folder=Path.GetFullPath("Logs/checkpoint-verification/second-legacy");Directory.CreateDirectory(folder);
+            string obsolete=Path.Combine(folder,"slot1.json"),valid=Path.Combine(folder,"slot2.json");
+            File.WriteAllText(obsolete,JsonUtility.ToJson(new BaseSaveDocument{DemoSaveVersion=BaseDemo.SaveVersion,State=legacy}));
+            File.WriteAllText(valid,JsonUtility.ToJson(new BaseSaveDocument{DemoSaveVersion=BaseDemo.SaveVersion,State=state}));
+            new BaseSaveCatalog(folder,d=>JsonUtility.ToJson(d),json=>JsonUtility.FromJson<BaseSaveDocument>(json),true);
+            Need(!File.Exists(obsolete)&&File.Exists(valid),"旧档清理或有效档保留不符合预期");
+            Directory.CreateDirectory("Logs/checkpoint-verification");File.WriteAllText("Logs/checkpoint-verification/second-failure.txt","PASS: actual second-wave setup, no retreat, defeat game over, isolated legacy cleanup and valid save preserved.\n");
+        }
         public static void VerifySecondOutcome()
         {
             var asset=Resources.Load<TextAsset>("DemoStages/defense-male");Need(asset!=null,"缺少首防阶段档");

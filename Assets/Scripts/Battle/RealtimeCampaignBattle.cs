@@ -250,6 +250,7 @@ namespace BaseConquest.Battle
         }
         public bool RetreatAll()
         {
+            if(Session.Opening.EventId==BaseDemoDefense.SecondEventId)return false;
             if(Session.Opening.DemoCombat){if(Battle.Phase!=BattlePhase.Fighting)return false;Synchronize();Battle.FinishRealtime(BattleOutcome.Retreat);Model.SetPaused(true);return true;}
             var exit=Battle.ExitCell(BattleSide.A);var point=new PrototypePoint(exit.X+.25,exit.Z+.25);bool accepted=false;
             for(int squad=0;squad<3;squad++)accepted|=Model.IssueOrder(squad,-1,PrototypeOrder.Retreat,point);

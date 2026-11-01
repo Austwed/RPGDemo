@@ -44,6 +44,8 @@ namespace BaseConquest.Base
         private bool FinishDemoDefenseEncounter(RealtimeCampaignBattle run,bool abandon,bool mainMenu)
         {
             if(beforeDemoDefense==null){if(State.Campaign.HasActiveBattle)return false;FinishLocalScene(mainMenu,()=>Hud.OpenLoot());return true;}
+            if(mainMenu&&run?.Session.Opening.EventId==BaseDemoDefense.SecondEventId&&run.Battle.Phase==BattlePhase.Fighting)
+            {SaveStore.Save(beforeDemoDefense);State=beforeDemoDefense;beforeDemoDefense=null;FinishLocalScene(true);return true;}
             bool victory=run?.Battle.Report?.Outcome==BattleOutcome.SideAWin;var next=run==null?beforeDemoDefense.Copy():State.Copy();
             if(victory?!BaseDemoDefense.Complete(next,run):run!=null&&!BaseDemoCombat.Fail(next,run))return false;
             if(!victory&&run!=null)BaseDemoCombat.RetreatPosition(next,true);
@@ -51,7 +53,7 @@ namespace BaseConquest.Base
             next.Campaign.Location="base";var camp=BaseSpatial.Layout(next,"base");next.Campaign.CurrentMapId=camp.SourceMapId??"";
             var landing=BaseSpatial.Nearest(next,new BasePoint(1.6,6.5));next.PlayerX=landing.X;next.PlayerY=landing.Y;BaseAdventure.Arrive(next);
             BaseEconomy.Validate(next);SaveStore.Save(next);State=next;beforeDemoDefense=null;
-            if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,()=>{if(victory&&run.Session.Opening.EventId==BaseDemoDefense.EventId)Hud.OpenDemoDefenseAftermath();else if(BaseBattleLoot.Pending(State))Hud.OpenLoot();else Hud.OpenDemoStory();});return true;}
+            if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,()=>{if(State.Aftermath.GameOver)Hud.OpenGameOver();else if(victory&&run.Session.Opening.EventId==BaseDemoDefense.EventId)Hud.OpenDemoDefenseAftermath();else if(BaseBattleLoot.Pending(State))Hud.OpenLoot();else Hud.OpenDemoStory();});return true;}
             if(Application.isPlaying){BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;BaseBattleGateway.ShowPrisoners=BaseBattleLoot.Pending(next);SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
             else
             {

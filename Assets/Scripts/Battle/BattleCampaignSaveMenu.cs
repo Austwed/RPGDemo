@@ -63,7 +63,7 @@ namespace BaseConquest.Battle
                 Option("选项",110,OpenCampaignOptions,!CampaignGameOver);
                 Option("回主菜单",20,CampaignMainMenu);
                 if(IsStandaloneTest)Option("退出独立测试（不保存剧情）",-70,()=>AbandonRealtimeBattle());
-                else if(IsRealtimeCampaign&&!CampaignGameOver&&!campaignSaved)Option(realtime?.Session.Opening.DemoCombat==true?"立即撤出，结算战损":"放弃本场，返回战前",-70,()=>AbandonRealtimeBattle());
+                else if(IsRealtimeCampaign&&!CampaignGameOver&&!campaignSaved&&!IsSecondDefense)Option(realtime?.Session.Opening.DemoCombat==true?"立即撤出，结算战损":"放弃本场，返回战前",-70,()=>AbandonRealtimeBattle());
                 else if(battle?.Phase==BattlePhase.Deployment)Option("取消战场准备并返营",-70,ReturnCampaign,CanReturnCampaign);
                 Option("返回战斗",-160,()=>UiPrefabBinding.DestroyView(campaignMenu),!CampaignGameOver);
             }

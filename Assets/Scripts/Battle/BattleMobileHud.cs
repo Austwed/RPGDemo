@@ -392,7 +392,7 @@ namespace BaseConquest.Battle
         {
             bool fighting=battle.Phase==BattlePhase.Fighting;realtimeMinimap.gameObject.SetActive(false);foreach(var ultimate in ultimates)ultimate.gameObject.SetActive(false);
             fightingPanel.sizeDelta=new Vector2(296,172);skip.gameObject.SetActive(false);undo.gameObject.SetActive(false);
-            realtimeGuard.gameObject.SetActive(fighting);realtimeRetreat.gameObject.SetActive(fighting);
+            realtimeGuard.gameObject.SetActive(fighting);realtimeRetreat.gameObject.SetActive(fighting&&!owner.IsSecondDefense);
             realtimeRetreat.GetComponentInChildren<Text>().text=owner.Realtime?.DefensePursuitReady==true?"结束追击":owner.Realtime?.Session.Opening.DemoCombat==true?"立即撤退":"全军撤离";
             automatic.GetComponentInChildren<Text>().text=owner.Automatic?"暂停":"继续";
             step.GetComponentInChildren<Text>().text=owner.Automatic?"暂停并下令":"继续即时战斗";
