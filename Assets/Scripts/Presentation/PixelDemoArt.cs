@@ -12,6 +12,8 @@ namespace BaseConquest.Presentation
             if(string.IsNullOrEmpty(id))return null;
             if(id=="wilderness")id="enemy-captain";
             else if(id=="portrait-wilderness")id="portrait-enemy-captain";
+            // 阿铸只保留骑乘一套图集：所有调用方（含头像兜底、BattlePawn2D 的可用性判断）统一解析到 mounted-azhu，不再有站立版。
+            else if(category=="Characters"&&id=="azhu")id="mounted-azhu";
             string path="PixelDemo/"+category+"/"+id+"-v1";
             if(textures.TryGetValue(path,out var cached)&&cached!=null)return cached;
             var texture=Resources.Load<Texture2D>(path);if(texture!=null)textures[path]=texture;return texture;
@@ -45,11 +47,13 @@ namespace BaseConquest.Presentation
         public readonly Renderer Renderer;
         private readonly Material material;
         private readonly Texture2D atlas,mountedAtlas,idleAtlas,walkAtlas,attackAtlas,downAtlas,mountedIdleAtlas,mountedWalkAtlas,mountedAttackAtlas,mountedDownAtlas;
-        private readonly bool bowAttack,staticMerchantIdle;
+        private readonly bool bowAttack,staticMerchantIdle,alwaysMounted;
         private readonly MaterialPropertyBlock ink=new MaterialPropertyBlock();
         public PixelCharacterSheet(Transform parent,Material source,Texture2D texture,Texture2D mounted=null,string identity="")
         {
             atlas=texture;mountedAtlas=mounted;staticMerchantIdle=identity=="merchant";
+            // 阿铸日常也骑乘（规范 §2B 骑兵规则 1）：不能等调用方传 mounted，否则探索态回落到站立版。
+            alwaysMounted=identity=="azhu";
             if(!string.IsNullOrEmpty(identity))
             {
                 idleAtlas=PixelDemoArt.Motion(identity,"idle");walkAtlas=PixelDemoArt.Motion(identity,"walk");attackAtlas=PixelDemoArt.Motion(identity,"attack");downAtlas=PixelDemoArt.Motion(identity,"down");
@@ -66,7 +70,7 @@ namespace BaseConquest.Presentation
         }
         public void Set(HeroFacing facing,HeroPose pose,double time,bool hit,bool carried,bool mounted)
         {
-            bool riding=mounted&&mountedAtlas!=null&&!carried&&(pose!=HeroPose.Down||mountedDownAtlas!=null);
+            bool riding=(mounted||alwaysMounted)&&mountedAtlas!=null&&!carried&&(pose!=HeroPose.Down||mountedDownAtlas!=null);
             var idle=riding?mountedIdleAtlas:idleAtlas;
             var walk=riding?mountedWalkAtlas:walkAtlas;
             var motion=pose==HeroPose.Attack?(riding?mountedAttackAtlas:attackAtlas):pose==HeroPose.Down?(riding?mountedDownAtlas:downAtlas):pose==HeroPose.Walk?walk:idle;

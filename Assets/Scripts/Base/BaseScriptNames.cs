@@ -57,6 +57,7 @@ namespace BaseConquest.Base
                 case "blacksmith":return "chenan";   // TODO 美术：baron
                 case "galan":return "galan";
                 case "batu":return "batu";
+                case "azhu":return "azhu";           // 骑乘阿铸的头像（portrait-azhu-v1，已换新骑乘版）
                 case "chief":return "chief";
                 case "huoya":return "huoya";
                 default:return "villager";           // 春婶／募兵官／旅店／镇民 兜底
