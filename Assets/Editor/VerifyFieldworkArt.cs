@@ -83,7 +83,17 @@ namespace BaseConquest.Editor
                 Need(renderer.sortingOrder< -30000,"粮田未处于直立角色和物件下方");
                 view.SetExploration(false);view.SetExploration(true);
                 Need(renderer.sortingOrder< -30000,"视图切换改变了粮田排序");
-                Directory.CreateDirectory("Logs");File.WriteAllText("Logs/farm-art-verification.txt","PASS: distinct A/B textures, default mature texture, ground sorting across view switches.\n");
+                var stage=Resources.Load<TextAsset>("DemoStages/camp-male");Need(stage!=null,"缺少营地阶段档");
+                var state=JsonUtility.FromJson<BaseState>(stage.text);
+                state.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,Health=100,MaxHealth=100,FacilityId="farm",DesiredFacility="farm",PostLocked=true});
+                foreach(var item in new[]{(rate:1d,sign:-1,texture:immature),(rate:3d,sign:0,texture:mature),(rate:4d,sign:1,texture:mature),(rate:1d,sign:-1,texture:immature)})
+                {
+                    state.Rules.FarmPerWorker=item.rate;string before=JsonUtility.ToJson(state);
+                    Need(Math.Sign(BaseDailyDelta.Read(state).Food)==item.sign,"粮田夹具未形成目标净增");
+                    view.RefreshFarmAppearance(state);Need(renderer.sharedMaterial.GetTexture("_BaseMap")==item.texture,"粮食净增跨零后粮田贴图未正确切换");
+                    Need(JsonUtility.ToJson(state)==before,"粮田贴图刷新改变了经营状态");
+                }
+                Directory.CreateDirectory("Logs");File.WriteAllText("Logs/farm-art-verification.txt","PASS: A/B textures, negative/zero/positive refresh and return, ground sorting, state unchanged.\n");
                 Debug.Log("[VerifyFarmArt] PASS");
             }
             finally{UnityEngine.Object.DestroyImmediate(host);UnityEngine.Object.DestroyImmediate(source);}
