@@ -12,6 +12,7 @@ namespace BaseConquest.Base
         public static BattleBoard Project(BaseState state,string map=null)
         {
             var board=BaseBattlefield.Board(state,map).Clone();
+            if(BaseDemo.Active(state))foreach(var cell in board.Cells)cell.FixedCover=false;
             var objects=BaseSpatial.Objects(state,map).Where(item=>item.Blocks&&!item.Id.StartsWith("tactic:")).ToArray();
             foreach(var position in board.Positions())
             {

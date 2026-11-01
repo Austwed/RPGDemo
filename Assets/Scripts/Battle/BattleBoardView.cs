@@ -13,7 +13,6 @@ namespace BaseConquest.Battle
         private Mesh gridMesh;
         private BattleElevationView elevationView;
         private BaseConquest.Presentation.BaseGroundEdgeView groundEdges;
-        private readonly Dictionary<int,GameObject> stakeViews=new Dictionary<int,GameObject>();
         private GameObject gridRoot;
         private bool[] gridKnown;
         public bool GridOutlinesVisible { get; private set; }
@@ -63,6 +62,31 @@ namespace BaseConquest.Battle
         private readonly System.Collections.Generic.Dictionary<GroundSurface,Material> surfaceMaterials=new System.Collections.Generic.Dictionary<GroundSurface,Material>();
         private readonly System.Collections.Generic.Dictionary<string,Material> dungeonMaterials=new System.Collections.Generic.Dictionary<string,Material>();
         private string surfaceRegion="battle";
+        private bool homeTerrainTrial;
+        private readonly Dictionary<Material,(Texture Texture,Vector2 Scale,Vector2 Offset)> originalTrialMaterials=new Dictionary<Material,(Texture,Vector2,Vector2)>();
+        public bool SetHomeTerrainTrial(bool enabled)
+        {
+            if(enabled&&(BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Grass)==null||BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Road)==null))return false;
+            if(homeTerrainTrial==enabled)return true;
+            homeTerrainTrial=enabled;
+            void Apply(Material skin,GroundSurface surface)
+            {
+                if(skin==null)return;
+                if(enabled)
+                {
+                    if(!originalTrialMaterials.ContainsKey(skin))originalTrialMaterials[skin]=(skin.GetTexture("_BaseMap"),skin.GetTextureScale("_BaseMap"),skin.GetTextureOffset("_BaseMap"));
+                    var texture=BaseConquest.Presentation.HomeTerrainTrial.Texture(surface);if(texture==null)return;
+                    skin.SetTexture("_BaseMap",texture);skin.SetTextureScale("_BaseMap",Vector2.one);skin.SetTextureOffset("_BaseMap",Vector2.zero);
+                }
+                else if(originalTrialMaterials.TryGetValue(skin,out var original))
+                {skin.SetTexture("_BaseMap",original.Texture);skin.SetTextureScale("_BaseMap",original.Scale);skin.SetTextureOffset("_BaseMap",original.Offset);}
+                else skin.SetTexture("_BaseMap",BaseConquest.Presentation.MapSurfaceView.Texture(surface));
+            }
+            Apply(baseGrassMaterial,GroundSurface.Grass);Apply(baseRaisedGrassMaterial,GroundSurface.Grass);Apply(baseRaisedRoadMaterial,GroundSurface.Road);
+            foreach(var entry in surfaceMaterials)if(entry.Key==GroundSurface.Grass||entry.Key==GroundSurface.Road||entry.Key==GroundSurface.DirtPath)Apply(entry.Value,entry.Key);
+            if(!enabled)originalTrialMaterials.Clear();
+            Refresh();return true;
+        }
         public void SetSurfaceRegion(string region){surfaceRegion=region;Refresh();}
         public Material WaterMaterial => waterMaterial;
         public Material WallMaterial => wallMaterial;
@@ -186,9 +210,22 @@ namespace BaseConquest.Battle
                 Camera.transform.rotation = Quaternion.Euler(60, 0, 0);
             }
         }
-        public void Zoom(float ratio,float minimum=.22f) { zoomFactor = Mathf.Clamp(zoomFactor * ratio, minimum, 2); }
+        public void Zoom(float ratio,float minimum=.22f) { zoomFactor = Mathf.Clamp(zoomFactor * ratio, CombatMode ? Mathf.Max(.44f,minimum) : minimum, CombatMode ? 1 : 2); }
         public void SetViewSize(float size)
-        {zoomFactor*=size/Camera.orthographicSize;Camera.orthographicSize=size;}
+        {
+            if(CombatMode)
+            {
+                float previous=zoomFactor;
+                zoomFactor=Mathf.Clamp(zoomFactor*size/Camera.orthographicSize,.44f,1f);
+                Camera.orthographicSize*=zoomFactor/previous;
+            }
+            else
+            {
+                size=Mathf.Clamp(size,2f,16f);
+                zoomFactor*=size/Camera.orthographicSize;
+                Camera.orthographicSize=size;
+            }
+        }
         public void Follow(Vector3 feet)=>ApplyPanOffset(feet);
         public void ZoomAt(float ratio,Vector2 screen)
         {
@@ -251,13 +288,6 @@ namespace BaseConquest.Battle
             foreach (GridPosition p in board.Positions())
             {
                 BoardCell cell = DisplayCell(p); int index = p.Z * board.Width + p.X; Renderer tile = tiles[index];
-                bool stake=board.Cell(p).IsStake&&board.Cell(p).ObstacleHealth>0;
-                if(stake&&!stakeViews.ContainsKey(index)){
-                    var feet=World(p,board)+Vector3.up*(ObliqueExploration?cell.Elevation*BaseConquest.Presentation.BaseTerrainView.LevelHeight:0);
-                    var art=BaseConquest.Presentation.PixelDemoArt.Prop(Root.transform,"fence",feet,groundMaterial,CellSize,.8f);
-                    if(art!=null){art.name="拒马_"+p.X+"_"+p.Z;stakeViews[index]=art;}
-                }
-                else if(!stake&&stakeViews.TryGetValue(index,out var stakeView)){DestroyObject(stakeView);stakeViews.Remove(index);}
                 if(cell.Terrain==TerrainKind.Building&&authoredBuildings.Contains(cell.BuildingId)){cell=cell.Clone();cell.Terrain=TerrainKind.Ground;}
                 Vector3 position = World(p, board); float height = 0.18f;
                 Color color = (p.X + p.Z) % 2 == 0 ? new Color(0.19f, 0.24f, 0.3f) : new Color(0.23f, 0.29f, 0.35f);
@@ -272,8 +302,9 @@ namespace BaseConquest.Battle
                     var surface=GroundSurfaceRules.Resolve(cell.Surface,surfaceRegion,p.X,p.Z);
                     if(surface!=GroundSurface.Default)
                     {
-                        if(!surfaceMaterials.TryGetValue(surface,out var skin)){var texture=BaseConquest.Presentation.MapSurfaceView.Texture(surface);if(texture!=null)surfaceMaterials[surface]=skin=MakeMaterial(groundMaterial,texture,"Ground_"+surface);}
+                        if(!surfaceMaterials.TryGetValue(surface,out var skin)){var texture=(homeTerrainTrial?BaseConquest.Presentation.HomeTerrainTrial.Texture(surface):null)??BaseConquest.Presentation.MapSurfaceView.Texture(surface);if(texture!=null)surfaceMaterials[surface]=skin=MakeMaterial(groundMaterial,texture,"Ground_"+surface);}
                         if(skin!=null){tile.sharedMaterial=ObliqueExploration&&surface==GroundSurface.Grass&&baseGrassMaterial!=null ? baseGrassMaterial : skin;if(!CombatMode||cell.Zone==DeploymentZone.None)color=Color.white;}
+                        if(homeTerrainTrial&&(!CombatMode||cell.Zone==DeploymentZone.None)&&(surface==GroundSurface.Grass||surface==GroundSurface.Road||surface==GroundSurface.DirtPath))color*=Mathf.Lerp(.94f,1.02f,Mathf.PerlinNoise(p.X*.12f,p.Z*.12f));
                     }
                 }
                 tile.GetComponent<MeshFilter>().sharedMesh=cubeMesh;
@@ -305,7 +336,10 @@ namespace BaseConquest.Battle
                     else {tile.sharedMaterial=buildingMaterial;color=style?.Tint??Color.white;}
                 }
                 if(cell.FixedCover){height=.30f;position.y=.05f;color=new Color(.56f,.55f,.42f);}
-                if(cell.ObstacleHealth>0&&!cell.IsStake){height=.68f;position.y=.24f;tile.sharedMaterial=groundMaterial;color=new Color(.48f,.29f,.13f);}
+                if(cell.ObstacleHealth>0){height=.68f;position.y=.24f;tile.sharedMaterial=groundMaterial;color=new Color(.48f,.29f,.13f);}
+                // Construction indicators remain visible to the player; traps are hidden in battle.
+                if(cell.SandbagGroup>0){tile.sharedMaterial=groundMaterial;color=new Color(.60f,.51f,.34f);}
+                if(cell.HiddenTrap&&!CombatMode){tile.sharedMaterial=groundMaterial;color=new Color(.42f,.31f,.22f);}
                 if(cell.Walkable&&cell.Elevation>0)color=Color.Lerp(color,new Color(.60f,.63f,.42f),cell.Elevation*.12f);
                 if (wallCaps[index] != null) wallCaps[index].SetActive(cell.Terrain == TerrainKind.Wall);
                 if(wallCaps[index]!=null)wallCaps[index].transform.position=World(p,board)+Vector3.up*(1+(ObliqueExploration ? cell.Elevation*BaseConquest.Presentation.BaseTerrainView.LevelHeight : 0));

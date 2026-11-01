@@ -81,8 +81,8 @@ namespace BaseConquest.Base
             }
             s.Demo.Encounters=new BaseDemoEncounterConfig {Version=2,
                 Ruins=Preset(new[]{SoldierKind.Melee},new[]{new GridPosition(27,12),new GridPosition(25,8),new GridPosition(25,16)},2,0,0),
-                Defense=Preset(new[]{SoldierKind.Melee},new[]{new GridPosition(3,12),new GridPosition(5,8),new GridPosition(5,9),new GridPosition(5,16),new GridPosition(5,17),new GridPosition(2,9),new GridPosition(2,16)},4,2,0),
-                Camp=Preset(new[]{SoldierKind.Melee,SoldierKind.Melee,SoldierKind.Melee},new[]{new GridPosition(27,9),new GridPosition(28,12),new GridPosition(28,16),new GridPosition(25,8),new GridPosition(25,9),new GridPosition(25,16),new GridPosition(25,17),new GridPosition(27,8),new GridPosition(27,16),new GridPosition(27,17),new GridPosition(26,12)},4,3,1)};
+                Defense=Preset(new[]{SoldierKind.Ranged},new[]{new GridPosition(3,12),new GridPosition(5,8),new GridPosition(5,9),new GridPosition(5,16),new GridPosition(5,17),new GridPosition(2,9),new GridPosition(2,16)},4,2,0),
+                Camp=Preset(new[]{SoldierKind.Cavalry,SoldierKind.Ranged,SoldierKind.Melee},new[]{new GridPosition(27,9),new GridPosition(28,12),new GridPosition(28,16),new GridPosition(25,8),new GridPosition(25,9),new GridPosition(25,16),new GridPosition(25,17),new GridPosition(27,8),new GridPosition(27,16),new GridPosition(27,17),new GridPosition(26,12)},4,3,1)};
             // 巴图不持有普通兵槽；他缺席时其余两队的人数保持不变。
             foreach(var unit in s.Demo.Encounters.Camp.Units.Where(unit=>unit.Kind!=SoldierKind.Hero&&unit.CommanderSlot==1))unit.CommanderSlot=2;
             s.Demo.Encounters.Camp.Commanders[2].SkillId="inspire";

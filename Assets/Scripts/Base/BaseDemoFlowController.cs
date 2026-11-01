@@ -12,10 +12,6 @@ namespace BaseConquest.Base
             var f=State.Demo.Flow;
             if(State.Campaign.Location=="base"&&BaseDemoDefense.Won(State)&&State.Demo.Defense.BatuStoryDay>0&&!State.Demo.Defense.MerchantDone)
             {TickDemoMerchant(seconds);return;}
-            if(State.Campaign.Location=="perimeter"&&!f.StakesNotice)
-            {
-                if(Change(s=>{BaseDemoFlow.GrantStakes(s);s.Demo.Flow.StakesNotice=true;},"获得【成品拒马×20】")){Hud.OpenFieldReminder();}return;
-            }
             if(BaseDemoFlow.Recruited(State)&&!f.RecruitmentNotice)
             {if(Change(s=>s.Demo.Flow.RecruitmentNotice=true,"招募建设人手已完成"))Hud.OpenRecruitmentComplete();return;}
             if(State.Campaign.Location=="town"&&State.Demo.RuinsDay>0&&!f.NoviceShop&&new BasePoint(State.PlayerX,State.PlayerY).Distance(BaseDemoFlow.SmithApproach(State))<=2)
@@ -71,11 +67,6 @@ namespace BaseConquest.Base
             new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"但切记——古窟瘴气蚀骨，普通士卒进去会不断折损生机，千万慎用凡躯涉险！")
         },new[]{new NpcReply("回营地安排生产",ClosePanel)});
         public void OpenSmithGoods()=>NpcDialogue(new[]{new NpcLine(BaseScriptNames.Blacksmith,BaseScriptNames.Portrait("blacksmith"),"听说你拔掉了古窟那颗毒钉！老头子连夜赶制了一批轻重甲胄和兵刃，快来看看！")},new[]{new NpcReply("去看看新装备",ClosePanel)});
-        public void OpenFieldReminder()
-        {
-            bool azhu=BaseAdventure.Following(owner.State,"partner_craft");
-            NpcDialogue(new[]{new NpcLine(azhu?"阿铸":"战前准备",azhu?"azhu":"","获得【成品拒马×20】。战前可在右侧小菜单布置，能减速步卒、阻断骑兵。")},new[]{new NpcReply("开始战前布置",()=>{ClosePanel();owner.ArmConstruction();}),new NpcReply("先查看战场",ClosePanel)});
-        }
         public void OpenAheFarmOffer(bool recruited)
         {
             var lines=new[]{new NpcLine("阿禾","ahe","看你往田里派了人手，有件事我可得毛遂自荐！"),new NpcLine("阿禾","ahe","我从小跟庄稼打交道，要是让我当粮田管事，收成还能多一成！"),new NpcLine("角色特性","","可在角色详情页查看阿禾特性【种植专精：粮田产出 +10%】。任命管事将退出随行小队，次日结算起生效。")};

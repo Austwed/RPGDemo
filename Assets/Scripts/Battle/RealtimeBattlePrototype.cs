@@ -223,6 +223,7 @@ namespace BaseConquest.RealtimePrototype
         public bool AutonomousOutcome=true;
         public Func<PrototypeUnit,PrototypeUnit,double,double> DamageResolver;
         public Action<PrototypeUnit,PrototypeUnit,double> DamageApplied;
+        public Action<PrototypeUnit,int> CellEntered;
         public Func<PrototypeUnit,PrototypeUnit,bool> CanTarget;
         public Func<PrototypeUnit,bool> CanMove;
         public Func<PrototypeUnit,double> AttackPower,MovementSpeed;
@@ -373,7 +374,7 @@ namespace BaseConquest.RealtimePrototype
                 if(unit.Moving)continue;
                 var distances=Arena.Distances(unit.MoveGoal);
                 var heading=(Arena.Center(unit.MoveGoal)-unit.Position).Normalized;
-                int preferred=unit.FootprintLength==2?FootprintNext(unit,unit.MoveGoal):-1;
+                int preferred=-1;
                 int detour=DetourNext(unit);if(detour>=0)preferred=detour;
                 var candidates=Arena.Neighbours(unit.Cell).Where(cell=>!double.IsPositiveInfinity(distances[cell]))
                     .OrderBy(cell=>cell==preferred?-10000:distances[cell]+Arena.StepCost(unit.Cell,cell)+(reservations.TryGetValue(cell,out int owner)&&owner!=unit.Id ? 3 : 0)+(cell==unit.PreviousCell ? .5 : 0)+Math.Max(0,Cross(heading,(Arena.Center(cell)-unit.Position).Normalized))).ToArray();
@@ -384,6 +385,7 @@ namespace BaseConquest.RealtimePrototype
                     if(cell!=preferred&&distances[cell]>=distances[unit.Cell]-.001&&unit.BlockedFor<.6)continue;
                     if(cell!=preferred&&distances[cell]>distances[unit.Cell]+.8&&unit.BlockedFor<.5)continue;
                     if(TryBeginStep(unit,cell)){started=true;break;}
+                    if(unit.FootprintLength==2&&unit.TurnReadyAt>Elapsed){started=true;break;}
                 }
                 if(started)continue;unit.BlockedFor+=FixedSeconds;
                 // 骑兵堵够了就把挡路的人挤开一格，然后再试一次。被挤者瞬移，落点仍走完整校验。
@@ -444,10 +446,10 @@ namespace BaseConquest.RealtimePrototype
             if(unit.Order==PrototypeOrder.Guard&&(unit.Position-unit.Anchor).Length>GuardMoveRadius)target=null;
             if(target!=null)
             {
-                var offset=target.BodyCenter-unit.Position;Face(unit,offset.Normalized);
+                var offset=target.BodyCenter-unit.Position;
                 bool threatened=unit.Ranged&&Units.Any(enemy=>enemy.Alive&&enemy.Side!=unit.Side&&(enemy.Position-unit.Position).Length<1.4);
                 if(!threatened&&offset.Length<=unit.Reach&&double.IsPositiveInfinity(Arena.WallFraction(unit.Position,target.Position)))
-                {unit.AttackSlot=unit.Cell;if(Elapsed+1e-9>=unit.ReadyAt)BeginAttack(unit);return;}
+                {unit.AttackSlot=unit.Cell;if(Face(unit,offset.Normalized)&&Elapsed+1e-9>=unit.ReadyAt)BeginAttack(unit);return;}
                 int slot=AttackPosition(unit,target);
                 if(slot>=0){unit.AttackSlot=slot;unit.MoveGoal=slot;return;}
                 unit.AttackSlot=-1;return;
@@ -496,7 +498,7 @@ namespace BaseConquest.RealtimePrototype
             double unbounded=unit.Progress+speed*seconds/distance,progress=unbounded>=1-1e-9 ? 1 : unbounded;
             unit.DistanceTravelled+=(progress-unit.Progress)*distance;unit.Progress=progress;unit.Position=start+(destination-start)*progress;
             if(progress>=1)
-            {unit.CarrySeconds=Math.Max(0,unbounded-1)*distance/speed;unit.PreviousCell=unit.Cell;unit.Cell=unit.NextCell;unit.NextCell=-1;unit.Progress=0;if(unit.JumpDuration>0){unit.CarrySeconds=0;unit.JumpDuration=0;}CompletedSteps++;}
+            {unit.CarrySeconds=Math.Max(0,unbounded-1)*distance/speed;unit.PreviousCell=unit.Cell;unit.Cell=unit.NextCell;unit.NextCell=-1;unit.Progress=0;if(unit.JumpDuration>0){unit.CarrySeconds=0;unit.JumpDuration=0;}CompletedSteps++;CellEntered?.Invoke(unit,unit.Cell);}
         }
         private bool TryYield(PrototypeUnit blocker,PrototypeUnit requester)
         {

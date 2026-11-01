@@ -27,7 +27,7 @@ namespace BaseConquest.Base
             if(State==null||Busy)return;string problem=BaseConstruction.ModeProblem(State);
             if(problem!=""){Message=problem;Hud.RefreshSummary();return;}
             Hud.ClosePanel();ClearSelection();constructionResult="";constructionOpen=true;constructionBrush.Select(ConstructionProject.None);
-            ConstructionHoverText="先在左侧选择拒马或拆除工具，再点击／拖划格子";
+            ConstructionHoverText="选择陷阱、沙袋或拆除工具，再点击格子";
             Message="建造模式：左侧选项目，点击／拖划连续建造；右键／Esc退出";Hud.RefreshSummary();
         }
         public void SelectConstructionProject(ConstructionProject project)
@@ -35,7 +35,7 @@ namespace BaseConquest.Base
             if(project==ConstructionProject.None){StopConstruction();return;}
             if(State==null||Busy||!ConstructionMode)return;
             constructionBrush.Select(project);constructionTouch=-1;mouseTap=null;touches.Clear();constructionResult="";
-            ConstructionHoverText=project==ConstructionProject.Demolish ? "拆除：连续点击／拖划普通路障；固定设施不可拆" : "拒马：成品优先，每格原料1、生命100；点击／拖划连续建造";
+            ConstructionHoverText=project==ConstructionProject.Demolish?"拆除整组工事，不返还材料":project==ConstructionProject.Trap?"隐藏陷阱：原料4，每战场最多10个":"沙袋：向右占3格，原料2";
             Hud.RefreshConstructionPalette();
         }
         private void PaintConstructionCells(List<GridPosition> cells)
@@ -46,7 +46,7 @@ namespace BaseConquest.Base
             ConstructionPaintResult result=null;
             if(Change(s=>{result=constructionBrush.Apply(s,cells);if(result.Applied==0)throw new InvalidOperationException(result.Problem);},"已保存连续营造"))
             {
-                constructionResult=(SelectedConstructionProject==ConstructionProject.Demolish ? "已拆除 " : "已建造 ")+result.Applied+"处"+(result.MaterialsSpent>0 ? " · 原料 −"+result.MaterialsSpent : SelectedConstructionProject==ConstructionProject.Barricade&&BaseDemoFlow.Active(State)?" · 使用成品拒马":" · 无材料返还")+(result.Skipped>0 ? " · 跳过 "+result.Skipped+"格" : "");RefreshConstructionMap();
+                constructionResult=(SelectedConstructionProject==ConstructionProject.Demolish ? "已拆除 " : "已建造 ")+result.Applied+"处"+(result.MaterialsSpent>0 ? " · 原料 −"+result.MaterialsSpent : " · 无材料返还")+(result.Skipped>0 ? " · 跳过 "+result.Skipped+"格" : "");RefreshConstructionMap();
             }
             else constructionResult=Message;
         }
@@ -56,7 +56,7 @@ namespace BaseConquest.Base
             var wheel=Mouse.current?.scroll.ReadValue().y??0;if(Math.Abs(wheel)>.01f)ZoomExploration(Mouse.current.position.ReadValue(),wheel);
             if(Touchscreen.current!=null){var pair=System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Take(System.Linq.Enumerable.Where(Touchscreen.current.touches,t=>t.press.isPressed),2));if(pair.Length==2){var a=pair[0].position.ReadValue();var b=pair[1].position.ReadValue();float span=Vector2.Distance(a,b);if(explorationPinchSpan>0)ZoomExplorationFactor((a+b)*.5f,explorationPinchSpan/Mathf.Max(1,span));explorationPinchSpan=span;constructionBrush.EndStroke();constructionTouch=-1;return;}}
             explorationPinchSpan=0;
-            if(State.Campaign.Location!="perimeter"&&State.Campaign.Location!="base"||!BaseDemoFlow.Active(State)&&!State.Construction.FieldworksUnlocked){StopConstruction();return;}
+            if(State.Campaign.Location!="perimeter"||!BaseDemoFlow.Active(State)){StopConstruction();return;}
             if(Mouse.current?.rightButton.wasPressedThisFrame==true){StopConstruction();Message="已退出建造模式";Hud.RefreshSummary();return;}
             bool touchActive=false;
             if(Touchscreen.current!=null)foreach(var touch in Touchscreen.current.touches)
@@ -87,7 +87,7 @@ namespace BaseConquest.Base
             if(!constructionHoverCell.HasValue||!constructionHoverCell.Value.Equals(cell)||pressed||Time.unscaledTime>=constructionHoverAt)
             {constructionHoverProblem=constructionBrush.Problem(State,cell);constructionHoverCell=cell;constructionHoverAt=Time.unscaledTime+.25f;}
             string problem=constructionHoverProblem;
-            ConstructionHoverText="格 "+cell+" · "+(problem=="" ? SelectedConstructionProject==ConstructionProject.Demolish ? "可拆除（无返还）" : "可建造（成品优先，原料1）" : problem)+(constructionResult=="" ? "" : "\n"+constructionResult);
+            ConstructionHoverText="格 "+cell+" · "+(problem=="" ? SelectedConstructionProject==ConstructionProject.Demolish ? "可拆除（无返还）" : "可建造" : problem)+(constructionResult=="" ? "" : "\n"+constructionResult);
             regionView.SelectCell(cell);regionView.TintSelection(problem=="" ? new Color(.35f,1,.55f) : new Color(1,.32f,.25f));
         }
         public void PaintConstructionCell(GridPosition cell)

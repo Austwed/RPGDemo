@@ -12,7 +12,7 @@ namespace BaseConquest.Base
             string name=null,appearance="chenan";
             switch(original.Id)
             {
-                case "town_quest":name="领主 · 交谈";break;
+                case "town_quest":name="领主 · 交谈";appearance="horn";break;
                 case "town_guard":name="镇卫兵 · 交谈";appearance="villager";break;
                 case "town_peddler":name="行商老莫 · 交谈";appearance="merchant";break;
                 case "town_girl":name="镇民小芸 · 交谈";appearance="villager";break;

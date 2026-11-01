@@ -24,16 +24,15 @@ namespace BaseConquest.Battle
             if(Objects.Count>0&&(double.IsNaN(run.Session.Opening.TacticalBaseDamage)||double.IsInfinity(run.Session.Opening.TacticalBaseDamage)||run.Session.Opening.TacticalBaseDamage<=0))throw new ArgumentException("战术伤害快照非法");
             foreach(var o in Objects){if(o.Kind=="tree"&&o.Health<0)o.Health=Math.Max(1,run.Session.Opening.TacticalBaseDamage*rules.TreeHits);o.Steps=0;}
             foreach(var u in run.Model.Units.Where(u=>u.ObjectOrder))
-            {if(u.Alive&&u.ObjectTargetId?.StartsWith("stake:")==true){run.RestoreStakeOrder(u);continue;}if(u.Alive&&Objects.Any(o=>o.Id==u.ObjectTargetId&&!o.Fallen))orders[u.Id]=u.ObjectTargetId;else FinishOrder(u);}
+            {if(u.Alive&&Objects.Any(o=>o.Id==u.ObjectTargetId&&!o.Fallen))orders[u.Id]=u.ObjectTargetId;else FinishOrder(u);}
             if(Objects.Count>0)Refresh();
         }
-        public BattleTacticalObject At(PrototypePoint p)=>run.StakeAt(p)??Objects.FirstOrDefault(o=>!o.Fallen&&Math.Abs(p.X-o.X-.5)<=.55&&Math.Abs(p.Z-o.Y-.5)<=.55);
+        public BattleTacticalObject At(PrototypePoint p)=>Objects.FirstOrDefault(o=>!o.Fallen&&Math.Abs(p.X-o.X-.5)<=.55&&Math.Abs(p.Z-o.Y-.5)<=.55);
         public void Cancel(IEnumerable<int> squads)
-        {var chosen=squads.ToArray();run.CancelStakes(chosen);foreach(var u in run.Model.Units.Where(u=>u.Side==PrototypeSide.Ally&&chosen.Contains(u.Squad))){orders.Remove(u.Id);u.ObjectWindupAt=-1;u.ObjectOrder=false;u.ObjectTargetId="";}}
+        {var chosen=squads.ToArray();foreach(var u in run.Model.Units.Where(u=>u.Side==PrototypeSide.Ally&&chosen.Contains(u.Squad))){orders.Remove(u.Id);u.ObjectWindupAt=-1;u.ObjectOrder=false;u.ObjectTargetId="";}}
         private void FinishOrder(PrototypeUnit actor){orders.Remove(actor.Id);actor.ObjectWindupAt=-1;actor.ObjectOrder=actor.ManualOrder=false;actor.ObjectTargetId="";actor.Order=PrototypeOrder.Auto;actor.NextThinkAt=0;}
         public bool Issue(IEnumerable<int> commanders,string id,bool leadersOnly=false)
         {
-            if(id?.StartsWith("stake:")==true)return run.IssueStake(commanders,id,leadersOnly);
             if(run.Battle.Phase!=BattlePhase.Fighting||!Objects.Any(o=>o.Id==id&&!o.Fallen&&o.Steps==0))return false;
             var slots=commanders.Select(run.Battle.Soldier).Where(u=>u?.IsActive==true&&u.Side==BattleSide.A&&u.Kind==SoldierKind.Hero).Select(u=>u.OriginCommanderSlot).ToArray();
             var actors=run.Model.Units.Where(u=>u.Alive&&u.Side==PrototypeSide.Ally&&slots.Contains(u.Squad)&&(!leadersOnly||u.Role==PrototypeRole.Leader)).ToArray();

@@ -46,7 +46,7 @@ namespace BaseConquest.Base
             var mission=state.Demo.Defense.Mission.Copy();mission.Id=SecondEventId;mission.Title="黑鸦寨第二波入侵";mission.SourceSiteId="";mission.DepartedDay=state.Day;mission.AvailableDay=mission.DeadlineDay=arrival;mission.EnemyArmy=site.Garrison.Select(unit=>unit.Copy()).ToList();mission.EnemyRecoveryDay=0;mission.Status="pending";
             state.Campaign.Events.Add(mission);
             var entry=BaseSpatial.Nearest(state,new BasePoint(2,6));state.Demo.Defense.MerchantX=entry.X;state.Demo.Defense.MerchantY=entry.Y;
-            state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Add(new BaseMapPlacement {Id="demo_merchant",Name="行商",Kind="npc",AssetId="villager",X=entry.X,Y=entry.Y,Width=.5,Height=.5,VisualOnly=true});
+            state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Add(new BaseMapPlacement {Id="demo_merchant",Name="行商",Kind="npc",AssetId="merchant",X=entry.X,Y=entry.Y,Width=.5,Height=.5,VisualOnly=true});
         }
         public static bool CancelSecond(BaseState state,string reason)
         {

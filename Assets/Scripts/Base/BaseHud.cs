@@ -19,6 +19,7 @@ namespace BaseConquest.Base
         private readonly Text inspectionTitle, inspectionDetails;
         private Text panelFeedback;
         private readonly Button interact;
+        private readonly UnityEngine.UI.Button construction;
         private readonly Button reserveRules;
         private readonly RectTransform[] labels;
         private readonly Text[] npcMarkers;
@@ -33,7 +34,7 @@ namespace BaseConquest.Base
         private string nearbyId;
         private string activeObject = "", activePage = "";
         private string interactionObject="";
-        private static readonly HashSet<string> facilityInteractions=new HashSet<string>{"home","government","farm","workshop","barracks","warehouse","town_market","town_inn","town_recruit","fixed_fieldworks"};
+        private static readonly HashSet<string> facilityInteractions=new HashSet<string>{"home","government","farm","workshop","barracks","warehouse","town_market","town_inn","town_recruit"};
         private float nextInspectionRefresh;
         public BaseJoystick Joystick { get; }
         public bool PanelOpen => modal.gameObject.activeSelf;
@@ -80,6 +81,8 @@ namespace BaseConquest.Base
             Joystick = stick.gameObject.GetOrAdd<BaseJoystick>(); Joystick.Handle = knob;
             Label(stick, "移动", new Vector2(0, -106), new Vector2(160, 32), 18, TextAnchor.MiddleCenter);
             interact = MakeButton(controls, "接近对象", new Vector2(-140, 118), new Vector2(200, 74), owner.Interact, new Vector2(1, 0));
+            construction = MakeButton(controls, "战前建造", new Vector2(-360, 118), new Vector2(180, 64), owner.ArmConstruction, new Vector2(1, 0));
+            construction.gameObject.SetActive(false);
             hint = Label(controls, "", new Vector2(0, 30), new Vector2(730, 50), 18, TextAnchor.MiddleCenter, new Vector2(0.5f, 0));
             labelObjects = owner.MapObjects.Where(o=>!BaseEnvironment.Decorative(o)).ToArray(); labels = new RectTransform[labelObjects.Length];npcMarkers=new Text[labels.Length];
             for (int i = 0; i < labels.Length; i++)
@@ -151,7 +154,7 @@ namespace BaseConquest.Base
             reserveRules.interactable=s!=null&&!s.Aftermath.GameOver&&!owner.Busy;
             if (panelFeedback != null) panelFeedback.text = DialogueOpen&&!owner.Message.StartsWith("操作未保存")&&!owner.Message.Contains("失败")?"交谈中 · 选择答复后继续":owner.Message;
             owner.InvalidateObjects();
-            if (s == null) { summary.text = owner.Busy ? "正在读取据点…" : "没有有效进度，请选择新开局或恢复备份"; regionStatus.text = ""; interact.interactable = false; Joystick.gameObject.SetActive(false); mapLabels.gameObject.SetActive(false); return; }
+            if (s == null) { summary.text = owner.Busy ? "正在读取据点…" : "没有有效进度，请选择新开局或恢复备份"; regionStatus.text = ""; interact.interactable = false; construction.gameObject.SetActive(false); Joystick.gameObject.SetActive(false); mapLabels.gameObject.SetActive(false); return; }
             mapLabels.gameObject.SetActive(!PanelOpen); controls.gameObject.SetActive(!PanelOpen);
             var delta=BaseDailyDelta.Read(s);summary.supportRichText=true;
             string Amount(string name,int count,int change)=>name+" "+count+"（<color="+(change>0?"#EE7777":change<0?"#7BCB93":"#C6D4CE")+">"+change.ToString("+0;-0;0")+"</color>）";
@@ -176,6 +179,9 @@ namespace BaseConquest.Base
         {
             RefreshIntroObjective();var nearby = owner.Nearby;
             interact.gameObject.SetActive(!owner.ConstructionMode&&nearby!=null&&!PanelOpen);
+            bool canBuild=owner.State!=null&&BaseDemoFlow.Active(owner.State)&&owner.State.Campaign.Location=="perimeter"&&!owner.State.Campaign.HasActiveBattle&&!owner.State.Aftermath.GameOver&&!owner.Busy&&!PanelOpen&&!owner.ConstructionMode;
+            construction.gameObject.SetActive(canBuild);
+            construction.interactable=canBuild;
             Joystick.gameObject.SetActive(!PanelOpen&&!owner.Busy&&!owner.PlayerAway&&owner.State?.Campaign.HasActiveBattle!=true);
             interact.interactable = nearby != null && !PanelOpen && !owner.Busy;
             string id = nearby?.Id ?? "";
@@ -215,7 +221,7 @@ namespace BaseConquest.Base
             inspectionTitle.text = "格子（" + cell.X + ", " + cell.Y + "） · " + (facility?.Name ?? TerrainLabel(cell.X,cell.Y));
             if (facility != null)
             {
-                if (!owner.AtBase) inspectionDetails.text = facility.Id == "travel_base" ? "基地入口；接近后交互返回。" : facility.Id=="travel_world" ? "区域出口；接近后回到世界地图原节点，保持本队与军需。" : facility.Id == "campaign_defense" ? "查看入侵并预览迎战；确认才抽调人员。" : facility.Id == "campaign_attack" ? owner.State.Campaign.Location=="world" ? "区域入口；接近后进入据点区域。世界地图仅用于区域导航。" : BaseThreats.Site(owner.State)?.Owner=="player" ? "本区域已归己方，停止产生新入侵；接近后查看据点状态。" : "查看本区域驻军与威胁，使用真实队伍与军需在本图进攻。" : facility.Id=="town_quest" ? "镇务官：接取城镇防务委托，完成后交付领取营造图册。" : facility.Id=="town_market" ? "交易摊位：买卖粮草、原料和装备；接近后查看当日供货和报价。" : facility.Id=="town_recruit" ? (BaseDemoFlow.Active(owner.State)?"募兵处：付费招募三种普通兵，加入基地；今日即可安排生产。":"募兵处：付费招募三种普通兵，加入基地；今日不生产，次日正常分配。") : facility.Id=="fixed_fieldworks" ? "固定工程位；接近后用剧情图册解锁掩体及普通路障营造。" : "城镇交互点。";
+                if (!owner.AtBase) inspectionDetails.text = facility.Id == "travel_base" ? "基地入口；接近后交互返回。" : facility.Id=="travel_world" ? "区域出口；接近后回到世界地图原节点，保持本队与军需。" : facility.Id == "campaign_defense" ? "查看入侵并预览迎战；确认才抽调人员。" : facility.Id == "campaign_attack" ? owner.State.Campaign.Location=="world" ? "区域入口；接近后进入据点区域。世界地图仅用于区域导航。" : BaseThreats.Site(owner.State)?.Owner=="player" ? "本区域已归己方，停止产生新入侵；接近后查看据点状态。" : "查看本区域驻军与威胁，使用真实队伍与军需在本图进攻。" : facility.Id=="town_quest" ? "镇务官：接取城镇防务委托，完成后交付领取营造图册。" : facility.Id=="town_market" ? "交易摊位：买卖粮草、原料和装备；接近后查看当日供货和报价。" : facility.Id=="town_recruit" ? (BaseDemoFlow.Active(owner.State)?"募兵处：付费招募三种普通兵，加入基地；今日即可安排生产。":"募兵处：付费招募三种普通兵，加入基地；今日不生产，次日正常分配。") : "城镇交互点。";
                 else { var info = BaseFacilityInfo.Read(owner.State, facility.Id); inspectionDetails.text = (info.Administrator == "" ? "" : "管理员：" + info.Administrator + "\n工人：" + info.Workers + "\n") + info.Production + "\n" + info.Status; }
             }
             else
@@ -306,7 +312,6 @@ namespace BaseConquest.Base
             activeObject = id;interactionObject=facilityInteractions.Contains(id)?id:"";
             if(id=="warehouse"){OpenWarehouse();return;}
             if(id=="town_quest"){OpenQuests();return;}
-            if(id=="fixed_fieldworks"){OpenFieldworks();return;}
             if (id=="town_market") { OpenTownMarket(); return; }
             if (id=="town_recruit") { OpenTownRecruit(); return; }
             if (id.StartsWith("exit_") || id.StartsWith("travel_") || id.StartsWith("campaign_")) { OpenTravel(id); return; }
@@ -332,13 +337,24 @@ namespace BaseConquest.Base
             if(owner.State.Campaign.HasActiveBattle){RowButton("恢复当前战斗",0,800,owner.ResumeCampaign);row+=60;}
             else if(!owner.AtBase){RowButton(BaseDesignRoutes.Active(owner.State) ? "经绑定出口返回基地" : "返回基地",0,800,()=>owner.Travel("base"),!BaseDesignRoutes.Active(owner.State)||BaseDesignRoutes.Reachable(owner.State,"base")!=null);row+=60;}
             if(BaseAchievements.Active(owner.State)){RowButton("成就 · "+owner.State.Achievements.Records.Count+"/9",0,800,OpenAchievements);row+=60;}
-            if(BaseDemoFlow.Active(owner.State)&&!BaseDemoPrologue.Village(owner.State)&&(owner.AtBase||owner.State.Campaign.Location=="perimeter")&&!BaseSceneCombat.Active(owner.State)){RowButton("战前布置拒马",0,800,owner.ArmConstruction);row+=60;}
+            if(BaseDemoFlow.Active(owner.State)&&!BaseDemoPrologue.Village(owner.State)&&owner.State.Campaign.Location=="perimeter"&&!BaseSceneCombat.Active(owner.State)){RowButton("战前布置工事",0,800,owner.ArmConstruction);row+=60;}
             RowButton("选项",-210,400,OpenOptions);RowButton("难度设置",210,400,OpenDifficulty);row+=60;
             RowButton("帮助",-210,400,OpenHelp);RowButton("回主菜单",210,400,owner.ToMainMenu);row+=60;
+            if(BaseDemo.Active(owner.State)&&RuntimeDeveloperOptions.Enabled){RowButton("独立即时战斗测试",0,800,OpenStandaloneBattleTest);row+=60;}
             if(BaseDemo.Active(owner.State)){RowButton("当前剧情目标",0,800,OpenDemoStory);row+=60;EndPanel();return;}
             RowButton(developerTemplatesOpen ? "开发存档 ▴" : "开发存档 ▾",0,800,()=>{developerTemplatesOpen=!developerTemplatesOpen;OpenMenu();});row+=60;
             if(developerTemplatesOpen)AddTemplates();
             EndPanel();
+        }
+        private void OpenStandaloneBattleTest()
+        {
+            if(!RuntimeDeveloperOptions.Enabled||owner.State==null||owner.State.Campaign.HasActiveBattle)return;
+            BeginPanel("独立即时战斗测试");
+            Line("使用正式 Demo 的即时战斗、细格碰撞、骑兵体积与伤害规则。每方额外的测试队长仅用于维持正式小队指挥链，不计入下列 8 名兵种数量。退出、失败与重选均不写剧情存档。",92,18);
+            RowButton("默认 · 8 骑兵 vs 8 弓兵",0,800,()=>owner.StartStandaloneBattle(BaseStandaloneBattlePreset.CavalryVsArchers));row+=60;
+            RowButton("攻守互换 · 8 弓兵 vs 8 骑兵",0,800,()=>owner.StartStandaloneBattle(BaseStandaloneBattlePreset.Swapped));row+=60;
+            RowButton("混编预设 · 剑 2／弓 3／骑 3 vs 同构",0,800,()=>owner.StartStandaloneBattle(BaseStandaloneBattlePreset.Mixed));row+=60;
+            RowButton("返回菜单",0,800,OpenMenu);row+=60;EndPanel();
         }
         public void OpenRecovery()
         {

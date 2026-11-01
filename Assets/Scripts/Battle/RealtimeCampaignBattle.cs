@@ -39,7 +39,7 @@ namespace BaseConquest.RealtimePrototype
             foreach(var unit in state.Units)
             {
                 if(unit==null||unit.Id<0||unit.Squad<0||unit.Squad>2||!Enum.IsDefined(typeof(PrototypeRole),unit.Role)||!Enum.IsDefined(typeof(PrototypeSide),unit.Side)||!Enum.IsDefined(typeof(PrototypeOrder),unit.Order)||
-                    !new[]{unit.Health,unit.MaxHealth,unit.Speed,unit.AttackDamage,unit.AttackRange,unit.AttackInterval,unit.ReadyAt,unit.HitAt,unit.SwingUntil,unit.FlashUntil,unit.Progress,unit.BlockedFor,unit.NextThinkAt,unit.DistanceTravelled,unit.CarrySeconds,unit.WindupStarted,unit.ReleasedAt,unit.ObjectWindupAt,unit.JumpDuration,unit.EngagedUntil}.All(Finite)||
+                    !new[]{unit.Health,unit.MaxHealth,unit.Speed,unit.AttackDamage,unit.AttackRange,unit.AttackInterval,unit.ReadyAt,unit.HitAt,unit.SwingUntil,unit.FlashUntil,unit.Progress,unit.BlockedFor,unit.NextThinkAt,unit.DistanceTravelled,unit.CarrySeconds,unit.WindupStarted,unit.ReleasedAt,unit.ObjectWindupAt,unit.JumpDuration,unit.EngagedUntil,unit.TurnReadyAt}.All(Finite)||unit.TurnReadyAt<0||!Point(unit.TurnTarget)||
                     unit.JumpDuration<0||unit.JumpDuration>1||unit.Health<0||unit.Health>unit.MaxHealth||unit.KnockedDown&&unit.Health!=1||unit.MaxHealth<=0||unit.Speed<=0||unit.Speed>12||unit.AttackDamage< -1||unit.AttackDamage>attackDamageLimit||unit.AttackRange< -1||unit.AttackRange>12||unit.AttackInterval< -1||unit.Progress<0||unit.Progress>=1||
                     !Point(unit.Position)||!Point(unit.Goal)||!Point(unit.Anchor)||!Point(unit.Facing)||!Point(unit.AttackFacing)||unit.Cell<0||unit.Cell>=Arena.FineColumns*Arena.FineRows||unit.Alive&&!Arena.FineWalkable(unit.Cell)||unit.Moving&&!(unit.Alive?(unit.JumpDuration>0?Arena.FineWalkable(unit.NextCell):Arena.CanStep(unit.Cell,unit.NextCell)):unit.NextCell>=0&&unit.NextCell<Arena.FineColumns*Arena.FineRows))throw new ArgumentException("即时单位检查点非法");
                 var expected=Arena.Center(unit.Cell);if(unit.Moving)expected+=(Arena.Center(unit.NextCell)-expected)*unit.Progress;
@@ -120,7 +120,15 @@ namespace BaseConquest.Battle
             var arena=new PrototypeArena(board.Cells.Select(cell=>!cell.Walkable).ToArray(),board.Cells.Select(cell=>cell.BlocksShots).ToArray(),Cross,board.Width,board.Height);
             arena.TravelCost=cell=>board.Cell(Coarse(cell)).FootworkCost;
             Model=new RealtimeBattlePrototype(arena) {AutonomousOutcome=false,DamageResolver=Damage};
-            Model.UnitCellAllowed=(u,c)=>u.FootprintLength!=2||!(board.Cell(Coarse(c)).IsStake&&board.Cell(Coarse(c)).ObstacleHealth>0);
+            Model.CellEntered=(actor,cellIndex)=>
+            {
+                var cell=board.Cell(Coarse(cellIndex));
+                if(!session.Opening.DemoCombat||actor.Side!=PrototypeSide.Enemy||!actor.Alive||!cell.HiddenTrap)return;
+                cell.HiddenTrap=false;var soldier=Battle.Soldier(actor.Id-1);
+                float damage=soldier.DeveloperInvulnerable?0:(float)Math.Min(actor.Health,actor.MaxHealth*.3);
+                Battle.RecordEnvironmentHit(soldier.Id,damage,"陷阱");actor.Health=soldier.Health;actor.KnockedDown=soldier.KnockedDown;actor.FlashUntil=Model.Elapsed+.12;
+                ResolveImmediateVictory();
+            };
             if(session.Opening.DemoCombat)Battle.CasualtyChance=unit=>BaseDemoCombat.DeathChance(session,unit);
             Model.DamageApplied=(source,target,actual)=>{Battle.RecordRealtimeHit(source.Id-1,target.Id-1,(float)actual,(float)target.Health);var soldier=Battle.Soldier(target.Id-1);target.Health=soldier.Health;target.KnockedDown=soldier.KnockedDown;ResolveImmediateVictory();};
             Model.CanTarget=(source,target)=>Battle.Vision.CanSee(source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B,Battle.Soldier(target.Id-1));
@@ -260,7 +268,7 @@ namespace BaseConquest.Battle
         public void Tick(double seconds)
         {
             if(Battle.Phase!=BattlePhase.Fighting||Model.Paused)return;
-            Model.Tick(seconds);if(Battle.Phase!=BattlePhase.Fighting){Synchronize();return;}Tactics.Tick(seconds);TickStakes();Synchronize();if(Model.Paused)return;
+            Model.Tick(seconds);if(Battle.Phase!=BattlePhase.Fighting){Synchronize();return;}Tactics.Tick(seconds);Synchronize();if(Model.Paused)return;
             if(OutcomeResolver!=null)
             {
                 var outcome=OutcomeResolver(this);if(outcome!=BattleOutcome.None){Battle.FinishRealtime(outcome);Model.SetPaused(true);}return;

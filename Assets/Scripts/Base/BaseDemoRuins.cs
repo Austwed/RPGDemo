@@ -132,7 +132,7 @@ namespace BaseConquest.Base
             foreach(var leader in run.Battle.Soldiers.Where(unit=>unit.Side==BattleSide.B&&unit.Kind==SoldierKind.Hero))leader.ProtectFromInstantDeath=run.Session.Opening.RuinsFirstClear;
             foreach(var victim in Civilians(run.Session)){victim.ProtectFromInstantDeath=true;victim.AppearanceId="villager";}
             run.Battle.RuinsCivilianIds=new HashSet<int>(Civilians(run.Session).Select(v=>v.Id));
-            var controller=run.Battle.Commander(BattleSide.B,0);if(controller!=null)controller.AppearanceId="controller";
+            var controller=run.Battle.Commander(BattleSide.B,0);if(controller!=null)controller.AppearanceId="galan";
             run.EnableRuinsExposure(run.Session.Opening.RuinsExposureFraction>0?run.Session.Opening.RuinsExposureFraction:.03);
             run.ImmediateVictory=()=>ControllerDefeated(run);
             run.OutcomeResolver=current=>ControllerDefeated(current)?BattleOutcome.SideAWin:BaseDemoCombat.Defeated(current)?BattleOutcome.SideBWin:current.Model.Elapsed>=90?BattleOutcome.RoundLimit:BattleOutcome.None;

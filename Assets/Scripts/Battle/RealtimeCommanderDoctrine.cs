@@ -77,7 +77,7 @@ namespace BaseConquest.RealtimePrototype
         private bool ReachableNow(PrototypeUnit u,int goal)
         {
             if(goal<0)return false;if(goal==u.Cell)return true;
-            if(u.FootprintLength==2)return PlanFootprint(u,u.Cell,goal,true).Count>0;
+            if(u.FootprintLength==2)return !double.IsPositiveInfinity(Arena.Distances(goal)[u.Cell]);
             var seen=new HashSet<int>{u.Cell};var pending=new Queue<int>();pending.Enqueue(u.Cell);
             while(pending.Count>0)foreach(int n in Arena.Neighbours(pending.Dequeue()))
             {
@@ -90,9 +90,8 @@ namespace BaseConquest.RealtimePrototype
         {
             if(u.Role==PrototypeRole.Leader)u.EngagedUntil=Elapsed+3;
             u.TargetId=target.Id;var delta=target.BodyCenter-u.BodyCenter;
-            Face(u,delta.Normalized);
             if(BodyGap(u,target)<=ReachFor(u,target)&&ClearAttack(u.Position,target.BodyCenter))
-            {u.AttackSlot=u.Cell;if(Elapsed+1e-9>=u.ReadyAt)BeginAttack(u);return;}
+            {u.AttackSlot=u.Cell;if(Face(u,delta.Normalized)&&Elapsed+1e-9>=u.ReadyAt)BeginAttack(u);return;}
             u.AttackSlot=AttackPosition(u,target);u.MoveGoal=u.AttackSlot;
         }
         private void ThinkDoctrine(PrototypeUnit u)
@@ -134,7 +133,7 @@ namespace BaseConquest.RealtimePrototype
                     if(u.ManualOrder&&u.Order==PrototypeOrder.Guard&&u.Cell!=Arena.CellAt(u.Anchor)){u.MoveGoal=Arena.CellAt(u.Anchor);return;}
                     var ready=PreferredTarget(u,Units.Where(e=>e.Alive&&e.Side!=u.Side&&(CanTarget?.Invoke(u,e)??true)&&BodyGap(u,e)<=ReachFor(u,e)&&ClearAttack(u.Position,e.BodyCenter)));
                     u.TargetId=ready?.Id??-1;u.AttackSlot=ready==null?-1:u.Cell;
-                    if(ready!=null){u.EngagedUntil=Elapsed+3;Face(u,(ready.BodyCenter-u.BodyCenter).Normalized);if(Elapsed+1e-9>=u.ReadyAt)BeginAttack(u);}return;
+                    if(ready!=null){u.EngagedUntil=Elapsed+3;if(Face(u,(ready.BodyCenter-u.BodyCenter).Normalized)&&Elapsed+1e-9>=u.ReadyAt)BeginAttack(u);}return;
                 }
                 bool engaged=Elapsed<l.EngagedUntil&&Units.Any(e=>e.Alive&&e.Side!=u.Side&&(CanTarget?.Invoke(u,e)??true)&&(e.Position-l.Position).Length<=l.CommandRadius);
                 if(!engaged){u.TargetId=-1;u.AttackSlot=-1;Patrol(u,l.Position,l.GuardRadius);return;}

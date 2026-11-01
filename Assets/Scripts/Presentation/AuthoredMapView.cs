@@ -10,6 +10,9 @@ namespace BaseConquest.Presentation
         private bool shaped;
         private Vector3 feet;
         private Material ownedMaterial;
+        private bool farmVisual;
+        private string farmAppearance;
+        public static string FarmAppearance(BaseState state) => state != null && BaseDailyDelta.Read(state).Food < 0 ? "farm-immature" : "farm-mature";
         public static AuthoredMapView Create(Transform parent,BaseMapObject placement,Vector3 feet,Material source,bool exploration)
         {
             var root=new GameObject(placement.Id+" · "+placement.Name);root.transform.SetParent(parent,false);root.transform.localPosition=feet;
@@ -58,6 +61,10 @@ namespace BaseConquest.Presentation
             {
                 var catalog=Resources.Load<BuildingAppearanceCatalog>("BuildingAppearances");
                 string asset=string.IsNullOrEmpty(placement.AssetId)?placement.Id:placement.AssetId;
+                var owner=root.GetComponentInParent<BaseSceneController>(true);
+                view.farmVisual=asset=="farm"||asset=="farm-small";
+                if(view.farmVisual)asset=FarmAppearance(owner?.State);
+                view.farmAppearance=asset;
                 var texture=asset=="notice" ? PixelDemoArt.Load("Props","noticeboard")??Resources.Load<Texture2D>("MapSurfaces/Notice-v1") : catalog?.Find(asset)?.Texture;
                 if(texture==null&&placement.Blocks)
                 {
@@ -66,7 +73,7 @@ namespace BaseConquest.Presentation
                 }
                 if(texture!=null&&asset!="notice"&&!asset.StartsWith("farm"))
                 {
-                    var owner=root.GetComponentInParent<BaseSceneController>(true);view.shaped=true;
+                    view.shaped=true;
                     SpriteFacade.Create(root.transform,texture,feet-Vector3.forward*(float)placement.Height*BattleBoardView.CellSize*.5f,(float)placement.Width*BattleBoardView.CellSize,source,owner.WorldCamera);
                     return view;
                 }
@@ -84,6 +91,14 @@ namespace BaseConquest.Presentation
             }
             view.SetExploration(exploration);MapSpriteOrder.Apply(root.transform,feet.z-(float)placement.BoundsHeight*BattleBoardView.CellSize*.5f);
             return view;
+        }
+        public void RefreshFarmAppearance(BaseState state)
+        {
+            if(!farmVisual||ownedMaterial==null)return;
+            string next=FarmAppearance(state);if(next==farmAppearance)return;
+            var catalog=Resources.Load<BuildingAppearanceCatalog>("BuildingAppearances");
+            var texture=catalog?.Find(next)?.Texture;if(texture==null)return;
+            ownedMaterial.SetTexture("_BaseMap",texture);farmAppearance=next;
         }
         public void SetExploration(bool exploration)
         {

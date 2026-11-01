@@ -46,14 +46,16 @@ namespace BaseConquest.Battle
         public DeploymentZone OriginalZone;
         public string OriginalBuildingId = "";
         public float ObstacleHealth;
-        public bool IsStake;
         public BattleSide ObstacleOwner;
         public bool FixedCover;
-        public bool BlocksShots => ObstacleHealth>0&&!IsStake || Terrain == TerrainKind.Wall || Terrain == TerrainKind.Building;
-        public bool MetadataValid => (!HasSightHeight||!double.IsNaN(SightHeight)&&!double.IsInfinity(SightHeight)&&SightHeight>=0&&SightHeight<=3)&&Enum.IsDefined(typeof(GroundSurface),Surface)&&Elevation>=0&&Elevation<=3&&Enum.IsDefined(typeof(RampAxis),Ramp)&&!float.IsNaN(ObstacleHealth)&&!float.IsInfinity(ObstacleHealth)&&ObstacleHealth>=0&&ObstacleHealth<=(IsStake?100:60)&&Enum.IsDefined(typeof(BattleSide),ObstacleOwner)&&(ObstacleHealth==0||Zone==DeploymentZone.None&&(Terrain==TerrainKind.Ground||HasDeveloperTerrain))&&(BuildingId==null||BuildingId.Length<=64)&&(OriginalBuildingId==null||OriginalBuildingId.Length<=64)&&(!HasDeveloperTerrain||Enum.IsDefined(typeof(TerrainKind),OriginalTerrain)&&Enum.IsDefined(typeof(DeploymentZone),OriginalZone)&&((OriginalTerrain==TerrainKind.Ground||OriginalTerrain==TerrainKind.Swamp)||OriginalZone==DeploymentZone.None));
+        // Zero means no sandbag; positive values identify all three cells in one group.
+        public int SandbagGroup;
+        public bool HiddenTrap;
+        public bool BlocksShots => ObstacleHealth>0 || Terrain == TerrainKind.Wall || Terrain == TerrainKind.Building;
+        public bool MetadataValid => (!HasSightHeight||!double.IsNaN(SightHeight)&&!double.IsInfinity(SightHeight)&&SightHeight>=0&&SightHeight<=3)&&Enum.IsDefined(typeof(GroundSurface),Surface)&&Elevation>=0&&Elevation<=3&&Enum.IsDefined(typeof(RampAxis),Ramp)&&!float.IsNaN(ObstacleHealth)&&!float.IsInfinity(ObstacleHealth)&&ObstacleHealth>=0&&ObstacleHealth<=60&&Enum.IsDefined(typeof(BattleSide),ObstacleOwner)&&(ObstacleHealth==0||Zone==DeploymentZone.None&&(Terrain==TerrainKind.Ground||HasDeveloperTerrain))&&(BuildingId==null||BuildingId.Length<=64)&&(OriginalBuildingId==null||OriginalBuildingId.Length<=64)&&(!HasDeveloperTerrain||Enum.IsDefined(typeof(TerrainKind),OriginalTerrain)&&Enum.IsDefined(typeof(DeploymentZone),OriginalZone)&&((OriginalTerrain==TerrainKind.Ground||OriginalTerrain==TerrainKind.Swamp)||OriginalZone==DeploymentZone.None));
         public DeploymentZone Zone;
-        public bool Walkable => (ObstacleHealth<=0||IsStake) && (Terrain == TerrainKind.Ground || Terrain == TerrainKind.Swamp);
-        public int FootworkCost => Terrain == TerrainKind.Swamp ? 2 : IsStake&&ObstacleHealth>0?2:1;
+        public bool Walkable => ObstacleHealth<=0 && (Terrain == TerrainKind.Ground || Terrain == TerrainKind.Swamp);
+        public int FootworkCost => Terrain == TerrainKind.Swamp || SandbagGroup>0 ? 2 : 1;
         public BoardCell Clone() => (BoardCell)MemberwiseClone();
     }
 

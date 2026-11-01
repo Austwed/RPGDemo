@@ -38,9 +38,10 @@ namespace BaseConquest.RealtimePrototype
             if(!CavalryShove||!IsCavalry(rider))return false;
             Tally("enter");
             if(wanted<0||!Arena.FineWalkable(wanted)){Tally("badcell");return false;}
-            if(!Fits(rider,wanted,rider.Facing,false)){Tally("terrain");return false;}   // 地形本身不让去，挤人也没用
-            var claimed=new HashSet<int>(Footprint(rider,wanted,rider.Facing).Where(cell=>cell>=0));
             var landing=Arena.Center(wanted);
+            var heading=(landing-rider.Position).Normalized;
+            if(!Fits(rider,wanted,heading,false)||!Fits(rider,rider.Cell,heading,false)){Tally("terrain");return false;}
+            var claimed=new HashSet<int>(Footprint(rider,wanted,heading).Where(cell=>cell>=0));
             var targets=new List<PrototypeUnit>();
             void Consider(PrototypeUnit unit){if(unit!=null&&unit.Id!=rider.Id&&!targets.Contains(unit))targets.Add(unit);}
             foreach(int cell in claimed)if(reservations.TryGetValue(cell,out int owner)&&owner!=rider.Id)Consider(Units.FirstOrDefault(unit=>unit.Id==owner));
@@ -84,7 +85,10 @@ namespace BaseConquest.RealtimePrototype
                 var landing=Arena.Center(cell);
                 // 顶过去之后不能与任何单位穿体，也不能继续挡着这一趟路
                 if(Units.Any(other=>other.Alive&&other.Id!=blocker.Id&&BodiesCross(blocker,landing,other,other.Moving?Arena.Center(other.NextCell):other.Position))){Tally("skip:cross");continue;}
-                if(BodiesCross(rider,Arena.Center(wanted),blocker,landing)){Tally("skip:stillblocking");continue;}
+                // Letting go is instantaneous: test the rider's subsequent sweep
+                // against the displaced body, not the body's already-vacated path.
+                var displaced=blocker.Copy();displaced.Position=landing;displaced.Cell=cell;displaced.NextCell=-1;displaced.Progress=0;
+                if(BodiesCross(rider,Arena.Center(wanted),displaced,landing)){Tally("skip:stillblocking");continue;}
                 Displace(blocker,cell);Tally("shoved");return true;
             }
             return false;

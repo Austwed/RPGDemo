@@ -52,6 +52,7 @@ namespace BaseConquest.Battle
             for (int i = 0; i < Cells.Length; i++)
             {
                 Cells[i] ??= new BoardCell();
+                if(Cells[i].SandbagGroup<0||Cells[i].HiddenTrap&&Cells[i].SandbagGroup>0)throw new ArgumentException("防御工事状态非法");
                 if(Cells[i].Elevation<0||Cells[i].Elevation>3||!Enum.IsDefined(typeof(RampAxis),Cells[i].Ramp))throw new ArgumentException("地格高度须为0～3，坡道方向非法");
                 if (!Cells[i].Walkable) Cells[i].Zone = DeploymentZone.None;
             }

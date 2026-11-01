@@ -5,7 +5,7 @@ namespace BaseConquest.Battle
 {
     public static class FortificationInfo
     {
-        public static string Description(BoardCell c) => c.IsStake&&c.ObstacleHealth>0?"拒马：生命 "+c.ObstacleHealth.ToString("0.#")+"/100；步兵减速50%，骑兵禁行，可攻击":c.ObstacleHealth>0 ? "木路障：耐久 "+c.ObstacleHealth.ToString("0.#")+"/60；阻挡移动与射击，敌军可破坏" : c.FixedCover ? "固定掩体：可通行，格上单位受到远程伤害×0.75；不可拆除" : "";
+        public static string Description(BoardCell c) => c.FixedCover ? "固定掩体：可通行，格上单位受到远程伤害×0.75；不可拆除" : "";
     }
     public sealed partial class BattleSimulation
     {

@@ -52,13 +52,13 @@ namespace BaseConquest.Base
                 case "heroine":return "female";
                 case "laozhou":return "laozhou";     // 已有专属图
                 case "chunshen":return "chunshen";   // 已有专属图
-                case "merchant":return "merchant";   // 已有专属图（像素样板）
-                case "lord":return "chenan";         // TODO 美术：horn
+                case "merchant":case "peddler":return "merchant";
+                case "lord":return "horn";
                 case "blacksmith":return "chenan";   // TODO 美术：baron
-                case "galan":return "controller";    // TODO 美术：galan
-                case "batu":return "enemy-captain";  // TODO 美术：batu
-                case "chief":return "enemy-captain"; // TODO 美术：bandit_chief
-                case "huoya":return "enemy-captain"; // TODO 美术：huoya
+                case "galan":return "galan";
+                case "batu":return "batu";
+                case "chief":return "chief";
+                case "huoya":return "huoya";
                 default:return "villager";           // 春婶／募兵官／旅店／镇民 兜底
             }
         }

@@ -58,6 +58,18 @@ namespace BaseConquest.Base
         private static int session;
         private bool loadingTemplate;
         public void RefreshConstructionMap(){regionView?.Refresh();}
+        public void ToggleHomeTerrainTrial()
+        {
+            if(!RuntimeDeveloperOptions.Enabled||!BaseConquest.Presentation.HomeTerrainTrial.Eligible(State)||combatController!=null)return;
+            bool next=!BaseConquest.Presentation.HomeTerrainTrial.Enabled;
+            if(regionView.SetHomeTerrainTrial(next)){BaseConquest.Presentation.HomeTerrainTrial.Enabled=next;ReportMessage(next?"故乡地面候选已启用，待视觉验收":"已恢复原版故乡地面");}
+            else ReportMessage("故乡候选贴图尚未准备好");
+        }
+        private void RefreshFarmVisuals()
+        {
+            if(regionView==null)return;
+            foreach(var view in regionView.Root.GetComponentsInChildren<BaseConquest.Presentation.AuthoredMapView>(true))view.RefreshFarmAppearance(State);
+        }
         public string Message { get; private set; } = "";
         internal void ReportMessage(string message){Message=message;Hud?.RefreshSummary();}
         private Action preparationInventoryClosed;
@@ -156,9 +168,11 @@ namespace BaseConquest.Base
             regionView=new BattleBoardView(board,runtimeRoot??transform,mapMaterial,mapMaterial) {FlatView=true,ObliqueBaseView=true};regionView.SetSurfaceRegion((State==null?null:BaseSpatial.Layout(State))?.SurfaceStyle=="dungeon"?"dungeon":State?.Campaign.Location??"base");regionView.SetCombatMode(false);
             if(State!=null&&!BaseWorldJourney.OnWorld(State))regionView.Zoom(.65f);
             regionView.UpdateCamera(0,0);
-            if(State!=null&&!BaseWorldJourney.OnWorld(State)&&explorationViewSize.HasValue)regionView.SetViewSize(explorationViewSize.Value);
+            if(State!=null&&!BaseWorldJourney.OnWorld(State))regionView.SetViewSize(regionView.Camera.orthographicSize);
+            if(State!=null&&!BaseWorldJourney.OnWorld(State)&&explorationViewSize.HasValue)regionView.SetViewSize(Mathf.Clamp(explorationViewSize.Value,2,16));
             regionView.SetAuthoredBuildings(MapObjects.Where(o=>(!string.IsNullOrEmpty(o.AssetId)||!string.IsNullOrEmpty(o.SourceObjectId))&&o.Blocks).Select(o=>o.Id));
             WorldCamera=regionView.Camera; WorldCamera.gameObject.AddComponent<AudioListener>();
+            if(BaseConquest.Presentation.HomeTerrainTrial.Enabled&&BaseConquest.Presentation.HomeTerrainTrial.Eligible(State))regionView.SetHomeTerrainTrial(true);
             // 地标与地形归同一世界根节点，进入战斗时保留，只有自由活动人物隐藏。
             var landmarks=new GameObject("RegionLandmarks").transform;landmarks.SetParent(regionView.Root.transform,false);
             explorationActors=new GameObject("FreeMovementActors").transform;explorationActors.SetParent(regionView.Root.transform,false);
@@ -353,7 +367,7 @@ namespace BaseConquest.Base
         public bool ZoomExplorationFactor(Vector2 screen,float factor)
         {
             if(State==null||combatController!=null||Hud.PanelOpen||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen)||float.IsNaN(factor)||float.IsInfinity(factor)||factor<=0)return false;
-            float before=WorldCamera.orthographicSize;regionView.SetViewSize(Mathf.Clamp(before*factor,1,32));
+            float before=WorldCamera.orthographicSize;regionView.SetViewSize(Mathf.Clamp(before*factor,2,16));
             explorationViewSize=WorldCamera.orthographicSize;regionView.Follow(PlayerCameraTarget);
             if(Mathf.Abs(before-WorldCamera.orthographicSize)<.0001f)return false;
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==2)State.Demo.Intro.Zoomed=true;Hud.RefreshIntroObjective();return true;
@@ -386,8 +400,8 @@ namespace BaseConquest.Base
             if (State.Campaign.HasActiveBattle&&(preparationInventoryClosed==null||!BasePartyInventory.Peaceful(State))) { Message = "先恢复并结束当前战斗"; Hud.RefreshSummary(); return false; }
             try
             {
-                Companions.Capture(State); var next = State.Copy(); edit(next); BaseDemoFlow.GrantStakes(next); BaseDemoIntro.CheckEquipment(next); BaseDevelopment.Allocate(next); BaseEconomy.Validate(next); SaveStore.Save(next); if(State.Campaign.Location==next.Campaign.Location&&State.Campaign.CurrentMapId==next.Campaign.CurrentMapId)BaseBattlefield.KeepLiveBoard(next,MapSession.Board); State = next; Message = message;
-                Companions.Synchronize(State); PlaceCompanions(); PlacePlayer(); if (PlayerAway) ClearSelection(); Hud.RefreshSummary(); return true;
+                Companions.Capture(State); var next = State.Copy(); edit(next); BaseDemoIntro.CheckEquipment(next); BaseDevelopment.Allocate(next); BaseEconomy.Validate(next); SaveStore.Save(next); if(State.Campaign.Location==next.Campaign.Location&&State.Campaign.CurrentMapId==next.Campaign.CurrentMapId)BaseBattlefield.KeepLiveBoard(next,MapSession.Board); State = next; Message = message;
+                Companions.Synchronize(State); PlaceCompanions(); PlacePlayer(); RefreshFarmVisuals(); if (PlayerAway) ClearSelection(); Hud.RefreshSummary(); return true;
             }
             catch (Exception e) { Message = "操作未保存，原状态保留：" + e.Message; Hud.RefreshSummary(); return false; }
         }

@@ -24,6 +24,8 @@ namespace BaseConquest.Base
             RowButton("和平地图格子描边："+(BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines ? "开启" : "关闭"),0,800,()=>{BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines=!BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines;OpenOptions();});row+=64;
             RowButton("战斗格子描边："+(BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines ? "开启" : "关闭"),0,800,()=>{BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines=!BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines;OpenOptions();});row+=64;
             RowButton("开发者模式："+(BaseConquest.Battle.RuntimeDeveloperOptions.Enabled ? "开启" : "关闭"),0,800,()=>{BaseConquest.Battle.RuntimeDeveloperOptions.Enabled=!BaseConquest.Battle.RuntimeDeveloperOptions.Enabled;OpenOptions();});row+=64;
+            if(BaseConquest.Battle.RuntimeDeveloperOptions.Enabled&&BaseConquest.Presentation.HomeTerrainTrial.Eligible(owner.State))
+            {RowButton("故乡地面试点："+(BaseConquest.Presentation.HomeTerrainTrial.Enabled?"新版候选":"原版"),0,800,()=>{owner.ToggleHomeTerrainTrial();OpenOptions();});row+=64;}
             Line("战斗格线默认开启，和平地图单独设置。启用开发者模式后，地图上出现开发者按钮；关闭时恢复临时地形、无敌与禁行，开启所有设施产出。",100,19);EndPanel();
         }
         public void OpenMainMenu()

@@ -476,7 +476,7 @@ namespace BaseConquest.Base
         public BattleSoldier UnitForTroop(int index) => troops.Where(x => x.Value == index).Select(x => Battle.Soldier(x.Key)).SingleOrDefault();
         private void BindEnemies()
         {
-            foreach(var hero in Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&u.Kind==SoldierKind.Hero&&!u.DeveloperSpawned))hero.AppearanceId=Opening.EventId==BaseLocalDuel.Id?"azhu":Opening.EventId==BaseDemoIntro.BattleId?(Opening.Leaders.First().AppearanceId=="female"?"player":"female"):Opening.EventId==BaseDemoRuins.EventId?(hero.OriginCommanderSlot==0?"controller":"villager"):"wilderness";
+            foreach(var hero in Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&u.Kind==SoldierKind.Hero&&!u.DeveloperSpawned))hero.AppearanceId=Opening.EventId==BaseLocalDuel.Id?"azhu":Opening.EventId==BaseDemoIntro.BattleId?(Opening.Leaders.First().AppearanceId=="female"?"player":"female"):Opening.EventId==BaseDemoRuins.EventId?(hero.OriginCommanderSlot==0?"galan":"villager"):"wilderness";
             if(Opening.Enemies.Count==0)return;
             foreach(var unit in Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned).OrderBy(u=>u.Id))
             {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using BaseConquest.Battle;
 namespace BaseConquest.Base
 {
-    public enum ConstructionProject { None, Barricade, Demolish }
+    public enum ConstructionProject { None, Demolish, Trap, Sandbag }
     public sealed class ConstructionPaintResult
     {
         public int Applied, Skipped, MaterialsSpent;
@@ -30,7 +30,7 @@ namespace BaseConquest.Base
             while(true){var p=new GridPosition(x,z);if(visited.Add(p))result.Add(p);if(x==cell.X&&z==cell.Z)break;int twice=error*2;if(twice>-dz){error-=dz;x+=sx;}if(twice<dx){error+=dx;z+=sz;}}
             previous=cell;return result;
         }
-        public string Problem(BaseState state,GridPosition cell) => !Active ? "请先选择建造项目或拆除工具" : BaseConstruction.BuildProblem(state,cell,Project==ConstructionProject.Demolish);
+        public string Problem(BaseState state,GridPosition cell) => !Active ? "请先选择建造项目或拆除工具" : BaseConstruction.DemoFieldworkProblem(state,cell,Project);
         public ConstructionPaintResult Apply(BaseState state,IEnumerable<GridPosition> cells)
         {
             var result=new ConstructionPaintResult();var seen=new HashSet<GridPosition>();
@@ -38,7 +38,7 @@ namespace BaseConquest.Base
             {
                 if(!seen.Add(cell))continue;string problem=Problem(state,cell);
                 if(problem!=""){result.Skipped++;if(result.Problem=="")result.Problem=problem;continue;}
-                int before=state.Inventory.Materials;bool ok=Project==ConstructionProject.Demolish ? BaseConstruction.Remove(state,cell) : BaseConstruction.Build(state,cell);
+                int before=state.Inventory.Materials;bool ok=BaseConstruction.DemoFieldwork(state,cell,Project);
                 if(ok){result.Applied++;result.MaterialsSpent+=before-state.Inventory.Materials;}
                 else{result.Skipped++;if(result.Problem=="")result.Problem="位置或材料已变化";}
             }

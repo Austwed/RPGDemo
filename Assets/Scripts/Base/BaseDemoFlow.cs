@@ -4,8 +4,8 @@ namespace BaseConquest.Base
 {
     [Serializable] public sealed class BaseDemoFlowState
     {
-        public int HiredKinds, ReadyStakes;
-        public bool RecruitmentNotice, RecruitOpened, InnWelcomed, HomeEnterSeen, RestLessonDone, FarmOfferPending, FarmOfferShown, NoviceShop, StakesGranted, StakesNotice;
+        public int HiredKinds;
+        public bool RecruitmentNotice, RecruitOpened, InnWelcomed, HomeEnterSeen, RestLessonDone, FarmOfferPending, FarmOfferShown, NoviceShop;
         public bool AzhuDuelWon, SmithGiftOffered, ControllerAccepted, ControllerPledged, BanditCleared;
         public string FirstControllerId="";
         public double FarmX,FarmY,FarmNpcX,FarmNpcY;public bool FarmWalking;
@@ -39,10 +39,8 @@ namespace BaseConquest.Base
             if(!Active(s))return;var f=s.Demo.Flow;
             var controller=s.Aftermath.Prisoners.FirstOrDefault(p=>p.Id==f.FirstControllerId);
             if(f.FirstControllerId==null||f.FirstControllerId!=""&&controller==null||f.ControllerAccepted&&controller==null||f.ControllerPledged&&(!f.ControllerAccepted||controller?.Status!="recruited"))throw new ArgumentException("首个控制者的身份／接纳记录非法");
-            if(new[]{f.FarmX,f.FarmY,f.FarmNpcX,f.FarmNpcY}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||f.HiredKinds<0||f.HiredKinds>7||f.ReadyStakes<0||f.ReadyStakes>20||!f.StakesGranted&&f.ReadyStakes!=0||double.IsNaN(f.FarmX)||double.IsInfinity(f.FarmX)||double.IsNaN(f.FarmY)||double.IsInfinity(f.FarmY))throw new ArgumentException("Demo经营教学与拒马状态非法");
+            if(new[]{f.FarmX,f.FarmY,f.FarmNpcX,f.FarmNpcY}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||f.HiredKinds<0||f.HiredKinds>7||double.IsNaN(f.FarmX)||double.IsInfinity(f.FarmX)||double.IsNaN(f.FarmY)||double.IsInfinity(f.FarmY))throw new ArgumentException("Demo经营教学状态非法");
         }
-        public static void GrantStakes(BaseState s)
-        {if(Active(s)&&s.Campaign.Location=="perimeter"&&!s.Demo.Flow.StakesGranted){s.Demo.Flow.StakesGranted=true;s.Demo.Flow.ReadyStakes=20;}}
         public static bool SmithVisit(BaseState s)=>Active(s)&&s.Demo.RuinsDay>0&&s.Campaign.Location=="town"&&!BaseAdventure.Following(s,"partner_craft")&&(!s.Leaders.Any(l=>l.Id=="partner_craft")||BaseAdventure.Alive(s.Leaders.Single(l=>l.Id=="partner_craft")));
         public static BasePoint SmithApproach(BaseState s)
         {var smith=BaseSpatial.Layout(s,"town")?.Objects.FirstOrDefault(o=>o.Id=="town_smith");return smith==null?new BasePoint(14,7.5):new BasePoint(smith.X+1.5,smith.Y-smith.Height/2-.6);}

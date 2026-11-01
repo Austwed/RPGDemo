@@ -40,7 +40,5 @@ namespace BaseConquest.Base
             Line("持有图册 "+BaseBackpack.Count(s,BaseBackpack.Blueprint)+" · 原料 "+s.Inventory.Materials+" · 钱币 "+s.Inventory.Coins,55,20);
             Line(problem=="" ? "剧情条件已满足；确认后一次扣除，不会回收或重发。" : problem,80,20);
         }
-        private void OpenFieldworks()
-        {activeObject="fixed_fieldworks";BeginPanel("迎敌战场 · 防御工事");if(BaseDemoFlow.Active(owner.State)){Line("拒马：占1粗格、生命100；步兵经过减速，骑兵不可通行。优先使用成品，之后每个原料1。",100,22);RowButton("开始布置拒马",0,820,owner.ArmConstruction);row+=62;}else FacilityUpgrade("fieldworks",OpenFieldworks);EndPanel();}
     }
 }

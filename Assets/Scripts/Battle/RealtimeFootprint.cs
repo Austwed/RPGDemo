@@ -8,6 +8,8 @@ namespace BaseConquest.RealtimePrototype
     {
         // Cell is the leading half. Legacy checkpoints without this field remain one fine cell.
         public int FootprintLength=1;
+        public double TurnReadyAt;
+        public PrototypePoint TurnTarget;
         public static PrototypePoint Axis(PrototypePoint facing)=>Math.Abs(facing.X)>=Math.Abs(facing.Z)?new PrototypePoint(facing.X<0?-1:1,0):new PrototypePoint(0,facing.Z<0?-1:1);
         public PrototypePoint BodyCenter=>Position-Axis(Facing)*(FootprintLength==2?.25:0);
         public PrototypePoint BodyHalf=>FootprintLength==2?(Axis(Facing).X==0?new PrototypePoint(.24,.49):new PrototypePoint(.49,.24)):new PrototypePoint(.2,.2);
@@ -32,6 +34,15 @@ namespace BaseConquest.RealtimePrototype
             if(facing.Length<.00001||u.Moving)return false;
             if(u.FootprintLength!=2){u.Facing=facing;return true;}
             if(!Fits(u,u.Cell,facing))return false;
+            facing=facing.Normalized;
+            double dot=Math.Max(-1,Math.Min(1,PrototypePoint.Dot(u.Facing.Normalized,facing)));
+            double angle=Math.Acos(dot);
+            if(angle>1e-6)
+            {
+                if(u.TurnReadyAt<=0||PrototypePoint.Dot(u.TurnTarget.Normalized,facing)<.999999)
+                {u.TurnTarget=facing;u.TurnReadyAt=Elapsed+angle/Math.PI;u.CarrySeconds=0;return false;}
+                if(Elapsed+1e-9<u.TurnReadyAt)return false;
+            }
             var old=PrototypeUnit.Axis(u.Facing);var next=PrototypeUnit.Axis(facing);
             if(old.X!=next.X&&old.Z!=next.Z)
             {
@@ -41,7 +52,7 @@ namespace BaseConquest.RealtimePrototype
             var prior=u.Facing;u.Facing=facing;
             if(Units.Any(other=>other!=u&&other.Alive&&BodiesCross(u,u.Position,other,other.Moving?Arena.Center(other.NextCell):other.Position)))
             {u.Facing=prior;return false;}
-            RebuildReservations();return true;
+            u.TurnReadyAt=0;RebuildReservations();return true;
         }
         public bool SetFootprint(PrototypeUnit u,int length)
         {

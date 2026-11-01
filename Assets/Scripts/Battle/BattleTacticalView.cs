@@ -30,7 +30,7 @@ namespace BaseConquest.Battle
         private bool OrderTacticalObject(PrototypePoint point)
         {
             var target=realtime.Tactics.At(point);if(target==null)return false;bool ok=realtime.Tactics.Issue(selection.Ids,target.Id,true);
-            feedback=ok?(target.Kind=="stake"?"攻击拒马：生命100、无防御":target.Kind=="tree"?"攻击枯树：倒下形成障碍":"推动巨石：沿攻击方向滚动，双方均可能受伤")+(autoRun?"":"；按空格继续"):"请选择可行动队长／小队，再点击物件";hud?.Refresh();return true;
+            feedback=ok?(target.Kind=="tree"?"攻击枯树：倒下形成障碍":"推动巨石：沿攻击方向滚动，双方均可能受伤")+(autoRun?"":"；按空格继续"):"请选择可行动队长／小队，再点击物件";hud?.Refresh();return true;
         }
     }
 }

@@ -20,7 +20,7 @@ namespace BaseConquest.Base
         public void EnterBattle(BattleSimulation battle)
         {
             if (InBattle) throw new InvalidOperationException("地图已在战斗中");
-            if (battle.Board.Width!=Board.Width || battle.Board.Height!=Board.Height || !battle.Board.Cells.Select(c=>(int)c.Terrain+":"+(int)c.Zone+":"+c.ObstacleHealth+":"+c.IsStake+":"+c.ObstacleOwner+":"+c.FixedCover+":"+c.Elevation+":"+(int)c.Ramp+":"+(int)c.Surface).SequenceEqual(Board.Cells.Select(c=>(int)c.Terrain+":"+(int)c.Zone+":"+c.ObstacleHealth+":"+c.IsStake+":"+c.ObstacleOwner+":"+c.FixedCover+":"+c.Elevation+":"+(int)c.Ramp+":"+(int)c.Surface))) throw new InvalidOperationException("战斗地图与当前区域不符，拒绝替换当前地图");
+            if (battle.Board.Width!=Board.Width || battle.Board.Height!=Board.Height || !battle.Board.Cells.Select(c=>(int)c.Terrain+":"+(int)c.Zone+":"+c.ObstacleHealth+":"+c.ObstacleOwner+":"+c.FixedCover+":"+c.Elevation+":"+(int)c.Ramp+":"+(int)c.Surface+":"+c.HiddenTrap+":"+c.SandbagGroup).SequenceEqual(Board.Cells.Select(c=>(int)c.Terrain+":"+(int)c.Zone+":"+c.ObstacleHealth+":"+c.ObstacleOwner+":"+c.FixedCover+":"+c.Elevation+":"+(int)c.Ramp+":"+(int)c.Surface+":"+c.HiddenTrap+":"+c.SandbagGroup))) throw new InvalidOperationException("战斗地图与当前区域不符，拒绝替换当前地图");
             battle.Scenario.Board=Board; InBattle=true; battle.Vision.Refresh();
         }
         public void PrepareCombat(BaseState state,BattleBoard encounterBoard=null)
@@ -33,7 +33,7 @@ namespace BaseConquest.Base
             BaseSceneInstances.SaveBoard(state,Board.Clone(),state.Campaign.Location,BaseSceneInstances.Active(state)?state.Campaign.CurrentMapId:null);
             for(int index=0;index<Board.Cells.Length;index++)Board.Cells[index]=projected.Cells[index].Clone();
         }
-        public void LeaveBattle() { if(peacefulBoard!=null){for(int index=0;index<Board.Cells.Length;index++)Board.Cells[index]=peacefulBoard.Cells[index].Clone();peacefulBoard=null;}InBattle=false; }
+        public void LeaveBattle() { if(peacefulBoard!=null){for(int index=0;index<Board.Cells.Length;index++){if(peacefulBoard.Cells[index].HiddenTrap&&!Board.Cells[index].HiddenTrap)peacefulBoard.Cells[index].HiddenTrap=false;Board.Cells[index]=peacefulBoard.Cells[index].Clone();}peacefulBoard=null;}InBattle=false; }
     }
     public static class BaseBattlefield
     {
