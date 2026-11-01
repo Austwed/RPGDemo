@@ -43,6 +43,7 @@ namespace BaseConquest.Editor
             return report.ToString();
         }
         private static string Row(string snapshot,string name)=>snapshot.Split('\n').FirstOrDefault(line=>line.StartsWith(name+" ",StringComparison.Ordinal))??"<missing:"+name+">";
+        private static Texture Top(BattleBoardView view,int x,int z)=>view.Root.transform.Find("Cell_"+x+"_"+z).GetComponent<Renderer>().sharedMaterials[0].GetTexture("_BaseMap");
         private static string Transforms(Transform root)
         {
             var report=new StringBuilder();
@@ -111,15 +112,21 @@ namespace BaseConquest.Editor
                 boardView.SetCombatMode(false);boardView.UpdateCamera(0,0);boardView.Zoom(.65f);
                 var pawn=new GameObject("ProbePawn"){hideFlags=HideFlags.HideAndDontSave};pawn.transform.SetParent(boardView.Root.transform,false);pawn.transform.localPosition=new Vector3(1.5f,.25f,-2.5f);
                 boardView.Refresh();
+                Need(Top(boardView,0,0)==BaseConquest.Presentation.MapSurfaceView.Texture(GroundSurface.Cobble),"原版石板高台未使用石板路面");
+                Need(Top(boardView,9,6)==BaseConquest.Presentation.MapSurfaceView.Texture(GroundSurface.DirtPath),"原版泥径高台未使用泥径路面");
                 string layout=Transforms(boardView.Root.transform),skins=Materials(boardView),board=Board(boardView.Board),camera=Camera(boardView.Camera),zoom=((float)Private(boardView,"zoomFactor")).ToString("0.###");
                 Need(boardView.SetHomeTerrainTrial(true),"候选贴图已生成却开启失败");
                 string trialSkins=Materials(boardView);
+                Need(Top(boardView,0,0)==BaseConquest.Presentation.HomeTerrainTrial.Stone(),"试点石板高台未使用石板路面");
+                Need(Top(boardView,9,6)==BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.DirtPath),"试点泥径高台未使用泥径路面");
+                Need(Top(boardView,8,6)==BaseConquest.Presentation.HomeTerrainTrial.Stair(),"坡道未优先使用阶梯贴图");
                 Need(trialSkins!=skins,"开启试点后没有任何材质变化，贴图没接上");
                 Need(Board(boardView.Board)==board,"开启试点改动了棋盘数据");
                 Need(Camera(boardView.Camera)==camera&&((float)Private(boardView,"zoomFactor")).ToString("0.###")==zoom,"开启试点改动了相机或缩放");
                 Need(Transforms(boardView.Root.transform)==layout,"开启试点改动了场景变换（含人物）");
                 Need(boardView.SetHomeTerrainTrial(false),"关闭试点失败");
                 Need(Materials(boardView)==skins,"关闭试点后材质没有完全恢复到原版");
+                Need(Top(boardView,0,0)==BaseConquest.Presentation.MapSurfaceView.Texture(GroundSurface.Cobble)&&Top(boardView,9,6)==BaseConquest.Presentation.MapSurfaceView.Texture(GroundSurface.DirtPath),"关闭试点后高台路面没有恢复");
                 Need(Board(boardView.Board)==board,"关闭试点改动了棋盘数据");
                 Need(Camera(boardView.Camera)==camera&&((float)Private(boardView,"zoomFactor")).ToString("0.###")==zoom,"关闭试点改动了相机或缩放");
                 Need(Transforms(boardView.Root.transform)==layout,"关闭试点改动了场景变换（含人物）");
@@ -130,6 +137,7 @@ namespace BaseConquest.Editor
                 Need(Again(true)==trialSkins&&Again(false)==skins,"反复切换后与原版/候选状态不一致");
                 report.AppendLine("PASS board JSON, camera, zoom, scene transforms unchanged across trail on/off/on/off.");
                 report.AppendLine("PASS material set fully restored to pre-trial textures, scales and offsets.");
+                report.AppendLine("PASS raised cobble and dirt surfaces follow original/trial textures and restore; ramps retain stair texture.");
                 var sides=new[]{"wallMaterial","waterMaterial","swampMaterial"};
                 var changed=new List<string>();var constant=new List<string>();
                 foreach(var pair in Skins(boardView))
@@ -178,7 +186,7 @@ namespace BaseConquest.Editor
                 else if(p.Z>=6)cell.Surface=GroundSurface.DirtPath;
                 else if(p.X>=4&&p.X<=7)cell.Surface=GroundSurface.Road;
                 else cell.Surface=GroundSurface.Grass;
-                if(p.X>=9&&p.Z>=6)cell.Elevation=1;
+                if(p.X>=9&&p.Z>=6||p.X==0&&p.Z==0)cell.Elevation=1;
                 // Ramp stores the high-end level: west H0 -> ramp H0..H1 -> east H1.
                 if(p.X==8&&p.Z>=6){cell.Elevation=1;cell.Ramp=RampAxis.EastWest;cell.Surface=GroundSurface.Road;}
             }

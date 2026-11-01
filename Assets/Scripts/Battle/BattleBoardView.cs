@@ -396,7 +396,8 @@ namespace BaseConquest.Battle
                 if (buildingGround.TryGetValue(index, out var ground)) ground.SetActive(liftArt);
                 if(ObliqueExploration&&cell.Terrain==TerrainKind.Ground&&(cell.Elevation>0||cell.Ramp!=RampAxis.None))
                 {
-                    var topMaterial=cell.Ramp!=RampAxis.None&&baseStairMaterial!=null ? baseStairMaterial : cell.Surface==GroundSurface.Road&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : baseRaisedGrassMaterial??tile.sharedMaterial;
+                    var surface=GroundSurfaceRules.Resolve(cell.Surface,surfaceRegion,p.X,p.Z);
+                    var topMaterial=cell.Ramp!=RampAxis.None&&baseStairMaterial!=null ? baseStairMaterial : surface==GroundSurface.Road&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : (surface==GroundSurface.Grass||surface==GroundSurface.Default)&&baseRaisedGrassMaterial!=null ? baseRaisedGrassMaterial : tile.sharedMaterial;
                     raisedMeshes[index]=BaseConquest.Presentation.BaseTerrainView.Ground(board,p);
                     tile.GetComponent<MeshFilter>().sharedMesh=raisedMeshes[index];
                     tile.sharedMaterials=new[]{topMaterial,baseCliffMaterial??wallMaterial};
