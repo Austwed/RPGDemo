@@ -9,6 +9,7 @@ namespace BaseConquest.Presentation
     public sealed class EnvironmentDecorView : MonoBehaviour
     {
         private BaseSceneController owner;private BaseMapObject placement;private EnvironmentDefinition definition;private readonly List<GameObject> sprites=new List<GameObject>();private readonly List<Material> materials=new List<Material>();private EnvironmentAnimal[] animals;
+        private Quaternion lastCameraRotation;private float lastGroundHeight;
         public static void Attach(GameObject root,BaseMapObject placement,Material source)
         {
             var view=root.AddComponent<EnvironmentDecorView>();view.owner=root.GetComponentInParent<BaseSceneController>(true);view.placement=placement;view.definition=BaseEnvironment.Find(placement.AssetId);
@@ -30,10 +31,16 @@ namespace BaseConquest.Presentation
             }
             view.Refresh(0);
         }
-        private void Update(){if(owner!=null&&animals!=null)Refresh(Time.deltaTime);}
+        private void Update()
+        {
+            if(owner==null||sprites.Count==0||owner.WorldCamera==null)return;
+            if(animals!=null)Refresh(Time.deltaTime);
+            else if(owner.WorldCamera.transform.rotation!=lastCameraRotation||owner.WorldPoint(placement.X,placement.Y-placement.Height/2).y!=lastGroundHeight)Refresh(0);
+        }
         private void Refresh(double seconds)
         {
             if(owner==null)return;var d=definition;var camera=owner.WorldCamera;if(camera==null)return;
+            lastCameraRotation=camera.transform.rotation;lastGroundHeight=owner.WorldPoint(placement.X,placement.Y-placement.Height/2).y;
             bool visible=d.Animal==""?owner.SceneCellKnown(new GridPosition((int)placement.X,(int)placement.Y)):owner.SceneObjectVisible(placement);
             for(int n=0;n<sprites.Count;n++)
             {

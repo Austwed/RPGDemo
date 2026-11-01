@@ -131,6 +131,7 @@ namespace BaseConquest.Battle
             fieldworkArt?.SetKnown(null);
             CombatMode=combat; SelectCell(null); Refresh();
             foreach(var edge in Root.GetComponentsInChildren<BaseConquest.Presentation.EnvironmentRoadEdges>(true)){edge.SetRaised(ObliqueExploration);edge.SetKnown(null);}
+            foreach(var facade in Root.GetComponentsInChildren<BaseConquest.Presentation.SpriteFacade>(true))facade.SetRaised(ObliqueExploration);
             foreach(var fog in fogTiles) fog.gameObject.SetActive(false);
             foreach(var tile in tiles) tile.enabled=true;
             gridKnown=null;SetGridOutlines(combat ? MapDisplayOptions.BattleGridOutlines : MapDisplayOptions.ShowGridOutlines);

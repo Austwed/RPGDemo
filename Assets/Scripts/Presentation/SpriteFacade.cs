@@ -25,10 +25,10 @@ namespace BaseConquest.Presentation
     public sealed class SpriteFacade:MonoBehaviour
     {
         public Renderer Surface{get;private set;}public Vector3 Feet{get;private set;}public float VisibleWidth{get;private set;}public float VisibleHeight{get;private set;}
-        private Camera camera;private Material material;private SpriteMetric metric;
+        private Camera camera;private Material material;private SpriteMetric metric;private float raisedFeetY;
         public static SpriteFacade Create(Transform parent,Texture2D texture,Vector3 feet,float width,Material source,Camera camera)
         {
-            var root=new GameObject("UprightFacade",typeof(SpriteFacade));root.transform.SetParent(parent,false);var view=root.GetComponent<SpriteFacade>();view.Feet=feet;view.camera=camera;view.VisibleWidth=width;
+            var root=new GameObject("UprightFacade",typeof(SpriteFacade));root.transform.SetParent(parent,false);var view=root.GetComponent<SpriteFacade>();view.Feet=feet;view.raisedFeetY=feet.y;view.camera=camera;view.VisibleWidth=width;
             var metric=SpriteMetrics.For(texture);view.metric=metric;view.VisibleHeight=width/(metric?.Aspect??(texture.width/(float)texture.height));
             var face=GameObject.CreatePrimitive(PrimitiveType.Quad);face.transform.SetParent(root.transform,false);BattleBoardView.DestroyObject(face.GetComponent<Collider>());
             face.transform.localScale=new Vector3(width,view.VisibleHeight,1);view.material=BattlePawn2D.Transparent(source);view.material.SetTexture("_BaseMap",texture);view.material.SetColor("_BaseColor",Color.white);
@@ -37,6 +37,7 @@ namespace BaseConquest.Presentation
         }
         public void Refresh()
         {if(camera==null)return;Surface.transform.position=Feet+camera.transform.right*(VisibleWidth*(.5f-(metric?.RootX??.5f)))+camera.transform.up*(VisibleHeight*(.5f-(metric?.RootY??0)));Surface.transform.rotation=camera.transform.rotation;MapSpriteOrder.Apply(transform,Feet.z);}
+        public void SetRaised(bool raised){Feet=new Vector3(Feet.x,raised?raisedFeetY:0,Feet.z);Refresh();}
         private void LateUpdate()=>Refresh();
         private void OnDestroy()=>BattleBoardView.DestroyObject(material);
     }

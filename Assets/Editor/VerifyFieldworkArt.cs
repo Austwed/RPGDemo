@@ -12,6 +12,23 @@ namespace BaseConquest.Editor
     public static class VerifyFieldworkArt
     {
         private static void Need(bool yes,string message){if(!yes)throw new InvalidOperationException(message);}
+        public static void RunFacade()
+        {
+            var board=BattleBoard.CreateDefault(8,8);var host=new GameObject("FacadeVerification");var source=new Material(Shader.Find("Universal Render Pipeline/Unlit"));BattleBoardView boardView=null;
+            try
+            {
+                boardView=new BattleBoardView(board,host.transform,source,source){FlatView=true,ObliqueBaseView=true};boardView.SetCombatMode(false);boardView.UpdateCamera(0,0);
+                var texture=PixelDemoArt.Building("town_inn");Need(texture!=null,"缺少旅店素材");
+                var facade=SpriteFacade.Create(boardView.Root.transform,texture,new Vector3(1,BaseTerrainView.LevelHeight,2),1,source,boardView.Camera);
+                Need(Mathf.Abs(facade.Feet.y-BaseTerrainView.LevelHeight)<.001f,"探索视图建筑脚点高度错误");
+                boardView.SetCombatMode(true);boardView.UpdateCamera(0,0);facade.Refresh();
+                Need(Mathf.Abs(facade.Feet.y)<.001f&&Quaternion.Angle(facade.Surface.transform.rotation,boardView.Camera.transform.rotation)<.001f,"战斗视图建筑脚点或朝向未同步");
+                boardView.SetCombatMode(false);boardView.UpdateCamera(0,0);facade.Refresh();
+                Need(Mathf.Abs(facade.Feet.y-BaseTerrainView.LevelHeight)<.001f&&Quaternion.Angle(facade.Surface.transform.rotation,boardView.Camera.transform.rotation)<.001f,"探索视图建筑脚点或朝向未恢复");
+                Directory.CreateDirectory("Logs");File.WriteAllText("Logs/facade-verification.txt","PASS: raised facade anchor and camera alignment across view switches.\n");Debug.Log("[VerifyFacade] PASS");
+            }
+            finally{boardView?.Dispose();UnityEngine.Object.DestroyImmediate(source);UnityEngine.Object.DestroyImmediate(host);}
+        }
         public static void RunRoadEdges()
         {
             foreach(var axis in new[]{RampAxis.EastWest,RampAxis.NorthSouth})
