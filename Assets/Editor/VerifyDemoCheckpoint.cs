@@ -13,6 +13,41 @@ namespace BaseConquest.Editor
     public static class VerifyDemoCheckpoint
     {
         private static void Need(bool yes,string reason){if(!yes)throw new InvalidOperationException(reason);}
+        public static void VerifyQuestSword()
+        {
+            const string sword="royal_mithril_sword";
+            var asset=Resources.Load<TextAsset>("DemoStages/camp-male");Need(asset!=null,"缺少营地阶段档");
+            foreach(bool full in new[]{false,true})
+            {
+                var state=JsonUtility.FromJson<BaseState>(asset.text);
+                if(full)for(int cell=0;cell<BasePartyInventory.Capacity;cell++)state.Backpack.Items.Add(new BaseBagItem {Id="bag:"+state.Backpack.NextId++,ItemId=BaseBackpack.Blueprint,Count=1,Holder=state.PlayerLeaderId,Cell=cell});
+                Need(BaseDemo.AcknowledgeWaking(state),"苏醒交付失败");
+                var item=state.Backpack.Items.Single(i=>i.ItemId==sword);
+                Need(item.Holder==(full?"":state.PlayerLeaderId)&&item.Count==1,"任务道具交付位置错误");
+                Need(!BaseDemo.AcknowledgeWaking(state)&&BaseBackpack.Count(state,sword)==1,"重复确认造成重复交付");
+                Need(!BasePartyInventory.Destroy(state,item.Id,1),"任务道具能够销毁");
+                BaseBackpack.Validate(state);BasePartyInventory.Validate(state);
+                var store=new BaseSaveStore(Path.GetFullPath("Logs/checkpoint-verification/quest-sword-"+full+".json"),d=>JsonUtility.ToJson(d),json=>JsonUtility.FromJson<BaseSaveDocument>(json),true);
+                store.Save(state);var restored=store.Load();Need(BaseBackpack.Count(restored,sword)==1&&restored.Backpack.Items.Single(i=>i.ItemId==sword).Holder==item.Holder,"任务道具存读后变化");
+                if(!full)
+                {
+                    Need(BasePartyInventory.Move(state,item.Id,"",-1),"任务道具不能存入仓库");
+                }
+                var companion=state.Leaders.Single(l=>l.Id==state.PlayerLeaderId).Copy();companion.Id="test_companion";companion.PersonalEquipment.Items.Clear();companion.MaxHealth=BasePersonalEquipment.Stats(companion).Health;companion.Health=Math.Min(companion.Health,companion.MaxHealth);companion.PersonalEquipment.ExtraAccessory=false;state.Leaders.Add(companion);
+                Need(BasePartyInventory.AtWarehouse(state)&&BasePartyInventory.People(state,true).Any(l=>l.Id==companion.Id)&&BasePartyInventory.AccessibleLeader(state,companion),"测试队友或仓库不可访问");
+                Need(!BasePartyInventory.Move(state,item.Id,companion.Id,0),"任务道具可转交队友");
+                if(!full)
+                {
+                    Need(!BasePartyInventory.QuickTransfer(state,item.Id,companion.Id,true),"任务道具可快捷转交队友");
+                    state.Leaders.Remove(companion);
+                    Need(BasePartyInventory.QuickTransfer(state,item.Id,state.PlayerLeaderId,true),"任务道具不能快捷取回主角背包");
+                    Need(!BasePartyInventory.Move(state,item.Id,state.PlayerLeaderId,-1,"weapon"),"任务道具可装备");
+                    state.Leaders.Add(companion);
+                }
+                item.Holder=companion.Id;item.Cell=0;bool rejected=false;try{BasePartyInventory.Validate(state);}catch(ArgumentException){rejected=true;}Need(rejected,"错误的队友持有未被存档校验拒绝");
+            }
+            Debug.Log("VerifyQuestSword PASS");
+        }
         public static void VerifyGlobalDifficulty()
         {
             const string key="BaseConquest.GlobalDifficulty";bool had=PlayerPrefs.HasKey(key);string previous=PlayerPrefs.GetString(key,"");

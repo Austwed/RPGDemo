@@ -179,6 +179,13 @@ namespace BaseConquest.Base
         public static bool AcknowledgeWaking(BaseState state)
         {
             if(!Active(state)||state.Demo.Stage!=BaseDemoStage.Waking||!BaseInteraction.At(state,"base","home")&&!BaseInteraction.At(state,"base","demo_rescuer"))return false;
+            const string sword="royal_mithril_sword";
+            if(state.Backpack.Catalog.Any(d=>d.Id==sword)||state.Backpack.Catalog.Count>=1000)return false;
+            var definition=new BaseBagDefinition {Id=sword,Name="王都秘银长剑",Category="quest",Description="待写",MaxStack=1};
+            state.Backpack.Catalog.Add(definition);
+            if(!BaseBackpack.Add(state,sword,1)){state.Backpack.Catalog.Remove(definition);return false;}
+            int cell=BasePartyInventory.FreeCell(state,state.PlayerLeaderId);
+            if(cell>=0){var item=state.Backpack.Items.Single(i=>i.ItemId==sword);item.Holder=state.PlayerLeaderId;item.Cell=cell;}
             state.Demo.Stage=BaseDemoStage.VisitLord;state.Demo.WakeDay=state.Day;return true;
         }
         public static bool AcceptLordQuest(BaseState state)

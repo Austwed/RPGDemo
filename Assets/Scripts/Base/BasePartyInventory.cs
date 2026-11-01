@@ -73,12 +73,12 @@ namespace BaseConquest.Base
         {
             Normalize(s);if(s.Backpack.GridVersion!=1)throw new ArgumentException("个人背包版本非法");
             var all=Entries(s).ToArray();
-            if(all.Any(e=>!string.IsNullOrEmpty(e.Holder)&&!s.Leaders.Any(l=>l.Id==e.Holder)||e.Worn&&(e.Gear==null||e.Cell!=-1||!string.IsNullOrEmpty(e.Gear.Holder))||!e.Worn&&(e.Holder==""?e.Cell!=-1:e.Cell<0||e.Cell>=Capacity)||!string.IsNullOrEmpty(e.Bound)&&e.Holder!=""&&e.Holder!=e.Bound))throw new ArgumentException("物品持有位置／格子／专属归属非法");
+            if(all.Any(e=>!string.IsNullOrEmpty(e.Holder)&&!s.Leaders.Any(l=>l.Id==e.Holder)||e.Category=="quest"&&e.Holder!=""&&e.Holder!=s.PlayerLeaderId||e.Worn&&(e.Gear==null||e.Cell!=-1||!string.IsNullOrEmpty(e.Gear.Holder))||!e.Worn&&(e.Holder==""?e.Cell!=-1:e.Cell<0||e.Cell>=Capacity)||!string.IsNullOrEmpty(e.Bound)&&e.Holder!=""&&e.Holder!=e.Bound))throw new ArgumentException("物品持有位置／格子／专属归属非法");
             if(all.Where(e=>!e.Worn&&e.Holder!="").GroupBy(e=>e.Holder+":"+e.Cell).Any(g=>g.Count()>1)||all.Select(e=>e.Id).Distinct().Count()!=all.Length)throw new ArgumentException("个人物品身份或格子重复");
             foreach(var l in s.Leaders.Where(l=>l.PersonalEquipment?.Version==1))if(l.PersonalEquipment.ExtraAccessory!=(l.Id==s.PlayerLeaderId||BaseDemoPrologue.Village(s)&&l.Id=="demo_captain")||!new[]{"sword","bow","spear"}.Contains(l.PersonalEquipment.InitialWeapon))throw new ArgumentException("人物初始武器／额外饰品槽非法");
         }
         private static bool Access(BaseState s,string holder)=>holder==""?AtWarehouse(s):s.Leaders.Any(l=>l.Id==holder&&AccessibleLeader(s,l));
-        private static bool Fits(BaseState s,BaseInventoryEntry e,string holder,string slot)=>e==null||(!string.IsNullOrEmpty(e.Bound)&&holder!=""&&e.Bound!=holder?false:slot==""||e.Gear!=null&&s.Leaders.Any(l=>l.Id==holder&&BasePersonalEquipment.Compatible(l,e.Gear,slot)&&BasePersonalEquipment.WeaponRangeAllowed(l,e.Gear,e.Quality)));
+        private static bool Fits(BaseState s,BaseInventoryEntry e,string holder,string slot)=>e==null||(!(e.Category=="quest"&&holder!=""&&holder!=s.PlayerLeaderId)&&(!string.IsNullOrEmpty(e.Bound)&&holder!=""&&e.Bound!=holder?false:slot==""||e.Gear!=null&&s.Leaders.Any(l=>l.Id==holder&&BasePersonalEquipment.Compatible(l,e.Gear,slot)&&BasePersonalEquipment.WeaponRangeAllowed(l,e.Gear,e.Quality))));
         public static bool Move(BaseState s,string id,string holder,int cell,string slot="",int count=0)
         {
             var source=Find(s,id);holder=holder??"";slot=slot??"";

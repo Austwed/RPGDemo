@@ -29,12 +29,10 @@ namespace BaseConquest.Base
                 NpcDialogue(new[]{
                     new NpcLine(BaseScriptNames.ChunShen,BaseScriptNames.Portrait("chunshen"),"醒了！老头子快来看，人可算睁眼了！"),
                     new NpcLine("你","","［按住胸口］嘶……这是哪儿？我睡了多久？",true),
-                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"这里是灰岩镇外头的断流滩，你足足昏睡了六天呐。"),
-                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"那天你们断后，我们逃出山口走了两天，越想越不忍心。"),
-                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"我和阿禾摸回村口，在死人堆里把你背了回来，前前后后整十天了。"),
+                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"待写"),
                     new NpcLine("你","","{Partner}呢？你们回村时，见着西桥头的人了吗？",true),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"［叹气］西桥头被烧成了白地，没见着尸首，兴许是突围走了……"),
-                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"对了，从你胸口拔出来的那柄怪剑，我给你留在帐子角落了。"),
+                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"待写"),
                     new NpcLine("你","","［眼神微凛］王都禁卫的秘银剑……古裔背后果然有人指使。",true),
                     new NpcLine(BaseScriptNames.ChunShen,BaseScriptNames.Portrait("chunshen"),"你伤刚好，别急着动气。阿禾就在外头麦田里忙活呢。"),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"想在这片荒滩立寨找人，得先去北边灰岩镇求见领主霍恩爵士。")

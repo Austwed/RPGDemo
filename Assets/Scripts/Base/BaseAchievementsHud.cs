@@ -24,7 +24,7 @@ namespace BaseConquest.Base
                 var r=BaseAchievements.Record(s,d.Id);string id=d.Id;
                 Line(d.Name+" · "+(r==null?"未解锁":r.ClaimedDay>0?"已领取 · 第"+r.ClaimedDay+"天":"已达成 · 第"+r.UnlockedDay+"天"),45,23);
                 Line(d.Category=="hidden"&&r==null?"隐藏条件，解锁后揭示":d.Condition,53,19);
-                Line("奖励："+BaseAchievements.RewardName(d)+(d.Template!=""?"（普通品质）":""),40,19);
+                Line("奖励："+BaseAchievements.RewardName(d)+(d.Template!=""?"（一般品质）":""),40,19);
                 string problem=BaseAchievements.ClaimProblem(s,id);
                 RowButton(r?.ClaimedDay>0?"已领取":"领取奖励",0,800,()=>{owner.Change(next=>{if(!BaseAchievements.Claim(next,id))throw new InvalidOperationException(BaseAchievements.ClaimProblem(next,id));},"成就奖励已领取："+d.Name);OpenAchievements();},problem=="");row+=64;
                 if(r!=null&&r.ClaimedDay==0&&problem!="")Line(problem,40,18);
