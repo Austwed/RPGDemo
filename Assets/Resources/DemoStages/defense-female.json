@@ -78592,7 +78592,7 @@
         "Stage": 9,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "23c82277fae097461c6638295eb766a8d271915646a0d0f883236d841741a6f0",
-        "ConfigHash": "17548216002cb6c502c70bb946000314036dc84559213869f990bb0a0c412657",
+        "ConfigHash": "64c19f69a3dd586088d016e30bb0463da01ac26c9390b869a7ffc57a5a227a2a",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
