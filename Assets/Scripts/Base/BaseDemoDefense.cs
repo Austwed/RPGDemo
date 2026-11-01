@@ -21,6 +21,7 @@ namespace BaseConquest.Base
     public static class BaseDemoDefense
     {
         public const string EventId="demo:defense:first", SecondEventId="demo:defense:second", Proof="demo:defense:won";
+        public const string SecondGameOverReason="第二波防守失败：队伍全员失能，营地失守，行动中止。";
         public const int RepairMaterials=10, RepairCoins=20;
         public static int RepairMaterialCost(BaseState state)=>BaseRpg.Active(state)?state.Demo.Rpg.FacilityRepairMaterials:RepairMaterials;
         public static int RepairCoinCost(BaseState state)=>BaseRpg.Active(state)?state.Demo.Rpg.FacilityRepairCoins:RepairCoins;
@@ -70,8 +71,8 @@ namespace BaseConquest.Base
             foreach(var position in state.Campaign.PerimeterBoard.Positions())
             {var cell=state.Campaign.PerimeterBoard.Cell(position);cell.Zone=!cell.Walkable?DeploymentZone.None:position.X>=15&&position.X<=17?DeploymentZone.A:position.X>=2&&position.X<=4?DeploymentZone.B:DeploymentZone.None;}
             var camp=state.Campaign.Layouts.Single(map=>map.Region=="base");
-            camp.Objects.Add(new BaseMapPlacement {Id="demo_fix_workshop",Name="工坊修复 · 需建设许可",X=19,Y=1.3,Width=1.2,Height=.6,VisualOnly=true});
-            camp.Objects.Add(new BaseMapPlacement {Id="demo_fix_barracks",Name="兵营修复 · 需建设许可",X=12,Y=8.8,Width=1.2,Height=.6,VisualOnly=true});
+            foreach(string id in new[]{"workshop","barracks"})
+            {var facility=camp.Objects.Single(o=>o.Id==id);camp.Objects.Add(new BaseMapPlacement {Id="demo_fix_"+id,Name=(id=="workshop"?"工坊":"兵营")+"修复 · 需建设许可",X=facility.X,Y=facility.Y-facility.Height/2-.4,Width=1.2,Height=.6,VisualOnly=true});}
             camp.Objects.Add(new BaseMapPlacement {Id="demo_defense_exit",Name="← 迎敌战场 · 尚无入侵",X=.7,Y=3.5,Width=1.2,Height=2,VisualOnly=true});
             state.Campaign.Layouts.Add(new BaseMapLayout {Region="perimeter",Title="营地外围 · 首次防守",SpawnX=22,SpawnY=6.5,Objects=new List<BaseMapPlacement> {
                 new BaseMapPlacement {Id="demo_defense_return",Name="返回营地 →",X=23.3,Y=6.5,Width=1.2,Height=2},

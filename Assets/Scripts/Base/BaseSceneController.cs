@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 using BaseConquest.Battle;
+using BaseConquest.Presentation;
 using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
 using UnityEngine.Networking;
@@ -90,8 +91,12 @@ namespace BaseConquest.Base
                 return objectCache;
             }
         }
-        public BaseMapObject Nearby => State == null || PlayerAway ? null : MapObjects.Where(o=>!State.Leaders.Any(l=>l.Id==o.Id)).Concat(Companions.Footprints).Where(o=>SceneObjectVisible(o)&&BaseInteraction.CanReach(State,o)).OrderBy(o => o.Distance(State.PlayerX, State.PlayerY)).FirstOrDefault();
-        public BaseMapObject PresentedObject(string id) => (State?.Leaders.Any(l=>l.Id==id)==true||BaseDemoPrologue.Followers(State).Any(l=>l.Id==id)) ? Companions.Agents.FirstOrDefault(a => a.Id == id && a.Visible)?.Footprint : MapObjects.FirstOrDefault(o => o.Id == id&&SceneObjectVisible(o));
+        private readonly Dictionary<string,BaseConquest.Presentation.AuthoredMapView> motionViews=new Dictionary<string,BaseConquest.Presentation.AuthoredMapView>();
+        private BaseMapObject[] motionObjects=Array.Empty<BaseMapObject>();
+        public BaseMapObject[] DisplayObjects=>motionObjects.Length==0?MapObjects:MapObjects.Concat(motionObjects).ToArray();
+        public void SetMotionCheck(string id,HeroPose pose){if(motionViews.TryGetValue(id,out var view))view.Preview(pose);}
+        public BaseMapObject Nearby => State == null || PlayerAway ? null : DisplayObjects.Where(o=>!State.Leaders.Any(l=>l.Id==o.Id)).Concat(Companions.Footprints).Where(o=>SceneObjectVisible(o)&&BaseInteraction.CanReach(State,o)).OrderBy(o => o.Distance(State.PlayerX, State.PlayerY)).FirstOrDefault();
+        public BaseMapObject PresentedObject(string id) => (State?.Leaders.Any(l=>l.Id==id)==true||BaseDemoPrologue.Followers(State).Any(l=>l.Id==id)) ? Companions.Agents.FirstOrDefault(a => a.Id == id && a.Visible)?.Footprint : DisplayObjects.FirstOrDefault(o => o.Id == id&&SceneObjectVisible(o));
         public static BaseTemplateEntry[] TemplateEntries => BaseDevelopmentFiles.Templates(Path.Combine(Application.streamingAssetsPath,"BaseScenarios"),json=>JsonUtility.FromJson<BaseScenarioDocument>(json).Title,JsonUtility.FromJson<BaseTemplateList>(Resources.Load<TextAsset>("Presentation/BaseTemplates").text).Entries);
         public static string[] Templates => TemplateEntries.Select(e=>e.File).ToArray();
 
@@ -161,6 +166,7 @@ namespace BaseConquest.Base
         public Vector3 WorldPoint(double x, double y) => new Vector3(((float)x-regionView.Board.Width*.5f)*BattleBoardView.CellSize,regionView.ExplorationHeight(x,y),((float)y-regionView.Board.Height*.5f)*BattleBoardView.CellSize);
         private void BuildWorld()
         {
+            motionObjects=BaseDemoNpcs.MotionChecks(State);
             explorationSight=null;nextSightAt=0;BeginEnvironmentVisit();
             var board=State==null ? BattleBoard.CreateDefault(24,14) : BaseBattlefield.Board(State);
             MapSession=new BaseMapSession(board);
@@ -176,7 +182,7 @@ namespace BaseConquest.Base
             // 地标与地形归同一世界根节点，进入战斗时保留，只有自由活动人物隐藏。
             var landmarks=new GameObject("RegionLandmarks").transform;landmarks.SetParent(regionView.Root.transform,false);
             explorationActors=new GameObject("FreeMovementActors").transform;explorationActors.SetParent(regionView.Root.transform,false);
-            npcViews.Clear();
+            npcViews.Clear();motionViews.Clear();
             BaseConquest.Presentation.EnvironmentRoadEdges.Build(State,regionView.Board,regionView.Root.transform,regionView.ObliqueExploration);
             foreach(var obj in MapObjects.Where(o=>!o.Id.StartsWith("partner")&&(!o.Blocks||!string.IsNullOrEmpty(o.SourceObjectId)||!string.IsNullOrEmpty(o.AssetId))))
             {
@@ -192,6 +198,8 @@ namespace BaseConquest.Base
                     if(regionView.ObliqueExploration)notice.transform.localRotation=BattleBoardView.BaseArtTilt;
                 }
             }
+            foreach(var obj in motionObjects)
+            {var view=BaseConquest.Presentation.AuthoredMapView.Create(explorationActors,obj,WorldPoint(obj.X,obj.Y),mapMaterial,regionView.ObliqueExploration);view.Preview(HeroPose.Idle);motionViews.Add(obj.Id,view);}
             player=Person(explorationActors,"Player",new Vector2(12,6.5f),new Color(.32f,.73f,.92f));
             selectionFrame=new GameObject("FreeCellSelection").transform;selectionFrame.SetParent(explorationActors,false);selectionFrame.gameObject.SetActive(false);
             Sunlight=BaseConquest.Presentation.DemoSunlight.Create(this,regionView.Root.transform);

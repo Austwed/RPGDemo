@@ -29,13 +29,13 @@ namespace BaseConquest.Base
     }
     public static class BaseBackpack
     {
-        public const string Blueprint="construction_manual", Story="construction_introduction";
+        public const string Blueprint="construction_manual", Story="construction_introduction", RoyalSword="royal_mithril_sword", RoyalSwordDescription="序章暗算贯穿你胸膛的凶器。剑脊刻着禁卫军独有的暗金云纹，断口平整得反常。任务物品，不可装备。";
         public static readonly string[] Categories={"exclusive","weapon","armor","accessory","consumable","quest","material"};
         public static string CategoryName(string id) => id=="exclusive" ? "角色专属装备" : id=="weapon" ? "武器" : id=="armor" ? "护具" : id=="accessory" ? "饰品" : id=="consumable" ? "消耗品" : id=="quest" ? "任务道具" : id=="material" ? "特殊材料" : "全部";
         public static bool Single(string category) => category=="exclusive"||category=="weapon"||category=="accessory";
         public static void Normalize(BaseState s)
         {
-            if(s.Backpack!=null&&s.Backpack.Version!=0)return;
+            if(s.Backpack!=null&&s.Backpack.Version!=0){var sword=s.Backpack.Catalog?.FirstOrDefault(d=>d!=null&&d.Id==RoyalSword&&d.Description=="待写");if(sword!=null)sword.Description=RoyalSwordDescription;return;}
             var old=s.Backpack;
             if(old!=null&&(old.Revision!=0||old.Catalog?.Count>0||old.Items?.Count>0||old.StoryFlags?.Count>0))throw new ArgumentException("背包缺版本，拒绝覆盖已有物品或剧情");
             s.Backpack=new BaseBackpackState {Version=1,NextId=2,

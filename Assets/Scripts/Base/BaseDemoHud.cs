@@ -29,10 +29,10 @@ namespace BaseConquest.Base
                 NpcDialogue(new[]{
                     new NpcLine(BaseScriptNames.ChunShen,BaseScriptNames.Portrait("chunshen"),"醒了！老头子快来看，人可算睁眼了！"),
                     new NpcLine("你","","［按住胸口］嘶……这是哪儿？我睡了多久？",true),
-                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"待写"),
+                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"[摇头] 断流滩，灰岩镇外头。你昏睡了好些日子，水都喂不进去——能睁眼，是你命大。"),
                     new NpcLine("你","","{Partner}呢？你们回村时，见着西桥头的人了吗？",true),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"［叹气］西桥头被烧成了白地，没见着尸首，兴许是突围走了……"),
-                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"待写"),
+                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"这柄剑是从你胸口拔出来的，我一直替你收着。拿好，别再攥这么紧了。"),
                     new NpcLine("你","","［眼神微凛］王都禁卫的秘银剑……古裔背后果然有人指使。",true),
                     new NpcLine(BaseScriptNames.ChunShen,BaseScriptNames.Portrait("chunshen"),"你伤刚好，别急着动气。阿禾就在外头麦田里忙活呢。"),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"想在这片荒滩立寨找人，得先去北边灰岩镇求见领主霍恩爵士。")

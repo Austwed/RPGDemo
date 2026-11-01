@@ -12,6 +12,8 @@ namespace BaseConquest.Base
             string name=null,appearance="chenan";
             switch(original.Id)
             {
+                case "demo_rescuer":name=BaseScriptNames.LaoZhou+" · 交谈";appearance="laozhou";break;
+                case "demo_chunshen":name=BaseScriptNames.ChunShen+" · 交谈";appearance="chunshen";break;
                 case "town_quest":name="领主 · 交谈";appearance="horn";break;
                 case "town_guard":name="镇卫兵 · 交谈";appearance="villager";break;
                 case "town_peddler":
@@ -61,6 +63,20 @@ namespace BaseConquest.Base
             return optional?"?":"";
         }
         private static BaseMapObject[] RescuedTown(BaseState s)=>s.Demo.Rescue?.Stage==3?new[]{new BaseMapObject("demo_rescued_1","获救百姓甲 · 交谈",19.8,9.5,.5,.5,false,"demo-npc:rescued:1","villager","npc"),new BaseMapObject("demo_rescued_2","获救百姓乙 · 交谈",18.2,9.5,.5,.5,false,"demo-npc:rescued:2","villager","npc")}:Array.Empty<BaseMapObject>();
+        public static BaseMapPlacement[] CampResidents()=>new[]{new BaseMapPlacement {Id="demo_rescuer",Name=BaseScriptNames.LaoZhou,X=4.8,Y=8.2,Width=.5,Height=.5,SourceObjectId="demo-npc:rescuer",AssetId="laozhou",Kind="npc"},new BaseMapPlacement {Id="demo_chunshen",Name=BaseScriptNames.ChunShen,X=2.8,Y=8.2,Width=.5,Height=.5,SourceObjectId="demo-npc:chunshen",AssetId="chunshen",Kind="npc"}};
+        private static readonly string[] MotionCharacters={"ahe","archer","batu","cavalry","chenan","chief","chunshen","controller","enemy-captain","female","galan","horn","horse","huoya","infantry","laozhou","merchant","mounted-azhu","mounted-cavalry","player","villager"};
+        public static BaseMapObject[] MotionChecks(BaseState state)
+        {
+            if(!BaseDemo.Active(state)||BaseDemoPrologue.Village(state)||state.Campaign.Location!="base")return Array.Empty<BaseMapObject>();
+            bool oldLayout=BaseSpatial.Layout(state,"base")?.Objects.Any(o=>o.Id=="farm"&&o.Y<7)==true;
+            return MotionCharacters.Select((id,n)=>new BaseMapObject("motion-check:"+id,id,oldLayout?7.5+(n%7)*1.5:2+(n%7)*3,1.5+(n/7)*2,.5,.5,false,"motion-check:"+id,id,"npc")).ToArray();
+        }
+        public static IEnumerable<BaseMapObject> CampResidentsCompat(BaseState state,string region)
+        {
+            if(!BaseDemo.Active(state)||BaseDemoPrologue.Village(state)||(region??state.Campaign.Location)!="base")yield break;
+            var objects=BaseSpatial.Layout(state,"base")?.Objects;if(objects==null)yield break;
+            foreach(var resident in CampResidents())if(objects.All(o=>o.Id!=resident.Id))yield return Present(state,resident.Object);
+        }
         // 旧档兼容：三个镇上闲聊 NPC 是在 156f189 才写进 town 布局的，而布局随存档序列化，
         // 旧档里不存在。这里参照 MarketMerchant 的运行时注入先例，缺哪个补哪个，新档不受影响。
         public static IEnumerable<BaseMapObject> TownChatCompat(BaseState state,string region)
@@ -89,11 +105,6 @@ namespace BaseConquest.Base
                 if(BaseDemoIntro.Active(state))return BaseDemoIntro.Additional(state);
                 var point=BaseSpatial.Layout(state)?.Objects.FirstOrDefault(o=>o.Id=="prologue_report");
                 if(point!=null)return new[]{new BaseMapObject("demo_captain","队长 · 交谈",point.X+1,point.Y+.3,.5,.5,false,"demo-npc:captain","chenan","npc")};
-            }
-            if(state.Demo.Stage==BaseDemoStage.Waking&&state.Campaign.Location=="base")
-            {
-                var home=BaseSpatial.Layout(state)?.Objects.FirstOrDefault(o=>o.Id=="home");
-                if(home!=null)return new[]{new BaseMapObject("demo_rescuer","救助者 · 交谈",home.X+home.Width/2+.35,home.Y-.5,.5,.5,false,"demo-npc:rescuer","chenan","npc")};
             }
             return Array.Empty<BaseMapObject>();
         }

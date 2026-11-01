@@ -84,7 +84,7 @@ namespace BaseConquest.Base
             construction = MakeButton(controls, "战前建造", new Vector2(-360, 118), new Vector2(180, 64), owner.ArmConstruction, new Vector2(1, 0));
             construction.gameObject.SetActive(false);
             hint = Label(controls, "", new Vector2(0, 30), new Vector2(730, 50), 18, TextAnchor.MiddleCenter, new Vector2(0.5f, 0));
-            labelObjects = owner.MapObjects.Where(o=>!BaseEnvironment.Decorative(o)).ToArray(); labels = new RectTransform[labelObjects.Length];npcMarkers=new Text[labels.Length];
+            labelObjects = owner.DisplayObjects.Where(o=>!BaseEnvironment.Decorative(o)).ToArray(); labels = new RectTransform[labelObjects.Length];npcMarkers=new Text[labels.Length];
             for (int i = 0; i < labels.Length; i++)
             {
                 labels[i] = Label(mapLabels, labelObjects[i].Name.Replace("伙伴 · ", ""), Vector2.zero, new Vector2(180, 36), 18, TextAnchor.MiddleCenter).rectTransform;
@@ -209,7 +209,7 @@ namespace BaseConquest.Base
             inspection.gameObject.SetActive(visible);
             if (!visible || !force && Time.unscaledTime < nextInspectionRefresh) return;
             nextInspectionRefresh = Time.unscaledTime + 0.2f;
-            var cell = owner.SelectedCell; var facility = owner.MapObjects.FirstOrDefault(o => !BaseEnvironment.Decorative(o) && cell.X < o.X + o.Width / 2 && cell.X + 1 > o.X - o.Width / 2 && cell.Y < o.Y + o.Height / 2 && cell.Y + 1 > o.Y - o.Height / 2);
+            var cell = owner.SelectedCell; var facility = owner.DisplayObjects.FirstOrDefault(o => !BaseEnvironment.Decorative(o) && cell.X < o.X + o.Width / 2 && cell.X + 1 > o.X - o.Width / 2 && cell.Y < o.Y + o.Height / 2 && cell.Y + 1 > o.Y - o.Height / 2);
             if(owner.State.Campaign.Location=="world")
             {
                 inspectionTitle.text="世界坐标（"+cell.X+", "+cell.Y+"） · "+(facility?.Name??"区域导航");
@@ -301,7 +301,19 @@ namespace BaseConquest.Base
             if(owner.MapObjects.Any(o=>o.Id==id&&o.VisualOnly)){owner.ReportMessage("仅场景外观／待接入内容，当前不可使用");return;}
             if(BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             if(owner.PlayerAway||!BaseInteraction.CanReach(owner.State,owner.PresentedObject(id))){owner.ReportMessage("请在设施边缘一格以内、与地基同层交互");return;}
-            if(BaseDemo.Active(owner.State)&&id=="demo_rescuer"){OpenDemoStory();return;}
+            if(id.StartsWith("motion-check:"))
+            {
+                string art=id.Substring("motion-check:".Length);activeObject=id;BeginPanel(art);
+                RowButton("待机",0,800,()=>owner.SetMotionCheck(id,HeroPose.Idle));row+=60;
+                if(BaseConquest.Presentation.PixelDemoArt.Motion(art,"walk")!=null){RowButton("行走",0,800,()=>owner.SetMotionCheck(id,HeroPose.Walk));row+=60;}
+                if(BaseConquest.Presentation.PixelDemoArt.Motion(art,"attack")!=null){RowButton("攻击",0,800,()=>owner.SetMotionCheck(id,HeroPose.Attack));row+=60;}
+                EndPanel();return;
+            }
+            if(BaseDemo.Active(owner.State)&&(id=="demo_rescuer"||id=="demo_chunshen"))
+            {
+                if(owner.State.Demo.Stage==BaseDemoStage.Waking){OpenDemoStory();return;}
+                bool zhou=id=="demo_rescuer";NpcDialogue(new[]{new NpcLine(zhou?BaseScriptNames.LaoZhou:BaseScriptNames.ChunShen,BaseScriptNames.Portrait(zhou?"laozhou":"chunshen"),zhou?"留得青山在，总能寻回你那位同伴的。":"饿了就回营帐歇歇，哪怕天塌下来也得先填饱肚子。")},new[]{new NpcReply("回头见",ClosePanel)});return;
+            }
             if(id=="town_inn"){OpenInn();return;}
             if(BaseDemo.Active(owner.State)&&id=="town_quest"){OpenDemoLord();return;}
             if(BaseDemo.Active(owner.State)&&(id=="town_guard"||id=="town_peddler"||id=="town_girl")){OpenTownChat(id);return;}

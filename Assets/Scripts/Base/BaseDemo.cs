@@ -103,9 +103,9 @@ namespace BaseConquest.Base
         {
             state.Campaign.Layouts=new List<BaseMapLayout> {
                 new BaseMapLayout {Region="base",Title="新营地",SpawnX=4,SpawnY=8.8,Objects=new List<BaseMapPlacement> {
-                    Placement("home","营帐",4,10.5,3,2,"home-small"),
-                    Placement("farm","粮田",4,3.2,5,3,"farm"),
-                    Placement("workshop","工坊 · 待修复",19,3.2,4,3,"workshop",true),
+                    Placement("home","营帐",2,10.5,3,2,"home-small"),
+                    Placement("farm","粮田",6.5,11.5,5,3,"farm"),
+                    Placement("workshop","工坊 · 待修复",20,11.5,4,3,"workshop",true),
                     Placement("barracks","兵营 · 待修复",12,10.5,4,2.6,"barracks",true),
                     new BaseMapPlacement {Id="exit_east",Name="拜访领主 →",X=23.3,Y=6.5,Width=1.2,Height=2}
                 }},
@@ -120,6 +120,7 @@ namespace BaseConquest.Base
                     new BaseMapPlacement {Id="town_girl",Name="镇民小芸",X=15,Y=11.5,Width=.6,Height=.6}
                 }}
             };
+            state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.AddRange(BaseDemoNpcs.CampResidents());
             foreach(var layout in state.Campaign.Layouts)
             {
                 var board=BattleBoard.CreateDefault(24,14);
@@ -127,7 +128,7 @@ namespace BaseConquest.Base
                 state.Campaign.RegionMaps.RemoveAll(map=>map.Id==layout.Region);
                 state.Campaign.RegionMaps.Add(new BaseRegionMap {Id=layout.Region,Board=board});
             }
-            InstallTownHeights(state);
+            InstallCampHeights(state);InstallTownHeights(state);
             if(BaseDemoRuins.Enabled(state))BaseDemoRuins.InstallMap(state);
             if(BaseDemoDefense.Enabled(state))BaseDemoDefense.InstallMap(state);
             BaseDemoFinale.InstallMarker(state);
@@ -137,6 +138,16 @@ namespace BaseConquest.Base
         }
 
         private static BaseMapPlacement Placement(string id,string name,double x,double y,double width,double height,string asset,bool locked=false) => new BaseMapPlacement {Id=id,Name=name,X=x,Y=y,Width=width,Height=height,Blocks=true,SourceObjectId="demo:"+id,AssetId=asset,Kind="facility",VisualOnly=locked};
+        private static void InstallCampHeights(BaseState state)
+        {
+            var board=state.Campaign.RegionMaps.Single(map=>map.Id=="base").Board;
+            for(int z=8;z<=11;z++)for(int x=9;x<=14;x++)board.Cell(new GridPosition(x,z)).Elevation=1;
+            void Stair(int x,int z,RampAxis axis){var cell=board.Cell(new GridPosition(x,z));cell.Elevation=1;cell.Ramp=axis;cell.Surface=GroundSurface.Road;}
+            Stair(11,7,RampAxis.NorthSouth);Stair(12,7,RampAxis.NorthSouth);
+            Stair(9,12,RampAxis.NorthSouth);Stair(14,12,RampAxis.NorthSouth);
+            Stair(8,8,RampAxis.EastWest);Stair(8,9,RampAxis.EastWest);
+            Stair(15,8,RampAxis.EastWest);Stair(15,9,RampAxis.EastWest);
+        }
         private static void InstallTownHeights(BaseState state)
         {
             var board=state.Campaign.RegionMaps.Single(map=>map.Id=="town").Board;
@@ -179,9 +190,9 @@ namespace BaseConquest.Base
         public static bool AcknowledgeWaking(BaseState state)
         {
             if(!Active(state)||state.Demo.Stage!=BaseDemoStage.Waking||!BaseInteraction.At(state,"base","home")&&!BaseInteraction.At(state,"base","demo_rescuer"))return false;
-            const string sword="royal_mithril_sword";
+            const string sword=BaseBackpack.RoyalSword;
             if(state.Backpack.Catalog.Any(d=>d.Id==sword)||state.Backpack.Catalog.Count>=1000)return false;
-            var definition=new BaseBagDefinition {Id=sword,Name="王都秘银长剑",Category="quest",Description="待写",MaxStack=1};
+            var definition=new BaseBagDefinition {Id=sword,Name="王都秘银长剑",Category="quest",Description=BaseBackpack.RoyalSwordDescription,MaxStack=1};
             state.Backpack.Catalog.Add(definition);
             if(!BaseBackpack.Add(state,sword,1)){state.Backpack.Catalog.Remove(definition);return false;}
             int cell=BasePartyInventory.FreeCell(state,state.PlayerLeaderId);

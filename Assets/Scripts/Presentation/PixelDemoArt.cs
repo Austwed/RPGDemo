@@ -68,12 +68,13 @@ namespace BaseConquest.Presentation
             material=BattlePawn2D.Transparent(source);material.SetColor("_BaseColor",Color.white);Renderer=Root.GetComponent<Renderer>();Renderer.sharedMaterial=material;
             Set(HeroFacing.South,HeroPose.Idle,0,false,false,false);
         }
-        public void Set(HeroFacing facing,HeroPose pose,double time,bool hit,bool carried,bool mounted)
+        public void Set(HeroFacing facing,HeroPose pose,double time,bool hit,bool carried,bool mounted,bool referenceIdle=false)
         {
             bool riding=(mounted||alwaysMounted)&&mountedAtlas!=null&&!carried&&(pose!=HeroPose.Down||mountedDownAtlas!=null);
             var idle=riding?mountedIdleAtlas:idleAtlas;
             var walk=riding?mountedWalkAtlas:walkAtlas;
             var motion=pose==HeroPose.Attack?(riding?mountedAttackAtlas:attackAtlas):pose==HeroPose.Down?(riding?mountedDownAtlas:downAtlas):pose==HeroPose.Walk?walk:idle;
+            if(referenceIdle&&pose==HeroPose.Idle)motion=null;
             // 待机／受击直接走 -v1 参考帧（第 0 列）。不再回退到行走图集——行走帧是迈步中的姿势，脚会一直抬着。
             int columns=motion==null?4:motion.width/(motion.height/4);
             double phase=System.Math.Max(0,time);

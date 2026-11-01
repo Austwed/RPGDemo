@@ -101,7 +101,7 @@ namespace BaseConquest.Base
                 owner.Change(next=>next.Demo.Flow.HomeEnterSeen=true,"");
                 var s=owner.State;
                 var enterLines=new List<NpcLine>{
-                    new NpcLine("你","","待写",true)};
+                    new NpcLine("你","","[环顾四周焦黑的残垣] 离开时还是炊烟袅袅，如今只剩断壁残垣了。",true)};
                 if(BaseAdventure.Following(s,"partner_farm"))enterLines.Add(new NpcLine("阿禾","ahe","［眼圈泛红］我家的老屋和麦场全塌了……但只要人还在，总有一天能重建起来。"));
                 if(BaseAdventure.Following(s,"partner_craft"))enterLines.Add(new NpcLine("阿铸","azhu","村口铁匠炉都被砸穿了。走，去西桥头看看，你同伴一定留下了线索！"));
                 if(s.Leaders.Any(l=>BaseAdventure.Following(s,l.Id)&&l.IsAlien))

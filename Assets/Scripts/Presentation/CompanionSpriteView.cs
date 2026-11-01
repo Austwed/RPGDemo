@@ -27,6 +27,7 @@ namespace BaseConquest.Presentation
         private double lookUntil;
         private bool looking,wasNear;
         public HeroFacing Facing=>facing;
+        public void Preview(HeroPose pose,double time){if(pixel!=null)pixel.Set(HeroFacing.South,pose,pose==HeroPose.Attack?time%1:time,false,false,false,true);}
         private float stride;
         public string AppearanceId {get;private set;}
         public bool Initialize(string id,Material source)

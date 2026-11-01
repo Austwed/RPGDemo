@@ -129,7 +129,7 @@ namespace BaseConquest.Base
             if(run.Battle.Phase==BattlePhase.Fighting&&!run.RetreatAll())return false;
             if(run.Battle.Report?.Outcome==BattleOutcome.SideAWin)return false;
             run.SaveCheckpoint(state);if(!BaseCampaign.Settle(state,run.Session))return false;
-            if(run.Session.Opening.EventId==BaseDemoDefense.SecondEventId){state.Demo.Defense.SecondOutcome="failed";state.Aftermath.GameOver=true;state.Aftermath.Reason="待写";}
+            if(run.Session.Opening.EventId==BaseDemoDefense.SecondEventId){state.Demo.Defense.SecondOutcome="failed";state.Aftermath.GameOver=true;state.Aftermath.Reason=BaseDemoDefense.SecondGameOverReason;}
             if(run.Session.Opening.EventId==BaseDemoDefense.EventId)
             {
                 var mission=state.Campaign.Events.Single(item=>item.Id==BaseDemoDefense.EventId);

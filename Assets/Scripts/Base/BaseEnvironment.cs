@@ -51,8 +51,8 @@ namespace BaseConquest.Base
             m.Objects.RemoveAll(o=>o.Id.StartsWith("env_",StringComparison.Ordinal)||o.Id=="ruins_wall");
             bool dungeon=m.SurfaceStyle=="dungeon",town=m.Region=="town",village=m.Objects.Any(o=>o.Id=="village_house");
             foreach(var p in b.Positions())
-            {var c=b.Cell(p);if(p.X==15&&p.Z>=4&&p.Z<=19&&c.Terrain==TerrainKind.Wall)c.Terrain=TerrainKind.Ground;if(!dungeon&&c.Terrain==TerrainKind.Ground)c.Surface=town&&c.Elevation>0?GroundSurface.Road:GroundSurface.Grass;}
-            void Road(int x,int y,GroundSurface surface){var c=b.Cell(new GridPosition(x,y));if(c!=null&&c.Walkable&&(!town||c.Elevation==0&&c.Ramp==RampAxis.None))c.Surface=surface;}
+            {var c=b.Cell(p);if(p.X==15&&p.Z>=4&&p.Z<=19&&c.Terrain==TerrainKind.Wall)c.Terrain=TerrainKind.Ground;if(!dungeon&&c.Terrain==TerrainKind.Ground)c.Surface=c.Ramp!=RampAxis.None||town&&c.Elevation>0?GroundSurface.Road:GroundSurface.Grass;}
+            void Road(int x,int y,GroundSurface surface){var c=b.Cell(new GridPosition(x,y));if(c!=null&&c.Walkable&&c.Ramp==RampAxis.None&&(!town||c.Elevation==0))c.Surface=surface;}
             var road=town?GroundSurface.Cobble:GroundSurface.DirtPath;
             if(!dungeon)
             {
@@ -72,7 +72,7 @@ namespace BaseConquest.Base
                 if(village&&id.StartsWith("tree-")&&m.Objects.Any(v=>(v.Id=="intro_farm"||v.Id=="intro_smith")&&Math.Abs(v.X-x)<v.Width/2+d.ArtWidth/2+.5&&Math.Abs(v.Y-y)<v.Height/2+2.5))return false;
                 if(village&&d.Blocks&&new[]{new BasePoint(3,8),new BasePoint(18,10)}.Any(p=>p.Distance(new BasePoint(x,y))<2))return false;
                 var cells=b.Positions().Where(p=>o.Object.Contains(p.X+.5,p.Z+.5)).DefaultIfEmpty(new GridPosition((int)x,(int)y)).ToArray();
-                if(cells.Length==0||cells.Any(p=>!b.Walkable(p)||d.Blocks&&b.Cell(p).Zone!=DeploymentZone.None||d.Blocks&&(b.Cell(p).Surface==GroundSurface.Cobble||b.Cell(p).Surface==GroundSurface.DirtPath))||cells.Select(p=>b.Cell(p).Elevation).Distinct().Count()>1)return false;
+                if(cells.Length==0||cells.Any(p=>!b.Walkable(p)||b.Cell(p).Ramp!=RampAxis.None||d.Blocks&&b.Cell(p).Zone!=DeploymentZone.None||d.Blocks&&(b.Cell(p).Surface==GroundSurface.Cobble||b.Cell(p).Surface==GroundSurface.DirtPath))||cells.Select(p=>b.Cell(p).Elevation).Distinct().Count()>1)return false;
                 if(m.Objects.Any(v=>(v.Blocks||!v.VisualOnly)&&v.Object.Parts.Any(r=>Math.Abs(r.X-x)<(r.Width+d.Width)/2+.4&&Math.Abs(r.Y-y)<(r.Height+d.Depth)/2+.4)))return false;
                 if(m.TacticalObjects.Any(v=>Math.Abs(v.X+.5-x)<d.Width/2+1&&Math.Abs(v.Y+.5-y)<d.Depth/2+1))return false;
                 if(town&&Math.Abs(x-7)<d.Width/2+.8&&Math.Abs(y-11)<d.Depth/2+.8)return false;

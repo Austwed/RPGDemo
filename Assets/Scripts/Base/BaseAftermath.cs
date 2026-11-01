@@ -54,7 +54,7 @@ namespace BaseConquest.Base
         public List<BaseLostItems> LostItems=new List<BaseLostItems>();
         public BaseAftermath Copy() => new BaseAftermath { Version = Version, GameOver = GameOver, Reason = Reason, Difficulty = Difficulty.Copy(), Prisoners = Prisoners.Select(p => p.Copy()).ToList(), Loot=Loot.Select(m=>m.Copy()).ToList(),LostItems=LostItems?.Select(x=>x.Copy()).ToList() };
         // 旧档里六个字段可能仍存着 easy/hard 的旧值；读档与每次校验前统一归位到基准，难度解耦才算真正生效。
-        public static void Normalize(BaseState s) { if (s?.Aftermath?.Difficulty != null) s.Aftermath.Difficulty.Neutralize(); }
+        public static void Normalize(BaseState s) { if (s?.Aftermath?.Difficulty != null) s.Aftermath.Difficulty.Neutralize();if(s?.Aftermath?.GameOver==true&&s.Aftermath.Reason=="待写"&&s.Demo?.Defense?.SecondOutcome=="failed")s.Aftermath.Reason=BaseDemoDefense.SecondGameOverReason; }
         public static void Validate(BaseState s)
         {
             if(s.Aftermath==null || s.Aftermath.Version==0 && !s.Aftermath.GameOver && (s.Aftermath.Prisoners==null||s.Aftermath.Prisoners.Count==0)) s.Aftermath=new BaseAftermath(); var a = s.Aftermath; var d = a.Difficulty;

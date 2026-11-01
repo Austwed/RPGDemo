@@ -13,6 +13,29 @@ namespace BaseConquest.Editor
     public static class VerifyDemoCheckpoint
     {
         private static void Need(bool yes,string reason){if(!yes)throw new InvalidOperationException(reason);}
+        public static void VerifyCampHandoff(){VerifyCampChanges();VerifyQuestSword();VerifySecondRules();VerifyGlobalDifficulty();Run();Debug.Log("VerifyCampHandoff PASS");}
+        public static void VerifyCampChanges()
+        {
+            var asset=Resources.Load<TextAsset>("DemoStages/camp-male");Need(asset!=null,"缺少营地阶段档");
+            var state=JsonUtility.FromJson<BaseState>(asset.text);BaseDemo.InstallCampMap(state);BaseEconomy.Validate(state);
+            var board=BaseBattlefield.Board(state,"base");var layout=BaseSpatial.Layout(state,"base");
+            var samples=BaseDemoNpcs.MotionChecks(state);Need(samples.Length==21&&samples.Select(o=>o.Id).Distinct().Count()==21&&samples.All(o=>o.Y<7&&BaseConquest.Presentation.PixelDemoArt.Load("Characters",o.AssetId)!=null),"动作检查角色数量、位置或图集错误");
+            Need(samples.Count(o=>BaseConquest.Presentation.PixelDemoArt.Motion(o.AssetId,"walk")!=null)==8&&samples.Count(o=>BaseConquest.Presentation.PixelDemoArt.Motion(o.AssetId,"attack")!=null)==15,"动作图集能力清单不符");
+            Need(!BaseSpatial.Objects(state,"base").Any(o=>o.Id.StartsWith("motion-check:")),"动作检查对象混入正式地图");
+            Need(layout.Objects.Where(o=>o.Kind=="facility").All(o=>o.Y>=8),"设施未移到上半区");
+            Need(samples.All(o=>BaseSpatial.Geometry(state,o.X,o.Y)),"动作检查角色被设施遮挡");
+            foreach(string id in new[]{"workshop","barracks"}){var facility=layout.Objects.Single(o=>o.Id==id);var marker=layout.Objects.Single(o=>o.Id=="demo_fix_"+id);Need(Math.Abs(marker.X-facility.X)<.01&&Math.Abs(marker.Y-(facility.Y-facility.Height/2-.4))<.01,"设施修复入口未跟随新位置");}
+            Need(board.Cell(new GridPosition(12,10)).Elevation==1,"兵营不在高台");
+            foreach(var pair in new[]{new[]{8,8,9,8,7,8},new[]{15,8,14,8,16,8},new[]{11,7,11,8,11,6},new[]{9,12,9,11,9,13},new[]{14,12,14,11,14,13}})
+            {var ramp=new GridPosition(pair[0],pair[1]);var high=new GridPosition(pair[2],pair[3]);var low=new GridPosition(pair[4],pair[5]);Need(board.CanStep(low,ramp)&&board.CanStep(ramp,high)&&board.SurfaceLevel(ramp,.5,.5)==.5&&board.Cell(ramp).Surface==GroundSurface.Road&&new[]{low,ramp,high}.All(p=>BaseSpatial.Geometry(state,p.X+.5,p.Z+.5)),"四向坡道连接或通行错误");
+                double x=low.X+.5,y=low.Z+.5,dx=(high.X-low.X)*.05,dy=(high.Z-low.Z)*.05;for(int i=0;i<60&&Math.Abs(x-high.X-.5)+Math.Abs(y-high.Z-.5)>.12;i++)BaseSpatial.Move(state,ref x,ref y,dx,dy);Need(Math.Abs(x-high.X-.5)<=.12&&Math.Abs(y-high.Z-.5)<=.12,"坡道实际移动无法抵达高台："+ramp.X+","+ramp.Z+" → "+x+","+y);for(int i=0;i<60&&Math.Abs(x-low.X-.5)+Math.Abs(y-low.Z-.5)>.12;i++)BaseSpatial.Move(state,ref x,ref y,-dx,-dy);Need(Math.Abs(x-low.X-.5)<=.12&&Math.Abs(y-low.Z-.5)<=.12,"坡道实际移动无法返回低地："+ramp.X+","+ramp.Z+" → "+x+","+y);}
+            foreach(var resident in BaseDemoNpcs.CampResidents())Need(BaseSpatial.Objects(state,"base").Count(o=>o.Id==resident.Id&&o.AssetId==resident.AssetId)==1,"营地居民缺失或重复");
+            layout.Objects.RemoveAll(o=>o.Id=="demo_rescuer"||o.Id=="demo_chunshen");
+            foreach(var resident in BaseDemoNpcs.CampResidents())Need(BaseSpatial.Objects(state,"base").Count(o=>o.Id==resident.Id&&o.AssetId==resident.AssetId)==1,"旧档居民补位失败");
+            var farm=layout.Objects.Single(o=>o.Id=="farm");farm.X=4;farm.Y=3.2;var workshop=layout.Objects.Single(o=>o.Id=="workshop");workshop.X=19;workshop.Y=3.2;
+            var oldSamples=BaseDemoNpcs.MotionChecks(state);Need(oldSamples.Length==21&&oldSamples.All(o=>BaseSpatial.Geometry(state,o.X,o.Y)),"旧营地动作检查对象被设施遮挡");
+            Debug.Log("VerifyCampChanges PASS");
+        }
         public static void VerifyQuestSword()
         {
             const string sword="royal_mithril_sword";
@@ -23,12 +46,14 @@ namespace BaseConquest.Editor
                 if(full)for(int cell=0;cell<BasePartyInventory.Capacity;cell++)state.Backpack.Items.Add(new BaseBagItem {Id="bag:"+state.Backpack.NextId++,ItemId=BaseBackpack.Blueprint,Count=1,Holder=state.PlayerLeaderId,Cell=cell});
                 Need(BaseDemo.AcknowledgeWaking(state),"苏醒交付失败");
                 var item=state.Backpack.Items.Single(i=>i.ItemId==sword);
+                Need(state.Backpack.Catalog.Single(d=>d.Id==sword).Description==BaseBackpack.RoyalSwordDescription,"长剑说明不是定稿");
                 Need(item.Holder==(full?"":state.PlayerLeaderId)&&item.Count==1,"任务道具交付位置错误");
                 Need(!BaseDemo.AcknowledgeWaking(state)&&BaseBackpack.Count(state,sword)==1,"重复确认造成重复交付");
                 Need(!BasePartyInventory.Destroy(state,item.Id,1),"任务道具能够销毁");
                 BaseBackpack.Validate(state);BasePartyInventory.Validate(state);
                 var store=new BaseSaveStore(Path.GetFullPath("Logs/checkpoint-verification/quest-sword-"+full+".json"),d=>JsonUtility.ToJson(d),json=>JsonUtility.FromJson<BaseSaveDocument>(json),true);
                 store.Save(state);var restored=store.Load();Need(BaseBackpack.Count(restored,sword)==1&&restored.Backpack.Items.Single(i=>i.ItemId==sword).Holder==item.Holder,"任务道具存读后变化");
+                restored.Backpack.Catalog.Single(d=>d.Id==sword).Description="待写";BaseBackpack.Normalize(restored);Need(restored.Backpack.Catalog.Single(d=>d.Id==sword).Description==BaseBackpack.RoyalSwordDescription,"旧存档长剑说明未更新");
                 if(!full)
                 {
                     Need(BasePartyInventory.Move(state,item.Id,"",-1),"任务道具不能存入仓库");
@@ -89,6 +114,8 @@ namespace BaseConquest.Editor
             foreach(var ally in run.Model.Units.Where(u=>u.Side==PrototypeSide.Ally)){ally.Health=1;ally.KnockedDown=true;var soldier=run.Battle.Soldier(ally.Id-1);soldier.Health=1;soldier.KnockedDown=true;soldier.DeathResolved=true;}
             run.Model.SetPaused(false);run.Tick(.02);Need(run.Battle.Report?.Outcome==BattleOutcome.SideBWin,"第二波我方全倒未判失败");
             Need(BaseDemoCombat.Fail(state,run)&&state.Aftermath.GameOver&&state.Demo.Defense.SecondOutcome=="failed","第二波失败未进入游戏结束状态");
+            Need(state.Aftermath.Reason==BaseDemoDefense.SecondGameOverReason,"第二波失败原因未使用定稿");
+            var pendingReason=state.Copy();pendingReason.Aftermath.Reason="待写";BaseAftermath.Normalize(pendingReason);Need(pendingReason.Aftermath.Reason==BaseDemoDefense.SecondGameOverReason,"旧档第二波失败原因未更新");
             BaseEconomy.Validate(state);
             var legacy=state.Copy();legacy.Demo.Defense.SecondOutcome="damaged";bool rejected=false;try{BaseEconomy.Validate(legacy);}catch(ArgumentException){rejected=true;}
             Need(rejected,"旧的第二波受创状态应判为不兼容");

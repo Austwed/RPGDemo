@@ -12,6 +12,9 @@ namespace BaseConquest.Presentation
         private Material ownedMaterial;
         private bool farmVisual;
         private string farmAppearance;
+        private HeroPose? previewPose;
+        public void Preview(HeroPose pose){previewPose=pose;}
+        private void Update(){if(previewPose.HasValue)GetComponent<CompanionSpriteView>()?.Preview(previewPose.Value,Time.unscaledTimeAsDouble);}
         public static string FarmAppearance(BaseState state) => state != null && BaseDailyDelta.Read(state).Food < 0 ? "farm-immature" : "farm-mature";
         public static AuthoredMapView Create(Transform parent,BaseMapObject placement,Vector3 feet,Material source,bool exploration)
         {
@@ -113,7 +116,7 @@ namespace BaseConquest.Presentation
         public void MoveTo(Vector3 position)
         {bool moving=(position-feet).sqrMagnitude>1e-7f;if(moving)autonomousUntil=Time.unscaledTimeAsDouble+.12;feet=position;var pawn=GetComponent<BattlePawn2D>();if(pawn!=null)pawn.SyncExploration(feet,Color.white,null,Time.unscaledTimeAsDouble,moving);}
         public void RefreshAttention(Vector3 observer,double now)
-        {if(person&&gameObject.activeInHierarchy&&!AutonomousMoving)GetComponent<BattlePawn2D>().SyncExploration(feet,Color.white,observer,now);}
+        {if(person&&!previewPose.HasValue&&gameObject.activeInHierarchy&&!AutonomousMoving)GetComponent<BattlePawn2D>().SyncExploration(feet,Color.white,observer,now);}
         private void OnDestroy()=>BattleBoardView.DestroyObject(ownedMaterial);
     }
 }
