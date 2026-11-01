@@ -169,7 +169,7 @@ namespace BaseConquest.Base
             if(State!=null&&!BaseWorldJourney.OnWorld(State))regionView.Zoom(.65f);
             regionView.UpdateCamera(0,0);
             if(State!=null&&!BaseWorldJourney.OnWorld(State))regionView.SetViewSize(regionView.Camera.orthographicSize);
-            if(State!=null&&!BaseWorldJourney.OnWorld(State)&&explorationViewSize.HasValue)regionView.SetViewSize(Mathf.Clamp(explorationViewSize.Value,2,16));
+            if(State!=null&&!BaseWorldJourney.OnWorld(State)&&explorationViewSize.HasValue)regionView.SetViewSize(Mathf.Clamp(explorationViewSize.Value,regionView.MinViewSize,regionView.FullViewSize));
             regionView.SetAuthoredBuildings(MapObjects.Where(o=>(!string.IsNullOrEmpty(o.AssetId)||!string.IsNullOrEmpty(o.SourceObjectId))&&o.Blocks).Select(o=>o.Id));
             WorldCamera=regionView.Camera; WorldCamera.gameObject.AddComponent<AudioListener>();
             if(BaseConquest.Presentation.HomeTerrainTrial.Enabled&&BaseConquest.Presentation.HomeTerrainTrial.Eligible(State))regionView.SetHomeTerrainTrial(true);
@@ -367,7 +367,7 @@ namespace BaseConquest.Base
         public bool ZoomExplorationFactor(Vector2 screen,float factor)
         {
             if(State==null||combatController!=null||Hud.PanelOpen||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen)||float.IsNaN(factor)||float.IsInfinity(factor)||factor<=0)return false;
-            float before=WorldCamera.orthographicSize;regionView.SetViewSize(Mathf.Clamp(before*factor,2,16));
+            float before=WorldCamera.orthographicSize;regionView.SetViewSize(Mathf.Clamp(before*factor,regionView.MinViewSize,regionView.FullViewSize));
             explorationViewSize=WorldCamera.orthographicSize;regionView.Follow(PlayerCameraTarget);
             if(Mathf.Abs(before-WorldCamera.orthographicSize)<.0001f)return false;
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==2)State.Demo.Intro.Zoomed=true;Hud.RefreshIntroObjective();return true;

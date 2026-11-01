@@ -237,7 +237,30 @@ namespace BaseConquest.Battle
                 Camera.transform.rotation = Quaternion.Euler(60, 0, 0);
             }
         }
-        public void Zoom(float ratio,float minimum=.22f) { zoomFactor = Mathf.Clamp(zoomFactor * ratio, CombatMode ? Mathf.Max(.44f,minimum) : minimum, CombatMode ? 1 : 2); }
+        // 草地随机变体（2026-11-01 韦德：地面太复制粘贴）：0=基准不换材质；1=第二草块 2=稀疏草 3/4=带白花（花格占比约 6%）。
+        // 变体贴图均为 Cainos 草地图集的无缝裁块（花是原版白花像素叠加到无缝基块上）。
+        private readonly Dictionary<Material,Material[]> grassVariantCache=new Dictionary<Material,Material[]>();
+        private static Texture2D GrassVariantTexture(int i)=>Resources.Load<Texture2D>("HomeTerrainTrial/"+(i==1?"grass-64-v2-b":i==2?"grass-64-v2-sparse":i==3?"grass-64-v2-flower-a":"grass-64-v2-flower-b"));
+        Material GrassVariant(Material baseMat,int x,int z)
+        {
+            if(baseMat==null)return null;
+            int h;unchecked{h=(x*73856093)^(z*19349663);h=(int)((h*(long)0x45d9f3b)&0x7fffffff);h^=h>>16;}
+            int v=(h&0x7fffffff)%100,index=v<4?3:v<6?4:v<16?2:v<40?1:0;
+            if(index==0)return baseMat;
+            if(!grassVariantCache.TryGetValue(baseMat,out var set))
+            {
+                set=new Material[5];
+                for(int i=1;i<set.Length;i++){var tex=GrassVariantTexture(i);set[i]=tex==null?baseMat:MakeMaterial(baseMat,tex,"GrassVariant"+i);}
+                grassVariantCache[baseMat]=set;
+            }
+            return set[index]??baseMat;
+        }
+        // 缩放边界（2026-11-01 韦德定）：zoomFactor=1 即默认视图=棋盘刚好完整入画（16:9 下贴边），
+        // 因此最大视角（拉到最远）上限从 2 收到 1；最小视角（拉到最近）下限从 .22 提到 .3。
+        public void Zoom(float ratio,float minimum=.3f) { zoomFactor = Mathf.Clamp(zoomFactor * ratio, CombatMode ? Mathf.Max(.44f,minimum) : minimum, 1); }
+        // zoomFactor=1 的默认视图即棋盘刚好完整入画；探索视图的绝对尺寸边界由此导出。
+        public float FullViewSize=>Mathf.Max(board.Height*CellSize*.5f+(FlatView?.15f:2f),(board.Width*CellSize*.5f+(FlatView?.15f:1.5f))/Camera.aspect);
+        public float MinViewSize=>FullViewSize*.3f;
         public void SetViewSize(float size)
         {
             if(CombatMode)
@@ -335,7 +358,7 @@ namespace BaseConquest.Battle
                     if(surface!=GroundSurface.Default)
                     {
                         if(!surfaceMaterials.TryGetValue(surface,out var skin)){var texture=(homeTerrainTrial?BaseConquest.Presentation.HomeTerrainTrial.Texture(surface):null)??BaseConquest.Presentation.MapSurfaceView.Texture(surface);if(texture!=null)surfaceMaterials[surface]=skin=MakeMaterial(groundMaterial,texture,"Ground_"+surface);}
-                        if(skin!=null){tile.sharedMaterial=ObliqueExploration&&surface==GroundSurface.Grass&&baseGrassMaterial!=null ? baseGrassMaterial : skin;if(!CombatMode||cell.Zone==DeploymentZone.None)color=Color.white;}
+                        if(skin!=null){var groundSkin=ObliqueExploration&&surface==GroundSurface.Grass&&baseGrassMaterial!=null ? baseGrassMaterial : skin;tile.sharedMaterial=surface==GroundSurface.Grass?GrassVariant(groundSkin,p.X,p.Z):groundSkin;if(!CombatMode||cell.Zone==DeploymentZone.None)color=Color.white;}
                         if(homeTerrainTrial&&(!CombatMode||cell.Zone==DeploymentZone.None)&&(surface==GroundSurface.Grass||surface==GroundSurface.Road||surface==GroundSurface.DirtPath))color*=Mathf.Lerp(.94f,1.02f,Mathf.PerlinNoise(p.X*.12f,p.Z*.12f));
                     }
                 }
@@ -405,7 +428,7 @@ namespace BaseConquest.Battle
                 if(ObliqueExploration&&cell.Terrain==TerrainKind.Ground&&(cell.Elevation>0||cell.Ramp!=RampAxis.None))
                 {
                     var surface=GroundSurfaceRules.Resolve(cell.Surface,surfaceRegion,p.X,p.Z);
-                    var topMaterial=cell.Ramp!=RampAxis.None&&baseStairMaterial!=null ? baseStairMaterial : surface==GroundSurface.Road&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : (surface==GroundSurface.Grass||surface==GroundSurface.Default)&&baseRaisedGrassMaterial!=null ? baseRaisedGrassMaterial : tile.sharedMaterial;
+                    var topMaterial=cell.Ramp!=RampAxis.None&&baseStairMaterial!=null ? baseStairMaterial : surface==GroundSurface.Road&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : (surface==GroundSurface.Grass||surface==GroundSurface.Default)&&baseRaisedGrassMaterial!=null ? GrassVariant(baseRaisedGrassMaterial,p.X,p.Z) : tile.sharedMaterial;
                     raisedMeshes[index]=BaseConquest.Presentation.BaseTerrainView.Ground(board,p);
                     tile.GetComponent<MeshFilter>().sharedMesh=raisedMeshes[index];
                     tile.sharedMaterials=new[]{topMaterial,baseCliffMaterial??wallMaterial};

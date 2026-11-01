@@ -14,6 +14,13 @@ namespace BaseConquest.Presentation
             if(x>.000001)return dx>0 ? HeroFacing.East : HeroFacing.West;
             return dz>0 ? HeroFacing.North : HeroFacing.South;
         }
+        // 看向某人（NPC 面向主角等）用主轴四向判定：行走 Face 的"对角线一律用水平"会让
+        // 斜下方的观察对象几乎永远左右转头，不会有南北向。这里按分量较大的一轴取四向。
+        public static HeroFacing FaceTowards(double dx,double dz,HeroFacing previous)
+        {
+            double x=Math.Abs(dx),z=Math.Abs(dz);if(x+z<.00001)return previous;
+            return x>z ? (dx>0 ? HeroFacing.East : HeroFacing.West) : (dz>0 ? HeroFacing.North : HeroFacing.South);
+        }
         public static int Frame(HeroPose pose,HeroFacing facing,double time)
         {
             time=Math.Max(0,time);int row=(int)facing,col;

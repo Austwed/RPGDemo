@@ -14,7 +14,9 @@ namespace BaseConquest.Base
             {
                 case "town_quest":name="领主 · 交谈";appearance="horn";break;
                 case "town_guard":name="镇卫兵 · 交谈";appearance="villager";break;
-                case "town_peddler":name="行商老莫 · 交谈";appearance="merchant";break;
+                case "town_peddler":
+                    // 2026-11-01：老莫接管补给摊位（town_market 14,9 3×1.5 下方），布局随存档序列化，旧档在这里强制归位。
+                    return new BaseMapObject(original.Id,"行商老莫 · 交谈",14,7.75,.6,.6,false,string.IsNullOrEmpty(original.SourceObjectId)?"demo-npc:"+original.Id:original.SourceObjectId,"merchant","npc");
                 case "town_girl":name="镇民小芸 · 交谈";appearance="villager";break;
                 case "prologue_report":
                     if(BaseDemoIntro.Active(state)){var report=state.Demo.Intro;return new BaseMapObject(original.Id,"报信村民 · 交谈",report.ReporterX,report.ReporterY,.5,.5,false,"demo-npc:reporter","villager","npc");}
@@ -67,7 +69,7 @@ namespace BaseConquest.Base
             var objects=BaseSpatial.Layout(state,"town")?.Objects;
             if(objects==null)yield break;
             if(objects.All(o=>o.Id!="town_guard"))yield return new BaseMapObject("town_guard","镇卫兵 · 交谈",21,4,.6,.6,false,"demo-npc:town_guard","villager","npc");
-            if(objects.All(o=>o.Id!="town_peddler"))yield return new BaseMapObject("town_peddler","行商老莫 · 交谈",5.5,4.5,.6,.6,false,"demo-npc:town_peddler","merchant","npc");
+            if(objects.All(o=>o.Id!="town_peddler"))yield return new BaseMapObject("town_peddler","行商老莫 · 交谈",14,7.75,.6,.6,false,"demo-npc:town_peddler","merchant","npc");
             if(objects.All(o=>o.Id!="town_girl"))yield return new BaseMapObject("town_girl","镇民小芸 · 交谈",15,11.5,.6,.6,false,"demo-npc:town_girl","villager","npc");
         }
         public static BaseMapObject[] Additional(BaseState state)

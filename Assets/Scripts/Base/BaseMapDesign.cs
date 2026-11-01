@@ -77,13 +77,7 @@ namespace BaseConquest.Base
     public static class BaseSpatial
     {
         public static BaseMapLayout Layout(BaseState s,string region=null) => BaseSceneInstances.Active(s)?BaseSceneInstances.Layout(s,region):s.Campaign.Layouts?.SingleOrDefault(m=>m.Region==(region??s.Campaign.Location));
-        public static BaseMapObject[] Objects(BaseState s,string region=null) => (Layout(s,region)?.Objects.Select(o=>o.Object).ToArray()??BaseCampaign.MapObjects(region??s.Campaign.Location)).Where(obj=>obj.Id!="prologue_report"||!BaseDemoIntro.Daily(s)&&!(BaseDemoIntro.Active(s)&&s.Demo.Intro.ReporterGone)).Select(obj=>BaseDemoNpcs.Present(s,obj)).Concat(region==null||region==s.Campaign.Location?BaseDemoNpcs.Additional(s):Array.Empty<BaseMapObject>()).Concat(BaseDemoNpcs.TownChatCompat(s,region)).Concat(MarketMerchant(s,region)).Concat(BaseInn.Markers(s,region)).Concat(TacticalMarkers(s,region)).Concat(BaseItemRecovery.Markers(s,region??s.Campaign.Location)).ToArray();
-        private static IEnumerable<BaseMapObject> MarketMerchant(BaseState s,string region)
-        {
-            if(!BaseDemo.Active(s)||(region??s.Campaign.Location)!="town")yield break;
-            var market=Layout(s,"town")?.Objects.FirstOrDefault(o=>o.Id=="town_market");
-            if(market!=null)yield return new BaseMapObject("demo_shopkeeper","商人",market.X,market.Y-market.Height*.5-.5,.5,.5,false,"demo-npc:shopkeeper","merchant","npc",true);
-        }
+        public static BaseMapObject[] Objects(BaseState s,string region=null) => (Layout(s,region)?.Objects.Select(o=>o.Object).ToArray()??BaseCampaign.MapObjects(region??s.Campaign.Location)).Where(obj=>obj.Id!="prologue_report"||!BaseDemoIntro.Daily(s)&&!(BaseDemoIntro.Active(s)&&s.Demo.Intro.ReporterGone)).Select(obj=>BaseDemoNpcs.Present(s,obj)).Concat(region==null||region==s.Campaign.Location?BaseDemoNpcs.Additional(s):Array.Empty<BaseMapObject>()).Concat(BaseDemoNpcs.TownChatCompat(s,region)).Concat(BaseInn.Markers(s,region)).Concat(TacticalMarkers(s,region)).Concat(BaseItemRecovery.Markers(s,region??s.Campaign.Location)).ToArray();
         private static IEnumerable<BaseMapObject> TacticalMarkers(BaseState s,string region)
         {
             var layout=Layout(s,region);if(layout?.TacticalObjects==null)yield break;
