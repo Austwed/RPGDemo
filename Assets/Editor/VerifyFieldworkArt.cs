@@ -14,22 +14,32 @@ namespace BaseConquest.Editor
         private static void Need(bool yes,string message){if(!yes)throw new InvalidOperationException(message);}
         public static void RunRoadEdges()
         {
-            var board=BattleBoard.CreateDefault(8,8);var slope=new GridPosition(4,4);var cell=board.Cell(slope);
-            cell.Surface=GroundSurface.Grass;cell.Elevation=1;cell.Ramp=RampAxis.EastWest;
-            var road=board.Cell(new GridPosition(4,5));road.Surface=GroundSurface.DirtPath;road.Elevation=1;
-            string before=JsonUtility.ToJson(board);var host=new GameObject("RoadEdgeVerification");var source=new Material(Shader.Find("Universal Render Pipeline/Unlit"));BattleBoardView boardView=null;
-            try
+            foreach(var axis in new[]{RampAxis.EastWest,RampAxis.NorthSouth})
             {
-                boardView=new BattleBoardView(board,host.transform,source,source){FlatView=true,ObliqueBaseView=true};boardView.SetCombatMode(false);
-                var edge=EnvironmentRoadEdges.Build(new BaseState(),board,boardView.Root.transform,true);Need(edge!=null,"道路过渡层未生成");
-                var mesh=edge.GetComponent<MeshFilter>().sharedMesh;Need(mesh.vertexCount==4,"道路过渡夹具应只生成一片");
-                Need(Mathf.Abs(mesh.vertices.Min(v=>v.y)-.035f)<.001f&&Mathf.Abs(mesh.vertices.Max(v=>v.y)-(BaseTerrainView.LevelHeight+.035f))<.001f,"道路过渡层没有贴合坡面两端");
-                boardView.SetCombatMode(true);Need(mesh.vertices.All(v=>Mathf.Abs(v.y-.035f)<.001f),"战斗平面视图的道路过渡层未降回地面");
-                boardView.SetCombatMode(false);Need(Mathf.Abs(mesh.vertices.Max(v=>v.y)-(BaseTerrainView.LevelHeight+.035f))<.001f,"恢复探索后道路过渡层高度错误");
-                Need(JsonUtility.ToJson(board)==before,"道路过渡层改变了棋盘数据");
-                Directory.CreateDirectory("Logs");File.WriteAllText("Logs/road-edge-verification.txt","PASS: ramp corner heights, flat combat view, exploration restore, board unchanged.\n");Debug.Log("[VerifyRoadEdges] PASS");
+                var board=BattleBoard.CreateDefault(8,8);var slope=new GridPosition(4,4);var cell=board.Cell(slope);
+                cell.Surface=GroundSurface.Grass;cell.Elevation=1;cell.Ramp=axis;
+                var road=board.Cell(axis==RampAxis.EastWest?new GridPosition(4,5):new GridPosition(5,4));road.Surface=GroundSurface.DirtPath;road.Elevation=1;
+                string before=JsonUtility.ToJson(board);var host=new GameObject("RoadEdgeVerification");var source=new Material(Shader.Find("Universal Render Pipeline/Unlit"));BattleBoardView boardView=null;
+                try
+                {
+                    boardView=new BattleBoardView(board,host.transform,source,source){FlatView=true,ObliqueBaseView=true};boardView.SetCombatMode(false);
+                    var edge=EnvironmentRoadEdges.Build(new BaseState(),board,boardView.Root.transform,true);Need(edge!=null,"道路过渡层未生成");
+                    var mesh=edge.GetComponent<MeshFilter>().sharedMesh;Need(mesh.vertexCount==4,"道路过渡夹具应只生成一片");
+                    int high=axis==RampAxis.EastWest?3:1;
+                    Need(Mathf.Abs(mesh.vertices[0].y-.035f)<.001f&&Mathf.Abs(mesh.vertices[high].y-(BaseTerrainView.LevelHeight+.035f))<.001f,"道路过渡层没有按坡道方向贴合两端");
+                    var vision=new BattleVision(board);boardView.RefreshVision(vision,BattleSide.A,false);Need(mesh.GetTriangles(1).Length==0,"未知地形的道路过渡层不应透出迷雾");
+                    var known=new bool[board.Width*board.Height];known[slope.Z*board.Width+slope.X]=true;vision.RememberTerrain(BattleSide.A,known);
+                    boardView.RefreshVision(vision,BattleSide.A,false);Need(mesh.GetTriangles(1).Length==6,"已知地形的道路过渡层未恢复");
+                    boardView.SetCombatMode(true);Need(mesh.vertices.All(v=>Mathf.Abs(v.y-.035f)<.001f),"战斗平面视图的道路过渡层未降回地面");
+                    var legacy=new BattleSimulation(new BattleScenario{Board=board,FogEnabled=true,HeightVision=false});
+                    boardView.RefreshVision(legacy.Vision,BattleSide.A,false);Need(mesh.GetTriangles(1).Length==0,"普通迷雾未隐藏未知道路过渡层");
+                    boardView.RefreshVision(legacy.Vision,BattleSide.A,false,true);Need(mesh.GetTriangles(1).Length==6,"显示全图未恢复道路过渡层");
+                    boardView.SetCombatMode(false);Need(Mathf.Abs(mesh.vertices[high].y-(BaseTerrainView.LevelHeight+.035f))<.001f,"恢复探索后道路过渡层高度错误");
+                    Need(JsonUtility.ToJson(board)==before,"道路过渡层改变了棋盘数据");
+                }
+                finally{boardView?.Dispose();UnityEngine.Object.DestroyImmediate(source);UnityEngine.Object.DestroyImmediate(host);}
             }
-            finally{boardView?.Dispose();UnityEngine.Object.DestroyImmediate(source);UnityEngine.Object.DestroyImmediate(host);}
+            Directory.CreateDirectory("Logs");File.WriteAllText("Logs/road-edge-verification.txt","PASS: east-west and north-south ramp heights, fog visibility, flat combat view, exploration restore, board unchanged.\n");Debug.Log("[VerifyRoadEdges] PASS");
         }
         public static void RunInn()
         {

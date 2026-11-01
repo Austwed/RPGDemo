@@ -64,6 +64,7 @@ namespace BaseConquest.Presentation
     {
         private Mesh mesh;private Material[] materials;
         private Vector3[] raisedVertices,flatVertices;
+        private int[][] allTriangles,triangleCells;
         // 路面边缘只有两种：石板(cobble)与泥径(mud)。统一 Cainos 后两种都换：cobble→Stone()，mud→path-64-v1。
         private static readonly string[] FallbackBase={"cobble","mud"};
         public static EnvironmentRoadEdges Build(BaseState state,BattleBoard b,Transform parent,bool raised)
@@ -71,7 +72,7 @@ namespace BaseConquest.Presentation
             if(state==null||!BaseEnvironment.Active(state)&&!b.Cells.Any(c=>c.Surface==GroundSurface.Cobble||c.Surface==GroundSurface.DirtPath))return null;var root=new GameObject("EnvironmentRoadEdges",typeof(MeshFilter),typeof(MeshRenderer),typeof(EnvironmentRoadEdges));root.transform.SetParent(parent,false);var view=root.GetComponent<EnvironmentRoadEdges>();
             view.materials=new Material[2];var on=HomeTerrainTrial.Enabled&&HomeTerrainTrial.Eligible(state);var trial=on?HomeTerrainTrial.Texture(GroundSurface.DirtPath):null;var stone=on?HomeTerrainTrial.Stone():null;
             for(int i=0;i<2;i++){view.materials[i]=new Material(Resources.Load<Shader>("Presentation/RoadTransition"));view.materials[i].SetTexture("_BaseMap",i==1&&trial!=null?trial:i==0&&stone!=null?stone:Resources.Load<Texture2D>("Environment/"+FallbackBase[i]));view.materials[i].SetTexture("_MaskMap",Resources.Load<Texture2D>("Environment/"+(i==0?"cobble-edge":"mud-edge")));view.materials[i].SetVector("_Grid",new Vector4(b.Width,b.Height,BattleBoardView.CellSize,0));}
-            var verts=new List<Vector3>();var uv=new List<Vector2>();var groups=new[]{new List<int>(),new List<int>()};var dirs=new[]{new GridPosition(0,1),new GridPosition(1,0),new GridPosition(0,-1),new GridPosition(-1,0)};
+            var verts=new List<Vector3>();var uv=new List<Vector2>();var groups=new[]{new List<int>(),new List<int>()};var cells=new[]{new List<int>(),new List<int>()};var dirs=new[]{new GridPosition(0,1),new GridPosition(1,0),new GridPosition(0,-1),new GridPosition(-1,0)};
             foreach(var p in b.Positions())
             {
                 if(b.Cell(p).Surface!=GroundSurface.Grass||!b.Walkable(p))continue;
@@ -83,14 +84,24 @@ namespace BaseConquest.Presentation
                     foreach(int slot in BaseEnvironment.RoadEdgeSlots(sides,corners))
                     {
                     int start=verts.Count;float x0=slot%4/4f,x1=x0+.25f,y1=1-slot/4/4f,y0=y1-.25f;var center=BattleBoardView.World(p,b);float r=BattleBoardView.CellSize*.5f;
-                    verts.AddRange(new[]{center+new Vector3(-r,BaseTerrainView.Height(b,p,0,0)+.035f,-r),center+new Vector3(-r,BaseTerrainView.Height(b,p,0,1)+.035f,r),center+new Vector3(r,BaseTerrainView.Height(b,p,1,1)+.035f,r),center+new Vector3(r,BaseTerrainView.Height(b,p,1,0)+.035f,-r)});uv.AddRange(new[]{new Vector2(x0,y0),new Vector2(x0,y1),new Vector2(x1,y1),new Vector2(x1,y0)});groups[kind].AddRange(new[]{start,start+1,start+2,start,start+2,start+3});
+                    verts.AddRange(new[]{center+new Vector3(-r,BaseTerrainView.Height(b,p,0,0)+.035f,-r),center+new Vector3(-r,BaseTerrainView.Height(b,p,0,1)+.035f,r),center+new Vector3(r,BaseTerrainView.Height(b,p,1,1)+.035f,r),center+new Vector3(r,BaseTerrainView.Height(b,p,1,0)+.035f,-r)});uv.AddRange(new[]{new Vector2(x0,y0),new Vector2(x0,y1),new Vector2(x1,y1),new Vector2(x1,y0)});groups[kind].AddRange(new[]{start,start+1,start+2,start,start+2,start+3});cells[kind].Add(p.Z*b.Width+p.X);
                     }
                 }
             }
-            view.raisedVertices=verts.ToArray();view.flatVertices=verts.Select(v=>new Vector3(v.x,.035f,v.z)).ToArray();
+            view.raisedVertices=verts.ToArray();view.flatVertices=verts.Select(v=>new Vector3(v.x,.035f,v.z)).ToArray();view.allTriangles=groups.Select(g=>g.ToArray()).ToArray();view.triangleCells=cells.Select(c=>c.ToArray()).ToArray();
             view.mesh=new Mesh{name="EnvironmentPathEdges"};view.mesh.SetVertices(verts);view.mesh.SetUVs(0,uv);view.mesh.subMeshCount=2;for(int i=0;i<2;i++)view.mesh.SetTriangles(groups[i],i);root.GetComponent<MeshFilter>().sharedMesh=view.mesh;root.GetComponent<Renderer>().sharedMaterials=view.materials;root.GetComponent<Renderer>().sortingOrder=-30000;view.SetRaised(raised);return view;
         }
         public void SetRaised(bool raised){if(mesh==null)return;mesh.vertices=raised?raisedVertices:flatVertices;mesh.RecalculateNormals();mesh.RecalculateBounds();}
+        public void SetKnown(bool[] known)
+        {
+            if(mesh==null)return;
+            for(int kind=0;kind<allTriangles.Length;kind++)
+            {
+                if(known==null){mesh.SetTriangles(allTriangles[kind],kind);continue;}
+                var visible=new List<int>();for(int q=0;q<triangleCells[kind].Length;q++)if(known[triangleCells[kind][q]])for(int n=0;n<6;n++)visible.Add(allTriangles[kind][q*6+n]);
+                mesh.SetTriangles(visible,kind);
+            }
+        }
         // 开发者开关会在运行中切换试点，边缘 노드不会重建，这里单独换贴图；mask 与拓扑一律不动。
         private void ApplyTrial(BaseState state)
         {
