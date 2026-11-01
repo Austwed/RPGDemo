@@ -63,13 +63,13 @@ namespace BaseConquest.Presentation
     public sealed class EnvironmentRoadEdges : MonoBehaviour
     {
         private Mesh mesh;private Material[] materials;
-        // 路面边缘只有两种：石板(cobble)与泥径(mud)。试点只换泥径那一种，石板保持原图。
+        // 路面边缘只有两种：石板(cobble)与泥径(mud)。统一 Cainos 后两种都换：cobble→Stone()，mud→path-64-v1。
         private static readonly string[] FallbackBase={"cobble","mud"};
         public static void Build(BaseSceneController owner,Transform parent,Material source)
         {
             if(owner.State==null)return;var b=BaseBattlefield.Board(owner.State);if(!BaseEnvironment.Active(owner.State)&&!b.Cells.Any(c=>c.Surface==GroundSurface.Cobble||c.Surface==GroundSurface.DirtPath))return;var root=new GameObject("EnvironmentRoadEdges",typeof(MeshFilter),typeof(MeshRenderer),typeof(EnvironmentRoadEdges));root.transform.SetParent(parent,false);var view=root.GetComponent<EnvironmentRoadEdges>();
-            view.materials=new Material[2];var trial=BaseConquest.Presentation.HomeTerrainTrial.Enabled&&BaseConquest.Presentation.HomeTerrainTrial.Eligible(owner.State)?BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.DirtPath):null;
-            for(int i=0;i<2;i++){view.materials[i]=new Material(Resources.Load<Shader>("Presentation/RoadTransition"));view.materials[i].SetTexture("_BaseMap",i==1&&trial!=null?trial:Resources.Load<Texture2D>("Environment/"+FallbackBase[i]));view.materials[i].SetTexture("_MaskMap",Resources.Load<Texture2D>("Environment/"+(i==0?"cobble-edge":"mud-edge")));view.materials[i].SetVector("_Grid",new Vector4(b.Width,b.Height,BattleBoardView.CellSize,0));}
+            view.materials=new Material[2];var on=BaseConquest.Presentation.HomeTerrainTrial.Enabled&&BaseConquest.Presentation.HomeTerrainTrial.Eligible(owner.State);var trial=on?BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.DirtPath):null;var stone=on?BaseConquest.Presentation.HomeTerrainTrial.Stone():null;
+            for(int i=0;i<2;i++){view.materials[i]=new Material(Resources.Load<Shader>("Presentation/RoadTransition"));view.materials[i].SetTexture("_BaseMap",i==1&&trial!=null?trial:i==0&&stone!=null?stone:Resources.Load<Texture2D>("Environment/"+FallbackBase[i]));view.materials[i].SetTexture("_MaskMap",Resources.Load<Texture2D>("Environment/"+(i==0?"cobble-edge":"mud-edge")));view.materials[i].SetVector("_Grid",new Vector4(b.Width,b.Height,BattleBoardView.CellSize,0));}
             var verts=new List<Vector3>();var uv=new List<Vector2>();var groups=new[]{new List<int>(),new List<int>()};var dirs=new[]{new GridPosition(0,1),new GridPosition(1,0),new GridPosition(0,-1),new GridPosition(-1,0)};
             foreach(var p in b.Positions())
             {
@@ -94,6 +94,8 @@ namespace BaseConquest.Presentation
             if(materials==null||materials.Length<2||materials[1]==null)return;
             bool on=BaseConquest.Presentation.HomeTerrainTrial.Enabled&&BaseConquest.Presentation.HomeTerrainTrial.Eligible(state);
             var trial=on?BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.DirtPath):null;
+            var stone=on?BaseConquest.Presentation.HomeTerrainTrial.Stone():null;
+            materials[0].SetTexture("_BaseMap",stone!=null?stone:Resources.Load<Texture2D>("Environment/cobble"));
             materials[1].SetTexture("_BaseMap",trial!=null?trial:Resources.Load<Texture2D>("Environment/mud"));
         }
         public static void ApplyTrialToScene(BaseState state)

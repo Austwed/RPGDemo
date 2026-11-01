@@ -66,7 +66,7 @@ namespace BaseConquest.Battle
         private readonly Dictionary<Material,(Texture Texture,Vector2 Scale,Vector2 Offset)> originalTrialMaterials=new Dictionary<Material,(Texture,Vector2,Vector2)>();
         public bool SetHomeTerrainTrial(bool enabled)
         {
-            if(enabled&&(BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Grass)==null||BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Road)==null||BaseConquest.Presentation.HomeTerrainTrial.Cliff()==null))return false;
+            if(enabled&&(BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Grass)==null||BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Road)==null||BaseConquest.Presentation.HomeTerrainTrial.Cliff()==null||BaseConquest.Presentation.HomeTerrainTrial.Stair()==null))return false;
             if(homeTerrainTrial==enabled)return true;
             homeTerrainTrial=enabled;
             void Apply(Material skin,GroundSurface surface)
@@ -93,7 +93,18 @@ namespace BaseConquest.Battle
                 else if(originalTrialMaterials.TryGetValue(skin,out var original))
                 {skin.SetTexture("_BaseMap",original.Texture);skin.SetTextureScale("_BaseMap",original.Scale);skin.SetTextureOffset("_BaseMap",original.Offset);}
             }
-            Apply(baseGrassMaterial,GroundSurface.Grass);Apply(baseRaisedGrassMaterial,GroundSurface.Grass);Apply(baseRaisedRoadMaterial,GroundSurface.Road);ApplyCliff(baseCliffMaterial);
+            void ApplyStair(Material skin)
+            {
+                if(skin==null)return;var stair=BaseConquest.Presentation.HomeTerrainTrial.Stair();if(enabled&&(stair==null))return;
+                if(enabled)
+                {
+                    if(!originalTrialMaterials.ContainsKey(skin))originalTrialMaterials[skin]=(skin.GetTexture("_BaseMap"),skin.GetTextureScale("_BaseMap"),skin.GetTextureOffset("_BaseMap"));
+                    skin.SetTexture("_BaseMap",stair);skin.SetTextureScale("_BaseMap",Vector2.one);skin.SetTextureOffset("_BaseMap",Vector2.zero);
+                }
+                else if(originalTrialMaterials.TryGetValue(skin,out var original))
+                {skin.SetTexture("_BaseMap",original.Texture);skin.SetTextureScale("_BaseMap",original.Scale);skin.SetTextureOffset("_BaseMap",original.Offset);}
+            }
+            Apply(baseGrassMaterial,GroundSurface.Grass);Apply(baseRaisedGrassMaterial,GroundSurface.Grass);Apply(baseRaisedRoadMaterial,GroundSurface.Road);ApplyCliff(baseCliffMaterial);ApplyStair(baseStairMaterial);
             foreach(var entry in surfaceMaterials)if(entry.Key==GroundSurface.Grass||entry.Key==GroundSurface.Road||entry.Key==GroundSurface.DirtPath)Apply(entry.Value,entry.Key);
             if(!enabled)originalTrialMaterials.Clear();
             Refresh();return true;
@@ -144,6 +155,7 @@ namespace BaseConquest.Battle
             translucentFog = BattlePawn2D.Transparent(material);
             groundMaterial = material; swampTexture = MakeSwampTexture(); swampMaterial = MakeMaterial(material, swampTexture, "SwampMudAndReeds"); waterTexture = MakeTexture(true); wallTexture = MakeTexture(false);
             waterMaterial = MakeMaterial(material, waterTexture, "WaterWaves"); wallMaterial = MakeMaterial(material, wallTexture, "StoneWallBricks");
+            var cainosBrick=BaseConquest.Presentation.HomeTerrainTrial.Cliff();if(cainosBrick!=null)wallMaterial.SetTexture("_BaseMap",cainosBrick);// 全高墙统一 Cainos 砖墙
             var pixelWater=BaseConquest.Presentation.PixelDemoArt.Load("Terrain","shallow-water");if(pixelWater!=null)waterMaterial.SetTexture("_BaseMap",pixelWater);
             var pixelSwamp=BaseConquest.Presentation.PixelDemoArt.Load("Terrain","swamp");if(pixelSwamp!=null)swampMaterial.SetTexture("_BaseMap",pixelSwamp);
             buildings=Resources.Load<BuildingAppearanceCatalog>("BuildingAppearances");

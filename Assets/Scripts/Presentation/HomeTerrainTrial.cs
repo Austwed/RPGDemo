@@ -6,12 +6,17 @@ namespace BaseConquest.Presentation
 {
     public static class HomeTerrainTrial
     {
+        // 2026-11-01 韦德拍板：环境材质统一 Cainos「Pixel Art Top Down - Basic」，默认开启；
+        // 旧 GPT 规范化贴图（grass-64-v1 / dirt-64-v1）与 PixelDemoArt 地面图暂不使用，仅留文件回滚。
         public static bool Enabled;
         public static bool Eligible(BaseState state)=>BaseDemo.Active(state)&&(BaseDemoPrologue.Village(state)||state.Campaign.CurrentMapId==BaseDemoFinale.Home);
-        // grass v2 来自 Asset Store 免费包 Cainos「Pixel Art Top Down - Basic」（对接画风）；v1 是 GPT 规范化版，留作回滚。
-        public static Texture2D Texture(GroundSurface surface)=>Resources.Load<Texture2D>("HomeTerrainTrial/"+(surface==GroundSurface.Grass?"grass-64-v2":surface==GroundSurface.Road||surface==GroundSurface.DirtPath?"dirt-64-v1":"missing"));
-        // 抬升地的崖壁侧立面：与顶面同一免费包的砖墙裁块，解决“顶面新画风、侧面旧画风”。
+        public static Texture2D Texture(GroundSurface surface)=>Resources.Load<Texture2D>("HomeTerrainTrial/"+(surface==GroundSurface.Grass?"grass-64-v2":surface==GroundSurface.Road||surface==GroundSurface.DirtPath?"path-64-v1":"missing"));
+        // 抬升地崖壁侧立面：TX Tileset Wall 砖墙裁块（也用于全高墙 wallMaterial）。
         public static Texture2D Cliff()=>Resources.Load<Texture2D>("HomeTerrainTrial/cliff-64-v1");
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)] private static void Reset()=>Enabled=false;
+        // 阶梯踏步：TX Tileset Wall 的水平层理砖块，读作台阶。
+        public static Texture2D Stair()=>Resources.Load<Texture2D>("HomeTerrainTrial/stair-64-v1");
+        // 镇区石板路面（cobble 路缘）：TX Tileset Stone Ground 平整区裁块。
+        public static Texture2D Stone()=>Resources.Load<Texture2D>("HomeTerrainTrial/stone-64-v1");
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)] private static void Reset()=>Enabled=true;
     }
 }
