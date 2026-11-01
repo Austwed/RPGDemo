@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using BaseConquest.Base;
 using BaseConquest.Battle;
 using BaseConquest.Presentation;
@@ -11,6 +12,17 @@ namespace BaseConquest.Editor
     public static class VerifyFieldworkArt
     {
         private static void Need(bool yes,string message){if(!yes)throw new InvalidOperationException(message);}
+        public static void RunInn()
+        {
+            var asset=Resources.Load<TextAsset>("DemoStages/camp-male");Need(asset!=null,"缺少营地阶段档");
+            var state=JsonUtility.FromJson<BaseState>(asset.text);
+            var marker=BaseInn.Markers(state,"town").Single();
+            Need(marker.Id=="town_inn"&&marker.AssetId=="town_inn"&&marker.Kind=="facility"&&marker.Blocks&&marker.Width==1&&marker.Height==1,"城镇旅店标记或交互属性不符");
+            var catalog=Resources.Load<BuildingAppearanceCatalog>("BuildingAppearances");
+            Need(catalog?.Find(marker.AssetId)?.Texture==PixelDemoArt.Building("town_inn")&&PixelDemoArt.Building("town_inn")!=null,"旅店专用贴图无法通过运行目录加载");
+            Directory.CreateDirectory("Logs");File.WriteAllText("Logs/inn-art-verification.txt","PASS: town inn marker, interaction dimensions, dedicated catalog texture.\n");
+            Debug.Log("[VerifyInnArt] PASS");
+        }
         public static void RunFarm()
         {
             var mature=PixelDemoArt.Building("farm-mature");var immature=PixelDemoArt.Building("farm-immature");
