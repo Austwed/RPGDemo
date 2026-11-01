@@ -112,7 +112,8 @@ namespace BaseConquest.Base
                 new BaseMapLayout {Region="town",Title="领主驻地",SpawnX=12,SpawnY=6.5,Objects=new List<BaseMapPlacement> {
                     new BaseMapPlacement {Id="travel_base",Name="← 返回营地",X=.7,Y=6.5,Width=1.2,Height=2},
                     new BaseMapPlacement {Id="town_quest",Name="领主 · "+BaseScriptNames.Ruins+"调查",X=19,Y=9.5,Width=1,Height=1},
-                    new BaseMapPlacement {Id="town_recruit",Name="募兵处 · 普通士兵",X=11,Y=3,Width=2,Height=1.5,Blocks=true,AssetId="barracks",Kind="facility",SourceObjectId="demo:town:recruit"},
+                    // 募兵处贴图是整栋兵营（内容约 205x126，aspect 1.63），2x1.5 太小；按贴图比例放大到 3.2 格宽。
+                    new BaseMapPlacement {Id="town_recruit",Name="募兵处 · 普通士兵",X=11,Y=3,Width=3.2,Height=3.2/1.627,Blocks=true,AssetId="barracks",Kind="facility",SourceObjectId="demo:town:recruit"},
                     // TOWN_04_NPC_*：镇上三个闲聊路人，只提供世界观与线索，不推进流程。
                     new BaseMapPlacement {Id="town_guard",Name="镇卫兵",X=21,Y=4,Width=.6,Height=.6},
                     new BaseMapPlacement {Id="town_peddler",Name="行商老莫",X=14,Y=7.75,Width=.6,Height=.6},

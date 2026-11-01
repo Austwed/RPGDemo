@@ -47,11 +47,11 @@ namespace BaseConquest.Presentation
         public readonly Renderer Renderer;
         private readonly Material material;
         private readonly Texture2D atlas,mountedAtlas,idleAtlas,walkAtlas,attackAtlas,downAtlas,mountedIdleAtlas,mountedWalkAtlas,mountedAttackAtlas,mountedDownAtlas;
-        private readonly bool bowAttack,staticMerchantIdle,alwaysMounted;
+        private readonly bool bowAttack,alwaysMounted;
         private readonly MaterialPropertyBlock ink=new MaterialPropertyBlock();
         public PixelCharacterSheet(Transform parent,Material source,Texture2D texture,Texture2D mounted=null,string identity="")
         {
-            atlas=texture;mountedAtlas=mounted;staticMerchantIdle=identity=="merchant";
+            atlas=texture;mountedAtlas=mounted;
             // 阿铸日常也骑乘（规范 §2B 骑兵规则 1）：不能等调用方传 mounted，否则探索态回落到站立版。
             alwaysMounted=identity=="azhu";
             if(!string.IsNullOrEmpty(identity))
@@ -74,8 +74,7 @@ namespace BaseConquest.Presentation
             var idle=riding?mountedIdleAtlas:idleAtlas;
             var walk=riding?mountedWalkAtlas:walkAtlas;
             var motion=pose==HeroPose.Attack?(riding?mountedAttackAtlas:attackAtlas):pose==HeroPose.Down?(riding?mountedDownAtlas:downAtlas):pose==HeroPose.Walk?walk:idle;
-            // The previous player walk supplied its own resting frame before idle sheets existed.
-            if(motion==null&&!riding&&!staticMerchantIdle&&(pose==HeroPose.Idle||pose==HeroPose.Hurt)&&walk!=null&&walk.width==walk.height*2)motion=walk;
+            // 待机／受击直接走 -v1 参考帧（第 0 列）。不再回退到行走图集——行走帧是迈步中的姿势，脚会一直抬着。
             int columns=motion==null?4:motion.width/(motion.height/4);
             double phase=System.Math.Max(0,time);
             int column=0;

@@ -83,7 +83,10 @@ namespace BaseConquest.Base
             if(cached.Board!=board||cached.Count!=layout.Objects.Count||cached.Revision!=revision)
             {var legal=board.Positions().Where(p=>board.Walkable(p)&&!layout.Objects.Any(o=>o.Blocks&&o.Object.Contains(p.X+.5,p.Z+.5,.6))).OrderBy(p=>new BasePoint(p.X+.5,p.Z+.5).Distance(origin)).First();cached.Point=new BasePoint(legal.X+.5,legal.Z+.5);cached.Board=board;cached.Count=layout.Objects.Count;cached.Revision=revision;}
             var point=cached.Point;
-            yield return new BaseMapObject("town_inn",town?"旅店 · 休息与寄存":"扎营点 · 免费休息与留队",point.X,point.Y,1,1,town,"demo-inn:"+(layout.SourceMapId??layout.Region),town?"town_inn":"campfire",town?"facility":"pixel-prop");
+            // 旅店是整栋建筑贴图（内容约 205x182），1x1 的立牌会把房子压成一小块；按贴图比例放大到 3 格宽，并夹在地图内。
+            double innWidth=town?3:1,innHeight=town?innWidth/1.1264:1;
+            double innX=Math.Max(0,Math.Min(point.X,BaseMap.Width-innWidth)),innY=Math.Max(0,Math.Min(point.Y,BaseMap.Height-innHeight));
+            yield return new BaseMapObject("town_inn",town?"旅店 · 休息与寄存":"扎营点 · 免费休息与留队",innX,innY,innWidth,innHeight,town,"demo-inn:"+(layout.SourceMapId??layout.Region),town?"town_inn":"campfire",town?"facility":"pixel-prop");
         }
         public static bool AtService(BaseState s)=>BaseSpatial.Objects(s).Any(o=>o.Id=="town_inn"&&BaseInteraction.CanReach(s,o));
         public static string CollectProblem(BaseState s,string id,bool join)

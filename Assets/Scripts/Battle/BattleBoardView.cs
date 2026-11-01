@@ -58,6 +58,31 @@ namespace BaseConquest.Battle
         private readonly Texture2D buildingTexture;
         private readonly Material buildingMaterial;
         private readonly Material baseGrassMaterial,baseRaisedGrassMaterial,baseRaisedRoadMaterial,baseCliffMaterial,baseStairMaterial;
+        // 坡道按真实朝向取楼梯贴图：通用的 stair-64-v1 是竖条纹木板、不是楼梯，正斜坡因此整片错。
+        private readonly System.Collections.Generic.Dictionary<string,Material> stairSkins=new System.Collections.Generic.Dictionary<string,Material>();
+        private Material StairSkin(GridPosition p)
+        {
+            var cell=board.Cell(p);if(cell==null||cell.Ramp==RampAxis.None)return baseStairMaterial;
+            string direction;
+            if(cell.Ramp==RampAxis.EastWest)
+            {
+                int east=board.Cell(new GridPosition(p.X+1,p.Z))?.Elevation??cell.Elevation;
+                int west=board.Cell(new GridPosition(p.X-1,p.Z))?.Elevation??cell.Elevation;
+                direction=east>=west?"east":"west";
+            }
+            else
+            {
+                int south=board.Cell(new GridPosition(p.X,p.Z+1))?.Elevation??cell.Elevation;
+                int north=board.Cell(new GridPosition(p.X,p.Z-1))?.Elevation??cell.Elevation;
+                direction=south>=north?"south":"north";
+            }
+            if(stairSkins.TryGetValue(direction,out var cached)&&cached!=null)return cached;
+            var texture=Resources.Load<Texture2D>("PixelDemo/Terrain/stairs-"+direction+"-v1");
+            if(texture==null)return baseStairMaterial;
+            var skin=BattlePawn2D.Transparent(baseStairMaterial);skin.name="BaseStairs_"+direction;
+            skin.SetTexture("_BaseMap",texture);skin.SetTextureScale("_BaseMap",Vector2.one);skin.SetTextureOffset("_BaseMap",Vector2.zero);skin.SetColor("_BaseColor",Color.white);
+            stairSkins[direction]=skin;return skin;
+        }
         private readonly BuildingAppearanceCatalog buildings;
         private readonly System.Collections.Generic.Dictionary<string,Material> buildingMaterials=new System.Collections.Generic.Dictionary<string,Material>();
         private readonly System.Collections.Generic.Dictionary<GroundSurface,Material> surfaceMaterials=new System.Collections.Generic.Dictionary<GroundSurface,Material>();
@@ -428,7 +453,7 @@ namespace BaseConquest.Battle
                 if(ObliqueExploration&&cell.Terrain==TerrainKind.Ground&&(cell.Elevation>0||cell.Ramp!=RampAxis.None))
                 {
                     var surface=GroundSurfaceRules.Resolve(cell.Surface,surfaceRegion,p.X,p.Z);
-                    var topMaterial=cell.Ramp!=RampAxis.None&&baseStairMaterial!=null ? baseStairMaterial : surface==GroundSurface.Road&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : (surface==GroundSurface.Grass||surface==GroundSurface.Default)&&baseRaisedGrassMaterial!=null ? GrassVariant(baseRaisedGrassMaterial,p.X,p.Z) : tile.sharedMaterial;
+                    var topMaterial=cell.Ramp!=RampAxis.None&&baseStairMaterial!=null ? StairSkin(p) : surface==GroundSurface.Road&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : (surface==GroundSurface.Grass||surface==GroundSurface.Default)&&baseRaisedGrassMaterial!=null ? GrassVariant(baseRaisedGrassMaterial,p.X,p.Z) : tile.sharedMaterial;
                     raisedMeshes[index]=BaseConquest.Presentation.BaseTerrainView.Ground(board,p);
                     tile.GetComponent<MeshFilter>().sharedMesh=raisedMeshes[index];
                     tile.sharedMaterials=new[]{topMaterial,baseCliffMaterial??wallMaterial};
@@ -591,7 +616,7 @@ namespace BaseConquest.Battle
             }
             texture.SetPixels(colors); texture.Apply(); return texture;
         }
-        public void Dispose() {DestroyObject(heightFogMaterial);DestroyObject(heightFogMesh);foreach(var mesh in rampFogMeshes.Values)DestroyObject(mesh);foreach(var m in dungeonMaterials.Values)DestroyObject(m); elevationView?.Dispose();groundEdges?.Dispose();fieldworkArt?.Dispose();DestroyObject(baseGrassMaterial);DestroyObject(baseRaisedGrassMaterial);DestroyObject(baseRaisedRoadMaterial);DestroyObject(baseCliffMaterial);DestroyObject(baseStairMaterial);foreach(var mesh in buildingMeshes)DestroyObject(mesh);foreach(var mesh in raisedMeshes)DestroyObject(mesh);foreach(var skin in buildingMaterials.Values)DestroyObject(skin);foreach(var skin in surfaceMaterials.Values)DestroyObject(skin);DestroyObject(buildingMaterial);DestroyObject(buildingTexture);DestroyObject(gridMesh); DestroyObject(swampMaterial); DestroyObject(swampTexture); DestroyObject(translucentFog); DestroyObject(waterMaterial); DestroyObject(wallMaterial); DestroyObject(waterTexture); DestroyObject(wallTexture); }
+        public void Dispose() {DestroyObject(heightFogMaterial);DestroyObject(heightFogMesh);foreach(var mesh in rampFogMeshes.Values)DestroyObject(mesh);foreach(var m in dungeonMaterials.Values)DestroyObject(m);foreach(var s in stairSkins.Values)DestroyObject(s); elevationView?.Dispose();groundEdges?.Dispose();fieldworkArt?.Dispose();DestroyObject(baseGrassMaterial);DestroyObject(baseRaisedGrassMaterial);DestroyObject(baseRaisedRoadMaterial);DestroyObject(baseCliffMaterial);DestroyObject(baseStairMaterial);foreach(var mesh in buildingMeshes)DestroyObject(mesh);foreach(var mesh in raisedMeshes)DestroyObject(mesh);foreach(var skin in buildingMaterials.Values)DestroyObject(skin);foreach(var skin in surfaceMaterials.Values)DestroyObject(skin);DestroyObject(buildingMaterial);DestroyObject(buildingTexture);DestroyObject(gridMesh); DestroyObject(swampMaterial); DestroyObject(swampTexture); DestroyObject(translucentFog); DestroyObject(waterMaterial); DestroyObject(wallMaterial); DestroyObject(waterTexture); DestroyObject(wallTexture); }
         public void ShowOutline(GridPosition from, GridPosition to, bool visible)
         {
             outline.enabled = visible; if (!visible) return;

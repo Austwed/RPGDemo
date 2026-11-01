@@ -119,6 +119,21 @@ namespace BaseConquest.Editor
                 case "west-settle":
                     if (Time.frameCount < frameDeadline) return;
                     Capture("town-west");
+                    stage = "stairs";
+                    break;
+                case "stairs":
+                    // 城镇 x18~19 / z7~8 是南北向阶梯（0→1→2 层），专门看一眼坡道贴图朝向。
+                    if (!controller.Change(s =>
+                    {
+                        s.PlayerX = 18.5; s.PlayerY = 7.5;
+                        BaseAdventure.Arrive(s);
+                    }, "视觉自检：走向坡道")) { Finish(2, "移动被拒：" + controller.Message); return; }
+                    stage = "stairs-settle";
+                    frameDeadline = Time.frameCount + 45;
+                    break;
+                case "stairs-settle":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("town-stairs");
                     stage = "done";
                     // 截图是异步写盘，多等几十帧再退出进程。
                     frameDeadline = Time.frameCount + 60;
