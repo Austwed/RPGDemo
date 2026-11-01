@@ -13,6 +13,21 @@ namespace BaseConquest.Editor
     public static class VerifyDemoCheckpoint
     {
         private static void Need(bool yes,string reason){if(!yes)throw new InvalidOperationException(reason);}
+        public static void VerifySecondOutcome()
+        {
+            var asset=Resources.Load<TextAsset>("DemoStages/defense-male");Need(asset!=null,"缺少首防阶段档");
+            var state=JsonUtility.FromJson<BaseState>(asset.text);var session=BaseDemoDefense.Begin(state,"none");BattleScenePlacement.Start(state,session);
+            var run=new RealtimeCampaignBattle(session);BattleScenePlacement.Snap(state,run);
+            session.Opening.EventId=BaseDemoDefense.SecondEventId;run.Battle.Scenario.Objective.HoldRounds=0;BaseDemoDefense.Configure(run);
+            var allies=run.Model.Units.Where(u=>u.Side==PrototypeSide.Ally&&u.Alive).ToArray();var enemies=run.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy&&u.Alive).ToArray();
+            Need(allies.Length>0&&enemies.Length>0,"第二波判定夹具缺少双方单位");
+            Need(run.OutcomeResolver(run)==BattleOutcome.None,"第二波不应因坚守时间结束获胜");
+            foreach(var enemy in enemies)enemy.KnockedDown=true;
+            Need(run.OutcomeResolver(run)==BattleOutcome.SideAWin,"第二波敌军全部失能后应获胜");
+            foreach(var enemy in enemies)enemy.KnockedDown=false;foreach(var ally in allies)ally.KnockedDown=true;
+            Need(run.OutcomeResolver(run)==BattleOutcome.SideBWin,"第二波我方全部失能后应失败");
+            Directory.CreateDirectory("Logs/checkpoint-verification");File.WriteAllText("Logs/checkpoint-verification/second-outcome.txt","PASS: no timed victory, enemy elimination, ally defeat.\n");
+        }
         [MenuItem("SLG/其他工具/验证/Demo阶段与首防检查点")]
         public static void Run()
         {

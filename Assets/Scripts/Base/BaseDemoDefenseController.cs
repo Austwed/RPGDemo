@@ -117,7 +117,7 @@ namespace BaseConquest.Base
             var state=owner.State;var plan=owner.DemoDefensePlan;if(plan==null){OpenDeparture("perimeter");return;}
             bool second=BaseDemoDefense.SecondDue(state);activeObject="demo-defense-supply";interactionObject="";BeginPanel(second?"第二波防守 · 军需确认":"首次防守 · 军需确认");
             Line("队长："+string.Join("、",plan.Leaders.Select(id=>state.Leaders.Single(person=>person.Id==id).Name))+"；实际选兵 "+plan.Total+"人。",90,22);
-            Line(second?"军需按当前库存配给。守住本场时限或击退敌军获胜；失败或撤退扣除一次经济损失，营地受创，但不会再来第三波。":"军需按当前库存配给。坚守到时后敌军撤退，可追击或结束追击；失败或撤退扣除损失，残军次日再袭。",130,21);
+            Line(second?"待写":"军需按当前库存配给。坚守到时后敌军撤退，可追击或结束追击；失败或撤退扣除损失，残军次日再袭。",130,21);
             foreach(string choice in new[]{"full","half","none"})
             {string mode=choice;RowButton("确认迎战 · "+(mode=="full"?"尽量配足军需":mode=="half"?"最多半数供给":"不使用军需"),0,800,()=>owner.BeginDemoDefense(mode));row+=60;}
             RowButton("返回重新选兵",0,800,()=>OpenDeparture("perimeter"));row+=60;EndPanel();

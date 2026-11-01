@@ -156,7 +156,7 @@ namespace BaseConquest.Base
         public static void Configure(RealtimeCampaignBattle run)
         {
             if(run.Session.Opening.EventId==SecondEventId)
-            {run.OutcomeResolver=current=>BaseDemoCombat.Defeated(current)?BattleOutcome.SideBWin:!current.Model.Units.Any(unit=>unit.Side==PrototypeSide.Enemy&&unit.Alive)||current.Model.Elapsed+1e-8>=current.Battle.Scenario.Objective.HoldRounds?BattleOutcome.SideAWin:BattleOutcome.None;return;}
+            {run.OutcomeResolver=current=>BaseDemoCombat.Defeated(current)?BattleOutcome.SideBWin:!current.Model.Units.Any(unit=>unit.Side==PrototypeSide.Enemy&&unit.Alive)?BattleOutcome.SideAWin:BattleOutcome.None;return;}
             run.OutcomeResolver=current=>
             {
                 if(BaseDemoCombat.Defeated(current))return BattleOutcome.SideBWin;

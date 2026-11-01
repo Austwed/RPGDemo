@@ -15,6 +15,7 @@ namespace BaseConquest.Battle
         public bool IsDemoPractice=>sceneEncounter?.Opening.Id==BaseDemoIntro.BattleId;
         public bool IsDemoRuins=>BaseDemoRuins.Encounter(sceneEncounter);
         public bool IsDemoDefense=>BaseDemoDefense.Encounter(sceneEncounter);
+        public bool IsSecondDefense=>IsDemoDefense&&sceneEncounter.Opening.EventId==BaseDemoDefense.SecondEventId;
         public bool IsDemoAttack=>BaseDemoFinale.Encounter(sceneEncounter);
         public bool IsStandaloneTest=>BaseStandaloneBattle.Is(sceneEncounter);
         public Action RestartStandaloneTest;
