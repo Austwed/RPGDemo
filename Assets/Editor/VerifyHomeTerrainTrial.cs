@@ -128,13 +128,15 @@ namespace BaseConquest.Editor
                 Need(Again(true)==trialSkins&&Again(false)==skins,"反复切换后与原版/候选状态不一致");
                 report.AppendLine("PASS board JSON, camera, zoom, scene transforms unchanged across trail on/off/on/off.");
                 report.AppendLine("PASS material set fully restored to pre-trial textures, scales and offsets.");
-                var sides=new[]{"baseCliffMaterial","baseStairMaterial","wallMaterial","waterMaterial","swampMaterial"};
+                var sides=new[]{"baseStairMaterial","wallMaterial","waterMaterial","swampMaterial"};
                 var changed=new List<string>();var constant=new List<string>();
                 foreach(var pair in Skins(boardView))
                 {
                     string before=Row(skins,pair.Key),trial=Row(trialSkins,pair.Key);
                     if(string.Equals(before,trial,StringComparison.Ordinal))constant.Add(pair.Key);else changed.Add(pair.Key);
                 }
+                Need(Row(trialSkins,"baseGrassMaterial").Contains("grass-64-v2"),"试点开启后草地应使用 Cainos grass-64-v2");
+                Need(Row(trialSkins,"baseCliffMaterial").Contains("cliff-64-v1"),"试点开启后崖壁侧面应使用 cliff-64-v1");
                 report.AppendLine("跟随试点换图: "+(changed.Count==0?"（无）":string.Join(", ",changed)));
                 report.AppendLine("全程不动: "+(constant.Count==0?"（无）":string.Join(", ",constant)));
                 foreach(string name in sides)
@@ -143,7 +145,7 @@ namespace BaseConquest.Editor
                     if(before.StartsWith("<missing:",StringComparison.Ordinal))continue;
                     Need(before==Row(trialSkins,name),name+" 在试点开启期间发生变化，需要与美术一并确认");
                 }
-                report.AppendLine("侧面/非地面材质（cliff・stair・wall・water・swamp）在试点下保持原图：确认<｜hy_place▁holder▁no▁813｜>");
+                report.AppendLine("侧面/非地面材质（stair・wall・water・swamp）在试点下保持原图；cliff 已参与试点（cliff-64-v1）：确认<｜hy_place▁holder▁no▁813｜>");
                 Directory.CreateDirectory("Logs/home-terrain-trial");report.AppendLine(Shots(boardView));
                 File.WriteAllText("Logs/home-terrain-trial/invariance.txt",report.ToString());
                 Debug.Log("[VerifyHomeTerrainTrial] PASS");

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Linq;
 using System.Collections.Generic;
 
@@ -66,7 +66,7 @@ namespace BaseConquest.Battle
         private readonly Dictionary<Material,(Texture Texture,Vector2 Scale,Vector2 Offset)> originalTrialMaterials=new Dictionary<Material,(Texture,Vector2,Vector2)>();
         public bool SetHomeTerrainTrial(bool enabled)
         {
-            if(enabled&&(BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Grass)==null||BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Road)==null))return false;
+            if(enabled&&(BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Grass)==null||BaseConquest.Presentation.HomeTerrainTrial.Texture(GroundSurface.Road)==null||BaseConquest.Presentation.HomeTerrainTrial.Cliff()==null))return false;
             if(homeTerrainTrial==enabled)return true;
             homeTerrainTrial=enabled;
             void Apply(Material skin,GroundSurface surface)
@@ -82,7 +82,18 @@ namespace BaseConquest.Battle
                 {skin.SetTexture("_BaseMap",original.Texture);skin.SetTextureScale("_BaseMap",original.Scale);skin.SetTextureOffset("_BaseMap",original.Offset);}
                 else skin.SetTexture("_BaseMap",BaseConquest.Presentation.MapSurfaceView.Texture(surface));
             }
-            Apply(baseGrassMaterial,GroundSurface.Grass);Apply(baseRaisedGrassMaterial,GroundSurface.Grass);Apply(baseRaisedRoadMaterial,GroundSurface.Road);
+            void ApplyCliff(Material skin)
+            {
+                if(skin==null)return;var cliff=BaseConquest.Presentation.HomeTerrainTrial.Cliff();if(enabled&&(cliff==null))return;
+                if(enabled)
+                {
+                    if(!originalTrialMaterials.ContainsKey(skin))originalTrialMaterials[skin]=(skin.GetTexture("_BaseMap"),skin.GetTextureScale("_BaseMap"),skin.GetTextureOffset("_BaseMap"));
+                    skin.SetTexture("_BaseMap",cliff);skin.SetTextureScale("_BaseMap",Vector2.one);skin.SetTextureOffset("_BaseMap",Vector2.zero);
+                }
+                else if(originalTrialMaterials.TryGetValue(skin,out var original))
+                {skin.SetTexture("_BaseMap",original.Texture);skin.SetTextureScale("_BaseMap",original.Scale);skin.SetTextureOffset("_BaseMap",original.Offset);}
+            }
+            Apply(baseGrassMaterial,GroundSurface.Grass);Apply(baseRaisedGrassMaterial,GroundSurface.Grass);Apply(baseRaisedRoadMaterial,GroundSurface.Road);ApplyCliff(baseCliffMaterial);
             foreach(var entry in surfaceMaterials)if(entry.Key==GroundSurface.Grass||entry.Key==GroundSurface.Road||entry.Key==GroundSurface.DirtPath)Apply(entry.Value,entry.Key);
             if(!enabled)originalTrialMaterials.Clear();
             Refresh();return true;
