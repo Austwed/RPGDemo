@@ -21,7 +21,7 @@ namespace BaseConquest.Battle
                 if(!companion.Initialize(appearance,material)){BattleBoardView.DestroyObject(companion);companion=null;return false;}
             }
             shape.gameObject.SetActive(false);
-            float height=appearance=="azhu"||appearance=="cavalry" ? 2.05f : 1.65f;
+            float height=BaseConquest.Presentation.PixelDemoArt.Mounted(appearance) ? 2.4f : 1.65f;
             healthRoot.localPosition=new Vector3(0,.3f,height);healthFill.localPosition=new Vector3(healthFill.localPosition.x,.31f,height);selectionArrow.transform.localPosition=new Vector3(0,.4f,height+.27f);
             if(appearance=="ahe")EnsureProjectile();return true;
         }

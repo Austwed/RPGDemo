@@ -66,7 +66,9 @@ namespace BaseConquest.Base
         public static BaseMapPlacement[] CampResidents()=>new[]{new BaseMapPlacement {Id="demo_rescuer",Name=BaseScriptNames.LaoZhou,X=4.8,Y=8.2,Width=.5,Height=.5,SourceObjectId="demo-npc:rescuer",AssetId="laozhou",Kind="npc"},new BaseMapPlacement {Id="demo_chunshen",Name=BaseScriptNames.ChunShen,X=2.8,Y=8.2,Width=.5,Height=.5,SourceObjectId="demo-npc:chunshen",AssetId="chunshen",Kind="npc"}};
         // 只列检查用得上的形象：horse 是骑乘图集的部件、没有独立消费者；azhu 恒为骑乘态，
         // 与 mounted-azhu 显示同一张图，留着会在检查台出现两个阿铸。
-        private static readonly string[] MotionCharacters={"ahe","archer","batu","cavalry","chenan","chief","chunshen","controller","enemy-captain","female","galan","horn","huoya","infantry","laozhou","merchant","mounted-azhu","mounted-cavalry","player","villager"};
+        // 只放游戏里真实使用的形象。cavalry 的静态图集已统一解析到 mounted-cavalry，
+        // 两者再并列就是同一匹马出现两次，故只保留兵种 id。
+        private static readonly string[] MotionCharacters={"ahe","archer","batu","cavalry","chenan","chief","chunshen","controller","enemy-captain","female","galan","horn","huoya","infantry","laozhou","merchant","mounted-azhu","player","villager"};
         public static BaseMapObject[] MotionChecks(BaseState state)
         {
             if(!BaseDemo.Active(state)||BaseDemoPrologue.Village(state)||state.Campaign.Location!="base")return Array.Empty<BaseMapObject>();

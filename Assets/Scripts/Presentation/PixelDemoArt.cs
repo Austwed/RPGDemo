@@ -7,6 +7,8 @@ namespace BaseConquest.Presentation
     public static class PixelDemoArt
     {
         private static readonly System.Collections.Generic.Dictionary<string,Texture2D> textures=new System.Collections.Generic.Dictionary<string,Texture2D>();
+        // 骑乘身份：静态图集本身就是「马＋骑手」的那几个。体量、可用的动作图集、名牌高度都按它判断。
+        public static bool Mounted(string id)=>id=="azhu"||id=="cavalry"||id=="mounted-azhu"||id=="mounted-cavalry";
         public static Texture2D Load(string category,string id)
         {
             if(string.IsNullOrEmpty(id))return null;
@@ -14,6 +16,8 @@ namespace BaseConquest.Presentation
             else if(id=="portrait-wilderness")id="portrait-enemy-captain";
             // 阿铸只保留骑乘一套图集：所有调用方（含头像兜底、BattlePawn2D 的可用性判断）统一解析到 mounted-azhu，不再有站立版。
             else if(category=="Characters"&&id=="azhu")id="mounted-azhu";
+            // 骑兵同理：cavalry-v1 画的是持矛步战，探索态与检查台只读 -v1，会把这个兵种显示成步兵。
+            else if(category=="Characters"&&id=="cavalry")id="mounted-cavalry";
             string path="PixelDemo/"+category+"/"+id+"-v1";
             if(textures.TryGetValue(path,out var cached)&&cached!=null)return cached;
             var texture=Resources.Load<Texture2D>(path);if(texture!=null)textures[path]=texture;return texture;
@@ -47,13 +51,16 @@ namespace BaseConquest.Presentation
         public readonly Renderer Renderer;
         private readonly Material material;
         private readonly Texture2D atlas,mountedAtlas,idleAtlas,walkAtlas,attackAtlas,downAtlas,mountedIdleAtlas,mountedWalkAtlas,mountedAttackAtlas,mountedDownAtlas;
-        private readonly bool bowAttack,alwaysMounted;
+        private readonly bool bowAttack,alwaysMounted,mountedArt;
         private readonly MaterialPropertyBlock ink=new MaterialPropertyBlock();
         public PixelCharacterSheet(Transform parent,Material source,Texture2D texture,Texture2D mounted=null,string identity="")
         {
             atlas=texture;mountedAtlas=mounted;
             // 阿铸日常也骑乘（规范 §2B 骑兵规则 1）：不能等调用方传 mounted，否则探索态回落到站立版。
-            alwaysMounted=identity=="azhu";
+            // 骑兵同理：cavalry 的静态图集已统一解析到 mounted-cavalry，不默认骑乘就会读到空的行走图集。
+            alwaysMounted=identity=="azhu"||identity=="cavalry";
+            // 静态图集本身就是马的身份（骑兵、骑乘阿铸）：任何时候都不该按步兵体量渲染。
+            mountedArt=PixelDemoArt.Mounted(identity);
             if(!string.IsNullOrEmpty(identity))
             {
                 idleAtlas=PixelDemoArt.Motion(identity,"idle");walkAtlas=PixelDemoArt.Motion(identity,"walk");attackAtlas=PixelDemoArt.Motion(identity,"attack");downAtlas=PixelDemoArt.Motion(identity,"down");
@@ -62,12 +69,9 @@ namespace BaseConquest.Presentation
                 bowAttack=identity=="ahe";
             }
             Root=new GameObject("PixelDemoCharacter",typeof(MeshFilter),typeof(MeshRenderer));Root.transform.SetParent(parent,false);
-            // 骑乘类要压得住身高：马背加上骑手本身就比步行角色高、横面也宽。
-            // 图集仍是统一 64×64 格，所以只能靠网格放大来还原体量差；步行角色保持原基准。
+            // 占位网格，真正每帧由 Set 按帧尺寸重建（体量差异在 Set 里按是否骑马处理）。
             const float unit=1.55f/56;
-            bool bulky=identity=="cavalry"||identity=="azhu"||identity=="mounted-cavalry"||identity=="mounted-azhu";
-            float halfWidth=32*unit*(bulky?1.40f:1f), bottom=-4*unit, top=60*unit*(bulky?1.18f:1f);
-            Mesh=new Mesh{name="PixelDemo64Frame",vertices=new[]{new Vector3(-halfWidth,.28f,bottom),new Vector3(-halfWidth,.28f,top),new Vector3(halfWidth,.28f,top),new Vector3(halfWidth,.28f,bottom)},triangles=new[]{0,1,2,0,2,3}};
+            Mesh=new Mesh{name="PixelDemo64Frame",vertices=new[]{new Vector3(-32*unit,.28f,-4*unit),new Vector3(-32*unit,.28f,60*unit),new Vector3(32*unit,.28f,60*unit),new Vector3(32*unit,.28f,-4*unit)},triangles=new[]{0,1,2,0,2,3}};
             Mesh.RecalculateNormals();Mesh.RecalculateBounds();Root.GetComponent<MeshFilter>().sharedMesh=Mesh;
             material=BattlePawn2D.Transparent(source);material.SetColor("_BaseColor",Color.white);Renderer=Root.GetComponent<Renderer>();Renderer.sharedMaterial=material;
             Set(HeroFacing.South,HeroPose.Idle,0,false,false,false);
@@ -102,7 +106,11 @@ namespace BaseConquest.Presentation
             Mesh.vertices=new[]{new Vector3(-size*.5f*scale,.28f,(pivot-size)*scale),new Vector3(-size*.5f*scale,.28f,pivot*scale),new Vector3(size*.5f*scale,.28f,pivot*scale),new Vector3(size*.5f*scale,.28f,(pivot-size)*scale)};Mesh.RecalculateBounds();
             ink.SetTexture("_BaseMap",motion??(riding?mountedAtlas:atlas));ink.SetColor("_BaseColor",hit?new Color(1,.35f,.35f):Color.white);Renderer.SetPropertyBlock(ink);
             Root.transform.localRotation=carried||pose==HeroPose.Down&&motion==null?Quaternion.Euler(0,90,0):Quaternion.identity;
-            Root.transform.localScale=Vector3.one*(carried?.55f:riding?1.2f:1);
+            // 骑乘图集要在同一个 64×64 格里塞下整匹马，实测四向剪影高度只有 44~56px（步兵 56px），
+            // 按原尺寸渲染骑马反而比站着的矮。这里按「是否骑马」等比放大到 1.45 倍：身高与横向面积一起长，
+            // 马不会被压扁；网格自底边向上生长，放大后仍踩在同一接地点。
+            float body=riding||mountedArt?1.45f:1f;
+            Root.transform.localScale=Vector3.one*(carried?.55f:body);
         }
         public void Dispose(){BattleBoardView.DestroyObject(Mesh);BattleBoardView.DestroyObject(material);}
     }

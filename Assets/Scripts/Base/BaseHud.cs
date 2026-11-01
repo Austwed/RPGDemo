@@ -117,10 +117,10 @@ namespace BaseConquest.Base
             label.anchoredPosition = local;
             label.gameObject.SetActive(screen.z > 0 && local.y - label.rect.height * .5f >= mapLabels.rect.yMin && local.y + label.rect.height * .5f <= mapLabels.rect.yMax);
         }
-        private void PlaceCompanionLabel(RectTransform label,double x,double y)
+        private void PlaceCompanionLabel(RectTransform label,double x,double y,float raise=1.8f)
         {
             // Anchor to the actual feet, not terrain sampled beyond the character across a ledge.
-            PlaceMapLabel(label,owner.WorldPoint(x,y)+owner.WorldCamera.transform.up*1.8f,label.rect.height*.5f+6);
+            PlaceMapLabel(label,owner.WorldPoint(x,y)+owner.WorldCamera.transform.up*raise,label.rect.height*.5f+6);
         }
         private RectTransform Rect(string name, Transform parent, Vector2 anchor, Vector2 position, Vector2 size)
         {
@@ -197,7 +197,8 @@ namespace BaseConquest.Base
                 if (obj == null) continue;
                 labels[i].GetComponent<Text>().text = obj.Name.Replace("伙伴 · ", "");
                 npcMarkers[i].text=BaseDemoNpcs.StatusMarker(owner.State,obj.Id);npcMarkers[i].gameObject.SetActive(npcMarkers[i].text!=""&&owner.SceneObjectVisible(obj));
-                if(obj.Kind=="npc"||obj.Id.StartsWith("partner"))PlaceCompanionLabel(labels[i],obj.X,obj.Y);
+                // 骑马的单位渲染体量放大到 1.42 倍，名牌要跟着抬高，否则会压在马上。
+                if(obj.Kind=="npc"||obj.Id.StartsWith("partner"))PlaceCompanionLabel(labels[i],obj.X,obj.Y,BaseConquest.Presentation.PixelDemoArt.Mounted(obj.AssetId)?2.6f:1.8f);
                 else PlaceMapLabel(labels[i],owner.WorldPoint(obj.X,obj.Y+obj.Height/2+.6));
             }
             RefreshCompanionLabels();
