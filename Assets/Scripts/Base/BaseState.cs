@@ -147,9 +147,7 @@ namespace BaseConquest.Base
             BaseEconomy.Validate(Opening, false);
             if (Opening.Day != 1 || Opening.FoodPaidDay != 0 || Opening.LastCompletedDay != 0) throw new ArgumentException("据点模板必须从未扣粮的第1天开始；进度请使用存档");
             var state = Opening.Copy(); state.TemplateTitle = Title;
-            // 随机队长的生成种子由 Title 稳定派生，不再用 Guid 现取：同一份模板每次得到同一批敌人，
-            // 固定阶段档才能重复生成、验收对比才有基线（2026-11-02 用户裁决）。
-            if(BaseRpg.Active(state)&&state.Demo.Rpg.GenerationSeed==0)state.Demo.Rpg.GenerationSeed=(BaseAftermath.StableIdentity(Title)&int.MaxValue)|1;
+            if(BaseRpg.Active(state)&&state.Demo.Rpg.GenerationSeed==0)state.Demo.Rpg.GenerationSeed=(int)(BitConverter.ToUInt32(Guid.NewGuid().ToByteArray(),0)%int.MaxValue)+1;
             state.Campaign.ContentInitialized = true;
             BaseEconomy.PayMorningFood(state);
             BaseDevelopment.Allocate(state);

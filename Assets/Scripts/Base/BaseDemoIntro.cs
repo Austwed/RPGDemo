@@ -86,6 +86,17 @@ namespace BaseConquest.Base
             // 巴图不持有普通兵槽；他缺席时其余两队的人数保持不变。
             foreach(var unit in s.Demo.Encounters.Camp.Units.Where(unit=>unit.Kind!=SoldierKind.Hero&&unit.CommanderSlot==1))unit.CommanderSlot=2;
             s.Demo.Encounters.Camp.Commanders[2].SkillId="inspire";
+            // 剧情队长写死数值、技能与特性（2026-11-02 用户裁决：这类关卡的重要剧情角色用固定搭配）。
+            // 只有反复刷的遗迹控制者保持随机——PrepareEnemies 里把 slot 0 的 authored 置空即是此意。
+            // 模板必须一起写死：Generate 会先按 AwakenedChance 随机决定是否异能者，光固定特性数值仍会变。
+            RpgTrait StoryTrait(string id,int value)=>new RpgTrait{Id=id,Value=value};
+            void StoryFix(BaseEnemyCommanderPreset c,string template,string skill,RpgTrait[] traits)
+            {c.TemplateId=template;c.SkillId=skill;c.FixedTraits=true;c.Traits=traits.ToList();}
+            var batu=new[]{StoryTrait("tough",10),StoryTrait("frenzy",8)};                       // 巴图：老兵弓手，耐打、出手略快
+            StoryFix(s.Demo.Encounters.Defense.Commanders[0],"captain_normal_archer","rapid_fire",batu);
+            StoryFix(s.Demo.Encounters.Camp.Commanders[0],"captain_normal_knight","charge",new[]{StoryTrait("frenzy",15),StoryTrait("cruel",6)}); // 大当家：骑冲、凶悍
+            StoryFix(s.Demo.Encounters.Camp.Commanders[1],"captain_normal_archer","rapid_fire",batu);
+            StoryFix(s.Demo.Encounters.Camp.Commanders[2],"captain_normal_warrior","inspire",new[]{StoryTrait("tough",12),StoryTrait("taunt",2)}); // 豁牙：近战肉盾拉仇恨
             s.Demo.Encounters.Validate();
         }
         public static bool Choose(BaseState s,string hero)

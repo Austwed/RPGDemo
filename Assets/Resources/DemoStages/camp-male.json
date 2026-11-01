@@ -93212,10 +93212,19 @@
                     {
                         "Profession": 1,
                         "Level": 1,
-                        "TemplateId": "",
-                        "SkillId": "",
-                        "FixedTraits": false,
-                        "Traits": []
+                        "TemplateId": "captain_normal_archer",
+                        "SkillId": "rapid_fire",
+                        "FixedTraits": true,
+                        "Traits": [
+                            {
+                                "Id": "tough",
+                                "Value": 10.0
+                            },
+                            {
+                                "Id": "frenzy",
+                                "Value": 8.0
+                            }
+                        ]
                     }
                 ],
                 "Melee": 4,
@@ -93293,26 +93302,53 @@
                     {
                         "Profession": 3,
                         "Level": 1,
-                        "TemplateId": "",
-                        "SkillId": "",
-                        "FixedTraits": false,
-                        "Traits": []
+                        "TemplateId": "captain_normal_knight",
+                        "SkillId": "charge",
+                        "FixedTraits": true,
+                        "Traits": [
+                            {
+                                "Id": "frenzy",
+                                "Value": 15.0
+                            },
+                            {
+                                "Id": "cruel",
+                                "Value": 6.0
+                            }
+                        ]
                     },
                     {
                         "Profession": 1,
                         "Level": 1,
-                        "TemplateId": "",
-                        "SkillId": "",
-                        "FixedTraits": false,
-                        "Traits": []
+                        "TemplateId": "captain_normal_archer",
+                        "SkillId": "rapid_fire",
+                        "FixedTraits": true,
+                        "Traits": [
+                            {
+                                "Id": "tough",
+                                "Value": 10.0
+                            },
+                            {
+                                "Id": "frenzy",
+                                "Value": 8.0
+                            }
+                        ]
                     },
                     {
                         "Profession": 0,
                         "Level": 1,
-                        "TemplateId": "",
+                        "TemplateId": "captain_normal_warrior",
                         "SkillId": "inspire",
-                        "FixedTraits": false,
-                        "Traits": []
+                        "FixedTraits": true,
+                        "Traits": [
+                            {
+                                "Id": "tough",
+                                "Value": 12.0
+                            },
+                            {
+                                "Id": "taunt",
+                                "Value": 2.0
+                            }
+                        ]
                     }
                 ],
                 "Melee": 4,

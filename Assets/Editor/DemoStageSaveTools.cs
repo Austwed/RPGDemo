@@ -13,7 +13,10 @@ namespace BaseConquest.Editor
     {
         public static BaseState Camp(string raw,string gender,RpgRules rules=null)
         {
-            var s=BaseDemo.CreateOpening(JsonUtility.FromJson<BaseScenarioDocument>(raw),raw,false,true,false,rules).CreateState();
+            var doc=BaseDemo.CreateOpening(JsonUtility.FromJson<BaseScenarioDocument>(raw),raw,false,true,false,rules);
+            // 必须在 CreateState 之前设：角色在 CreateState 里就按种子生成完了，之后再改只是改一个没人重读的字段。
+            if(doc.Opening?.Demo?.Rpg!=null)doc.Opening.Demo.Rpg.GenerationSeed=StageGenerationSeed;
+            var s=doc.CreateState();
             BaseDemoIntro.Enable(s,rules!=null);s.Demo.Intro.Hero=gender;s.Demo.Intro.Step=8;s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).AppearanceId=BaseDemoIntro.PlayerArt(s);return s;
         }
         private static void At(BaseState s,string id)
@@ -59,11 +62,15 @@ namespace BaseConquest.Editor
             At(s,"demo_defense_exit");Need(BaseCampaign.Travel(s,"perimeter"),"进入迎敌战场");At(s,"demo_defense_start");
             foreach(var l in s.Leaders){l.Health=l.MaxHealth;l.Fate="active";}BaseEconomy.Validate(s);return s;
         }
+        // 固定阶段档是回归基线，必须每次生成同一批随机队长，否则跨批次的战斗结果没法比。
+        // 只在这里写死种子：新局仍由 BaseState.CreateState 现取随机种子，保证每局敌人不同、反复刷也不固定。
+        public const int StageGenerationSeed = 1615048403;
         public static Dictionary<string,string> Generate(string raw,RpgRules rules=null,string configHash=null)
         {
             var output=new Dictionary<string,string>();
             foreach(string hero in new[]{"male","female"}){
-                foreach(var pair in new[]{(Id:"camp",State:Camp(raw,hero,rules)),(Id:"defense",State:Defense(raw,hero,rules))}){pair.State.Demo.ConfigHash=configHash;BaseEconomy.Validate(pair.State);output[pair.Id+"-"+hero]=JsonUtility.ToJson(pair.State,true);}
+                foreach(var pair in new[]{(Id:"camp",State:Camp(raw,hero,rules)),(Id:"defense",State:Defense(raw,hero,rules))})
+                {pair.State.Demo.ConfigHash=configHash;BaseEconomy.Validate(pair.State);output[pair.Id+"-"+hero]=JsonUtility.ToJson(pair.State,true);}
             }
             return output;
         }

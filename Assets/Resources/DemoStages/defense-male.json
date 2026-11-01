@@ -708,7 +708,7 @@
         ],
         "Parties": [],
         "ReturnedIds": [
-            "47d615844a214ea7a8fb88a26e65bf0c"
+            "eb48e34710e64eeaab5d28b31b4a10c7"
         ],
         "AppliedAppendIds": []
     },
@@ -745,7 +745,7 @@
             }
         ],
         "FinishedIds": [
-            "56b6214524044cf98388a41aa65e965f"
+            "8d1a0b41c05c4befa53ceb0d4a9c2648"
         ]
     },
     "Campaign": {
@@ -1091,12 +1091,12 @@
         ],
         "SettledIds": [
             "demo:smith:parting-gift",
-            "56b6214524044cf98388a41aa65e965f",
-            "56b6214524044cf98388a41aa65e965f:ruins-reward"
+            "8d1a0b41c05c4befa53ceb0d4a9c2648",
+            "8d1a0b41c05c4befa53ceb0d4a9c2648:ruins-reward"
         ],
         "Reports": [
             {
-                "BattleId": "56b6214524044cf98388a41aa65e965f",
+                "BattleId": "8d1a0b41c05c4befa53ceb0d4a9c2648",
                 "EventId": "demo:ruins:rescue",
                 "Title": "沉眠古窟 · 制服受控者并击败控制来源",
                 "Outcome": "SideAWin",
@@ -77317,8 +77317,8 @@
         },
         "Prisoners": [
             {
-                "Id": "56b6214524044cf98388a41aa65e965f:0",
-                "BattleId": "56b6214524044cf98388a41aa65e965f",
+                "Id": "8d1a0b41c05c4befa53ceb0d4a9c2648:0",
+                "BattleId": "8d1a0b41c05c4befa53ceb0d4a9c2648",
                 "Name": "乙方迦兰",
                 "Status": "released",
                 "CaptureSource": "沉眠古窟 · 制服受控者并击败控制来源",
@@ -77405,7 +77405,7 @@
                 ]
             },
             {
-                "BattleId": "56b6214524044cf98388a41aa65e965f",
+                "BattleId": "8d1a0b41c05c4befa53ceb0d4a9c2648",
                 "Title": "遗迹挑战奖励",
                 "Closed": true,
                 "Food": 20,
@@ -77413,18 +77413,18 @@
                 "Coins": 100,
                 "Items": [
                     {
-                        "Id": "56b6214524044cf98388a41aa65e965f:ruins-reward:loot:0",
+                        "Id": "8d1a0b41c05c4befa53ceb0d4a9c2648:ruins-reward:loot:0",
                         "Status": "discarded",
                         "Reward": {
-                            "Template": "novice_light_armor",
+                            "Template": "novice_light_helmet",
                             "ItemId": "",
                             "Count": 1,
-                            "Quality": 1,
+                            "Quality": 2,
                             "RandomQuality": false
                         }
                     },
                     {
-                        "Id": "56b6214524044cf98388a41aa65e965f:ruins-reward:loot:1",
+                        "Id": "8d1a0b41c05c4befa53ceb0d4a9c2648:ruins-reward:loot:1",
                         "Status": "discarded",
                         "Reward": {
                             "Template": "",
@@ -94816,10 +94816,19 @@
                     {
                         "Profession": 1,
                         "Level": 1,
-                        "TemplateId": "",
-                        "SkillId": "",
-                        "FixedTraits": false,
-                        "Traits": []
+                        "TemplateId": "captain_normal_archer",
+                        "SkillId": "rapid_fire",
+                        "FixedTraits": true,
+                        "Traits": [
+                            {
+                                "Id": "tough",
+                                "Value": 10.0
+                            },
+                            {
+                                "Id": "frenzy",
+                                "Value": 8.0
+                            }
+                        ]
                     }
                 ],
                 "Melee": 4,
@@ -94897,26 +94906,53 @@
                     {
                         "Profession": 3,
                         "Level": 1,
-                        "TemplateId": "",
-                        "SkillId": "",
-                        "FixedTraits": false,
-                        "Traits": []
+                        "TemplateId": "captain_normal_knight",
+                        "SkillId": "charge",
+                        "FixedTraits": true,
+                        "Traits": [
+                            {
+                                "Id": "frenzy",
+                                "Value": 15.0
+                            },
+                            {
+                                "Id": "cruel",
+                                "Value": 6.0
+                            }
+                        ]
                     },
                     {
                         "Profession": 1,
                         "Level": 1,
-                        "TemplateId": "",
-                        "SkillId": "",
-                        "FixedTraits": false,
-                        "Traits": []
+                        "TemplateId": "captain_normal_archer",
+                        "SkillId": "rapid_fire",
+                        "FixedTraits": true,
+                        "Traits": [
+                            {
+                                "Id": "tough",
+                                "Value": 10.0
+                            },
+                            {
+                                "Id": "frenzy",
+                                "Value": 8.0
+                            }
+                        ]
                     },
                     {
                         "Profession": 0,
                         "Level": 1,
-                        "TemplateId": "",
+                        "TemplateId": "captain_normal_warrior",
                         "SkillId": "inspire",
-                        "FixedTraits": false,
-                        "Traits": []
+                        "FixedTraits": true,
+                        "Traits": [
+                            {
+                                "Id": "tough",
+                                "Value": 12.0
+                            },
+                            {
+                                "Id": "taunt",
+                                "Value": 2.0
+                            }
+                        ]
                     }
                 ],
                 "Melee": 4,
@@ -95064,7 +95100,7 @@
             "ControllerAccepted": false,
             "ControllerPledged": false,
             "BanditCleared": false,
-            "FirstControllerId": "56b6214524044cf98388a41aa65e965f:0",
+            "FirstControllerId": "8d1a0b41c05c4befa53ceb0d4a9c2648:0",
             "FarmX": 0.0,
             "FarmY": 0.0,
             "FarmNpcX": 0.0,
