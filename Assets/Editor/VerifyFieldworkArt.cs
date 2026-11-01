@@ -1,6 +1,8 @@
 using System;
 using System.IO;
+using BaseConquest.Base;
 using BaseConquest.Battle;
+using BaseConquest.Presentation;
 using UnityEditor;
 using UnityEngine;
 
@@ -9,6 +11,25 @@ namespace BaseConquest.Editor
     public static class VerifyFieldworkArt
     {
         private static void Need(bool yes,string message){if(!yes)throw new InvalidOperationException(message);}
+        public static void RunFarm()
+        {
+            var mature=PixelDemoArt.Building("farm-mature");var immature=PixelDemoArt.Building("farm-immature");
+            Need(mature!=null&&immature!=null&&mature!=immature,"粮田 A/B 资源缺失或重复");
+            var host=new GameObject("FarmArtVerification");var source=new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            try
+            {
+                var placement=new BaseMapObject("farm","farm",3,3,3,2,true,"farm","farm","facility");
+                var view=AuthoredMapView.Create(host.transform,placement,Vector3.zero,source,true);
+                var renderer=view.GetComponentInChildren<Renderer>();
+                Need(renderer!=null&&renderer.sharedMaterial.GetTexture("_BaseMap")==mature,"粮田未使用成熟状态贴图");
+                Need(renderer.sortingOrder< -30000,"粮田未处于直立角色和物件下方");
+                view.SetExploration(false);view.SetExploration(true);
+                Need(renderer.sortingOrder< -30000,"视图切换改变了粮田排序");
+                Directory.CreateDirectory("Logs");File.WriteAllText("Logs/farm-art-verification.txt","PASS: distinct A/B textures, default mature texture, ground sorting across view switches.\n");
+                Debug.Log("[VerifyFarmArt] PASS");
+            }
+            finally{UnityEngine.Object.DestroyImmediate(host);UnityEngine.Object.DestroyImmediate(source);}
+        }
         public static void Run()
         {
             foreach(string id in new[]{"trap-bear","sandbag-row-3"})

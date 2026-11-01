@@ -90,6 +90,7 @@ namespace BaseConquest.Presentation
                 face.GetComponent<Renderer>().sharedMaterial=view.ownedMaterial;
             }
             view.SetExploration(exploration);MapSpriteOrder.Apply(root.transform,feet.z-(float)placement.BoundsHeight*BattleBoardView.CellSize*.5f);
+            if(view.farmVisual)foreach(var renderer in root.GetComponentsInChildren<Renderer>())renderer.sortingOrder=-30500;
             return view;
         }
         public void RefreshFarmAppearance(BaseState state)
