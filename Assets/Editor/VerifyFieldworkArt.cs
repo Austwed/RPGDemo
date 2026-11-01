@@ -12,6 +12,33 @@ namespace BaseConquest.Editor
     public static class VerifyFieldworkArt
     {
         private static void Need(bool yes,string message){if(!yes)throw new InvalidOperationException(message);}
+        public static void RunFieldworkStage()
+        {
+            var asset=Resources.Load<TextAsset>("DemoStages/defense-male");Need(asset!=null,"缺少首防阶段档");
+            var state=JsonUtility.FromJson<BaseState>(asset.text);var board=BaseBattlefield.Board(state);int materials=state.Inventory.Materials;
+            var traps=board.Positions().Where(p=>BaseConstruction.DemoFieldworkProblem(state,p,ConstructionProject.Trap)=="").ToArray();Need(traps.Length>0,"阶段档中找不到可建陷阱的位置");
+            var trap=traps[0];Need(BaseConstruction.DemoFieldwork(state,trap,ConstructionProject.Trap),"陷阱建造失败");
+            var bags=board.Positions().Where(p=>BaseConstruction.DemoFieldworkProblem(state,p,ConstructionProject.Sandbag)=="").ToArray();Need(bags.Length>0,"阶段档中找不到可建沙袋的位置");
+            var bag=bags[0];Need(BaseConstruction.DemoFieldwork(state,bag,ConstructionProject.Sandbag)&&state.Inventory.Materials==materials-6,"工事建造或费用错误");
+            int group=board.Cell(bag).SandbagGroup;var host=new GameObject("FieldworkStageVerification");var source=new Material(Shader.Find("Universal Render Pipeline/Unlit"));BattleBoardView view=null;
+            try
+            {
+                view=new BattleBoardView(board,host.transform,source,source){FlatView=true,ObliqueBaseView=true};view.SetCombatMode(false);
+                Transform Find(GridPosition p)=>view.Root.transform.Find("FieldworkArt/Fieldwork_"+p.X+"_"+p.Z);
+                Need(Find(trap)?.gameObject.activeSelf==true&&Find(bag)?.gameObject.activeSelf==true,"战前地图未显示工事");
+                var campaign=BaseDemoDefense.Begin(state,"none");BattleScenePlacement.Start(state,campaign);
+                var session=new BaseMapSession(board);session.PrepareCombat(state,campaign.Battle.Board);session.EnterBattle(campaign.Battle);view.SetCombatMode(true);
+                Need(!Find(trap).gameObject.activeSelf&&Find(bag).gameObject.activeSelf,"战斗投影中的工事显示错误");
+                var run=new RealtimeCampaignBattle(campaign);BattleScenePlacement.Snap(state,run);BaseDemoDefense.Configure(run);
+                session.Board.Cell(trap).HiddenTrap=false;Need(BaseDemoCombat.Fail(state,run),"首防败退结算失败");session.LeaveBattle();view.SetCombatMode(false);
+                Need(!Find(trap).gameObject.activeSelf&&Find(bag).gameObject.activeSelf,"战后消耗没有同步到地图显示");
+                var store=new BaseSaveStore(Path.GetFullPath("Logs/fieldwork-stage-save.json"),d=>JsonUtility.ToJson(d),json=>JsonUtility.FromJson<BaseSaveDocument>(json),true);
+                store.Save(state);var loaded=store.Load();var saved=BaseBattlefield.Board(loaded,"perimeter");
+                Need(!saved.Cell(trap).HiddenTrap&&Enumerable.Range(0,3).All(x=>saved.Cell(new GridPosition(bag.X+x,bag.Z)).SandbagGroup==group),"存读后工事状态错误");
+                Directory.CreateDirectory("Logs");File.WriteAllText("Logs/fieldwork-stage-verification.txt","PASS: defense stage construction, cost, projected battle visibility, consumed trap, retained sandbags and save/load.\n");Debug.Log("[VerifyFieldworkStage] PASS");
+            }
+            finally{view?.Dispose();UnityEngine.Object.DestroyImmediate(source);UnityEngine.Object.DestroyImmediate(host);}
+        }
         public static void RunFacade()
         {
             var board=BattleBoard.CreateDefault(8,8);var host=new GameObject("FacadeVerification");var source=new Material(Shader.Find("Universal Render Pipeline/Unlit"));BattleBoardView boardView=null;
