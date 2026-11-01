@@ -104,9 +104,10 @@ namespace BaseConquest.Base
             state.Campaign.Layouts=new List<BaseMapLayout> {
                 new BaseMapLayout {Region="base",Title="新营地",SpawnX=4,SpawnY=8.8,Objects=new List<BaseMapPlacement> {
                     Placement("home","营帐",2,10.5,3,2,"home-small"),
-                    Placement("farm","粮田",6.5,11.5,5,3,"farm"),
-                    Placement("workshop","工坊 · 待修复",20,11.5,4,3,"workshop",true),
-                    Placement("barracks","兵营 · 待修复",12,10.5,4,2.6,"barracks",true),
+                    // farm/workshop 原在 Y=11.5 高 3 格，顶部会越出 14 行地图；压到 Y=10 正好贴边。
+                    Placement("farm","粮田",5,9,5,3,"farm"),
+                    Placement("workshop","工坊 · 待修复",18,10,4,3,"workshop",true),
+                    Placement("barracks","兵营 · 待修复",12,9,4,2.6,"barracks",true),
                     new BaseMapPlacement {Id="exit_east",Name="拜访领主 →",X=23.3,Y=6.5,Width=1.2,Height=2}
                 }},
                 new BaseMapLayout {Region="town",Title="领主驻地",SpawnX=12,SpawnY=6.5,Objects=new List<BaseMapPlacement> {
@@ -141,12 +142,14 @@ namespace BaseConquest.Base
         private static void InstallCampHeights(BaseState state)
         {
             var board=state.Campaign.RegionMaps.Single(map=>map.Id=="base").Board;
-            for(int z=8;z<=11;z++)for(int x=9;x<=14;x++)board.Cell(new GridPosition(x,z)).Elevation=1;
+            // 台面 x11~16 × z8~12，兵营(12,9) 4×2.6 完整落在其中，四边各余一格；
+            // 四个方向的斜坡都放在台面外侧，且避开 farm(x5~10) 与 workshop(x18~22) 的占地。
+            for(int z=8;z<=12;z++)for(int x=11;x<=16;x++)board.Cell(new GridPosition(x,z)).Elevation=1;
             void Stair(int x,int z,RampAxis axis){var cell=board.Cell(new GridPosition(x,z));cell.Elevation=1;cell.Ramp=axis;cell.Surface=GroundSurface.Road;}
-            Stair(11,7,RampAxis.NorthSouth);Stair(12,7,RampAxis.NorthSouth);
-            Stair(9,12,RampAxis.NorthSouth);Stair(14,12,RampAxis.NorthSouth);
-            Stair(8,8,RampAxis.EastWest);Stair(8,9,RampAxis.EastWest);
-            Stair(15,8,RampAxis.EastWest);Stair(15,9,RampAxis.EastWest);
+            Stair(13,7,RampAxis.NorthSouth);Stair(14,7,RampAxis.NorthSouth);
+            Stair(13,13,RampAxis.NorthSouth);Stair(14,13,RampAxis.NorthSouth);
+            Stair(10,9,RampAxis.EastWest);Stair(10,10,RampAxis.EastWest);
+            Stair(17,9,RampAxis.EastWest);Stair(17,10,RampAxis.EastWest);
         }
         private static void InstallTownHeights(BaseState state)
         {

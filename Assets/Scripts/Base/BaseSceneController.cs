@@ -313,7 +313,10 @@ namespace BaseConquest.Base
                 if(agent.SceneOnly)view.SetParent(regionView.Root.transform,false);
                 view.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(agent.Position.X,agent.Position.Y),new Color(.62f,.55f,.32f),WorldPoint(State.PlayerX,State.PlayerY),Time.unscaledTimeAsDouble);
             }
-            foreach(var npc in npcViews)npc.RefreshAttention(WorldPoint(State.PlayerX,State.PlayerY),Time.unscaledTimeAsDouble);
+            var eyePoint=WorldPoint(State.PlayerX,State.PlayerY);var attentionNow=Time.unscaledTimeAsDouble;
+            foreach(var npc in npcViews)npc.RefreshAttention(eyePoint,attentionNow);
+            // 美术检查台也随主角转身，否则只能看到正面一列。
+            foreach(var view in motionViews.Values)view.RefreshAttention(eyePoint,attentionNow);
         }
         private bool IsUiPoint(Vector2 position)
         {

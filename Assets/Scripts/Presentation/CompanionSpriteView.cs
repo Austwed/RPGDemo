@@ -27,7 +27,17 @@ namespace BaseConquest.Presentation
         private double lookUntil;
         private bool looking,wasNear;
         public HeroFacing Facing=>facing;
-        public void Preview(HeroPose pose,double time){if(pixel!=null)pixel.Set(HeroFacing.South,pose,pose==HeroPose.Attack?time%1:time,false,false,false,true);}
+        private HeroFacing previewFacing=HeroFacing.South;
+        public void Preview(HeroPose pose,double time,HeroFacing? face=null){if(face.HasValue)previewFacing=face.Value;if(pixel!=null)pixel.Set(previewFacing,pose,pose==HeroPose.Attack?time%1:time,false,false,false,true);}
+        /// <summary>
+        /// 只把朝向转向观察者（主角），不动正在播放的动作：美术检查台既要看动作循环，也要看四向朝向。
+        /// </summary>
+        public HeroFacing LookTowards(Vector3 feet,Vector3 observer)
+        {
+            var d=new Vector2(observer.x-feet.x,observer.z-feet.z);
+            if(d.sqrMagnitude<=4*BattleBoardView.CellSize*BattleBoardView.CellSize+.0001f)previewFacing=PlayerHeroFrames.FaceTowards(d.x,d.y,previewFacing);
+            return previewFacing;
+        }
         private float stride;
         public string AppearanceId {get;private set;}
         public bool Initialize(string id,Material source)

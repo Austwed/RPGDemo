@@ -13,8 +13,18 @@ namespace BaseConquest.Presentation
         private bool farmVisual;
         private string farmAppearance;
         private HeroPose? previewPose;
+        // 最近一次已知的主角位置，供循环动作的对象也朝向他。
+        public static Vector3? AttentionSource;
         public void Preview(HeroPose pose){previewPose=pose;}
-        private void Update(){if(previewPose.HasValue)GetComponent<CompanionSpriteView>()?.Preview(previewPose.Value,Time.unscaledTimeAsDouble);}
+        // 美术检查台的循环动作不看 RefreshAttention（那会走战斗姿态），这里单独让它们朝向主角。
+        private void Update()
+        {
+            if(!previewPose.HasValue)return;
+            var sprite=GetComponent<CompanionSpriteView>();if(sprite==null)return;
+            var now=Time.unscaledTimeAsDouble;
+            HeroFacing? face=person&&AttentionSource.HasValue?sprite.LookTowards(feet,AttentionSource.Value):(HeroFacing?)null;
+            sprite.Preview(previewPose.Value,now,face);
+        }
         public static string FarmAppearance(BaseState state) => state != null && BaseDailyDelta.Read(state).Food < 0 ? "farm-immature" : "farm-mature";
         public static AuthoredMapView Create(Transform parent,BaseMapObject placement,Vector3 feet,Material source,bool exploration)
         {
@@ -116,7 +126,13 @@ namespace BaseConquest.Presentation
         public void MoveTo(Vector3 position)
         {bool moving=(position-feet).sqrMagnitude>1e-7f;if(moving)autonomousUntil=Time.unscaledTimeAsDouble+.12;feet=position;var pawn=GetComponent<BattlePawn2D>();if(pawn!=null)pawn.SyncExploration(feet,Color.white,null,Time.unscaledTimeAsDouble,moving);}
         public void RefreshAttention(Vector3 observer,double now)
-        {if(person&&!previewPose.HasValue&&gameObject.activeInHierarchy&&!AutonomousMoving)GetComponent<BattlePawn2D>().SyncExploration(feet,Color.white,observer,now);}
+        {
+            AttentionSource=observer;
+            if(!person||!gameObject.activeInHierarchy||AutonomousMoving)return;
+            var sprite=GetComponent<CompanionSpriteView>();
+            if(previewPose.HasValue){if(sprite!=null)sprite.Preview(previewPose.Value,now,sprite.LookTowards(feet,observer));return;}
+            GetComponent<BattlePawn2D>()?.SyncExploration(feet,Color.white,observer,now);
+        }
         private void OnDestroy()=>BattleBoardView.DestroyObject(ownedMaterial);
     }
 }

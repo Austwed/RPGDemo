@@ -62,8 +62,12 @@ namespace BaseConquest.Presentation
                 bowAttack=identity=="ahe";
             }
             Root=new GameObject("PixelDemoCharacter",typeof(MeshFilter),typeof(MeshRenderer));Root.transform.SetParent(parent,false);
-            const float scale=1.55f/56;
-            Mesh=new Mesh{name="PixelDemo64Frame",vertices=new[]{new Vector3(-32*scale,.28f,-4*scale),new Vector3(-32*scale,.28f,60*scale),new Vector3(32*scale,.28f,60*scale),new Vector3(32*scale,.28f,-4*scale)},triangles=new[]{0,1,2,0,2,3}};
+            // 骑乘类要压得住身高：马背加上骑手本身就比步行角色高、横面也宽。
+            // 图集仍是统一 64×64 格，所以只能靠网格放大来还原体量差；步行角色保持原基准。
+            const float unit=1.55f/56;
+            bool bulky=identity=="cavalry"||identity=="azhu"||identity=="mounted-cavalry"||identity=="mounted-azhu";
+            float halfWidth=32*unit*(bulky?1.40f:1f), bottom=-4*unit, top=60*unit*(bulky?1.18f:1f);
+            Mesh=new Mesh{name="PixelDemo64Frame",vertices=new[]{new Vector3(-halfWidth,.28f,bottom),new Vector3(-halfWidth,.28f,top),new Vector3(halfWidth,.28f,top),new Vector3(halfWidth,.28f,bottom)},triangles=new[]{0,1,2,0,2,3}};
             Mesh.RecalculateNormals();Mesh.RecalculateBounds();Root.GetComponent<MeshFilter>().sharedMesh=Mesh;
             material=BattlePawn2D.Transparent(source);material.SetColor("_BaseColor",Color.white);Renderer=Root.GetComponent<Renderer>();Renderer.sharedMaterial=material;
             Set(HeroFacing.South,HeroPose.Idle,0,false,false,false);
