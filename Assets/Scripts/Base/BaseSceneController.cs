@@ -177,7 +177,7 @@ namespace BaseConquest.Base
             var landmarks=new GameObject("RegionLandmarks").transform;landmarks.SetParent(regionView.Root.transform,false);
             explorationActors=new GameObject("FreeMovementActors").transform;explorationActors.SetParent(regionView.Root.transform,false);
             npcViews.Clear();
-            BaseConquest.Presentation.EnvironmentRoadEdges.Build(this,regionView.Root.transform,mapMaterial);
+            BaseConquest.Presentation.EnvironmentRoadEdges.Build(State,regionView.Board,regionView.Root.transform,regionView.ObliqueExploration);
             foreach(var obj in MapObjects.Where(o=>!o.Id.StartsWith("partner")&&(!o.Blocks||!string.IsNullOrEmpty(o.SourceObjectId)||!string.IsNullOrEmpty(o.AssetId))))
             {
                 if(!string.IsNullOrEmpty(obj.SourceObjectId)||!string.IsNullOrEmpty(obj.AssetId))

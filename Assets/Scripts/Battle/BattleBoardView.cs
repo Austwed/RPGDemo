@@ -130,6 +130,7 @@ namespace BaseConquest.Battle
             if(combat&&!CombatMode&&!preserveView){zoomFactor=1;panOffset=Vector3.zero;}
             fieldworkArt?.SetKnown(null);
             CombatMode=combat; SelectCell(null); Refresh();
+            foreach(var edge in Root.GetComponentsInChildren<BaseConquest.Presentation.EnvironmentRoadEdges>(true))edge.SetRaised(ObliqueExploration);
             foreach(var fog in fogTiles) fog.gameObject.SetActive(false);
             foreach(var tile in tiles) tile.enabled=true;
             gridKnown=null;SetGridOutlines(combat ? MapDisplayOptions.BattleGridOutlines : MapDisplayOptions.ShowGridOutlines);
