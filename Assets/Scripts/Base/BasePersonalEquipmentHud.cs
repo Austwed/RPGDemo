@@ -15,7 +15,7 @@ namespace BaseConquest.Base
         {
             if(BaseRpg.Active(owner.State)){Line(BaseRpg.GearDescription(owner.State,item)+BaseRpg.GearComparison(owner.State,item),145,18);return;}
             var d=BasePersonalEquipment.Definition(item.Template);int q=item.Quality;
-            Line("攻击 "+BasePersonalEquipment.Scale(d.Damage,q).ToString("+0.##;-0.##;0")+" · 防御 "+BasePersonalEquipment.Scale(d.Defense,q).ToString("+0.##;-0.##;0")+" · 生命 "+BasePersonalEquipment.Scale(d.Health,q).ToString("+0.##;-0.##;0")+" · 破甲 "+BasePersonalEquipment.Scale(d.Penetration,q).ToString("0.##")+" · 抵抗 "+BasePersonalEquipment.Scale(d.Resistance,q).ToString("0.##"),48,18);
+            Line("攻击 "+BasePersonalEquipment.Scale(d.Damage,q).ToString("+0.##;-0.##;0")+" · 防御 "+BasePersonalEquipment.Scale(d.Defense,q).ToString("+0.##;-0.##;0")+" · 生命 "+BasePersonalEquipment.Scale(d.Health,q).ToString("+0.##;-0.##;0"),48,18);
             Line("暴击+"+BasePersonalEquipment.Scale(d.CritChance,q).ToString("P1")+" · 暴伤+"+BasePersonalEquipment.Scale(d.CritMultiplier,q).ToString("P1")+(d.Slot=="weapon" ? " · 武器射程 "+BasePersonalEquipment.RealtimeRange(item)+"细格" : "")+" · 移动 "+BasePersonalEquipment.Scale(d.Movement,q).ToString("+0.##;-0.##;0")+"（未启用）",48,18);
         }
         private void OpenPersonalShop()

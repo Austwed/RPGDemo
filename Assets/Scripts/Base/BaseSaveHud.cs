@@ -46,7 +46,7 @@ namespace BaseConquest.Base
             RowButton("开始推荐测试",0,800,()=>owner.NewTemplate(owner.RecommendedTemplate)); row+=60;
             RowButton("开始新游戏",0,800,()=>{ BeginPanel("选择新开局"); AddTemplates(); EndPanel(); }); row+=60;
             RowButton("选项",0,800,OpenOptions);row+=60;
-            RowButton("难度规则 i",0,800,()=>RuleInfo("难度规则","新游戏默认普通难度。进入后在菜单选择简单／普通／困难；影响招募率、即死率、奖励倍率及敌军掉落。测试劝降开关使本批劝降100%成功。",OpenMainMenu)); row+=60; EndPanel();
+            RowButton("难度规则 i",0,800,()=>RuleInfo("难度规则","新游戏默认普通难度。进入后在菜单选择简单／普通／困难；目前只影响战斗伤害。",OpenMainMenu)); row+=60; EndPanel();
         }
         public void OpenGameOver()
         {
@@ -75,12 +75,11 @@ namespace BaseConquest.Base
         {
             BeginPanel("游戏难度");
             foreach(string key in new[] { "easy","normal","hard" }) { string id=key; RowButton((owner.State.Aftermath.Difficulty.Preset==id ? "● " : "")+(id=="easy" ? "简单" : id=="hard" ? "困难" : "普通"),id=="easy" ? -290 : id=="normal" ? 0 : 290,270,()=>{owner.Change(s=>s.Aftermath.Difficulty.Set(id),"难度已保存：只影响战斗伤害，下场生效");OpenDifficulty();}); } row+=66;
-            RowButton("测试劝降100%："+(owner.State.Aftermath.Difficulty.TestPersuasion ? "开启" : "关闭"),0,800,()=>{owner.Change(s=>s.Aftermath.Difficulty.TestPersuasion=!s.Aftermath.Difficulty.TestPersuasion,"已更新测试劝降");OpenDifficulty();}); row+=60;
             RowButton("返回菜单",0,800,OpenMenu); row+=60;
             var d=owner.State.Aftermath.Difficulty; bool demo=BaseRpg.Active(owner.State);
             Line("即死率："+(demo?"我方队长 ":"指挥者 ")+(d.LeaderDeath*100)+"%"+(demo?"；敌方队长基础 "+(owner.State.Demo.Rpg.EnemyLeaderDeath*100)+"%（Demo固定结果优先）；普通兵按兵力和配表计算":"／小兵 "+(d.TroopDeath*100)+"%")+"；正常劝降率 "+(d.LeaderRecruit*100)+"%／"+(d.TroopRecruit*100)+"%；任务奖励×"+d.RewardFactor+"，敌军掉落／俘获率 "+(d.DropRate*100)+"%。即死／劝降／奖励／掉落为固定值，不随难度变化。",140,19);
             if(demo)Line("战斗伤害：简单时我方攻击×2、受伤×0.5；困难时我方受伤×1.3。",52,19);
-            Line("测试劝降开启时，劝降必定成功；关闭后使用正常劝降率。主角倒地必须实际救出，其他人独自撤离不能带回主角。难度是测试预设，正式平衡后续调整。",95,18); EndPanel();
+            Line("主角倒地必须实际救出，其他人独自撤离不能带回主角。难度是测试预设，正式平衡后续调整。",95,18); EndPanel();
         }
         public void OpenPrisoners()=>OpenLoot();
     }

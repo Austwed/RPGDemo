@@ -48,7 +48,6 @@ namespace BaseConquest.Base
             },!u.IsLeader&&!u.Away&&u.Health>0&&(u.Resting||u.Health<u.MaxHealth));row+=60;
             if(u.IsLeader){RowButton("管理员安排",0,800,()=>OpenPartner(u.LeaderId),!u.Away&&u.Health>0);row+=60;}
             Line(u.Name+" · "+BattleSimulation.KindName(u.Kind),52,24);Line("生命 "+u.Health.ToString("0.#")+" / "+u.MaxHealth.ToString("0.#"),46);
-            if(!BaseRpg.Active(s))Line("破甲 "+u.Current.Penetration.ToString("0.##")+" · 抵抗 "+u.Current.Resistance.ToString("0.##"),46,19);
             if(u.IsLeader){bool following=BaseAdventure.Contains(s,u.LeaderId);RowButton(following?"人物与背包":"到基地仓库管理此人背包",0,800,()=>{gearLeader=u.LeaderId;OpenPersonalEquipment();},following);row+=56;}
             Line("当前攻击 "+u.Current.Damage.ToString("0.##")+" · 防御 "+u.Current.Defense.ToString("0.##")+"；基础攻击 "+u.Basic.Damage.ToString("0.##")+" · 防御 "+u.Basic.Defense.ToString("0.##"),62,19);
             var person=u.IsLeader?s.Leaders.Single(leader=>leader.Id==u.LeaderId):null;

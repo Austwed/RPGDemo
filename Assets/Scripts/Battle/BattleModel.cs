@@ -80,7 +80,8 @@ namespace BaseConquest.Battle
         public float ExpectedDamage => Damage * (1 + CritChance * (CritMultiplier - 1));
         public bool PersonalProfileValid => EquipmentStatsValid&&Finite(Health)&&Health>=1&&Health<=100000&&Finite(Damage)&&Damage>=0&&Finite(Defense)&&Defense>=0&&Range>=1&&Range<=12&&MoveDistance>=1&&MoveDistance<=12&&Finite(CritChance)&&CritChance>=0&&CritChance<=1&&Finite(CritMultiplier)&&CritMultiplier>=1&&CritMultiplier<=10;
         private static bool Finite(float n)=>!float.IsNaN(n)&&!float.IsInfinity(n);
-        public float EffectiveDefense(SoldierStats target) => Math.Max(0,target.Defense-Math.Max(0,Penetration-target.Resistance));
+        // 2026-11-01 用户裁决：删除破甲／抵抗收益。字段保留仅为存档兼容，不再参与任何结算。
+        public float EffectiveDefense(SoldierStats target) => Math.Max(0,target.Defense);
         public float ExpectedDamageAgainst(SoldierStats target) => CombatNumbers.Hit(this,target,ExpectedDamage);
         public SoldierStats Clone() => new SoldierStats
         {
@@ -95,7 +96,7 @@ namespace BaseConquest.Battle
         public const float DefenseK=40, MaximumMitigation=.8f;
         public static float ArmorFactor(SoldierStats attacker,SoldierStats defender)
         {
-            if(attacker==null||defender==null||!attacker.EquipmentStatsValid||!defender.EquipmentStatsValid||float.IsNaN(defender.Defense)||float.IsInfinity(defender.Defense)||defender.Defense<0)throw new ArgumentException("伤害等级／防御／穿透属性非法");
+            if(attacker==null||defender==null||!attacker.EquipmentStatsValid||!defender.EquipmentStatsValid||float.IsNaN(defender.Defense)||float.IsInfinity(defender.Defense)||defender.Defense<0)throw new ArgumentException("伤害等级／防御属性非法");
             float defense=attacker.EffectiveDefense(defender);
             return 1-MaximumMitigation*defense/(DefenseK*attacker.Level+defense);
         }

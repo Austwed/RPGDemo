@@ -58,13 +58,13 @@ namespace BaseConquest.Base
             new BasePersonalDefinition {Id="basic_spear",Name="旧长枪",Slot="weapon",Weapon="spear",Price=10},
             new BasePersonalDefinition {Id="basic_helmet",Name="布帽",Slot="helmet",Price=6},
             new BasePersonalDefinition {Id="basic_armor",Name="布甲",Slot="armor",Price=8},
-            new BasePersonalDefinition {Id="novice_sword",Name="新手短剑",Slot="weapon",Weapon="sword",Damage=6,CritChance=.02f,CritMultiplier=.1f,Penetration=2,Price=30},
-            new BasePersonalDefinition {Id="novice_bow",Name="新手短弓",Slot="weapon",Weapon="bow",Range=5,Damage=5,CritChance=.03f,CritMultiplier=.1f,Penetration=1,Price=30},
-            new BasePersonalDefinition {Id="novice_spear",Name="新手长枪",Slot="weapon",Weapon="spear",Range=2,Damage=7,CritChance=.01f,CritMultiplier=.1f,Penetration=3,Price=30},
-            new BasePersonalDefinition {Id="novice_light_helmet",Name="新手轻盔",Slot="helmet",Set="light",Damage=1,Health=5,Defense=1,Resistance=1,Movement=.1f,Price=20},
-            new BasePersonalDefinition {Id="novice_light_armor",Name="新手轻甲",Slot="armor",Set="light",Damage=2,Health=10,Defense=2,Resistance=1,Movement=.2f,Price=30},
-            new BasePersonalDefinition {Id="novice_heavy_helmet",Name="新手重盔",Slot="helmet",Set="heavy",Damage=-1,Health=10,Defense=2,Resistance=2,Movement=-.1f,Price=20},
-            new BasePersonalDefinition {Id="novice_heavy_armor",Name="新手重甲",Slot="armor",Set="heavy",Damage=-3,Health=20,Defense=4,Resistance=3,Movement=-.3f,Price=30},
+            new BasePersonalDefinition {Id="novice_sword",Name="新手短剑",Slot="weapon",Weapon="sword",Damage=6,CritChance=.02f,CritMultiplier=.1f,Price=30},
+            new BasePersonalDefinition {Id="novice_bow",Name="新手短弓",Slot="weapon",Weapon="bow",Range=5,Damage=5,CritChance=.03f,CritMultiplier=.1f,Price=30},
+            new BasePersonalDefinition {Id="novice_spear",Name="新手长枪",Slot="weapon",Weapon="spear",Range=2,Damage=7,CritChance=.01f,CritMultiplier=.1f,Price=30},
+            new BasePersonalDefinition {Id="novice_light_helmet",Name="新手轻盔",Slot="helmet",Set="light",Damage=1,Health=5,Defense=1,Movement=.1f,Price=20},
+            new BasePersonalDefinition {Id="novice_light_armor",Name="新手轻甲",Slot="armor",Set="light",Damage=2,Health=10,Defense=2,Movement=.2f,Price=30},
+            new BasePersonalDefinition {Id="novice_heavy_helmet",Name="新手重盔",Slot="helmet",Set="heavy",Damage=-1,Health=10,Defense=2,Movement=-.1f,Price=20},
+            new BasePersonalDefinition {Id="novice_heavy_armor",Name="新手重甲",Slot="armor",Set="heavy",Damage=-3,Health=20,Defense=4,Movement=-.3f,Price=30},
             new BasePersonalDefinition {Id="captains_ring",Name="队长赠予的指环",Slot="accessory",Health=5,Defense=1}
         };
         public static IEnumerable<BasePersonalDefinition> Shop=>Definitions.Where(d=>d.Price>0&&!d.Id.StartsWith("basic_"));
@@ -139,7 +139,6 @@ namespace BaseConquest.Base
                 var d=Definition(item.Template);int q=item.Quality;
                 stats.Damage+=d.Slot=="weapon"?WeaponAttack(leader,item):Scale(d.Damage,q);stats.Defense+=Scale(d.Defense,q);stats.Health+=Scale(d.Health,q);
                 stats.CritChance+=Scale(d.CritChance,q);stats.CritMultiplier+=Scale(d.CritMultiplier,q);
-                stats.Penetration+=Scale(d.Penetration,q);stats.Resistance+=Scale(d.Resistance,q);
                 if(d.Slot=="weapon"){stats.Range=WeaponRange(leader,item);stats.CombatKind=d.Weapon=="bow"?SoldierKind.Ranged:d.Weapon=="spear"?SoldierKind.Cavalry:SoldierKind.Melee;}
             }
             string set=ArmorSet(leader);

@@ -369,7 +369,6 @@ namespace BaseConquest.Battle
                     + "\n战力 " + stats.BaseBattlePower.ToString("0.#") + "（基础）"
                     + "\n射程 " + stats.Range + " · 移动 " + (unit == null ? stats.MoveDistance : b.MovementSpeed(unit)) + " · 上轮脚力 " + (unit?.LastFootwork ?? 0)
                     + "\n暴击 " + stats.CritChance.ToString("P0") + " · 暴伤 " + stats.CritMultiplier.ToString("P0")
-                    + "\n破甲 " + stats.Penetration.ToString("0.##") + " · 抵抗 " + stats.Resistance.ToString("0.##")
                     + "\n" + (unit == null ? "待部署" : b.Behavior(unit));
                 for (int i = 0; i < 4; i++) { rangeRows[i].gameObject.SetActive(commanderDetails); foreach (var button in rangeRows[i].GetComponentsInChildren<Button>()) button.interactable = owner.CanEditDetailsCommander && !owner.IsAnimating && !owner.Skipping && b.Phase != BattlePhase.Finished; }
                 foreach (var button in strategyButtons) button.gameObject.SetActive(commanderDetails);
