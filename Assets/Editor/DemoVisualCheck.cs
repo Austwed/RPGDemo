@@ -122,11 +122,14 @@ namespace BaseConquest.Editor
                     stage = "stairs";
                     break;
                 case "stairs":
-                    // 城镇 x18~19 / z7~8 是南北向阶梯（0→1→2 层），专门看一眼坡道贴图朝向。
+                    // 城镇的坡道格坐标是运行时算出来的，别写死：直接从版图上找第一个 Ramp 格再定位。
                     if (!controller.Change(s =>
                     {
-                        s.PlayerX = 18.5; s.PlayerY = 7.5;
+                        var board = s.Campaign.RegionMaps.Single(m => m.Id == "town").Board;
+                        var ramp = board.Positions().First(p => board.Cell(p).Ramp != BaseConquest.Battle.RampAxis.None);
+                        s.PlayerX = ramp.X + .5; s.PlayerY = ramp.Z + .5;
                         BaseAdventure.Arrive(s);
+                        Debug.Log("[VisualCheck] 坡道格=" + ramp.X + "," + ramp.Z);
                     }, "视觉自检：走向坡道")) { Finish(2, "移动被拒：" + controller.Message); return; }
                     stage = "stairs-settle";
                     frameDeadline = Time.frameCount + 45;
