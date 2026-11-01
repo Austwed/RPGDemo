@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using BaseConquest.Battle;
@@ -9,14 +9,20 @@ namespace BaseConquest.Base
         public int Version = 1;
         public string Preset = "normal";
         public bool TestPersuasion = true;
-        public double LeaderDeath = 0.05, TroopDeath = 0.65, LeaderRecruit = 0.2, TroopRecruit = 0.75, RewardFactor = 1, DropRate = 0.8;
+        // Demo 快速收尾阶段的裁决：难度只影响战斗伤害（含遗迹侵蚀受伤），即死率／劝降率／奖励倍率／掉落率一律与难度解耦。
+        // 下列六个字段仅为存档兼容保留，取值恒等于 Neutral* 基准（等同原 normal 档）；特殊场景仍可临时覆盖（如遗迹战把 DropRate 置 0）。
+        public const double NeutralLeaderDeath = 0.05, NeutralTroopDeath = 0.65, NeutralLeaderRecruit = 0.2, NeutralTroopRecruit = 0.75, NeutralRewardFactor = 1, NeutralDropRate = 0.8;
+        public double LeaderDeath = NeutralLeaderDeath, TroopDeath = NeutralTroopDeath, LeaderRecruit = NeutralLeaderRecruit, TroopRecruit = NeutralTroopRecruit, RewardFactor = NeutralRewardFactor, DropRate = NeutralDropRate;
         public BaseDifficulty Copy() => (BaseDifficulty)MemberwiseClone();
+        public void Neutralize()
+        {
+            LeaderDeath = NeutralLeaderDeath; TroopDeath = NeutralTroopDeath; LeaderRecruit = NeutralLeaderRecruit;
+            TroopRecruit = NeutralTroopRecruit; RewardFactor = NeutralRewardFactor; DropRate = NeutralDropRate;
+        }
         public void Set(string preset)
         {
             if (!new[] { "easy", "normal", "hard" }.Contains(preset)) throw new ArgumentException("未知难度");
-            Preset = preset; LeaderDeath = preset == "easy" ? 0.02 : preset == "hard" ? 0.1 : 0.05; TroopDeath = preset == "easy" ? 0.45 : preset == "hard" ? 0.8 : 0.65;
-            LeaderRecruit = preset == "easy" ? 0.4 : preset == "hard" ? 0.1 : 0.2; TroopRecruit = preset == "easy" ? 0.9 : preset == "hard" ? 0.5 : 0.75;
-            RewardFactor = preset == "easy" ? 1.25 : preset == "hard" ? 0.75 : 1; DropRate = preset == "easy" ? 1 : preset == "hard" ? 0.5 : 0.8;
+            Preset = preset; Neutralize();
         }
     }
     [Serializable] public sealed class BasePrisoner
@@ -42,6 +48,8 @@ namespace BaseConquest.Base
         public List<BaseLootManifest> Loot = new List<BaseLootManifest>();
         public List<BaseLostItems> LostItems=new List<BaseLostItems>();
         public BaseAftermath Copy() => new BaseAftermath { Version = Version, GameOver = GameOver, Reason = Reason, Difficulty = Difficulty.Copy(), Prisoners = Prisoners.Select(p => p.Copy()).ToList(), Loot=Loot.Select(m=>m.Copy()).ToList(),LostItems=LostItems?.Select(x=>x.Copy()).ToList() };
+        // 旧档里六个字段可能仍存着 easy/hard 的旧值；读档与每次校验前统一归位到基准，难度解耦才算真正生效。
+        public static void Normalize(BaseState s) { if (s?.Aftermath?.Difficulty != null) s.Aftermath.Difficulty.Neutralize(); }
         public static void Validate(BaseState s)
         {
             if(s.Aftermath==null || s.Aftermath.Version==0 && !s.Aftermath.GameOver && (s.Aftermath.Prisoners==null||s.Aftermath.Prisoners.Count==0)) s.Aftermath=new BaseAftermath(); var a = s.Aftermath; var d = a.Difficulty;
