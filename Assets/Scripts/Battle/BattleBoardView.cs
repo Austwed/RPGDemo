@@ -288,26 +288,20 @@ namespace BaseConquest.Battle
             }
             return set[index]??baseMat;
         }
-        // 缩放边界（2026-11-01 韦德定）：zoomFactor=1 即默认视图=棋盘刚好完整入画（16:9 下贴边），
-        // 因此最大视角（拉到最远）上限从 2 收到 1；最小视角（拉到最近）下限从 .22 提到 .3。
-        public void Zoom(float ratio,float minimum=.3f) { zoomFactor = Mathf.Clamp(zoomFactor * ratio, CombatMode ? Mathf.Max(.44f,minimum) : minimum, 1); }
+        // 缩放边界（2026-11-01 韦德定，第二版）：探索／作战／即时战共用同一套最大最小缩放。
+        // 基准取城镇探索视图——zoomFactor=1 即棋盘刚好完整入画，最小缩到 0.3 倍。
+        // 原先作战态额外把下限抬到 .44（比探索更近不了），这条特例已取消。
+        public const float MinZoomFactor=.3f;
+        public void Zoom(float ratio,float minimum=MinZoomFactor) { zoomFactor = Mathf.Clamp(zoomFactor * ratio, minimum, 1); }
         // zoomFactor=1 的默认视图即棋盘刚好完整入画；探索视图的绝对尺寸边界由此导出。
         public float FullViewSize=>Mathf.Max(board.Height*CellSize*.5f+(FlatView?.15f:2f),(board.Width*CellSize*.5f+(FlatView?.15f:1.5f))/Camera.aspect);
-        public float MinViewSize=>FullViewSize*.3f;
+        public float MinViewSize=>FullViewSize*MinZoomFactor;
+        // 统一入口：无论探索还是作战，都夹在同一组绝对边界里，并把 zoomFactor 同步成相对比例。
         public void SetViewSize(float size)
         {
-            if(CombatMode)
-            {
-                float previous=zoomFactor;
-                zoomFactor=Mathf.Clamp(zoomFactor*size/Camera.orthographicSize,.44f,1f);
-                Camera.orthographicSize*=zoomFactor/previous;
-            }
-            else
-            {
-                size=Mathf.Clamp(size,2f,16f);
-                zoomFactor*=size/Camera.orthographicSize;
-                Camera.orthographicSize=size;
-            }
+            size=Mathf.Clamp(size,MinViewSize,FullViewSize);
+            zoomFactor=Mathf.Clamp(size/FullViewSize,MinZoomFactor,1f);
+            Camera.orthographicSize=size;
         }
         public void Follow(Vector3 feet)=>ApplyPanOffset(feet);
         public void ZoomAt(float ratio,Vector2 screen)

@@ -152,7 +152,8 @@ namespace BaseConquest.Presentation
             View.UpdateCamera(312*GuiScale/Mathf.Max(1,Screen.width),0);
             float left=Mathf.Clamp(312*GuiScale/Mathf.Max(1,Screen.width),0,.4f);
             View.Camera.rect=new Rect(left,0,1-left,1);View.Camera.aspect=Mathf.Max(.1f,Screen.width*(1-left)/Mathf.Max(1,Screen.height));
-            View.Camera.orthographicSize=Mathf.Max(PrototypeArena.Height*.6f+.4f,(PrototypeArena.Width*.6f+.4f)/View.Camera.aspect);
+            // 与城镇探索视图同一套取景：棋盘刚好完整入画（原来 .6f+.4f 自成一套，比城镇更近）。
+            View.Camera.orthographicSize=Mathf.Max(PrototypeArena.Height*BattleBoardView.CellSize*.5f+.15f,(PrototypeArena.Width*BattleBoardView.CellSize*.5f+.15f)/View.Camera.aspect);
             foreach(var unit in Battle.Units)
             {
                 var pawn=pawns[unit.Id];pawn.gameObject.SetActive(unit.Alive);
