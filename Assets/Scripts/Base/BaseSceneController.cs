@@ -62,7 +62,7 @@ namespace BaseConquest.Base
         {
             if(!RuntimeDeveloperOptions.Enabled||!BaseConquest.Presentation.HomeTerrainTrial.Eligible(State)||combatController!=null)return;
             bool next=!BaseConquest.Presentation.HomeTerrainTrial.Enabled;
-            if(regionView.SetHomeTerrainTrial(next)){BaseConquest.Presentation.HomeTerrainTrial.Enabled=next;ReportMessage(next?"故乡地面候选已启用，待视觉验收":"已恢复原版故乡地面");}
+            if(regionView.SetHomeTerrainTrial(next)){BaseConquest.Presentation.HomeTerrainTrial.Enabled=next;BaseConquest.Presentation.EnvironmentRoadEdges.ApplyTrialToScene(State);ReportMessage(next?"故乡地面候选已启用，待视觉验收":"已恢复原版故乡地面");}
             else ReportMessage("故乡候选贴图尚未准备好");
         }
         private void RefreshFarmVisuals()
