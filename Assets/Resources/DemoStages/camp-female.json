@@ -76960,7 +76960,7 @@
         "AcceptedDay": 0,
         "ReleaseVersion": 1,
         "Rpg": {
-            "GenerationSeed": 941385549,
+            "GenerationSeed": 1615048403,
             "SceneRulesVersion": 1,
             "Version": 1,
             "CampLevel": 1,
@@ -77767,7 +77767,7 @@
         "Stage": 0,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "23c82277fae097461c6638295eb766a8d271915646a0d0f883236d841741a6f0",
-        "ConfigHash": "7fa27389f4158c480e4e59a529b6c1fa8d80a20b102401730ce20552a428464c",
+        "ConfigHash": "17548216002cb6c502c70bb946000314036dc84559213869f990bb0a0c412657",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
