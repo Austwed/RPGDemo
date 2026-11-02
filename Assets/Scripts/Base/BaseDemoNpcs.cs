@@ -69,11 +69,38 @@ namespace BaseConquest.Base
         // 只放游戏里真实使用的形象。cavalry 的静态图集已统一解析到 mounted-cavalry，
         // 两者再并列就是同一匹马出现两次，故只保留兵种 id。
         private static readonly string[] MotionCharacters={"ahe","archer","batu","cavalry","chenan","chief","chunshen","controller","enemy-captain","female","galan","horn","huoya","infantry","laozhou","merchant","mounted-azhu","player","villager"};
+        // 检查台的人物按「能动什么」分三类，图集决定归类，避免出现点了没反应的动作按钮：
+        // 能移动（有行走帧，通常也带攻击）、能攻击（只有攻击帧，走不了）、只能转向（只有静态四向）。
+        public static string MotionClass(string id)
+        {
+            bool walk=BaseConquest.Presentation.PixelDemoArt.Motion(id,"walk")!=null;
+            bool attack=BaseConquest.Presentation.PixelDemoArt.Motion(id,"attack")!=null;
+            return walk?"能移动 · 待机／行走／攻击":attack?"能攻击 · 待机／攻击":"只能转向 · 待机四向";
+        }
         public static BaseMapObject[] MotionChecks(BaseState state)
         {
             if(!BaseDemo.Active(state)||BaseDemoPrologue.Village(state)||state.Campaign.Location!="base")return Array.Empty<BaseMapObject>();
-            bool oldLayout=BaseSpatial.Layout(state,"base")?.Objects.Any(o=>o.Id=="farm"&&o.Y<7)==true;
-            return MotionCharacters.Select((id,n)=>new BaseMapObject("motion-check:"+id,id,oldLayout?7.5+(n%7)*1.5:2+(n%7)*3,1.5+(n/7)*2,.5,.5,false,"motion-check:"+id,id,"npc")).ToArray();
+            var turnOnly=new List<string>();var walkable=new List<string>();var attackerOnly=new List<string>();
+            foreach(string id in MotionCharacters)
+            {
+                bool walk=BaseConquest.Presentation.PixelDemoArt.Motion(id,"walk")!=null;
+                bool attack=BaseConquest.Presentation.PixelDemoArt.Motion(id,"attack")!=null;
+                if(walk)walkable.Add(id);else if(attack)attackerOnly.Add(id);else turnOnly.Add(id);
+            }
+            // 两排：第一排「只能转向」+「能移动」，第二排「能攻击」。排内间距 1.75，组间留空一档。
+            var rows=new List<BaseMapObject>();
+            double x=1.8;
+            void Place(string id,double y,double step)
+            {
+                rows.Add(new BaseMapObject("motion-check:"+id,id,x,y,.5,.5,false,"motion-check:"+id,id,"npc"));
+                x+=step;
+            }
+            foreach(string id in turnOnly)Place(id,1.6,1.75);
+            x+=.9;
+            foreach(string id in walkable)Place(id,1.6,1.75);
+            x=1.8;
+            foreach(string id in attackerOnly)Place(id,4.8,1.9);
+            return rows.ToArray();
         }
         public static IEnumerable<BaseMapObject> CampResidentsCompat(BaseState state,string region)
         {

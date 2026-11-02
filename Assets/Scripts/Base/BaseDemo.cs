@@ -21,6 +21,8 @@ namespace BaseConquest.Base
         public BaseRescueJourney Rescue;
         public List<BaseTerrainMemory> TerrainMemories=new List<BaseTerrainMemory>();
         public int EnvironmentVersion;
+        // 营地布局版本：地图布局随存档序列化，改坐标只影响新档。旧档读入时按这个版本做一次性迁移。
+        public int CampLayoutVersion;
         public int RuinsVersion, RuinsDay, DeliveredDay;
         public List<BaseLeader> Candidates=new List<BaseLeader>();
         public List<string> MetCompanions=new List<string>();
@@ -35,7 +37,7 @@ namespace BaseConquest.Base
         public List<BaseDemoDesignMap> ReleaseMaps=new List<BaseDemoDesignMap>();
         public List<BaseLeader> SceneFollowers=new List<BaseLeader>();
         public List<string> Evidence = new List<string>();
-        public BaseDemoProgress Copy() => new BaseDemoProgress { Flow=Flow?.Copy(),EnvironmentVersion=EnvironmentVersion,Rpg=Rpg?.Copy(),Version=Version,ReleaseVersion=ReleaseVersion, WakeDay=WakeDay, AcceptedDay=AcceptedDay, Stage=Stage, TerrainMemories=TerrainMemories?.Select(m=>m.Copy()).ToList(),Rescue=Rescue?.Copy(),Intro=Intro?.Copy(),BalanceSource=BalanceSource, BalanceHash=BalanceHash,ConfigHash=ConfigHash, Evidence=Evidence?.ToList(),PrologueVersion=PrologueVersion,PrologueAttempts=PrologueAttempts,PrologueCompleted=PrologueCompleted,AzhuInvitationSeen=AzhuInvitationSeen,SceneFollowers=SceneFollowers?.Select(person=>person.Copy()).ToList(),RuinsVersion=RuinsVersion,RuinsDay=RuinsDay,DeliveredDay=DeliveredDay,Candidates=Candidates?.Select(person=>person.Copy()).ToList(),MetCompanions=MetCompanions?.ToList(),RuinsArmy=RuinsArmy?.Clone(),RuinsReward=RuinsReward?.Copy(),Defense=Defense?.Copy(),Finale=Finale?.Copy(),Encounters=Encounters?.Copy(),TacticalRules=TacticalRules?.Copy(),RuinsRewards=RuinsRewards?.Copy(),ReleaseMaps=(ReleaseMaps??new List<BaseDemoDesignMap>()).Select(m=>m.Copy()).ToList() };
+        public BaseDemoProgress Copy() => new BaseDemoProgress { Flow=Flow?.Copy(),EnvironmentVersion=EnvironmentVersion,CampLayoutVersion=CampLayoutVersion,Rpg=Rpg?.Copy(),Version=Version,ReleaseVersion=ReleaseVersion, WakeDay=WakeDay, AcceptedDay=AcceptedDay, Stage=Stage, TerrainMemories=TerrainMemories?.Select(m=>m.Copy()).ToList(),Rescue=Rescue?.Copy(),Intro=Intro?.Copy(),BalanceSource=BalanceSource, BalanceHash=BalanceHash,ConfigHash=ConfigHash, Evidence=Evidence?.ToList(),PrologueVersion=PrologueVersion,PrologueAttempts=PrologueAttempts,PrologueCompleted=PrologueCompleted,AzhuInvitationSeen=AzhuInvitationSeen,SceneFollowers=SceneFollowers?.Select(person=>person.Copy()).ToList(),RuinsVersion=RuinsVersion,RuinsDay=RuinsDay,DeliveredDay=DeliveredDay,Candidates=Candidates?.Select(person=>person.Copy()).ToList(),MetCompanions=MetCompanions?.ToList(),RuinsArmy=RuinsArmy?.Clone(),RuinsReward=RuinsReward?.Copy(),Defense=Defense?.Copy(),Finale=Finale?.Copy(),Encounters=Encounters?.Copy(),TacticalRules=TacticalRules?.Copy(),RuinsRewards=RuinsRewards?.Copy(),ReleaseMaps=(ReleaseMaps??new List<BaseDemoDesignMap>()).Select(m=>m.Copy()).ToList() };
     }
 
     public static class BaseDemo
@@ -136,20 +138,58 @@ namespace BaseConquest.Base
             if(BaseDemoRelease.Enabled(state))BaseDemoRelease.Install(state);
             BaseSceneRules.Install(state);if(state.Demo.EnvironmentVersion>0)BaseEnvironment.Install(state,true);
             state.PlayerX=state.Campaign.BaseX=4;state.PlayerY=state.Campaign.BaseY=8.8;
+            if(state.Demo!=null)state.Demo.CampLayoutVersion=1;
         }
 
         private static BaseMapPlacement Placement(string id,string name,double x,double y,double width,double height,string asset,bool locked=false) => new BaseMapPlacement {Id=id,Name=name,X=x,Y=y,Width=width,Height=height,Blocks=true,SourceObjectId="demo:"+id,AssetId=asset,Kind="facility",VisualOnly=locked};
         private static void InstallCampHeights(BaseState state)
         {
-            var board=state.Campaign.RegionMaps.Single(map=>map.Id=="base").Board;
+            var map=state.Campaign.RegionMaps.FirstOrDefault(entry=>entry.Id=="base");if(map==null)return;
+            var board=map.Board;
+            // 旧档可能残留上一版台面：先把这片区域压平再重建，避免重复调用叠出孤立高格。
+            for(int z=6;z<=13;z++)for(int x=9;x<=18;x++){var stale=board.Cell(new GridPosition(x,z));stale.Elevation=0;stale.Ramp=RampAxis.None;}
             // 台面 x11~16 × z8~12，兵营(12,9) 4×2.6 完整落在其中，四边各余一格；
-            // 四个方向的斜坡都放在台面外侧，且避开 farm(x5~10) 与 workshop(x18~22) 的占地。
+            // 四个方向的斜坡都放在台面外侧，且避开 farm(x5~9) 与 workshop(x18~22) 的占地。
             for(int z=8;z<=12;z++)for(int x=11;x<=16;x++)board.Cell(new GridPosition(x,z)).Elevation=1;
             void Stair(int x,int z,RampAxis axis){var cell=board.Cell(new GridPosition(x,z));cell.Elevation=1;cell.Ramp=axis;cell.Surface=GroundSurface.Road;}
             Stair(13,7,RampAxis.NorthSouth);Stair(14,7,RampAxis.NorthSouth);
             Stair(13,13,RampAxis.NorthSouth);Stair(14,13,RampAxis.NorthSouth);
             Stair(10,9,RampAxis.EastWest);Stair(10,10,RampAxis.EastWest);
             Stair(17,9,RampAxis.EastWest);Stair(17,10,RampAxis.EastWest);
+        }
+        // 旧档布局迁移：地图布局随存档序列化，改坐标只影响新档。这里把营地设施拉回当前标准位置、
+        // 清掉已废弃的场景摆件、重装高台，旧档不必重开就能看到新布局。
+        public static void EnsureCampLayout(BaseState state)
+        {
+            if(state?.Demo==null||state.Campaign?.Layouts==null)return;
+            if(state.Demo.CampLayoutVersion>=1)return;
+            var camp=state.Campaign.Layouts.FirstOrDefault(map=>map.Region=="base");
+            if(camp!=null)
+            {
+                void Move(string id,double x,double y,double w,double h)
+                {
+                    var placement=camp.Objects.FirstOrDefault(o=>o.Id==id);if(placement==null)return;
+                    placement.X=x;placement.Y=y;placement.Width=w;placement.Height=h;
+                }
+                // 设施一律排进地图上半区（Y≥9），下半区整块留给美术检查台。
+                Move("home",2,10.5,3,2);
+                Move("farm",5,9,5,3);
+                Move("workshop",18,10,4,3);
+                Move("barracks",12,9,4,2.6);
+                // 营帐里的长剑摆件已并入剧情物品（老周当面交付长剑），场景里的那支撤掉。
+                camp.Objects.RemoveAll(o=>o.Id=="demo_long_sword");
+                // 迎敌战场入口移到左侧边缘正中，和东侧「拜访领主」同一高度。
+                var exit=camp.Objects.FirstOrDefault(o=>o.Id=="demo_defense_exit");
+                if(exit!=null)exit.Y=6.5;
+                // 修复提示牌挂在设施下方，设施挪了它也得跟着挪。
+                foreach(string id in new[]{"workshop","barracks"})
+                {
+                    var marker=camp.Objects.FirstOrDefault(o=>o.Id=="demo_fix_"+id);var facility=camp.Objects.FirstOrDefault(o=>o.Id==id);
+                    if(marker!=null&&facility!=null){marker.X=facility.X;marker.Y=facility.Y-facility.Height/2-.4;}
+                }
+            }
+            InstallCampHeights(state);
+            state.Demo.CampLayoutVersion=1;
         }
         private static void InstallTownHeights(BaseState state)
         {

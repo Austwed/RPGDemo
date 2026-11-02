@@ -21,9 +21,18 @@ namespace BaseConquest.Base
         public string FacilityId, Name, Administrator, Workers, Production, Status;
         public static BaseFacilityInfo Read(BaseState state, string id)
         {
-            var obj = BaseSpatial.Objects(state).FirstOrDefault(o => o.Id == id && !o.Id.StartsWith("partner"));
-            if (obj == null) throw new ArgumentException("未知设施");
+            // 美术检查台的人偶不在存档布局里，只在运行时注入；这里一并认，否则会被当成未知设施抛异常。
+            var obj = BaseSpatial.Objects(state).FirstOrDefault(o => o.Id == id && !o.Id.StartsWith("partner"))
+                ?? BaseDemoNpcs.MotionChecks(state).FirstOrDefault(o => o.Id == id);
+            if (obj == null) return new BaseFacilityInfo { FacilityId = id, Name = id, Administrator = "", Workers = "", Production = "", Status = "场景对象 · 无可用交互" };
             var info = new BaseFacilityInfo { FacilityId = id, Name = obj.Name, Administrator = "", Workers = "", Production = "", Status = "" };
+            if (id.StartsWith("motion-check:"))
+            {
+                string figure = id.Substring("motion-check:".Length);
+                info.Production = "美术测试人偶 · " + BaseDemoNpcs.MotionClass(figure) + "\n角色图集：" + figure;
+                info.Status = "靠近后点选即可循环播放动作；只用于检查美术，不参与任务与存档校验";
+                return info;
+            }
             if (id.StartsWith("exit_")) { info.Production = id == "exit_west" ? "前往基地外围迎敌战场" : id == "exit_east" ? "前往城镇" : id == "exit_south" ? "前往世界地图并选择敌点进攻" : "北侧预留"; info.Status = "接近入口后交互"; return info; }
             if (id == "government") { info.Production = "统一管理设施管理员、工人和仓库"; info.Status = "接近管理所后交互，进入全局管理"; return info; }
             if (id == "home") { info.Production = "休息一天：结算生产，推进至下一天"; info.Status = "第" + state.Day + "天 · " + (state.TodayFoodMissing > 0 ? "今天缺粮" : "今天口粮充足"); return info; }
