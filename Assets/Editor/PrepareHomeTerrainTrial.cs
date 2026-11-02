@@ -21,7 +21,7 @@ namespace BaseConquest.Editor
                 var normalized=new Texture2D(64,64,TextureFormat.RGBA32,false);
                 try
                 {
-                    if(!source.LoadImage(File.ReadAllBytes(Path.Combine("..","资源素材","地形样板","故乡试点_2026-11-01",pair.Source))))throw new InvalidOperationException("无法加载GPT原图");
+                    if(!source.LoadImage(File.ReadAllBytes(Path.Combine("..","资源素材","现役","场景","素材_地形-故乡试点-2026-11-01",pair.Source))))throw new InvalidOperationException("无法加载GPT原图");
                     var pixels=source.GetPixels32();var target=new Color32[4096];
                     for(int y=0;y<64;y++)for(int x=0;x<64;x++)
                     {
