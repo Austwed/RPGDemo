@@ -16,7 +16,7 @@ namespace BaseConquest.Presentation
         private static readonly System.Collections.Generic.Dictionary<string,float> ArtHeight=new System.Collections.Generic.Dictionary<string,float>
         {
             { "ahe|v1", 56f }, { "ahe|walk", 56f }, { "ahe|attack", 56f },
-            { "archer|v1", 51f }, { "archer|attack", 55f },
+            { "archer|v1", 51f }, { "archer|attack", 55f }, { "archer|walk", 55f },
             { "batu|v1", 57f }, { "batu|walk", 56f }, { "batu|attack", 56f },
             { "cavalry|v1", 48f }, { "cavalry|attack", 42f },
             { "mounted-cavalry|v1", 49f }, { "mounted-cavalry|idle", 57f }, { "mounted-cavalry|walk", 56f }, { "mounted-cavalry|attack", 53f },
@@ -25,12 +25,12 @@ namespace BaseConquest.Presentation
             { "chief|v1", 55f }, { "chief|idle", 56f }, { "chief|walk", 56f },
             { "chenan|v1", 52f }, { "chenan|attack", 51f },
             { "chunshen|v1", 56f },
-            { "enemy-captain|v1", 55f }, { "enemy-captain|attack", 51f },
+            { "enemy-captain|v1", 55f }, { "enemy-captain|attack", 51f }, { "enemy-captain|walk", 55f },
             { "female|v1", 56f }, { "female|idle", 56f }, { "female|walk", 56f }, { "female|attack", 56f },
             { "galan|v1", 56f }, { "galan|walk", 56f }, { "galan|attack", 55f },
             { "horn|v1", 56f },
             { "huoya|v1", 56f }, { "huoya|walk", 56f }, { "huoya|attack", 55f },
-            { "infantry|v1", 53f }, { "infantry|attack", 49f },
+            { "infantry|v1", 53f }, { "infantry|attack", 49f }, { "infantry|walk", 51f },
             { "laozhou|v1", 56f }, { "merchant|v1", 56f }, { "merchant|walk", 56f },
             { "player|v1", 56f }, { "player|walk", 56f }, { "player|attack", 55f },
             { "villager|v1", 50f }, { "villager|attack", 55f },
