@@ -99,7 +99,9 @@ namespace BaseConquest.Base
             double x=1.8;
             void Place(string id,double y,double step)
             {
-                rows.Add(new BaseMapObject("motion-check:"+id,MotionFigureName(id),x,y,.5,.5,false,"motion-check:"+id,MotionFigureName(id),"npc"));
+                // 第 9 参是 assetId＝图集加载用的 id，必须保持角色 id；陈列名只进 Name（名牌与面板显示），
+                // 传错会把 Resources.Load("巴图") 之类打空，人偶全体落占位符（2026-11-02 踩过）。
+                rows.Add(new BaseMapObject("motion-check:"+id,MotionFigureName(id),x,y,.5,.5,false,"motion-check:"+id,id,"npc"));
                 x+=step;
             }
             foreach(string id in MotionSoldiers)Place(id,1.6,BaseConquest.Presentation.PixelDemoArt.Mounted(id)?2.8:2.0);
