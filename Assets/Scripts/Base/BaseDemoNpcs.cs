@@ -83,7 +83,7 @@ namespace BaseConquest.Base
             "chief"=>"大当家","chunshen"=>BaseScriptNames.ChunShen,"female"=>"女主角",
             "galan"=>BaseScriptNames.Galan,"horn"=>BaseScriptNames.Lord,"huoya"=>BaseScriptNames.Huoya,
             "rider"=>"骑兵","laozhou"=>BaseScriptNames.LaoZhou,"merchant"=>"行商","mounted-azhu"=>"阿铸",
-            "player"=>"男主角","villager"=>"百姓","_"=>id
+            "player"=>"男主角","villager"=>"百姓",_=>id
         };
         // 分类说明：类别是设定口径（角色/士兵/NPC），后半段是该图集实测能播什么，两者并列便于发现缺件。
         public static string MotionClass(string id)

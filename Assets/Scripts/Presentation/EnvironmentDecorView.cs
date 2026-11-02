@@ -121,7 +121,7 @@ namespace BaseConquest.Presentation
         }
         public static void ApplyTrialToScene(BaseState state)
         {
-            foreach(var edge in UnityEngine.Object.FindObjectsByType<EnvironmentRoadEdges>(FindObjectsSortMode.None))edge.ApplyTrial(state);
+            foreach(var edge in UnityEngine.Object.FindObjectsByType<EnvironmentRoadEdges>())edge.ApplyTrial(state);
         }
         private void OnDestroy(){if(materials!=null)foreach(var material in materials)BattleBoardView.DestroyObject(material);BattleBoardView.DestroyObject(mesh);}
     }
