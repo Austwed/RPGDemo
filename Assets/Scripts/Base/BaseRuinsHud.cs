@@ -17,8 +17,8 @@ namespace BaseConquest.Base
         }
         public void OpenRuinsConfrontation(Action proceed)
         {
-            NpcDialogue(new[]{new NpcLine("迦兰","controller","别伤他们！我用魂丝护住了他们，才让他们撑到现在。"),
-                new NpcLine("迦兰","controller","我若松开魂丝，瘴气立刻会要他们的命。"),
+            NpcDialogue(new[]{new NpcLine("迦兰","galan","别伤他们！我用魂丝护住了他们，才让他们撑到现在。"),
+                new NpcLine("迦兰","galan","我若松开魂丝，瘴气立刻会要他们的命。"),
                 new NpcLine("你","","先想办法制住他。不要伤到村民。",true)},
                 new[]{new NpcReply("准备交战",proceed),new NpcReply("暂不交战",ClosePanel)});
         }

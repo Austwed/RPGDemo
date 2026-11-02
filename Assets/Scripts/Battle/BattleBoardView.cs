@@ -60,14 +60,6 @@ namespace BaseConquest.Battle
         private readonly Material baseGrassMaterial,baseRaisedGrassMaterial,baseRaisedRoadMaterial,baseCliffMaterial,baseStairMaterial;
         // 坡道按真实朝向取楼梯贴图：通用的 stair-64-v1 是竖条纹木板、不是楼梯，正斜坡因此整片错。
         private readonly System.Collections.Generic.Dictionary<string,Material> stairSkins=new System.Collections.Generic.Dictionary<string,Material>();
-        // 楼梯贴图自带两侧石栏，两格并排会拼成「好几座楼梯」。同一段坡道只让最边上一列画楼梯，
-        // 其余格按同级路面渲染：寻路宽度不变，视觉上只剩一道梯。
-        private bool StairLead(GridPosition p)
-        {
-            var cell=board.Cell(p);if(cell==null||cell.Ramp==RampAxis.None)return false;
-            var inner=cell.Ramp==RampAxis.EastWest ? board.Cell(new GridPosition(p.X,p.Z-1)) : board.Cell(new GridPosition(p.X-1,p.Z));
-            return inner==null||inner.Ramp!=cell.Ramp||inner.Elevation!=cell.Elevation;
-        }
         private Material StairSkin(GridPosition p)
         {
             var cell=board.Cell(p);if(cell==null||cell.Ramp==RampAxis.None)return baseStairMaterial;
@@ -455,7 +447,7 @@ namespace BaseConquest.Battle
                 if(ObliqueExploration&&cell.Terrain==TerrainKind.Ground&&(cell.Elevation>0||cell.Ramp!=RampAxis.None))
                 {
                     var surface=GroundSurfaceRules.Resolve(cell.Surface,surfaceRegion,p.X,p.Z);
-                    var topMaterial=cell.Ramp!=RampAxis.None&&baseStairMaterial!=null&&StairLead(p) ? StairSkin(p) : surface==GroundSurface.Road&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : (surface==GroundSurface.Grass||surface==GroundSurface.Default)&&baseRaisedGrassMaterial!=null ? GrassVariant(baseRaisedGrassMaterial,p.X,p.Z) : tile.sharedMaterial;
+                    var topMaterial=cell.Ramp!=RampAxis.None&&baseStairMaterial!=null ? StairSkin(p) : surface==GroundSurface.Road&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : (surface==GroundSurface.Grass||surface==GroundSurface.Default)&&baseRaisedGrassMaterial!=null ? GrassVariant(baseRaisedGrassMaterial,p.X,p.Z) : tile.sharedMaterial;
                     raisedMeshes[index]=BaseConquest.Presentation.BaseTerrainView.Ground(board,p);
                     tile.GetComponent<MeshFilter>().sharedMesh=raisedMeshes[index];
                     tile.sharedMaterials=new[]{topMaterial,baseCliffMaterial??wallMaterial};

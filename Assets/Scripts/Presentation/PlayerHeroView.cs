@@ -18,6 +18,7 @@ namespace BaseConquest.Presentation
         private Vector3 previous;
         private bool hasPrevious,wasDown;
         private float downProgress;
+        private double downShownAt=double.NaN;
         private double realtimeDownAt=double.NaN;
         private bool realtimeObserved;
         public HeroFacing Facing {get;private set;}=HeroFacing.South;
@@ -57,7 +58,12 @@ namespace BaseConquest.Presentation
             bool down=unit.IsDowned||!unit.IsAlive;if(down&&!wasDown)downProgress=0;if(down)downProgress=Mathf.Max(downProgress,progress);wasDown=down;
             bool hit=BattleSoldier.DamageFlashVisible(unit.LastDamageTaken,progress);
             var pose=down ? HeroPose.Down : unit.LastDamageTaken>0&&progress>=.85f&&progress<1 ? HeroPose.Hurt : unit.LastAction==RoundAction.Move&&progress<1 ? HeroPose.Walk : (unit.LastAction==RoundAction.Attack||unit.LastAction==RoundAction.Skill)&&progress<1 ? HeroPose.Attack : HeroPose.Idle;
-            double time=down ? carried ? 1 : Mathf.Max(0,downProgress-.75f)*2 : pose==HeroPose.Hurt ? Mathf.Clamp01((progress-.85f)/.15f)*.249 : pose==HeroPose.Attack ? progress : pose==HeroPose.Walk ? progress*Mathf.Max(1,unit.LastMovePath.Count-1)*.5 : Time.unscaledTime;
+            // 倒地贴图按真实时间播完一遍倒地动画后定格在最后一列（完全躺平），不随回合进度回退；
+            // 原 downProgress 映射上限 0.5，8 列图集只播到第 5 帧，人还悬在半倒姿势。
+            if(pose==HeroPose.Down){if(double.IsNaN(downShownAt))downShownAt=Time.unscaledTimeAsDouble;}
+            else downShownAt=double.NaN;
+            double downTime=double.IsNaN(downShownAt)?0:System.Math.Min(1,(Time.unscaledTimeAsDouble-downShownAt)/.8);
+            double time=down ? carried ? 1 : downTime : pose==HeroPose.Hurt ? Mathf.Clamp01((progress-.85f)/.15f)*.249 : pose==HeroPose.Attack ? progress : pose==HeroPose.Walk ? progress*Mathf.Max(1,unit.LastMovePath.Count-1)*.5 : Time.unscaledTime;
             Set(pose,time,hit,carried);
         }
         public void Realtime(BaseConquest.RealtimePrototype.PrototypeUnit actor,double seconds)

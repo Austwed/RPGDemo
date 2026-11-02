@@ -22,6 +22,7 @@ namespace BaseConquest.Presentation
         private double distance;
         private double realtimeDownAt=double.NaN;
         private bool realtimeObserved;
+        private double battleDownAt=double.NaN;
         private HeroFacing facing=HeroFacing.South;
         private HeroFacing defaultFacing=HeroFacing.South;
         private double lookUntil;
@@ -96,7 +97,11 @@ namespace BaseConquest.Presentation
                 var a=unit.LastMovePath[step];var b=unit.LastMovePath[step+1];facing=PlayerHeroFrames.Face(b.X-a.X,b.Z-a.Z,facing);
             }
             var pose=unit.IsDowned||!unit.IsAlive ? HeroPose.Down : unit.LastAction==RoundAction.Move&&progress<1 ? HeroPose.Walk : (unit.LastAction==RoundAction.Attack||unit.LastAction==RoundAction.Skill)&&progress<1 ? HeroPose.Attack : HeroPose.Idle;
-            Set(pose,progress*Mathf.Max(1,unit.LastMovePath.Count-1)*.5,BattleSoldier.DamageFlashVisible(unit.LastDamageTaken,progress),carried,unit.CombatKind==SoldierKind.Cavalry);
+            // 倒地贴图按真实时间播完一遍倒地动画后定格在最后一列（完全躺平），不随回合进度回退。
+            if(pose==HeroPose.Down){if(double.IsNaN(battleDownAt))battleDownAt=Time.unscaledTimeAsDouble;}
+            else battleDownAt=double.NaN;
+            var time=pose==HeroPose.Down?double.IsNaN(battleDownAt)?0:System.Math.Min(1,(Time.unscaledTimeAsDouble-battleDownAt)/.8):progress*Mathf.Max(1,unit.LastMovePath.Count-1)*.5;
+            Set(pose,time,BattleSoldier.DamageFlashVisible(unit.LastDamageTaken,progress),carried,unit.CombatKind==SoldierKind.Cavalry);
         }
         public void Realtime(BaseConquest.RealtimePrototype.PrototypeUnit actor,double seconds,bool mounted)
         {

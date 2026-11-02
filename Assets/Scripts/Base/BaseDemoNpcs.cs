@@ -66,11 +66,23 @@ namespace BaseConquest.Base
         public static BaseMapPlacement[] CampResidents()=>new[]{new BaseMapPlacement {Id="demo_rescuer",Name=BaseScriptNames.LaoZhou,X=4.8,Y=8.2,Width=.5,Height=.5,SourceObjectId="demo-npc:rescuer",AssetId="laozhou",Kind="npc"},new BaseMapPlacement {Id="demo_chunshen",Name=BaseScriptNames.ChunShen,X=2.8,Y=8.2,Width=.5,Height=.5,SourceObjectId="demo-npc:chunshen",AssetId="chunshen",Kind="npc"}};
         // 只列检查用得上的形象：horse 是骑乘图集的部件、没有独立消费者；azhu 恒为骑乘态，
         // 与 mounted-azhu 显示同一张图，留着会在检查台出现两个阿铸。
-        // 只放游戏里真实使用的形象。cavalry 的静态图集已统一解析到 mounted-cavalry，
-        // 两者再并列就是同一匹马出现两次，故只保留兵种 id。
-        private static readonly string[] MotionCharacters={"ahe","archer","batu","cavalry","chenan","chief","chunshen","controller","enemy-captain","female","galan","horn","huoya","infantry","laozhou","merchant","mounted-azhu","player","villager"};
-        // 检查台的人物按「能动什么」分三类，图集决定归类，避免出现点了没反应的动作按钮：
-        // 能移动（有行走帧，通常也带攻击）、能攻击（只有攻击帧，走不了）、只能转向（只有静态四向）。
+        // controller 是旧版迦兰（文案定稿前的占位形象），已被 galan 取代，2026-11-02 移除。
+        // cavalry 的静态图集已统一解析到 mounted-cavalry，两者再并列就是同一匹马出现两次，
+        // 故只保留兵种 id。chenan 是老铁匠巴隆的占位形象（town_blacksmith 在用），保留并按真名陈列。
+        // 检查台按身份分三类陈列：士兵类（兵种单位）、角色类（剧情人物）、NPC类（平民与镇民）。
+        private static readonly string[] MotionSoldiers={"archer","cavalry","enemy-captain","infantry"};
+        private static readonly string[] MotionCast={"ahe","batu","chief","female","galan","huoya","mounted-azhu","player"};
+        private static readonly string[] MotionNpcs={"chenan","chunshen","horn","laozhou","merchant","villager"};
+        // 陈列名与图集 id 分离：占位形象按其饰演的角色称呼，便于核对。
+        private static string MotionFigureName(string id)=>id switch
+        {
+            "ahe"=>"阿禾","archer"=>"弓兵","batu"=>"巴图","cavalry"=>"骑兵","chenan"=>BaseScriptNames.Blacksmith,
+            "chief"=>"大当家","chunshen"=>BaseScriptNames.ChunShen,"enemy-captain"=>"敌军队长","female"=>"女主角",
+            "galan"=>BaseScriptNames.Galan,"horn"=>BaseScriptNames.Lord,"huoya"=>BaseScriptNames.Huoya,
+            "infantry"=>"步兵","laozhou"=>BaseScriptNames.LaoZhou,"merchant"=>"行商","mounted-azhu"=>"阿铸",
+            "player"=>"男主角","villager"=>"百姓","_"=>id
+        };
+        // 动作能力描述只说明该形象能动什么，按钮仍按图集能力动态生成，不会出现点了没反应的按钮。
         public static string MotionClass(string id)
         {
             bool walk=BaseConquest.Presentation.PixelDemoArt.Motion(id,"walk")!=null;
@@ -80,28 +92,21 @@ namespace BaseConquest.Base
         public static BaseMapObject[] MotionChecks(BaseState state)
         {
             if(!BaseDemo.Active(state)||BaseDemoPrologue.Village(state)||state.Campaign.Location!="base")return Array.Empty<BaseMapObject>();
-            var turnOnly=new List<string>();var walkable=new List<string>();var attackerOnly=new List<string>();
-            foreach(string id in MotionCharacters)
-            {
-                bool walk=BaseConquest.Presentation.PixelDemoArt.Motion(id,"walk")!=null;
-                bool attack=BaseConquest.Presentation.PixelDemoArt.Motion(id,"attack")!=null;
-                if(walk)walkable.Add(id);else if(attack)attackerOnly.Add(id);else turnOnly.Add(id);
-            }
-            // 两排：第一排「能移动」、第二排「能攻击」+「只能转向」。
+            // 三排：士兵类、角色类、NPC类。
             // 步长按实际横向占位分配：骑乘 64px×1.45 约 2.5 单位，给 2.8；其余 2.0。
             // 固定步长会在骑乘多的那排顶出地图右边界（10 人×2.6 = 25.2 > 24）。
             var rows=new List<BaseMapObject>();
             double x=1.8;
             void Place(string id,double y,double step)
             {
-                rows.Add(new BaseMapObject("motion-check:"+id,id,x,y,.5,.5,false,"motion-check:"+id,id,"npc"));
+                rows.Add(new BaseMapObject("motion-check:"+id,MotionFigureName(id),x,y,.5,.5,false,"motion-check:"+id,MotionFigureName(id),"npc"));
                 x+=step;
             }
-            foreach(string id in walkable)Place(id,1.6,BaseConquest.Presentation.PixelDemoArt.Mounted(id)?2.8:2.0);
+            foreach(string id in MotionSoldiers)Place(id,1.6,BaseConquest.Presentation.PixelDemoArt.Mounted(id)?2.8:2.0);
             x=1.8;
-            foreach(string id in attackerOnly)Place(id,4.8,2.0);
-            x+=1.2;
-            foreach(string id in turnOnly)Place(id,4.8,2.0);
+            foreach(string id in MotionCast)Place(id,4.4,BaseConquest.Presentation.PixelDemoArt.Mounted(id)?2.8:2.0);
+            x=1.8;
+            foreach(string id in MotionNpcs)Place(id,7.2,2.0);
             return rows.ToArray();
         }
         public static IEnumerable<BaseMapObject> CampResidentsCompat(BaseState state,string region)

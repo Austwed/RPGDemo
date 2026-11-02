@@ -188,7 +188,8 @@ namespace BaseConquest.Battle
             if(main)EnablePlayerHero(string.IsNullOrEmpty(soldier.AppearanceId)?"player":soldier.AppearanceId);
             else if(soldier.Kind==SoldierKind.Hero)EnableCompanion(string.IsNullOrEmpty(soldier.AppearanceId)?soldier.Side==BattleSide.B?"enemy-captain":"chenan":soldier.AppearanceId);
             var carrier = battle.Soldier(soldier.CarriedById >= 0 ? soldier.CarriedById : soldier.EscapeCarrierId); bool carried = carrier != null && (carrier.IsActive || carrier.Escaped && carrier.LastAction == RoundAction.Move && progress < 1);
-            transform.gameObject.SetActive((soldier.IsAlive || soldier.Kind == SoldierKind.Hero) && (!soldier.Escaped || (soldier.LastAction == RoundAction.Move || carried) && progress < 1) && (soldier.CarriedById < 0 || carried));
+            // 倒地（可救援）保持倒地贴图不离场；即死单位在倒地后直接消失，不再留尸体。
+            transform.gameObject.SetActive((soldier.IsAlive || soldier.Kind == SoldierKind.Hero) && !soldier.InstantDead && (!soldier.Escaped || (soldier.LastAction == RoundAction.Move || carried) && progress < 1) && (soldier.CarriedById < 0 || carried));
             transform.position = carried ? PresentedPosition(battle, carrier, progress) + new Vector3(0, 0.5f, 0.04f) : PresentedPosition(battle, soldier, progress);
             if (soldier.LastAction == RoundAction.Attack && soldier.CombatKind != SoldierKind.Ranged && progress < 1)
             {
@@ -251,7 +252,7 @@ namespace BaseConquest.Battle
         {
             var carrier = battle.Soldier(soldier.CarriedById >= 0 ? soldier.CarriedById : soldier.EscapeCarrierId); bool carried = carrier != null && (carrier.IsActive || carrier.Escaped && carrier.LastAction == RoundAction.Move && progress < 1);
             bool reveal = battle.PlayerCanSee(observer, carried ? carrier : soldier);
-            gameObject.SetActive((soldier.IsAlive || soldier.Kind == SoldierKind.Hero) && (!soldier.Escaped || (soldier.LastAction == RoundAction.Move || carried) && progress < 1) && (soldier.CarriedById < 0 || carried) && reveal); float alpha = 1; // 半透明遮挡统一由位于地形／单位上方的雾层提供。
+            gameObject.SetActive((soldier.IsAlive || soldier.Kind == SoldierKind.Hero) && !soldier.InstantDead && (!soldier.Escaped || (soldier.LastAction == RoundAction.Move || carried) && progress < 1) && (soldier.CarriedById < 0 || carried) && reveal); float alpha = 1; // 半透明遮挡统一由位于地形／单位上方的雾层提供。
             foreach (var r in GetComponentsInChildren<Renderer>())
             {
                 if (r is LineRenderer) continue;

@@ -23,6 +23,15 @@ namespace BaseConquest.Editor
         private static bool failed;
         private static double nextLog;
 
+        private static bool campMode;
+
+        public static void CaptureCamp()
+        {
+            // 营地四向楼梯与检查台的专用自检：不进镇，载入 camp 阶段档后直接在营地截三张。
+            campMode = true;
+            CaptureTown();
+        }
+
         public static void CaptureTown()
         {
             Directory.CreateDirectory(OutDir);
@@ -84,6 +93,7 @@ namespace BaseConquest.Editor
                     controller = Object.FindAnyObjectByType<BaseSceneController>();
                     if (controller?.State == null) return;
                     if (controller.State.Campaign.Location != "base") return;
+                    if (campMode) { stage = "camp-stairs-south"; frameDeadline = Time.frameCount + 45; break; }
                     bool moved = controller.Change(s =>
                     {
                         var exit = BaseSpatial.Objects(s).Single(o => o.Id == "exit_east");
@@ -137,6 +147,43 @@ namespace BaseConquest.Editor
                 case "stairs-settle":
                     if (Time.frameCount < frameDeadline) return;
                     Capture("town-stairs");
+                    stage = "done";
+                    // 截图是异步写盘，多等几十帧再退出进程。
+                    frameDeadline = Time.frameCount + 60;
+                    break;
+                case "camp-stairs-south":
+                    // 营地南楼梯 (11,8)(12,8)：主角站到楼梯南侧正对台面。
+                    if (!controller.Change(s => { s.PlayerX = 11.5; s.PlayerY = 6.6; BaseAdventure.Arrive(s); }, "视觉自检：走向营地南楼梯")) { Finish(2, "移动被拒：" + controller.Message); return; }
+                    stage = "camp-stairs-south-settle";
+                    frameDeadline = Time.frameCount + 45;
+                    break;
+                case "camp-stairs-south-settle":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("camp-stairs-south");
+                    stage = "camp-stairs-west";
+                    frameDeadline = Time.frameCount + 10;
+                    break;
+                case "camp-stairs-west":
+                    // 西楼梯 (9,10)：主角站到楼梯南侧一格朝北看（粮田占了 z9.5~12.5 的西侧，不能贴太近）。
+                    if (!controller.Change(s => { s.PlayerX = 9; s.PlayerY = 8.4; BaseAdventure.Arrive(s); }, "视觉自检：走向营地西楼梯")) { Finish(2, "移动被拒：" + controller.Message); return; }
+                    stage = "camp-stairs-west-settle";
+                    frameDeadline = Time.frameCount + 45;
+                    break;
+                case "camp-stairs-west-settle":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("camp-stairs-west");
+                    stage = "camp-motion";
+                    frameDeadline = Time.frameCount + 10;
+                    break;
+                case "camp-motion":
+                    // 检查台三排（士兵／角色／NPC）在营地南半区。
+                    if (!controller.Change(s => { s.PlayerX = 6; s.PlayerY = 3; BaseAdventure.Arrive(s); }, "视觉自检：走向检查台")) { Finish(2, "移动被拒：" + controller.Message); return; }
+                    stage = "camp-motion-settle";
+                    frameDeadline = Time.frameCount + 45;
+                    break;
+                case "camp-motion-settle":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("camp-motion-checks");
                     stage = "done";
                     // 截图是异步写盘，多等几十帧再退出进程。
                     frameDeadline = Time.frameCount + 60;
