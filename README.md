@@ -1,6 +1,6 @@
 # RPGDemo · Unity 工程
 
-Unity 6000.6.4f1。此工程是 Demo 的迁移目标，默认 Play 与 Windows 构建从 `Assets/Scenes/Demo_Launcher.unity` 启动，随后加载 `Base_Stage2`。原 `../SLG/` 工程保留，旧检查、开发工具与迁移前内容仍在其中。
+Unity 6000.6.4f1。此工程是 Demo 的迁移目标，默认 Play 与 Windows 构建从 `Assets/Scenes/Demo_Launcher.unity` 启动，随后加载 `Base_Stage2`。原 `SLG/` 工程已于 2026-11-03 整体移入项目父目录的 `归档/SLG/`，仅作回顾、不再使用；旧检查、开发工具与迁移前内容仍在其中。
 
 游戏保留新营地与巴图袭击当天两个阶段预设档，各有男女主变体，共四份；完整序章通过主菜单开始新游戏，旧游戏存档不迁移。配表导入工具已迁入本工程：Unity 菜单“SLG → 其他工具 → 导入 → Demo数值表（校验与预览）”，从 `../策划/DEMO数值配置表.xlsx` 校验并生成快照与四档。
 
