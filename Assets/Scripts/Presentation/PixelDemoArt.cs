@@ -19,7 +19,7 @@ namespace BaseConquest.Presentation
             { "archer|v1", 51f }, { "archer|attack", 55f },
             { "batu|v1", 57f }, { "batu|walk", 56f }, { "batu|attack", 56f },
             { "cavalry|v1", 48f }, { "cavalry|attack", 42f },
-            { "mounted-cavalry|v1", 49f }, { "mounted-cavalry|attack", 53f },
+            { "mounted-cavalry|v1", 49f }, { "mounted-cavalry|idle", 57f }, { "mounted-cavalry|walk", 56f }, { "mounted-cavalry|attack", 53f },
             { "azhu|v1", 56f },
             { "mounted-azhu|v1", 56f }, { "mounted-azhu|walk", 57f }, { "mounted-azhu|attack", 56f },
             { "chief|v1", 55f },
@@ -143,7 +143,9 @@ namespace BaseConquest.Presentation
             // 等比缩放，身高与横向面积一起长；网格自底边向上生长，放大后仍踩在同一接地点。
             string drawId=riding?riderId:artId;
             string kind=motion==null?"v1":pose==HeroPose.Attack?"attack":pose==HeroPose.Down?"down":pose==HeroPose.Walk?"walk":"idle";
-            float refPx=PixelDemoArt.ArtHeightOf(drawId,"v1");
+            // 骑乘的基准不能用 -v1 实测：-v1 是设定图批次（mounted-cavalry 只有 49px），动作图集是 ComfyUI 批次（56px），
+            // 拿 49 当基准会把动作帧压小 12.5%，反而破坏「骑马要高过步兵」。统一按标准 56px 基准归一，再乘骑乘倍数。
+            float refPx=riding||mountedArt?56f:PixelDemoArt.ArtHeightOf(drawId,"v1");
             float drawPx=PixelDemoArt.ArtHeightOf(drawId,kind);
             float norm=pose==HeroPose.Down&&motion!=null?1f:refPx/drawPx;
             float body=norm*(riding||mountedArt?1.45f:1f);
