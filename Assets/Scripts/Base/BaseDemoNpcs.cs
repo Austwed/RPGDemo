@@ -108,7 +108,9 @@ namespace BaseConquest.Base
             string artId=ResolveNpcArt(id);
             bool walk=BaseConquest.Presentation.PixelDemoArt.HasWalk(artId);
             bool attack=BaseConquest.Presentation.PixelDemoArt.HasAttack(artId);
-            string art=walk&&attack?"待机／行走／攻击":walk?"待机／行走":"待机四向";
+            // 行走与攻击是两项独立能力：缺行走不影响攻击（如 villager 只有 attack-v2），
+            // 不能用 walk&&attack 组合把「有攻击无行走」误标成「待机四向」。
+            string art=walk&&attack?"待机／行走／攻击":walk?"待机／行走":attack?"待机／攻击":"待机四向";
             if(Array.IndexOf(MotionSoldiers,id)>=0)return "三职业士兵 · "+art;
             if(Array.IndexOf(MotionNpcs,id)>=0)return "交互 NPC · "+art;
             return "三职业角色 · "+art;
@@ -169,7 +171,9 @@ namespace BaseConquest.Base
             {
                 if(BaseDemoIntro.Active(state))return BaseDemoIntro.Additional(state);
                 var point=BaseSpatial.Layout(state)?.Objects.FirstOrDefault(o=>o.Id=="prologue_report");
-                if(point!=null)return new[]{new BaseMapObject("demo_captain","队长 · 交谈",point.X+1,point.Y+.3,.5,.5,false,"demo-npc:captain","chenan","npc")};
+                // 序章队长兜底（Intro 数据缺失的旧档）沿用正常路径的搭档形象，不再借斥候 chenan 冒充。
+                // CaptainArt 在 Intro 为 null 时安全回退到 female，与 BaseDemoIntro.Additional 的取值同源。
+                if(point!=null)return new[]{new BaseMapObject("demo_captain",BaseDemoIntro.PartnerName(state)+" · 交谈",point.X+1,point.Y+.3,.5,.5,false,"demo-npc:captain",BaseDemoIntro.CaptainArt(state),"npc")};
             }
             return Array.Empty<BaseMapObject>();
         }
