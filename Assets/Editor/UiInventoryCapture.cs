@@ -22,6 +22,7 @@ namespace BaseConquest.Editor
     {
         private static readonly string OutDir = Path.Combine("Logs", "ui-capture");
         private static bool NoBattle;
+        private static PropertyInfo devProperty; private static object devOriginal;
         private sealed class Step { public string Name; public Action Do; public Func<bool> Until; public int Wait = 20; public bool Shot = true; public double Timeout = 90; }
         private static readonly List<Step> Steps = new List<Step>();
         private static readonly List<string> Report = new List<string>();
@@ -39,7 +40,7 @@ namespace BaseConquest.Editor
         {
             Directory.CreateDirectory(OutDir);
             foreach (var old in Directory.GetFiles(OutDir, "*.png")) File.Delete(old);
-            NoBattle = false;
+            NoBattle = false; devProperty = null; devOriginal = null;
             BackupSaves();
             hero = Environment.GetEnvironmentVariable("UI_CAPTURE_HERO") == "male" ? "male" : "female";
             Build();
@@ -160,7 +161,8 @@ namespace BaseConquest.Editor
                 Close();
                 var dev = FindType("BaseConquest.Battle.RuntimeDeveloperOptions"); var preset = FindType("BaseConquest.Base.BaseStandaloneBattlePreset");
                 if (dev == null || preset == null) { Report.Add("[说明] 独立战斗测试已不存在，战斗 HUD 截图跳过"); NoBattle = true; return; }
-                dev.GetProperty("Enabled", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.SetValue(null, true);
+                devProperty = dev.GetProperty("Enabled", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                devOriginal = devProperty?.GetValue(null); devProperty?.SetValue(null, true); // 开发者模式存在 PlayerPrefs 里，Finish 时还原
                 if (!TryCall(C, "StartStandaloneBattle", Enum.Parse(preset, "Mixed"))) { Report.Add("[说明] 独立战斗测试入口不存在，战斗 HUD 截图跳过"); NoBattle = true; }
             }, 90, false);
             Add("63_战斗_HUD", null, 60, true, () => NoBattle || Field(C, "combatController") != null, 60);
@@ -288,6 +290,7 @@ namespace BaseConquest.Editor
             Report.Insert(0, "exit=" + code + " " + note + " 截图=" + shots + " 失败=" + failures + " 主角=" + hero + " 时间=" + DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
             File.WriteAllText(Path.Combine(OutDir, "report.txt"), string.Join("\n\n", Report));
             Debug.Log("[UiCapture] " + note + " 截图=" + shots + " 失败=" + failures);
+            if (devProperty != null && devOriginal != null) { try { devProperty.SetValue(null, devOriginal); } catch (Exception e) { Debug.LogError("[UiCapture] 开发者模式开关还原失败：" + e.Message); } devProperty = null; }
             EditorApplication.isPlaying = false;
             RestoreSaves();
             EditorApplication.quitting += RestoreSaves;
