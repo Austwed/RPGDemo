@@ -81,7 +81,7 @@ namespace BaseConquest.Base
             {
                 if(owner.State.Demo.Defense.BatuStoryDay==0){OpenDemoDefenseAftermath();return true;}
                 activeObject="demo-roads";interactionObject="";
-                NpcDialogue(new[]{new NpcLine("营地斥候","chenan","缴获记录确认了敌营位置，就在营地和你的"+BaseScriptNames.Village+"之间。无论是否招降俘虏，我们都掌握了这条线索。"),new NpcLine("营地斥候","chenan","先整备损失，再带队沿路出发吧。两段道路各走一天；攻下敌营并处理战果后，就能通往"+BaseScriptNames.Village+"。")},new[]{new NpcReply("查看路线并选择出征队",owner.PrepareDemoJourney,!BaseBattleLoot.Pending(owner.State)),new NpcReply("先留营整备",ClosePanel)});return true;
+                NpcDialogue(new[]{new NpcLine(BaseScriptNames.Scout,"chenan","缴获记录确认了敌营位置，就在营地和你的"+BaseScriptNames.Village+"之间。无论是否招降俘虏，我们都掌握了这条线索。"),new NpcLine(BaseScriptNames.Scout,"chenan","先整备损失，再带队沿路出发吧。两段道路各走一天；攻下敌营并处理战果后，就能通往"+BaseScriptNames.Village+"。")},new[]{new NpcReply("查看路线并选择出征队",owner.PrepareDemoJourney,!BaseBattleLoot.Pending(owner.State)),new NpcReply("先留营整备",ClosePanel)});return true;
             }
             if(id=="demo_camp_attack")
             {

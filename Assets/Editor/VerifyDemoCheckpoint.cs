@@ -19,7 +19,7 @@ namespace BaseConquest.Editor
             var asset=Resources.Load<TextAsset>("DemoStages/camp-male");Need(asset!=null,"缺少营地阶段档");
             var state=JsonUtility.FromJson<BaseState>(asset.text);BaseDemo.InstallCampMap(state);BaseEconomy.Validate(state);
             var board=BaseBattlefield.Board(state,"base");var layout=BaseSpatial.Layout(state,"base");
-            var samples=BaseDemoNpcs.MotionChecks(state);Need(samples.Length==21&&samples.Select(o=>o.Id).Distinct().Count()==21&&samples.All(o=>o.Y<7&&BaseConquest.Presentation.PixelDemoArt.Load("Characters",o.AssetId)!=null),"动作检查角色数量、位置或图集错误");
+            var samples=BaseDemoNpcs.MotionChecks(state);Need(samples.Length==22&&samples.Select(o=>o.Id).Distinct().Count()==22&&samples.All(o=>o.Y<7&&BaseConquest.Presentation.PixelDemoArt.Load("Characters",o.AssetId)!=null),"动作检查角色数量、位置或图集错误");
             Need(samples.Count(o=>BaseConquest.Presentation.PixelDemoArt.Motion(o.AssetId,"walk")!=null)==8&&samples.Count(o=>BaseConquest.Presentation.PixelDemoArt.Motion(o.AssetId,"attack")!=null)==15,"动作图集能力清单不符");
             Need(!BaseSpatial.Objects(state,"base").Any(o=>o.Id.StartsWith("motion-check:")),"动作检查对象混入正式地图");
             Need(layout.Objects.Where(o=>o.Kind=="facility").All(o=>o.Y>=8),"设施未移到上半区");
@@ -33,7 +33,7 @@ namespace BaseConquest.Editor
             layout.Objects.RemoveAll(o=>o.Id=="demo_rescuer"||o.Id=="demo_chunshen");
             foreach(var resident in BaseDemoNpcs.CampResidents())Need(BaseSpatial.Objects(state,"base").Count(o=>o.Id==resident.Id&&o.AssetId==resident.AssetId)==1,"旧档居民补位失败");
             var farm=layout.Objects.Single(o=>o.Id=="farm");farm.X=4;farm.Y=3.2;var workshop=layout.Objects.Single(o=>o.Id=="workshop");workshop.X=19;workshop.Y=3.2;
-            var oldSamples=BaseDemoNpcs.MotionChecks(state);Need(oldSamples.Length==21&&oldSamples.All(o=>BaseSpatial.Geometry(state,o.X,o.Y)),"旧营地动作检查对象被设施遮挡");
+            var oldSamples=BaseDemoNpcs.MotionChecks(state);Need(oldSamples.Length==22&&oldSamples.All(o=>BaseSpatial.Geometry(state,o.X,o.Y)),"旧营地动作检查对象被设施遮挡");
             Debug.Log("VerifyCampChanges PASS");
         }
         public static void VerifyQuestSword()

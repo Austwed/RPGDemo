@@ -309,8 +309,9 @@ namespace BaseConquest.Base
             {
                 string art=owner.PresentedObject(id).AssetId;activeObject=id;BeginPanel(art);
                 RowButton("待机",0,800,()=>owner.SetMotionCheck(id,HeroPose.Idle));row+=60;
-                if(BaseConquest.Presentation.PixelDemoArt.Motion(art,"walk")!=null){RowButton("行走",0,800,()=>owner.SetMotionCheck(id,HeroPose.Walk));row+=60;}
-                if(BaseConquest.Presentation.PixelDemoArt.Motion(art,"attack")!=null){RowButton("攻击",0,800,()=>owner.SetMotionCheck(id,HeroPose.Attack));row+=60;}
+                string figure=id.Substring("motion-check:".Length);
+                if((!BaseDemoNpcs.IsMotionNpc(figure)||BaseDemoNpcs.NpcWalks(figure))&&BaseConquest.Presentation.PixelDemoArt.Motion(art,"walk")!=null){RowButton("行走",0,800,()=>owner.SetMotionCheck(id,HeroPose.Walk));row+=60;}
+                if(!BaseDemoNpcs.IsMotionNpc(id.Substring("motion-check:".Length))&&BaseConquest.Presentation.PixelDemoArt.Motion(art,"attack")!=null){RowButton("攻击",0,800,()=>owner.SetMotionCheck(id,HeroPose.Attack));row+=60;}
                 EndPanel();return;
             }
             if(BaseDemo.Active(owner.State)&&(id=="demo_rescuer"||id=="demo_chunshen"))

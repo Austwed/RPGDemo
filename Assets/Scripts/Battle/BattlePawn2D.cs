@@ -12,13 +12,13 @@ namespace BaseConquest.Battle
         private BaseConquest.Presentation.CompanionSpriteView companion;
         public bool UprightExploration {get;set;}
         public Vector3 ExplorationHeadPoint=>playerHero!=null?playerHero.HeadPoint:transform.TransformPoint(new Vector3(0,.28f,1.38f));
-        public bool EnableCompanion(string appearance)
+        public bool EnableCompanion(string appearance,bool combatMotion=true,bool walkingMotion=true)
         {
             if(companion==null)
             {
                 if(BaseConquest.Presentation.CommanderArt.For(appearance)==null&&BaseConquest.Presentation.PixelDemoArt.Load("Characters",appearance)==null)return false;
                 companion=gameObject.AddComponent<BaseConquest.Presentation.CompanionSpriteView>();
-                if(!companion.Initialize(appearance,material)){BattleBoardView.DestroyObject(companion);companion=null;return false;}
+                if(!companion.Initialize(appearance,material,combatMotion,walkingMotion)){BattleBoardView.DestroyObject(companion);companion=null;return false;}
             }
             shape.gameObject.SetActive(false);
             float height=BaseConquest.Presentation.PixelDemoArt.Mounted(appearance) ? 2.4f : 1.65f;
@@ -187,7 +187,12 @@ namespace BaseConquest.Battle
             properties.Clear();
             bool main=(battle.Scenario.CampaignRules||battle.Scenario.PlayerHeroAppearance)&&BaseConquest.Presentation.PlayerHeroFrames.IsPlayer(soldier.Kind==SoldierKind.Hero,soldier.Side==BattleSide.A,soldier.OriginCommanderSlot,battle.Scenario.PlayerLeaderSlot);
             if(main)EnablePlayerHero(string.IsNullOrEmpty(soldier.AppearanceId)?"player":soldier.AppearanceId);
-            else if(soldier.Kind==SoldierKind.Hero)EnableCompanion(string.IsNullOrEmpty(soldier.AppearanceId)?soldier.Side==BattleSide.B?"enemy-captain":"chenan":soldier.AppearanceId);
+            else if(soldier.Kind==SoldierKind.Hero)
+            {
+                string appearance=soldier.AppearanceId;
+                if(string.IsNullOrEmpty(appearance)){Debug.LogWarning("队长缺少外观，使用剑士兜底："+soldier.Id);appearance="saber";}
+                EnableCompanion(appearance);
+            }
             var carrier = battle.Soldier(soldier.CarriedById >= 0 ? soldier.CarriedById : soldier.EscapeCarrierId); bool carried = carrier != null && (carrier.IsActive || carrier.Escaped && carrier.LastAction == RoundAction.Move && progress < 1);
             // 倒地（可救援）保持倒地贴图不离场；即死单位在倒地后直接消失，不再留尸体。
             transform.gameObject.SetActive((soldier.IsAlive || soldier.Kind == SoldierKind.Hero) && !soldier.InstantDead && (!soldier.Escaped || (soldier.LastAction == RoundAction.Move || carried) && progress < 1) && (soldier.CarriedById < 0 || carried));

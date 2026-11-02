@@ -68,7 +68,10 @@ namespace BaseConquest.Presentation
             {
                 var pawn=root.AddComponent<BattlePawn2D>();
                 pawn.Initialize(new BattleSoldier {Kind=SoldierKind.Hero,Stats=new SoldierStats {Health=100},Health=100},source);
-                pawn.EnableCompanion(placement.AssetId);pawn.SyncExploration(feet,Color.white);
+                bool check=placement.Id.StartsWith("motion-check:");string figure=check?placement.Id.Substring("motion-check:".Length):placement.AssetId;
+                bool combatMotion=check?!BaseDemoNpcs.IsMotionNpc(figure):PixelDemoArt.IsCast(figure)&&placement.Id!="demo_survivor"&&placement.Id!="demo_broken_sword";
+                bool walk=combatMotion||BaseDemoNpcs.NpcWalks(figure)||placement.Id=="prologue_report"||placement.Id.StartsWith("demo_rescued_");
+                pawn.EnableCompanion(placement.AssetId,combatMotion,walk);pawn.SyncExploration(feet,Color.white);
             }
             else
             {

@@ -33,7 +33,7 @@ namespace BaseConquest.Base
         public const string Recruiter="募兵官雷恩";
         public const string InnKeeper="旅店麦格";
         public const string Merchant="行商";
-        public const string Scout="营地斥候";
+        public const string Scout="陈安";
         public const string Guard="镇卫兵";            // 城镇闲聊
         public const string Peddler="行商老莫";        // 商铺街闲聊
         public const string Girl="镇民小芸";           // 公园角喂鸟的镇民
@@ -43,7 +43,7 @@ namespace BaseConquest.Base
         // ① 三职业角色（四向+移动+攻击）：player／female／ahe／mounted-azhu／galan／chief／batu／huoya；
         // ② 三职业士兵（四向+移动+攻击，不分敌我阵营）：saber／archer／rider（图集文件沿用旧批次名 infantry／cavalry，由 PixelDemoArt.TroopId 归一）；
         // ③ 交互 NPC（只有四向，移动按作用分配）：laozhou／chunshen／merchant／villager／horn／baron。
-        // enemy-captain 不是兵种，是野外随机战队长的兜底外观（wilderness → enemy-captain）。
+        // 随机敌营已作废（2026-11-02），wilderness → enemy-captain 仅供旧数据读取。
         // 其余缺图的角色先用气质相近的图占位，新美术到位后只改这里的返回值即可全局生效。
         public static string Portrait(string role)
         {
@@ -56,7 +56,7 @@ namespace BaseConquest.Base
                 case "merchant":case "peddler":return "merchant";
                 case "guard":return BaseDemoNpcs.ResolveNpcArt("guard",true);
                 case "girl":return BaseDemoNpcs.ResolveNpcArt("villager-girl",true);
-                case "scout":return BaseDemoNpcs.ResolveNpcArt("scout",true);
+                case "scout":return "chenan";
                 case "survivor":return BaseDemoNpcs.ResolveNpcArt("survivor",true);
                 case "rescued-villager":return BaseDemoNpcs.ResolveNpcArt("rescued-villager",true);
                 case "lord":return "horn";

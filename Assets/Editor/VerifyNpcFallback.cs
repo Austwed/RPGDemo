@@ -12,10 +12,10 @@ namespace BaseConquest.Editor
         private static void Need(bool ok,string message){if(!ok)throw new InvalidOperationException(message);}
         public static void Run()
         {
-            var ids=new[]{"scout","guard","survivor","villager-girl","rescued-villager"};
-            var fallback=new[]{"chenan","villager","ahe","villager","villager"};
-            var names=new[]{BaseScriptNames.Scout,BaseScriptNames.Guard,"幸存村民",BaseScriptNames.Girl,"获救百姓甲"};
-            var objects=new[]{"demo_march_exit","town_guard","demo_survivor","town_girl","demo_rescued_1"};
+            var ids=new[]{"guard","survivor","villager-girl","rescued-villager"};
+            var fallback=new[]{"villager","ahe","villager","villager"};
+            var names=new[]{BaseScriptNames.Guard,"幸存村民",BaseScriptNames.Girl,"获救百姓甲"};
+            var objects=new[]{"town_guard","demo_survivor","town_girl","demo_rescued_1"};
             var state=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
             for(int i=0;i<ids.Length;i++)
             {

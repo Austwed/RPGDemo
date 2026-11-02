@@ -103,7 +103,7 @@ namespace BaseConquest.Battle
         public string CommanderAppearance(BattleSide side,int slot)
         {
             var appearances=Scenario.Army(side).CommanderAppearances;
-            return appearances!=null&&slot>=0&&slot<appearances.Count ? appearances[slot]??"" : Scenario.CampaignRules&&side==BattleSide.B ? "wilderness" : "";
+            return appearances!=null&&slot>=0&&slot<appearances.Count ? appearances[slot]??"" : "";
         }
         public bool CanDeploy(BattleSide side, SoldierKind kind, GridPosition cell, int commanderSlot = -1)
         {

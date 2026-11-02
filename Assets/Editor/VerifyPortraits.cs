@@ -15,7 +15,7 @@ namespace BaseConquest.Editor
         {
             foreach(string path in new[]{"Assets/Scripts/Battle/BattleMobileHud.cs","Assets/Scripts/Base/BaseNpcDialogueHud.cs","Assets/Scripts/Base/BasePartyInventoryHud.cs"})
                 Need(File.ReadAllText(path).Contains("GetOrAdd<BattleAvatarGraphic>"),"头像入口未使用统一组件："+path);
-            string[] ids={"player","female","ahe","azhu","galan","chief","batu","huoya","saber","archer","rider","laozhou","chunshen","merchant","villager","horn","baron","scout","guard","survivor","villager-girl","rescued-villager"};
+            string[] ids={"player","female","ahe","azhu","galan","chief","batu","huoya","saber","archer","rider","laozhou","chunshen","merchant","villager","horn","baron","chenan","guard","survivor","villager-girl","rescued-villager"};
             var report=new StringBuilder("# Demo 头像来源\n\n");
             foreach(string id in ids)
             {

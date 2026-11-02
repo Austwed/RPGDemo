@@ -10,8 +10,8 @@ namespace BaseConquest.Presentation
         // 士兵三职业的策划定名是 saber／archer／rider；图集文件名沿用旧批次（infantry／cavalry），
         // 这里统一归一，调用方一律用正式名。改文件名会牵动 .meta GUID 与所有 Resources 路径，没有收益。
         public static string TroopId(string id)=>id=="saber"?"infantry":id=="rider"?"cavalry":id;
-        // 三职业角色（含占位 chenan）：敌方队长也取这里的形象（galan=遗迹战、chief=匪寨战），与士兵／杂兵区分。
-        public static bool IsCast(string id)=>id=="player"||id=="female"||id=="ahe"||id=="azhu"||id=="mounted-azhu"||id=="galan"||id=="chief"||id=="batu"||id=="huoya"||id=="chenan";
+        // 三职业角色：敌方队长也取这里的形象（galan=遗迹战、chief=匪寨战）。
+        public static bool IsCast(string id)=>id=="player"||id=="female"||id=="ahe"||id=="azhu"||id=="mounted-azhu"||id=="galan"||id=="chief"||id=="batu"||id=="huoya";
         // 骑乘身份：静态图集本身就是「马＋骑手」的那几个（判据是图集本身——正面剪影窄、侧面宽，即为马）。
         // 体量、可用的动作图集、名牌高度都按它判断。chief（大当家）是骑马的匪首，别漏。
         public static bool Mounted(string id)=>id=="azhu"||TroopId(id)=="cavalry"||id=="mounted-azhu"||id=="mounted-cavalry"||id=="chief";
@@ -46,6 +46,7 @@ namespace BaseConquest.Presentation
         {
             if(string.IsNullOrEmpty(id))return null;
             id=TroopId(id);
+            // 随机敌营已作废（2026-11-02），别名仅供旧数据读取。
             if(id=="wilderness")id="enemy-captain";
             else if(id=="portrait-wilderness")id="portrait-enemy-captain";
             // 阿铸只保留骑乘一套图集：所有调用方（含头像兜底、BattlePawn2D 的可用性判断）统一解析到 mounted-azhu，不再有站立版。
@@ -107,7 +108,7 @@ namespace BaseConquest.Presentation
         private readonly bool bowAttack,alwaysMounted,mountedArt;
         private readonly string artId,riderId;
         private readonly MaterialPropertyBlock ink=new MaterialPropertyBlock();
-        public PixelCharacterSheet(Transform parent,Material source,Texture2D texture,Texture2D mounted=null,string identity="")
+        public PixelCharacterSheet(Transform parent,Material source,Texture2D texture,Texture2D mounted=null,string identity="",bool combatMotion=true,bool walkingMotion=true)
         {
             atlas=texture;mountedAtlas=mounted;
             // 阿铸日常也骑乘（规范 §2B 骑兵规则 1）：不能等调用方传 mounted，否则探索态回落到站立版。
@@ -119,8 +120,8 @@ namespace BaseConquest.Presentation
             riderId=identity=="azhu"?"mounted-azhu":PixelDemoArt.TroopId(identity)=="cavalry"?"mounted-cavalry":identity;
             if(!string.IsNullOrEmpty(identity))
             {
-                idleAtlas=PixelDemoArt.Motion(identity,"idle");walkAtlas=PixelDemoArt.Motion(identity,"walk");attackAtlas=PixelDemoArt.Motion(identity,"attack");downAtlas=PixelDemoArt.Motion(identity,"down");
-                mountedIdleAtlas=PixelDemoArt.Motion(riderId,"idle");mountedWalkAtlas=PixelDemoArt.Motion(riderId,"walk");mountedAttackAtlas=PixelDemoArt.Motion(riderId,"attack");mountedDownAtlas=PixelDemoArt.Motion(riderId,"down");
+                idleAtlas=PixelDemoArt.Motion(identity,"idle");if(walkingMotion)walkAtlas=PixelDemoArt.Motion(identity,"walk");if(combatMotion){attackAtlas=PixelDemoArt.Motion(identity,"attack");downAtlas=PixelDemoArt.Motion(identity,"down");}
+                mountedIdleAtlas=PixelDemoArt.Motion(riderId,"idle");if(walkingMotion)mountedWalkAtlas=PixelDemoArt.Motion(riderId,"walk");if(combatMotion){mountedAttackAtlas=PixelDemoArt.Motion(riderId,"attack");mountedDownAtlas=PixelDemoArt.Motion(riderId,"down");}
                 bowAttack=identity=="ahe";
             }
             Root=new GameObject("PixelDemoCharacter",typeof(MeshFilter),typeof(MeshRenderer));Root.transform.SetParent(parent,false);

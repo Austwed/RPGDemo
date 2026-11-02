@@ -478,10 +478,9 @@ namespace BaseConquest.Base
         {
             foreach(var hero in Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&u.Kind==SoldierKind.Hero&&!u.DeveloperSpawned))
             {
-                // 敌方队长不是独立兵种，直接用角色图集：决斗=阿铸、序章=主角镜像、遗迹=迦兰（副位是村民）、
-                // 匪寨两波与攻营战=大当家（骑马匪首）。只有野外随机遭遇才落到 wilderness 通用形象。
+                // 决斗、序章、遗迹及匪寨使用对应角色形象；随机敌营已作废（2026-11-02）。
                 bool chiefLead=Opening.EventId==BaseDemoDefense.EventId||Opening.EventId==BaseDemoDefense.SecondEventId||Opening.MapId==BaseDemoFinale.Camp;
-                hero.AppearanceId=Opening.EventId==BaseLocalDuel.Id?"azhu":Opening.EventId==BaseDemoIntro.BattleId?(Opening.Leaders.First().AppearanceId=="female"?"player":"female"):Opening.EventId==BaseDemoRuins.EventId?(hero.OriginCommanderSlot==0?"galan":"villager"):chiefLead?"chief":"wilderness";
+                hero.AppearanceId=Opening.EventId==BaseLocalDuel.Id?"azhu":Opening.EventId==BaseDemoIntro.BattleId?(Opening.Leaders.First().AppearanceId=="female"?"player":"female"):Opening.EventId==BaseDemoRuins.EventId?"galan":chiefLead?"chief":hero.AppearanceId;
             }
             if(Opening.Enemies.Count==0)return;
             foreach(var unit in Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned).OrderBy(u=>u.Id))

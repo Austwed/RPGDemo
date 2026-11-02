@@ -41,10 +41,10 @@ namespace BaseConquest.Presentation
         }
         private float stride;
         public string AppearanceId {get;private set;}
-        public bool Initialize(string id,Material source)
+        public bool Initialize(string id,Material source,bool combatMotion=true,bool walkingMotion=true)
         {
             var recommended=PixelDemoArt.Load("Characters",id);
-            if(recommended!=null){AppearanceId=id;string mountId=id=="azhu"?"mounted-azhu":PixelDemoArt.TroopId(id)=="cavalry"?"mounted-cavalry":"";pixel=new PixelCharacterSheet(transform,source,recommended,PixelDemoArt.Load("Characters",mountId),id);return true;}
+            if(recommended!=null){AppearanceId=id;string mountId=id=="azhu"?"mounted-azhu":PixelDemoArt.TroopId(id)=="cavalry"?"mounted-cavalry":"";pixel=new PixelCharacterSheet(transform,source,recommended,PixelDemoArt.Load("Characters",mountId),id,combatMotion,walkingMotion);return true;}
             art=CommanderArt.For(id);if(art==null)return false;
             atlas=Resources.Load<Texture2D>("Characters/"+art.TextureName);if(atlas==null)return false;
             AppearanceId=id;ink=new MaterialPropertyBlock();
