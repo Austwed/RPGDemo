@@ -5,6 +5,18 @@ namespace BaseConquest.Base
 {
     public static class BaseDemoNpcs
     {
+        private static readonly Dictionary<string,string> NpcFallbacks=new Dictionary<string,string>{{"scout","chenan"},{"guard","villager"},{"survivor","ahe"},{"villager-girl","villager"},{"rescued-villager","villager"}};
+        public static string ResolveNpcArt(string id,bool portrait=false,string fallback=null)
+        {
+            if(!NpcFallbacks.TryGetValue(id,out var defaultArt))return id;
+            string path=portrait?"PixelDemo/Portraits/portrait-"+id+"-v1":"PixelDemo/Characters/"+id+"-v1";
+            return UnityEngine.Resources.Load<UnityEngine.Texture2D>(path)!=null?id:fallback??defaultArt;
+        }
+        public static string DialogueArt(string name,string fallback)
+        {
+            string id=name==BaseScriptNames.Scout?"scout":name==BaseScriptNames.Guard?"guard":name==BaseScriptNames.Girl?"villager-girl":name=="幸存村民"?"survivor":name=="报信村民"||name?.StartsWith("获救百姓",StringComparison.Ordinal)==true?"rescued-villager":null;
+            return id==null?fallback:ResolveNpcArt(id,true,fallback);
+        }
         // Presentation overlays keep saved author IDs and all quest transactions intact.
         public static BaseMapObject Present(BaseState state,BaseMapObject original)
         {
@@ -15,19 +27,20 @@ namespace BaseConquest.Base
                 case "demo_rescuer":name=BaseScriptNames.LaoZhou+" · 交谈";appearance="laozhou";break;
                 case "demo_chunshen":name=BaseScriptNames.ChunShen+" · 交谈";appearance="chunshen";break;
                 case "town_quest":name="领主 · 交谈";appearance="horn";break;
-                case "town_guard":name="镇卫兵 · 交谈";appearance="villager";break;
+                case "town_guard":name="镇卫兵 · 交谈";appearance=ResolveNpcArt("guard");break;
                 case "town_peddler":
                     // 2026-11-01：老莫接管补给摊位（town_market 14,9 3×1.5 下方），布局随存档序列化，旧档在这里强制归位。
                     return new BaseMapObject(original.Id,"行商老莫 · 交谈",14,7.75,.6,.6,false,string.IsNullOrEmpty(original.SourceObjectId)?"demo-npc:"+original.Id:original.SourceObjectId,"merchant","npc");
-                case "town_girl":name="镇民小芸 · 交谈";appearance="villager";break;
+                case "town_girl":name="镇民小芸 · 交谈";appearance=ResolveNpcArt("villager-girl");break;
                 case "prologue_report":
-                    if(BaseDemoIntro.Active(state)){var report=state.Demo.Intro;return new BaseMapObject(original.Id,"报信村民 · 交谈",report.ReporterX,report.ReporterY,.5,.5,false,"demo-npc:reporter","villager","npc");}
-                    name="报信村民";appearance="villager";break;
+                    if(BaseDemoIntro.Active(state)){var report=state.Demo.Intro;return new BaseMapObject(original.Id,"报信村民 · 交谈",report.ReporterX,report.ReporterY,.5,.5,false,"demo-npc:reporter",ResolveNpcArt("rescued-villager"),"npc");}
+                    name="报信村民";appearance=ResolveNpcArt("rescued-villager");break;
                 case "demo_ahe":name="阿禾 · 交谈";appearance="ahe";if(BaseDemoFlow.Active(state)&&state.Demo.Flow.FarmWalking)return new BaseMapObject(original.Id,name,state.Demo.Flow.FarmNpcX,state.Demo.Flow.FarmNpcY,.5,.5,false,"demo-npc:ahe-offer","ahe","npc");break;
                 case "demo_azhu":name="阿铸 · 交谈";appearance="azhu";if(BaseDemoFlow.SmithVisit(state))return new BaseMapObject(original.Id,name,BaseDemoFlow.SmithApproach(state).X,BaseDemoFlow.SmithApproach(state).Y,.5,.5,false,"demo-npc:smith","azhu","npc");break;
-                case "demo_broken_sword":if(!BaseDemoRelease.Enabled(state)){name="幸存村民 · 交谈";appearance="ahe";}break;
-                case "demo_survivor":name="幸存村民 · 交谈";appearance="ahe";break;
-                case "demo_march_exit":if(!BaseDemoFinale.Opened(state))name="营地斥候 · 交谈";break;
+                case "demo_broken_sword":if(!BaseDemoRelease.Enabled(state)){name="幸存村民 · 交谈";appearance=ResolveNpcArt("survivor");}break;
+                case "demo_survivor":name="幸存村民 · 交谈";appearance=ResolveNpcArt("survivor");break;
+                case "demo_march_exit":if(!BaseDemoFinale.Opened(state)){name="营地斥候 · 交谈";appearance=ResolveNpcArt("scout");}break;
+                case "demo_rescued_1":case "demo_rescued_2":name=original.Name;appearance=ResolveNpcArt("rescued-villager");break;
                 case "town_blacksmith":
                     // 2026-11-02：老铁匠专属图 baron-v1 入库。布局随存档序列化，旧档 AssetId 还是 chenan，这里运行时强制换新。
                     name=original.Name;appearance="baron";break;
@@ -75,7 +88,7 @@ namespace BaseConquest.Base
         // enemy-captain 只是「野外随机队长的兜底外观」，不陈列（见 PixelDemoArt 的 wilderness 别名）。
         private static readonly string[] MotionCast={"player","female","ahe","mounted-azhu","galan","chief","batu","huoya"};
         private static readonly string[] MotionSoldiers={"saber","archer","rider"};
-        private static readonly string[] MotionNpcs={"baron","chunshen","horn","laozhou","merchant","villager"};
+        private static readonly string[] MotionNpcs={"baron","chunshen","horn","laozhou","merchant","villager","scout","guard","survivor","villager-girl","rescued-villager"};
         // 陈列名与图集 id 分离：占位形象按其饰演的角色称呼，便于核对。
         private static string MotionFigureName(string id)=>id switch
         {
@@ -83,13 +96,13 @@ namespace BaseConquest.Base
             "chief"=>"大当家","chunshen"=>BaseScriptNames.ChunShen,"female"=>"女主角",
             "galan"=>BaseScriptNames.Galan,"horn"=>BaseScriptNames.Lord,"huoya"=>BaseScriptNames.Huoya,
             "rider"=>"骑兵","laozhou"=>BaseScriptNames.LaoZhou,"merchant"=>"行商","mounted-azhu"=>"阿铸",
-            "player"=>"男主角","villager"=>"百姓",_=>id
+            "player"=>"男主角","villager"=>"百姓","scout"=>BaseScriptNames.Scout,"guard"=>BaseScriptNames.Guard,"survivor"=>"幸存村民","villager-girl"=>BaseScriptNames.Girl,"rescued-villager"=>"获救百姓",_=>id
         };
         // 分类说明：类别是设定口径（角色/士兵/NPC），后半段是该图集实测能播什么，两者并列便于发现缺件。
         public static string MotionClass(string id)
         {
-            bool walk=BaseConquest.Presentation.PixelDemoArt.Motion(id,"walk")!=null;
-            bool attack=BaseConquest.Presentation.PixelDemoArt.Motion(id,"attack")!=null;
+            string artId=ResolveNpcArt(id);bool walk=BaseConquest.Presentation.PixelDemoArt.Motion(artId,"walk")!=null;
+            bool attack=BaseConquest.Presentation.PixelDemoArt.Motion(artId,"attack")!=null;
             string art=walk&&attack?"待机／行走／攻击":walk?"待机／行走":"待机四向";
             if(Array.IndexOf(MotionSoldiers,id)>=0)return "三职业士兵 · "+art;
             if(Array.IndexOf(MotionNpcs,id)>=0)return "交互 NPC · "+art;
@@ -107,7 +120,7 @@ namespace BaseConquest.Base
             {
                 // 第 9 参是 assetId＝图集加载用的 id，必须保持角色 id；陈列名只进 Name（名牌与面板显示），
                 // 传错会把 Resources.Load("巴图") 之类打空，人偶全体落占位符（2026-11-02 踩过）。
-                rows.Add(new BaseMapObject("motion-check:"+id,MotionFigureName(id),x,y,.5,.5,false,"motion-check:"+id,id,"npc"));
+                rows.Add(new BaseMapObject("motion-check:"+id,MotionFigureName(id),x,y,.5,.5,false,"motion-check:"+id,ResolveNpcArt(id),"npc"));
                 x+=step;
             }
             // 战斗排（y=4.4，紧贴路下）：三职业角色在前，三职业士兵殿后。
@@ -115,7 +128,7 @@ namespace BaseConquest.Base
             foreach(string id in MotionSoldiers)Place(id,4.4,BaseConquest.Presentation.PixelDemoArt.Mounted(id)?2.8:2.0);
             // 非战斗排（y=1.6）：起点让开木屋（env house-small 中心 2.5,2，画幅盖到 x≈4.4）。
             x=5.0;
-            foreach(string id in MotionNpcs)Place(id,1.6,2.0);
+            foreach(string id in MotionNpcs)Place(id,1.6,1.7);
             return rows.ToArray();
         }
         public static IEnumerable<BaseMapObject> CampResidentsCompat(BaseState state,string region)

@@ -74,7 +74,9 @@ namespace BaseConquest.Editor
             report.AppendLine("\n## 未引用贴图（仅报告）\n");
             foreach(string guid in AssetDatabase.FindAssets("t:Texture2D",new[]{"Assets/Resources/PixelDemo"}))
             {string path=AssetDatabase.GUIDToAssetPath(guid);string resource=Path.ChangeExtension(path.Substring("Assets/Resources/".Length),null).Replace('\\','/');if(!references.ContainsKey(resource))report.AppendLine("- `"+resource+"`");}
-            report.AppendLine("\n## NPC 借用外观（仅报告）\n\n- 营地斥候：chenan\n- 镇卫兵：villager\n- 幸存村民：ahe\n- 镇民小芸：villager\n- 获救百姓：villager\n");
+            report.AppendLine("\n## NPC 专属图状态（仅报告）\n");
+            foreach(string id in new[]{"scout","guard","survivor","villager-girl","rescued-villager"})
+            {string resolved=BaseDemoNpcs.ResolveNpcArt(id);report.AppendLine("- "+id+"："+(resolved==id?"专属图已接线":"待补专属图（已接线，当前回退 "+resolved+"）"));}
             Directory.CreateDirectory("Logs");File.WriteAllText("Logs/verify-demo-resources.md",report.ToString(),Encoding.UTF8);
             if(missing.Count>0)throw new InvalidOperationException("资源检查缺失 "+missing.Count+" 项；见 Logs/verify-demo-resources.md");
             Debug.Log("[VerifyDemoResources] PASS");

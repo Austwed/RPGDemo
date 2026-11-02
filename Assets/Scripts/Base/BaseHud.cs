@@ -304,7 +304,7 @@ namespace BaseConquest.Base
             if(owner.PlayerAway||!BaseInteraction.CanReach(owner.State,owner.PresentedObject(id))){owner.ReportMessage("请在设施边缘一格以内、与地基同层交互");return;}
             if(id.StartsWith("motion-check:"))
             {
-                string art=id.Substring("motion-check:".Length);activeObject=id;BeginPanel(art);
+                string art=owner.PresentedObject(id).AssetId;activeObject=id;BeginPanel(art);
                 RowButton("待机",0,800,()=>owner.SetMotionCheck(id,HeroPose.Idle));row+=60;
                 if(BaseConquest.Presentation.PixelDemoArt.Motion(art,"walk")!=null){RowButton("行走",0,800,()=>owner.SetMotionCheck(id,HeroPose.Walk));row+=60;}
                 if(BaseConquest.Presentation.PixelDemoArt.Motion(art,"attack")!=null){RowButton("攻击",0,800,()=>owner.SetMotionCheck(id,HeroPose.Attack));row+=60;}

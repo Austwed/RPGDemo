@@ -13,7 +13,7 @@ namespace BaseConquest.Base
         {
             public string Name,Appearance,Text;
             public bool Player;
-            public NpcLine(string name,string appearance,string text,bool player=false){Name=name;Appearance=appearance;Text=text;Player=player;}
+            public NpcLine(string name,string appearance,string text,bool player=false){Name=name;Appearance=player?appearance:BaseDemoNpcs.DialogueArt(name,appearance);Text=text;Player=player;}
         }
         private sealed class NpcReply
         {

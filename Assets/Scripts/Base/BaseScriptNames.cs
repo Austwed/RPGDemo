@@ -54,6 +54,11 @@ namespace BaseConquest.Base
                 case "laozhou":return "laozhou";     // 已有专属图
                 case "chunshen":return "chunshen";   // 已有专属图
                 case "merchant":case "peddler":return "merchant";
+                case "guard":return BaseDemoNpcs.ResolveNpcArt("guard",true);
+                case "girl":return BaseDemoNpcs.ResolveNpcArt("villager-girl",true);
+                case "scout":return BaseDemoNpcs.ResolveNpcArt("scout",true);
+                case "survivor":return BaseDemoNpcs.ResolveNpcArt("survivor",true);
+                case "rescued-villager":return BaseDemoNpcs.ResolveNpcArt("rescued-villager",true);
                 case "lord":return "horn";
                 case "blacksmith":return "baron";    // 2026-11-02 老铁匠专属四向静态图入库（baron-v1 / portrait-baron-v1）
                 case "galan":return "galan";
