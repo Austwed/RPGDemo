@@ -105,11 +105,12 @@ namespace BaseConquest.Base
         {
             state.Campaign.Layouts=new List<BaseMapLayout> {
                 new BaseMapLayout {Region="base",Title="新营地",SpawnX=4,SpawnY=8.8,Objects=new List<BaseMapPlacement> {
-                    Placement("home","营帐",2,10.5,3,2,"home-small"),
-                    // farm/workshop 原在 Y=11.5 高 3 格，顶部会越出 14 行地图；压到 Y=10 正好贴边。
-                    Placement("farm","粮田",5,9,5,3,"farm"),
-                    Placement("workshop","工坊 · 待修复",18,10,4,3,"workshop",true),
-                    Placement("barracks","兵营 · 待修复",12,9,4,2.6,"barracks",true),
+                    // X/Y 是**中心点**：占地为 X±宽/2、Y±高/2。上半区一条带：营帐／粮田／台面／工坊，
+                    // 南边留出 Y<9.2 的通道，保证出生点 (4,8.8) 不被粮田盖住。
+                    Placement("home","营帐",1.8,11.6,3,2,"home-small"),
+                    Placement("farm","粮田",6.2,11,5,3,"farm"),
+                    Placement("workshop","工坊 · 待修复",19,11,4,3,"workshop",true),
+                    Placement("barracks","兵营 · 待修复",12.5,10.5,4,2.6,"barracks",true),
                     new BaseMapPlacement {Id="exit_east",Name="拜访领主 →",X=23.3,Y=6.5,Width=1.2,Height=2}
                 }},
                 new BaseMapLayout {Region="town",Title="领主驻地",SpawnX=12,SpawnY=6.5,Objects=new List<BaseMapPlacement> {
@@ -138,7 +139,7 @@ namespace BaseConquest.Base
             if(BaseDemoRelease.Enabled(state))BaseDemoRelease.Install(state);
             BaseSceneRules.Install(state);if(state.Demo.EnvironmentVersion>0)BaseEnvironment.Install(state,true);
             state.PlayerX=state.Campaign.BaseX=4;state.PlayerY=state.Campaign.BaseY=8.8;
-            if(state.Demo!=null)state.Demo.CampLayoutVersion=1;
+            if(state.Demo!=null)state.Demo.CampLayoutVersion=2;
         }
 
         private static BaseMapPlacement Placement(string id,string name,double x,double y,double width,double height,string asset,bool locked=false) => new BaseMapPlacement {Id=id,Name=name,X=x,Y=y,Width=width,Height=height,Blocks=true,SourceObjectId="demo:"+id,AssetId=asset,Kind="facility",VisualOnly=locked};
@@ -148,21 +149,20 @@ namespace BaseConquest.Base
             var board=map.Board;
             // 旧档可能残留上一版台面：先把这片区域压平再重建，避免重复调用叠出孤立高格。
             for(int z=6;z<=13;z++)for(int x=9;x<=18;x++){var stale=board.Cell(new GridPosition(x,z));stale.Elevation=0;stale.Ramp=RampAxis.None;}
-            // 台面 x11~16 × z8~12，兵营(12,9) 4×2.6 完整落在其中，四边各余一格；
-            // 四个方向的斜坡都放在台面外侧，且避开 farm(x5~9) 与 workshop(x18~22) 的占地。
-            for(int z=8;z<=12;z++)for(int x=11;x<=16;x++)board.Cell(new GridPosition(x,z)).Elevation=1;
+            // 台面格 x10~14 × z9~11（物理范围 10~15 × 9~12），兵营(12.5,10.5) 4×2.6 完整落在其中；
+            // 四向斜坡都在台面外侧，且不与粮田(x3.7~8.7)、工坊(x17~21) 的占地相交。
+            for(int z=9;z<=11;z++)for(int x=10;x<=14;x++)board.Cell(new GridPosition(x,z)).Elevation=1;
             void Stair(int x,int z,RampAxis axis){var cell=board.Cell(new GridPosition(x,z));cell.Elevation=1;cell.Ramp=axis;cell.Surface=GroundSurface.Road;}
-            Stair(13,7,RampAxis.NorthSouth);Stair(14,7,RampAxis.NorthSouth);
-            Stair(13,13,RampAxis.NorthSouth);Stair(14,13,RampAxis.NorthSouth);
-            Stair(10,9,RampAxis.EastWest);Stair(10,10,RampAxis.EastWest);
-            Stair(17,9,RampAxis.EastWest);Stair(17,10,RampAxis.EastWest);
+            Stair(11,8,RampAxis.NorthSouth);Stair(12,8,RampAxis.NorthSouth);
+            Stair(11,12,RampAxis.NorthSouth);Stair(12,12,RampAxis.NorthSouth);
+            Stair(9,10,RampAxis.EastWest);Stair(15,10,RampAxis.EastWest);
         }
         // 旧档布局迁移：地图布局随存档序列化，改坐标只影响新档。这里把营地设施拉回当前标准位置、
         // 清掉已废弃的场景摆件、重装高台，旧档不必重开就能看到新布局。
         public static void EnsureCampLayout(BaseState state)
         {
             if(state?.Demo==null||state.Campaign?.Layouts==null)return;
-            if(state.Demo.CampLayoutVersion>=1)return;
+            if(state.Demo.CampLayoutVersion>=2)return;
             var camp=state.Campaign.Layouts.FirstOrDefault(map=>map.Region=="base");
             if(camp!=null)
             {
@@ -171,11 +171,12 @@ namespace BaseConquest.Base
                     var placement=camp.Objects.FirstOrDefault(o=>o.Id==id);if(placement==null)return;
                     placement.X=x;placement.Y=y;placement.Width=w;placement.Height=h;
                 }
-                // 设施一律排进地图上半区（Y≥9），下半区整块留给美术检查台。
-                Move("home",2,10.5,3,2);
-                Move("farm",5,9,5,3);
-                Move("workshop",18,10,4,3);
-                Move("barracks",12,9,4,2.6);
+                // 设施一律排进上半区一条带（Y≥9.5），南侧留出 Y<9.2 的通道；
+                // 坐标是中心点，粮田放到 (5,9) 会盖住出生点 (4,8.8)，这一版已避开。
+                Move("home",1.8,11.6,3,2);
+                Move("farm",6.2,11,5,3);
+                Move("workshop",19,11,4,3);
+                Move("barracks",12.5,10.5,4,2.6);
                 // 营帐里的长剑摆件已并入剧情物品（老周当面交付长剑），场景里的那支撤掉。
                 camp.Objects.RemoveAll(o=>o.Id=="demo_long_sword");
                 // 迎敌战场入口移到左侧边缘正中，和东侧「拜访领主」同一高度。
@@ -189,7 +190,29 @@ namespace BaseConquest.Base
                 }
             }
             InstallCampHeights(state);
-            state.Demo.CampLayoutVersion=1;
+            RelocateStrandedCharacters(state);
+            state.Demo.CampLayoutVersion=2;
+        }
+        // 设施换位置后，原本站在新占地上的角色会变成「不可通行」而让存档校验直接抛错（曾把出生点盖在粮田下）。
+        // 这里把挡住的角色挪到最近的空位；伙伴的待命点作废后由系统重新安排，不再指向被占的格子。
+        private static void RelocateStrandedCharacters(BaseState state)
+        {
+            if(state.Campaign.Location=="base"&&!BaseSpatial.Geometry(state,state.PlayerX,state.PlayerY))
+                for(int radius=0;radius<=8;radius++)
+                {
+                    bool placed=false;
+                    for(int dx=-radius;dx<=radius&&!placed;dx++)
+                        for(int dz=-radius;dz<=radius&&!placed;dz++)
+                        {
+                            double x=4+dx*.75,y=8.8+dz*.75;
+                            if(!BaseSpatial.Geometry(state,x,y))continue;
+                            state.PlayerX=state.Campaign.BaseX=x;state.PlayerY=state.Campaign.BaseY=y;placed=true;
+                        }
+                    if(placed)break;
+                }
+            if(state.Leaders==null)return;
+            foreach(var leader in state.Leaders.Where(l=>l.HasHomePosition))
+                if(!BaseSpatial.Geometry(state,leader.HomeX,leader.HomeY,"base"))leader.HasHomePosition=false;
         }
         private static void InstallTownHeights(BaseState state)
         {
