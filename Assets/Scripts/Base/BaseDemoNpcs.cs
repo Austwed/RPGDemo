@@ -153,7 +153,8 @@ namespace BaseConquest.Base
             if(objects==null)yield break;
             if(objects.All(o=>o.Id!="town_guard"))yield return new BaseMapObject("town_guard","镇卫兵 · 交谈",21,4,.6,.6,false,"demo-npc:town_guard","villager","npc");
             if(objects.All(o=>o.Id!="town_peddler"))yield return new BaseMapObject("town_peddler","行商老莫 · 交谈",14,7.75,.6,.6,false,"demo-npc:town_peddler","merchant","npc");
-            if(objects.All(o=>o.Id!="town_girl"))yield return new BaseMapObject("town_girl","镇民小芸 · 交谈",15,11.5,.6,.6,false,"demo-npc:town_girl","villager","npc");
+            // 2026-11-02：小芸专属图 villager-girl-v1 入库，旧档注入也走 ResolveNpcArt，不再落通用村民。
+            if(objects.All(o=>o.Id!="town_girl"))yield return new BaseMapObject("town_girl","镇民小芸 · 交谈",15,11.5,.6,.6,false,"demo-npc:town_girl",ResolveNpcArt("villager-girl"),"npc");
         }
         public static BaseMapObject[] Additional(BaseState state)
         {

@@ -47,6 +47,8 @@ namespace BaseConquest.Presentation
             { "laozhou|v1", 56f }, { "merchant|v1", 56f }, { "merchant|walk", 56f },
             { "player|v1", 56f }, { "player|walk", 56f }, { "player|attack", 55f },
             { "villager|v1", 50f }, { "villager|attack", 55f },
+            // 2026-11-02 小芸（NPC_女村民-v1）：四向静态 + 四向行走可动 NPC，正面高 56（与商人/新角色同档）。
+            { "villager-girl|v1", 56f }, { "villager-girl|walk", 56f },
         };
         public static float ArtHeightOf(string id,string kind)=>ArtHeight.TryGetValue(TroopId(id)+"|"+kind,out var px)&&px>0?px:56f;
         public static Texture2D Load(string category,string id)

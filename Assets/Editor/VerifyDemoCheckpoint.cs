@@ -21,8 +21,11 @@ namespace BaseConquest.Editor
             var board=BaseBattlefield.Board(state,"base");var layout=BaseSpatial.Layout(state,"base");
             var samples=BaseDemoNpcs.MotionChecks(state);Need(samples.Length==22&&samples.Select(o=>o.Id).Distinct().Count()==22&&samples.All(o=>o.Y<7&&BaseConquest.Presentation.PixelDemoArt.Load("Characters",o.AssetId)!=null),"动作检查角色数量、位置或图集错误");
             // 行为／表现解耦（2026-11-02 定）：能力由贴图有无动作图集决定。检查台 22 个样本的实测能力清单：
-            // 有 walk 图集 13 个、有 attack 图集 17 个——villager 带 villager-attack-v2、chenan 带 attack，村民类经 ResolveNpcArt 回退共用图。
-            Need(samples.Count(o=>BaseConquest.Presentation.PixelDemoArt.HasWalk(o.AssetId))==13&&samples.Count(o=>BaseConquest.Presentation.PixelDemoArt.HasAttack(o.AssetId))==17,"动作图集能力清单不符");
+            // 有 walk 图集 14 个、有 attack 图集 16 个——chenan 带 attack，村民类经 ResolveNpcArt 回退共用图。
+            // 2026-11-02 22:5x：小芸 villager-girl 专属图入库（ResolveNpcArt 不再回退 villager），
+            // 她带 walk-v2、不带 attack-v2，故该样本从「有攻击无行走」变成「有行走无攻击」：walk 13→14、attack 17→16。
+            // 以后每次新增/替换 NPC 专属动作图集，都要回来核对这两个数，别照抄旧值。
+            Need(samples.Count(o=>BaseConquest.Presentation.PixelDemoArt.HasWalk(o.AssetId))==14&&samples.Count(o=>BaseConquest.Presentation.PixelDemoArt.HasAttack(o.AssetId))==16,"动作图集能力清单不符");
             Need(!BaseSpatial.Objects(state,"base").Any(o=>o.Id.StartsWith("motion-check:")),"动作检查对象混入正式地图");
             Need(layout.Objects.Where(o=>o.Kind=="facility").All(o=>o.Y>=8),"设施未移到上半区");
             Need(samples.All(o=>BaseSpatial.Geometry(state,o.X,o.Y)),"动作检查角色被设施遮挡");
