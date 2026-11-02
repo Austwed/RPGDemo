@@ -55,7 +55,7 @@ namespace BaseConquest.Base
                 for(int n=0;n<replies.Length;n++)
                 {var reply=replies[n];var button=MakeButton(choices,reply.Text,new Vector2(0,26+(replies.Length-1-n)*52),new Vector2(620,46),reply.Action,new Vector2(.5f,0));button.interactable=reply.Enabled;}
             }
-            UiPrefabBinding.Complete(panel.gameObject);RefreshSummary();Canvas.ForceUpdateCanvases();
+            UiPrefabBinding.Complete(panel.gameObject);DemoUiTheme.Current.Frame(panel,true);RefreshSummary();Canvas.ForceUpdateCanvases();
         }
     }
 }
