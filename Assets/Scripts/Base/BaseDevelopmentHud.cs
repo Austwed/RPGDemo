@@ -42,7 +42,7 @@ namespace BaseConquest.Base
             if (activeObject != "barracks" || owner.State == null) return;
             BeginPanel("兵营 · 军队与休养", "barracks:" + activePage); ManagementTabs(OpenBarracks);
             RowButton("规则 i",0,800,()=>FacilityRules(OpenBarracks));row+=60;
-            RowButton("角色等级训练",0,820,OpenTraining);row+=60;
+            BaseConquest.Presentation.DemoUiIcons.Attach(RowButton("角色等级训练",0,820,OpenTraining),"training");row+=60;
             var s = owner.State;
             Line("全军 " + s.Workers.Sum(w => w.Count) + "兵／" + s.Leaders.Count + "队长。基地与外出共用实际人数和粮草。", 58, 22);
             if(activePage=="composition")CommanderPresets();else if(activePage=="roster")PersonnelRoster();else if (activePage == "recovery") Recovery();

@@ -99,7 +99,7 @@ namespace BaseConquest.Base
             TownQuantityButtons(max,OpenTownRecruit);
             BaseTownQuote quote=null;string reason="";
             if(max>0)try{quote=BaseTown.QuoteHire(s,townKind,townQuantity);}catch(Exception error){reason=error.Message;}
-            RowButton("确认招募",-210,400,()=>TownConfirm(quote,"已招募 "+BaseEconomy.TroopName(townKind)+" ×"+townQuantity+"，加入基地；"+(BaseDemoFlow.Active(s)?"今日可安排生产":"今日不生产"),OpenTownRecruit),quote!=null);
+            BaseConquest.Presentation.DemoUiIcons.Attach(RowButton("确认招募",-210,400,()=>TownConfirm(quote,"已招募 "+BaseEconomy.TroopName(townKind)+" ×"+townQuantity+"，加入基地；"+(BaseDemoFlow.Active(s)?"今日可安排生产":"今日不生产"),OpenTownRecruit),quote!=null),"recruit");
             RowButton("规则 i",210,400,()=>TownRules(OpenTownRecruit));row+=62;
             var p=offer.Stats;
             var kindForDisplay=BaseCampaign.ToBattle(townKind);int profession=BaseRpg.Profession(kindForDisplay);

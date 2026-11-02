@@ -95,6 +95,7 @@ namespace BaseConquest.Battle
             step.GetComponentInChildren<Text>().fontSize = 18;
             realtimeGuard=Button("驻守",fightingPanel,Vector2.zero,new Vector2(8,116),new Vector2(136,44),owner.RealtimeGuardSelection);
             realtimeRetreat=Button("全军撤离",fightingPanel,Vector2.zero,new Vector2(152,116),new Vector2(136,44),owner.RealtimeRetreat);
+            DemoUiIcons.Attach(realtimeGuard,"guard");DemoUiIcons.Attach(realtimeRetreat,"retreat");
             realtimeGuard.gameObject.SetActive(false);realtimeRetreat.gameObject.SetActive(false);
             cancel = Button("清除所有指令", fightingPanel, Vector2.zero, new Vector2(8, 8), new Vector2(136, 38), owner.CancelAllOrders);
             undo = Button("清除上一指令", fightingPanel, Vector2.zero, new Vector2(152, 8), new Vector2(136, 38), owner.UndoOneAction);
@@ -163,7 +164,7 @@ namespace BaseConquest.Battle
             }
             for (int i = 0; i < 4; i++)
             {
-                var strategy = (SquadStrategy)i; strategyButtons[i] = Button(BattleSimulation.StrategyName(strategy), details, new Vector2(0, 1), new Vector2(16 + i * 158, -430), new Vector2(152, 42), () => owner.ChooseSquadStrategy(strategy)); strategyButtons[i].name = "Strategy_" + strategy;
+                var strategy = (SquadStrategy)i; strategyButtons[i] = Button(BattleSimulation.StrategyName(strategy), details, new Vector2(0, 1), new Vector2(16 + i * 158, -430), new Vector2(152, 42), () => owner.ChooseSquadStrategy(strategy)); strategyButtons[i].name = "Strategy_" + strategy;if(strategy==SquadStrategy.Attack)DemoUiIcons.Attach(strategyButtons[i],"attack");
             }
             Button("关闭详情", details, new Vector2(0.5f, 0), new Vector2(0, 10), new Vector2(130, 38), owner.CloseCommanderDetails);
             if (Application.isPlaying && EventSystem.current == null)

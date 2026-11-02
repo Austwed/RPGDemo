@@ -64,11 +64,13 @@ namespace BaseConquest.Base
             var header = Box("Header", root, new Vector2(.5f, 1), new Vector2(0, -ExplorationHudLayout.HeaderHeight / 2), new Vector2(0, ExplorationHudLayout.HeaderHeight), new Color(.10f, .17f, .18f, 1));
             header.anchorMin = new Vector2(0, 1); header.anchorMax = Vector2.one;
             summary = Label(header, "正在读取据点…", Vector2.zero, Vector2.zero, 20, TextAnchor.UpperLeft);
+            summary.lineSpacing=1.5f;
+            summary.gameObject.AddComponent<DemoResourceIcons>();
             summary.rectTransform.anchorMin = Vector2.zero; summary.rectTransform.anchorMax = Vector2.one;
             summary.rectTransform.offsetMin = new Vector2(18, 42); summary.rectTransform.offsetMax = new Vector2(-410, -10);
             MakeButton(header, "菜单", new Vector2(-90, -36), new Vector2(140, 48), OpenMenu, new Vector2(1, 1));
-            MakeButton(header, "背包", new Vector2(-270, -36), new Vector2(86, 44), ToggleBackpack, new Vector2(1, 1));
-            MakeButton(header, "任务", new Vector2(-364, -36), new Vector2(86, 44), ToggleQuests, new Vector2(1, 1));
+            DemoUiIcons.Attach(MakeButton(header, "背包", new Vector2(-270, -36), new Vector2(86, 44), ToggleBackpack, new Vector2(1, 1)),"equipment");
+            DemoUiIcons.Attach(MakeButton(header, "任务", new Vector2(-364, -36), new Vector2(86, 44), ToggleQuests, new Vector2(1, 1)),"quest");
             reserveRules=MakeButton(header,"i",new Vector2(-194,-36),new Vector2(44,44),()=>RuleInfo("资源与人员信息","基地总兵力统计全部己方士兵，包含驻外、在岗、闲置与休养士兵；不包含主角、伙伴队长和未招降俘虏。\n\n括号内是按当前岗位预计的一日净变化：正值红色、负值绿色、零为中性色。粮食扣除全部人员口粮，原料扣除工坊耗料，钱币扣除旅店寄存日费；主动住宿费在休息确认时另列。军需显示两档总量，库存页可查看品质拆分。\n\n姓名为黄色表示通过劝降加入，只标记来源，工作、休养、编队和作战规则相同。\n\n格子信息3秒自动收起，点击信息面板可立即收起；兵营完整单位详情保持打开。",ClosePanel),new Vector2(1,1));
             regionStatus = Label(header, "", new Vector2(220, 17), new Vector2(404, 28), 17, TextAnchor.MiddleLeft, new Vector2(0, 0));
             regionStatus.raycastTarget=true;var threatLink=regionStatus.gameObject.GetOrAdd<Button>();threatLink.targetGraphic=regionStatus;threatLink.onClick.AddListener(()=>{if(owner.State!=null&&!owner.Busy)OpenThreatOverview();});
@@ -157,7 +159,7 @@ namespace BaseConquest.Base
             if (s == null) { summary.text = owner.Busy ? "正在读取据点…" : "没有有效进度，请选择新开局或恢复备份"; regionStatus.text = ""; interact.interactable = false; construction.gameObject.SetActive(false); Joystick.gameObject.SetActive(false); mapLabels.gameObject.SetActive(false); return; }
             mapLabels.gameObject.SetActive(!PanelOpen); controls.gameObject.SetActive(!PanelOpen);
             var delta=BaseDailyDelta.Read(s);summary.supportRichText=true;
-            string Amount(string name,int count,int change)=>name+" "+count+"（<color="+(change>0?"#EE7777":change<0?"#7BCB93":"#C6D4CE")+">"+change.ToString("+0;-0;0")+"</color>）";
+            string Amount(string name,int count,int change)=>(DemoUiIcons.Load(name=="粮食"?"food":name=="原料"?"materials":name=="钱币"?"coins":"supplies")!=null?"　　":"")+name+" "+count+"（<color="+(change>0?"#EE7777":change<0?"#7BCB93":"#C6D4CE")+">"+change.ToString("+0;-0;0")+"</color>）";
             summary.text=BaseCampaign.LocationName(s)+(BaseDemoPrologue.Village(s)?"":" · 第 "+s.Day+" 天")+"   "+Amount("粮食",s.Inventory.Food,delta.Food)+"   "+Amount("原料",s.Inventory.Materials,delta.Materials)+"   "+Amount("钱币",s.Inventory.Coins,delta.Coins)+"\n"+Amount("军需",s.Inventory.Equipment.Where(e=>e.Product=="supply").Sum(e=>e.Count),delta.Supply)+"   兵力：剑士 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Melee).Sum(w=>w.Count)+"／弓兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Ranged).Sum(w=>w.Count)+"／骑兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Cavalry).Sum(w=>w.Count);
             if(panel!=null&&panelViewKey!="npc-dialogue"){var header=summary.transform.parent;header.SetAsLastSibling();}
             int raids = s.Campaign.Events.Count(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= s.Day);
@@ -347,7 +349,7 @@ namespace BaseConquest.Base
             BeginPanel("据点菜单");
             if(BaseBattleGateway.DemoMode){RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;}
             Line("3个手动／6个节点自动档；经营设置不会持续落盘。"+(UnityEngine.Application.isPlaying&&BaseBattleGateway.Session().HasUnsavedChanges?"\n有未手动保存的会话更改。":""),65,18);
-            RowButton("手动保存",-210,400,()=>OpenSlots(true),!owner.State.Campaign.HasActiveBattle);RowButton("读取存档",210,400,()=>OpenSlots(false));row+=60;
+            DemoUiIcons.Attach(RowButton("手动保存",-210,400,()=>OpenSlots(true),!owner.State.Campaign.HasActiveBattle),"save");RowButton("读取存档",210,400,()=>OpenSlots(false));row+=60;
             if(owner.State.Campaign.HasActiveBattle){RowButton("恢复当前战斗",0,800,owner.ResumeCampaign);row+=60;}
             else if(!owner.AtBase){RowButton(BaseDesignRoutes.Active(owner.State) ? "经绑定出口返回基地" : "返回基地",0,800,()=>owner.Travel("base"),!BaseDesignRoutes.Active(owner.State)||BaseDesignRoutes.Reachable(owner.State,"base")!=null);row+=60;}
             if(BaseAchievements.Active(owner.State)){RowButton("成就 · "+owner.State.Achievements.Records.Count+"/9",0,800,OpenAchievements);row+=60;}
