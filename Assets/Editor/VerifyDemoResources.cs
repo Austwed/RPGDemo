@@ -51,6 +51,7 @@ namespace BaseConquest.Editor
             }
             foreach(string direction in new[]{"north","south","east","west"})Add("PixelDemo/Terrain/stairs-"+direction+"-v1","四向坡道动态路径");
             foreach(string id in DemoUiIcons.Keys)Add("PixelDemo/Icons/icon-"+id+"-v1","UI 图标映射");
+            foreach(string id in new[]{"world-background","world-home","world-camp","world-enemy-camp"})Add("PixelDemo/World/"+id+"-v1","世界地图映射");
             foreach(string id in new[]{"ahe","azhu","chenan","wilderness"})
             {var art=CommanderArt.For(id);if(art!=null)Add("Characters/"+art.TextureName,"旧版角色回退 "+id,false);}
             var catalog=Resources.Load<BuildingAppearanceCatalog>("BuildingAppearances");

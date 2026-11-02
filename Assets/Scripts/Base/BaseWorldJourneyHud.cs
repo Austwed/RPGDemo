@@ -9,6 +9,12 @@ namespace BaseConquest.Base
 {
     public sealed class BaseWorldJourneyHud : MonoBehaviour
     {
+        public static Sprite BackgroundSprite(string path)=>Resources.Load<Sprite>(string.IsNullOrEmpty(path)?"PixelDemo/World/world-background-v1":path);
+        public static Sprite NodeSprite(BaseWorldNode node)
+        {
+            string name=node?.Id=="camp"?"world-camp":node?.Id=="home"?"world-home":node?.Id=="bandit"?"world-enemy-camp":null;
+            return name==null?null:Resources.Load<Sprite>("PixelDemo/World/"+name+"-v1");
+        }
         private BaseSceneController owner;
         private Font font;
         private RectTransform root,map,panel,actual,preview,roadsLayer;
@@ -26,12 +32,13 @@ namespace BaseConquest.Base
             root=gameObject.GetComponent<RectTransform>();
             map=Box("WorldMap",root,new Color(.19f,.29f,.21f));map.offsetMax=new Vector2(-290,0);
             string resource=owner.State.Campaign.WorldJourney.BackgroundResource;
-            if(!string.IsNullOrEmpty(resource)){var sprite=Resources.Load<Sprite>(resource);if(sprite!=null)map.GetComponent<Image>().sprite=sprite;}
+            var background=BackgroundSprite(resource);if(background!=null){var image=map.GetComponent<Image>();image.sprite=background;image.color=Color.white;image.preserveAspect=true;}
             panel=Box("JourneyPanel",root,surface);panel.anchorMin=new Vector2(1,0);panel.offsetMin=new Vector2(-290,0);
             roadsLayer=Layer("Roads",map);
             foreach(var node in owner.State.Campaign.WorldJourney.Nodes)
             {
                 var button=Button(map,node.Title,()=>Select(node.Id),Vector2.zero,new Vector2(132,48));button.name="Node_"+node.Id;button.GetComponent<RectTransform>().anchorMin=button.GetComponent<RectTransform>().anchorMax=Vector2.zero;
+                var icon=NodeSprite(node);if(icon!=null){var r=new GameObject("NodeIcon",typeof(RectTransform),typeof(Image)).GetComponent<RectTransform>();r.SetParent(button.transform,false);r.anchorMin=r.anchorMax=new Vector2(0,.5f);r.anchoredPosition=new Vector2(18,0);r.sizeDelta=new Vector2(32,32);var image=r.GetComponent<Image>();image.sprite=icon;image.preserveAspect=true;image.raycastTarget=false;var label=button.GetComponentInChildren<Text>();label.rectTransform.offsetMin+=new Vector2(32,0);}
             }
             actual=Marker("ActualParty",map,"队伍",surface);preview=Marker("PlanParty",map,"计划",gold);preview.gameObject.SetActive(false);
             selected=owner.State.Campaign.WorldJourney.NodeId;Canvas.ForceUpdateCanvases();PositionMap();actual.anchoredPosition=ActualPoint();RefreshPanel();
