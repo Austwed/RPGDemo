@@ -46,7 +46,7 @@ namespace BaseConquest.Battle
             {
                 var a = s.Army(side);
                 if(a?.CommanderStats!=null&&(a.CommanderStats.Count!=0&&a.CommanderStats.Count!=a.HeroCount||a.CommanderStats.Any(p=>p==null||!p.PersonalProfileValid)))throw new ArgumentException("逐队长战斗属性非法");
-                if(a?.CommanderAppearances!=null&&(a.CommanderAppearances.Count>3||a.CommanderAppearances.Any(n=>n!=null&&n!=""&&n!="ahe"&&n!="azhu"&&n!="chenan"&&n!="wilderness"&&n!="player"&&n!="female")))throw new ArgumentException("未知队长形象");
+                if(a?.CommanderAppearances!=null&&(a.CommanderAppearances.Count>3||a.CommanderAppearances.Any(n=>n!=null&&n!=""&&n!="wilderness"&&!BaseConquest.Presentation.PixelDemoArt.IsCast(n))))throw new ArgumentException("未知队长形象");
                 if(a?.CommanderNames!=null&&(a.CommanderNames.Count>3||a.CommanderNames.Any(n=>string.IsNullOrWhiteSpace(n)||n.Length>40||n.Any(char.IsControl))))throw new ArgumentException("队长姓名须为1至40字，最多三名");
                 if (a == null || a.HeroCount < 1 || a.HeroCount > 3 || a.CaptainSlot < 0 || a.CaptainSlot >= a.HeroCount || a.Capacity < 1 || a.Capacity > 90 || a.Commanders == null || a.Commanders.Count < a.HeroCount || a.Commanders.Count > 3) throw new ArgumentException("指挥者人数、职位或编制不正确");
                 foreach (var kind in Enum.GetValues(typeof(SoldierKind)).Cast<SoldierKind>())

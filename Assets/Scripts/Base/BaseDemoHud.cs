@@ -63,12 +63,12 @@ namespace BaseConquest.Base
             else if(state.Demo.Stage==BaseDemoStage.PrologueWounded)
             {
                 NpcDialogue(new[]{
-                    new NpcLine("残血古裔追兵","enemy-captain","咳……明明吸了瘴毒，这人类的剑怎么还这么快……"),
+                    new NpcLine("残血古裔追兵","saber","咳……明明吸了瘴毒，这人类的剑怎么还这么快……"),
                     new NpcLine("你","","说！西桥头那个拿剑的人在哪——？！",true),
                     new NpcLine("旁白","","【一道寒光自浓雾背后突刺而出，狠辣地贯穿了你的胸口！】"),
                     new NpcLine("你","","［吐血倒地］这道暗金云纹……是王都玄甲禁卫的秘银制式长剑？！",true),
                     new NpcLine("你","","为什么王室的剑会跟古裔混在一起……{Partner}……快逃……",true),
-                    new NpcLine("古裔喽啰","enemy-captain","啧，两个斥候全折了，这人类也穿了心窝子……同归于尽了，快去搬粮！")
+                    new NpcLine("古裔喽啰","archer","啧，两个斥候全折了，这人类也穿了心窝子……同归于尽了，快去搬粮！")
                 },new[]{new NpcReply("获救后 · 在新营地醒来",owner.RecoverDemoPrologue)});return;
             }
             else

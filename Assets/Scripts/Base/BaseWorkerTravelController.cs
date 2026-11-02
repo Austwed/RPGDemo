@@ -27,11 +27,11 @@ namespace BaseConquest.Base
             if(workerTravelMap!=null&&workerTravelMap!=key)ClearWorkerTravel();workerTravelMap=key;
             workerTravel.Tick(State,seconds,EnvironmentPaused);
             foreach(var a in workerTravelViews.Keys.Where(a=>!workerTravel.Active.Contains(a)).ToArray()){if(workerTravelViews[a]!=null)BattleBoardView.DestroyObject(workerTravelViews[a].gameObject);workerTravelViews.Remove(a);}
-            foreach(var a in workerTravel.Active){if(!workerTravelViews.TryGetValue(a,out var v)||v==null){v=TravelActor("WorkerTransfer",a.Kind==BaseTroopKind.Melee?"infantry":a.Kind==BaseTroopKind.Ranged?"archer":"cavalry",a.Position);workerTravelViews[a]=v;}v.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(a.Position.X,a.Position.Y),Color.white);}
+            foreach(var a in workerTravel.Active){if(!workerTravelViews.TryGetValue(a,out var v)||v==null){v=TravelActor("WorkerTransfer",a.Kind==BaseTroopKind.Melee?"saber":a.Kind==BaseTroopKind.Ranged?"archer":"rider",a.Position);workerTravelViews[a]=v;}v.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(a.Position.X,a.Position.Y),Color.white);}
             var intro=State.Demo?.Intro;
             foreach(var v in militiaViews.Values)if(v!=null)v.gameObject.SetActive(BaseDemoPrologue.Village(State)&&intro?.Step==7);
             if(!BaseDemoPrologue.Village(State)||intro?.Step!=7)return;
-            foreach(var p in intro.Militia){if(!militiaViews.TryGetValue(p.Id,out var v)||v==null){v=TravelActor(p.Id,"infantry",new BasePoint(p.MapX,p.MapY));militiaViews[p.Id]=v;}v.gameObject.SetActive(true);v.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(p.MapX,p.MapY),Color.white);}
+            foreach(var p in intro.Militia){if(!militiaViews.TryGetValue(p.Id,out var v)||v==null){v=TravelActor(p.Id,"saber",new BasePoint(p.MapX,p.MapY));militiaViews[p.Id]=v;}v.gameObject.SetActive(true);v.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(p.MapX,p.MapY),Color.white);}
         }
     }
 }

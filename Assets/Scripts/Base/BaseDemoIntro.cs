@@ -156,8 +156,8 @@ namespace BaseConquest.Base
                 // PRO_02_MILITIA_IDLE：护村剑士在序章日常阶段可点击搭话；演练与撤离阶段不出现，免得挡路。
                 if(!BaseSceneRules.Active(s)||Daily(s)&&i.Step>=2)
                 {
-                    result.Add(new BaseMapObject("intro_militia_1","东队民兵",18,10,.5,.5,false,"demo-npc:militia-1","infantry","npc"));
-                    result.Add(new BaseMapObject("intro_militia_2","西队民兵",3,8,.5,.5,false,"demo-npc:militia-2","infantry","npc"));
+                    result.Add(new BaseMapObject("intro_militia_1","东队民兵",18,10,.5,.5,false,"demo-npc:militia-1","saber","npc"));
+                    result.Add(new BaseMapObject("intro_militia_2","西队民兵",3,8,.5,.5,false,"demo-npc:militia-2","saber","npc"));
                 }
             }
             return result.ToArray();
@@ -199,7 +199,7 @@ namespace BaseConquest.Base
             while(seconds>1e-8&&i.Step==7){double dt=Math.Min(.05,seconds);seconds-=dt;var door=BaseStageWalk.Door(s,"intro_farm");
                 if(i.DeparturePhase==0){if(BaseStageWalk.Advance(s,ref i.CaptainX,ref i.CaptainY,door,dt))i.DeparturePhase=1;}
                 else if(i.DeparturePhase==1){i.DepartureWait+=dt;if(i.DepartureWait>=1)i.DeparturePhase=2;}
-                else if(i.DeparturePhase==2){i.MilitiaDelay-=dt;if(i.MilitiaDelay<=0&&i.MilitiaSpawned<4){int n=i.MilitiaSpawned++;i.Militia.Add(new BaseLeader{Id="intro_militia_"+n,Name="村庄剑士",AppearanceId="infantry",Health=100,MaxHealth=100,MapX=door.X,MapY=door.Y,HasMapPosition=true});i.MilitiaDelay=.4;}if(i.MilitiaSpawned==4)i.DeparturePhase=3;}
+                else if(i.DeparturePhase==2){i.MilitiaDelay-=dt;if(i.MilitiaDelay<=0&&i.MilitiaSpawned<4){int n=i.MilitiaSpawned++;i.Militia.Add(new BaseLeader{Id="intro_militia_"+n,Name="村庄剑士",AppearanceId="saber",Health=100,MaxHealth=100,MapX=door.X,MapY=door.Y,HasMapPosition=true});i.MilitiaDelay=.4;}if(i.MilitiaSpawned==4)i.DeparturePhase=3;}
                 else if(i.DeparturePhase==3){if(BaseStageWalk.Advance(s,ref i.CaptainX,ref i.CaptainY,new BasePoint(.6,7.2),dt))i.DeparturePhase=4;}
                 foreach(var person in i.Militia){int n=i.Militia.IndexOf(person);var target=i.DeparturePhase>=4?new BasePoint(.6,7.2):BaseSpatial.Nearest(s,new BasePoint(i.CaptainX+1+(n%2)*.6,i.CaptainY+(n/2)*.6));BaseStageWalk.Advance(s,ref person.MapX,ref person.MapY,target,dt);}
                 if(i.DeparturePhase==4&&i.Militia.Count==4&&i.Militia.All(p=>new BasePoint(p.MapX,p.MapY).Distance(new BasePoint(.6,7.2))<.12)){i.Step=8;BaseDemoPrologue.BeginEscape(s);return true;}

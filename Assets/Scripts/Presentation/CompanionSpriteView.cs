@@ -44,7 +44,7 @@ namespace BaseConquest.Presentation
         public bool Initialize(string id,Material source)
         {
             var recommended=PixelDemoArt.Load("Characters",id);
-            if(recommended!=null){AppearanceId=id;pixel=new PixelCharacterSheet(transform,source,recommended,PixelDemoArt.Load("Characters",id=="azhu"?"mounted-azhu":id=="cavalry"?"mounted-cavalry":""),id);return true;}
+            if(recommended!=null){AppearanceId=id;string mountId=id=="azhu"?"mounted-azhu":PixelDemoArt.TroopId(id)=="cavalry"?"mounted-cavalry":"";pixel=new PixelCharacterSheet(transform,source,recommended,PixelDemoArt.Load("Characters",mountId),id);return true;}
             art=CommanderArt.For(id);if(art==null)return false;
             atlas=Resources.Load<Texture2D>("Characters/"+art.TextureName);if(atlas==null)return false;
             AppearanceId=id;ink=new MaterialPropertyBlock();

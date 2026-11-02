@@ -93,9 +93,9 @@ namespace BaseConquest.Base
         {
             root.GetComponent<UnityEngine.Canvas>().sortingOrder=300;
             NpcDialogue(new[]{
-                new NpcLine(BaseScriptNames.Bandit+"匪兵","enemy-captain","完了完了！寨子里就留了老弱，大当家带人下山，谁守得住营盘啊……"),
+                new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","完了完了！寨子里就留了老弱，大当家带人下山，谁守得住营盘啊……"),
                 new NpcLine("你","","大当家带了多少人？营盘在哪个方向？快说！",true),
-                new NpcLine(BaseScriptNames.Bandit+"匪兵","enemy-captain","在……在营地南边官道拐口！山道两边全是枯树和大石，你们攻不上去的！")
+                new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","在……在营地南边官道拐口！山道两边全是枯树和大石，你们攻不上去的！")
             },new[]{new NpcReply("继续战斗",proceed)});
         }
         public void OpenSecondRaidBriefing(Action proceed)

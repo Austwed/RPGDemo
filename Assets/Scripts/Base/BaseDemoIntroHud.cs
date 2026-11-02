@@ -17,7 +17,7 @@ namespace BaseConquest.Base
         {
             NpcDialogue(new[]{new NpcLine("旁白","","【低沉的古裔骨号声穿透浓雾，西侧村头传来兵刃交击声】"),
                 new NpcLine("你","","西桥头的动静停了……{Partner}还没跟上来！",true),
-                new NpcLine("古裔追兵","enemy-captain","拦住他们！祭司大人有令，带“燃脉”气息的活口一个不留！"),
+                new NpcLine("古裔追兵","saber","拦住他们！祭司大人有令，带“燃脉”气息的活口一个不留！"),
                 new NpcLine("你","","［瞳孔微缩］他们身上的伤口是{Partner}的剑路！是从西桥头漏过来的！",true),
                 new NpcLine("你","","阿禾，带乡亲们直奔东山口！这两个残兵交给我！",true)},new[]{new NpcReply("让阿禾带村民离开，准备迎敌",begin)});
         }
@@ -129,7 +129,7 @@ namespace BaseConquest.Base
                     ClosePanel();})});return true;
             }
             if(id=="intro_militia_1"||id=="intro_militia_2")
-            {NpcDialogue(new[]{new NpcLine("护村剑士","infantry","刀枪都擦亮了，只要二位一声令下，随时能上阵！")},new[]{new NpcReply("辛苦了",ClosePanel)});return true;}
+            {NpcDialogue(new[]{new NpcLine("护村剑士","saber","刀枪都擦亮了，只要二位一声令下，随时能上阵！")},new[]{new NpcReply("辛苦了",ClosePanel)});return true;}
             if(i.Step>=6&&i.Step<=8)return false;
             return false;
         }

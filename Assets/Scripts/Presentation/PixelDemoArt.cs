@@ -7,9 +7,14 @@ namespace BaseConquest.Presentation
     public static class PixelDemoArt
     {
         private static readonly System.Collections.Generic.Dictionary<string,Texture2D> textures=new System.Collections.Generic.Dictionary<string,Texture2D>();
+        // 士兵三职业的策划定名是 saber／archer／rider；图集文件名沿用旧批次（infantry／cavalry），
+        // 这里统一归一，调用方一律用正式名。改文件名会牵动 .meta GUID 与所有 Resources 路径，没有收益。
+        public static string TroopId(string id)=>id=="saber"?"infantry":id=="rider"?"cavalry":id;
+        // 三职业角色（含占位 chenan）：敌方队长也取这里的形象（galan=遗迹战、chief=匪寨战），与士兵／杂兵区分。
+        public static bool IsCast(string id)=>id=="player"||id=="female"||id=="ahe"||id=="azhu"||id=="mounted-azhu"||id=="galan"||id=="chief"||id=="batu"||id=="huoya"||id=="chenan";
         // 骑乘身份：静态图集本身就是「马＋骑手」的那几个（判据是图集本身——正面剪影窄、侧面宽，即为马）。
         // 体量、可用的动作图集、名牌高度都按它判断。chief（大当家）是骑马的匪首，别漏。
-        public static bool Mounted(string id)=>id=="azhu"||id=="cavalry"||id=="mounted-azhu"||id=="mounted-cavalry"||id=="chief";
+        public static bool Mounted(string id)=>id=="azhu"||TroopId(id)=="cavalry"||id=="mounted-azhu"||id=="mounted-cavalry"||id=="chief";
         // 各图集里角色实际画了多少像素高（alpha 剪影中位数，从 Assets/Resources/PixelDemo/Characters 实测生成）。
         // 美术把角色身高以及同一角色待机／行走／攻击的尺寸都画得不一致（cavalry 待机 48px、攻击 42px，chief 55px），
         // 只按格子渲染会让同一个人换姿势就忽大忽小。渲染时统一归一到该角色 -v1 的身高，再乘骑乘系数。
@@ -35,10 +40,11 @@ namespace BaseConquest.Presentation
             { "player|v1", 56f }, { "player|walk", 56f }, { "player|attack", 55f },
             { "villager|v1", 50f }, { "villager|attack", 55f },
         };
-        public static float ArtHeightOf(string id,string kind)=>ArtHeight.TryGetValue(id+"|"+kind,out var px)&&px>0?px:56f;
+        public static float ArtHeightOf(string id,string kind)=>ArtHeight.TryGetValue(TroopId(id)+"|"+kind,out var px)&&px>0?px:56f;
         public static Texture2D Load(string category,string id)
         {
             if(string.IsNullOrEmpty(id))return null;
+            id=TroopId(id);
             if(id=="wilderness")id="enemy-captain";
             else if(id=="portrait-wilderness")id="portrait-enemy-captain";
             // 阿铸只保留骑乘一套图集：所有调用方（含头像兜底、BattlePawn2D 的可用性判断）统一解析到 mounted-azhu，不再有站立版。
@@ -56,7 +62,7 @@ namespace BaseConquest.Presentation
         }
         // 动作图集查找必须和 Load 用同一套别名：cavalry／azhu 只有骑乘版动作集，
         // 不归一就会查不到 walk，检查台把骑兵误判成「只能攻击」，也会在别处误判可用动作。
-        public static string AtlasId(string id)=>id=="wilderness"?"enemy-captain":id=="azhu"?"mounted-azhu":id=="cavalry"?"mounted-cavalry":id;
+        public static string AtlasId(string id)=>id=="wilderness"?"enemy-captain":id=="azhu"?"mounted-azhu":TroopId(id)=="cavalry"?"mounted-cavalry":TroopId(id);
         public static Texture2D Motion(string id,string motion)=>Resources.Load<Texture2D>("PixelDemo/Characters/"+AtlasId(id)+"-"+motion+"-v2");
         public static Rect Frame(HeroFacing facing,HeroPose pose,double time)
         {
@@ -89,11 +95,11 @@ namespace BaseConquest.Presentation
             atlas=texture;mountedAtlas=mounted;
             // 阿铸日常也骑乘（规范 §2B 骑兵规则 1）：不能等调用方传 mounted，否则探索态回落到站立版。
             // 骑兵同理：cavalry 的静态图集已统一解析到 mounted-cavalry，不默认骑乘就会读到空的行走图集。
-            alwaysMounted=identity=="azhu"||identity=="cavalry";
+            alwaysMounted=identity=="azhu"||PixelDemoArt.TroopId(identity)=="cavalry";
             // 静态图集本身就是马的身份（骑兵、骑乘阿铸、大当家）：任何时候都不该按步兵体量渲染。
             mountedArt=PixelDemoArt.Mounted(identity);
             artId=identity;
-            riderId=identity=="azhu"?"mounted-azhu":identity=="cavalry"?"mounted-cavalry":identity;
+            riderId=identity=="azhu"?"mounted-azhu":PixelDemoArt.TroopId(identity)=="cavalry"?"mounted-cavalry":identity;
             if(!string.IsNullOrEmpty(identity))
             {
                 idleAtlas=PixelDemoArt.Motion(identity,"idle");walkAtlas=PixelDemoArt.Motion(identity,"walk");attackAtlas=PixelDemoArt.Motion(identity,"attack");downAtlas=PixelDemoArt.Motion(identity,"down");

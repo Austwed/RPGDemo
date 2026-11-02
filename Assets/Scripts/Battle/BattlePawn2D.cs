@@ -104,7 +104,8 @@ namespace BaseConquest.Battle
             foreach (var line in lines) if (line != arrow && !line.name.StartsWith("SquadStar")) damageLines[line] = line.startColor;
             if(s.Kind!=SoldierKind.Hero)
             {
-                string id=s.Kind==SoldierKind.Ranged?"archer":s.Kind==SoldierKind.Cavalry?"cavalry":"infantry";
+                // 士兵三职业＝saber／archer／rider（不分阵营，敌我共用同一套图）。
+                string id=s.Kind==SoldierKind.Ranged?"archer":s.Kind==SoldierKind.Cavalry?"rider":"saber";
                 if(BaseConquest.Presentation.PixelDemoArt.Load("Characters",id)!=null)
                 {
                     // Keep the existing squad badge outside the hidden geometric body.
