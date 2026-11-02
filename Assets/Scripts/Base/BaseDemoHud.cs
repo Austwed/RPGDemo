@@ -36,7 +36,7 @@ namespace BaseConquest.Base
                     new NpcLine("你","","［眼神微凛］王都禁卫的秘银剑……古裔背后果然有人指使。",true),
                     new NpcLine(BaseScriptNames.ChunShen,BaseScriptNames.Portrait("chunshen"),"你伤刚好，别急着动气。阿禾就在外头麦田里忙活呢。"),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"想在这片荒滩立寨找人，得先去北边灰岩镇求见领主霍恩爵士。")
-                },new[]{new NpcReply("起身，拜访领主",()=>{if(owner.Change(next=>{if(!BaseDemo.AcknowledgeWaking(next))throw new InvalidOperationException("请回到营帐同层一格以内了解当前处境");},"当前目标：从东侧出口拜访领主"))ClosePanel();})});return;
+                },new[]{new NpcReply("起身，拜访领主",()=>{if(owner.Change(next=>{if(!BaseDemo.AcknowledgeWaking(next))throw new InvalidOperationException("醒来流程未完成，请重试");},"当前目标：从东侧出口拜访领主"))ClosePanel();})});return;
             }
             else
             {

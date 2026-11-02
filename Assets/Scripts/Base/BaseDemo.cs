@@ -110,7 +110,7 @@ namespace BaseConquest.Base
                     Placement("home","营帐",1.8,11.6,3,2,"home-small"),
                     Placement("farm","粮田",6.2,11,5,3,"farm"),
                     Placement("workshop","工坊 · 待修复",19,11,4,3,"workshop",true),
-                    Placement("barracks","兵营 · 待修复",12.5,10.5,4,2.6,"barracks",true),
+                    Placement("barracks","兵营 · 待修复",12.5,10.9,3.2,2.0,"barracks",true),
                     new BaseMapPlacement {Id="exit_east",Name="拜访领主 →",X=23.3,Y=6.5,Width=1.2,Height=2}
                 }},
                 new BaseMapLayout {Region="town",Title="领主驻地",SpawnX=12,SpawnY=6.5,Objects=new List<BaseMapPlacement> {
@@ -148,14 +148,15 @@ namespace BaseConquest.Base
             var map=state.Campaign.RegionMaps.FirstOrDefault(entry=>entry.Id=="base");if(map==null)return;
             var board=map.Board;
             // 旧档可能残留上一版台面：先把这片区域压平再重建，避免重复调用叠出孤立高格。
-            for(int z=6;z<=13;z++)for(int x=9;x<=18;x++){var stale=board.Cell(new GridPosition(x,z));stale.Elevation=0;stale.Ramp=RampAxis.None;}
-            // 台面格 x10~14 × z9~11（物理范围 10~15 × 9~12），兵营(12.5,10.5) 4×2.6 完整落在其中；
-            // 四向斜坡都在台面外侧，且不与粮田(x3.7~8.7)、工坊(x17~21) 的占地相交。
+            for(int z=6;z<=13;z++)for(int x=8;x<=18;x++){var stale=board.Cell(new GridPosition(x,z));stale.Elevation=0;stale.Ramp=RampAxis.None;}
+            // 台面格 x10~14 × z9~11（物理范围 10~15 × 9~12），兵营(12.5,10.9) 3.2×2.0 落在其中。
+            // 2026-11-02 修「上不了台面」：旧版兵营 4×2.6 几乎占满台面，南北东西坡通向的台面高台格全被兵营占地
+            //（含角色半径 0.28）堵死。台面北扩会撞地图北边界（北坡需 z14 低地，越界），故改为缩小兵营到 3.2×2.0 并北移，
+            // 让南坡、东坡恢复通行；北坡（设施带方向）与西坡（粮田堵死）不再设置。
             for(int z=9;z<=11;z++)for(int x=10;x<=14;x++)board.Cell(new GridPosition(x,z)).Elevation=1;
             void Stair(int x,int z,RampAxis axis){var cell=board.Cell(new GridPosition(x,z));cell.Elevation=1;cell.Ramp=axis;cell.Surface=GroundSurface.Road;}
             Stair(11,8,RampAxis.NorthSouth);Stair(12,8,RampAxis.NorthSouth);
-            Stair(11,12,RampAxis.NorthSouth);Stair(12,12,RampAxis.NorthSouth);
-            Stair(9,10,RampAxis.EastWest);Stair(15,10,RampAxis.EastWest);
+            Stair(15,10,RampAxis.EastWest);
         }
         // 旧档布局迁移：地图布局随存档序列化，改坐标只影响新档。这里把营地设施拉回当前标准位置、
         // 清掉已废弃的场景摆件、重装高台，旧档不必重开就能看到新布局。
@@ -176,7 +177,7 @@ namespace BaseConquest.Base
                 Move("home",1.8,11.6,3,2);
                 Move("farm",6.2,11,5,3);
                 Move("workshop",19,11,4,3);
-                Move("barracks",12.5,10.5,4,2.6);
+                Move("barracks",12.5,10.9,3.2,2.0);
                 // 营帐里的长剑摆件已并入剧情物品（老周当面交付长剑），场景里的那支撤掉。
                 camp.Objects.RemoveAll(o=>o.Id=="demo_long_sword");
                 // 迎敌战场入口移到左侧边缘正中，和东侧「拜访领主」同一高度。
@@ -255,7 +256,10 @@ namespace BaseConquest.Base
 
         public static bool AcknowledgeWaking(BaseState state)
         {
-            if(!Active(state)||state.Demo.Stage!=BaseDemoStage.Waking||!BaseInteraction.At(state,"base","home")&&!BaseInteraction.At(state,"base","demo_rescuer"))return false;
+            // 醒来对话只能由「营帐／老周」交互或进入营地的自动触发弹出，弹出即代表玩家已确认醒来；
+            // 不再要求玩家此刻仍站在营帐旁——对话弹出后玩家可能已走开，点击「起身」应直接完成醒来，
+            // 否则玩家不在营帐旁时点「起身」会抛「请回到营帐同层一格以内」且对话框无法关闭（卡死）。
+            if(!Active(state)||state.Demo.Stage!=BaseDemoStage.Waking)return false;
             const string sword=BaseBackpack.RoyalSword;
             if(state.Backpack.Catalog.Any(d=>d.Id==sword)||state.Backpack.Catalog.Count>=1000)return false;
             var definition=new BaseBagDefinition {Id=sword,Name="王都秘银长剑",Category="quest",Description=BaseBackpack.RoyalSwordDescription,MaxStack=1};

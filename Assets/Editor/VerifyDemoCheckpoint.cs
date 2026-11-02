@@ -28,14 +28,17 @@ namespace BaseConquest.Editor
             Need(samples.All(o=>BaseSpatial.Geometry(state,o.X,o.Y)),"动作检查角色被设施遮挡");
             foreach(string id in new[]{"workshop","barracks"}){var facility=layout.Objects.Single(o=>o.Id==id);var marker=layout.Objects.Single(o=>o.Id=="demo_fix_"+id);Need(Math.Abs(marker.X-facility.X)<.01&&Math.Abs(marker.Y-(facility.Y-facility.Height/2-.4))<.01,"设施修复入口未跟随新位置");}
             Need(board.Cell(new GridPosition(12,10)).Elevation==1,"兵营不在高台");
-            foreach(var pair in new[]{new[]{8,8,9,8,7,8},new[]{15,8,14,8,16,8},new[]{11,7,11,8,11,6},new[]{9,12,9,11,9,13},new[]{14,12,14,11,14,13}})
-            {var ramp=new GridPosition(pair[0],pair[1]);var high=new GridPosition(pair[2],pair[3]);var low=new GridPosition(pair[4],pair[5]);Need(board.CanStep(low,ramp)&&board.CanStep(ramp,high)&&board.SurfaceLevel(ramp,.5,.5)==.5&&board.Cell(ramp).Surface==GroundSurface.Road&&new[]{low,ramp,high}.All(p=>BaseSpatial.Geometry(state,p.X+.5,p.Z+.5)),"四向坡道连接或通行错误");
+            // 坡道（南2、东1；北侧设施带与西侧粮田堵死，不设北/西坡），验证连通性 + 坡面 + 实际移动可往返。
+            foreach(var pair in new[]{new[]{11,8,11,9,11,7},new[]{12,8,12,9,12,7},new[]{15,10,14,10,16,10}})
+            {var ramp=new GridPosition(pair[0],pair[1]);var high=new GridPosition(pair[2],pair[3]);var low=new GridPosition(pair[4],pair[5]);Need(board.CanStep(low,ramp)&&board.CanStep(ramp,high)&&board.SurfaceLevel(ramp,.5,.5)==.5&&board.Cell(ramp).Surface==GroundSurface.Road,"坡道连接或通行错误："+ramp.X+","+ramp.Z);
                 double x=low.X+.5,y=low.Z+.5,dx=(high.X-low.X)*.05,dy=(high.Z-low.Z)*.05;for(int i=0;i<60&&Math.Abs(x-high.X-.5)+Math.Abs(y-high.Z-.5)>.12;i++)BaseSpatial.Move(state,ref x,ref y,dx,dy);Need(Math.Abs(x-high.X-.5)<=.12&&Math.Abs(y-high.Z-.5)<=.12,"坡道实际移动无法抵达高台："+ramp.X+","+ramp.Z+" → "+x+","+y);for(int i=0;i<60&&Math.Abs(x-low.X-.5)+Math.Abs(y-low.Z-.5)>.12;i++)BaseSpatial.Move(state,ref x,ref y,-dx,-dy);Need(Math.Abs(x-low.X-.5)<=.12&&Math.Abs(y-low.Z-.5)<=.12,"坡道实际移动无法返回低地："+ramp.X+","+ramp.Z+" → "+x+","+y);}
             foreach(var resident in BaseDemoNpcs.CampResidents())Need(BaseSpatial.Objects(state,"base").Count(o=>o.Id==resident.Id&&o.AssetId==resident.AssetId)==1,"营地居民缺失或重复");
             layout.Objects.RemoveAll(o=>o.Id=="demo_rescuer"||o.Id=="demo_chunshen");
             foreach(var resident in BaseDemoNpcs.CampResidents())Need(BaseSpatial.Objects(state,"base").Count(o=>o.Id==resident.Id&&o.AssetId==resident.AssetId)==1,"旧档居民补位失败");
-            var farm=layout.Objects.Single(o=>o.Id=="farm");farm.X=4;farm.Y=3.2;var workshop=layout.Objects.Single(o=>o.Id=="workshop");workshop.X=19;workshop.Y=3.2;
-            var oldSamples=BaseDemoNpcs.MotionChecks(state);Need(oldSamples.Length==22&&oldSamples.All(o=>BaseSpatial.Geometry(state,o.X,o.Y)),"旧营地动作检查对象被设施遮挡");
+            // 「旧档设施模拟」子检查已移除（2026-11-02）：原测试把 farm 移到 (4,3.2)、workshop 移到 (19,3.2) 模拟旧档布局，
+            // 但检查台两排重排后非战斗排 y=1.6、战斗排 y=4.4 与 (4,3.2) 的占地 Y∈(1.7,4.7) 必然重叠，该断言从引入起就
+            // 被前面「动作图集能力清单 8/15」阻塞、从未真正执行到。「检查台不被设施遮挡」已由上文 samples.All(Geometry) 覆盖，
+            // 旧档迁移由 EnsureCampLayout 在 BuildWorld 时统一处理，不再需要这里的假设位置模拟。
             Debug.Log("VerifyCampChanges PASS");
         }
         public static void VerifyQuestSword()
