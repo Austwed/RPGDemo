@@ -467,8 +467,8 @@ namespace BaseConquest.RealtimePrototype
                 for(int positionX=Math.Max(0,targetX-radius);positionX<=Math.Min(Arena.FineColumns-1,targetX+radius);positionX++)
                 {
                     int cell=positionZ*Arena.FineColumns+positionX;if(!Fits(actor,cell,(target.BodyCenter-Arena.Center(cell)).Normalized)||cell==target.Cell||double.IsPositiveInfinity(distances[cell]))continue;
-                    var point=Arena.Center(cell);double range=(point-target.Position).Length;
-                    if(range>ReachFor(actor,target,point)||actor.Ranged&&range<Math.Min(2,actor.Reach*.6)||SlotClaimed(cell,actor)||
+                    var point=Arena.Center(cell);var axis=PrototypeUnit.MajorAxis(target.BodyCenter-point,actor.BodyAxis);double range=BodyGapAt(actor,target,point,axis),centerRange=(point-target.Position).Length;
+                    if(range>ReachFor(actor,target,point)||actor.Ranged&&centerRange<Math.Min(2,actor.Reach*.6)||SlotClaimed(cell,actor)||
                         reservations.TryGetValue(cell,out int owner)&&owner!=actor.Id||!ClearAttack(point,target.BodyCenter))continue;
                     if(CommanderDoctrine ? !DoctrineSlotAllowed(actor,point) : actor.Order==PrototypeOrder.Guard&&(point-actor.Anchor).Length>GuardMoveRadius)continue;
                     double danger=actor.Ranged ? Units.Count(enemy=>enemy.Alive&&enemy.Side!=actor.Side&&(enemy.Position-point).Length<1.5)*5 : 0;
@@ -513,7 +513,7 @@ namespace BaseConquest.RealtimePrototype
         private void BeginAttack(PrototypeUnit actor)
         {if(AttackTriggered!=null){StartWindup(actor);return;}actor.AttackFacing=actor.Facing;actor.HitAt=Elapsed+(actor.Ranged ? .24 : .22);actor.HitResolved=false;actor.SwingUntil=actor.HitAt+.16;actor.ReadyAt=Elapsed+(actor.AttackInterval>0 ? actor.AttackInterval : actor.Ranged ? 1.35 : .95);}
         private bool InSwing(PrototypeUnit actor,PrototypeUnit target)
-        {var offset=target.BodyCenter-actor.Position;return BodyGap(actor,target)<=actor.Reach+target.Radius&&PrototypePoint.Dot(offset.Normalized,actor.AttackFacing)>=.5&&double.IsPositiveInfinity(Arena.WallFraction(actor.Position,target.BodyCenter));}
+        {var offset=target.BodyCenter-actor.Position;return BodyGap(actor,target)<=actor.Reach+(actor.FootprintLength==2||target.FootprintLength==2?0:target.Radius)&&PrototypePoint.Dot(offset.Normalized,actor.AttackFacing)>=.5&&double.IsPositiveInfinity(Arena.WallFraction(actor.Position,target.BodyCenter));}
         private void Hurt(PrototypeUnit source,PrototypeUnit target,double damage)
         {double actual=Math.Min(target.Health,Math.Max(0,DamageResolver?.Invoke(source,target,damage)??damage));target.Health-=actual;target.FlashUntil=Elapsed+.12;DamageApplied?.Invoke(source,target,actual);Hits++;}
         private void AdvanceArrow(PrototypeArrow arrow)

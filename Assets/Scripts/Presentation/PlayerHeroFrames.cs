@@ -8,18 +8,14 @@ namespace BaseConquest.Presentation
     {
         public static HeroFacing Face(double dx,double dz,HeroFacing previous)
         {
-            double x=Math.Abs(dx),z=Math.Abs(dz);if(x+z<.00001)return previous;
-            // Every diagonal uses its horizontal-facing art, independent of the
-            // previous facing or which axis has the larger displacement.
-            if(x>.000001)return dx>0 ? HeroFacing.East : HeroFacing.West;
-            return dz>0 ? HeroFacing.North : HeroFacing.South;
+            var prior=previous==HeroFacing.East?new BaseConquest.RealtimePrototype.PrototypePoint(1,0):previous==HeroFacing.West?new BaseConquest.RealtimePrototype.PrototypePoint(-1,0):previous==HeroFacing.North?new BaseConquest.RealtimePrototype.PrototypePoint(0,1):new BaseConquest.RealtimePrototype.PrototypePoint(0,-1);
+            var axis=BaseConquest.RealtimePrototype.PrototypeUnit.MajorAxis(new BaseConquest.RealtimePrototype.PrototypePoint(dx,dz),prior);
+            return axis.X>0?HeroFacing.East:axis.X<0?HeroFacing.West:axis.Z>0?HeroFacing.North:HeroFacing.South;
         }
-        // 看向某人（NPC 面向主角等）用主轴四向判定：行走 Face 的"对角线一律用水平"会让
-        // 斜下方的观察对象几乎永远左右转头，不会有南北向。这里按分量较大的一轴取四向。
+        // 看向目标与行走使用同一主轴及滞回判据。
         public static HeroFacing FaceTowards(double dx,double dz,HeroFacing previous)
         {
-            double x=Math.Abs(dx),z=Math.Abs(dz);if(x+z<.00001)return previous;
-            return x>z ? (dx>0 ? HeroFacing.East : HeroFacing.West) : (dz>0 ? HeroFacing.North : HeroFacing.South);
+            return Face(dx,dz,previous);
         }
         public static int Frame(HeroPose pose,HeroFacing facing,double time)
         {

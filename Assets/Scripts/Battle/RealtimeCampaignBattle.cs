@@ -25,7 +25,7 @@ namespace BaseConquest.RealtimePrototype
     {
         public RealtimeBattleState Capture()=>new RealtimeBattleState {NextUnit=nextUnitId,NextArrow=nextArrowId,Step=simulationStep,Hits=Hits,Shots=Shots,
             CompletedSteps=CompletedSteps,YieldMoves=YieldMoves,Seconds=Elapsed,Remainder=remainder,
-            Units=Units.Select(unit=>unit.Copy()).ToList(),Arrows=Arrows.Select(arrow=>arrow.Copy()).ToList()};
+            Units=Units.Select(unit=>{var copy=unit.Copy();if(copy.FootprintLength==2)copy.Facing=unit.BodyAxis;return copy;}).ToList(),Arrows=Arrows.Select(arrow=>arrow.Copy()).ToList()};
         // RPG units may combine up to 1,000,000 base attack, 10,000 supply,
         // and a 2x wine multiplier. Identity checks still verify the source.
         public const double RpgAttackDamageLimit=2020010;

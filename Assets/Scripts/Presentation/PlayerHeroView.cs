@@ -69,7 +69,7 @@ namespace BaseConquest.Presentation
         public void Realtime(BaseConquest.RealtimePrototype.PrototypeUnit actor,double seconds)
         {
             bool attacking=actor.SwingUntil>seconds;var heading=attacking?actor.AttackFacing:actor.Facing;
-            Facing=PlayerHeroFrames.Face(heading.X,heading.Z,Facing);
+            var visual=actor.FootprintLength==2?actor.BodyAxis:heading;Facing=PlayerHeroFrames.Face(visual.X,visual.Z,Facing);
             var pose=actor.Health<=0||actor.KnockedDown?HeroPose.Down:attacking?HeroPose.Attack:actor.Moving&&!actor.SteeringStopped?HeroPose.Walk:HeroPose.Idle;
             double windup=actor.Ranged?.24:.22;
             double time=pose==HeroPose.Down?1:pose==HeroPose.Attack?(actor.RpgWindup?actor.AttackPoseTime(seconds,windup/(windup+.16)):Mathf.Clamp01((float)((seconds-actor.HitAt+windup)/(windup+.16)))):pose==HeroPose.Walk?actor.DistanceTravelled/4:seconds;

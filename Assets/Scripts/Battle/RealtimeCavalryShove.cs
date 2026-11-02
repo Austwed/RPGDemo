@@ -53,7 +53,7 @@ namespace BaseConquest.RealtimePrototype
             }
             // 转向本身也会撞：马身摆过去与侧后方的人相交，起步在 Face 这一步就被否掉。
             // 用副本算转向后的体积，不动真单位。
-            var probe=rider.Copy();probe.Facing=(landing-rider.Position).Normalized;
+            var probe=rider.Copy();probe.Facing=(landing-rider.Position).Normalized;probe.SetBodyAxis(PrototypeUnit.MajorAxis(probe.Facing,rider.BodyAxis));
             foreach(var other in Units.Where(unit=>unit.Alive&&unit.Id!=rider.Id))
                 if(BodiesCross(probe,probe.Position,other,other.Moving?Arena.Center(other.NextCell):other.Position)){Consider(other);Tally("turn");}
             if(targets.Count==0){Tally("nocollision");return false;}
@@ -97,7 +97,7 @@ namespace BaseConquest.RealtimePrototype
         private IEnumerable<int> CandidateCells(PrototypeUnit blocker)
         {
             if(!IsCavalry(blocker))return Arena.Neighbours(blocker.Cell);
-            var axis=PrototypeUnit.Axis(blocker.Facing);var result=new List<int>();
+            var axis=blocker.BodyAxis;var result=new List<int>();
             foreach(int sign in new[]{1,-1})
             {
                 int x=blocker.Cell%Arena.FineColumns+(int)axis.X*sign, z=blocker.Cell/Arena.FineColumns+(int)axis.Z*sign;
