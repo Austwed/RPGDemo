@@ -108,7 +108,7 @@ namespace BaseConquest.Base
                 if(l.PersonalEquipment?.Items?.Count>0||!string.IsNullOrEmpty(l.PersonalEquipment?.Weapon))throw new ArgumentException("人物装备缺少版本，拒绝重置");
                 var stats=BaseCommanderIdentity.Stats(l,new ArmyDefinition().Hero);
                 string appearance=BaseCommanderIdentity.Appearance(l);
-                string weapon=appearance=="ahe"||stats.HasCombatKind&&stats.CombatKind==SoldierKind.Ranged ? "bow" : appearance=="azhu"||stats.HasCombatKind&&stats.CombatKind==SoldierKind.Cavalry ? "spear" : "sword";
+                string weapon=UnitNaming.CastCombatKind(appearance)==SoldierKind.Ranged||stats.HasCombatKind&&stats.CombatKind==SoldierKind.Ranged ? "bow" : UnitNaming.CastCombatKind(appearance)==SoldierKind.Cavalry||stats.HasCombatKind&&stats.CombatKind==SoldierKind.Cavalry ? "spear" : "sword";
                 stats.HasCombatKind=true;stats.CombatKind=weapon=="bow" ? SoldierKind.Ranged : weapon=="spear" ? SoldierKind.Cavalry : SoldierKind.Melee;
                 l.PersonalEquipment=new BasePersonalLoadout {Version=1,Weapon=weapon,InitialWeapon=weapon,ExtraAccessory=l.Id==s.PlayerLeaderId,BaseStats=stats};
                 // Basic gear represents the existing profile; migration grants no combat stats or healing.

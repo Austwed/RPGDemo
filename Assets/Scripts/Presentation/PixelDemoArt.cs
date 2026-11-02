@@ -9,7 +9,14 @@ namespace BaseConquest.Presentation
         private static readonly System.Collections.Generic.Dictionary<string,Texture2D> textures=new System.Collections.Generic.Dictionary<string,Texture2D>();
         // 士兵三职业的策划定名是 saber／archer／rider；图集文件名沿用旧批次（infantry／cavalry），
         // 这里统一归一，调用方一律用正式名。改文件名会牵动 .meta GUID 与所有 Resources 路径，没有收益。
-        public static string TroopId(string id)=>id=="saber"?"infantry":id=="rider"?"cavalry":id;
+        // 单位 id 规范（2026-11-02 定）：士兵单位是 `T-<职业>-<阵营>`（如 T-saber-royal），职业词不单独当单位名。
+        // 这里把「职业词」和「T- 单位 id」都归一成图集文件名：saber→infantry、rider→cavalry、T-saber-*→infantry 等。
+        public static string TroopId(string id)
+        {
+            if(string.IsNullOrEmpty(id))return id;
+            if(BaseConquest.Battle.UnitNaming.TryParseTroop(id,out var classWord,out var _))id=classWord;
+            return id=="saber"?"infantry":id=="rider"?"cavalry":id;
+        }
         // 三职业角色：敌方队长也取这里的形象（galan=遗迹战、chief=匪寨战）。
         public static bool IsCast(string id)=>id=="player"||id=="female"||id=="ahe"||id=="azhu"||id=="mounted-azhu"||id=="galan"||id=="chief"||id=="batu"||id=="huoya";
         // 骑乘身份：静态图集本身就是「马＋骑手」的那几个（判据是图集本身——正面剪影窄、侧面宽，即为马）。
@@ -66,6 +73,11 @@ namespace BaseConquest.Presentation
         // 不归一就会查不到 walk，检查台把骑兵误判成「只能攻击」，也会在别处误判可用动作。
         public static string AtlasId(string id)=>id=="wilderness"?"enemy-captain":id=="azhu"?"mounted-azhu":TroopId(id)=="cavalry"?"mounted-cavalry":TroopId(id);
         public static Texture2D Motion(string id,string motion)=>Resources.Load<Texture2D>("PixelDemo/Characters/"+AtlasId(id)+"-"+motion+"-v2");
+        // 行为／表现解耦（2026-11-02 定）：能播什么动作只看这套贴图带没带对应动作图集，与单位类别无关。
+        // 检查台按钮、动作能力标注一律用这两个查询，不再按「交互 NPC」类别硬关。
+        public static bool HasMotion(string id,string motion)=>Motion(id,motion)!=null;
+        public static bool HasAttack(string id)=>HasMotion(id,"attack");
+        public static bool HasWalk(string id)=>HasMotion(id,"walk");
         // 图集规格说明（主角规格）：与图集同目录同名的 <id>-<motion>-v2.spec.json，由 杂项/工具/pack_hero_animation.py 生成。
         // 有它时格子取自图集、脚底与身高取自它；没有时按普通角色规则（格子仍取自图集尺寸，脚底按 FootPx 默认，身高查 ArtHeight）。
         // 主角图集身高 72px、格子更大，渲染时同样归一到 -v1 身高，所以屏幕上与其他角色一样高，只是像素更密。

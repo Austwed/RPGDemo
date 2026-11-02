@@ -68,10 +68,9 @@ namespace BaseConquest.Presentation
             {
                 var pawn=root.AddComponent<BattlePawn2D>();
                 pawn.Initialize(new BattleSoldier {Kind=SoldierKind.Hero,Stats=new SoldierStats {Health=100},Health=100},source);
-                bool check=placement.Id.StartsWith("motion-check:");string figure=check?placement.Id.Substring("motion-check:".Length):placement.AssetId;
-                bool combatMotion=check?!BaseDemoNpcs.IsMotionNpc(figure):PixelDemoArt.IsCast(figure)&&placement.Id!="demo_survivor"&&placement.Id!="demo_broken_sword";
-                bool walk=combatMotion||BaseDemoNpcs.NpcWalks(figure)||placement.Id=="prologue_report"||placement.Id.StartsWith("demo_rescued_");
-                pawn.EnableCompanion(placement.AssetId,combatMotion,walk);pawn.SyncExploration(feet,Color.white);
+                // 行为／表现解耦（2026-11-02 定）：探索态动作集全开——有 walk／attack 图集就加载，没有则 PixelCharacterSheet 内部回退静态帧。
+                // 不再按「交互 NPC」类别关掉攻击／行走（能力由贴图有无动作图集决定，不由单位类别决定）。
+                pawn.EnableCompanion(placement.AssetId,true,true);pawn.SyncExploration(feet,Color.white);
             }
             else
             {

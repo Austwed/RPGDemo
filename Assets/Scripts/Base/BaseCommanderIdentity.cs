@@ -20,8 +20,10 @@ namespace BaseConquest.Base
             var stats=(leader.HasCombatProfile ? leader.CombatStats : fallback).Clone();
             if(!leader.HasCombatProfile)
             {
-                if(Appearance(leader)=="ahe")stats.Range=new ArmyDefinition().Ranged.Range;
-                if(Appearance(leader)=="azhu")stats.MoveDistance=new ArmyDefinition().Cavalry.MoveDistance;
+                // 无战斗档案时，按角色显式职业补射程／移动力（口径集中见 UnitNaming.CastCombatKind）。
+                var kind=UnitNaming.CastCombatKind(Appearance(leader));
+                if(kind==SoldierKind.Ranged)stats.Range=new ArmyDefinition().Ranged.Range;
+                if(kind==SoldierKind.Cavalry)stats.MoveDistance=new ArmyDefinition().Cavalry.MoveDistance;
             }
             stats.Level=leader.Training?.Level??stats.Level;stats.Health=(float)leader.MaxHealth;return stats;
         }

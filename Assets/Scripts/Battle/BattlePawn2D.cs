@@ -40,6 +40,7 @@ namespace BaseConquest.Battle
         private Renderer crown, squadStar;
         private LineRenderer arrow, starInk;
         private Renderer selectionArrow;
+        private Renderer missingArtFlag; // 缺外观时头顶的品红「缺图」占位标记，防止被当成正式美术遗漏。
         private BattleStatusEffectsView statusEffects;
         private MaterialPropertyBlock properties;
         public static Material Transparent(Material source)
@@ -104,8 +105,10 @@ namespace BaseConquest.Battle
             foreach (var line in lines) if (line != arrow && !line.name.StartsWith("SquadStar")) damageLines[line] = line.startColor;
             if(s.Kind!=SoldierKind.Hero)
             {
-                // 士兵三职业＝saber／archer／rider（不分阵营，敌我共用同一套图）。
-                string id=s.Kind==SoldierKind.Ranged?"archer":s.Kind==SoldierKind.Cavalry?"rider":"saber";
+                // 士兵贴图优先读 AppearanceId（遗迹临时战士等会显式给 villager），
+                // 没有显式外观才按职业回退到通用图（saber→infantry、archer、rider→cavalry）。
+                // 职业与单位 id 是两层：这里按「行为职业」落通用图，具体部队的专属图走 AppearanceId 覆盖（行为／表现解耦，2026-11-02 定）。
+                string id=string.IsNullOrEmpty(s.AppearanceId)?(s.Kind==SoldierKind.Ranged?"archer":s.Kind==SoldierKind.Cavalry?"rider":"saber"):s.AppearanceId;
                 if(BaseConquest.Presentation.PixelDemoArt.Load("Characters",id)!=null)
                 {
                     // Keep the existing squad badge outside the hidden geometric body.
@@ -152,6 +155,15 @@ namespace BaseConquest.Battle
             arrow=Stroke("ArrowShaftAndHead",new[]{new Vector2(0,-.25f),new Vector2(0,.25f),new Vector2(-.075f,.12f),new Vector2(0,.25f),new Vector2(.075f,.12f)},.032f);
             arrow.transform.SetParent(projectile,false);arrow.startColor=arrow.endColor=new Color(1,.88f,.5f);projectile.gameObject.SetActive(false);
         }
+        // 缺外观时头顶的品红「缺图」标记（复用 AuthoredMapView「实体占位」先例）：让缺图单位一眼区别于正常士兵。
+        private void EnsureMissingArtFlag()
+        {
+            if(missingArtFlag!=null){missingArtFlag.gameObject.SetActive(true);return;}
+            var go=GameObject.CreatePrimitive(PrimitiveType.Cube);go.name="缺图占位";BattleBoardView.DestroyObject(go.GetComponent<Collider>());
+            go.transform.SetParent(transform,false);go.transform.localPosition=new Vector3(0,.3f,1.55f);go.transform.localScale=new Vector3(.5f,.5f,.5f);
+            var mat=new Material(material){color=new Color(1,.08f,.58f)};go.GetComponent<Renderer>().sharedMaterial=mat;
+            missingArtFlag=go.GetComponent<Renderer>();
+        }
         private Renderer Polygon(string name, Vector3 position, Vector2[] points, Color color)
         {
             var vertices = new Vector3[points.Length + 1]; var triangles = new int[points.Length * 3];
@@ -190,8 +202,12 @@ namespace BaseConquest.Battle
             else if(soldier.Kind==SoldierKind.Hero)
             {
                 string appearance=soldier.AppearanceId;
-                if(string.IsNullOrEmpty(appearance)){Debug.LogWarning("队长缺少外观，使用剑士兜底："+soldier.Id);appearance="saber";}
-                EnableCompanion(appearance);
+                bool shown=EnableCompanion(string.IsNullOrEmpty(appearance)?"":appearance);
+                if(!shown&&string.IsNullOrEmpty(appearance))
+                {
+                    Debug.LogWarning("[占位符] 队长缺外观，使用几何体暂代（非正式美术）："+soldier.Id+" —— 请补外观或核对 AppearanceId。");
+                    EnsureMissingArtFlag();
+                }
             }
             var carrier = battle.Soldier(soldier.CarriedById >= 0 ? soldier.CarriedById : soldier.EscapeCarrierId); bool carried = carrier != null && (carrier.IsActive || carrier.Escaped && carrier.LastAction == RoundAction.Move && progress < 1);
             // 倒地（可救援）保持倒地贴图不离场；即死单位在倒地后直接消失，不再留尸体。

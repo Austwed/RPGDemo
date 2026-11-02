@@ -4,7 +4,52 @@ using System.Collections.Generic;
 namespace BaseConquest.Battle
 {
     public enum BattleSide { A, B }
+    // 战斗行为层枚举：近战／远程／骑兵决定 AI 寻敌、射程、武器与即时角色映射；Hero 是「队长身份」混入的历史遗留，仅作身份判断，不再承载职业语义。
     public enum SoldierKind { Melee = 0, Ranged = 1, Hero = 2, Cavalry = 3 }
+    // 身份轴：战斗单位只分队长与士兵两层（用户 2026-11-02 定）。
+    public enum UnitTier { Leader, Troop }
+    // 职业轴（Fate 式职阶，2026-11-02 定）：saber／archer／rider，留 lancer／caster 扩展位。
+    // 职业是抽象职阶，不是单位名，也不是贴图 id；一个职业下可有多支具名部队，各自有 id 与外观。
+    public enum UnitClass { Saber, Archer, Rider, Lancer, Caster }
+    // 职业／单位命名层的统一入口（2026-11-02 定，唯一口径见 02_玩法策划案_v4.md §4.0.1）。
+    // 职责：① 职业词 → 战斗行为枚举的映射（saber→Melee、archer→Ranged、rider→Cavalry）；② 士兵单位 id `T-<职业>-<阵营>` 的解析。
+    // 职业词只在职业字段出现，不当 assetId／外观 id／头像 id／陈列 id；单位 id 是逻辑身份，贴图由 ArtId 单独解析（可多单位共用一张图）。
+    public static class UnitNaming
+    {
+        public const string Saber = "saber", Archer = "archer", Rider = "rider", Lancer = "lancer", Caster = "caster";
+        // 阵营（2026-11-02 定，暂三类，共用一套数据与外观）。
+        public const string Royal = "royal", Bandit = "bandit", Alien = "alien";
+        // 职业词 → UnitClass（含扩展位，未用到但保留映射）。
+        public static UnitClass? ClassOf(string word) => word == Saber ? UnitClass.Saber : word == Archer ? UnitClass.Archer : word == Rider ? UnitClass.Rider : word == Lancer ? UnitClass.Lancer : word == Caster ? UnitClass.Caster : (UnitClass?)null;
+        // UnitClass → 战斗行为枚举。lancer 按近战、caster 按远程处理（Demo 未启用，仅为将来扩展不抛异常）。
+        public static SoldierKind CombatKindOf(UnitClass c) => c == UnitClass.Archer || c == UnitClass.Caster ? SoldierKind.Ranged : c == UnitClass.Rider ? SoldierKind.Cavalry : SoldierKind.Melee;
+        // 士兵单位 id 格式 `T-<职业>-<阵营>`（T = Troop）。返回职业词与阵营词；不是士兵 id 时 classWord 为 null。
+        public static bool TryParseTroop(string id, out string classWord, out string faction)
+        {
+            classWord = null; faction = null;
+            if (string.IsNullOrEmpty(id) || !id.StartsWith("T-", System.StringComparison.Ordinal)) return false;
+            var parts = id.Split('-');
+            if (parts.Length != 3) return false;
+            if (ClassOf(parts[1]) == null) return false;
+            classWord = parts[1]; faction = parts[2]; return true;
+        }
+        // 士兵单位 id 的贴图回退：按职业落到通用图集（infantry／archer／cavalry），多个 T-* 可共用同一张图。
+        public static string TroopArtId(string id)
+        {
+            if (!TryParseTroop(id, out var cw, out var _)) return id;
+            return cw == Saber ? "saber" : cw == Archer ? "archer" : cw == Rider ? "rider" : id;
+        }
+        // 具名角色的职业显式映射（唯一口径见 01_文案策划案_v4.md §3.1 人物规格卡）：
+        // 主角 saber、阿禾 archer、阿铸 rider（spear）、迦兰 saber、巴图 archer、大当家 rider、豁牙 saber。
+        // 战斗层把「职业」统一折成 SoldierKind；未知角色按近战兜底，不再散落 AppearanceId 猜测。
+        public static SoldierKind CastCombatKind(string appearanceId)
+        {
+            if (string.IsNullOrEmpty(appearanceId)) return SoldierKind.Melee;
+            if (appearanceId == "ahe" || appearanceId == "batu") return SoldierKind.Ranged;
+            if (appearanceId == "azhu" || appearanceId == "mounted-azhu" || appearanceId == "chief") return SoldierKind.Cavalry;
+            return SoldierKind.Melee;
+        }
+    }
     public enum SquadCommand { Auto, Move, Focus, Retreat, Hold }
     public enum SquadStrategy { Attack, Protect, Flee, Obey }
     public enum BattlePhase { Deployment, Fighting, Finished }
@@ -250,7 +295,9 @@ namespace BaseConquest.Battle
         public SoldierKind Kind;
         public GridPosition Cell, PreviousCell, MoveGoal, LastTargetCell;
         public string AppearanceId = "";
-        public SoldierKind CombatKind => Kind==SoldierKind.Hero ? Stats.HasCombatKind ? Stats.CombatKind : AppearanceId=="ahe" ? SoldierKind.Ranged : AppearanceId=="azhu" ? SoldierKind.Cavalry : SoldierKind.Melee : Kind;
+        // 队长职业的显式声明优先在装备层（HasCombatKind + CombatKind）；装备未设时由 UnitNaming.CastCombatKind(AppearanceId)
+        // 按角色规格卡显式映射（阿禾→远程、阿铸→骑兵），缺失才回退近战——不再是散落的外观猜测。
+        public SoldierKind CombatKind => Kind==SoldierKind.Hero ? Stats.HasCombatKind ? Stats.CombatKind : UnitNaming.CastCombatKind(AppearanceId) : Kind;
         public SoldierKind ProfessionKind => Kind==SoldierKind.Hero&&Stats.HasProfessionKind ? Stats.ProfessionKind : CombatKind;
         public SoldierStats Stats;
         public float Health, DamageDealt, HealingDone;

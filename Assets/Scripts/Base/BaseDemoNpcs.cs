@@ -89,8 +89,9 @@ namespace BaseConquest.Base
         private static readonly string[] MotionCast={"player","female","ahe","mounted-azhu","galan","chief","batu","huoya"};
         private static readonly string[] MotionSoldiers={"saber","archer","rider"};
         private static readonly string[] MotionNpcs={"baron","chunshen","horn","laozhou","merchant","villager","chenan","guard","survivor","villager-girl","rescued-villager"};
+        // 分类查询（设定口径：这个 id 是否属于「交互 NPC」类别）。只用于分类前缀与陈列分组，
+        // 不再用于关掉能力——能力由贴图有无动作图集决定（行为／表现解耦，2026-11-02 定）。
         public static bool IsMotionNpc(string id)=>Array.IndexOf(MotionNpcs,id)>=0;
-        public static bool NpcWalks(string id)=>id=="merchant"||id=="villager"||id=="rescued-villager";
         // 陈列名与图集 id 分离：占位形象按其饰演的角色称呼，便于核对。
         private static string MotionFigureName(string id)=>id switch
         {
@@ -101,10 +102,12 @@ namespace BaseConquest.Base
             "player"=>"男主角","villager"=>"百姓","chenan"=>BaseScriptNames.Scout,"guard"=>BaseScriptNames.Guard,"survivor"=>"幸存村民","villager-girl"=>BaseScriptNames.Girl,"rescued-villager"=>"获救百姓",_=>id
         };
         // 分类说明：类别是设定口径（角色/士兵/NPC），后半段是该图集实测能播什么，两者并列便于发现缺件。
+        // 能力（走／攻）只由这套贴图有没有对应动作图集决定，不再按「交互 NPC」类别硬关（行为／表现解耦，2026-11-02 定）。
         public static string MotionClass(string id)
         {
-            string artId=ResolveNpcArt(id);bool walk=(!IsMotionNpc(id)||NpcWalks(id))&&BaseConquest.Presentation.PixelDemoArt.Motion(artId,"walk")!=null;
-            bool attack=!IsMotionNpc(id)&&BaseConquest.Presentation.PixelDemoArt.Motion(artId,"attack")!=null;
+            string artId=ResolveNpcArt(id);
+            bool walk=BaseConquest.Presentation.PixelDemoArt.HasWalk(artId);
+            bool attack=BaseConquest.Presentation.PixelDemoArt.HasAttack(artId);
             string art=walk&&attack?"待机／行走／攻击":walk?"待机／行走":"待机四向";
             if(Array.IndexOf(MotionSoldiers,id)>=0)return "三职业士兵 · "+art;
             if(Array.IndexOf(MotionNpcs,id)>=0)return "交互 NPC · "+art;
