@@ -22,7 +22,7 @@ namespace BaseConquest.Presentation
             { "mounted-cavalry|v1", 49f }, { "mounted-cavalry|idle", 57f }, { "mounted-cavalry|walk", 56f }, { "mounted-cavalry|attack", 53f },
             { "azhu|v1", 56f },
             { "mounted-azhu|v1", 56f }, { "mounted-azhu|walk", 57f }, { "mounted-azhu|attack", 56f },
-            { "chief|v1", 55f },
+            { "chief|v1", 55f }, { "chief|idle", 56f }, { "chief|walk", 56f },
             { "chenan|v1", 52f }, { "chenan|attack", 51f },
             { "chunshen|v1", 56f },
             { "controller|v1", 50f }, { "controller|attack", 53f },

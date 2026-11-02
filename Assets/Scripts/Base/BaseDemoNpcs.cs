@@ -87,8 +87,9 @@ namespace BaseConquest.Base
                 bool attack=BaseConquest.Presentation.PixelDemoArt.Motion(id,"attack")!=null;
                 if(walk)walkable.Add(id);else if(attack)attackerOnly.Add(id);else turnOnly.Add(id);
             }
-            // 两排：第一排「能移动」（含骑兵，横向占位最宽，间距要够）、第二排「能攻击」+「只能转向」。
-            // 间距按放大后的实际横向占位定：骑乘 64px×1.45 约 2.5 单位，所以能移动那排给 2.6；其余 2.0。
+            // 两排：第一排「能移动」、第二排「能攻击」+「只能转向」。
+            // 步长按实际横向占位分配：骑乘 64px×1.45 约 2.5 单位，给 2.8；其余 2.0。
+            // 固定步长会在骑乘多的那排顶出地图右边界（10 人×2.6 = 25.2 > 24）。
             var rows=new List<BaseMapObject>();
             double x=1.8;
             void Place(string id,double y,double step)
@@ -96,7 +97,7 @@ namespace BaseConquest.Base
                 rows.Add(new BaseMapObject("motion-check:"+id,id,x,y,.5,.5,false,"motion-check:"+id,id,"npc"));
                 x+=step;
             }
-            foreach(string id in walkable)Place(id,1.6,2.6);
+            foreach(string id in walkable)Place(id,1.6,BaseConquest.Presentation.PixelDemoArt.Mounted(id)?2.8:2.0);
             x=1.8;
             foreach(string id in attackerOnly)Place(id,4.8,2.0);
             x+=1.2;
