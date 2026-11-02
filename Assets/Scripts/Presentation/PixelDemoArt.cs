@@ -64,6 +64,22 @@ namespace BaseConquest.Presentation
         // 不归一就会查不到 walk，检查台把骑兵误判成「只能攻击」，也会在别处误判可用动作。
         public static string AtlasId(string id)=>id=="wilderness"?"enemy-captain":id=="azhu"?"mounted-azhu":TroopId(id)=="cavalry"?"mounted-cavalry":TroopId(id);
         public static Texture2D Motion(string id,string motion)=>Resources.Load<Texture2D>("PixelDemo/Characters/"+AtlasId(id)+"-"+motion+"-v2");
+        // 图集规格说明（主角规格）：与图集同目录同名的 <id>-<motion>-v2.spec.json，由 杂项/工具/pack_hero_animation.py 生成。
+        // 有它时格子取自图集、脚底与身高取自它；没有时按普通角色规则（格子仍取自图集尺寸，脚底按 FootPx 默认，身高查 ArtHeight）。
+        // 主角图集身高 72px、格子更大，渲染时同样归一到 -v1 身高，所以屏幕上与其他角色一样高，只是像素更密。
+        [System.Serializable] public sealed class AtlasSpec{public int cell,foot;public float body;}
+        private static readonly System.Collections.Generic.Dictionary<string,AtlasSpec> specs=new System.Collections.Generic.Dictionary<string,AtlasSpec>();
+        public static AtlasSpec Spec(string id,string motion)
+        {
+            if(string.IsNullOrEmpty(id)||string.IsNullOrEmpty(motion))return null;
+            string path="PixelDemo/Characters/"+AtlasId(id)+"-"+motion+"-v2.spec";
+            if(specs.TryGetValue(path,out var cached))return cached;
+            var text=Resources.Load<TextAsset>(path);AtlasSpec spec=null;
+            if(text!=null){try{spec=JsonUtility.FromJson<AtlasSpec>(text.text);}catch(System.ArgumentException){spec=null;}if(spec!=null&&spec.body<=0)spec=null;}
+            specs[path]=spec;return spec;
+        }
+        // 地线（脚底下沿）在格子里的 y（自上而下）：待机／行走留 cell/16，攻击／倒地留 cell*3/32，即 64→60、96→90、128→116。
+        public static float FootPx(string kind,float cell,AtlasSpec spec)=>spec!=null&&spec.foot>0?spec.foot:kind=="attack"||kind=="down"?cell-Mathf.Round(cell*3/32f):cell-Mathf.Floor(cell/16f);
         public static Rect Frame(HeroFacing facing,HeroPose pose,double time)
         {
             int column=pose==HeroPose.Walk?1+(int)(System.Math.Max(0,time)*8)%4:0;
@@ -138,9 +154,13 @@ namespace BaseConquest.Presentation
             }
             else if(pose==HeroPose.Down)column=carried?columns-1:System.Math.Min(columns-1,(int)(phase*8));
             else if(pose==HeroPose.Walk||pose==HeroPose.Idle&&idle!=null)column=(int)(phase*8)%columns;
+            string drawId=riding?riderId:artId;
+            string kind=motion==null?"v1":pose==HeroPose.Attack?"attack":pose==HeroPose.Down?"down":pose==HeroPose.Walk?"walk":"idle";
+            var spec=motion==null?null:PixelDemoArt.Spec(drawId,kind);
             var uv=motion==null?PixelDemoArt.Frame(facing,pose,time):new Rect(column/(float)columns,1-((int)facing+1)/4f,1f/columns,.25f);
             Mesh.uv=new[]{new Vector2(uv.xMin,uv.yMin),new Vector2(uv.xMin,uv.yMax),new Vector2(uv.xMax,uv.yMax),new Vector2(uv.xMax,uv.yMin)};
-            bool expanded=motion!=null&&(pose==HeroPose.Attack||pose==HeroPose.Down);float size=expanded?128:64,pivot=expanded?116:60,scale=1.55f/56;
+            // 格子取自图集（四行方形格）：普通角色 64／128，主角按 spec；-v1 静态图集固定 64 格、地线 60。
+            float size=motion==null?64:motion.height/4f,pivot=motion==null?60:PixelDemoArt.FootPx(kind,size,spec),scale=1.55f/56;
             Mesh.vertices=new[]{new Vector3(-size*.5f*scale,.28f,(pivot-size)*scale),new Vector3(-size*.5f*scale,.28f,pivot*scale),new Vector3(size*.5f*scale,.28f,pivot*scale),new Vector3(size*.5f*scale,.28f,(pivot-size)*scale)};Mesh.RecalculateBounds();
             ink.SetTexture("_BaseMap",motion??(riding?mountedAtlas:atlas));ink.SetColor("_BaseColor",hit?new Color(1,.35f,.35f):Color.white);Renderer.SetPropertyBlock(ink);
             Root.transform.localRotation=carried||pose==HeroPose.Down&&motion==null?Quaternion.Euler(0,90,0):Quaternion.identity;
@@ -149,13 +169,12 @@ namespace BaseConquest.Presentation
             //    不归一就会「待机偏小、攻击正常」。倒地姿势是躺下的，不参与归一。
             // ② 骑乘类（马＋骑手）整体 ×1.45：美术把整匹马压进同一个 56px 格子，不放大就比站着的还矮。
             // 等比缩放，身高与横向面积一起长；网格自底边向上生长，放大后仍踩在同一接地点。
-            string drawId=riding?riderId:artId;
-            string kind=motion==null?"v1":pose==HeroPose.Attack?"attack":pose==HeroPose.Down?"down":pose==HeroPose.Walk?"walk":"idle";
             // 骑乘的基准不能用 -v1 实测：-v1 是设定图批次（mounted-cavalry 只有 49px），动作图集是 ComfyUI 批次（56px），
             // 拿 49 当基准会把动作帧压小 12.5%，反而破坏「骑马要高过步兵」。统一按标准 56px 基准归一，再乘骑乘倍数。
             float refPx=riding||mountedArt?56f:PixelDemoArt.ArtHeightOf(drawId,"v1");
-            float drawPx=PixelDemoArt.ArtHeightOf(drawId,kind);
-            float norm=pose==HeroPose.Down&&motion!=null?1f:refPx/drawPx;
+            // 主角规格图集的身高写在 spec 里（72px），倒地也按它归一（spec.body 是站姿身高）；普通倒地图集保持原样不归一。
+            float drawPx=spec!=null?spec.body:PixelDemoArt.ArtHeightOf(drawId,kind);
+            float norm=pose==HeroPose.Down&&motion!=null&&spec==null?1f:refPx/drawPx;
             float body=norm*(riding||mountedArt?1.45f:1f);
             Root.transform.localScale=Vector3.one*(carried?.55f:body);
         }
