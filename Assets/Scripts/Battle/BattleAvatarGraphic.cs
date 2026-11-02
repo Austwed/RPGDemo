@@ -17,14 +17,10 @@ namespace BaseConquest.Battle
         public string AppearanceId {get=>appearanceId;set{value=value??"";if(appearanceId==value)return;appearanceId=value;companionAtlas=null;SetAllDirty();}}
         public bool PlayerHero {get=>playerHero;set{if(playerHero==value)return;playerHero=value;SetAllDirty();}}
         public override Texture mainTexture {get{
-            string portraitId=PlayerHero&&string.IsNullOrEmpty(AppearanceId)?"player":AppearanceId;
-            recommended=null; // 2026-11-02 男女主改用主角规格新设计的 128×128 像素头像 portrait-<id>-v1，不再优先读旧画风立绘 portrait-*-front-v2
-            recommendedUV=portraitId=="player"?new Rect(130f/370f,370f/590f,220f/370f,220f/590f):new Rect(75f/282f,396f/581f,185f/282f,185f/581f);
-            if(recommended==null){recommended=BaseConquest.Presentation.PixelDemoArt.Load("Portraits","portrait-"+portraitId);recommendedUV=new Rect(0,0,1,1);}
-            if(recommended==null&&!PlayerHero){recommended=BaseConquest.Presentation.PixelDemoArt.Load("Characters",AppearanceId);recommendedUV=BaseConquest.Presentation.PixelDemoArt.Frame(BaseConquest.Presentation.HeroFacing.South,BaseConquest.Presentation.HeroPose.Idle,0);}
-            if(recommended!=null)return recommended;
-            if(!PlayerHero){var art=BaseConquest.Presentation.CommanderArt.For(AppearanceId);if(art==null)return Texture2D.whiteTexture;if(companionAtlas==null)companionAtlas=Resources.Load<Texture2D>("Characters/"+art.TextureName);return companionAtlas!=null ? companionAtlas : Texture2D.whiteTexture;}
-            if(heroAtlas==null)heroAtlas=Resources.Load<Texture2D>("Characters/PlayerHero-v1");return heroAtlas!=null ? heroAtlas : Texture2D.whiteTexture;}}
+            var result=BaseConquest.Presentation.DemoPortraits.For(AppearanceId,PlayerHero);
+            recommended=result.Origin==BaseConquest.Presentation.DemoPortraits.Source.Portrait||result.Origin==BaseConquest.Presentation.DemoPortraits.Source.CharacterSheet?result.Texture:null;
+            recommendedUV=result.Uv;companionAtlas=result.Origin==BaseConquest.Presentation.DemoPortraits.Source.LegacyCompanion?result.Texture:null;heroAtlas=result.Origin==BaseConquest.Presentation.DemoPortraits.Source.LegacyHero?result.Texture:null;
+            return result.Texture!=null?result.Texture:Texture2D.whiteTexture;}}
         public Color BodyColor = new Color(0.55f, 0.82f, 1);
         private Color crown = Color.yellow;
         public Color Crown { get => crown; set { if (crown == value) return; crown = value; SetVerticesDirty(); } }
