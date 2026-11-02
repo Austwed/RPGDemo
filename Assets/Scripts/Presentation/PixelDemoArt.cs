@@ -31,7 +31,7 @@ namespace BaseConquest.Presentation
             { "chenan|v1", 52f }, { "chenan|attack", 51f },
             { "chunshen|v1", 56f },
             { "enemy-captain|v1", 55f }, { "enemy-captain|attack", 51f }, { "enemy-captain|walk", 55f },
-            { "female|v1", 56f }, { "female|idle", 56f }, { "female|walk", 56f }, { "female|attack", 56f },
+            { "female|v1", 56f }, { "female|walk", 56f }, { "female|attack", 56f },
             { "galan|v1", 56f }, { "galan|walk", 56f }, { "galan|attack", 55f },
             { "horn|v1", 56f },
             { "huoya|v1", 56f }, { "huoya|walk", 56f }, { "huoya|attack", 55f },
