@@ -18,7 +18,7 @@ namespace BaseConquest.Battle
         public bool PlayerHero {get=>playerHero;set{if(playerHero==value)return;playerHero=value;SetAllDirty();}}
         public override Texture mainTexture {get{
             string portraitId=PlayerHero&&string.IsNullOrEmpty(AppearanceId)?"player":AppearanceId;
-            recommended=portraitId=="player"||portraitId=="female"?Resources.Load<Texture2D>("PixelDemo/Portraits/portrait-"+portraitId+"-front-v2"):null;
+            recommended=null; // 2026-11-02 男女主改用主角规格新设计的 128×128 像素头像 portrait-<id>-v1，不再优先读旧画风立绘 portrait-*-front-v2
             recommendedUV=portraitId=="player"?new Rect(130f/370f,370f/590f,220f/370f,220f/590f):new Rect(75f/282f,396f/581f,185f/282f,185f/581f);
             if(recommended==null){recommended=BaseConquest.Presentation.PixelDemoArt.Load("Portraits","portrait-"+portraitId);recommendedUV=new Rect(0,0,1,1);}
             if(recommended==null&&!PlayerHero){recommended=BaseConquest.Presentation.PixelDemoArt.Load("Characters",AppearanceId);recommendedUV=BaseConquest.Presentation.PixelDemoArt.Frame(BaseConquest.Presentation.HeroFacing.South,BaseConquest.Presentation.HeroPose.Idle,0);}
