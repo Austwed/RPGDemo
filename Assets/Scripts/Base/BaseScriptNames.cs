@@ -42,7 +42,7 @@ namespace BaseConquest.Base
         // 现有真实资源（Assets/Resources/PixelDemo/Characters，2026-11-02 复核）。全项目只有三类单位：
         // ① 三职业角色（四向+移动+攻击）：player／female／ahe／mounted-azhu／galan／chief／batu／huoya；
         // ② 三职业士兵（四向+移动+攻击，不分敌我阵营）：saber／archer／rider（图集文件沿用旧批次名 infantry／cavalry，由 PixelDemoArt.TroopId 归一）；
-        // ③ 交互 NPC（只有四向，移动按作用分配）：laozhou／chunshen／merchant／villager／horn／chenan。
+        // ③ 交互 NPC（只有四向，移动按作用分配）：laozhou／chunshen／merchant／villager／horn／baron。
         // enemy-captain 不是兵种，是野外随机战队长的兜底外观（wilderness → enemy-captain）。
         // 其余缺图的角色先用气质相近的图占位，新美术到位后只改这里的返回值即可全局生效。
         public static string Portrait(string role)
@@ -55,7 +55,7 @@ namespace BaseConquest.Base
                 case "chunshen":return "chunshen";   // 已有专属图
                 case "merchant":case "peddler":return "merchant";
                 case "lord":return "horn";
-                case "blacksmith":return "chenan";   // TODO 美术：baron
+                case "blacksmith":return "baron";    // 2026-11-02 老铁匠专属四向静态图入库（baron-v1 / portrait-baron-v1）
                 case "galan":return "galan";
                 case "batu":return "batu";
                 case "azhu":return "azhu";           // 骑乘阿铸的头像（portrait-azhu-v1，已换新骑乘版）

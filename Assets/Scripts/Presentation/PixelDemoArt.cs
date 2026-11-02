@@ -29,6 +29,7 @@ namespace BaseConquest.Presentation
             { "mounted-azhu|v1", 56f }, { "mounted-azhu|walk", 57f }, { "mounted-azhu|attack", 56f },
             { "chief|v1", 55f }, { "chief|idle", 56f }, { "chief|walk", 56f },
             { "chenan|v1", 52f }, { "chenan|attack", 51f },
+            { "baron|v1", 56f },
             { "chunshen|v1", 56f },
             { "enemy-captain|v1", 55f }, { "enemy-captain|attack", 51f }, { "enemy-captain|walk", 55f },
             { "female|v1", 56f }, { "female|walk", 56f }, { "female|attack", 56f },

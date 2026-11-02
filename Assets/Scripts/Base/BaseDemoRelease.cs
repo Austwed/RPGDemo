@@ -33,7 +33,7 @@ namespace BaseConquest.Base
             // 营帐中的长剑摆件已撤：长剑改为老周当面交付的剧情物品，场景里不再单独立一支。
             var town=s.Campaign.Layouts.Single(m=>m.Region=="town");town.Objects.Add(new BaseMapPlacement {Id="town_market",Name="补给摊位 · 买卖与战利品出售",X=14,Y=9,Width=3,Height=1.5,Blocks=true,AssetId="market-stall",Kind="facility",SourceObjectId="demo:town:market"});
             town.Objects.Add(new BaseMapPlacement {Id="town_smith",Name="铁匠铺 · 武器与护具",X=10,Y=10.5,Width=2.4,Height=1.5,Blocks=true,AssetId="workshop-small",Kind="facility"});
-            town.Objects.Add(new BaseMapPlacement {Id="town_blacksmith",Name="老铁匠 · 交易",X=9.5,Y=9,Width=.5,Height=.5,AssetId="chenan",Kind="npc"});
+            town.Objects.Add(new BaseMapPlacement {Id="town_blacksmith",Name="老铁匠 · 交易",X=9.5,Y=9,Width=.5,Height=.5,AssetId="baron",Kind="npc"});
             foreach(string region in new[]{"outpost","perimeter"})
             {var m=s.Campaign.Layouts.Single(x=>x.Region==region);Configure(m);if(region=="perimeter")s.Campaign.PerimeterBoard=Board(true);else s.Campaign.RegionMaps.Single(x=>x.Id==region).Board=Board();}
             s.Demo.Finale.CampBoard=Board();

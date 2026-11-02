@@ -28,6 +28,9 @@ namespace BaseConquest.Base
                 case "demo_broken_sword":if(!BaseDemoRelease.Enabled(state)){name="幸存村民 · 交谈";appearance="ahe";}break;
                 case "demo_survivor":name="幸存村民 · 交谈";appearance="ahe";break;
                 case "demo_march_exit":if(!BaseDemoFinale.Opened(state))name="营地斥候 · 交谈";break;
+                case "town_blacksmith":
+                    // 2026-11-02：老铁匠专属图 baron-v1 入库。布局随存档序列化，旧档 AssetId 还是 chenan，这里运行时强制换新。
+                    name=original.Name;appearance="baron";break;
             }
             return name==null?original:new BaseMapObject(original.Id,name,original.X,original.Y,original.Width,original.Height,false,string.IsNullOrEmpty(original.SourceObjectId)?"demo-npc:"+original.Id:original.SourceObjectId,appearance,"npc");
         }
@@ -72,11 +75,11 @@ namespace BaseConquest.Base
         // enemy-captain 只是「野外随机队长的兜底外观」，不陈列（见 PixelDemoArt 的 wilderness 别名）。
         private static readonly string[] MotionCast={"player","female","ahe","mounted-azhu","galan","chief","batu","huoya"};
         private static readonly string[] MotionSoldiers={"saber","archer","rider"};
-        private static readonly string[] MotionNpcs={"chenan","chunshen","horn","laozhou","merchant","villager"};
+        private static readonly string[] MotionNpcs={"baron","chunshen","horn","laozhou","merchant","villager"};
         // 陈列名与图集 id 分离：占位形象按其饰演的角色称呼，便于核对。
         private static string MotionFigureName(string id)=>id switch
         {
-            "ahe"=>"阿禾","archer"=>"弓兵","batu"=>"巴图","saber"=>"剑士","chenan"=>BaseScriptNames.Blacksmith,
+            "ahe"=>"阿禾","archer"=>"弓兵","batu"=>"巴图","saber"=>"剑士","baron"=>BaseScriptNames.Blacksmith,
             "chief"=>"大当家","chunshen"=>BaseScriptNames.ChunShen,"female"=>"女主角",
             "galan"=>BaseScriptNames.Galan,"horn"=>BaseScriptNames.Lord,"huoya"=>BaseScriptNames.Huoya,
             "rider"=>"骑兵","laozhou"=>BaseScriptNames.LaoZhou,"merchant"=>"行商","mounted-azhu"=>"阿铸",
@@ -92,14 +95,14 @@ namespace BaseConquest.Base
             if(Array.IndexOf(MotionNpcs,id)>=0)return "交互 NPC · "+art;
             return "三职业角色 · "+art;
         }
+        // 两排陈列（2026-11-02，用户指定）：战斗（角色+士兵）与非战斗（NPC），全部在横向土路（y=6）下方。
+        // 步长按实际横向占位分配：骑乘 64px×1.45 约 1.45 单位宽，给 2.8；其余 2.0。
+        // 战斗排 11 人按 2.0/2.8 步长合计 24.4，起点压到 1.2 才不顶出东边界（24）。
         public static BaseMapObject[] MotionChecks(BaseState state)
         {
             if(!BaseDemo.Active(state)||BaseDemoPrologue.Village(state)||state.Campaign.Location!="base")return Array.Empty<BaseMapObject>();
-            // 三排：角色类、士兵类、NPC类。
-            // 步长按实际横向占位分配：骑乘 64px×1.45 约 2.5 单位，给 2.8；其余 2.0。
-            // 固定步长会在骑乘多的那排顶出地图右边界（10 人×2.6 = 25.2 > 24）。
             var rows=new List<BaseMapObject>();
-            double x=1.8;
+            double x=1.2;
             void Place(string id,double y,double step)
             {
                 // 第 9 参是 assetId＝图集加载用的 id，必须保持角色 id；陈列名只进 Name（名牌与面板显示），
@@ -107,11 +110,12 @@ namespace BaseConquest.Base
                 rows.Add(new BaseMapObject("motion-check:"+id,MotionFigureName(id),x,y,.5,.5,false,"motion-check:"+id,id,"npc"));
                 x+=step;
             }
-            foreach(string id in MotionCast)Place(id,1.6,BaseConquest.Presentation.PixelDemoArt.Mounted(id)?2.8:2.0);
-            x=1.8;
+            // 战斗排（y=4.4，紧贴路下）：三职业角色在前，三职业士兵殿后。
+            foreach(string id in MotionCast)Place(id,4.4,BaseConquest.Presentation.PixelDemoArt.Mounted(id)?2.8:2.0);
             foreach(string id in MotionSoldiers)Place(id,4.4,BaseConquest.Presentation.PixelDemoArt.Mounted(id)?2.8:2.0);
-            x=1.8;
-            foreach(string id in MotionNpcs)Place(id,7.2,2.0);
+            // 非战斗排（y=1.6）：起点让开木屋（env house-small 中心 2.5,2，画幅盖到 x≈4.4）。
+            x=5.0;
+            foreach(string id in MotionNpcs)Place(id,1.6,2.0);
             return rows.ToArray();
         }
         public static IEnumerable<BaseMapObject> CampResidentsCompat(BaseState state,string region)
