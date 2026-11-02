@@ -55,7 +55,10 @@ namespace BaseConquest.Presentation
             string asset=id=="home"?"house":id=="government"?"camp-tent":id=="town_market"?"market-stall":id=="town_recruit"?"barracks":id=="town_quest"?"lord-house":id;
             return Load("Buildings",asset);
         }
-        public static Texture2D Motion(string id,string motion)=>Resources.Load<Texture2D>("PixelDemo/Characters/"+(id=="wilderness"?"enemy-captain":id)+"-"+motion+"-v2");
+        // 动作图集查找必须和 Load 用同一套别名：cavalry／azhu 只有骑乘版动作集，
+        // 不归一就会查不到 walk，检查台把骑兵误判成「只能攻击」，也会在别处误判可用动作。
+        public static string AtlasId(string id)=>id=="wilderness"?"enemy-captain":id=="azhu"?"mounted-azhu":id=="cavalry"?"mounted-cavalry":id;
+        public static Texture2D Motion(string id,string motion)=>Resources.Load<Texture2D>("PixelDemo/Characters/"+AtlasId(id)+"-"+motion+"-v2");
         public static Rect Frame(HeroFacing facing,HeroPose pose,double time)
         {
             int column=pose==HeroPose.Walk?1+(int)(System.Math.Max(0,time)*8)%4:0;
