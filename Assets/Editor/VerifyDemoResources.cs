@@ -1,0 +1,83 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using BaseConquest.Base;
+using BaseConquest.Battle;
+using BaseConquest.Presentation;
+using UnityEditor;
+using UnityEngine;
+
+namespace BaseConquest.Editor
+{
+    public static class VerifyDemoResources
+    {
+        // Dynamic families: character atlases and optional motions; UI prefabs and portrait fallbacks.
+        // BaseSettings is explicitly optional (BaseSettings.Load constructs defaults).
+        private static readonly HashSet<string> Optional=new HashSet<string>{"BaseSettings"};
+        private static readonly string[] Cast={"player","female","ahe","azhu","galan","chief","batu","huoya","saber","archer","rider","baron","chunshen","horn","laozhou","merchant","villager","chenan","wilderness"};
+        public static void Run()
+        {
+            var references=new SortedDictionary<string,HashSet<string>>(StringComparer.Ordinal);
+            var missing=new SortedSet<string>(StringComparer.Ordinal);
+            void Add(string path,string source,bool required=true)
+            {
+                if(!references.TryGetValue(path,out var origins))references[path]=origins=new HashSet<string>();origins.Add(source);
+                if(Resources.Load(path)==null&&required&&!Optional.Contains(path))missing.Add(path+" ← "+source);
+            }
+            foreach(string file in Directory.GetFiles("Assets/Scripts","*.cs",SearchOption.AllDirectories))
+            {
+                string code=File.ReadAllText(file);
+                code=Regex.Replace(code,@"/\*[\s\S]*?\*/|//[^\r\n]*","");
+                foreach(Match match in Regex.Matches(code,@"Resources\.Load(?:<[^>]+>)?\(\s*""([^""\r\n]+)""\s*\)"))Add(match.Groups[1].Value,file);
+                foreach(Match match in Regex.Matches(code,@"PixelDemoArt\.Load\(\s*""([^""]+)""\s*,\s*""([^""]+)""\s*\)"))
+                    Add("PixelDemo/"+match.Groups[1].Value+"/"+PixelDemoArt.TroopId(match.Groups[2].Value)+"-v1",file);
+            }
+            foreach(string id in Cast)
+            {
+                string atlas=PixelDemoArt.AtlasId(id);Add("PixelDemo/Characters/"+atlas+"-v1","动态角色 "+id);
+                foreach(string motion in new[]{"idle","walk","attack","down"}){string path="PixelDemo/Characters/"+atlas+"-"+motion+"-v2";if(Resources.Load<Texture2D>(path)!=null)Add(path,"可选动作 "+id,false);}
+                string portrait="PixelDemo/Portraits/portrait-"+id+"-v1";if(Resources.Load<Texture2D>(portrait)!=null)Add(portrait,"可选头像 "+id,false);
+            }
+            // Literal IDs passed indirectly through local variables are evidence of a possible reference.
+            var sourceText=string.Join("\n",Directory.GetFiles("Assets/Scripts","*.cs",SearchOption.AllDirectories).Select(File.ReadAllText));
+            foreach(string guid in AssetDatabase.FindAssets("t:Texture2D",new[]{"Assets/Resources/PixelDemo"}))
+            {
+                string path=AssetDatabase.GUIDToAssetPath(guid),name=Path.GetFileNameWithoutExtension(path);
+                string id=name.EndsWith("-v1",StringComparison.Ordinal)?name.Substring(0,name.Length-3):name;
+                if(sourceText.Contains("\""+id+"\""))Add(Path.ChangeExtension(path.Substring("Assets/Resources/".Length),null).Replace('\\','/'),"源码间接字面 ID",false);
+            }
+            foreach(string direction in new[]{"north","south","east","west"})Add("PixelDemo/Terrain/stairs-"+direction+"-v1","四向坡道动态路径");
+            foreach(string id in new[]{"ahe","azhu","chenan","wilderness"})
+            {var art=CommanderArt.For(id);if(art!=null)Add("Characters/"+art.TextureName,"旧版角色回退 "+id,false);}
+            var catalog=Resources.Load<BuildingAppearanceCatalog>("BuildingAppearances");
+            var dataFiles=Directory.GetFiles("Assets/Resources/DemoStages","*.json",SearchOption.AllDirectories).Concat(Directory.GetFiles("Assets/StreamingAssets/BaseScenarios","*.json",SearchOption.AllDirectories));
+            foreach(string file in dataFiles)
+            {
+                string data=File.ReadAllText(file);
+                foreach(Match m in Regex.Matches(data,@"""BackgroundResource""\s*:\s*""([^""]+)"""))Add(m.Groups[1].Value,file);
+                foreach(Match m in Regex.Matches(data,@"""AssetId""\s*:\s*""([^""]+)"""))
+                {
+                    string id=m.Groups[1].Value;string prop=id=="demo-long-sword"?"longsword":id=="demo-broken-sword"?"broken-sword":id=="demo-debris"?"ruined-wall":id;
+                    var texture=Resources.Load<Texture2D>("Environment/"+id)??PixelDemoArt.Load("Characters",id)??PixelDemoArt.Load("Props",prop)??catalog?.Find(id)?.Texture;
+                    if(texture==null){missing.Add("AssetId:"+id+" ← "+file);continue;}
+                    string asset=AssetDatabase.GetAssetPath(texture).Replace('\\','/');int index=asset.IndexOf("/Resources/",StringComparison.Ordinal);
+                    if(index<0){missing.Add("AssetId 非 Resources:"+id+" ← "+file);continue;}
+                    Add(Path.ChangeExtension(asset.Substring(index+"/Resources/".Length),null),file);
+                }
+            }
+            var report=new StringBuilder("# Demo 资源引用检查\n\n## 引用\n\n");
+            foreach(var entry in references)report.AppendLine("- `"+entry.Key+"`："+string.Join("、",entry.Value.OrderBy(x=>x,StringComparer.Ordinal)));
+            report.AppendLine("\n## 缺失\n");foreach(string path in missing)report.AppendLine("- "+path);if(missing.Count==0)report.AppendLine("- 无");
+            report.AppendLine("\n## 未引用贴图（仅报告）\n");
+            foreach(string guid in AssetDatabase.FindAssets("t:Texture2D",new[]{"Assets/Resources/PixelDemo"}))
+            {string path=AssetDatabase.GUIDToAssetPath(guid);string resource=Path.ChangeExtension(path.Substring("Assets/Resources/".Length),null).Replace('\\','/');if(!references.ContainsKey(resource))report.AppendLine("- `"+resource+"`");}
+            report.AppendLine("\n## NPC 借用外观（仅报告）\n\n- 营地斥候：chenan\n- 镇卫兵：villager\n- 幸存村民：ahe\n- 镇民小芸：villager\n- 获救百姓：villager\n");
+            Directory.CreateDirectory("Logs");File.WriteAllText("Logs/verify-demo-resources.md",report.ToString(),Encoding.UTF8);
+            if(missing.Count>0)throw new InvalidOperationException("资源检查缺失 "+missing.Count+" 项；见 Logs/verify-demo-resources.md");
+            Debug.Log("[VerifyDemoResources] PASS");
+        }
+    }
+}
