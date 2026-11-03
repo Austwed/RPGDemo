@@ -84,7 +84,7 @@ namespace BaseConquest.Base
             if(project!=ConstructionProject.Trap&&project!=ConstructionProject.Sandbag)return "请选择工事";
             if(positions.Any(q=>board.Cell(q)==null||!board.Cell(q).Walkable||board.Cell(q).Terrain!=TerrainKind.Ground||board.Cell(q).Zone!=DeploymentZone.None||board.Cell(q).FixedCover||board.Cell(q).HiddenTrap||board.Cell(q).SandbagGroup>0||board.Cell(q).ObstacleHealth>0||board.Cell(q).HasDeveloperTerrain))return "需要未占用的平地";
             if(positions.Any(q=>MapObjects(s).Any(o=>(o.Blocks||!o.VisualOnly)&&o.Distance(q.X+.5,q.Z+.5)<1)||Math.Abs(s.PlayerX-q.X-.5)<1&&Math.Abs(s.PlayerY-q.Z-.5)<1))return "不能覆盖设施或人物";
-            if(project==ConstructionProject.Trap&&board.Cells.Count(c=>c.HiddenTrap)>=10)return "每战场最多10个陷阱";
+            if(project==ConstructionProject.Trap&&board.Cells.Count(c=>c.HiddenTrap)>=10)return "本场陷阱已达上限（10/10）";
             return s.Inventory.Materials<(project==ConstructionProject.Trap?4:2)?"原料不足":"";
         }
         public static bool DemoFieldwork(BaseState s,GridPosition p,ConstructionProject project)

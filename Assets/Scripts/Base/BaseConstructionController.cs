@@ -35,7 +35,7 @@ namespace BaseConquest.Base
             if(project==ConstructionProject.None){StopConstruction();return;}
             if(State==null||Busy||!ConstructionMode)return;
             constructionBrush.Select(project);constructionTouch=-1;mouseTap=null;touches.Clear();constructionResult="";
-            ConstructionHoverText=project==ConstructionProject.Demolish?"拆除整组工事，不返还材料":project==ConstructionProject.Trap?"隐藏陷阱：原料4，每战场最多10个":"沙袋：向右占3格，原料2";
+            ConstructionHoverText=project==ConstructionProject.Demolish?"将整组拆除该处工事，所耗原料不予返还":project==ConstructionProject.Trap?"埋设陷阱：原料4，每战场最多10个":"堆筑沙袋：向右占3格，原料2";
             Hud.RefreshConstructionPalette();
         }
         private void PaintConstructionCells(List<GridPosition> cells)

@@ -92,7 +92,7 @@ namespace BaseConquest.Battle
             {
                 q.SkillQueued = false;
                 if (CastCommanderSkill(q.Side, q.CommanderSlot, false)) count++;
-                else { var hero = Soldier(q.CommanderId); Notice(UnitName(hero) + "的" + CommanderSkillName(q.CommanderSlot) + "施放取消：指挥者当前无法施放", q.Side, hero?.Id ?? -1); }
+                else { var hero = Soldier(q.CommanderId); Notice(UnitName(hero) + "的" + CommanderSkillName(q.CommanderSlot) + "施放失败：当前角色倒地或受控，无法施放", q.Side, hero?.Id ?? -1); }
             }
             return count;
         }

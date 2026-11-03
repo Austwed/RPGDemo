@@ -12,8 +12,8 @@ namespace BaseConquest.Base
         {
             constructionPalette=Box("ConstructionProjects",controls,new Vector2(0,1),new Vector2(95,-ExplorationHudLayout.HeaderHeight-212),new Vector2(166,400),new Color(.055f,.08f,.12f,.97f));
             Label(constructionPalette,"防御工程",new Vector2(0,171),new Vector2(150,40),22,TextAnchor.MiddleCenter);
-            trapProject=MakeButton(constructionPalette,"陷阱\n原料4 · 最多10",new Vector2(0,78),new Vector2(146,70),()=>owner.SelectConstructionProject(ConstructionProject.Trap));
-            sandbagProject=MakeButton(constructionPalette,"沙袋×3\n原料2",new Vector2(0,3),new Vector2(146,70),()=>owner.SelectConstructionProject(ConstructionProject.Sandbag));
+            trapProject=MakeButton(constructionPalette,"埋设陷阱\n原料4 · 最多10",new Vector2(0,78),new Vector2(146,70),()=>owner.SelectConstructionProject(ConstructionProject.Trap));
+            sandbagProject=MakeButton(constructionPalette,"堆筑沙袋\n原料2",new Vector2(0,3),new Vector2(146,70),()=>owner.SelectConstructionProject(ConstructionProject.Sandbag));
             demolishProject=MakeButton(constructionPalette,"拆除\n整组工事不返还",new Vector2(0,-12),new Vector2(146,74),()=>owner.SelectConstructionProject(ConstructionProject.Demolish));
             demolishProject.GetComponent<RectTransform>().anchoredPosition=new Vector2(0,-71);
             constructionResources=Label(constructionPalette,"",new Vector2(0,-120),new Vector2(148,36),18,TextAnchor.MiddleCenter);

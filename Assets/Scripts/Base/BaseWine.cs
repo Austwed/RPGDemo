@@ -15,7 +15,7 @@ namespace BaseConquest.Base
         public const string Strong="strong_wine",Sake="sake";
         public static void Normalize(BaseState s)
         {
-            foreach(string id in new[]{Strong,Sake})if(!s.Backpack.Catalog.Any(d=>d.Id==id))s.Backpack.Catalog.Add(new BaseBagDefinition {Id=id,Name=id==Strong?"一箱烈酒":"一箱清酒",Category="consumable",MaxStack=99,Description=id==Strong?"所选队长及其小兵当日攻击＋10%；与清酒不叠加，覆盖清酒前确认。":"所选队长及其小兵下一场真正开始的战斗攻击＋5%；未开战可跨日保留，结算后移除。"});
+            foreach(string id in new[]{Strong,Sake})if(!s.Backpack.Catalog.Any(d=>d.Id==id))s.Backpack.Catalog.Add(new BaseBagDefinition {Id=id,Name=id==Strong?"一箱烈酒":"一箱清酒",Category="consumable",MaxStack=99,Description=id==Strong?"辣嗓子的烧刀子。喝下后全队今日血气暴涨，睡一觉酒劲便散。":"封坛慢酿的米酒，后劲绵长。提前温上一壶，留待下一场硬仗发力。"});
         }
         public static void Validate(BaseState s)
         {

@@ -54,7 +54,7 @@ namespace BaseConquest.Base
             EndPanel();
         }
         private void WineReplace(string item,string leader,int revision)
-        {BeginPanel("确认覆盖清酒");Line("原清酒效果将作废，并消耗1箱烈酒；烈酒与清酒不叠加。",90);RowButton("确认覆盖并使用烈酒",-210,400,()=>GearChange(next=>BaseWine.Use(next,item,leader,revision,true),"已使用烈酒，清酒效果作废",()=>OpenWine()));RowButton("取消",210,400,()=>OpenWine());row+=60;EndPanel();}
+        {BeginPanel("确认覆盖清酒");Line("该队长已有清酒效果，饮用烈酒将直接覆盖原效果。确定继续吗？",90);RowButton("确认覆盖并使用烈酒",-210,400,()=>GearChange(next=>BaseWine.Use(next,item,leader,revision,true),"已使用烈酒，清酒效果作废",()=>OpenWine()));RowButton("取消",210,400,()=>OpenWine());row+=60;EndPanel();}
         private void OpenLostItems()
         {
             var s=owner.State;BeginPanel("遗失物与反击追回","lost-items");RowButton("返回菜单",0,820,OpenMenu);row+=60;

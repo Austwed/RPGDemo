@@ -77,7 +77,7 @@ namespace BaseConquest.Base
             var difficulty=new BaseDifficulty();
             foreach(string key in new[] { "easy","normal","hard" }) { string id=key; RowButton((difficulty.Preset==id ? "● " : "")+(id=="easy" ? "简单" : id=="hard" ? "困难" : "普通"),id=="easy" ? -290 : id=="normal" ? 0 : 290,270,()=>{difficulty.Set(id);OpenDifficulty();}); } row+=66;
             RowButton("返回菜单",0,800,OpenMainMenu); row+=60;
-            Line("战斗伤害：简单时我方攻击×2、受伤×0.5；困难时我方受伤×1.3。",52,19); EndPanel();
+            Line("简单：我方造成伤害×2.0，受到伤害×0.5（含遗迹侵蚀）。普通：敌我攻防倍率均为×1.0。困难：我方受到伤害×1.3（含遗迹侵蚀）。",52,19); EndPanel();
         }
         public void OpenPrisoners()=>OpenLoot();
     }
