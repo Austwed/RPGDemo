@@ -46,7 +46,7 @@ namespace BaseConquest.Base
                 RowButton("−",160,100,()=>{departure.Adjust(s,k,-1,bypass,out departureMessage);Reopen();},count>0);
                 RowButton("+",300,100,()=>{departure.Adjust(s,k,1,bypass,out departureMessage);Reopen();},count<capacity.Limit);row+=52;
                 Line(capacity.Detail,60,17);
-                if(BaseTown.DemoRecruitment(s))Line("本兵种全体 "+BaseTown.TroopCount(s,k)+"人（含外出） · 普通兵即死率 "+BaseTown.HireProbability(s,k).ToString("P0")+"；调岗出征不改变总数。",62,17);
+                if(BaseTown.DemoRecruitment(s))Line("全军普通兵 "+BaseTown.TroopTotal(s)+"人（含外出） · 合计基准 "+BaseDemoCombat.BaselineTotal(s.Demo?.Rpg)+" · 普通兵即死率 "+BaseTown.HireProbability(s).ToString("P0")+"；三兵种共用，调岗出征不改变总数。",62,17);
                 if(departureExpanded!=k)continue;
                 var rows=BaseMuster.SoldierRows(s,k).ToArray();int pages=Math.Max(1,(rows.Length+7)/8);departureUnitPage=Math.Max(0,Math.Min(pages-1,departureUnitPage));
                 Line("基础攻击／防御 · 当前／最大生命 · 所在设施 · 今日生产资格",42,17);

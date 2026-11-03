@@ -15,7 +15,7 @@ namespace BaseConquest.Base
             if(BaseRpg.Active(owner.State)){var r=owner.State.Demo.Rpg;RuleInfo("Demo交易与招兵规则","商品由基础价值计价：买入×"+r.BuyFactor.ToString("0.##")+"向上取整，卖出×"+r.SellFactor.ToString("0.##")+"向下取整，最低1币。商人和坏脾气各取队伍中最强一项相抵。绑定与剧情物品不可出售。\n\n军需只有一个品类，分一级与二级；同一份配给覆盖任意兵种的攻击和防御，不分别购买剑弓甲。商品每日限量，进出与读档不刷新。\n\n普通兵每日兵源按日初人数计算，兵源系数为"+r.RecruitSupplyFactor.ToString("0.##")+"；报价按当前人数更新，敏感度为"+r.RecruitPriceSensitivity.ToString("0.##")+"。新兵"+production+"，从明日计入口粮。",back);return;}
             if(BaseTown.DemoRecruitment(owner.State))
             {
-                RuleInfo("Demo招兵规则","普通兵满血加入基地，进入既有岗位、编队、军需与战损流程，不自动补进在外队伍。新兵"+production+"，从明日计入口粮。\n\n第1日固定每兵种 2 人；之后每日兵源=floor(B×兵源系数×(1-p))，B＝阶段基准 4，在日初按全体实际兵力计算；只要兵力不超过基准的 150%（4 人基准就是 6 人），当天至少保 1 人可买，超过则断货。当天招走后不补货，重进或读档不刷新。\n\n单价以基准原价为基准：兵力高于基准每 1% 涨 2%（高出 50%、也就是 6 人时正好翻倍），低于基准每 1% 降 1%，最低打到五折。每次只能招 1 人，招完立即按新兵力重算报价；人员、日期、钱币或库存改变后旧报价失效。兵力越富余，价格越高、供应越少；打空了则货足价低，靠招兵与俘虏把人补回基准。\n\nB＝剑士 4／弓兵 4／骑兵 4，基础价沿用当前快照。p是双方共用的普通兵即死率，N包括基地与所有外出队伍，同一士兵只计一次。出征调岗不会降低N或全军口粮；只有真实死亡、招募／收编等人员变化才改变兵力。",back);return;
+                RuleInfo("Demo招兵规则","普通兵满血加入基地，进入既有岗位、编队、军需与战损流程，不自动补进在外队伍。新兵"+production+"，从明日计入口粮。\n\n第1日固定每兵种 2 人（合计 6）；之后每日兵源总量=floor(B×兵源系数×(1-p))，B＝合计基准 12，在日初按全体实际兵力算一次，再把总量随机分到剑士／弓兵／骑兵三种（可能三个同兵种，也可能缺某个兵种）。只要兵力不超过基准的 150%（12 人基准就是 18 人），当天至少保 1 人可买，超过则断货。某个兵种连续两天没出现在兵源里，第三天必给 1 个。当天招走后不补货，重进或读档不刷新。\n\n单价以基准原价为原点：兵力高于基准每 1% 涨 2%（高出 50%、也就是 18 人时翻倍），低于基准每 1% 降 1%，最低打到五折。每次只能招 1 人，招完立即按新兵力重算报价；人员、日期、钱币或库存改变后旧报价失效。兵力越富余，价格越高、供应越少；打空了则货足价低，靠招兵与俘虏把人补回基准。\n\nB＝剑士 4＋弓兵 4＋骑兵 4＝合计 12，基础价沿用当前快照。p是双方共用的普通兵即死率，N是三种普通兵的合计，包含基地与所有外出队伍，同一士兵只计一次；编成不影响概率，只影响战术。出征调岗不会降低N或全军口粮；只有真实死亡、招募／收编等人员变化才改变兵力。",back);return;
             }
             RuleInfo(BaseScriptNames.Town+"交易与招募规则","交易摊位买卖粮草、原料和两级剑／弓／甲。卖出价低于买入价，价格固定；仅可出售库存中未被军需配额锁定的部分。出售由商人单独回收，不增加今日可购数量。\n\n商品与三种普通兵源每天限量补满；仅在经营日过夜后刷新，重复进出、查看页面和存读档均不补货。买卖与招募不推进日期。\n\n新募士兵满血加入基地普通兵源，按正常单位参与编队、军需、伤亡、休养与岗位管理，不自动追加到在外队伍，也不带劝降的黄色姓名。今日已实际行动，招募当天不生产；次日起按现有策略分配。今天的口粮已经结清，不重复扣粮，新增人员从明天开始计入口粮；今日缺粮效果不会被购物重算。\n\n招募确定成功并消耗钱币；难度中的劝降概率用于俘虏，不影响付费招募。本版先接普通兵，居民、队长雇佣及动态物价后续再做。",back);
         }
@@ -90,12 +90,13 @@ namespace BaseConquest.Base
             row+=62;
             if(BaseTown.DemoRecruitment(s))
             {
-                int count=BaseTown.TroopCount(s,townKind),baseline=BaseDemoCombat.Baseline(BaseTown.ToBattle(townKind),s.Demo?.Rpg);double probability=BaseTown.HireProbability(s,townKind);
-                Line("本兵种全体 "+count+"人 · 阶段基准 "+baseline+" · 普通兵即死率 "+probability.ToString("P0")+"（双方同用）",60,19);
+                int count=BaseTown.TroopTotal(s),baseline=BaseDemoCombat.BaselineTotal(s.Demo?.Rpg);double probability=BaseTown.HireProbability(s);
+                int daily=s.Town.Recruits.Sum(r=>r.DailyCount);
+                Line("全军普通兵 "+count+"人 · 合计基准 "+baseline+" · 普通兵即死率 "+probability.ToString("P0")+"（三兵种共用）· 今日兵源 "+daily+"人",58,19);
                 int foodPer=townKind==BaseTroopKind.Cavalry?s.Rules.CavalryFood:townKind==BaseTroopKind.Ranged&&BaseRpg.Active(s)?s.Demo.Rpg.ArcherFood:s.Rules.SoldierFood;
                 Line("全军下一日口粮：当前 "+BaseEconomy.FoodRequired(s)+" → 招募后 "+(BaseEconomy.FoodRequired(s)+(long)foodPer*townQuantity)+"；今日已付口粮不重算。",65,18);
                 int baselinePrice=offer.Price;int diff=count-baseline;
-                Line("基准原价 "+baselinePrice+"币 · 现有"+count+"人"+(diff==0?"（正好等于基准）":diff>0?"（高出基准 "+diff+" 人，约 +"+(diff*100/baseline)+"%，报价每1%涨2%）":"（低于基准 "+(-diff)+" 人，报价每1%降1%，最低五折）"),58,19);
+                Line("基准原价 "+baselinePrice+"币 · 现有"+count+"人"+(diff==0?"（正好等于基准）":diff>0?"（高出基准 "+diff+" 人，约 +"+(diff*100/baseline)+"%，报价每1%涨2%）":"（低于基准 "+(-diff)+" 人，报价每1%降1%，最低五折）")+"；兵源按兵种随机分配，连续两天缺位的次日必出 1 人",56,18);
             }
             Line("招募 1 人 · "+price+"币/人 · 持有 "+s.Inventory.Coins+"币（每次只能招 1 人，招后价格重算）",58,21);
             BaseTownQuote quote=null;string reason="";
@@ -111,7 +112,7 @@ namespace BaseConquest.Base
             Line("已有总兵力 "+s.Workers.Sum(w=>w.Count)+" / 10000人（含外出兵力）",45,19);
             if(BaseTown.DemoRecruitment(s))
             {
-                Line("今日库存按日初冻结；明日预计补至 "+BaseTown.DemoDailyCount(s,townKind)+"人（按当前兵力）。兵力越接近基准，货源越少、报价越高。",70,18);
+                Line("今日库存按日初冻结；明日兵源总量预计 "+BaseTown.DemoDailyTotal(s)+"人，按三兵种随机分配（连续缺位两天次日必出 1 人）。兵力越接近基准，货源越少、报价越高。",70,18);
                 var last=s.Campaign.Reports.LastOrDefault();if(last!=null)Line("最近一战：永久损失 "+last.Killed+"人 · 伤员 "+last.Wounded+"人 · 返回士兵 "+last.Returned+"人；倒地恢复行动不等于满血。",70,18);
             }
             Line(BaseDemoFlow.Active(s)?"满血加入基地，今天即可安排生产；新兵从明天开始计入口粮。":"加入基地，今日不生产；次日起正常安排岗位。新兵从明天开始计入口粮。",65,19);

@@ -44,6 +44,8 @@ namespace BaseConquest.Base
     {
         // Temporary Demo defaults; author balance data can replace these three baselines.
         public static int Baseline(SoldierKind kind,RpgRules rules=null)=>rules==null?(kind==SoldierKind.Melee?10:kind==SoldierKind.Ranged?8:4):rules.TroopBaseline[BaseRpg.Profession(kind)];
+        // 2026-11-04 起普通兵即死率改用三兵种合计口径：编成不再改变死亡概率，只改变战术。
+        public static int BaselineTotal(RpgRules rules=null)=>rules==null?22:rules.TroopBaseline.Sum();
         public static double Probability(int baseline,int count,RpgRules rules=null)
         {
             if(baseline<0||count<0)throw new ArgumentOutOfRangeException();
@@ -63,12 +65,13 @@ namespace BaseConquest.Base
                 }
                 return Math.Max(0,Math.Min(1,session.Opening.Difficulty.LeaderDeath+BaseRpg.LethalModifier(session,unit)));
             }
-            int index=Array.IndexOf(BattleSimulation.TroopKinds,unit.Kind);
             var counts=session.Opening.PlayerTroopCounts;
             if(counts==null||counts.Length!=3||counts.Any(count=>count<0))throw new InvalidOperationException("Demo兵力基准快照非法");
-            int count=counts[index]-session.Battle.Soldiers.Count(other=>other.Side==BattleSide.A&&other.Kind==unit.Kind&&other.InstantDead&&!other.DeveloperSpawned)
-                +session.Battle.Soldiers.Count(other=>other.Side==BattleSide.B&&other.Kind==unit.Kind&&other.KnockedDown&&!other.DeveloperSpawned);
-            return Math.Max(0,Math.Min(1,Probability(Baseline(unit.Kind,session.Opening.Rpg),Math.Max(0,count),session.Opening.Rpg)+BaseRpg.LethalModifier(session,unit)));
+            // 合计口径：N = 开战全体普通兵 − 本场我方已真死 + 本场敌方已倒地（倒地即入池，视为可俘归我方）。
+            // 队长不计入 N，敌方队长倒地也不计入。
+            int count=counts.Sum()-session.Battle.Soldiers.Count(other=>other.Side==BattleSide.A&&other.Kind!=SoldierKind.Hero&&other.InstantDead&&!other.DeveloperSpawned)
+                +session.Battle.Soldiers.Count(other=>other.Side==BattleSide.B&&other.Kind!=SoldierKind.Hero&&other.KnockedDown&&!other.DeveloperSpawned);
+            return Math.Max(0,Math.Min(1,Probability(BaselineTotal(session.Opening.Rpg),Math.Max(0,count),session.Opening.Rpg)+BaseRpg.LethalModifier(session,unit)));
         }
         public static List<BaseEnemyMember> CreateEnemies(string eventId,ArmyDefinition army,BaseEnemyPreset preset=null)
         {

@@ -274,8 +274,8 @@
         "Rules": [
             {
                 "Product": "supply",
-                "LowBonus": 10.0,
-                "HighBonus": 16.0,
+                "LowBonus": 6.0,
+                "HighBonus": 10.0,
                 "LowDefense": 2.0,
                 "HighDefense": 4.0
             }
@@ -76652,7 +76652,7 @@
         "Version": 1,
         "StockDay": 1,
         "Revision": 0,
-        "RecruitRulesVersion": 1,
+        "RecruitRulesVersion": 2,
         "Goods": [
             {
                 "Id": "food",
@@ -76677,10 +76677,10 @@
             },
             {
                 "Id": "supply2",
-                "BuyPrice": 45,
-                "SellPrice": 23,
-                "DailyStock": 2,
-                "Remaining": 2
+                "BuyPrice": 89,
+                "SellPrice": 47,
+                "DailyStock": 1,
+                "Remaining": 1
             }
         ],
         "Recruits": [
@@ -76689,6 +76689,7 @@
                 "Price": 30,
                 "DailyCount": 2,
                 "Remaining": 2,
+                "MissingDays": 0,
                 "Stats": {
                     "Level": 1,
                     "Health": 100.0,
@@ -76711,6 +76712,7 @@
                 "Price": 40,
                 "DailyCount": 2,
                 "Remaining": 2,
+                "MissingDays": 0,
                 "Stats": {
                     "Level": 1,
                     "Health": 75.0,
@@ -76733,6 +76735,7 @@
                 "Price": 60,
                 "DailyCount": 2,
                 "Remaining": 2,
+                "MissingDays": 0,
                 "Stats": {
                     "Level": 1,
                     "Health": 100.0,
@@ -76965,7 +76968,7 @@
             "EnemyLeaderDeath": 0.5,
             "SoldierDeathBase": 0.5,
             "SoldierDeathSensitivity": 1.0,
-            "RecruitSupplyFactor": 0.5,
+            "RecruitSupplyFactor": 0.35,
             "RecruitPriceSensitivity": 2.0,
             "SweepLossAtParity": 0.25,
             "SweepSecondsAtParity": 10.0,
@@ -77029,8 +77032,8 @@
                 1,
                 2
             ],
-            "SupplyAttackLow": 10.0,
-            "SupplyAttackHigh": 16.0,
+            "SupplyAttackLow": 6.0,
+            "SupplyAttackHigh": 10.0,
             "SupplyDefenseLow": 2.0,
             "SupplyDefenseHigh": 4.0,
             "ArmorK": 8.0,
@@ -77757,7 +77760,7 @@
         "Stage": 0,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "23c82277fae097461c6638295eb766a8d271915646a0d0f883236d841741a6f0",
-        "ConfigHash": "4ab1741e73934b6e7bb15c163e86ba92e62ff674224b4a9e8af258715b65e60e",
+        "ConfigHash": "954c406c2759ba964dd88add1d1c672e2aae37c74185f2641397d47a46b06824",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,

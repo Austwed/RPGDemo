@@ -172,11 +172,11 @@ namespace BaseConquest.Base
             double supplyUnit=2d*SupplyMaterial*MaterialValue+SupplyWorkValue;
             foreach(int level in new[]{1,2})
             {
-                double buy=Math.Ceiling(supplyUnit*level*BuyFactor),sell=Math.Floor(supplyUnit*level*SellFactor);
+                double buy=Math.Ceiling(supplyUnit*level*level*BuyFactor),sell=Math.Floor(supplyUnit*level*level*SellFactor);
                 if(!Finite(buy)||!Finite(sell)||buy<1||buy>1000000||sell<1||sell>=buy)throw new ArgumentException("06b 军需与配方 / 05c 装备价格 / 02a 全局参数与试算：军需基础价值和交易倍率组合导致城镇报价非法（买价1～1000000，卖价至少1且小于买价）");
             }
             double maxGear=new[]{WeaponValues,HelmetValues,ArmorValues,AccessoryValues}.Max(a=>a.Max())*(double)QualityValue.Max();
-            double maxGoods=Math.Max(supplyUnit*2,new[]{FoodValue,MaterialValue,BookValue,AdvancedBookValue,StoneValue,WineValue,OtherValue}.Max());
+            double maxGoods=Math.Max(supplyUnit*4,new[]{FoodValue,MaterialValue,BookValue,AdvancedBookValue,StoneValue,WineValue,OtherValue}.Max());
             double maxModifier=1+Math.Max(0,Math.Max(Traits.SingleOrDefault(t=>t.Id=="merchant")?.Max??0,Traits.SingleOrDefault(t=>t.Id=="bad_temper")?.Max??0))/100;
             if(!Finite(maxGear)||!Finite(maxGoods)||Math.Max(maxGear,maxGoods)*Math.Max(BuyFactor,SellFactor)*maxModifier>int.MaxValue-1d)throw new ArgumentException("05c 装备价格 / 02a 全局参数与试算 / 11b 特性数值与互斥：商品价值、品质与交易倍率组合导致报价溢出");
             if(Skills.Any(s=>s.Id=="heal"&&s.Duration<1||s.Id=="sweep"&&s.Duration!=0||s.Id!="heal"&&s.Id!="sweep"&&s.Duration<=0))throw new ArgumentException("技能持续时间与结算方式不符：治疗至少1秒，横扫为0，其他技能大于0");
@@ -315,7 +315,9 @@ namespace BaseConquest.Base
             }
             foreach(int level in new[]{1,2})
             {
-                double value=(2d*r.SupplyMaterial*r.MaterialValue+r.SupplyWorkValue)*level;int stock=r.OpeningTownStock?[level+1]??(level==1?6:2);
+                // 2026-11-04：二级军需含额外制作难度（需要更稀缺的原料与工时），价格按等级平方计，供给量减半，逼玩家算性价比。
+                double value=(2d*r.SupplyMaterial*r.MaterialValue+r.SupplyWorkValue)*level*level;
+                int stock=level==1?(r.OpeningTownStock?[2]??6):Math.Max(1,(r.OpeningTownStock?[3]??2)/2);
                 s.Town.Goods.Add(new BaseTownGood {Id="supply"+level,BuyPrice=(int)Math.Ceiling(value*r.BuyFactor),SellPrice=(int)Math.Floor(value*r.SellFactor),DailyStock=stock,Remaining=stock});
             }
         }

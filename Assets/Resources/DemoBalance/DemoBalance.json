@@ -1,6 +1,6 @@
 {
     "Version": 1,
-    "WorkbookSha256": "4ab1741e73934b6e7bb15c163e86ba92e62ff674224b4a9e8af258715b65e60e",
+    "WorkbookSha256": "954c406c2759ba964dd88add1d1c672e2aae37c74185f2641397d47a46b06824",
     "Rules": {
         "GenerationSeed": 0,
         "SceneRulesVersion": 0,
@@ -17,7 +17,7 @@
         "EnemyLeaderDeath": 0.5,
         "SoldierDeathBase": 0.5,
         "SoldierDeathSensitivity": 1.0,
-        "RecruitSupplyFactor": 0.5,
+        "RecruitSupplyFactor": 0.35,
         "RecruitPriceSensitivity": 2.0,
         "SweepLossAtParity": 0.25,
         "SweepSecondsAtParity": 10.0,
@@ -81,8 +81,8 @@
             1,
             2
         ],
-        "SupplyAttackLow": 10.0,
-        "SupplyAttackHigh": 16.0,
+        "SupplyAttackLow": 6.0,
+        "SupplyAttackHigh": 10.0,
         "SupplyDefenseLow": 2.0,
         "SupplyDefenseHigh": 4.0,
         "ArmorK": 8.0,

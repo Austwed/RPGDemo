@@ -20,11 +20,11 @@ namespace BaseConquest.Editor
             try
             {
                 var rules = LoadRules();
-                int baseline = rules.TroopBaseline[0];
+                int baseline = rules.TroopBaseline.Sum();
                 var opening = new BaseCampaignBattle
                 {
                     DemoCombat = true,
-                    PlayerTroopCounts = new[] { baseline, baseline, baseline },
+                    PlayerTroopCounts = rules.TroopBaseline.ToArray(),
                     Rpg = rules,
                     Scenario = new BattleScenario()
                 };
@@ -35,10 +35,10 @@ namespace BaseConquest.Editor
 
                 var probe = session.Battle.Soldiers.First(u => u.Id == 900);
                 var enemyProbe = session.Battle.Soldiers.First(u => u.Id == 950);
-                Debug.Log("[Cascade] 基准 B=" + baseline);
+                Debug.Log("[Cascade] 合计基准 B=" + baseline + "（" + string.Join("/", rules.TroopBaseline) + "）");
 
                 double atBase = BaseDemoCombat.DeathChance(session, probe);
-                Report("满编 " + baseline + " 人（等于基准）", baseline, atBase);
+                Report("满编 " + baseline + " 人（等于合计基准）", baseline, atBase);
                 Check(Math.Abs(atBase - rules.SoldierDeathBase) < 1e-9, "基准兵力时即死率应等于基准概率 " + rules.SoldierDeathBase);
 
                 session.Battle.Soldiers.First(u => u.Id == 903).InstantDead = true;
@@ -69,6 +69,27 @@ namespace BaseConquest.Editor
                 double enemyChance = BaseDemoCombat.DeathChance(session, enemyProbe);
                 Report("同一刻敌方普通兵的即死率", baseline, enemyChance);
                 Check(Math.Abs(enemyChance - withTwoEnemy) < 1e-9, "双方共用同一 N，同一刻概率必须相同");
+
+                // 共用 N 的核心承诺：合计相同，编成不影响概率。全战士、全弓兵、全骑兵、平均分配都必须同值。
+                foreach (var comp in new[] { new[] { baseline, 0, 0 }, new[] { 0, baseline, 0 }, new[] { 0, 0, baseline }, new[] { baseline / 3, baseline / 3, baseline - 2 * (baseline / 3) } })
+                {
+                    var mixOpening = new BaseCampaignBattle { DemoCombat = true, PlayerTroopCounts = comp, Rpg = rules, Scenario = new BattleScenario() };
+                    var mixSession = new BaseCampaignSession(mixOpening);
+                    var mixProbe = new BattleSoldier { Id = 990, Side = BattleSide.A, Kind = SoldierKind.Melee, Health = 100, Stats = new SoldierStats { Health = 100, Damage = 12, Defense = 4 } };
+                    mixSession.Battle.Soldiers.Add(mixProbe);
+                    double mix = BaseDemoCombat.DeathChance(mixSession, mixProbe);
+                    Debug.Log("[Cascade] 编成 " + string.Join("/", comp) + " → 合计 N=" + comp.Sum() + "，即死率 " + mix.ToString("P1"));
+                    Check(Math.Abs(mix - atBase) < 1e-9, "合计相同则编成不得改变即死率：" + string.Join("/", comp));
+                }
+
+                // 旧分兵种口径的硬伤：我方某个兵种为 0 时，敌方同兵种永远打不死、只会倒地可俘。共用后应消失。
+                var emptyOpening = new BaseCampaignBattle { DemoCombat = true, PlayerTroopCounts = new[] { baseline, 0, 0 }, Rpg = rules, Scenario = new BattleScenario() };
+                var emptySession = new BaseCampaignSession(emptyOpening);
+                var enemyArcher = new BattleSoldier { Id = 970, Side = BattleSide.B, Kind = SoldierKind.Ranged, Health = 100, Stats = new SoldierStats { Health = 75, Damage = 14, Defense = 2 } };
+                emptySession.Battle.Soldiers.Add(enemyArcher);
+                double noArcher = BaseDemoCombat.DeathChance(emptySession, enemyArcher);
+                Debug.Log("[Cascade] 我方 0 弓兵、合计仍 " + baseline + " → 敌方弓兵即死率 " + noArcher.ToString("P1"));
+                Check(Math.Abs(noArcher - atBase) < 1e-9, "共用 N 后缺编兵种不再免死");
 
                 Debug.Log(failures == 0 ? "[Cascade] PASS：N 在战内实时重算" : "[Cascade] FAIL：" + failures + " 项");
                 EditorApplication.Exit(failures == 0 ? 0 : 1);

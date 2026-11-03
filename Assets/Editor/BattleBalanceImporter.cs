@@ -454,10 +454,10 @@ namespace BaseConquest.Editor
                 for(int level=1;level<=2;level++)
                 {
                     int rr=level+17,mr=level+28;string id="recipe_supply"+level;
-                    if(Need(recipe,supplies,"A"+rr)!=id||Need(recipe,supplies,"B"+rr)!="supply"+level||Number(recipe,supplies,"C"+rr,1,1)!=1||Number(recipe,supplies,"D"+rr,level,level)!=level||Number(recipe,supplies,"E"+rr,level,level)!=level)throw new InvalidOperationException(supplies+" 第"+rr+"行：产量、工作量与等级不符合生产规则");
+                    if(Need(recipe,supplies,"A"+rr)!=id||Need(recipe,supplies,"B"+rr)!="supply"+level||Number(recipe,supplies,"C"+rr,1,1)!=1||Number(recipe,supplies,"D"+rr,1,99)<1||Number(recipe,supplies,"E"+rr,1,2)!=level)throw new InvalidOperationException(supplies+" 第"+rr+"行：产量、工作量或所需工坊等级不符合生产规则");
                     if(Need(material,supplies,"A"+mr)!=id||Need(material,supplies,"B"+mr)!="materials")throw new InvalidOperationException(supplies+" 第"+mr+"行：配方材料引用无效");
                     double amount=Number(material,supplies,"C"+mr,1,100);if(amount!=Math.Truncate(amount))throw new InvalidOperationException(supplies+"!C"+mr+"：原料数量须为整数");
-                    if(level==1)unitMaterial=(int)amount;else if(amount!=unitMaterial*2)throw new InvalidOperationException(supplies+"!C"+mr+"：二级军需原料数须为一级的两倍");
+                    if(level==1)unitMaterial=(int)amount;else if(amount<unitMaterial*2)throw new InvalidOperationException(supplies+"!C"+mr+"：二级军需原料数不得少于一级的两倍");
                 }
                 rules.SupplyMaterial=unitMaterial;
                 const string objectSheet="02c 地形与物件";

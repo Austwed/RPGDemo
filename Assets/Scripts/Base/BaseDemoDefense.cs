@@ -23,6 +23,8 @@ namespace BaseConquest.Base
         public const string EventId="demo:defense:first", SecondEventId="demo:defense:second", Proof="demo:defense:won";
         public const string SecondGameOverReason="第二波防守失败：队伍全员失能，营地失守，行动中止。";
         public const int RepairMaterials=10, RepairCoins=20;
+        // 2026-11-04 用户裁决：首防不再看军需、工坊或招募进度，固定第 3 天预告、第 6 天抵达。
+        public const int WarningDay=3, ArrivalDay=6, WarningLead=3;
         public static int RepairMaterialCost(BaseState state)=>BaseRpg.Active(state)?state.Demo.Rpg.FacilityRepairMaterials:RepairMaterials;
         public static int RepairCoinCost(BaseState state)=>BaseRpg.Active(state)?state.Demo.Rpg.FacilityRepairCoins:RepairCoins;
         public static bool Enabled(BaseState state)=>BaseDemo.Active(state)&&state.Demo.Defense?.Version==1;
@@ -112,14 +114,16 @@ namespace BaseConquest.Base
         {
             if(!Enabled(state))return;
             var progress=state.Demo.Defense;
-            if(state.Demo.Stage==BaseDemoStage.RuinsDelivered&&progress.WorkshopRepaired&&progress.BarracksRepaired&&(!BaseDemoFlow.Active(state)||BaseDemoFlow.Recruited(state))&&report.ProductsMade>0&&progress.GearDay==0)
+            if(state.Demo.Stage==BaseDemoStage.RuinsDelivered&&progress.GearDay==0&&state.Day>=WarningDay)
             {
                 if(state.Day>=1000000)throw new InvalidOperationException("日期已达上限，不能安排次日入侵");
-                progress.GearDay=report.CompletedDay;progress.GearProduct=report.Product;progress.GearCount=report.ProductsMade;progress.WarningDay=state.Day;progress.ArrivalDay=state.Day+1;
+                // 正常局：第 3 天预告、第 6 天抵达。玩家拖过第 3 天才交付遗迹的，从交付当天起算，仍给 3 天准备。
+                progress.GearDay=report.CompletedDay;progress.GearProduct=report.Product;progress.GearCount=report.ProductsMade;
+                progress.WarningDay=Math.Max(WarningDay,state.Day);progress.ArrivalDay=Math.Max(ArrivalDay,progress.WarningDay+WarningLead);
                 var mission=progress.Mission.Copy();mission.DepartedDay=state.Day;mission.AvailableDay=mission.DeadlineDay=progress.ArrivalDay;state.Campaign.Events.Add(mission);state.Demo.Stage=BaseDemoStage.DefenseWarned;
             }
             if(state.Demo.Stage==BaseDemoStage.DefenseWarned)
-            {var marker=state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Single(obj=>obj.Id=="demo_defense_exit");marker.VisualOnly=!Due(state);marker.Name=Due(state)?"首次入侵已到达 · 前往迎战":"入侵明日抵达 · 先整备";}
+            {var marker=state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Single(obj=>obj.Id=="demo_defense_exit");marker.VisualOnly=!Due(state);marker.Name=Due(state)?"首次入侵已到达 · 前往迎战":Math.Max(0,NextArrival(state)-state.Day)+" 天后抵达 · 先整备";}
             else if(SecondDue(state)){var marker=state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Single(obj=>obj.Id=="demo_defense_exit");marker.VisualOnly=false;marker.Name="第二波入侵已到达 · 前往迎战";}
         }
         public static string Objective(BaseState state)
@@ -127,9 +131,9 @@ namespace BaseConquest.Base
             if(!Enabled(state))return "此旧Demo没有修复／防守快照；请新开Demo体验新增流程";
             if(SecondDue(state))return "第二波入侵已到达：前往营地外围迎战";
             if(Won(state)){int arrival=SecondArrival(state);return (arrival>0?"距黑鸦寨来袭 "+Math.Max(0,arrival-state.Day)+" 天 · ":"")+(BaseDemoFinale.Enabled(state)?BaseDemoFinale.Objective(state):"黑鸦寨匪众退去，营地守住了。他们没有伤筋动骨，这只是第一回——处理战果并返营补损");}
-            if(state.Demo.Stage==BaseDemoStage.DefenseWarned)return Due(state)?"黑鸦寨匪众已杀至营门外，此刻歇息无异引颈受戮，即刻前往迎敌战场！":"黑鸦寨探子嗅到了工坊开炉的动静，大批匪众"+(NextArrival(state)-state.Day)+"天后兵临断流滩！";
+            if(state.Demo.Stage==BaseDemoStage.DefenseWarned)return Due(state)?"黑鸦寨匪众已杀至营门外，此刻歇息无异引颈受戮，即刻前往迎敌战场！":"黑鸦寨匪众"+(NextArrival(state)-state.Day)+"天后兵临断流滩！趁这几天募兵、修设施、备军需。";
             if(BaseDemoFlow.Active(state)&&!BaseDemoFlow.Recruited(state))return "招募建设人手："+BaseDemoFlow.RecruitProgress(state);
-            if(!state.Demo.Defense.WorkshopRepaired||!state.Demo.Defense.BarracksRepaired)return "建设许可已取得：修复工坊与兵营";
+            if(state.Demo.Stage==BaseDemoStage.RuinsDelivered)return "先募兵，再修工坊与兵营、备军需：第 "+WarningDay+" 天匪众探得营地虚实，第 "+ArrivalDay+" 天兵临断流滩";
             return "安排工坊岗位，过日完成首次军需生产";
         }
         public static string TravelProblem(BaseState state,string target)
@@ -204,7 +208,7 @@ namespace BaseConquest.Base
             }
             if(Later(state))
             {
-                if(!progress.WorkshopRepaired||!progress.BarracksRepaired||progress.GearDay<state.Demo.DeliveredDay||progress.WarningDay!=progress.GearDay+1||progress.WarningDay>state.Day||progress.ArrivalDay!=progress.WarningDay+1||progress.ArrivalDay>1000000||!BaseEconomy.ProductsFor(state).Contains(progress.GearProduct)||progress.GearCount<1||!state.Campaign.Events.Any(mission=>mission.Id==EventId&&mission.AvailableDay==NextArrival(state)&&mission.DeadlineDay==NextArrival(state)))throw new ArgumentException("首件军需／预告／入侵日程不一致");
+                if(progress.GearDay<state.Demo.DeliveredDay||progress.WarningDay<WarningDay||progress.WarningDay>state.Day||progress.ArrivalDay!=Math.Max(ArrivalDay,progress.WarningDay+WarningLead)||progress.ArrivalDay>1000000||!BaseEconomy.ProductsFor(state).Contains(progress.GearProduct)||progress.GearCount<0||!state.Campaign.Events.Any(mission=>mission.Id==EventId&&mission.AvailableDay==NextArrival(state)&&mission.DeadlineDay==NextArrival(state)))throw new ArgumentException("首防预告／入侵日程不一致");
             }
             else if(progress.GearDay!=0||progress.GearCount!=0||progress.WarningDay!=0||progress.ArrivalDay!=0||progress.VictoryDay!=0||!string.IsNullOrEmpty(progress.GearProduct)||state.Campaign.Events.Any(mission=>mission.Id==EventId))throw new ArgumentException("未完成整备不得提前生成教学入侵");
             if(Won(state)?progress.VictoryDay<progress.ArrivalDay||progress.VictoryDay>state.Day||!state.Campaign.Reports.Any(report=>report.EventId==EventId&&!report.Passive&&report.Outcome=="SideAWin"):progress.VictoryDay!=0)throw new ArgumentException("首次防守胜利缺真实主动战果");
