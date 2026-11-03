@@ -127,13 +127,14 @@ namespace BaseConquest.Base
             Normalize(s); var c = s.Campaign; BaseSpatial.ValidateLayouts(s);
             BaseBattlefield.Ensure(s);
             BaseBattlefield.MigrateLegacyMap(s);
-            var field=c.PerimeterBoard;if(field.Width!=(BaseDemoRelease.Enabled(s)?32:24)||field.Height!=(BaseDemoRelease.Enabled(s)?24:14)||field.Cells?.Length!=field.Width*field.Height||field.Cells.Any(x=>x==null||!x.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),x.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),x.Zone))||!field.Walkable(new GridPosition(field.Width-1,6))||!field.Walkable(new GridPosition(0,6)))throw new ArgumentException("迎战地图数据非法");
+            var field=c.PerimeterBoard;bool storyField=s.Demo?.StoryScene?.Valid==true;
+            if((storyField?(field.Width<10||field.Width>64||field.Height<10||field.Height>64):(field.Width!=(BaseDemoRelease.Enabled(s)?32:24)||field.Height!=(BaseDemoRelease.Enabled(s)?24:14)))||field.Cells?.Length!=field.Width*field.Height||field.Cells.Any(x=>x==null||!x.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),x.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),x.Zone))||!field.Walkable(new GridPosition(field.Width-1,6))||!field.Walkable(new GridPosition(0,6)))throw new ArgumentException("迎战地图数据非法");
             if (c.Version != 1 || c.InstanceVersion<0||c.InstanceVersion>1||!BaseSceneInstances.LocationValid(s,c.Location) || !Finite(c.BaseX) || !Finite(c.BaseY) || !Finite(c.WorldX) || !Finite(c.WorldY) || !BaseMap.Walkable(c.WorldX,c.WorldY,null,false) || c.Events == null || c.SettledIds == null || c.Reports == null || c.Events.Count > 1000 || c.Reports.Count > 1000 || c.SettledIds.Count > 100000) throw new ArgumentException("战役版本／位置／集合非法");
             if (c.Events.Any(e => e == null || string.IsNullOrWhiteSpace(e.Id) || string.IsNullOrWhiteSpace(e.Title) || e.Kind != "defense" && e.Kind != "attack" || e.Status != "pending" && e.Status != "resolved" || e.AvailableDay < 1 || e.DeadlineDay < e.AvailableDay || string.IsNullOrWhiteSpace(e.ScenarioFile) || Path.GetFileName(e.ScenarioFile) != e.ScenarioFile || !e.ScenarioFile.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || new[] { e.FoodReward, e.MaterialReward, e.CoinReward, e.FoodRaid, e.MaterialRaid, e.CoinRaid }.Any(n => n < 0 || n > 1000000)) || c.Events.Select(e => e.Id).Distinct().Count() != c.Events.Count) throw new ArgumentException("战役事件非法");
             if (c.SettledIds.Any(string.IsNullOrWhiteSpace) || c.SettledIds.Distinct().Count() != c.SettledIds.Count || c.Reports.Any(r => r == null || string.IsNullOrWhiteSpace(r.BattleId) || !c.SettledIds.Contains(r.BattleId) || r.Day < 1 || r.Day > s.Day || new[] { r.Rounds, r.Deployed, r.Killed, r.Missing, r.Returned, r.Wounded, r.LeadersDown, r.GearLost }.Any(n => n < 0)) || c.Reports.Select(r => r.BattleId).Distinct().Count() != c.Reports.Count) throw new ArgumentException("战役结算记录非法");
             BaseThreats.Validate(s);
             c.RegionMaps??=new List<BaseRegionMap>();
-            bool story=s.Demo?.StoryScene!=null;
+            bool story=s.Demo?.StoryScene?.Valid==true;
             if(c.RegionMaps.Count>(BaseSceneInstances.Active(s)?31:BaseSceneRules.Active(s)?5:4) || c.RegionMaps.Any(m=>m==null||m.Id=="perimeter"||!(BaseSceneInstances.Active(s)?c.Layouts.Any(layout=>layout.SourceMapId==m.Id&&layout.Region!="perimeter"):Locations.Contains(m.Id))||m.Board==null||m.Board.Width<6||m.Board.Width>(story?64:32)||m.Board.Height<6||m.Board.Height>(story?64:24)||!story&&m.Id=="base"&&(m.Board.Width!=24||m.Board.Height!=14)||m.Board.Cells?.Length!=m.Board.Width*m.Board.Height||m.Board.Cells.Any(cell=>cell==null||!cell.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),cell.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),cell.Zone)))||c.RegionMaps.Select(m=>m.Id).Distinct().Count()!=c.RegionMaps.Count) throw new ArgumentException("区域地图数据非法");
             foreach(var location in new[] {"base","world","town"}) BaseBattlefield.Board(s,location);
             BaseDesignRoutes.Validate(s);
@@ -365,7 +366,7 @@ namespace BaseConquest.Base
         }
         public static bool Rest(BaseState s, int day, Func<string, BattleScenarioDocument> resolve,bool realtime=false)
         {
-            if(BaseDemoDefense.AnyDue(s))throw new InvalidOperationException("斥候陈安：大人，匪众已杀到营门外，这会儿歇息就是等死，快上迎敌战场！");
+            if(BaseDemoDefense.AnyDue(s))throw new InvalidOperationException("敌军已抵营门，此刻无法休息");
             BaseEconomy.Validate(s); if (s.Aftermath.GameOver || s.Day != day || s.LastCompletedDay >= day) return false;
             if (s.Campaign.HasActiveBattle || s.Muster.Parties.Any(p => p.InCombat)) throw new InvalidOperationException("先结束当前战斗");
             foreach (var e in Due(s).ToArray())

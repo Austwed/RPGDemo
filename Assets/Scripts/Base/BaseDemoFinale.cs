@@ -34,7 +34,7 @@ namespace BaseConquest.Base
         public static BattleBoard CreateCampBoard(BaseState state)
         {
             var board=state.Demo.Finale.CampBoard.Clone();
-            if(BaseDemoRelease.Enabled(state))return board;
+            if(BaseDemoRelease.Enabled(state)||state.Demo.StoryScene?.Valid==true)return board;
             foreach(var position in board.Positions()){var cell=board.Cell(position);cell.Zone=!cell.Walkable?DeploymentZone.None:position.X>=4&&position.X<=6?DeploymentZone.A:position.X>=17&&position.X<=19?DeploymentZone.B:DeploymentZone.None;}
             return board;
         }
@@ -50,8 +50,8 @@ namespace BaseConquest.Base
                 else if(map.Region=="outpost"){map.Region="custom";map.ParentMapId="demo_town";foreach(var obj in map.Objects.Where(obj=>obj.Id!="demo_ruins_return"&&obj.Id!="demo_ruins_investigate"))obj.VisualOnly=true;}
             }
             var worldMap=new BaseMapLayout {Region="world",SourceMapId="demo_world",Title="返乡行军",SpawnX=12,SpawnY=6.5};campaign.Layouts.Add(worldMap);
-            var campLayout=BaseDemoRelease.Enabled(state)?state.Demo.ReleaseMaps.Single(m=>m.Role=="bandit").Layout.Copy():CreateCampLayout();campaign.Layouts.Add(campLayout);
-            var village=state.Demo.Finale.Village.Copy();village.SourceMapId=Home;village.Region="custom";village.ParentMapId=null;village.Title=BaseScriptNames.Village+" · 劫后余痕";village.SpawnX=21;village.SpawnY=7;
+            var campLayout=state.Demo.StoryScene?.Valid==true?state.Demo.StoryScene.Map("bandit").Layout.Copy():BaseDemoRelease.Enabled(state)?state.Demo.ReleaseMaps.Single(m=>m.Role=="bandit").Layout.Copy():CreateCampLayout();campaign.Layouts.Add(campLayout);
+            var village=state.Demo.StoryScene?.Valid==true?state.Demo.StoryScene.ReturnVillage():state.Demo.Finale.Village.Copy();village.SourceMapId=Home;village.Region="custom";village.ParentMapId=null;village.Title=BaseScriptNames.Village+" · 劫后余痕";village.SpawnX=21;village.SpawnY=7;
             village.Objects.RemoveAll(obj=>!obj.Blocks&&!BaseEnvironment.Decorative(obj.Object));foreach(var obj in village.Objects)obj.Name="受损的"+obj.Name;
             village.Objects.Add(new BaseMapPlacement {Id="demo_home_world",Name="返回世界道路",X=23.3,Y=7,Width=1,Height=2});
             village.Objects.Add(new BaseMapPlacement {Id="demo_broken_sword",Name="幸存者与断剑 · 调查",X=10,Y=7,Width=1,Height=1});campaign.Layouts.Add(village);
@@ -144,7 +144,8 @@ namespace BaseConquest.Base
         {
             var progress=state.Demo.Finale;
             if(progress==null){if(Later(state))throw new ArgumentException("结尾阶段缺少快照");return;}
-            if(progress.Version!=1||progress.CampBoard==null||progress.CampBoard.Width!=(BaseDemoRelease.Enabled(state)?32:24)||progress.CampBoard.Height!=(BaseDemoRelease.Enabled(state)?24:14)||progress.CampBoard.Cells?.Length!=progress.CampBoard.Width*progress.CampBoard.Height||progress.CampBoard.Cells.Any(cell=>cell==null||!cell.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),cell.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),cell.Zone))||progress.Village==null||progress.Village.Objects==null||!progress.Village.Objects.Any(obj=>obj.Id=="village_house"&&obj.Blocks)||!progress.Village.Objects.Any(obj=>(obj.Id=="intro_farm"||obj.Id=="village_field")&&obj.Blocks))throw new ArgumentException("Demo攻营／"+BaseScriptNames.Village+"快照非法");
+            bool storyCamp=state.Demo?.StoryScene?.Valid==true;
+            if(progress.Version!=1||progress.CampBoard==null||(storyCamp?(progress.CampBoard.Width<10||progress.CampBoard.Width>64||progress.CampBoard.Height<10||progress.CampBoard.Height>64):(progress.CampBoard.Width!=(BaseDemoRelease.Enabled(state)?32:24)||progress.CampBoard.Height!=(BaseDemoRelease.Enabled(state)?24:14)))||progress.CampBoard.Cells?.Length!=progress.CampBoard.Width*progress.CampBoard.Height||progress.CampBoard.Cells.Any(cell=>cell==null||!cell.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),cell.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),cell.Zone))||progress.Village==null||progress.Village.Objects==null||!progress.Village.Objects.Any(obj=>obj.Id=="village_house"&&obj.Blocks)||!progress.Village.Objects.Any(obj=>(obj.Id=="intro_farm"||obj.Id=="village_field")&&obj.Blocks))throw new ArgumentException("Demo攻营／"+BaseScriptNames.Village+"快照非法");
             if(!progress.WorldOpened){if(progress.AttackDay!=0||progress.EndDay!=0||Later(state))throw new ArgumentException("未开启行军不能提交结尾");return;}
             if(!BaseDemoDefense.Won(state)||state.Campaign.InstanceVersion!=1||state.Campaign.DesignId!=state.Demo.BalanceHash||!BaseWorldJourney.Active(state)||state.Campaign.Layouts.Count!=(BaseSceneRules.Active(state)?8:7)||state.Campaign.WorldJourney.Nodes.Count!=3||state.Campaign.WorldJourney.Roads.Count!=2||state.Campaign.WorldJourney.Roads.Any(road=>road.Days!=1))throw new ArgumentException("Demo世界身份、路线或阶段非法");
             var site=BaseThreats.Site(state,Camp);if(site==null||state.Campaign.Layouts.Single(map=>map.SourceMapId==Home).Region!="custom")throw new ArgumentException("Demo敌营／"+BaseScriptNames.Village+"缺失");

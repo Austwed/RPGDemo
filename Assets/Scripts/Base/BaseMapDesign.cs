@@ -198,7 +198,7 @@ namespace BaseConquest.Base
         public static void ValidateLayouts(BaseState s)
         {
             if(BaseSceneInstances.Active(s)){BaseSceneInstances.ValidateLayouts(s);return;}
-            s.Campaign.Layouts??=new List<BaseMapLayout>();if(s.Campaign.Layouts.Count>(BaseSceneRules.Active(s)?6:5)||s.Campaign.Layouts.Select(m=>m?.Region).Distinct().Count()!=s.Campaign.Layouts.Count)throw new ArgumentException("编辑地图重复或数量非法");foreach(var m in s.Campaign.Layouts){ValidateLayout(m,demo:BaseDemo.Active(s),scenery:BaseDemoPrologue.Village(s),story:s.Demo?.StoryScene!=null);if(m.Objects.Any(obj=>!string.IsNullOrEmpty(obj.Shape)))BaseObjectFootprint.ValidateBoard(m,BaseBattlefield.Board(s,m.Region));}
+            s.Campaign.Layouts??=new List<BaseMapLayout>();if(s.Campaign.Layouts.Count>(BaseSceneRules.Active(s)?6:5)||s.Campaign.Layouts.Select(m=>m?.Region).Distinct().Count()!=s.Campaign.Layouts.Count)throw new ArgumentException("编辑地图重复或数量非法");foreach(var m in s.Campaign.Layouts){ValidateLayout(m,demo:BaseDemo.Active(s),scenery:BaseDemoPrologue.Village(s),story:s.Demo?.StoryScene?.Valid==true);if(m.Objects.Any(obj=>!string.IsNullOrEmpty(obj.Shape)))BaseObjectFootprint.ValidateBoard(m,BaseBattlefield.Board(s,m.Region));}
         }
         public static void RepairGridPositions(BaseState s)
         {

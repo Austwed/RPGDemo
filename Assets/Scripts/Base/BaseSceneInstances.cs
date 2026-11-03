@@ -30,7 +30,7 @@ namespace BaseConquest.Base
             foreach(var map in maps)
             {
                 if(BaseCampaign.Locations.Contains(map.SourceMapId)||map.SourceMapId=="custom")throw new ArgumentException("地图实例ID不能借用场景角色名称");
-                BaseSpatial.ValidateLayout(map,true,demo:BaseDemo.Active(state),story:state.Demo?.StoryScene!=null);
+                BaseSpatial.ValidateLayout(map,true,demo:BaseDemo.Active(state),story:state.Demo?.StoryScene?.Valid==true);
                 if(map.Region=="custom"&&string.IsNullOrEmpty(map.ParentMapId)&&!BaseWorldJourney.Active(state)||map.Region!="custom"&&!string.IsNullOrEmpty(map.ParentMapId))throw new ArgumentException("附属场景须用custom并声明父地图");
                 var seen=new HashSet<string>{map.SourceMapId};var parent=map;
                 while(!string.IsNullOrEmpty(parent.ParentMapId)){parent=maps.SingleOrDefault(value=>value.SourceMapId==parent.ParentMapId);if(parent==null||!seen.Add(parent.SourceMapId))throw new ArgumentException("附属父场景缺失或形成循环");}

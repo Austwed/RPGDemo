@@ -16,6 +16,14 @@ namespace BaseConquest.Base
     }
     public sealed partial class BaseHud
     {
+        // 2026-11-03 用户定：敌军已抵营门时的休息拦截，一律用「陈安当面拦下」的对白弹出，
+        // 不依赖陈安此刻是否在玩家旁边（他是营地斥候，报信不要求站位）。
+        public void OpenDemoScoutWarning()
+        {
+            activeObject="demo-scout-warning";interactionObject="";
+            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Scout,BaseScriptNames.Portrait("chenan"),"大人，匪众已杀到营门外，这会儿歇息就是等死，快上迎敌战场！")},
+                new[]{new NpcReply("这就去迎敌",ClosePanel)});
+        }
         public void OpenDemoStory()
         {
             if(OpenIntroStory())return;

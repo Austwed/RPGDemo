@@ -65,8 +65,10 @@ namespace BaseConquest.Base
                 if(s.Demo.ReleaseMaps==null||s.Demo.ReleaseMaps.Count!=3||!s.Demo.ReleaseMaps.Select(m=>m?.Role).OrderBy(r=>r).SequenceEqual(new[]{"bandit","defense","ruins"}))throw new ArgumentException("交付Demo须保留三场设计快照");
                 foreach(var map in s.Demo.ReleaseMaps){if(map.Layout==null||map.Board?.Width!=32||map.Board.Height!=24||map.Layout.Columns!=32||map.Layout.Rows!=24)throw new ArgumentException("Demo设计须32×24");new BaseMapDesign {Layout=map.Layout,Board=map.Board}.Validate();BattleTacticalObject.Validate(map.Layout.TacticalObjects,32,24);}
             }
+            // 剧情场景包自带尺寸（10～64），不受旧版 24×14 与禁战术物件的限制。
+            bool story=s.Demo?.StoryScene?.Valid==true;
             foreach(var m in s.Campaign.Layouts??new List<BaseMapLayout>())
-            {if(!Enabled(s)&&(m.Columns!=24||m.Rows!=14||m.TacticalObjects?.Count>0))throw new ArgumentException("旧版地图不能隐式扩图或添加战术物件");
+            {if(!Enabled(s)&&!story&&(m.Columns!=24||m.Rows!=14||m.TacticalObjects?.Count>0))throw new ArgumentException("旧版地图不能隐式扩图或添加战术物件");
              BattleTacticalObject.Validate(m.TacticalObjects,m.Columns,m.Rows);}
         }
     }

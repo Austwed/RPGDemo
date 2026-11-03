@@ -140,6 +140,8 @@ namespace BaseConquest.Base
         private IEnumerator RestCampaign(int expectedDay)
         {
             if (State.Campaign.HasActiveBattle) { Message = "先恢复并结束当前战斗"; Hud.RefreshSummary(); yield break; }
+            // 2026-11-03 用户定：敌军抵营门时不许休息，改为陈安当面拦下的对白（不要求陈安站在旁边）。
+            if (BaseDemoDefense.AnyDue(State)) { Hud.OpenDemoScoutWarning(); yield break; }
             Busy = true; Hud.RefreshSummary(); var documents = new Dictionary<string, BattleScenarioDocument>();
             foreach (string file in BaseCampaign.Due(State).Select(e => e.ScenarioFile).Distinct().ToArray())
             {

@@ -25,12 +25,15 @@ namespace BaseConquest.Base
         public string Format,Id;
         public int Version;
         public List<BaseDemoDesignMap> Maps;
+        // JsonUtility 把 null 的嵌套对象写成 {}，读回来是空壳。判「有没有设计」一律用 Valid，
+        // 不能只看 != null，否则旧档往返一次就会把剧情场景当缺失／非法。
+        public bool Valid=>Format=="rpg-story-scene-package"&&Version==1&&Maps!=null&&Maps.Count>0;
         public BaseStoryScenePackage Copy()=>new BaseStoryScenePackage {Format=Format,Id=Id,Version=Version,Maps=Maps?.Select(map=>map?.Copy()).ToList()};
 
         public void InstallVillage(BaseState state)
         {
             Validate();
-            if(state?.Demo?.StoryScene==null||state.Campaign==null||!BaseDemoPrologue.Village(state))throw new InvalidOperationException("剧情村庄只能安装到携带设计的序章状态");
+            if(state?.Demo?.StoryScene?.Valid!=true||state.Campaign==null||!BaseDemoPrologue.Village(state))throw new InvalidOperationException("剧情村庄只能安装到携带设计的序章状态");
             var authored=Maps.Single(map=>map.Role=="village");var layout=authored.Layout.Copy();var board=authored.Board.Clone();
             var captain=layout.Objects.Single(obj=>obj.Id=="demo_captain");
             // 两名剧情人物由序章状态管理；返乡对象只在返乡阶段出现。
@@ -39,6 +42,60 @@ namespace BaseConquest.Base
             state.Campaign.RegionMaps.RemoveAll(map=>map.Id=="base");state.Campaign.RegionMaps.Add(new BaseRegionMap {Id="base",Board=board});
             state.PlayerX=state.Campaign.BaseX=layout.SpawnX;state.PlayerY=state.Campaign.BaseY=layout.SpawnY;
             if(state.Demo.Intro!=null){state.Demo.Intro.CaptainX=captain.X;state.Demo.Intro.CaptainY=captain.Y;}
+        }
+
+        // 醒来后的新营地及其余四张剧情图：按设计整体替换内置布局。
+        // 只在 InstallCampMap 之后调用，避免被内置布局或发布模式的固定快照覆盖回去。
+        public void InstallCamp(BaseState state)
+        {
+            Validate();
+            if(state?.Demo==null||state.Campaign==null)throw new InvalidOperationException("剧情场景包只能装进 Demo 状态");
+            var byRole=Maps.ToDictionary(map=>map.Role);
+            Swap(state,"base",byRole["camp"]);
+            Swap(state,"town",byRole["town"]);
+            if(state.Campaign.Layouts.Any(map=>map.Region=="outpost"))Swap(state,"outpost",byRole["ruins"]);
+            if(state.Campaign.Layouts.Any(map=>map.Region=="perimeter"))Swap(state,"perimeter",byRole["field"]);
+            if(state.Demo.Finale!=null)state.Demo.Finale.CampBoard=byRole["bandit"].Board.Clone();
+            var camp=byRole["camp"].Layout;
+            // 工坊／兵营的「待修复」外观按当前修复进度接管，否则会和 BaseDemo.Validate 的外观一致性检查打架。
+            var campLayout=state.Campaign.Layouts.Single(map=>map.Region=="base");
+            foreach(string id in new[]{"workshop","barracks"})
+            {
+                var placement=campLayout.Objects.FirstOrDefault(obj=>obj.Id==id);
+                if(placement==null)continue;
+                placement.VisualOnly=!BaseDemoDefense.Repaired(state,id);
+                // 修复点由游戏自己补：设计只表达设施位置，不要求作者摆修复交互。
+                string fixId="demo_fix_"+id;
+                if(campLayout.Objects.Any(obj=>obj.Id==fixId))continue;
+                campLayout.Objects.Add(new BaseMapPlacement {Id=fixId,Name=(id=="workshop"?"工坊":"兵营")+"修复 · 需建设许可",X=placement.X,Y=placement.Y-placement.Height/2-.4,Width=1.2,Height=.6,VisualOnly=true});
+            }
+            state.PlayerX=state.Campaign.BaseX=camp.SpawnX;state.PlayerY=state.Campaign.BaseY=camp.SpawnY;
+        }
+
+        public BaseDemoDesignMap Map(string role)=>Maps.Single(map=>map.Role==role);
+
+        // 返乡村庄：设计里的白桦村按劫后版本复用（受损名与两个返乡交互点由剧情状态补）。
+        public BaseMapLayout ReturnVillage()
+        {
+            Validate();
+            var layout=Map("village").Layout.Copy();
+            layout.Region="custom";layout.ParentMapId=null;layout.Title=BaseScriptNames.Village+" · 劫后余痕";layout.SpawnX=21;layout.SpawnY=7;
+            layout.Objects.RemoveAll(obj=>!obj.Blocks&&!BaseEnvironment.Decorative(obj.Object));
+            foreach(var obj in layout.Objects)obj.Name="受损的"+obj.Name;
+            return layout;
+        }
+
+        private static void Swap(BaseState state,string region,BaseDemoDesignMap design)
+        {
+            var layout=design.Layout.Copy();layout.Region=region;
+            state.Campaign.Layouts.RemoveAll(map=>map.Region==region);
+            state.Campaign.Layouts.Add(layout);
+            if(region=="perimeter")state.Campaign.PerimeterBoard=design.Board.Clone();
+            else
+            {
+                state.Campaign.RegionMaps.RemoveAll(map=>map.Id==region);
+                state.Campaign.RegionMaps.Add(new BaseRegionMap {Id=region,Board=design.Board.Clone()});
+            }
         }
 
         public void Validate()

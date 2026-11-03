@@ -474,13 +474,34 @@ namespace BaseConquest.Base
                 {
                     if (request.result != UnityWebRequest.Result.Success) throw new IOException(request.error);
                     var opening = JsonUtility.FromJson<BaseScenarioDocument>(request.downloadHandler.text);
-                    if(BaseBattleGateway.DemoMode){var config=DemoBalanceRuntime.Load();opening=BaseDemo.CreateOpening(opening,request.downloadHandler.text,true,BaseBattleGateway.DemoReleaseMode,true,config.Rules,config.WorkbookSha256);}
+                    if(BaseBattleGateway.DemoMode){var config=DemoBalanceRuntime.Load();opening=BaseDemo.CreateOpening(opening,request.downloadHandler.text,true,BaseBattleGateway.DemoReleaseMode,true,config.Rules,config.WorkbookSha256,StorySceneFile());}
                     if (opening == null) throw new ArgumentException("模板为空");
                     InstallOpening(opening);
                 }
                 catch (Exception e) { Message = "开局失败，原进度保留：" + e.Message; if (State == null) Hud.OpenRecovery(); }
             }
             Busy = loadingTemplate = false; Hud.RefreshSummary();SetRegionReady(true);
+        }
+        // 编辑器导出的剧情场景包：存在即用于新开局，不存在则用内置布局。
+        // 包体损坏时退回内置布局并留下警告，不阻断开局。
+        public static BaseStoryScenePackage StorySceneFile()
+        {
+            if(!Application.isPlaying)return null;
+            string path=Path.Combine(Application.streamingAssetsPath,"StoryScene","story-scene-package.json");
+            if(!File.Exists(path))return null;
+            try
+            {
+                var package=JsonUtility.FromJson<BaseStoryScenePackage>(File.ReadAllText(path));
+                if(package==null)throw new ArgumentException("剧情场景包为空");
+                package.Validate();
+                Debug.Log("[StoryScene] 新开局使用编辑器设计："+path+"（"+package.Id.Substring(0,8)+"）");
+                return package;
+            }
+            catch(Exception error)
+            {
+                Debug.LogWarning("[StoryScene] 剧情场景包不可用，本次按内置布局开局："+error.Message);
+                return null;
+            }
         }
         private void InstallOpening(BaseScenarioDocument opening)
         {

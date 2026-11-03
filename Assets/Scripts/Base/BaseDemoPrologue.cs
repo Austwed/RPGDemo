@@ -17,7 +17,7 @@ namespace BaseConquest.Base
         public static bool Safe(BaseState state)=>Followers(state).Count()==(BaseDemoIntro.Active(state)?3:2)&&Followers(state).All(person=>person.Fate=="escaped");
         public static BasePoint Exit(BaseState state,string id)
         {
-            if(state?.Demo?.StoryScene==null)return new BasePoint(23.4,id=="prologue_ahe"?8.5:id.EndsWith("1",StringComparison.Ordinal)?6.5:7.5);
+            if(state?.Demo?.StoryScene?.Valid!=true)return new BasePoint(23.4,id=="prologue_ahe"?8.5:id.EndsWith("1",StringComparison.Ordinal)?6.5:7.5);
             var marker=BaseSpatial.Layout(state)?.Objects.SingleOrDefault(obj=>obj.Id=="prologue_trigger");
             if(marker==null)throw new InvalidOperationException("剧情场景缺少序章撤离点");
             var board=BaseBattlefield.Board(state);double offset=id=="prologue_ahe"?1:id.EndsWith("1",StringComparison.Ordinal)?-1:0;
@@ -26,7 +26,7 @@ namespace BaseConquest.Base
         public static void PrepareOpening(BaseState state)
         {
             state.Demo.PrologueVersion=1;state.Demo.Stage=BaseDemoStage.PrologueBriefing;
-            if(state.Demo.StoryScene!=null){state.Demo.StoryScene.InstallVillage(state);return;}
+            if(state.Demo.StoryScene?.Valid==true){state.Demo.StoryScene.InstallVillage(state);return;}
             var village=CreateVillage();
             state.Campaign.Layouts.RemoveAll(map=>map.Region=="base");state.Campaign.Layouts.Add(village);
             state.Campaign.RegionMaps.RemoveAll(map=>map.Id=="base");state.Campaign.RegionMaps.Add(new BaseRegionMap {Id="base",Board=BattleBoard.CreateDefault(24,14)});
@@ -53,7 +53,7 @@ namespace BaseConquest.Base
         public static void SeedVillagers(BaseState s)
         {
             s.Demo.SceneFollowers=Villagers(3);var second=s.Demo.SceneFollowers[1];second.MapX=18;second.MapY=10;
-            if(s.Demo.StoryScene!=null)
+            if(s.Demo.StoryScene?.Valid==true)
                 for(int n=0;n<s.Demo.SceneFollowers.Count;n++){var person=s.Demo.SceneFollowers[n];var point=BaseSpatial.Nearest(s,new BasePoint(s.PlayerX+(n==0?-1:1),s.PlayerY+1));person.MapX=point.X;person.MapY=point.Y;}
             foreach(var person in s.Demo.SceneFollowers){person.Name="村民";person.HasHomePosition=true;person.HomeX=person.MapX;person.HomeY=person.MapY;}
         }
@@ -63,7 +63,7 @@ namespace BaseConquest.Base
         public static BasePoint GatherCenter(BaseState s)
         {var i=s.Demo.Intro;return BaseDemoIntro.Active(s)&&s.Demo.Stage==BaseDemoStage.PrologueBriefing&&i?.ReporterArrived==true&&!i.ReporterLeaving?new BasePoint(i.ReporterX,i.ReporterY):new BasePoint(s.PlayerX,s.PlayerY);}
         private static void AddAhe(BaseState s)
-        {if(BaseDemoIntro.Active(s)&&!s.Demo.SceneFollowers.Any(p=>p.Id=="prologue_ahe")){var marker=s.Demo.StoryScene?.Maps.Single(map=>map.Role=="village").Layout.Objects.Single(obj=>obj.Id=="intro_villager");s.Demo.SceneFollowers.Add(new BaseLeader{Id="prologue_ahe",Name="阿禾 · 带领村民",AppearanceId="ahe",Health=100,MaxHealth=100,HasMapPosition=true,MapX=marker?.X??12,MapY=marker?.Y??10,MapRegion="base"});}}
+        {if(BaseDemoIntro.Active(s)&&!s.Demo.SceneFollowers.Any(p=>p.Id=="prologue_ahe")){var marker=s.Demo.StoryScene?.Valid==true?s.Demo.StoryScene.Map("village").Layout.Objects.Single(obj=>obj.Id=="intro_villager"):null;s.Demo.SceneFollowers.Add(new BaseLeader{Id="prologue_ahe",Name="阿禾 · 带领村民",AppearanceId="ahe",Health=100,MaxHealth=100,HasMapPosition=true,MapX=marker?.X??12,MapY=marker?.Y??10,MapRegion="base"});}}
         public static bool BeginEscape(BaseState state)
         {
             if(!Village(state)||state.Demo.Stage!=BaseDemoStage.PrologueBriefing)return false;
@@ -76,7 +76,7 @@ namespace BaseConquest.Base
         public static bool AtTrigger(BaseState state)
         {
             if(!Evacuating(state))return false;
-            if(state.Demo.StoryScene==null)return state.PlayerX>=21&&state.PlayerX<=23.4&&state.PlayerY>=5&&state.PlayerY<=9;
+            if(state.Demo.StoryScene?.Valid!=true)return state.PlayerX>=21&&state.PlayerX<=23.4&&state.PlayerY>=5&&state.PlayerY<=9;
             var marker=BaseSpatial.Layout(state)?.Objects.SingleOrDefault(obj=>obj.Id=="prologue_trigger");
             return marker!=null&&marker.Object.Contains(state.PlayerX,state.PlayerY);
         }
@@ -89,7 +89,7 @@ namespace BaseConquest.Base
         {
             if(!Pursuit(state))return;
             movement.Capture(state);
-            foreach(var person in Followers(state).Where(person=>person.Fate!="escaped"&&(state.Demo.StoryScene==null?person.MapX>=23.2:new BasePoint(person.MapX,person.MapY).Distance(Exit(state,person.Id))<=.3)))
+            foreach(var person in Followers(state).Where(person=>person.Fate!="escaped"&&(state.Demo.StoryScene?.Valid!=true?person.MapX>=23.2:new BasePoint(person.MapX,person.MapY).Distance(Exit(state,person.Id))<=.3)))
             {person.Fate="escaped";var agent=movement.Agents.FirstOrDefault(item=>item.Id==person.Id);if(agent!=null)agent.Visible=false;}
         }
         public static BaseCampaignSession Encounter(BaseState state)

@@ -140,8 +140,10 @@ namespace BaseConquest.Base
             if(BaseDemoDefense.Enabled(state))BaseDemoDefense.InstallMap(state);
             BaseDemoFinale.InstallMarker(state);
             if(BaseDemoRelease.Enabled(state))BaseDemoRelease.Install(state);
+            // 编辑器设计的六张剧情图最后覆盖：内置布局与发布快照都不再作数。
+            if(state.Demo?.StoryScene?.Valid==true)state.Demo.StoryScene.InstallCamp(state);
             BaseSceneRules.Install(state);if(state.Demo.EnvironmentVersion>0)BaseEnvironment.Install(state,true);
-            state.PlayerX=state.Campaign.BaseX=4;state.PlayerY=state.Campaign.BaseY=8.8;
+            if(state.Demo?.StoryScene?.Valid!=true){state.PlayerX=state.Campaign.BaseX=4;state.PlayerY=state.Campaign.BaseY=8.8;}
             if(state.Demo!=null)state.Demo.CampLayoutVersion=2;
         }
 
@@ -231,7 +233,7 @@ namespace BaseConquest.Base
         {
             var progress=state.Demo;BaseDemoFlow.Validate(state);
             if(progress==null)return;
-            if(progress.StoryScene!=null){if(progress.Version!=1)throw new ArgumentException("剧情场景包缺少有效Demo");progress.StoryScene.Validate();}
+            if(progress.StoryScene?.Valid==true){if(progress.Version!=1)throw new ArgumentException("剧情场景包缺少有效Demo");progress.StoryScene.Validate();}
             if(!string.IsNullOrEmpty(progress.ConfigHash)&&(progress.ConfigHash.Length!=64||progress.ConfigHash.Any(c=>!"0123456789abcdef".Contains(c))))throw new ArgumentException("Demo数值表来源哈希非法");
             if(progress.EnvironmentVersion<0||progress.EnvironmentVersion>1||progress.EnvironmentVersion>0&&!BaseSceneRules.Active(state))throw new ArgumentException("环境快照版本非法");
             BaseDemoRelease.Validate(state);
@@ -248,7 +250,7 @@ namespace BaseConquest.Base
             if(accepted?(progress.AcceptedDay<progress.WakeDay||progress.AcceptedDay>state.Day||(BaseDemoRuins.Enabled(state)?!progress.Evidence.Contains(Assignment):!progress.Evidence.SequenceEqual(new[]{Assignment}))):(progress.AcceptedDay!=0||progress.Evidence.Contains(Assignment)))throw new ArgumentException("Demo调查委托与证据状态不一致");
             bool world=BaseDemoFinale.Opened(state);
             if(!world&&(state.Campaign.InstanceVersion!=0||!string.IsNullOrEmpty(state.Campaign.DesignId)||!new[]{"base","town"}.Contains(state.Campaign.Location)&&!(BaseDemoRuins.Enabled(state)&&state.Campaign.Location=="outpost")&&!BaseSceneRules.Dungeon(state)&&!(BaseDemoDefense.Enabled(state)&&state.Campaign.Location=="perimeter"))||state.Campaign.HasActiveBattle&&!BaseDemoRuins.BattleActive(state)&&!BaseDemoDefense.BattleActive(state)&&!BaseDemoFinale.BattleActive(state)||state.Muster.Parties.Any(party=>party.Purpose=="expedition"?!BaseDemoRuins.Enabled(state):party.Purpose!="defense"||!BaseDemoDefense.Enabled(state))||state.Campaign.Events.Any(mission=>mission.Kind=="defense"&&mission.Status=="pending"&&(!BaseDemoDefense.Enabled(state)||mission.Id!=BaseDemoDefense.EventId&&mission.Id!=BaseDemoDefense.SecondEventId)))throw new ArgumentException("Demo仅开放指定场景与剧情战");
-            if(state.Campaign.Layouts.Count!=((BaseSceneRules.Active(state)?1:0)+(world?7:BaseDemoDefense.Enabled(state)?4:BaseDemoRuins.Enabled(state)?3:2))||!state.Campaign.Layouts.Any(map=>map.Region=="town")||!BaseDemoPrologue.Village(state)&&state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Count(obj=>obj.Blocks&&!BaseEnvironment.Decorative(obj.Object))!=4)throw new ArgumentException("Demo地图须保留四个固定建筑位与领主驻地");
+            if(state.Campaign.Layouts.Count!=((BaseSceneRules.Active(state)?1:0)+(world?7:BaseDemoDefense.Enabled(state)?4:BaseDemoRuins.Enabled(state)?3:2))||!state.Campaign.Layouts.Any(map=>map.Region=="town")||!BaseDemoPrologue.Village(state)&&(state.Demo?.StoryScene?.Valid==true?new[]{"home","farm","workshop","barracks"}.Any(id=>!state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Any(obj=>obj.Id==id&&obj.Blocks)):state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Count(obj=>obj.Blocks&&!BaseEnvironment.Decorative(obj.Object))!=4))throw new ArgumentException("Demo地图须保留四个固定建筑位与领主驻地");
             if(!BaseDemoDefense.Repaired(state,"workshop")&&(state.Muster.Facilities.Any(facility=>facility.FacilityId=="workshop"&&(facility.Capacity!=0||facility.MinimumWorkers!=0))||state.Leaders.Any(leader=>leader.FacilityId=="workshop")||state.Workers.Any(worker=>worker.FacilityId=="workshop")))throw new ArgumentException("Demo工坊尚未修复，不能提前生产");
             if(state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Any(obj=>new[]{"workshop","barracks"}.Contains(obj.Id)&&obj.VisualOnly==BaseDemoDefense.Repaired(state,obj.Id)))throw new ArgumentException("Demo建筑外观与实际修复状态不一致");
             BaseDemoPrologue.Validate(state);BaseDemoIntro.Validate(state);
