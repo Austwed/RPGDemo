@@ -15,7 +15,7 @@
     "Inventory": {
         "Food": 300,
         "Materials": 62,
-        "Coins": 552,
+        "Coins": 812,
         "Equipment": [
             {
                 "Product": "supply",
@@ -782,7 +782,7 @@
         ],
         "Parties": [],
         "ReturnedIds": [
-            "cb3c3a4e320c4632942e6518de60b38d"
+            "7f7bd9b932d847db89839dde19241034"
         ],
         "AppliedAppendIds": []
     },
@@ -819,7 +819,7 @@
             }
         ],
         "FinishedIds": [
-            "aa30d0b3c9ea4b48b9d04bf7c755a719"
+            "10384bdec80e48f1b542c74fd4961bc5"
         ]
     },
     "Campaign": {
@@ -1165,12 +1165,12 @@
         ],
         "SettledIds": [
             "demo:smith:parting-gift",
-            "aa30d0b3c9ea4b48b9d04bf7c755a719",
-            "aa30d0b3c9ea4b48b9d04bf7c755a719:ruins-reward"
+            "10384bdec80e48f1b542c74fd4961bc5",
+            "10384bdec80e48f1b542c74fd4961bc5:ruins-reward"
         ],
         "Reports": [
             {
-                "BattleId": "aa30d0b3c9ea4b48b9d04bf7c755a719",
+                "BattleId": "10384bdec80e48f1b542c74fd4961bc5",
                 "EventId": "demo:ruins:rescue",
                 "Title": "沉眠古窟 · 制服受控者并击败控制来源",
                 "Outcome": "SideAWin",
@@ -77405,8 +77405,8 @@
         },
         "Prisoners": [
             {
-                "Id": "aa30d0b3c9ea4b48b9d04bf7c755a719:0",
-                "BattleId": "aa30d0b3c9ea4b48b9d04bf7c755a719",
+                "Id": "10384bdec80e48f1b542c74fd4961bc5:0",
+                "BattleId": "10384bdec80e48f1b542c74fd4961bc5",
                 "Name": "乙方迦兰",
                 "Status": "released",
                 "CaptureSource": "沉眠古窟 · 制服受控者并击败控制来源",
@@ -77493,7 +77493,7 @@
                 ]
             },
             {
-                "BattleId": "aa30d0b3c9ea4b48b9d04bf7c755a719",
+                "BattleId": "10384bdec80e48f1b542c74fd4961bc5",
                 "Title": "遗迹挑战奖励",
                 "Closed": true,
                 "Food": 20,
@@ -77501,10 +77501,10 @@
                 "Coins": 75,
                 "Items": [
                     {
-                        "Id": "aa30d0b3c9ea4b48b9d04bf7c755a719:ruins-reward:loot:0",
+                        "Id": "10384bdec80e48f1b542c74fd4961bc5:ruins-reward:loot:0",
                         "Status": "discarded",
                         "Reward": {
-                            "Template": "novice_light_armor",
+                            "Template": "novice_spear",
                             "ItemId": "",
                             "Count": 1,
                             "Quality": 2,
@@ -77512,22 +77512,11 @@
                         }
                     },
                     {
-                        "Id": "aa30d0b3c9ea4b48b9d04bf7c755a719:ruins-reward:loot:1",
+                        "Id": "10384bdec80e48f1b542c74fd4961bc5:ruins-reward:loot:1",
                         "Status": "discarded",
                         "Reward": {
                             "Template": "",
                             "ItemId": "forging_stone",
-                            "Count": 1,
-                            "Quality": 2,
-                            "RandomQuality": false
-                        }
-                    },
-                    {
-                        "Id": "aa30d0b3c9ea4b48b9d04bf7c755a719:ruins-reward:loot:2",
-                        "Status": "discarded",
-                        "Reward": {
-                            "Template": "",
-                            "ItemId": "training_spear_basic",
                             "Count": 1,
                             "Quality": 2,
                             "RandomQuality": false
@@ -77891,7 +77880,7 @@
             "SoldierDeathBase": 0.5,
             "SoldierDeathSensitivity": 1.0,
             "RecruitSupplyFactor": 0.5,
-            "RecruitPriceSensitivity": 1.0,
+            "RecruitPriceSensitivity": 2.0,
             "SweepLossAtParity": 0.25,
             "SweepSecondsAtParity": 10.0,
             "SweepMinimumSeconds": 2.0,
@@ -78682,7 +78671,7 @@
         "Stage": 9,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "23c82277fae097461c6638295eb766a8d271915646a0d0f883236d841741a6f0",
-        "ConfigHash": "bfaccd0a1bfbb9c0f8f9b8209b9338f66b54a7535fd0c42ed831c9301fad98ec",
+        "ConfigHash": "4ab1741e73934b6e7bb15c163e86ba92e62ff674224b4a9e8af258715b65e60e",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -95191,7 +95180,7 @@
             "ControllerAccepted": false,
             "ControllerPledged": false,
             "BanditCleared": false,
-            "FirstControllerId": "aa30d0b3c9ea4b48b9d04bf7c755a719:0",
+            "FirstControllerId": "10384bdec80e48f1b542c74fd4961bc5:0",
             "FarmX": 0.0,
             "FarmY": 0.0,
             "FarmNpcX": 0.0,

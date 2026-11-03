@@ -44,11 +44,29 @@ namespace BaseConquest.Base
         public static int TroopCount(BaseState s,BaseTroopKind kind)=>s.Workers.Where(worker=>worker.Kind==kind).Sum(worker=>worker.Count);
         public static double HireProbability(BaseState s,BaseTroopKind kind)=>BaseDemoCombat.Probability(BaseDemoCombat.Baseline(ToBattle(kind),s.Demo?.Rpg),TroopCount(s,kind),s.Demo?.Rpg);
         // Temporary Demo defaults: daily stock freezes at day start; current manpower reprices each new quote.
-        // 第1日固定每兵种 2 人（教学买兵），次日起按基准 B 与实际兵力浮动。
-        public static int DemoDailyCount(BaseState s,BaseTroopKind kind)=>s.Day<=1?FirstDayStock:(int)Math.Floor(BaseDemoCombat.Baseline(ToBattle(kind),s.Demo?.Rpg)*(s.Demo?.Rpg?.RecruitSupplyFactor??.5)*(1-HireProbability(s,kind)));
+        // 第1日固定每兵种 2 人（教学买兵）；次日起：兵力不超过基准 150% 时至少保 1 人可买，超过则断货。
+        public static int DemoDailyCount(BaseState s,BaseTroopKind kind)
+        {
+            if(s.Day<=1)return FirstDayStock;
+            int baseline=BaseDemoCombat.Baseline(ToBattle(kind),s.Demo?.Rpg);if(baseline<=0)return FirstDayStock;
+            if(TroopCount(s,kind)>baseline*(1+StockOverflowRatio))return 0;
+            int stock=(int)Math.Floor(baseline*(s.Demo?.Rpg?.RecruitSupplyFactor??.5)*(1-HireProbability(s,kind)));
+            return Math.Max(1,stock);
+        }
         public const int FirstDayStock=2;
+        public const double StockOverflowRatio=.5;   // 超出基准 50% 即断货
+        public const double PriceDiscountFloor=.5;   // 报价最低打到基准原价的五折
         public static int HirePrice(BaseState s,BaseTroopKind kind)
-        {var offer=s.Town.Recruits.Single(item=>item.Kind==kind);return DemoRecruitment(s)?(int)Math.Ceiling(offer.Price*(1+(s.Demo?.Rpg?.RecruitPriceSensitivity??1)*HireProbability(s,kind))):offer.Price;}
+        {
+            var offer=s.Town.Recruits.Single(item=>item.Kind==kind);
+            if(!DemoRecruitment(s))return offer.Price;
+            int baseline=BaseDemoCombat.Baseline(ToBattle(kind),s.Demo?.Rpg);
+            if(baseline<=0)return offer.Price;
+            // 以基准为原价：高于基准每 1% 涨 2%（+50% 即翻倍），低于基准每 1% 降 1%，最低五折。
+            double ratio=(double)(TroopCount(s,kind)-baseline)/baseline;
+            double factor=ratio>0?1+(s.Demo?.Rpg?.RecruitPriceSensitivity??2)*ratio:Math.Max(PriceDiscountFloor,1+ratio);
+            return (int)Math.Ceiling(offer.Price*factor);
+        }
         public static void EnableDemoRecruitment(BaseState s)
         {
             if(!BaseDemo.Active(s)||s.Town.RecruitRulesVersion!=0)throw new InvalidOperationException("只能为新Demo初始化兵源规则");
