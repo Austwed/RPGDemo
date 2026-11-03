@@ -1,6 +1,6 @@
 {
     "Version": 1,
-    "WorkbookSha256": "ece2a4cf55943cf0c948c211687cdf47fbcc02ec09b4dce40f26fea812556950",
+    "WorkbookSha256": "bfaccd0a1bfbb9c0f8f9b8209b9338f66b54a7535fd0c42ed831c9301fad98ec",
     "Rules": {
         "GenerationSeed": 0,
         "SceneRulesVersion": 0,
@@ -123,8 +123,8 @@
             150
         ],
         "TroopBaseline": [
-            10,
-            8,
+            4,
+            4,
             4
         ],
         "RecruitBasePrices": [
@@ -697,7 +697,7 @@
             "SoldierFood": 1,
             "CavalryFood": 2,
             "LeaderFood": 2,
-            "FarmPerWorker": 2.0,
+            "FarmPerWorker": 4.0,
             "WorkshopPerWorker": 1.0,
             "HungerProductionPenalty": 0.5,
             "HungerAttackPenalty": 0.2,

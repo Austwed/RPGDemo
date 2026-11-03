@@ -12,14 +12,21 @@ namespace BaseConquest.Base
     }
     public static class BaseProgressSupplies
     {
-        public static IEnumerable<string> Items=>new[]{SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry}.SelectMany(k=>new[]{BaseTraining.Book(k,2),BaseTraining.Book(k,3)}).Concat(new[]{BaseWine.Strong,BaseWine.Sake});
+        // 兵书已撤出城镇柜台（2026-11-03）：基础兵书只从遗迹首通／重刷掉落，高阶兵书 Demo 内无来源。
+        public static readonly string[] Items={BaseWine.Strong,BaseWine.Sake};
         public static int Price(BaseState s,string id)=>BaseRpg.Active(s)?BaseRpg.Price(s,BaseRpg.Value(s,id),true):Price(id);
         public static int Price(string id)=>id.EndsWith("_advanced")?80:id.StartsWith("training_")?20:id==BaseWine.Strong?20:15;
         public static int Stock(string id)=>id.EndsWith("_advanced")?5:id.StartsWith("training_")?10:3;
         public static void Normalize(BaseState s)
-        {var g=s.PersonalEquipment;if(g.SuppliesVersion!=0)return;if(g.Supplies?.Count>0)throw new ArgumentException("兵书补给缺少版本");g.SuppliesVersion=1;g.Supplies=Items.Select(id=>new BaseProgressOffer {Item=id,Remaining=Stock(id)}).ToList();}
+        {
+            var g=s.PersonalEquipment;if(g==null)return;
+            bool shaped=g.Supplies!=null&&g.Supplies.Count==Items.Length&&g.Supplies.All(o=>o!=null&&Items.Contains(o.Item))&&g.Supplies.Select(o=>o.Item).Distinct().Count()==Items.Length;
+            if(g.SuppliesVersion==1&&shaped)return;
+            // 旧档柜台里还有兵书，撤柜后按新清单重建，避免读档校验失败。
+            g.SuppliesVersion=1;g.Supplies=Items.Select(id=>new BaseProgressOffer {Item=id,Remaining=Stock(id)}).ToList();
+        }
         public static void Validate(BaseState s)
-        {var g=s.PersonalEquipment;if(g.SuppliesVersion!=1||g.Supplies==null||g.Supplies.Count!=8||g.Supplies.Any(o=>o==null||!Items.Contains(o.Item)||o.Remaining<0||o.Remaining>Stock(o.Item))||g.Supplies.Select(o=>o.Item).Distinct().Count()!=8)throw new ArgumentException("兵书补给库存非法");}
+        {var g=s.PersonalEquipment;if(g.SuppliesVersion!=1||g.Supplies==null||g.Supplies.Count!=Items.Length||g.Supplies.Any(o=>o==null||!Items.Contains(o.Item)||o.Remaining<0||o.Remaining>Stock(o.Item))||g.Supplies.Select(o=>o.Item).Distinct().Count()!=Items.Length)throw new ArgumentException("酒类补给库存非法");}
         public static void Refill(BaseState s){if(s.PersonalEquipment.Supplies!=null)foreach(var o in s.PersonalEquipment.Supplies)o.Remaining=Stock(o.Item);}
         public static int MaxBuy(BaseState s,string id)
         {

@@ -49,13 +49,26 @@ namespace BaseConquest.Editor
             foreach(var l in s.Leaders){l.Health=l.MaxHealth;l.Fate="active";}
             BaseSceneRules.LeaveDungeon(s);At(s,"demo_ruins_return");Need(BaseCampaign.Travel(s,"town"),"返回城镇");At(s,"town_quest");Need(BaseDemoRuins.Deliver(s),"交付遗迹");
             At(s,"town_recruit");var kinds=Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>().ToArray();
-            for(int index=0;index<kinds.Length;index++)
+            // 2026-11-03 起第1日固定每兵种 2 人、次日起按基准浮动，11 人必须跨日招满；阶段档必须走玩家真能走到的路径。
+            s.Demo.Flow.RestLessonDone=true;s.Demo.Flow.FarmOfferShown=true;s.Demo.Flow.NoviceShop=true;
+            for(int round=0;round<4&&s.Workers.Sum(w=>w.Count)<11&&!BaseDemoDefense.Due(s);round++)
             {
-                var kind=kinds[index];int remaining=11-s.Workers.Sum(w=>w.Count),reserve=kinds.Length-index-1;
-                int count=Math.Min(BaseTown.MaxHire(s,kind),Math.Max(0,remaining-reserve));
-                Need(count>0&&BaseTown.Confirm(s,BaseTown.QuoteHire(s,kind,count)),"实际募兵 "+kind+"（需保证三兵种与11人阶段档）");
+                for(int pass=0;pass<4;pass++)
+                {
+                    bool bought=false;
+                    foreach(var kind in kinds)
+                    {
+                        if(s.Workers.Sum(w=>w.Count)>=11)break;
+                        if(BaseTown.MaxHire(s,kind)>0){Need(BaseTown.Confirm(s,BaseTown.QuoteHire(s,kind,1)),"实际募兵 "+kind);bought=true;}
+                    }
+                    if(!bought)break;
+                }
+                if(s.Workers.Sum(w=>w.Count)>=11||BaseDemoDefense.Due(s))break;
+                At(s,"travel_base");Need(BaseCampaign.Travel(s,"base"),"返回基地");BaseDevelopment.SetPolicy(s,"food");
+                At(s,"home");Need(BaseEconomy.Rest(s,s.Day),"真实休息日结："+BaseDemoFlow.RestProblem(s));
+                At(s,"exit_east");Need(BaseCampaign.Travel(s,"town"),"返回城镇");At(s,"town_recruit");
             }
-            Need(s.Workers.Sum(w=>w.Count)==11,"首日11名普通兵");s.Demo.Flow.RecruitmentNotice=true;
+            Need(s.Workers.Sum(w=>w.Count)==11,"阶段档11名普通兵");s.Demo.Flow.RecruitmentNotice=true;
             At(s,"travel_base");Need(BaseCampaign.Travel(s,"base"),"返回基地");At(s,"demo_fix_workshop");Need(BaseDemoDefense.Repair(s,"workshop"),"修复工坊");At(s,"demo_fix_barracks");Need(BaseDemoDefense.Repair(s,"barracks"),"修复兵营");BaseDevelopment.SetPolicy(s,"food");
             At(s,"home");s.Demo.Flow.RestLessonDone=true;for(int n=0;n<20&&!BaseDemoDefense.Due(s);n++)Need(BaseEconomy.Rest(s,s.Day),"真实休息日结："+BaseDemoFlow.RestProblem(s));
             At(s,"home");

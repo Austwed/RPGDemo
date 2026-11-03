@@ -44,7 +44,9 @@ namespace BaseConquest.Base
         public static int TroopCount(BaseState s,BaseTroopKind kind)=>s.Workers.Where(worker=>worker.Kind==kind).Sum(worker=>worker.Count);
         public static double HireProbability(BaseState s,BaseTroopKind kind)=>BaseDemoCombat.Probability(BaseDemoCombat.Baseline(ToBattle(kind),s.Demo?.Rpg),TroopCount(s,kind),s.Demo?.Rpg);
         // Temporary Demo defaults: daily stock freezes at day start; current manpower reprices each new quote.
-        public static int DemoDailyCount(BaseState s,BaseTroopKind kind)=>(int)Math.Floor(BaseDemoCombat.Baseline(ToBattle(kind),s.Demo?.Rpg)*(s.Demo?.Rpg?.RecruitSupplyFactor??.5)*(1-HireProbability(s,kind)));
+        // 第1日固定每兵种 2 人（教学买兵），次日起按基准 B 与实际兵力浮动。
+        public static int DemoDailyCount(BaseState s,BaseTroopKind kind)=>s.Day<=1?FirstDayStock:(int)Math.Floor(BaseDemoCombat.Baseline(ToBattle(kind),s.Demo?.Rpg)*(s.Demo?.Rpg?.RecruitSupplyFactor??.5)*(1-HireProbability(s,kind)));
+        public const int FirstDayStock=2;
         public static int HirePrice(BaseState s,BaseTroopKind kind)
         {var offer=s.Town.Recruits.Single(item=>item.Kind==kind);return DemoRecruitment(s)?(int)Math.Ceiling(offer.Price*(1+(s.Demo?.Rpg?.RecruitPriceSensitivity??1)*HireProbability(s,kind))):offer.Price;}
         public static void EnableDemoRecruitment(BaseState s)

@@ -30,9 +30,10 @@ namespace BaseConquest.Base
         public static void Hired(BaseState s,BaseTroopKind kind){if(Active(s)&&BaseDemoDefense.Delivered(s))s.Demo.Flow.HiredKinds|=1<<(int)kind;}
         public static string RestProblem(BaseState s)
         {
-            if(!Active(s)||s.Day<2||s.Demo.Flow.RestLessonDone||!Recruited(s)||!s.Demo.Defense.WorkshopRepaired||!s.Demo.Defense.BarracksRepaired)return "";
+            // 只在开局教学窗口（第 1～2 日）拦一次，过了窗口或已经歇过一晚就永不触发；缺粮本身由产能／攻击惩罚承担。
+            if(!Active(s)||s.Demo.Flow.RestLessonDone||s.Day>2||!Recruited(s)||!s.Demo.Defense.WorkshopRepaired||!s.Demo.Defense.BarracksRepaired)return "";
             if(BaseEconomy.EligibleWorkers(s,"workshop")<1)return "【工坊】尚无人手值守。外患将至，请先安排至少 1 名工人打制军需再行歇息。";
-            return BaseDailyDelta.Read(s).Food>0?"":"眼下口粮入不敷出（预计净增需大于 0）。先去【粮田】增派人手，免得弟兄们明早饿肚子。";
+            return BaseDailyDelta.Read(s).Food>0?"":"眼下口粮入不敷出（预计净增需大于 0）。先去【粮田】增派人手，或到城镇买粮，免得弟兄们明早饿肚子。";
         }
         public static void Validate(BaseState s)
         {

@@ -31,8 +31,8 @@ namespace BaseConquest.Base
         private void TrainingCancel(Action confirm){BeginPanel("确认取消训练");Line("已消耗的兵书不退还，本次训练进度清除；等级保留。",90);RowButton("确认取消训练",-210,400,confirm);RowButton("继续训练",210,400,OpenTraining);row+=60;EndPanel();}
         private void OpenProgressShop()
         {
-            var s=owner.State;BeginPanel("兵书与酒类补给","progress-shop");RowButton("返回交易",0,820,OpenTownMarket);row+=60;
-            Line("钱币 "+s.Inventory.Coins+" · 每天补满，购买进入随行背包；以下为测试价格与限量。",68,20);
+            var s=owner.State;BeginPanel("酒类补给","progress-shop");RowButton("返回交易",0,820,OpenTownMarket);row+=60;
+            Line("钱币 "+s.Inventory.Coins+" · 每天补满，购买进入随行背包。兵书不在柜台出售，只能从遗迹掉落。",68,20);
             foreach(string item in BaseProgressSupplies.Items)
             {string id=item;var d=s.Backpack.Catalog.Single(x=>x.Id==id);int rev=s.Backpack.Revision;Line(d.Name+" · "+BaseProgressSupplies.Price(s,id)+"币 · 今日剩余"+s.PersonalEquipment.Supplies.Single(o=>o.Item==id).Remaining,48,20);RowButton("购买1份",-210,400,()=>GearChange(next=>BaseProgressSupplies.Buy(next,id,1,rev),"已购入补给",OpenProgressShop),BaseProgressSupplies.MaxBuy(s,id)>=1);RowButton("购买5份",210,400,()=>GearChange(next=>BaseProgressSupplies.Buy(next,id,5,rev),"已购入补给",OpenProgressShop),BaseProgressSupplies.MaxBuy(s,id)>=5);row+=60;}
             EndPanel();

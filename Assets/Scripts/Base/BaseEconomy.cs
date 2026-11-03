@@ -100,7 +100,7 @@ namespace BaseConquest.Base
             BaseCampaign.Normalize(s);
             if (BaseCampaign.Due(s).Any()) throw new InvalidOperationException("需先处理本日入侵，再结算生产");
             string lesson=BaseDemoFlow.RestProblem(s);if(lesson!="")throw new InvalidOperationException(lesson);
-            if(BaseDemoFlow.Recruited(s)&&s.Day>=2&&s.Demo.Defense.WorkshopRepaired&&s.Demo.Defense.BarracksRepaired)s.Demo.Flow.RestLessonDone=true;
+            if(BaseDemoFlow.Recruited(s)&&s.Day>=2)s.Demo.Flow.RestLessonDone=true;
             bool camp=BaseInteraction.At(s,"base","home");CompleteProductionDay(s,true);if(camp)BaseAchievements.Unlock(s,BaseAchievements.Dawn);return true;
         }
         // Economic projection and real rest share production, recovery and morning-food order.

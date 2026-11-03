@@ -33,7 +33,7 @@
         "SoldierFood": 1,
         "CavalryFood": 2,
         "LeaderFood": 2,
-        "FarmPerWorker": 2.0,
+        "FarmPerWorker": 4.0,
         "WorkshopPerWorker": 1.0,
         "HungerProductionPenalty": 0.5,
         "HungerAttackPenalty": 0.2,
@@ -76687,8 +76687,8 @@
             {
                 "Kind": 0,
                 "Price": 30,
-                "DailyCount": 5,
-                "Remaining": 5,
+                "DailyCount": 2,
+                "Remaining": 2,
                 "Stats": {
                     "Level": 1,
                     "Health": 100.0,
@@ -76709,8 +76709,8 @@
             {
                 "Kind": 1,
                 "Price": 40,
-                "DailyCount": 4,
-                "Remaining": 4,
+                "DailyCount": 2,
+                "Remaining": 2,
                 "Stats": {
                     "Level": 1,
                     "Health": 75.0,
@@ -76883,30 +76883,6 @@
         "ReforgeRolls": 0,
         "SuppliesVersion": 1,
         "Supplies": [
-            {
-                "Item": "training_sword_basic",
-                "Remaining": 10
-            },
-            {
-                "Item": "training_sword_advanced",
-                "Remaining": 5
-            },
-            {
-                "Item": "training_bow_basic",
-                "Remaining": 10
-            },
-            {
-                "Item": "training_bow_advanced",
-                "Remaining": 5
-            },
-            {
-                "Item": "training_spear_basic",
-                "Remaining": 10
-            },
-            {
-                "Item": "training_spear_advanced",
-                "Remaining": 5
-            },
             {
                 "Item": "strong_wine",
                 "Remaining": 3
@@ -77095,8 +77071,8 @@
                 150
             ],
             "TroopBaseline": [
-                10,
-                8,
+                4,
+                4,
                 4
             ],
             "RecruitBasePrices": [
@@ -77669,7 +77645,7 @@
                 "SoldierFood": 1,
                 "CavalryFood": 2,
                 "LeaderFood": 2,
-                "FarmPerWorker": 2.0,
+                "FarmPerWorker": 4.0,
                 "WorkshopPerWorker": 1.0,
                 "HungerProductionPenalty": 0.5,
                 "HungerAttackPenalty": 0.2,
@@ -77781,7 +77757,7 @@
         "Stage": 0,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "23c82277fae097461c6638295eb766a8d271915646a0d0f883236d841741a6f0",
-        "ConfigHash": "ece2a4cf55943cf0c948c211687cdf47fbcc02ec09b4dce40f26fea812556950",
+        "ConfigHash": "bfaccd0a1bfbb9c0f8f9b8209b9338f66b54a7535fd0c42ed831c9301fad98ec",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
