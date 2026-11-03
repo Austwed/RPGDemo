@@ -181,7 +181,7 @@ namespace BaseConquest.Base
                 var objects=BaseSpatial.Objects(state,string.IsNullOrEmpty(agent.MapId)?agent.Region:agent.MapId);var board=BaseBattlefield.Board(state,string.IsNullOrEmpty(agent.MapId)?agent.Region:agent.MapId);
                 if(agent.SceneOnly&&BaseDemoPrologue.Pursuit(state))
                 {
-                    var exit=BaseDemoPrologue.Exit(agent.Id);
+                    var exit=BaseDemoPrologue.Exit(state,agent.Id);
                     if(agent.Destination.Distance(exit)>.01||agent.BlockedSeconds>=.8)Route(state,agent,exit,blockers);
                 }
                 else if(agent.Following)Guard(state,agent,agent.SceneOnly?BaseDemoPrologue.GatherCenter(state):player,blockers,seconds);

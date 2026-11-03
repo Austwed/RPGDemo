@@ -45,6 +45,13 @@ namespace BaseConquest.Editor
             Need(copy.StoryScene.Maps[0].Board.Width==64&&copy.StoryScene.Maps[0].Board.Cells.Length==4096,"状态副本截断场景地图");
             var restored=JsonUtility.FromJson<BaseDemoProgress>(JsonUtility.ToJson(progress));restored.StoryScene.Validate();
             Need(restored.StoryScene.Maps.Single(map=>map.Role=="field").Board.Width==10,"序列化丢失独立尺寸");
+            var trigger=village.Layout.Objects.Single(obj=>obj.Id=="prologue_trigger");
+            var state=new BaseState {Demo=new BaseDemoProgress {Version=1,Stage=BaseDemoStage.PrologueEscape,StoryScene=package},Campaign=new BaseCampaignState {Location="base",Layouts=new List<BaseMapLayout>{village.Layout.Copy()},RegionMaps=new List<BaseRegionMap>{new BaseRegionMap {Id="base",Board=village.Board.Clone()}}},PlayerX=trigger.X,PlayerY=trigger.Y};
+            Need(BaseDemoPrologue.AtTrigger(state),"剧情撤离点没有使用设计坐标");state.PlayerX=trigger.X+2;Need(!BaseDemoPrologue.AtTrigger(state),"剧情撤离点仍使用固定坐标");
+            Need(Math.Abs(BaseDemoPrologue.Exit(state,"demo_villager_1").X-trigger.X)<.01,"撤离目标没有使用设计位置");
+            var merchant=new BaseMapObject("town_peddler","行商",4,3,.6,.6,false);var presented=BaseDemoNpcs.Present(state,merchant);Need(presented.X==4&&presented.Y==3,"剧情设计商人位置被旧档规则覆盖");
+            state.Demo.StoryScene=null;state.PlayerX=22;state.PlayerY=7;Need(BaseDemoPrologue.AtTrigger(state),"旧序章撤离范围发生变化");
+            presented=BaseDemoNpcs.Present(state,merchant);Need(presented.X==14&&presented.Y==7.75,"旧档商人兼容位置发生变化");
             Debug.Log("VerifyStoryScenePackage PASS");
         }
         public static void Batch(){try{Run();EditorApplication.Exit(0);}catch(Exception error){Debug.LogException(error);EditorApplication.Exit(1);}}

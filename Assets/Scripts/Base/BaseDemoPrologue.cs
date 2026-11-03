@@ -15,7 +15,14 @@ namespace BaseConquest.Base
         public static bool Evacuating(BaseState state)=>state?.Demo?.Stage==BaseDemoStage.PrologueEscape;
         public static bool Pursuit(BaseState state)=>state?.Demo?.Stage==BaseDemoStage.ProloguePursuit;
         public static bool Safe(BaseState state)=>Followers(state).Count()==(BaseDemoIntro.Active(state)?3:2)&&Followers(state).All(person=>person.Fate=="escaped");
-        public static BasePoint Exit(string id)=>new BasePoint(23.4,id=="prologue_ahe"?8.5:id.EndsWith("1",StringComparison.Ordinal)?6.5:7.5);
+        public static BasePoint Exit(BaseState state,string id)
+        {
+            if(state?.Demo?.StoryScene==null)return new BasePoint(23.4,id=="prologue_ahe"?8.5:id.EndsWith("1",StringComparison.Ordinal)?6.5:7.5);
+            var marker=BaseSpatial.Layout(state)?.Objects.SingleOrDefault(obj=>obj.Id=="prologue_trigger");
+            if(marker==null)throw new InvalidOperationException("剧情场景缺少序章撤离点");
+            var board=BaseBattlefield.Board(state);double offset=id=="prologue_ahe"?1:id.EndsWith("1",StringComparison.Ordinal)?-1:0;
+            return new BasePoint(Math.Max(.35,Math.Min(board.Width-.35,marker.X)),Math.Max(.35,Math.Min(board.Height-.35,marker.Y+offset)));
+        }
         public static void PrepareOpening(BaseState state)
         {
             state.Demo.PrologueVersion=1;state.Demo.Stage=BaseDemoStage.PrologueBriefing;
@@ -63,7 +70,13 @@ namespace BaseConquest.Base
             state.Demo.Stage=BaseDemoStage.PrologueEscape;if(!BaseDemoIntro.Active(state))state.Demo.SceneFollowers=Villagers(state.PlayerX-.8);
             state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.RemoveAll(item=>item.Id=="prologue_report");return true;
         }
-        public static bool AtTrigger(BaseState state)=>Evacuating(state)&&state.PlayerX>=21&&state.PlayerX<=23.4&&state.PlayerY>=5&&state.PlayerY<=9;
+        public static bool AtTrigger(BaseState state)
+        {
+            if(!Evacuating(state))return false;
+            if(state.Demo.StoryScene==null)return state.PlayerX>=21&&state.PlayerX<=23.4&&state.PlayerY>=5&&state.PlayerY<=9;
+            var marker=BaseSpatial.Layout(state)?.Objects.SingleOrDefault(obj=>obj.Id=="prologue_trigger");
+            return marker!=null&&marker.Object.Contains(state.PlayerX,state.PlayerY);
+        }
         public static bool BeginPursuit(BaseState state)
         {
             if(!AtTrigger(state)||BaseSceneCombat.Active(state))return false;
@@ -73,7 +86,7 @@ namespace BaseConquest.Base
         {
             if(!Pursuit(state))return;
             movement.Capture(state);
-            foreach(var person in Followers(state).Where(person=>person.Fate!="escaped"&&person.MapX>=23.2))
+            foreach(var person in Followers(state).Where(person=>person.Fate!="escaped"&&(state.Demo.StoryScene==null?person.MapX>=23.2:new BasePoint(person.MapX,person.MapY).Distance(Exit(state,person.Id))<=.3)))
             {person.Fate="escaped";var agent=movement.Agents.FirstOrDefault(item=>item.Id==person.Id);if(agent!=null)agent.Visible=false;}
         }
         public static BaseCampaignSession Encounter(BaseState state)
