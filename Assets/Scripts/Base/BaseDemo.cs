@@ -34,10 +34,11 @@ namespace BaseConquest.Base
         public BattleTacticalRules TacticalRules;
         public BaseRuinsRewardState RuinsRewards;
         public BaseDemoFlowState Flow;
+        public BaseStoryScenePackage StoryScene;
         public List<BaseDemoDesignMap> ReleaseMaps=new List<BaseDemoDesignMap>();
         public List<BaseLeader> SceneFollowers=new List<BaseLeader>();
         public List<string> Evidence = new List<string>();
-        public BaseDemoProgress Copy() => new BaseDemoProgress { Flow=Flow?.Copy(),EnvironmentVersion=EnvironmentVersion,CampLayoutVersion=CampLayoutVersion,Rpg=Rpg?.Copy(),Version=Version,ReleaseVersion=ReleaseVersion, WakeDay=WakeDay, AcceptedDay=AcceptedDay, Stage=Stage, TerrainMemories=TerrainMemories?.Select(m=>m.Copy()).ToList(),Rescue=Rescue?.Copy(),Intro=Intro?.Copy(),BalanceSource=BalanceSource, BalanceHash=BalanceHash,ConfigHash=ConfigHash, Evidence=Evidence?.ToList(),PrologueVersion=PrologueVersion,PrologueAttempts=PrologueAttempts,PrologueCompleted=PrologueCompleted,AzhuInvitationSeen=AzhuInvitationSeen,SceneFollowers=SceneFollowers?.Select(person=>person.Copy()).ToList(),RuinsVersion=RuinsVersion,RuinsDay=RuinsDay,DeliveredDay=DeliveredDay,Candidates=Candidates?.Select(person=>person.Copy()).ToList(),MetCompanions=MetCompanions?.ToList(),RuinsArmy=RuinsArmy?.Clone(),RuinsReward=RuinsReward?.Copy(),Defense=Defense?.Copy(),Finale=Finale?.Copy(),Encounters=Encounters?.Copy(),TacticalRules=TacticalRules?.Copy(),RuinsRewards=RuinsRewards?.Copy(),ReleaseMaps=(ReleaseMaps??new List<BaseDemoDesignMap>()).Select(m=>m.Copy()).ToList() };
+        public BaseDemoProgress Copy() => new BaseDemoProgress { StoryScene=StoryScene?.Copy(),Flow=Flow?.Copy(),EnvironmentVersion=EnvironmentVersion,CampLayoutVersion=CampLayoutVersion,Rpg=Rpg?.Copy(),Version=Version,ReleaseVersion=ReleaseVersion, WakeDay=WakeDay, AcceptedDay=AcceptedDay, Stage=Stage, TerrainMemories=TerrainMemories?.Select(m=>m.Copy()).ToList(),Rescue=Rescue?.Copy(),Intro=Intro?.Copy(),BalanceSource=BalanceSource, BalanceHash=BalanceHash,ConfigHash=ConfigHash, Evidence=Evidence?.ToList(),PrologueVersion=PrologueVersion,PrologueAttempts=PrologueAttempts,PrologueCompleted=PrologueCompleted,AzhuInvitationSeen=AzhuInvitationSeen,SceneFollowers=SceneFollowers?.Select(person=>person.Copy()).ToList(),RuinsVersion=RuinsVersion,RuinsDay=RuinsDay,DeliveredDay=DeliveredDay,Candidates=Candidates?.Select(person=>person.Copy()).ToList(),MetCompanions=MetCompanions?.ToList(),RuinsArmy=RuinsArmy?.Clone(),RuinsReward=RuinsReward?.Copy(),Defense=Defense?.Copy(),Finale=Finale?.Copy(),Encounters=Encounters?.Copy(),TacticalRules=TacticalRules?.Copy(),RuinsRewards=RuinsRewards?.Copy(),ReleaseMaps=(ReleaseMaps??new List<BaseDemoDesignMap>()).Select(m=>m.Copy()).ToList() };
     }
 
     public static class BaseDemo
@@ -228,6 +229,7 @@ namespace BaseConquest.Base
         {
             var progress=state.Demo;BaseDemoFlow.Validate(state);
             if(progress==null)return;
+            if(progress.StoryScene!=null){if(progress.Version!=1)throw new ArgumentException("剧情场景包缺少有效Demo");progress.StoryScene.Validate();}
             if(!string.IsNullOrEmpty(progress.ConfigHash)&&(progress.ConfigHash.Length!=64||progress.ConfigHash.Any(c=>!"0123456789abcdef".Contains(c))))throw new ArgumentException("Demo数值表来源哈希非法");
             if(progress.EnvironmentVersion<0||progress.EnvironmentVersion>1||progress.EnvironmentVersion>0&&!BaseSceneRules.Active(state))throw new ArgumentException("环境快照版本非法");
             BaseDemoRelease.Validate(state);
