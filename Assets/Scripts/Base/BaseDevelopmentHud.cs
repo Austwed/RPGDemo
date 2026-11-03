@@ -65,7 +65,7 @@ namespace BaseConquest.Base
         private void Recovery()
         {
             var s = owner.State;
-            Line("队长每天自然恢复 " + s.Development.RecoveryPerDay.ToString("0.#") + "生命，可任职或随行；士兵需选择休养。满血停止，口粮照常。", 85, 18);
+            Line("队长每天自然恢复最大生命的 " + (BaseDevelopment.RecoveryRatio(s) * 100).ToString("0") + "%（营帐 " + (s.Demo?.Rpg?.CampLevel ?? 1) + " 级），可任职或随行；士兵需选择休养。满血停止，口粮照常。", 85, 18);
             foreach (var person in s.Leaders)
             {
                 string id = person.Id;

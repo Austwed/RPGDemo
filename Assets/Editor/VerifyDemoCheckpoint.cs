@@ -98,7 +98,7 @@ namespace BaseConquest.Editor
                 var settings=new BaseDifficulty();settings.Set("normal");double normalHit=Hit(attack,target),normalTaken=Hit(target,attack);
                 var copied=session.Opening.Difficulty.Copy();settings.Set("easy");
                 Need(copied.Preset=="easy"&&Math.Abs(Hit(attack,target)/normalHit-2)<.0001&&Math.Abs(Hit(target,attack)/normalTaken-.5)<.0001&&Math.Abs(Exposure()-.5)<.0001,"简单难度未在当前战斗即时生效");
-                settings.Set("hard");Need(Math.Abs(Hit(attack,target)/normalHit-1)<.0001&&Math.Abs(Hit(target,attack)/normalTaken-1.3)<.0001&&Math.Abs(Exposure()-1.3)<.0001,"困难难度未在当前战斗即时生效");
+                settings.Set("hard");Need(Math.Abs(Hit(attack,target)/normalHit-1)<.0001&&Math.Abs(Hit(target,attack)/normalTaken-2)<.0001&&Math.Abs(Exposure()-2)<.0001,"困难难度未在当前战斗即时生效");
                 Need(!JsonUtility.ToJson(state.Aftermath.Difficulty).Contains("\"Preset\"")&&!JsonUtility.ToJson(session.Opening.Difficulty).Contains("\"Preset\""),"难度档位仍写入存档或战斗快照");
                 var legacy=JsonUtility.FromJson<BaseDifficulty>("{\"Version\":1,\"Preset\":\"easy\"}");Need(legacy.Preset=="hard","旧档难度覆盖了全局设置");
                 Directory.CreateDirectory("Logs/checkpoint-verification");File.WriteAllText("Logs/checkpoint-verification/global-difficulty.txt","PASS: live damage and exposure factors, global setting, legacy save ignored, no serialized preset.\n");

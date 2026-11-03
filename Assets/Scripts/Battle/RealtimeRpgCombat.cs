@@ -19,7 +19,7 @@ namespace BaseConquest.Battle
         private readonly List<RpgAttackPacket> rpgAttacks=new List<RpgAttackPacket>();
         private int rpgAttackSerial;
         private RpgRules Rpg=>Session.Opening.Rpg;
-        private double DifficultyIncoming(BattleSide side)=>!Session.Opening.DemoCombat||side!=BattleSide.A?1:Session.Opening.Difficulty.Preset=="easy"?.5:Session.Opening.Difficulty.Preset=="hard"?1.3:1;
+        private double DifficultyIncoming(BattleSide side)=>!Session.Opening.DemoCombat||side!=BattleSide.A?1:Session.Opening.Difficulty.Preset=="easy"?.5:Session.Opening.Difficulty.Preset=="hard"?2:1;
         private RpgCharacter Profile(PrototypeUnit actor)=>Battle.Soldier(actor.Id-1).Rpg?.Version==1?Battle.Soldier(actor.Id-1).Rpg:null;
         private void InitializeRpgCombat()
         {

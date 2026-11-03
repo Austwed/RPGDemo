@@ -62,7 +62,7 @@ namespace BaseConquest.Base
             using(var algorithm=SHA256.Create())hash=BitConverter.ToString(algorithm.ComputeHash(Encoding.UTF8.GetBytes(sourceJson))).Replace("-","").ToLowerInvariant();
             state.Demo=new BaseDemoProgress {Flow=new BaseDemoFlowState(),Version=1,ReleaseVersion=release?1:0,TacticalRules=release?(openingRules?.OpeningAuxVersion==1?openingRules.OpeningTactical.Copy():new BattleTacticalRules()):null,BalanceSource=BalanceTemplate,BalanceHash=hash,ConfigHash=configHash};
             foreach(var item in BasePersonalEquipment.ShopFor(state).Where(d=>!state.PersonalEquipment.Offers.Any(o=>o.Template==d.Id)))state.PersonalEquipment.Offers.Add(new BasePersonalOffer{Template=item.Id});
-            if(openingRules?.OpeningEconomyVersion==1){openingRules.Validate();state.Rules=openingRules.OpeningEconomy.Copy();state.Development.RecoveryPerDay=openingRules.OpeningRecoveryPerDay;}
+            if(openingRules?.OpeningEconomyVersion==1){openingRules.Validate();state.Rules=openingRules.OpeningEconomy.Copy();state.Development.RecoveryFraction=openingRules.OpeningRecoveryPerDay;}
             else state.Rules.FarmPerWorker=4;
             if(openingRules?.OpeningInventory!=null)state.Inventory=openingRules.OpeningInventory.Copy();
             BaseDemoRuins.PrepareOpening(state);
@@ -143,7 +143,14 @@ namespace BaseConquest.Base
             // 编辑器设计的六张剧情图最后覆盖：内置布局与发布快照都不再作数。
             if(state.Demo?.StoryScene?.Valid==true)state.Demo.StoryScene.InstallCamp(state);
             BaseSceneRules.Install(state);if(state.Demo.EnvironmentVersion>0)BaseEnvironment.Install(state,true);
-            if(state.Demo?.StoryScene?.Valid!=true){state.PlayerX=state.Campaign.BaseX=4;state.PlayerY=state.Campaign.BaseY=8.8;}
+            // 没有剧情场景包时，开局点按当前营帐实际坐标推算，不再写死旧布局的 (4, 8.8)——
+            // 那样营帐一挪位，玩家就出生在离仓库两格开外，连仓库都打不开。
+            if(state.Demo?.StoryScene?.Valid!=true)
+            {
+                var home=BaseSpatial.Objects(state).FirstOrDefault(o=>o.Id=="home");
+                if(home!=null){state.PlayerX=state.Campaign.BaseX=home.X+.5;state.PlayerY=state.Campaign.BaseY=home.Y-home.Height/2-.6;}
+                else{state.PlayerX=state.Campaign.BaseX=4;state.PlayerY=state.Campaign.BaseY=8.8;}
+            }
             if(state.Demo!=null)state.Demo.CampLayoutVersion=2;
         }
 

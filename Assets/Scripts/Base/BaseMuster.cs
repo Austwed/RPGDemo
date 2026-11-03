@@ -152,7 +152,7 @@ namespace BaseConquest.Base
             parts.AddRange(s.Muster.Facilities.Select(f => f.FacilityId + ":" + f.Priority + ":" + f.MinimumWorkers + ":" + f.Capacity + ":" + f.Level + ":" + f.MaxProductLevel));
             parts.Add(s.Muster.KeepMelee + ":" + s.Muster.KeepRanged + ":" + s.Muster.KeepCavalry); parts.AddRange(s.Muster.Parties.Select(p => p.Id)); parts.AddRange(s.Muster.ReturnedIds);
             parts.Add(s.Rules.SoldierFood + ":" + s.Rules.CavalryFood + ":" + s.Rules.LeaderFood + ":" + (BaseRpg.Active(s)?s.Demo.Rpg.ArcherFood:0) + ":" + s.FoodPaidDay + ":" + s.TodayFoodConsumed);
-            parts.Add(s.Development.Version + ":" + s.Development.Automatic + ":" + s.Development.Policy + ":" + N(s.Development.RecoveryPerDay));
+            parts.Add(s.Development.Version + ":" + s.Development.Automatic + ":" + s.Development.Policy + ":" + N(s.Development.RecoveryFraction));
             parts.AddRange(s.Leaders.Select(l => l.Id + ":" + N(l.Health) + ":" + N(l.MaxHealth) + ":" + l.Resting + ":" + l.DesiredFacility + ":" + l.PostLocked + ":" + l.HasAffinity + ":" + N(l.FarmBonus) + ":" + N(l.WorkshopBonus)));
             parts.AddRange(s.Workers.Select(w => N(w.Health) + ":" + N(w.MaxHealth) + ":" + w.Resting + ":" + w.DesiredFacility + ":" + w.PostLocked + ":" + N(w.FarmEfficiency) + ":" + N(w.WorkshopEfficiency)));
             parts.AddRange(s.Supply.Quotas.Select(q => q.BattleId + ":" + q.PartyId + ":" + q.Phase)); parts.AddRange(s.Supply.FinishedIds);

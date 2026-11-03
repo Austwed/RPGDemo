@@ -10,12 +10,21 @@ namespace BaseConquest.Base
         public int Version;
         public bool Automatic = true;
         public string Policy = "food";
-        public double RecoveryPerDay = 20;
+        // 2026-11-03：由“每日固定生命”改为“最大生命的固定比例”，比例随营帐等级叠加。
+        public double RecoveryFraction = .3;
         public BaseDevelopmentState Copy() => (BaseDevelopmentState)MemberwiseClone();
     }
     public static class BaseDevelopment
     {
         public static readonly string[] Policies = { "food", "equipment", "balanced", "custom" };
+        // 营帐每升一级额外 +10 个百分点：1／2／3 级 ＝ 30%／40%／50%（比例本身由配表 recovery_per_day 提供）。
+        public const double CampRecoveryStep = .1;
+        public static double RecoveryRatio(BaseState s)
+        {
+            int level = s?.Demo?.Rpg == null ? 1 : Math.Max(1, Math.Min(3, s.Demo.Rpg.CampLevel));
+            double baseValue = s?.Development?.RecoveryFraction ?? .3;
+            return Math.Max(.01, Math.Min(1, baseValue + CampRecoveryStep * (level - 1)));
+        }
         public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.Away && !w.Resting && w.Health > 0 && w.UnavailableDay != s.Day;
         public static bool CanManage(BaseState s, BaseLeader l) => !l.Away && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && !BaseTraining.Busy(l.Training) && l.Health > 0;
         public static bool Effective(BaseState s, BaseLeader l) => CanManage(s,l) && l.UnavailableDay != s.Day;
@@ -28,9 +37,11 @@ namespace BaseConquest.Base
         public static void Normalize(BaseState s)
         {
             var d = s.Development;
+            // 版本 1 的旧档存的是“每日固定生命”（旧量纲），升级为按最大生命比例，比例取默认 30%。
+            if (d != null && d.Version == 1) { d.Version = 2; if (!(d.RecoveryFraction > 0 && d.RecoveryFraction <= 1)) d.RecoveryFraction = .3; return; }
             if (d != null && d.Version != 0) return;
             // 旧进度保留手动意向，不在读档时偷偷把伙伴和工作兵全部重排。
-            s.Development = new BaseDevelopmentState { Version = 1, Automatic = false };
+            s.Development = new BaseDevelopmentState { Version = 2, Automatic = false };
             foreach (var l in s.Leaders.Where(x => x != null))
             {
                 if (l.MaxHealth == 0) { l.MaxHealth = 200; l.Health = 200; }
@@ -50,7 +61,7 @@ namespace BaseConquest.Base
         public static void Validate(BaseState s)
         {
             var d = s.Development;
-            if (d.Version != 1 || !Policies.Contains(d.Policy) || !Number(d.RecoveryPerDay, 10000) || d.RecoveryPerDay <= 0) throw new ArgumentException("发展策略或回血规则非法");
+            if (d.Version != 2 || !Policies.Contains(d.Policy) || !Number(d.RecoveryFraction, 1) || d.RecoveryFraction <= 0) throw new ArgumentException("发展策略或回血规则非法");
             foreach (var l in s.Leaders)
             { if(l.HasCombatProfile&&(!BaseAftermath.ValidStats(l.CombatStats)||l.PersonalEquipment?.Version!=1&&l.CombatStats.Health!=l.MaxHealth)) throw new ArgumentException("人物战斗属性非法");
                 if (!Number(l.MaxHealth, 100000) || l.MaxHealth < 1 || !Number(l.Health, l.MaxHealth) || !BaseEconomy.Facilities.Contains(l.DesiredFacility) || !Number(l.FarmBonus, 1) || !Number(l.WorkshopBonus, 1) || l.Resting && (l.Away || l.Health <= 0)) throw new ArgumentException("队长健康／岗位意向非法");
@@ -165,10 +176,11 @@ namespace BaseConquest.Base
         public static int Recover(BaseState s)
         {
             int count = 0;
+            double ratio = RecoveryRatio(s);
             foreach (var l in s.Leaders.Where(l => BaseAdventure.Alive(l) && l.Health > 0 && l.Health < l.MaxHealth))
-            { l.Health = Math.Min(l.MaxHealth, l.Health + s.Development.RecoveryPerDay); l.Resting = false; count++; }
+            { l.Health = Math.Min(l.MaxHealth, l.Health + l.MaxHealth * ratio); l.Resting = false; count++; }
             foreach (var w in s.Workers.Where(w => w.Resting && !w.Away && w.Health > 0))
-            { w.Health = Math.Min(w.MaxHealth, w.Health + s.Development.RecoveryPerDay); count += w.Count; if (w.Health == w.MaxHealth) w.Resting = false; }
+            { w.Health = Math.Min(w.MaxHealth, w.Health + w.MaxHealth * ratio); count += w.Count; if (w.Health == w.MaxHealth) w.Resting = false; }
             return count;
         }
     }

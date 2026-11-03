@@ -1,6 +1,6 @@
 {
     "Version": 1,
-    "WorkbookSha256": "64c19f69a3dd586088d016e30bb0463da01ac26c9390b869a7ffc57a5a227a2a",
+    "WorkbookSha256": "ece2a4cf55943cf0c948c211687cdf47fbcc02ec09b4dce40f26fea812556950",
     "Rules": {
         "GenerationSeed": 0,
         "SceneRulesVersion": 0,
@@ -93,14 +93,14 @@
         "ArrowSpeed": 14.0,
         "HeightAdvantage": 2.0,
         "HealThreshold": 0.7,
-        "AttackEquipmentScale": 0.12,
-        "HealthEquipmentScale": 0.1,
-        "DefenseEquipmentScale": 0.2,
+        "AttackEquipmentScale": 1.0,
+        "HealthEquipmentScale": 1.0,
+        "DefenseEquipmentScale": 1.0,
         "BuyFactor": 1.3,
         "SellFactor": 0.7,
-        "WeaponAttackScale": 0.75,
+        "WeaponAttackScale": 1.0,
         "Hit": [
-            10.0,
+            9.0,
             7.0,
             8.0
         ],
@@ -697,7 +697,7 @@
             "SoldierFood": 1,
             "CavalryFood": 2,
             "LeaderFood": 2,
-            "FarmPerWorker": 4.0,
+            "FarmPerWorker": 2.0,
             "WorkshopPerWorker": 1.0,
             "HungerProductionPenalty": 0.5,
             "HungerAttackPenalty": 0.2,
@@ -706,7 +706,7 @@
             "ArmorMaterial": 3
         },
         "OpeningEconomyVersion": 1,
-        "OpeningRecoveryPerDay": 1000.0,
+        "OpeningRecoveryPerDay": 0.3,
         "OpeningAuxVersion": 1,
         "OpeningTactical": {
             "Version": 1,
@@ -722,7 +722,7 @@
             "RewardCost": 20,
             "Energy": 120,
             "EnergyDay": 1,
-            "Coins": 40,
+            "Coins": 15,
             "ItemCount": 1,
             "ExposureFraction": 0.03,
             "PendingBattleId": "",

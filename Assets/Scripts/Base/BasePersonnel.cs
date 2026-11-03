@@ -22,8 +22,8 @@ namespace BaseConquest.Base
             var q=s.Supply.Quotas.FirstOrDefault(q=>q.PartyId==party&&!string.IsNullOrEmpty(party));
             double factor=q?.AttackFactor??BaseEconomy.AttackFactor(s),weapon=unit.IsLeader ? 0 : unit.Kind==SoldierKind.Ranged ? q?.BowBonus??0 : q?.SwordBonus??0,armor=unit.IsLeader ? 0 : q?.ArmorBonus??0;
             unit.Current=unit.Basic.Clone();unit.Current.Damage=(float)((unit.Basic.Damage+weapon)*factor);unit.Current.Defense+=(float)armor;
-            unit.Effects=ProvisionEffects.Summary(unit.Kind,factor,weapon,armor,q!=null)+"／今日生产效率×"+BaseEconomy.ProductionFactor(s).ToString("0.##")+(unit.Resting ? "／休养：过夜恢复"+s.Development.RecoveryPerDay.ToString("0.#")+"生命" : "");
-            if(unit.IsLeader&&unit.Health>0)unit.Effects+="／每日自然恢复"+s.Development.RecoveryPerDay.ToString("0.#")+"生命（满血停止）";
+            unit.Effects=ProvisionEffects.Summary(unit.Kind,factor,weapon,armor,q!=null)+"／今日生产效率×"+BaseEconomy.ProductionFactor(s).ToString("0.##")+(unit.Resting ? "／休养：过夜恢复最大生命的"+(BaseDevelopment.RecoveryRatio(s)*100).ToString("0")+"%" : "");
+            if(unit.IsLeader&&unit.Health>0)unit.Effects+="／每日自然恢复最大生命的"+(BaseDevelopment.RecoveryRatio(s)*100).ToString("0")+"%（满血停止）";
         }
         public static IEnumerable<BasePersonnelUnit> Units(BaseState s)
         {

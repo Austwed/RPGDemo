@@ -57,7 +57,15 @@ namespace BaseConquest.Base
             var r=s.Demo.RuinsRewards;string id=r.PendingBattleId+":ruins-reward";
             string[] equipment={"novice_sword","novice_light_helmet","novice_light_armor","novice_bow","novice_spear"};
             int choice=(int)(BattleSimulation.StableRoll(BaseAftermath.StableIdentity(r.PendingBattleId),0,71)*equipment.Length);
-            var rewards=new[]{new BaseLootReward {Template=equipment[choice],RandomQuality=true},new BaseLootReward {ItemId="forging_stone",Count=r.ItemCount}};
+            var rewards=new System.Collections.Generic.List<BaseLootReward> {new BaseLootReward {Template=equipment[choice],RandomQuality=true},new BaseLootReward {ItemId="forging_stone",Count=r.ItemCount}};
+            // 2026-11-03：基础兵书改为掉落产出（城镇不再出售）；高阶兵书 Demo 内不产出，因此队长等级上限为 2 级。
+            double bookRoll=BattleSimulation.StableRoll(BaseAftermath.StableIdentity(r.PendingBattleId),1,73);
+            if(bookRoll<.5)
+            {
+                var kinds=new[]{SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry};
+                var kind=kinds[(int)(BattleSimulation.StableRoll(BaseAftermath.StableIdentity(r.PendingBattleId),2,73)*kinds.Length)%kinds.Length];
+                rewards.Add(new BaseLootReward {ItemId=BaseTraining.Book(kind,2),Count=1});
+            }
             if(rewards.Any(reward=>!BaseBattleLoot.ValidReward(s,reward)))throw new InvalidOperationException("遗迹默认掉落未接入现有道具目录");
             s.Campaign.SettledIds.Add(id);
             int coins=r.Coins+(r.PendingFirstClear?r.FirstCoins:0),food=r.PendingFirstClear?r.FirstFood:0,materials=r.PendingFirstClear?r.FirstMaterials:0;
