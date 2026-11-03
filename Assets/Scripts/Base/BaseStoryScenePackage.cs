@@ -27,6 +27,20 @@ namespace BaseConquest.Base
         public List<BaseDemoDesignMap> Maps;
         public BaseStoryScenePackage Copy()=>new BaseStoryScenePackage {Format=Format,Id=Id,Version=Version,Maps=Maps?.Select(map=>map?.Copy()).ToList()};
 
+        public void InstallVillage(BaseState state)
+        {
+            Validate();
+            if(state?.Demo?.StoryScene==null||state.Campaign==null||!BaseDemoPrologue.Village(state))throw new InvalidOperationException("剧情村庄只能安装到携带设计的序章状态");
+            var authored=Maps.Single(map=>map.Role=="village");var layout=authored.Layout.Copy();var board=authored.Board.Clone();
+            var captain=layout.Objects.Single(obj=>obj.Id=="demo_captain");
+            // 两名剧情人物由序章状态管理；返乡对象只在返乡阶段出现。
+            layout.Objects.RemoveAll(obj=>new[]{"demo_captain","intro_villager","demo_home_world","demo_broken_sword","demo_survivor"}.Contains(obj.Id));
+            state.Campaign.Layouts.RemoveAll(map=>map.Region=="base");state.Campaign.Layouts.Add(layout);
+            state.Campaign.RegionMaps.RemoveAll(map=>map.Id=="base");state.Campaign.RegionMaps.Add(new BaseRegionMap {Id="base",Board=board});
+            state.PlayerX=state.Campaign.BaseX=layout.SpawnX;state.PlayerY=state.Campaign.BaseY=layout.SpawnY;
+            if(state.Demo.Intro!=null){state.Demo.Intro.CaptainX=captain.X;state.Demo.Intro.CaptainY=captain.Y;}
+        }
+
         public void Validate()
         {
             var roles=new Dictionary<string,string> { {"village","base"}, {"camp","base"}, {"town","town"}, {"ruins","outpost"}, {"field","perimeter"}, {"bandit","outpost"} };

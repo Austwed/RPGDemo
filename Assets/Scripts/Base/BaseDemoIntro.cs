@@ -67,7 +67,7 @@ namespace BaseConquest.Base
         }
         public static void Enable(BaseState s,bool preserveWeaponScale=false)
         {
-            s.Demo.Intro=new BaseDemoIntroState();if(BaseDemoPrologue.Village(s)){s.Demo.Intro.CaptainX=10.2;s.Demo.Intro.CaptainY=9.1;s.PlayerX=s.Campaign.BaseX=7.9;s.PlayerY=s.Campaign.BaseY=9.1;}if(BaseDemoPrologue.Village(s)){s.Campaign.Layouts.RemoveAll(m=>m.Region=="base");var village=BaseDemoPrologue.CreateVillage(true);village.ForbidSoldiers=true;s.Campaign.Layouts.Add(village);}if(!preserveWeaponScale)s.Demo.Rpg.WeaponAttackScale=.75;s.Demo.Rpg.SceneRulesVersion=1;BaseSceneRules.Install(s);if(s.Demo.Stage==BaseDemoStage.PrologueBriefing)BaseDemoPrologue.SeedVillagers(s);foreach(var leader in s.Leaders.Concat(s.Demo.Candidates))leader.PreferredStrategy=leader.Id==s.PlayerLeaderId?SquadStrategy.Obey:SquadStrategy.Attack;
+            s.Demo.Intro=new BaseDemoIntroState();if(BaseDemoPrologue.Village(s)){if(s.Demo.StoryScene!=null)s.Demo.StoryScene.InstallVillage(s);else{s.Demo.Intro.CaptainX=10.2;s.Demo.Intro.CaptainY=9.1;s.PlayerX=s.Campaign.BaseX=7.9;s.PlayerY=s.Campaign.BaseY=9.1;s.Campaign.Layouts.RemoveAll(m=>m.Region=="base");var village=BaseDemoPrologue.CreateVillage(true);village.ForbidSoldiers=true;s.Campaign.Layouts.Add(village);}}if(!preserveWeaponScale)s.Demo.Rpg.WeaponAttackScale=.75;s.Demo.Rpg.SceneRulesVersion=1;BaseSceneRules.Install(s);if(s.Demo.Stage==BaseDemoStage.PrologueBriefing)BaseDemoPrologue.SeedVillagers(s);foreach(var leader in s.Leaders.Concat(s.Demo.Candidates))leader.PreferredStrategy=leader.Id==s.PlayerLeaderId?SquadStrategy.Obey:SquadStrategy.Attack;
             if(!BaseDemoRelease.Enabled(s)||s.Demo.Encounters?.Version>0)return;
             BaseEnemyPreset Preset(SoldierKind[] captains,GridPosition[] positions,int melee,int ranged,int cavalry)
             {
@@ -151,7 +151,8 @@ namespace BaseConquest.Base
             if(i.Step!=8&&!s.Leaders.Any(l=>l.Id=="demo_captain"))result.Add(new BaseMapObject("demo_captain",PartnerName(s)+" · 交谈",i.CaptainX,i.CaptainY,.5,.5,false,"demo-npc:captain",CaptainArt(s),"npc"));
             if(Daily(s)||!i.ReporterArrived)
             {
-                result.Add(new BaseMapObject("intro_villager","阿禾 · 交谈",12,10,.5,.5,false,"demo-npc:intro-villager","ahe","npc"));
+                var authored=s.Demo.StoryScene?.Maps.Single(map=>map.Role=="village").Layout.Objects.Single(obj=>obj.Id=="intro_villager");
+                result.Add(new BaseMapObject("intro_villager","阿禾 · 交谈",authored?.X??12,authored?.Y??10,.5,.5,false,"demo-npc:intro-villager","ahe","npc"));
 
                 // PRO_02_MILITIA_IDLE：护村剑士在序章日常阶段可点击搭话；演练与撤离阶段不出现，免得挡路。
                 if(!BaseSceneRules.Active(s)||Daily(s)&&i.Step>=2)
@@ -264,11 +265,11 @@ namespace BaseConquest.Base
         {if(!Active(s)||s.Demo.Intro.Step!=4||s.SceneBattleId!=BattleId)return false;s.SceneBattleId="";if(completed&&s.Demo.Intro.DrillFlags==All)s.Demo.Intro.Step=6;return true;}
         public static void Validate(BaseState s)
         {
-            if(!Active(s))return;var i=s.Demo.Intro;
+            if(!Active(s))return;var i=s.Demo.Intro;var village=s.Demo.StoryScene?.Maps.Single(map=>map.Role=="village").Board;int width=village?.Width??24,height=village?.Height??14;
             if(i.DummyPhase<0||i.DummyPhase>4||i.DummyHits<0||i.DummyHits>3)throw new ArgumentException("木桩教学进度非法");
-            if(i.Step<0||i.Step>10||i.Step>0&&!new[]{"male","female"}.Contains(i.Hero)||i.Step==0&&i.Hero!=""||i.DrillFlags<0||i.DrillFlags>All||i.FarmWorkers<2||i.FarmWorkers>4||double.IsNaN(i.Walked)||double.IsInfinity(i.Walked)||i.Walked<0||i.CaptainX<0||i.CaptainX>=24||i.CaptainY<0||i.CaptainY>=14)throw new ArgumentException("序章教学进度非法");
-            if(new[]{i.ReporterX,i.ReporterY,i.DrillMoveOrigin,i.TutorialDelay,i.CaptainX,i.CaptainY,i.DepartureWait,i.MilitiaDelay}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||i.ReporterX<0||i.ReporterX>=24||i.ReporterY<0||i.ReporterY>=14||i.DrillMoveOrigin<0||i.TutorialDelay<0||i.TutorialDelay>1)throw new ArgumentException("报信人与演练位置非法");
-            if(i.Militia==null||i.MilitiaSpawned<0||i.MilitiaSpawned>4||i.Militia.Count!=i.MilitiaSpawned||i.DepartureWait<0||i.DepartureWait>1.05||i.MilitiaDelay<-.06||i.MilitiaDelay>.4||i.Militia.Any(v=>v==null||new[]{v.MapX,v.MapY}.Any(n=>double.IsNaN(n)||double.IsInfinity(n))||v.MapX<0||v.MapX>=24||v.MapY<0||v.MapY>=14)||i.DeparturePhase<0||i.DeparturePhase>4||i.Militia.Select(v=>v.Id).Distinct().Count()!=i.Militia.Count)throw new ArgumentException("序章民兵离场记录非法");
+            if(i.Step<0||i.Step>10||i.Step>0&&!new[]{"male","female"}.Contains(i.Hero)||i.Step==0&&i.Hero!=""||i.DrillFlags<0||i.DrillFlags>All||i.FarmWorkers<2||i.FarmWorkers>4||double.IsNaN(i.Walked)||double.IsInfinity(i.Walked)||i.Walked<0||i.CaptainX<0||i.CaptainX>=width||i.CaptainY<0||i.CaptainY>=height)throw new ArgumentException("序章教学进度非法");
+            if(new[]{i.ReporterX,i.ReporterY,i.DrillMoveOrigin,i.TutorialDelay,i.CaptainX,i.CaptainY,i.DepartureWait,i.MilitiaDelay}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||i.ReporterX<0||i.ReporterX>=width||i.ReporterY<0||i.ReporterY>=height||i.DrillMoveOrigin<0||i.TutorialDelay<0||i.TutorialDelay>1)throw new ArgumentException("报信人与演练位置非法");
+            if(i.Militia==null||i.MilitiaSpawned<0||i.MilitiaSpawned>4||i.Militia.Count!=i.MilitiaSpawned||i.DepartureWait<0||i.DepartureWait>1.05||i.MilitiaDelay<-.06||i.MilitiaDelay>.4||i.Militia.Any(v=>v==null||new[]{v.MapX,v.MapY}.Any(n=>double.IsNaN(n)||double.IsInfinity(n))||v.MapX<0||v.MapX>=width||v.MapY<0||v.MapY>=height)||i.DeparturePhase<0||i.DeparturePhase>4||i.Militia.Select(v=>v.Id).Distinct().Count()!=i.Militia.Count)throw new ArgumentException("序章民兵离场记录非法");
             if(i.Step>0&&s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).AppearanceId!=PlayerArt(s))throw new ArgumentException("主角选择与形象不一致");
         }
     }

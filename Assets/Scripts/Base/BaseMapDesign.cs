@@ -181,14 +181,14 @@ namespace BaseConquest.Base
             var o=Objects(s,"base").Single(x=>x.Id==id);return Nearest(s,new BasePoint(o.X,o.Y-o.Height/2-.75),"base");
         }
         public static BaseMapObject AtCell(BaseState s,int x,int y) => Objects(s).FirstOrDefault(o=>!o.Id.StartsWith("partner")&&(string.IsNullOrEmpty(o.Shape)?x<o.X+o.Width/2&&x+1>o.X-o.Width/2&&y<o.Y+o.Height/2&&y+1>o.Y-o.Height/2:o.Parts.Any(part=>part.Touches(x,y))));
-        public static void ValidateLayout(BaseMapLayout m,bool instances=false,bool demo=false,bool scenery=false)
+        public static void ValidateLayout(BaseMapLayout m,bool instances=false,bool demo=false,bool scenery=false,bool story=false)
         {
             if(m?.Enemy!=null){m.Enemy.Validate();if(m.Enemy.Version!=0&&(m.Region!="outpost"||!instances))throw new ArgumentException("自定义敌营编制只支持敌营实例");}
             bool Valid(double n)=>!double.IsNaN(n)&&!double.IsInfinity(n);
-            if(m==null||!BaseCampaign.Locations.Contains(m.Region)&&!(instances&&m.Region=="custom")||string.IsNullOrWhiteSpace(m.Title)||m.Title.Length>100||!Valid(m.SpawnX)||!Valid(m.SpawnY)||m.Objects==null||m.Objects.Count>200||m.Objects.Any(o=>o==null||string.IsNullOrWhiteSpace(o.Id)||o.Id.Length>100||string.IsNullOrWhiteSpace(o.Name)||o.Name.Length>100||!Valid(o.X)||!Valid(o.Y)||!Valid(o.Width)||!Valid(o.Height)||o.Width<=0||o.Height<=0||o.X-o.Object.BoundsWidth/2<0||o.X+o.Object.BoundsWidth/2>m.Columns||o.Y-o.Object.BoundsHeight/2<0||o.Y+o.Object.BoundsHeight/2>m.Rows)||m.Objects.Select(o=>o.Id).Distinct().Count()!=m.Objects.Count)throw new ArgumentException("编辑地图的区域、标识、坐标或占地非法");
+            if(m==null||!BaseCampaign.Locations.Contains(m.Region)&&!(instances&&m.Region=="custom")||string.IsNullOrWhiteSpace(m.Title)||m.Title.Length>100||!Valid(m.SpawnX)||!Valid(m.SpawnY)||m.Objects==null||m.Objects.Count>(story?300:200)||m.Objects.Any(o=>o==null||string.IsNullOrWhiteSpace(o.Id)||o.Id.Length>100||string.IsNullOrWhiteSpace(o.Name)||o.Name.Length>100||!Valid(o.X)||!Valid(o.Y)||!Valid(o.Width)||!Valid(o.Height)||o.Width<=0||o.Height<=0||o.X-o.Object.BoundsWidth/2<0||o.X+o.Object.BoundsWidth/2>m.Columns||o.Y-o.Object.BoundsHeight/2<0||o.Y+o.Object.BoundsHeight/2>m.Rows)||m.Objects.Select(o=>o.Id).Distinct().Count()!=m.Objects.Count)throw new ArgumentException("编辑地图的区域、标识、坐标或占地非法");
             if(!string.IsNullOrEmpty(m.Safety)&&m.Safety!="safe"&&m.Safety!="dangerous")throw new ArgumentException("地图安全属性非法");
             if(m.SurfaceStyle!=""&&m.SurfaceStyle!="dungeon")throw new ArgumentException("未知地图材质主题");
-            if(m.Columns<6||m.Columns>32||m.Rows<6||m.Rows>24)throw new ArgumentException("地图尺寸须6～32列、6～24行");
+            if(m.Columns<6||m.Columns>(story?64:32)||m.Rows<6||m.Rows>(story?64:24))throw new ArgumentException("地图尺寸超出当前格式支持范围");
             foreach(var placement in m.Objects)BaseObjectFootprint.Validate(placement);
             foreach(var o in m.Objects.Where(o=>BaseEnvironment.Decorative(o.Object))){var d=BaseEnvironment.Find(o.AssetId);if(d==null||!o.VisualOnly||o.Kind!=(d.Animal==""?"decoration":"wildlife"))throw new ArgumentException("环境物件定义、交互或阻挡声明非法："+o.Id);}
             foreach(var placement in m.Objects.Where(obj=>obj.Blocks&&!string.IsNullOrEmpty(obj.Shape)))
@@ -198,7 +198,7 @@ namespace BaseConquest.Base
         public static void ValidateLayouts(BaseState s)
         {
             if(BaseSceneInstances.Active(s)){BaseSceneInstances.ValidateLayouts(s);return;}
-            s.Campaign.Layouts??=new List<BaseMapLayout>();if(s.Campaign.Layouts.Count>(BaseSceneRules.Active(s)?6:5)||s.Campaign.Layouts.Select(m=>m?.Region).Distinct().Count()!=s.Campaign.Layouts.Count)throw new ArgumentException("编辑地图重复或数量非法");foreach(var m in s.Campaign.Layouts){ValidateLayout(m,demo:BaseDemo.Active(s),scenery:BaseDemoPrologue.Village(s));if(m.Objects.Any(obj=>!string.IsNullOrEmpty(obj.Shape)))BaseObjectFootprint.ValidateBoard(m,BaseBattlefield.Board(s,m.Region));}
+            s.Campaign.Layouts??=new List<BaseMapLayout>();if(s.Campaign.Layouts.Count>(BaseSceneRules.Active(s)?6:5)||s.Campaign.Layouts.Select(m=>m?.Region).Distinct().Count()!=s.Campaign.Layouts.Count)throw new ArgumentException("编辑地图重复或数量非法");foreach(var m in s.Campaign.Layouts){ValidateLayout(m,demo:BaseDemo.Active(s),scenery:BaseDemoPrologue.Village(s),story:s.Demo?.StoryScene!=null);if(m.Objects.Any(obj=>!string.IsNullOrEmpty(obj.Shape)))BaseObjectFootprint.ValidateBoard(m,BaseBattlefield.Board(s,m.Region));}
         }
         public static void RepairGridPositions(BaseState s)
         {

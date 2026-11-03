@@ -26,6 +26,7 @@ namespace BaseConquest.Base
         public static void PrepareOpening(BaseState state)
         {
             state.Demo.PrologueVersion=1;state.Demo.Stage=BaseDemoStage.PrologueBriefing;
+            if(state.Demo.StoryScene!=null){state.Demo.StoryScene.InstallVillage(state);return;}
             var village=CreateVillage();
             state.Campaign.Layouts.RemoveAll(map=>map.Region=="base");state.Campaign.Layouts.Add(village);
             state.Campaign.RegionMaps.RemoveAll(map=>map.Id=="base");state.Campaign.RegionMaps.Add(new BaseRegionMap {Id="base",Board=BattleBoard.CreateDefault(24,14)});
@@ -52,6 +53,8 @@ namespace BaseConquest.Base
         public static void SeedVillagers(BaseState s)
         {
             s.Demo.SceneFollowers=Villagers(3);var second=s.Demo.SceneFollowers[1];second.MapX=18;second.MapY=10;
+            if(s.Demo.StoryScene!=null)
+                for(int n=0;n<s.Demo.SceneFollowers.Count;n++){var person=s.Demo.SceneFollowers[n];var point=BaseSpatial.Nearest(s,new BasePoint(s.PlayerX+(n==0?-1:1),s.PlayerY+1));person.MapX=point.X;person.MapY=point.Y;}
             foreach(var person in s.Demo.SceneFollowers){person.Name="村民";person.HasHomePosition=true;person.HomeX=person.MapX;person.HomeY=person.MapY;}
         }
         public static void GatherVillagers(BaseState s)
@@ -60,7 +63,7 @@ namespace BaseConquest.Base
         public static BasePoint GatherCenter(BaseState s)
         {var i=s.Demo.Intro;return BaseDemoIntro.Active(s)&&s.Demo.Stage==BaseDemoStage.PrologueBriefing&&i?.ReporterArrived==true&&!i.ReporterLeaving?new BasePoint(i.ReporterX,i.ReporterY):new BasePoint(s.PlayerX,s.PlayerY);}
         private static void AddAhe(BaseState s)
-        {if(BaseDemoIntro.Active(s)&&!s.Demo.SceneFollowers.Any(p=>p.Id=="prologue_ahe"))s.Demo.SceneFollowers.Add(new BaseLeader{Id="prologue_ahe",Name="阿禾 · 带领村民",AppearanceId="ahe",Health=100,MaxHealth=100,HasMapPosition=true,MapX=12,MapY=10,MapRegion="base"});}
+        {if(BaseDemoIntro.Active(s)&&!s.Demo.SceneFollowers.Any(p=>p.Id=="prologue_ahe")){var marker=s.Demo.StoryScene?.Maps.Single(map=>map.Role=="village").Layout.Objects.Single(obj=>obj.Id=="intro_villager");s.Demo.SceneFollowers.Add(new BaseLeader{Id="prologue_ahe",Name="阿禾 · 带领村民",AppearanceId="ahe",Health=100,MaxHealth=100,HasMapPosition=true,MapX=marker?.X??12,MapY=marker?.Y??10,MapRegion="base"});}}
         public static bool BeginEscape(BaseState state)
         {
             if(!Village(state)||state.Demo.Stage!=BaseDemoStage.PrologueBriefing)return false;

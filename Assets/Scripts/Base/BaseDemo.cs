@@ -50,9 +50,10 @@ namespace BaseConquest.Base
         public static bool FacilityAvailable(BaseState state,string id) => !BaseDemoPrologue.Village(state)&&(!Active(state)||id!="workshop"&&id!="barracks"||BaseDemoDefense.Repaired(state,id));
         public static string Objective(BaseState state) => !Active(state) ? "" : BaseDemoIntro.Active(state)&&state.Demo.Stage==BaseDemoStage.PrologueBriefing ? BaseDemoIntro.Objective(state) : BaseDemoPrologue.Village(state) ? state.Demo.Stage==BaseDemoStage.PrologueBriefing?"当前目标：听取村民报告，与队长告别":state.Demo.Stage==BaseDemoStage.PrologueEscape?"当前目标：带村民向东撤离":state.Demo.Stage==BaseDemoStage.ProloguePursuit?"掩护村民离开，击败一名追兵并重创另一名":"序章完成 · 重伤与失踪" : state.Demo.Stage==BaseDemoStage.Waking ? "当前目标：在营帐醒来，了解新营地" : state.Demo.Stage==BaseDemoStage.VisitLord ? "当前目标：从东侧出口前往"+BaseScriptNames.Town+"，拜访领主" : BaseDemoRuins.Objective(state);
 
-        public static BaseScenarioDocument CreateOpening(BaseScenarioDocument balance,string sourceJson,bool includePrologue=false,bool release=false,bool includeIntro=false,RpgRules openingRules=null,string configHash=null)
+        public static BaseScenarioDocument CreateOpening(BaseScenarioDocument balance,string sourceJson,bool includePrologue=false,bool release=false,bool includeIntro=false,RpgRules openingRules=null,string configHash=null,BaseStoryScenePackage story=null)
         {
             if(balance==null||balance.UseOpeningRules!=true||balance.Title!="35 · 配表驱动验证"||balance.Opening?.Demo?.Version>0)throw new ArgumentException("Demo需要有效35号配表快照，不回退到26号或全局默认数值");
+            if(story!=null){if(!includePrologue||!includeIntro||release)throw new ArgumentException("剧情场景暂需完整序章与普通Demo开局");story.Validate();}
             openingRules?.Validate();
             if(!string.IsNullOrEmpty(configHash)&&(openingRules==null||configHash.Length!=64||configHash.Any(c=>!"0123456789abcdef".Contains(c))))throw new ArgumentException("Demo数值表来源哈希非法");
             balance.CreateState();
@@ -93,6 +94,7 @@ namespace BaseConquest.Base
             state.Quests=new BaseQuestState {Version=1};
             state.Campaign.Events.RemoveAll(mission=>mission.Kind=="defense");
             InstallCampMap(state);
+            if(story!=null)state.Demo.StoryScene=story.Copy();
             BaseRuinsRewards.Enable(state,openingRules?.OpeningAuxVersion==1?openingRules.OpeningRewards:null);
             if(includePrologue)BaseDemoPrologue.PrepareOpening(state);
             BaseRpg.Initialize(state,openingRules);BaseAchievements.Enable(state);

@@ -133,7 +133,8 @@ namespace BaseConquest.Base
             if (c.SettledIds.Any(string.IsNullOrWhiteSpace) || c.SettledIds.Distinct().Count() != c.SettledIds.Count || c.Reports.Any(r => r == null || string.IsNullOrWhiteSpace(r.BattleId) || !c.SettledIds.Contains(r.BattleId) || r.Day < 1 || r.Day > s.Day || new[] { r.Rounds, r.Deployed, r.Killed, r.Missing, r.Returned, r.Wounded, r.LeadersDown, r.GearLost }.Any(n => n < 0)) || c.Reports.Select(r => r.BattleId).Distinct().Count() != c.Reports.Count) throw new ArgumentException("战役结算记录非法");
             BaseThreats.Validate(s);
             c.RegionMaps??=new List<BaseRegionMap>();
-            if(c.RegionMaps.Count>(BaseSceneInstances.Active(s)?31:BaseSceneRules.Active(s)?5:4) || c.RegionMaps.Any(m=>m==null||m.Id=="perimeter"||!(BaseSceneInstances.Active(s)?c.Layouts.Any(layout=>layout.SourceMapId==m.Id&&layout.Region!="perimeter"):Locations.Contains(m.Id))||m.Board==null||m.Board.Width<6||m.Board.Width>32||m.Board.Height<6||m.Board.Height>24||m.Id=="base"&&(m.Board.Width!=24||m.Board.Height!=14)||m.Board.Cells?.Length!=m.Board.Width*m.Board.Height||m.Board.Cells.Any(cell=>cell==null||!cell.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),cell.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),cell.Zone)))||c.RegionMaps.Select(m=>m.Id).Distinct().Count()!=c.RegionMaps.Count) throw new ArgumentException("区域地图数据非法");
+            bool story=s.Demo?.StoryScene!=null;
+            if(c.RegionMaps.Count>(BaseSceneInstances.Active(s)?31:BaseSceneRules.Active(s)?5:4) || c.RegionMaps.Any(m=>m==null||m.Id=="perimeter"||!(BaseSceneInstances.Active(s)?c.Layouts.Any(layout=>layout.SourceMapId==m.Id&&layout.Region!="perimeter"):Locations.Contains(m.Id))||m.Board==null||m.Board.Width<6||m.Board.Width>(story?64:32)||m.Board.Height<6||m.Board.Height>(story?64:24)||!story&&m.Id=="base"&&(m.Board.Width!=24||m.Board.Height!=14)||m.Board.Cells?.Length!=m.Board.Width*m.Board.Height||m.Board.Cells.Any(cell=>cell==null||!cell.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),cell.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),cell.Zone)))||c.RegionMaps.Select(m=>m.Id).Distinct().Count()!=c.RegionMaps.Count) throw new ArgumentException("区域地图数据非法");
             foreach(var location in new[] {"base","world","town"}) BaseBattlefield.Board(s,location);
             BaseDesignRoutes.Validate(s);
             if(BaseBattlefield.Board(s,"world").Cells.Any(cell=>cell.Terrain!=TerrainKind.Ground||cell.Zone!=DeploymentZone.None||cell.Elevation!=0||cell.Ramp!=RampAxis.None))throw new ArgumentException("世界地图仅作区域导航，不包含战术地形或部署区");
@@ -364,7 +365,7 @@ namespace BaseConquest.Base
         }
         public static bool Rest(BaseState s, int day, Func<string, BattleScenarioDocument> resolve,bool realtime=false)
         {
-            if(BaseDemoDefense.AnyDue(s))throw new InvalidOperationException("黑鸦寨匪众已杀至营门外，此刻歇息无异引颈受戮，即刻前往迎敌战场！");
+            if(BaseDemoDefense.AnyDue(s))throw new InvalidOperationException("斥候陈安：大人，匪众已杀到营门外，这会儿歇息就是等死，快上迎敌战场！");
             BaseEconomy.Validate(s); if (s.Aftermath.GameOver || s.Day != day || s.LastCompletedDay >= day) return false;
             if (s.Campaign.HasActiveBattle || s.Muster.Parties.Any(p => p.InCombat)) throw new InvalidOperationException("先结束当前战斗");
             foreach (var e in Due(s).ToArray())
