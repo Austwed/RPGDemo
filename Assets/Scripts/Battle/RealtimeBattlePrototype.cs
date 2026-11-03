@@ -88,7 +88,7 @@ namespace BaseConquest.RealtimePrototype
         public PrototypeArena(bool[] blocked,bool[] shots,Func<int,int,bool> canCross=null,int width=Width,int height=Height)
         {
             Columns=width;Rows=height;
-            if(width<6||width>32||height<6||height>24||blocked?.Length!=Columns*Rows||shots?.Length!=Columns*Rows)throw new ArgumentException("即时战场尺寸／完整地格非法");
+            if(width<6||width>64||height<6||height>64||blocked?.Length!=Columns*Rows||shots?.Length!=Columns*Rows)throw new ArgumentException("即时战场尺寸／完整地格非法");
             walls=blocked.ToArray();shotWalls=shots.ToArray();crossing=canCross;connections=BuildConnections();
         }
         public void RefreshObstacles(bool[] movement,bool[] shots)

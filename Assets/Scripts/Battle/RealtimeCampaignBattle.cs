@@ -177,7 +177,7 @@ namespace BaseConquest.Battle
             Synchronize(true);
         }
         public static void ValidateBoard(BattleBoard board)
-        {if(board==null||board.Width<6||board.Width>32||board.Height<6||board.Height>24||board.Cells?.Length!=board.Width*board.Height)throw new ArgumentException("即时战场需原有6～32列／6～24行完整地图，不截取或改写");}
+        {if(board==null||board.Width<6||board.Width>64||board.Height<6||board.Height>64||board.Cells?.Length!=board.Width*board.Height)throw new ArgumentException("即时战场需6～64列／6～64行完整地图，不截取或改写");}
         private void ValidateIdentity(PrototypeUnit actor)
         {
             var soldier=Battle.Soldier(actor.Id-1);

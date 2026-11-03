@@ -89,7 +89,7 @@ namespace BaseConquest.Base
             if(s.Leaders.Any(l=>l!=null&&!Enum.IsDefined(typeof(SquadStrategy),l.PreferredStrategy)))throw new ArgumentException("队长策略非法");
             if(!Active(s))return;
             var memories=s.Demo.TerrainMemories??new List<BaseTerrainMemory>();
-            if(memories.Count>32||memories.Any(m=>m==null||string.IsNullOrEmpty(m.MapId)||m.Width<6||m.Width>32||m.Height<6||m.Height>24||m.Known?.Length!=m.Width*m.Height)||memories.Select(m=>m.MapId).Distinct().Count()!=memories.Count)throw new ArgumentException("已知地形记录非法");
+            if(memories.Count>32||memories.Any(m=>m==null||string.IsNullOrEmpty(m.MapId)||m.Width<6||m.Width>64||m.Height<6||m.Height>64||m.Known?.Length!=m.Width*m.Height)||memories.Select(m=>m.MapId).Distinct().Count()!=memories.Count)throw new ArgumentException("已知地形记录非法");
             var r=s.Demo.Rescue;
             if(r==null||r.Stage<0||r.Stage>3||new[]{r.FirstX,r.SecondX}.Any(v=>double.IsNaN(v)||double.IsInfinity(v)||v<0||v>=32)||new[]{r.FirstY,r.SecondY}.Any(v=>double.IsNaN(v)||double.IsInfinity(v)||v<0||v>=24))throw new ArgumentException("获救村民返城状态非法");
         }

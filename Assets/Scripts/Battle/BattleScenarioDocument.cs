@@ -35,7 +35,7 @@ namespace BaseConquest.Battle
             if (!ObjectiveKinds.Implemented(s.Objective.Kind)) throw new ArgumentException("未知或未实现的任务目标类型：" + s.Objective.Kind);
             if (s.Objective.Title == null) s.Objective.Title = "";
             if (s.Objective.Kind == ObjectiveKinds.Hold && (s.Objective.HoldRounds < 1 || s.Objective.HoldRounds > s.MaxRounds)) throw new ArgumentException("坚守回合须为1至MaxRounds");
-            if (b == null || b.Width < 6 || b.Width > 32 || b.Height < 6 || b.Height > 24 || b.Cells == null || b.Cells.Length != b.Width * b.Height) throw new ArgumentException("棋盘尺寸或Cells行优先数组不正确");
+            if (b == null || b.Width < 6 || b.Width > 64 || b.Height < 6 || b.Height > 64 || b.Cells == null || b.Cells.Length != b.Width * b.Height) throw new ArgumentException("棋盘尺寸或Cells行优先数组不正确");
             if (!s.CommanderControl || !s.MobileBattleRules) throw new ArgumentException("当前方案必须启用队级棋盘规则");
             if (b.Cell(new GridPosition(0, b.Height - 1)).Terrain != TerrainKind.Ground || b.Cell(new GridPosition(b.Width - 1, 0)).Terrain != TerrainKind.Ground) throw new ArgumentException("双方角落撤离格必须为地面");
             foreach (var c in b.Cells) if (c == null || !c.MetadataValid || !Enum.IsDefined(typeof(TerrainKind), c.Terrain) || !Enum.IsDefined(typeof(DeploymentZone), c.Zone) || !c.Walkable && c.Zone != DeploymentZone.None) throw new ArgumentException("地形／部署权限非法");

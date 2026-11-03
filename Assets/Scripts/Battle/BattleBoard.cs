@@ -43,7 +43,7 @@ namespace BaseConquest.Battle
         }
         public void EnsureValid()
         {
-            Width = Math.Max(6, Math.Min(32, Width)); Height = Math.Max(6, Math.Min(24, Height));
+            Width = Math.Max(6, Math.Min(64, Width)); Height = Math.Max(6, Math.Min(64, Height));
             if (Cells == null || Cells.Length != Width * Height)
             {
                 Cells = new BoardCell[Width * Height];
