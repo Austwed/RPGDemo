@@ -6,6 +6,11 @@ namespace BaseConquest.Base
     public static class BaseDemoNpcs
     {
         private static readonly Dictionary<string,string> NpcFallbacks=new Dictionary<string,string>{{"guard","villager"},{"survivor","ahe"},{"villager-girl","villager"},{"rescued-villager","villager"}};
+        // 剧情场景里「同名人物摆第二份」不再报错，而是落成静态人偶：留在原地、只播动作，
+        // 不接管身份、不参与任务与存档校验（2026-11-03 用户定，与美术检查台的人偶同一套行为）。
+        public const string StoryShellPrefix="story-shell:";
+        public static bool IsStoryShell(BaseMapObject obj)=>obj!=null&&obj.Kind=="npc"&&obj.Id!=null&&obj.Id.StartsWith(StoryShellPrefix,StringComparison.Ordinal);
+        public static bool IsStoryShell(BaseMapPlacement obj)=>obj!=null&&obj.Kind=="npc"&&obj.Id!=null&&obj.Id.StartsWith(StoryShellPrefix,StringComparison.Ordinal);
         public static string ResolveNpcArt(string id,bool portrait=false,string fallback=null)
         {
             if(!NpcFallbacks.TryGetValue(id,out var defaultArt))return id;

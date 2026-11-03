@@ -193,6 +193,8 @@ namespace BaseConquest.Base
                     var feet=WorldPoint(obj.X,obj.Y);if(!string.IsNullOrEmpty(obj.Shape))feet.y=WorldPoint(obj.Parts[0].X,obj.Parts[0].Y).y;
                     var authored=BaseConquest.Presentation.AuthoredMapView.Create(obj.Kind=="npc"?explorationActors:landmarks,obj,feet,mapMaterial,regionView.ObliqueExploration);
                     if(obj.Kind=="npc")npcViews.Add(authored);
+                    // 剧情人偶与美术检查台同规格：原地待机、可被交互切动作，顺带把视图登记进 motionViews。
+                    if(BaseDemoNpcs.IsStoryShell(obj)){authored.Preview(HeroPose.Idle);motionViews[obj.Id]=authored;}
                 }
                 else
                 {

@@ -87,6 +87,24 @@ namespace BaseConquest.Editor
             var ruinsBoard = play.Campaign.RegionMaps.Single(map => map.Id == "outpost").Board;
             Need(ruinsBoard.Width == package.Map("ruins").Board.Width && ruinsBoard.Height == package.Map("ruins").Board.Height, "遗迹战斗没有用设计地格");
             Debug.Log($"[Play] 遗迹战斗已用设计场地开战：{ruinsBoard.Width}×{ruinsBoard.Height}，敌军 {session.Battle.Soldiers.Count(unit => unit.Side != BattleSide.A)} 人");
+
+            // 重复人物落成「人偶」：设计里摆第二份同名人物时不报错，安装后应保留为静态壳——
+            // 身份空、不阻挡、不接管任务，只留在原地供交互播动作（2026-11-03 用户定）。
+            var withShell = JsonUtility.FromJson<BaseStoryScenePackage>(File.ReadAllText(packageFile));
+            var villageMap = withShell.Map("village");
+            var captain = villageMap.Layout.Objects.Single(obj => obj.Id == "demo_captain");
+            var shell = captain.Copy();
+            shell.Id = BaseDemoNpcs.StoryShellPrefix + "captain-copy";
+            shell.SourceObjectId = "captain-copy"; shell.VisualOnly = true;
+            shell.X = captain.X + 2; shell.Y = captain.Y;
+            villageMap.Layout.Objects.Add(shell);
+            withShell.Validate();
+            var shellState = BaseDemo.CreateOpening(balance, json, true, false, true, config.Rules, config.WorkbookSha256, withShell).CreateState();
+            var installedShell = shellState.Campaign.Layouts.Single(map => map.Region == "base").Objects.Single(obj => obj.Id == shell.Id);
+            Need(BaseDemoNpcs.IsStoryShell(installedShell), "重复人物没有落成可交互人偶");
+            Need(installedShell.Kind == "npc" && installedShell.VisualOnly, "人偶不该接管人物身份或阻挡通行");
+            Need(Math.Abs(installedShell.X - shell.X) < 1e-6 && Math.Abs(installedShell.Y - shell.Y) < 1e-6, "人偶没有留在设计坐标");
+            Debug.Log($"[Play] 重复人物落成人偶：{installedShell.Name} @ {installedShell.X},{installedShell.Y}，图集 {installedShell.AssetId}");
         }
 
         private static void At(BaseState state, string id)

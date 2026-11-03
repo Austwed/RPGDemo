@@ -302,6 +302,20 @@ namespace BaseConquest.Base
         public void OpenObject(string id)
         {
             if (owner.State == null) return;
+            // 剧情场景里的第二份同名人物落成「人偶」：与美术检查台同一套交互——站在原地不动，
+            // 只在面板里选待机／行走／攻击，不弹对白、不推进剧情、不进存档（2026-11-03 用户定）。
+            if(id!=null&&id.StartsWith(BaseDemoNpcs.StoryShellPrefix,StringComparison.Ordinal))
+            {
+                var shell=owner.PresentedObject(id);
+                if(shell==null)return;
+                if(owner.PlayerAway||!BaseInteraction.CanReach(owner.State,shell)){owner.ReportMessage("请走到人物旁边一格以内再交互");return;}
+                string shellArt=shell.AssetId;activeObject=id;interactionObject="";BeginPanel(shell.Name);
+                Line("场景人偶 · 只播放动作，不说话也不推进剧情",42,19);
+                RowButton("待机",0,800,()=>owner.SetMotionCheck(id,HeroPose.Idle));row+=60;
+                if(BaseConquest.Presentation.PixelDemoArt.HasWalk(shellArt)){RowButton("行走",0,800,()=>owner.SetMotionCheck(id,HeroPose.Walk));row+=60;}
+                if(BaseConquest.Presentation.PixelDemoArt.HasAttack(shellArt)){RowButton("攻击",0,800,()=>owner.SetMotionCheck(id,HeroPose.Attack));row+=60;}
+                EndPanel();return;
+            }
             if(owner.MapObjects.Any(o=>o.Id==id&&o.VisualOnly)){owner.ReportMessage("仅场景外观／待接入内容，当前不可使用");return;}
             if(BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             if(owner.PlayerAway||!BaseInteraction.CanReach(owner.State,owner.PresentedObject(id))){owner.ReportMessage("请在设施边缘一格以内、与地基同层交互");return;}
