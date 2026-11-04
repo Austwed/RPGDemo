@@ -21,7 +21,7 @@ namespace BaseConquest.Base
                 RowButton("详细信息",350,130,()=>OpenPersonnelDetail(key,stamp));row+=80;
             }
             RowButton("上一页",-290,240,()=>{personnelPage--;OpenBarracks();},personnelPage>0);RowButton("第 "+(personnelPage+1)+"／"+pages+" 页",0,240,()=>{},false);RowButton("下一页",290,240,()=>{personnelPage++;OpenBarracks();},personnelPage+1<pages);row+=60;
-            Line(UnitDisplayNames.Mark("黄色姓名",true)+"：通过劝降加入。仅标记来源，工作、休养、编队与战斗规则相同。",70,18);
+            Line(UnitDisplayNames.Mark("黄色姓名",true)+"：通过劝降加入。仅标记来源，工作、伤情、编队与战斗规则相同。",70,18);
         }
         private void OpenHeldPrisoners()
         {
@@ -42,10 +42,6 @@ namespace BaseConquest.Base
             BeginPanel("兵营 · 单位详情","personnel:"+key);
             RowButton(back==null?"返回名册":"返回对话",-210,400,back??(()=>{activePage="roster";OpenBarracks();}));
             if(u==null){row+=60;Line("人员安排已变化，请从名册重新选择。",80);EndPanel();return;}
-            RowButton(u.IsLeader ? "队长每日自然恢复" : u.Resting ? "停止休养" : "选择休养",210,400,()=>
-            {
-                owner.Change(next=>{if(BaseMuster.Snapshot(next)!=stamp)throw new InvalidOperationException("人员已变化，请重新选择");bool ok=u.IsLeader ? BaseDevelopment.RestLeader(next,u.LeaderId,!u.Resting) : BaseDevelopment.RestWorkers(next,u.BucketIndex,1,!u.Resting);if(!ok)throw new InvalidOperationException("此人无法休养");},"已更新此单位休养");activePage="roster";OpenBarracks();
-            },!u.IsLeader&&!u.Away&&u.Health>0&&(u.Resting||u.Health<u.MaxHealth));row+=60;
             if(u.IsLeader){RowButton("管理员安排",0,800,()=>OpenPartner(u.LeaderId),!u.Away&&u.Health>0);row+=60;}
             Line(u.Name+" · "+BattleSimulation.KindName(u.Kind),52,24);Line("生命 "+u.Health.ToString("0.#")+" / "+u.MaxHealth.ToString("0.#"),46);
             if(u.IsLeader){bool following=BaseAdventure.Contains(s,u.LeaderId);RowButton(following?"人物与背包":"到基地仓库管理此人背包",0,800,()=>{gearLeader=u.LeaderId;OpenPersonalEquipment();},following);row+=56;}

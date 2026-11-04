@@ -25,10 +25,16 @@ namespace BaseConquest.Base
             double baseValue = s?.Development?.RecoveryFraction ?? .3;
             return Math.Max(.01, Math.Min(1, baseValue + CampRecoveryStep * (level - 1)));
         }
-        public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.Away && !w.Resting && w.Health > 0 && w.UnavailableDay != s.Day;
+        // 2026-11-04 拍板（伤员三档，阈值一律不带等号）：
+        // 士兵生命 <50% 不能主动出战但可照常工作；<20% 强制空闲（不能工作也不能战斗）；
+        // 队长不受血量阈值限制；「一经战斗当天禁工」摘除（UnavailableDay 只保留排序等非生产用途）；
+        // 恢复改为营内全员每日自动进行（选A），Resting 退化为「重伤闲置」的派生标记，不再是玩家操作。
+        public const double FightThreshold = .5, IdleThreshold = .2;
+        public static bool HeavilyWounded(BaseWorkerBucket w) => w.Health > 0 && w.Health < w.MaxHealth * IdleThreshold;
+        public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * IdleThreshold;
         public static bool CanManage(BaseState s, BaseLeader l) => !l.Away && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && !BaseTraining.Busy(l.Training) && l.Health > 0;
-        public static bool Effective(BaseState s, BaseLeader l) => CanManage(s,l) && l.UnavailableDay != s.Day;
-        public static bool CanFight(BaseWorkerBucket w) => !w.Away && !w.Resting && w.Health > 0;
+        public static bool Effective(BaseState s, BaseLeader l) => CanManage(s,l);
+        public static bool CanFight(BaseWorkerBucket w) => !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * FightThreshold;
         public static bool CanFight(BaseLeader l) => !l.Away && BaseAdventure.Alive(l) && !BaseTraining.Busy(l.Training) && l.Health > 0;
         public static double Efficiency(BaseWorkerBucket w, string facility) => facility == "farm" ? w.FarmEfficiency : w.WorkshopEfficiency;
         public static double Bonus(BaseLeader l, string facility) => BaseRpg.ProductionBonus(l,facility);
@@ -37,6 +43,9 @@ namespace BaseConquest.Base
         public static void Normalize(BaseState s)
         {
             var d = s.Development;
+            // 旧档迁移：Resting 由「玩家手动休养」改为「重伤闲置」派生标记，统一按 <20% 重算（幂等）。
+            // 只重算营内工人：外出幸存者在返营流程里先清 Away 再置标记，这里抢先置会构成「外出且休养」非法态。
+            foreach (var w in s.Workers.Where(x => x != null)) if (w.MaxHealth > 0 && w.Health > 0 && !w.Away) w.Resting = w.Health < w.MaxHealth * IdleThreshold;
             // 版本 1 的旧档存的是“每日固定生命”（旧量纲），升级为按最大生命比例，比例取默认 30%。
             if (d != null && d.Version == 1) { d.Version = 2; if (!(d.RecoveryFraction > 0 && d.RecoveryFraction <= 1)) d.RecoveryFraction = .3; return; }
             if (d != null && d.Version != 0) return;
@@ -165,13 +174,8 @@ namespace BaseConquest.Base
         }
         public static bool RestWorkers(BaseState s, int index, int count, bool resting)
         {
-            if (index < 0 || index >= s.Workers.Count || count <= 0) return false;
-            var source = s.Workers[index];
-            if (source.Away || source.Health <= 0 || count > source.Count || resting && source.Health >= source.MaxHealth) return false;
-            var w = source.Copy(); source.Count -= count; w.Count = count; w.Resting = resting;
-            if (source.Resting || resting) w.UnavailableDay = s.Day;
-            if (resting) w.FacilityId = "";
-            s.Workers.Add(w); Allocate(s); return true;
+            // 2026-11-04 选A：休养不再是玩家操作——恢复全员自动、Resting 由血量派生。旧入口保留但一律拒绝。
+            return false;
         }
         public static int Recover(BaseState s)
         {
@@ -179,8 +183,9 @@ namespace BaseConquest.Base
             double ratio = RecoveryRatio(s);
             foreach (var l in s.Leaders.Where(l => BaseAdventure.Alive(l) && l.Health > 0 && l.Health < l.MaxHealth))
             { l.Health = Math.Min(l.MaxHealth, l.Health + l.MaxHealth * ratio); l.Resting = false; count++; }
-            foreach (var w in s.Workers.Where(w => w.Resting && !w.Away && w.Health > 0))
-            { w.Health = Math.Min(w.MaxHealth, w.Health + w.MaxHealth * ratio); count += w.Count; if (w.Health == w.MaxHealth) w.Resting = false; }
+            // 2026-11-04 选A：恢复不再是休养专属——营内所有伤兵每天自动恢复；Resting 只作重伤闲置标记。
+            foreach (var w in s.Workers.Where(w => !w.Away && w.Health > 0 && w.Health < w.MaxHealth))
+            { w.Health = Math.Min(w.MaxHealth, w.Health + w.MaxHealth * ratio); count += w.Count; w.Resting = w.Health < w.MaxHealth * IdleThreshold; }
             return count;
         }
     }

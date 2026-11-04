@@ -258,7 +258,7 @@ namespace BaseConquest.Base
             {
                 var source = s.Workers[take.BucketIndex]; string sourceId = prefix + index++;
                 party.Sources.Add(new BaseMusterSource { Id = sourceId, Kind = source.Kind, FacilityId = source.DesiredFacility != "" ? source.DesiredFacility : source.FacilityId, Taken = take.Count });
-                source.Count -= take.Count; var away = source.Copy(); away.Count = take.Count; away.Away = true; away.FacilityId = ""; away.PartyId = party.Id; away.SourceId = sourceId; away.UnavailableDay = s.Day; s.Workers.Add(away);
+                source.Count -= take.Count; var away = source.Copy(); away.Count = take.Count; away.Away = true; away.FacilityId = ""; away.PartyId = party.Id; away.SourceId = sourceId; away.UnavailableDay = s.Day; away.Resting = false; s.Workers.Add(away);
             }
             s.Workers.RemoveAll(w => w.Count == 0);
         }

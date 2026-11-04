@@ -71,7 +71,7 @@ namespace BaseConquest.Base
             MakeButton(header, "菜单", new Vector2(-90, -36), new Vector2(140, 48), OpenMenu, new Vector2(1, 1));
             DemoUiIcons.Attach(MakeButton(header, "背包", new Vector2(-270, -36), new Vector2(86, 44), ToggleBackpack, new Vector2(1, 1)),"equipment");
             DemoUiIcons.Attach(MakeButton(header, "任务", new Vector2(-364, -36), new Vector2(86, 44), ToggleQuests, new Vector2(1, 1)),"quest");
-            reserveRules=MakeButton(header,"i",new Vector2(-194,-36),new Vector2(44,44),()=>RuleInfo("资源与人员信息","基地总兵力统计全部己方士兵，包含驻外、在岗、闲置与休养士兵；不包含主角、伙伴队长和未招降俘虏。\n\n括号内是按当前岗位预计的一日净变化：正值红色、负值绿色、零为中性色。粮食扣除全部人员口粮，原料扣除工坊耗料，钱币扣除旅店寄存日费；主动住宿费在休息确认时另列。军需显示两档总量，库存页可查看品质拆分。\n\n姓名为黄色表示通过劝降加入，只标记来源，工作、休养、编队和作战规则相同。\n\n格子信息3秒自动收起，点击信息面板可立即收起；兵营完整单位详情保持打开。",ClosePanel),new Vector2(1,1));
+            reserveRules=MakeButton(header,"i",new Vector2(-194,-36),new Vector2(44,44),()=>RuleInfo("资源与人员信息","基地总兵力统计全部己方士兵，包含驻外、在岗、闲置与重伤士兵；不包含主角、伙伴队长和未招降俘虏。\n\n括号内是按当前岗位预计的一日净变化：正值红色、负值绿色、零为中性色。粮食扣除全部人员口粮，原料扣除工坊耗料，钱币扣除旅店寄存日费；主动住宿费在休息确认时另列。军需显示两档总量，库存页可查看品质拆分。\n\n姓名为黄色表示通过劝降加入，只标记来源，工作、伤情、编队和作战规则相同。\n\n格子信息3秒自动收起，点击信息面板可立即收起；兵营完整单位详情保持打开。",ClosePanel),new Vector2(1,1));
             regionStatus = Label(header, "", new Vector2(220, 17), new Vector2(404, 28), 17, TextAnchor.MiddleLeft, new Vector2(0, 0));
             regionStatus.raycastTarget=true;var threatLink=regionStatus.gameObject.GetOrAdd<Button>();threatLink.targetGraphic=regionStatus;threatLink.onClick.AddListener(()=>{if(owner.State!=null&&!owner.Busy)OpenThreatOverview();});
             feedback = Label(header, "", Vector2.zero, Vector2.zero, 17);
@@ -452,7 +452,7 @@ namespace BaseConquest.Base
             Line("工坊：" + Math.Max(1,r.ProductLevel) + "级" + BaseEconomy.ProductName(r.Product) + " +" + r.ProductsMade + "；原料 -" + r.MaterialsSpent);
             Line("昨天生产效率：" + (r.ProductionFactor * 100).ToString("0.#") + "%");
             Line("今天口粮：需要" + r.FoodRequired + "／已供" + r.FoodConsumed + "／缺少" + r.FoodMissing);
-            Line("昨日恢复生命：" + r.PeopleRecovered + "人（队长自然恢复／士兵休养）");
+            Line("昨日恢复生命：" + r.PeopleRecovered + "人（全员自动恢复）");
             CampaignReports();
             Line(r.FoodMissing > 0 ? "今天缺粮会降低产能，人员不会直接死亡。增加粮田人数可恢复供给。" : "今天粮草充足。关闭报告可继续安排工作。", 78);
         }

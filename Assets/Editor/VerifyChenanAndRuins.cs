@@ -15,7 +15,7 @@ namespace BaseConquest.Editor
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();
-            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();
+            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyInjuryTiers();
             Debug.Log("[VerifyChenanAndRuins] regression PASS");
         }
         // P20（01C §8.5.1）：带伤应答只看主角当前生命是否低于 60%，满血与阵亡都不触发。
@@ -51,6 +51,48 @@ namespace BaseConquest.Editor
             Need(Math.Abs(BattleHeightSight.ArcherBonus(board,3.5,3.5,5.5,5.5))<1e-9,"从低处打高处不应有加成");
             Need(Math.Abs(BattleHeightSight.ArcherBonus(board,5.5,5.5,1.5,1.5)-6)<1e-9,"高差 3 级应封顶 +6 细格（合 +3 粗格）");
             Debug.Log("[Height] 视野 14（高度2）、平射 0、高差2 +4细格、低打高 0、高差3 封顶 +6细格");
+        }
+        // 伤员三档（2026-11-04 拍板，阈值一律不带等号）：
+        // 兵 HP<50% 不能主动出战但可工作；HP<20% 强制空闲；队长豁免；
+        // 「一经战斗当天禁工」摘除；恢复选A＝营内全员每日自动恢复；Resting 退化为重伤闲置派生标记。
+        public static void VerifyInjuryTiers()
+        {
+            var s=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
+            BaseDevelopment.Normalize(s);
+            s.Workers.Clear();
+            s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,MaxHealth=100,Health=100,FarmEfficiency=1,WorkshopEfficiency=1});
+            var w=s.Workers[0];
+            w.Health=51;Need(BaseDevelopment.Effective(s,w)&&BaseDevelopment.CanFight(w),"生命 51% 应可工可战");
+            w.Health=50;Need(BaseDevelopment.Effective(s,w)&&BaseDevelopment.CanFight(w),"生命正好 50% 应可战（阈值不带等号）");
+            w.Health=49;Need(BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w),"生命 49% 应可工不可战");
+            w.Health=20;Need(BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w),"生命正好 20% 应可工不可战（阈值不带等号）");
+            w.Health=19;Need(!BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w),"生命 19% 应强制空闲");
+            BaseDevelopment.Normalize(s);
+            Need(w.Resting,"重伤士兵应带闲置（Resting）标记");
+            // 当天返岗：UnavailableDay 生产禁令已摘除，返营／招降当天即可排班。
+            w.Health=100;w.Resting=false;w.UnavailableDay=s.Day;
+            Need(BaseDevelopment.Effective(s,w),"当天返营／招降的士兵应可立即排班（生产禁令已摘除）");
+            w.UnavailableDay=0;
+            // 队长豁免：不受任何血量阈值限制（夹具：临时清掉随行/外出状态再断言）。
+            var l=s.Leaders.First(x=>BaseAdventure.Alive(x)&&x.Health>0&&!BaseTraining.Busy(x.Training));
+            bool wasMember=s.Adventure.Members.Remove(l.Id),wasAway=l.Away;l.Away=false;
+            Need(BaseDevelopment.CanManage(s,l),"夹具队长应满足管理条件");
+            Need(BaseDevelopment.CanFight(l)&&BaseDevelopment.Effective(s,l),"满血队长应可战可工");
+            l.Health=l.MaxHealth*.1;
+            Need(BaseDevelopment.CanFight(l)&&BaseDevelopment.Effective(s,l),"队长应不受血量阈值限制");
+            l.Health=l.MaxHealth;l.Away=wasAway;if(wasMember)s.Adventure.Members.Add(l.Id);
+            // 恢复选A：未选择休养的伤兵同样每日恢复；越过 20% 解除闲置标记。
+            w.Health=10;BaseDevelopment.Normalize(s);Need(w.Resting,"10% 士兵应处于重伤闲置");
+            BaseDevelopment.Recover(s);
+            double expected=Math.Min(w.MaxHealth,10+w.MaxHealth*BaseDevelopment.RecoveryRatio(s));
+            Need(Math.Abs(w.Health-expected)<1e-6,"全员自动恢复量不符：10 → "+w.Health.ToString("0.##")+"（应 "+expected.ToString("0.##")+"）");
+            Need(!w.Resting,"恢复越过 20% 应解除重伤闲置标记");
+            w.Health=30;BaseDevelopment.Recover(s);
+            Need(Math.Abs(w.Health-Math.Min(w.MaxHealth,30+w.MaxHealth*BaseDevelopment.RecoveryRatio(s)))<1e-6,"轻伤未休养士兵也应过夜恢复（选A）");
+            Need(BaseDevelopment.CanFight(w),"恢复越过 50% 后应可重新出战");
+            // 手动休养入口已关闭（恢复全员自动，Resting 由血量派生）。
+            Need(!BaseDevelopment.RestWorkers(s,0,1,true),"手动休养入口应一律拒绝");
+            Debug.Log("[InjuryTiers] 50%/20% 不带等号、队长豁免、当天返岗、全员自动恢复、休养入口关闭 PASS");
         }
         private static void At(BaseState state,string id)
         {

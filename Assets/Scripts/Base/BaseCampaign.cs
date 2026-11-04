@@ -312,7 +312,7 @@ namespace BaseConquest.Base
                 bool lost = unit != null && (unit.InstantDead || !a.DemoCombat && lostField && !unit.Escaped && !unit.Rescued);
                 if (unit != null) r.Deployed++;
                 if (lost) { if (unit.InstantDead) r.Killed++; else r.Missing++; }
-                else { var survivor = snapshot.Copy(); survivor.Health = unit == null ? snapshot.Health : Math.Max(1, Math.Min(snapshot.MaxHealth, unit.Health)); if (unit != null && !unit.IsAlive && !a.DemoCombat) forcedRest.Add(survivor); survivors.Add(survivor); r.Returned++; if (survivor.Health < survivor.MaxHealth) r.Wounded++; }
+                else { var survivor = snapshot.Copy(); survivor.Health = unit == null ? snapshot.Health : Math.Max(1, Math.Min(snapshot.MaxHealth, unit.Health)); if (unit != null && !a.DemoCombat && survivor.Health < survivor.MaxHealth * BaseDevelopment.IdleThreshold) forcedRest.Add(survivor); survivors.Add(survivor); r.Returned++; if (survivor.Health < survivor.MaxHealth) r.Wounded++; }
                 if (unit != null)
                 {
                     if (snapshot.Kind == BaseTroopKind.Melee) { if (lost) outcome.LostMelee++; else outcome.SafeMelee++; }
@@ -334,7 +334,7 @@ namespace BaseConquest.Base
             int gear = s.Inventory.Equipment.Sum(x => x.Count);
             s.Campaign.HasActiveBattle = false; s.Campaign.ActiveBattle = new BaseCampaignBattle();
             BaseWine.Finish(s,session);
-            // 先清除外出状态再设置休养，避免“外出且休养”的中间状态被军需验证拒绝，导致战报无法返营。
+            // 先清除外出状态再置重伤闲置标记，避免“外出且休养”的中间状态被军需验证拒绝，导致战报无法返营。
             bool keepExpedition=BaseWorldJourney.Active(s)&&returning.Purpose=="expedition"&&a.EventId!=BaseDemoRuins.EventId;
             if (!BaseSupply.Finish(s, a.Id, outcome) || !keepExpedition&&!BaseMuster.Return(s, a.PartyId, w=> {if(forcedRest.Contains(w))w.Resting=true;})) throw new InvalidOperationException("未能回写真实军需／返营");
             r.GearLost = gear - s.Inventory.Equipment.Sum(x => x.Count);

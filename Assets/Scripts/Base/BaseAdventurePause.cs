@@ -90,9 +90,9 @@ namespace BaseConquest.Base
             foreach(var worker in s.Workers.Where(w=>w.HeldBy==p.LeaderId))
             {
                 var source=p.Sources.Single(item=>item.Id==worker.HeldSourceId);
-                worker.Away=party!=null;worker.PartyId=party?.Id??"";worker.SourceId=party!=null?source.Id:"";worker.DesiredFacility=source.FacilityId;worker.FacilityId="";worker.UnavailableDay=s.Day;
+                worker.Away=party!=null;worker.PartyId=party?.Id??"";worker.SourceId=party!=null?source.Id:"";worker.DesiredFacility=source.FacilityId;worker.FacilityId="";worker.UnavailableDay=s.Day;if(party!=null)worker.Resting=false;
                 if(party!=null&&!party.Sources.Any(item=>item.Id==source.Id))party.Sources.Add(source.Copy());
-                if(party==null&&worker.Health<=1)worker.Resting=true;
+                if(party==null)worker.Resting=worker.Health<worker.MaxHealth*BaseDevelopment.IdleThreshold;
                 if(party==null)worker.PartyOrder=0;
                 worker.HeldBy=worker.HeldSourceId="";
             }

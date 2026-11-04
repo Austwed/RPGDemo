@@ -23,7 +23,7 @@ namespace BaseConquest.Base
             bool valid=existing!=null ? purpose!="expedition"||existing.Leaders.Any(l=>l.LeaderId==s.PlayerLeaderId) : plan!=null&&plan.Leaders.Count>0&&(bypass||plan.Production?.Allowed==true)&&(purpose!="expedition"||plan.Leaders.Contains(s.PlayerLeaderId));
             RowButton(eventId==null ? BaseDemoDefense.Enabled(s)&&s.Campaign.Location=="perimeter"&&location=="perimeter"?"确认队伍并选择军需":"确认队伍并进入区域" : "确认队伍并开战",-290,270,()=>{if(eventId==null)owner.CompleteTravel(location,captured);else owner.LaunchCampaign(eventId,mode,captured);},valid);
             RowButton("返回",0,270,()=>{if(existing!=null)OpenMenu();else OpenDeparture(location,eventId,mode,bypass);});
-            RowButton("规则 i",290,270,()=>RuleInfo("逐兵选取规则","点击兵种展开名单，可逐个勾选；加减与名单共用同一选择，不能超出真实可调人数。表内显示基础攻防、当前／最大生命、设施与今天的生产资格；休养、外出或无法行动者不可选。生产优先需要保障三天正常开工，作战优先可抽调生产人员；兵力按队长预设先后填补。实际出征时再计算军需与临时效果。进入世界地图即出征，走到节点进入区域，迎战在原区域内开战。",()=>OpenDepartureReview(location,eventId,mode,bypass)));row+=64;
+            RowButton("规则 i",290,270,()=>RuleInfo("逐兵选取规则","点击兵种展开名单，可逐个勾选；加减与名单共用同一选择，不能超出真实可调人数。表内显示基础攻防、当前／最大生命、设施与今天的生产资格；生命低于50%、外出或无法行动者不可选。生产优先需要保障三天正常开工，作战优先可抽调生产人员；兵力按队长预设先后填补。实际出征时再计算军需与临时效果。进入世界地图即出征，走到节点进入区域，迎战在原区域内开战。",()=>OpenDepartureReview(location,eventId,mode,bypass)));row+=64;
             if(existing!=null)
             {
                 int carried=s.Workers.Where(w=>w.PartyId==existing.Id&&w.Away).Sum(w=>w.Count);

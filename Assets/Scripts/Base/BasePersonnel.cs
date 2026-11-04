@@ -16,13 +16,13 @@ namespace BaseConquest.Base
     public static class BasePersonnel
     {
         public static string LeaderName(BaseLeader l)=>UnitDisplayNames.Mark(l.Name,l.Recruited);
-        public static string State(BaseState s,BaseLeader l)=>!BaseAdventure.Alive(l)||l.Health<=0 ? l.Fate=="dead" ? "已阵亡" : l.Fate=="missing" ? "失联／未救出" : "无法行动" : BaseInn.Guest(s,l.Id)!=null ? (BaseInn.Guest(s,l.Id).Free?BaseScriptNames.Village+"扎营 · 留队":"旅店寄存")+(BaseInn.Guest(s,l.Id).Debt>0?" · 欠费"+BaseInn.Guest(s,l.Id).Debt+"金币":"") : BaseAdventure.PauseFor(s,l.Id)!=null?"暂离 · 保留队伍名额":l.Away ? "外出" : BaseAdventure.Contains(s,l.Id) ? "冒险小队 · 随行" : BaseDevelopment.Effective(s,l) ? l.FacilityId=="" ? "闲置 · 今日可生产" : BaseEconomy.FacilityName(l.FacilityId)+"管理员" : l.FacilityId!=""?BaseEconomy.FacilityName(l.FacilityId)+"管理员 · 今日不生产，次日生效":"今日不生产";
+        public static string State(BaseState s,BaseLeader l)=>!BaseAdventure.Alive(l)||l.Health<=0 ? l.Fate=="dead" ? "已阵亡" : l.Fate=="missing" ? "失联／未救出" : "无法行动" : BaseInn.Guest(s,l.Id)!=null ? (BaseInn.Guest(s,l.Id).Free?BaseScriptNames.Village+"扎营 · 留队":"旅店寄存")+(BaseInn.Guest(s,l.Id).Debt>0?" · 欠费"+BaseInn.Guest(s,l.Id).Debt+"金币":"") : BaseAdventure.PauseFor(s,l.Id)!=null?"暂离 · 保留队伍名额":l.Away ? "外出" : BaseAdventure.Contains(s,l.Id) ? "冒险小队 · 随行" : BaseDevelopment.Effective(s,l) ? l.FacilityId=="" ? "闲置 · 今日可生产" : BaseEconomy.FacilityName(l.FacilityId)+"管理员" : "训练中";
         private static void Effects(BaseState s,BasePersonnelUnit unit,string party)
         {
             var q=s.Supply.Quotas.FirstOrDefault(q=>q.PartyId==party&&!string.IsNullOrEmpty(party));
             double factor=q?.AttackFactor??BaseEconomy.AttackFactor(s),weapon=unit.IsLeader ? 0 : unit.Kind==SoldierKind.Ranged ? q?.BowBonus??0 : q?.SwordBonus??0,armor=unit.IsLeader ? 0 : q?.ArmorBonus??0;
             unit.Current=unit.Basic.Clone();unit.Current.Damage=(float)((unit.Basic.Damage+weapon)*factor);unit.Current.Defense+=(float)armor;
-            unit.Effects=ProvisionEffects.Summary(unit.Kind,factor,weapon,armor,q!=null)+"／今日生产效率×"+BaseEconomy.ProductionFactor(s).ToString("0.##")+(unit.Resting ? "／休养：过夜恢复最大生命的"+(BaseDevelopment.RecoveryRatio(s)*100).ToString("0")+"%" : "");
+            unit.Effects=ProvisionEffects.Summary(unit.Kind,factor,weapon,armor,q!=null)+"／今日生产效率×"+BaseEconomy.ProductionFactor(s).ToString("0.##")+(unit.IsLeader?"":"／过夜恢复最大生命的"+(BaseDevelopment.RecoveryRatio(s)*100).ToString("0")+"%（满血停止）");
             if(unit.IsLeader&&unit.Health>0)unit.Effects+="／每日自然恢复最大生命的"+(BaseDevelopment.RecoveryRatio(s)*100).ToString("0")+"%（满血停止）";
         }
         public static IEnumerable<BasePersonnelUnit> Units(BaseState s)
@@ -39,7 +39,7 @@ namespace BaseConquest.Base
                 var w=s.Workers[i];var stats=w.HasCombatProfile ? w.CombatStats.Clone() : new ArmyDefinition().Stats(BaseCampaign.ToBattle(w.Kind)).Clone();stats.Health=(float)w.MaxHealth;
                 for(int n=0;n<w.Count;n++)
                 {
-                    var u=new BasePersonnelUnit {Key="soldier:"+i+":"+n,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+(++number),w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),State=w.Away ? "外出" : w.Health<=0 ? "无法行动" : w.Resting ? "休养" : BaseDevelopment.Effective(s,w) ? "今日可生产" : "今日不生产",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
+                    var u=new BasePersonnelUnit {Key="soldier:"+i+":"+n,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+(++number),w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),State=w.Away ? "外出" : w.Health<=0 ? "无法行动" : w.Resting ? "重伤 · 强制空闲" : BaseDevelopment.Effective(s,w) ? w.Health<w.MaxHealth*BaseDevelopment.FightThreshold ? "轻伤 · 可生产" : "今日可生产" : "今日不生产",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
                     Effects(s,u,w.PartyId);yield return u;
                 }
             }

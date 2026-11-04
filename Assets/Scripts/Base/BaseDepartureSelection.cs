@@ -32,7 +32,7 @@ namespace BaseConquest.Base
                 var w=entry.Worker;
                 var stats=w.HasCombatProfile ? w.CombatStats.Clone() : new ArmyDefinition().Stats(BaseCampaign.ToBattle(kind)).Clone();
                 stats.Health=(float)w.MaxHealth;
-                string reason=w.Away ? "已外出" : w.Health<=0 ? "无法行动" : w.Resting ? "休养中" : "";
+                string reason=w.Away ? "已外出" : w.Health<=0 ? "无法行动" : w.Health<w.MaxHealth*BaseDevelopment.FightThreshold ? "伤重不宜出战" : "";
                 for(int n=0;n<w.Count;n++) yield return new BaseSoldierRow {Pick=new BaseSoldierPick {BucketIndex=entry.Index,Ordinal=n},Kind=kind,Stats=stats,
                     Health=w.Health,MaxHealth=w.MaxHealth,Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),EffectiveWorker=BaseDevelopment.Effective(s,w),Recruited=w.Recruited,UnavailableReason=reason};
             }
@@ -113,7 +113,7 @@ namespace BaseConquest.Base
             string reason="";while(trial.Count(s,kind)<30&&trial.Adjust(s,kind,1,bypass,out reason)) {}
             int limit=trial.Count(s,kind);
             if(limit==30)reason="每种兵最多携带30人";
-            else if(limit>=ready)reason="没有更多可出战人员（休养、外出者不能随队）";
+            else if(limit>=ready)reason="没有更多可出战人员（生命低于50%、外出者不能随队）";
             return new BaseDepartureCapacity {Selected=selected,Ready=ready,Limit=limit,Reserved=Math.Max(0,ready-limit),Reason=reason};
         }
         public bool CanToggle(BaseState s,BaseSoldierPick pick,bool bypass,out string reason) => Copy().Toggle(s,pick,bypass,out reason);
