@@ -62,6 +62,8 @@ namespace BaseConquest.Base
     [Serializable] public sealed class BaseEnemyMember
     {
         public string Id, Name;
+        // 队长立绘（PixelDemoArt 的 cast id）。随机入侵复用已有队长形象，普通兵留空。
+        public string Appearance="";
         public RpgCharacter Rpg;
         public SoldierKind Kind;
         public int CommanderSlot;
@@ -73,7 +75,7 @@ namespace BaseConquest.Base
         public bool IsAlien,IsAwakened,IsControlled;
         public SoldierStats Stats = new SoldierStats();
         public BasePersonalLoadout Equipment;
-        public BaseEnemyMember Copy() => new BaseEnemyMember { Rpg=Rpg?.Copy(),Id=Id, Name=Name, Kind=Kind, CommanderSlot=CommanderSlot, PresetSlot=PresetSlot, Deployment=Deployment?.Copy(), Health=Health, KnockedDown=KnockedDown,Dead=Dead,IsAlien=IsAlien,IsAwakened=IsAwakened,IsControlled=IsControlled, Stats=Stats.Clone(),Equipment=Equipment?.Copy() };
+        public BaseEnemyMember Copy() => new BaseEnemyMember { Rpg=Rpg?.Copy(),Id=Id, Name=Name, Appearance=Appearance, Kind=Kind, CommanderSlot=CommanderSlot, PresetSlot=PresetSlot, Deployment=Deployment?.Copy(), Health=Health, KnockedDown=KnockedDown,Dead=Dead,IsAlien=IsAlien,IsAwakened=IsAwakened,IsControlled=IsControlled, Stats=Stats.Clone(),Equipment=Equipment?.Copy() };
     }
     [Serializable] public sealed class BaseEnemySite
     {

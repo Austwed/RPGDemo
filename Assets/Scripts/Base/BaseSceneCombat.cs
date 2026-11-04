@@ -84,6 +84,8 @@ namespace BaseConquest.Base
                     result.Add(new BaseEnemyMember {Deployment=deployment,PresetSlot=kind==SoldierKind.Hero?n:-1,Id=eventId+":unit:"+result.Count,Kind=kind,CommanderSlot=kind==SoldierKind.Hero?n:n%army.HeroCount,
                         IsAlien=eventId==BaseDemoRuins.EventId&&kind==SoldierKind.Hero&&n==0,IsControlled=eventId==BaseDemoRuins.EventId&&(kind!=SoldierKind.Hero||n!=0),
                         Name=kind==SoldierKind.Hero&&n<army.CommanderNames.Count?army.CommanderNames[n]:eventId==BaseDemoRuins.EventId?"受控村民"+(n+1):BattleSimulation.KindName(kind),Stats=stats,Health=stats.Health,
+                        // 队长立绘：随机入侵用已有队长形象；其余战斗留空走通用队长图。
+                        Appearance=kind==SoldierKind.Hero&&n<army.CommanderAppearances.Count?army.CommanderAppearances[n]??"":"",
                         Equipment=kind==SoldierKind.Hero?new BasePersonalLoadout {Version=1,Weapon="sword",InitialWeapon="sword",BaseStats=stats.Clone()}:null});
                 }
             return result;

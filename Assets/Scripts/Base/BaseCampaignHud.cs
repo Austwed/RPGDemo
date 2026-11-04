@@ -34,7 +34,7 @@ namespace BaseConquest.Base
                 string id = e.Id; Line(e.Title + " · " + (e.Status == "resolved" ? "已处理" : e.AvailableDay > owner.State.Day ? "第" + e.AvailableDay + "天出现" : "待处理"), 52, 22);
                 if(e.Kind=="defense")ThreatEventLines(e);
                 if (e.Kind == "defense" && e.Status == "pending") Line("坚守 "+(e.HoldRounds>0?e.HoldRounds:30)+"秒（旧轮数暂按1秒）或提前歼灭；最后处理日第"+e.DeadlineDay+"天，过夜仍会自动迎战。", 70, 18);
-                if (e.Kind == "defense" && e.Status == "pending") Line(BaseAutoResolve.Skippable(owner.State,e.Id)?"兜底自动迎战：不亲自指挥时按战力结算，伤亡比亲自打重三成半，且基地粮／料／钱各按库存被掠走 20／15／15%。能抽身就亲自打。":"这一战必须亲自指挥。", 62, 18);
+                if (e.Kind == "defense" && e.Status == "pending") Line(BaseAutoResolve.Skippable(owner.State,e.Id)?"兜底自动迎战：不亲自指挥时按战力结算，伤亡比亲自打重三成半；来袭敌军每人会带走 "+Math.Min(e.FoodRaid,BaseRaidLoot.MaxRationDays)+" 天口粮"+(e.MaterialRaid>0?"＋"+e.MaterialRaid+" 原料":"")+"＋"+e.CoinRaid+" 钱（战损≥30% 轻掠、≥50% 或战败重掠，自动迎战打赢也至少轻掠）。能抽身就亲自打。":"这一战必须亲自指挥。", 62, 18);
                 var source=BaseThreats.Site(owner.State,e.SourceSiteId);
                 bool unopposed=e.Kind=="attack"&&source?.Owner=="enemy"&&!source.Garrison.Any(u=>u.Kind==SoldierKind.Hero);
                 RowButton(source?.Owner=="player"&&e.Kind=="attack" ? "已占领" : unopposed ? "接管无指挥者的据点" : kind == "defense" ? "预览迎战" : "预览进攻", 0, 800, () => {if(unopposed)owner.ClaimOutpost(source.Id);else OpenCampaignPreview(id, "full");}, e.Status == "pending" && e.AvailableDay <= owner.State.Day && !owner.State.Campaign.HasActiveBattle); row += 60;

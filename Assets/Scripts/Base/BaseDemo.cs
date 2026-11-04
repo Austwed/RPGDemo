@@ -80,6 +80,7 @@ namespace BaseConquest.Base
             {
                 var defense=state.Demo.Defense.Mission;var reward=openingRules.OpeningDefenseReward;var loss=openingRules.OpeningDefenseLoss;
                 defense.FoodReward=reward.Food;defense.MaterialReward=reward.Materials;defense.CoinReward=reward.Coins;
+                // 这三个是「每名敌军带走多少」，FoodRaid 表示口粮天数（见 BaseRaidLoot），不是整包损失。
                 defense.FoodRaid=loss.Food;defense.MaterialRaid=loss.Materials;defense.CoinRaid=loss.Coins;
                 var camp=state.Campaign.Events.Single(e=>e.Id==state.Campaign.EnemySites[0].AttackEventId);reward=openingRules.OpeningCampReward;
                 camp.FoodReward=reward.Food;camp.MaterialReward=reward.Materials;camp.CoinReward=reward.Coins;

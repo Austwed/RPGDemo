@@ -14,7 +14,9 @@ namespace BaseConquest.Base
         public int EnemyRecoveryDay;
         public int HoldRounds = 30;
         public int FoodReward = 12, MaterialReward = 8, CoinReward = 15;
-        public int FoodRaid = 15, MaterialRaid = 8, CoinRaid = 10;
+        // 掠夺单价：每名来袭敌军能带走多少。FoodRaid 是「口粮天数」不是粮草件数（按各兵种日耗折算），
+        // 口径见 BaseRaidLoot；0 表示这一战不掠。
+        public int FoodRaid = 3, MaterialRaid = 1, CoinRaid = 6;
         public string SourceSiteId="";
         public int DepartedDay;
         public List<BaseEnemyMember> EnemyArmy = new List<BaseEnemyMember>();
@@ -58,7 +60,7 @@ namespace BaseConquest.Base
         public int FoodChange, MaterialChange, CoinChange;
         public int DropMaterials;
         public string RecoveryNote="";
-        // 自动迎战额外被掠走的基地物资说明（普通战斗留空）。
+        // 防守战的掠夺说明（自动迎战、惨胜、战败、无人迎战都会写；非防守战留空）。
         public string RaidNote="";
         public string SourceSiteId="";
         public int EnemyDeployed, EnemyLost, EnemyCaptured, EnemyReturned, EnemyDispersed;
@@ -345,6 +347,8 @@ namespace BaseConquest.Base
             if(win&&!s.Aftermath.GameOver){r.DropMaterials=Math.Min(battle.Soldiers.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned&&!u.Escaped&&!u.IsAlive&&BattleSimulation.StableRoll(battle.Scenario.RandomSeed,u.Id,29)<a.Difficulty.DropRate),100000000-s.Inventory.Materials);s.Inventory.Materials+=r.DropMaterials;}
             ApplyEventInventory(s, e, win && !s.Aftermath.GameOver, r,a.Difficulty.RewardFactor); e.Status = win && !s.Aftermath.GameOver || e.Kind == "defense" ? "resolved" : "pending";
             BaseThreats.Settle(s,e,session,r,win&&!s.Aftermath.GameOver);
+            // 掠夺等战果回写之后再结算：此时 EnemyDeployed 才是本场实际参战人头。
+            BaseRaidLoot.Apply(s, e, r, win, passive);
             s.Campaign.SettledIds.Add(a.Id); s.Campaign.Reports.Add(r); BaseQuests.RecordVictory(s,r); if(!passive)ToBaseLocation(s);
             BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>());
             BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
@@ -352,7 +356,7 @@ namespace BaseConquest.Base
         private static void ApplyEventInventory(BaseState s, BaseCampaignEvent e, bool win, BaseCampaignReport r, double? rewardFactor=null)
         {
             if (win) { double f = rewardFactor??s.Aftermath.Difficulty.RewardFactor; r.FoodChange = Math.Min((int)(e.FoodReward * f), 100000000 - s.Inventory.Food); r.MaterialChange = Math.Min((int)(e.MaterialReward * f), 100000000 - s.Inventory.Materials); r.CoinChange = Math.Min((int)(e.CoinReward * f), 100000000 - s.Inventory.Coins); }
-            else if (e.Kind == "defense") { r.FoodChange = -Math.Min(s.Inventory.Food, e.FoodRaid); r.MaterialChange = -Math.Min(s.Inventory.Materials, e.MaterialRaid); r.CoinChange = -Math.Min(s.Inventory.Coins, e.CoinRaid); }
+            // 防守失败的掠夺不再在这里扣：按人头算的损失由 BaseRaidLoot 统一结算。
             s.Inventory.Food = checked(s.Inventory.Food + r.FoodChange); s.Inventory.Materials = checked(s.Inventory.Materials + r.MaterialChange); s.Inventory.Coins = checked(s.Inventory.Coins + r.CoinChange);
         }
         public static bool ClaimUnopposed(BaseState s,string siteId)
@@ -380,6 +384,8 @@ namespace BaseConquest.Base
                 {
                     var id = "unguarded:" + e.Id; var r = new BaseCampaignReport { BattleId = id, EventId = e.Id, Title = e.Title, Day = s.Day, Outcome = "Unopposed", Passive = true };
                     ApplyEventInventory(s, e, false, r); e.Status = "resolved";
+                    // 没人迎战等于全营被翻一遍：按敌方人头走重掠档，然后才把残军退回来源据点。
+                    BaseRaidLoot.Apply(s, e, r, false, true, e.EnemyArmy.Count(u => !u.Dead));
                     var source=BaseThreats.Site(s,e.SourceSiteId);if(source!=null){r.SourceSiteId=source.Id;if(source.Owner=="enemy"){source.Garrison.AddRange(e.EnemyArmy.Select(u=>u.Copy()));r.EnemyReturned=e.EnemyArmy.Count;}else r.EnemyDispersed=e.EnemyArmy.Count;e.EnemyArmy.Clear();}
                     s.Campaign.SettledIds.Add(id); s.Campaign.Reports.Add(r); continue;
                 }
@@ -393,7 +399,7 @@ namespace BaseConquest.Base
                     {
                         Settle(s,session,true);
                         var passive=s.Campaign.Reports.FirstOrDefault(r=>r.BattleId==session.Opening.Id);
-                        if(passive!=null){passive.Passive=true;passive.Title=e.Title+" · 自动迎战";BaseAutoResolve.ApplyRaidCost(s,passive);BaseEconomy.Validate(s);}
+                        if(passive!=null){passive.Passive=true;passive.Title=e.Title+" · 自动迎战";BaseEconomy.Validate(s);}
                         if(s.Aftermath.GameOver)return true;continue;
                     }
                     var simulation=new RealtimeCampaignBattle(session);simulation.Model.SetPaused(false);

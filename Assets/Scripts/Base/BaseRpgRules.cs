@@ -94,7 +94,10 @@ namespace BaseConquest.Base
         public int OpeningAuxVersion;public BattleTacticalRules OpeningTactical;public BaseRuinsRewardState OpeningRewards;
         public int OpeningSupplyWearVersion;public double OpeningReturnedWear,OpeningLostWear;
         public BaseInventory OpeningLordReward;
-        public int OpeningBattleRewardVersion;public BaseInventory OpeningDefenseReward,OpeningDefenseLoss,OpeningCampReward;
+        public int OpeningBattleRewardVersion;public BaseInventory OpeningDefenseReward,OpeningCampReward;
+        // 掠夺单价（2026-11-04 起含义变了）：不是整包损失的粮草件数，而是「每名来袭敌军带走多少」。
+        // Food 是口粮天数（按各兵种日耗折算）、Materials 与 Coins 是每人的件数；口径见 BaseRaidLoot。
+        public BaseInventory OpeningDefenseLoss;
         public BaseInventory OpeningInventory;
         public int SecondRaidDays=5;
         public int[] OpeningFacilityCapacity,OpeningFacilityMinimum;

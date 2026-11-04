@@ -59,6 +59,28 @@ namespace BaseConquest.Editor
                     Check(troops >= 3, "随机入侵兵力不应少于 3");
                     Check(raid.AvailableDay == raid.DeadlineDay, "随机入侵应在到达当天处理");
                     Check(raid.Kind == "defense" && raid.ScenarioFile == BaseDemoRaids.Scenario, "随机入侵应走防守战场");
+                    // 配型：特色波整波单一兵种，指挥立绘与兵种一致；杂牌波至少两个兵种。
+                    var boss = raid.EnemyArmy.First(u => u.Kind == SoldierKind.Hero);
+                    var line = raid.EnemyArmy.Where(u => u.Kind != SoldierKind.Hero).ToArray();
+                    Check(BaseConquest.Presentation.PixelDemoArt.IsCast(boss.Appearance), "指挥立绘应是已有队长形象：" + boss.Appearance);
+                    Check(!string.IsNullOrWhiteSpace(boss.Name), "指挥应有名字");
+                    if (raid.Title.Contains("马匪"))
+                    {
+                        Check(line.All(u => u.Kind == SoldierKind.Cavalry) && boss.Appearance == "chief", "马匪波应为全骑兵 + 大当家立绘");
+                        Check(boss.Stats.HasProfessionKind && boss.Stats.ProfessionKind == SoldierKind.Cavalry, "马匪指挥应是骑兵职业，否则会被按步兵生成");
+                    }
+                    else if (raid.Title.Contains("弓匪"))
+                    {
+                        Check(line.All(u => u.Kind == SoldierKind.Ranged) && boss.Appearance == "batu", "弓匪波应为全弓兵 + 巴图立绘");
+                        Check(boss.Stats.HasProfessionKind && boss.Stats.ProfessionKind == SoldierKind.Ranged, "弓匪指挥应是弓兵职业");
+                    }
+                    else if (raid.Title.Contains("刀匪"))
+                    {
+                        Check(line.All(u => u.Kind == SoldierKind.Melee) && boss.Appearance == "huoya", "刀匪波应为全近战 + 豁牙立绘");
+                        Check(boss.Stats.HasProfessionKind && boss.Stats.ProfessionKind == SoldierKind.Melee, "刀匪指挥应是近战职业");
+                    }
+                    else
+                        Check(line.Select(u => u.Kind).Distinct().Count() >= 2, "流寇波应是混编（至少两个兵种）");
                     BaseDemoRaids.Validate(s);
                     // 打完这一波，才能测下一波间隔。
                     raid.Status = "resolved";
@@ -70,6 +92,9 @@ namespace BaseConquest.Editor
                     Check(gap >= BaseDemoRaids.MinGap && gap <= BaseDemoRaids.MaxGap, "波次间隔应在 " + BaseDemoRaids.MinGap + "～" + BaseDemoRaids.MaxGap + " 天：实测 " + gap);
                 }
                 Check(spawned.Last().EnemyArmy.Count(u => u.Kind != SoldierKind.Hero) > spawned.First().EnemyArmy.Count(u => u.Kind != SoldierKind.Hero), "后续波次总量应高于首波");
+                var titles = spawned.Select(e => e.Title.Split(' ')[0]).Distinct().ToArray();
+                Debug.Log("[Raid] 90 天内出现配型：" + string.Join("／", titles));
+                Check(titles.Length >= 2, "多套配型应在 90 天内至少抽出两种，实测 " + titles.Length + " 种");
 
                 // 3) 商人线索：应当指向下一波前后各一天。
                 var rumor = BaseDemoRaids.Rumor(s);

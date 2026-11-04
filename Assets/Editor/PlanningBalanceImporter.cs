@@ -51,7 +51,9 @@ namespace BaseConquest.Editor
             lines.Add("交易摊位每日供应：粮食 "+rules.OpeningTownStock[0]+"、原料 "+rules.OpeningTownStock[1]+"、一级军需 "+rules.OpeningTownStock[2]+"、二级军需 "+rules.OpeningTownStock[3]+"、锻造石 "+rules.ForgeDailyStock+"。");
             lines.Add("军需磨损：安全返回 "+rules.OpeningReturnedWear.ToString("0.##%",CultureInfo.InvariantCulture)+"，损失 "+rules.OpeningLostWear.ToString("0.##%",CultureInfo.InvariantCulture)+"；按配额和战果结算，小数跨战累计。");
             string Resources(BaseInventory v)=>"粮 "+v.Food+" / 原料 "+v.Materials+" / 钱 "+v.Coins;
-            lines.Add("战斗资源（基础值）：首防胜利 "+Resources(rules.OpeningDefenseReward)+"；首防败退损失 "+Resources(rules.OpeningDefenseLoss)+"；攻营胜利 "+Resources(rules.OpeningCampReward)+"。胜利奖受难度倍率影响，败退损失不超过库存。");
+            lines.Add("战斗资源（基础值）：首防胜利 "+Resources(rules.OpeningDefenseReward)+"；攻营胜利 "+Resources(rules.OpeningCampReward)+"。胜利奖受难度倍率影响。");
+            lines.Add("掠夺单价（每名敌军）：口粮 "+rules.OpeningDefenseLoss.Food+" 天（按各兵种日耗折算）／原料 "+rules.OpeningDefenseLoss.Materials+"／钱币 "+rules.OpeningDefenseLoss.Coins
+                +"；战损≥30% 轻掠（三分之一），战损≥50% 或战败重掠，自动迎战至少轻掠，实扣不超过库存。");
             lines.Add("重铸升／降概率（1、3、5、10石）："+string.Join("；",Enumerable.Range(0,4).Select(i=>rules.ReforgeUp[i]/100.0+"% / "+rules.ReforgeDown[i]/100.0+"%"))+"，中间数量线性插值。 ");
             var previewPeople=BaseAdventure.Members(previewState).ToArray();
             foreach(var person in previewPeople)person.Rpg?.Traits.Clear();

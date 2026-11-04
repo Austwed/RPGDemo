@@ -135,6 +135,8 @@ namespace BaseConquest.Base
             if(leaders.Length<1||leaders.Length>3)throw new InvalidOperationException("敌军须有1至3名实际指挥者");
             var old=scenario.B;var army=old.Clone();army.Commanders.Clear();army.CommanderNames=leaders.Select(u=>u.Name).ToList();army.CommanderRecruited=leaders.Select(_=>false).ToList();army.CaptainSlot=0;army.Capacity=90;
             army.CommanderStats=leaders.Select(unit=>unit.Stats.Clone()).ToList();
+            // 立绘跟着名单走：随机入侵复用已有队长形象（chief/batu/huoya 等），普通战斗为空串。
+            army.CommanderAppearances=leaders.Select(unit=>unit.Appearance??"").ToList();
             for(int n=0;n<leaders.Length;n++){leaders[n].CommanderSlot=n;var command=(old.Commanders.FirstOrDefault()??new CommanderLoadout()).Clone();command.Melee=command.Ranged=command.Cavalry=0;army.Commanders.Add(command);}
             foreach(var kind in new[]{SoldierKind.Hero,SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry})
             {

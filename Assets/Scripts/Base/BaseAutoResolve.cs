@@ -56,7 +56,6 @@ namespace BaseConquest.Base
         public const double DeathCurve = .88;
         // 自动迎战的惩罚倍率：它是兜底手段，不是替代方案，代价要明显高于亲自上战场。
         public const double AutoDefenseSeverity = 1.35;
-
         // 把「剩余血量比」摊到每个单位：普通兵按阵亡比例阵亡，队长只掉血、最低保留 1 点生命。
         public static List<BaseSweepLoss> Losses(BaseCampaignSession session, BaseEngagement e, double exposure = 0, double severity = 1)
         {
@@ -98,10 +97,6 @@ namespace BaseConquest.Base
             return losses;
         }
 
-        // 自动迎战的经济代价：来不及把物资撤进营帐，按库存固定比例被掠走。
-        // 这不是「输了的罚款」——打赢也照扣，正是因为仓促应战才被抢。
-        public const double AutoFoodLoss = .20, AutoMaterialLoss = .15, AutoCoinLoss = .15;
-
         // 把推算结果写进一场已开战的战斗并宣告我方获胜；真实作战的战果提交由调用方负责。
         public static void Apply(RealtimeCampaignBattle run, List<BaseSweepLoss> losses, double seconds)
         {
@@ -136,24 +131,6 @@ namespace BaseConquest.Base
             var losses = Losses(session, e, 0, AutoDefenseSeverity);
             Apply(run, losses, e.Seconds);
             return true;
-        }
-
-        // 自动迎战的基地损失：结算完成后调用，按库存比例掠走基础资源并记进战报净变化。
-        public static void ApplyRaidCost(BaseState s, BaseCampaignReport report)
-        {
-            if (s == null || report == null) return;
-            int food = (int)Math.Floor(Math.Max(0, s.Inventory.Food) * AutoFoodLoss);
-            int materials = (int)Math.Floor(Math.Max(0, s.Inventory.Materials) * AutoMaterialLoss);
-            int coins = (int)Math.Floor(Math.Max(0, s.Inventory.Coins) * AutoCoinLoss);
-            if (food + materials + coins <= 0) return;
-            s.Inventory.Food -= food;
-            s.Inventory.Materials -= materials;
-            s.Inventory.Coins -= coins;
-            report.FoodChange -= food;
-            report.MaterialChange -= materials;
-            report.CoinChange -= coins;
-            report.RaidNote = "自动迎战 · 仓促应战未及坚壁，被掠走 粮 " + food + "／原料 " + materials + "／钱币 " + coins
-                + "（固定 " + (int)(AutoFoodLoss * 100) + "／" + (int)(AutoMaterialLoss * 100) + "／" + (int)(AutoCoinLoss * 100) + "% 库存）";
         }
     }
 }

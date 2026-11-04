@@ -745,7 +745,7 @@
         ],
         "Parties": [],
         "ReturnedIds": [
-            "a50480c63fae4bc1aa743606518f6a58"
+            "fdedb43ee96449d2b89874457e8c7e11"
         ],
         "AppliedAppendIds": []
     },
@@ -782,7 +782,7 @@
             }
         ],
         "FinishedIds": [
-            "06d94dff3b0c4c78ad1137cb1eba5eeb"
+            "1ee6a98bc401490e8fdd3bdc419b9463"
         ]
     },
     "Campaign": {
@@ -855,15 +855,16 @@
                 "FoodReward": 0,
                 "MaterialReward": 0,
                 "CoinReward": 0,
-                "FoodRaid": 15,
-                "MaterialRaid": 8,
-                "CoinRaid": 10,
+                "FoodRaid": 3,
+                "MaterialRaid": 1,
+                "CoinRaid": 6,
                 "SourceSiteId": "",
                 "DepartedDay": 0,
                 "EnemyArmy": [
                     {
                         "Id": "demo:ruins:rescue:spawn:0:unit:0",
                         "Name": "迦兰",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "demo:ruins:rescue:spawn:0:unit:0",
@@ -950,6 +951,7 @@
                     {
                         "Id": "demo:ruins:rescue:spawn:0:unit:1",
                         "Name": "受控村民1",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "demo:ruins:rescue:spawn:0:unit:1",
@@ -1023,6 +1025,7 @@
                     {
                         "Id": "demo:ruins:rescue:spawn:0:unit:2",
                         "Name": "受控村民2",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "demo:ruins:rescue:spawn:0:unit:2",
@@ -1109,9 +1112,9 @@
                 "FoodReward": 12,
                 "MaterialReward": 8,
                 "CoinReward": 15,
-                "FoodRaid": 15,
-                "MaterialRaid": 8,
-                "CoinRaid": 10,
+                "FoodRaid": 3,
+                "MaterialRaid": 1,
+                "CoinRaid": 6,
                 "SourceSiteId": "",
                 "DepartedDay": 3,
                 "EnemyArmy": [],
@@ -1128,12 +1131,12 @@
         ],
         "SettledIds": [
             "demo:smith:parting-gift",
-            "06d94dff3b0c4c78ad1137cb1eba5eeb",
-            "06d94dff3b0c4c78ad1137cb1eba5eeb:ruins-reward"
+            "1ee6a98bc401490e8fdd3bdc419b9463",
+            "1ee6a98bc401490e8fdd3bdc419b9463:ruins-reward"
         ],
         "Reports": [
             {
-                "BattleId": "06d94dff3b0c4c78ad1137cb1eba5eeb",
+                "BattleId": "1ee6a98bc401490e8fdd3bdc419b9463",
                 "EventId": "demo:ruins:rescue",
                 "Title": "沉眠古窟 · 制服受控者并击败控制来源",
                 "Outcome": "SideAWin",
@@ -1151,6 +1154,7 @@
                 "CoinChange": 0,
                 "DropMaterials": 0,
                 "RecoveryNote": "",
+                "RaidNote": "",
                 "SourceSiteId": "",
                 "EnemyDeployed": 3,
                 "EnemyLost": 0,
@@ -1265,6 +1269,7 @@
                     {
                         "Id": "outpost:1",
                         "Name": "普通队长",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:1",
@@ -1379,6 +1384,7 @@
                     {
                         "Id": "outpost:2",
                         "Name": "普通队长",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:2",
@@ -1489,6 +1495,7 @@
                     {
                         "Id": "outpost:3",
                         "Name": "普通兵",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:3",
@@ -1562,6 +1569,7 @@
                     {
                         "Id": "outpost:4",
                         "Name": "普通兵",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:4",
@@ -1635,6 +1643,7 @@
                     {
                         "Id": "outpost:5",
                         "Name": "普通兵",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:5",
@@ -1708,6 +1717,7 @@
                     {
                         "Id": "outpost:6",
                         "Name": "普通兵",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:6",
@@ -1781,6 +1791,7 @@
                     {
                         "Id": "outpost:7",
                         "Name": "普通兵",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:7",
@@ -1854,6 +1865,7 @@
                     {
                         "Id": "outpost:8",
                         "Name": "普通兵",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:8",
@@ -1927,6 +1939,7 @@
                     {
                         "Id": "outpost:9",
                         "Name": "普通兵",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:9",
@@ -2000,6 +2013,7 @@
                     {
                         "Id": "outpost:10",
                         "Name": "普通兵",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:10",
@@ -2073,6 +2087,7 @@
                     {
                         "Id": "outpost:11",
                         "Name": "普通兵",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:11",
@@ -2146,6 +2161,7 @@
                     {
                         "Id": "outpost:12",
                         "Name": "普通兵",
+                        "Appearance": "",
                         "Rpg": {
                             "Version": 1,
                             "Id": "outpost:12",
@@ -8049,13 +8065,13 @@
                     "Coins": 0,
                     "Equipment": []
                 },
-                "OpeningDefenseLoss": {
+                "OpeningCampReward": {
                     "Food": 0,
                     "Materials": 0,
                     "Coins": 0,
                     "Equipment": []
                 },
-                "OpeningCampReward": {
+                "OpeningDefenseLoss": {
                     "Food": 0,
                     "Materials": 0,
                     "Coins": 0,
@@ -77368,8 +77384,8 @@
         },
         "Prisoners": [
             {
-                "Id": "06d94dff3b0c4c78ad1137cb1eba5eeb:0",
-                "BattleId": "06d94dff3b0c4c78ad1137cb1eba5eeb",
+                "Id": "1ee6a98bc401490e8fdd3bdc419b9463:0",
+                "BattleId": "1ee6a98bc401490e8fdd3bdc419b9463",
                 "Name": "乙方迦兰",
                 "Status": "released",
                 "CaptureSource": "沉眠古窟 · 制服受控者并击败控制来源",
@@ -77456,7 +77472,7 @@
                 ]
             },
             {
-                "BattleId": "06d94dff3b0c4c78ad1137cb1eba5eeb",
+                "BattleId": "1ee6a98bc401490e8fdd3bdc419b9463",
                 "Title": "遗迹挑战奖励",
                 "Closed": true,
                 "Food": 20,
@@ -77464,10 +77480,10 @@
                 "Coins": 75,
                 "Items": [
                     {
-                        "Id": "06d94dff3b0c4c78ad1137cb1eba5eeb:ruins-reward:loot:0",
+                        "Id": "1ee6a98bc401490e8fdd3bdc419b9463:ruins-reward:loot:0",
                         "Status": "discarded",
                         "Reward": {
-                            "Template": "novice_light_helmet",
+                            "Template": "novice_light_armor",
                             "ItemId": "",
                             "Count": 1,
                             "Quality": 2,
@@ -77475,22 +77491,11 @@
                         }
                     },
                     {
-                        "Id": "06d94dff3b0c4c78ad1137cb1eba5eeb:ruins-reward:loot:1",
+                        "Id": "1ee6a98bc401490e8fdd3bdc419b9463:ruins-reward:loot:1",
                         "Status": "discarded",
                         "Reward": {
                             "Template": "",
                             "ItemId": "forging_stone",
-                            "Count": 1,
-                            "Quality": 2,
-                            "RandomQuality": false
-                        }
-                    },
-                    {
-                        "Id": "06d94dff3b0c4c78ad1137cb1eba5eeb:ruins-reward:loot:2",
-                        "Status": "discarded",
-                        "Reward": {
-                            "Template": "",
-                            "ItemId": "training_bow_basic",
                             "Count": 1,
                             "Quality": 2,
                             "RandomQuality": false
@@ -78587,16 +78592,16 @@
                 "Coins": 15,
                 "Equipment": []
             },
-            "OpeningDefenseLoss": {
-                "Food": 15,
-                "Materials": 8,
-                "Coins": 10,
-                "Equipment": []
-            },
             "OpeningCampReward": {
                 "Food": 18,
                 "Materials": 12,
                 "Coins": 25,
+                "Equipment": []
+            },
+            "OpeningDefenseLoss": {
+                "Food": 3,
+                "Materials": 1,
+                "Coins": 6,
                 "Equipment": []
             },
             "OpeningInventory": {
@@ -78648,7 +78653,7 @@
         "Stage": 9,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "23c82277fae097461c6638295eb766a8d271915646a0d0f883236d841741a6f0",
-        "ConfigHash": "954c406c2759ba964dd88add1d1c672e2aae37c74185f2641397d47a46b06824",
+        "ConfigHash": "954879311509b3a9d3f9b184f0275e36009d7a430d057ac8663742e639e762c5",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -80110,9 +80115,9 @@
                 "FoodReward": 12,
                 "MaterialReward": 8,
                 "CoinReward": 15,
-                "FoodRaid": 15,
-                "MaterialRaid": 8,
-                "CoinRaid": 10,
+                "FoodRaid": 3,
+                "MaterialRaid": 1,
+                "CoinRaid": 6,
                 "SourceSiteId": "",
                 "DepartedDay": 1,
                 "EnemyArmy": [],
@@ -94820,6 +94825,12 @@
                 ]
             }
         },
+        "Raid": {
+            "Version": 1,
+            "Waves": 0,
+            "NextDay": 0,
+            "NextPattern": ""
+        },
         "Encounters": {
             "Version": 2,
             "Ruins": {
@@ -95157,7 +95168,7 @@
             "ControllerAccepted": false,
             "ControllerPledged": false,
             "BanditCleared": false,
-            "FirstControllerId": "06d94dff3b0c4c78ad1137cb1eba5eeb:0",
+            "FirstControllerId": "1ee6a98bc401490e8fdd3bdc419b9463:0",
             "FarmX": 0.0,
             "FarmY": 0.0,
             "FarmNpcX": 0.0,
