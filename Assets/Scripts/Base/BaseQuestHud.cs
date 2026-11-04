@@ -18,6 +18,12 @@ namespace BaseConquest.Base
             Line(StoryText.Get("story.quest.town_defence.description","“附近的军队威胁着往来商旅。协助我们恢复安全，城镇会提供营造图册，帮助你建设据点。”"),105,21);
             Line(StoryText.Get("story.quest.town_defence.objective","目标：亲自赢得1场迎战／进攻，或让荒野据点归属己方。"),70,21);
             Line(StoryText.Get("story.quest.town_defence.reward","奖励：营造图册 ×1 ＋ 营造入门剧情条件"),60,22);
+            if(s.Quests.AcceptedDay>0)
+            {
+                bool tracked=BaseQuestLog.TrackedId(s)=="quest:town_defence";
+                RowButton(tracked?"● 取消追踪":"○ 追踪",0,800,()=>{owner.Change(next=>{if(!BaseQuestLog.ToggleTrack(next,"quest:town_defence"))throw new InvalidOperationException("任务状态已变化");},tracked?"已取消追踪":"已显示在常驻任务栏");OpenQuests();});
+                row+=58;
+            }
             if(s.Quests.AcceptedDay==0)Line(accept=="" ? "可以接取。" : accept,60,19);
             else if(s.Quests.ClaimedDay>0)Line(StoryText.Get("story.quest.town_defence.claimed","第{day}天已领取。图册使用后不会自动补发。").Replace("{day}",s.Quests.ClaimedDay.ToString()),70,19);
             else Line(claim=="" ? StoryText.Get("story.quest.town_defence.ready","可以交付，确认后发放一次奖励。") : claim,80,19);

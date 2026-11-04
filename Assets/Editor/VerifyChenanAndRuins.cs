@@ -15,7 +15,7 @@ namespace BaseConquest.Editor
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();
-            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyInjuryTiers();
+            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();
             Debug.Log("[VerifyChenanAndRuins] regression PASS");
         }
         // P20（01C §8.5.1）：带伤应答只看主角当前生命是否低于 60%，满血与阵亡都不触发。
@@ -130,6 +130,92 @@ namespace BaseConquest.Editor
             // 手动休养入口已关闭（恢复全员自动，Resting 由血量派生）。
             Need(!BaseDevelopment.RestWorkers(s,0,1,true),"手动休养入口应一律拒绝");
             Debug.Log("[InjuryTiers] 30% 不带等号、守家例外、队长豁免、当天返岗、全员自动恢复、预警开关、生命降序选兵、补位与四分类 PASS");
+        }
+        // P32（2026-11-04 裁决）：领地地图只列同一领地场景与出入口；点击传送落到出口旁、不耗日程。
+        public static void VerifyLandMap()
+        {
+            var s=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
+            BaseDevelopment.Normalize(s);
+            // camp 测试档停在「醒来」阶段，先推到遗迹任务已接——城镇、野外都开放，返乡还没开。
+            s.Demo.Stage=BaseDemoStage.RuinsAssigned;
+            var nodes=BaseLandMap.Nodes(s);
+            Need(nodes.Count>=2,"领地地图应至少列出两个场景，实际 "+nodes.Count);
+            Need(nodes.Count(node=>node.Current)==1,"应恰有一个当前场景标记");
+            var camp=nodes.FirstOrDefault(node=>node.Key=="base");
+            Need(camp!=null&&camp.Current,"营地节点应存在并标记为当前");
+            var east=camp.Exits.FirstOrDefault(exit=>exit.ObjectId=="exit_east");
+            Need(east!=null&&east.TargetKey=="town","营地东侧出口应通向城镇");
+            Need(!east.Inside,"地表出口应算蓝点（非内嵌）");
+            var town=nodes.FirstOrDefault(node=>node.Key=="town");
+            Need(town!=null&&town.Exits.Any(exit=>exit.ObjectId=="travel_base"&&exit.TargetKey=="base"),"城镇西侧出口应通回基地");
+            Need(BaseLandMap.Problem(s,"town")=="","地图传送不应要求先站在出口边");
+            int day=s.Day;
+            Need(BaseLandMap.Teleport(s,"town","travel_base"),"应能传送到城镇西侧出口");
+            Need(s.Campaign.Location=="town","传送后应身处城镇");
+            Need(s.Day==day,"传送不消耗日程");
+            Need(Math.Abs(s.PlayerX-2)<1.7&&Math.Abs(s.PlayerY-6.5)<1.7,"应落在 travel_base 附近，实际 "+s.PlayerX.ToString("0.##")+","+s.PlayerY.ToString("0.##"));
+            Need(BaseLandMap.Problem(s,"base")=="","城镇应能传回基地");
+            Need(BaseLandMap.Teleport(s,"base","exit_east"),"应能传回营地");
+            Need(s.Campaign.Location=="base"&&Math.Abs(s.PlayerX-23.3)<2.2&&Math.Abs(s.PlayerY-6.5)<2.2,"传回营地应落在东侧出口旁，实际 "+s.PlayerX.ToString("0.##")+","+s.PlayerY.ToString("0.##"));
+            Need(BaseLandMap.Problem(s,"world")!="","未开返乡时世界地图应不可传送");
+            Need(!BaseLandMap.Teleport(s,"world"),"未开放场景应拒绝传送");
+            s.Campaign.HasActiveBattle=true;
+            Need(BaseLandMap.Problem(s,"base")!="","战斗进行中应拒绝传送");
+            Debug.Log("[LandMap] 场景与出口映射、免站出口传送、不耗日程、未开放与战斗中拒绝 PASS");
+        }
+        // P33（2026-11-04 裁决）：15 天季度日历、顶栏四项明细、体力按天部分恢复与补充入口。
+        public static void VerifyTopBar()
+        {
+            var s=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
+            BaseDevelopment.Normalize(s);
+            // 日历：15 天一个季度，起点随天数滚动，今天只标一个。
+            Need(BaseCalendar.QuarterStart(1)==1&&BaseCalendar.QuarterStart(15)==1&&BaseCalendar.QuarterStart(16)==16,"季度起点应为 1／16／31…");
+            Need(BaseCalendar.QuarterEnd(1)==15&&BaseCalendar.QuarterEnd(16)==30,"季度终点应为 15／30…");
+            var quarter=BaseCalendar.Quarter(s);
+            Need(quarter.Count==BaseCalendar.QuarterDays,"日历应固定 15 格，实际 "+quarter.Count);
+            Need(quarter.Count(day=>day.Today)==1&&quarter.First(day=>day.Today).Day==s.Day,"今天应只标一格且与天数一致");
+            // 顶栏四项明细：粮食／原料／军需／兵力都不能是空壳。
+            Need(BaseTopBar.Food(s).Length==3&&BaseTopBar.Food(s)[0].Contains("预计产粮"),"粮食明细应包含岗位与预计产量");
+            Need(BaseTopBar.Materials(s)[0].Contains("工坊在岗"),"原料明细应说明工坊在岗");
+            Need(BaseTopBar.Supply(s).Length==3&&BaseTopBar.Supply(s)[0].Contains("一级"),"军需明细应分档");
+            var troops=BaseTopBar.Troops(s);
+            Need(troops.Length==4&&troops[0].Contains("可主动出战")&&troops[0].Contains("重伤"),"兵力明细应含四分类");
+            // 体力：按天部分恢复，跨天累加、封顶，补充入口拒绝溢出。
+            // 用副本推进天数，避免破坏「醒来日期与阶段一致」的存档校验。
+            var t=s.Copy();t.Demo.RuinsVersion=1;t.Demo.RuinsRewards=null;BaseRuinsRewards.Enable(t);
+            var r=t.Demo.RuinsRewards;
+            r.Energy=20;r.EnergyDay=t.Day;t.Day+=1;BaseRuinsRewards.AdvanceDay(t);
+            Need(r.Energy==20+BaseRuinsRewards.DailyRecovery&&r.EnergyDay==t.Day,"跨一天应恢复 "+BaseRuinsRewards.DailyRecovery+" 点，实际 "+r.Energy);
+            t.Day+=3;BaseRuinsRewards.AdvanceDay(t);
+            Need(r.Energy==r.MaximumEnergy,"跨多天应补到上限而不是溢出，实际 "+r.Energy);
+            Need(!BaseRuinsRewards.AddEnergy(t,1),"满体力时补充入口应拒绝");
+            r.Energy=100;Need(BaseRuinsRewards.AddEnergy(t,20)&&r.Energy==120,"补充 20 点应到上限");
+            Need(!BaseRuinsRewards.AddEnergy(t,1),"超出上限的补充应拒绝");
+            Debug.Log("[TopBar] 15 天季度、四项明细、体力按天部分恢复与补充边界 PASS");
+        }
+        // P34（2026-11-04 裁决）：任务分主线／支线，选择进常驻栏，再选取消，可折叠。
+        public static void VerifyQuestTrack()
+        {
+            var s=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
+            BaseDevelopment.Normalize(s);BaseQuests.Normalize(s);
+            var entries=BaseQuestLog.Entries(s);
+            Need(entries.Any(entry=>entry.Main)&&entries.Any(entry=>!entry.Main),"任务应区分主线与支线");
+            Need(entries.All(entry=>!string.IsNullOrEmpty(entry.Id)&&!string.IsNullOrEmpty(entry.Title)&&!string.IsNullOrEmpty(entry.Goal)),"任务条目应有 id／标题／目标");
+            Need(entries.Select(entry=>entry.Id).Distinct().Count()==entries.Count,"任务 id 不能重复");
+            var target=entries.First(entry=>entry.Trackable);
+            Need(BaseQuestLog.TrackedId(s)==""&&BaseQuestLog.Tracked(s)==null,"默认不应有追踪目标");
+            Need(BaseQuestLog.ToggleTrack(s,target.Id)&&BaseQuestLog.TrackedId(s)==target.Id,"选择任务后应进入追踪");
+            Need(BaseQuestLog.Tracked(s)?.Id==target.Id,"常驻栏应取到被追踪的任务");
+            Need(BaseQuestLog.ToggleTrack(s,target.Id)&&BaseQuestLog.TrackedId(s)=="","再次选择同一任务应取消追踪");
+            BaseQuestLog.ToggleTrack(s,target.Id);
+            BaseQuestLog.SetCollapsed(s,true);Need(BaseQuestLog.Collapsed(s),"折叠状态应能保存");
+            BaseQuestLog.SetCollapsed(s,false);Need(!BaseQuestLog.Collapsed(s),"折叠状态应能恢复");
+            // 已完成任务不给追踪入口；旧档缺字段补空串而不是 null。
+            var done=entries.FirstOrDefault(entry=>entry.Done);
+            if(done!=null)Need(!done.Trackable,"已完成任务应不可追踪");
+            s.Quests.TrackedId=null;BaseQuests.Normalize(s);
+            Need(s.Quests.TrackedId=="","旧档缺失的追踪字段应补空串");
+            Debug.Log("[QuestTrack] 主支线分类、选择／取消追踪、折叠、已完成不可追踪、旧档补字段 PASS");
         }
         private static void At(BaseState state,string id)
         {

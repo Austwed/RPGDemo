@@ -16,6 +16,7 @@ namespace BaseConquest.Base
         private readonly Font font;
         private readonly RectTransform root, modal, inspection, mapLabels, controls;
         private readonly Text summary, hint, feedback, regionStatus;
+        private Text trackedQuest;
         private readonly Text inspectionTitle, inspectionDetails;
         private Text panelFeedback;
         private readonly Button interact;
@@ -68,10 +69,17 @@ namespace BaseConquest.Base
             summary.gameObject.AddComponent<DemoResourceIcons>();
             summary.rectTransform.anchorMin = Vector2.zero; summary.rectTransform.anchorMax = Vector2.one;
             summary.rectTransform.offsetMin = new Vector2(18, 42); summary.rectTransform.offsetMax = new Vector2(-410, -10);
+            // P33：顶栏资源文字整块可点开明细；原型定稿后改成按资源分区的下拉。
+            var summaryLink=summary.gameObject.GetOrAdd<Button>();summaryLink.targetGraphic=summary;summaryLink.onClick.AddListener(OpenResources);
             MakeButton(header, "菜单", new Vector2(-90, -36), new Vector2(140, 48), OpenMenu, new Vector2(1, 1));
             DemoUiIcons.Attach(MakeButton(header, "背包", new Vector2(-270, -36), new Vector2(86, 44), ToggleBackpack, new Vector2(1, 1)),"equipment");
             DemoUiIcons.Attach(MakeButton(header, "任务", new Vector2(-364, -36), new Vector2(86, 44), ToggleQuests, new Vector2(1, 1)),"quest");
             reserveRules=MakeButton(header,"i",new Vector2(-194,-36),new Vector2(44,44),()=>RuleInfo("资源与人员信息","基地总兵力统计全部己方士兵，包含驻外、在岗、闲置与重伤士兵；不包含主角、伙伴队长和未招降俘虏。\n\n括号内是按当前岗位预计的一日净变化：正值红色、负值绿色、零为中性色。粮食扣除全部人员口粮，原料扣除工坊耗料，钱币扣除旅店寄存日费；主动住宿费在休息确认时另列。军需显示两档总量，库存页可查看品质拆分。\n\n姓名为黄色表示通过劝降加入，只标记来源，工作、伤情、编队和作战规则相同。\n\n格子信息3秒自动收起，点击信息面板可立即收起；兵营完整单位详情保持打开。",ClosePanel),new Vector2(1,1));
+            // P34 常驻任务栏：默认隐藏，有追踪目标才出现；点一下折叠／展开。版式等原型定稿后替换。
+            var questBar = Box("TrackedQuest", root, new Vector2(0, 1), new Vector2(168, -118), new Vector2(320, 74), new Color(.08f, .14f, .15f, .86f));
+            trackedQuest = Label(questBar, "", Vector2.zero, new Vector2(300, 66), 17, TextAnchor.UpperLeft);
+            var questLink = questBar.gameObject.GetOrAdd<Button>(); questLink.targetGraphic = questBar.GetComponent<Image>(); questLink.onClick.AddListener(ToggleTrackedQuestBar);
+            questBar.gameObject.SetActive(false);
             regionStatus = Label(header, "", new Vector2(220, 17), new Vector2(404, 28), 17, TextAnchor.MiddleLeft, new Vector2(0, 0));
             regionStatus.raycastTarget=true;var threatLink=regionStatus.gameObject.GetOrAdd<Button>();threatLink.targetGraphic=regionStatus;threatLink.onClick.AddListener(()=>{if(owner.State!=null&&!owner.Busy)OpenThreatOverview();});
             feedback = Label(header, "", Vector2.zero, Vector2.zero, 17);
@@ -167,6 +175,7 @@ namespace BaseConquest.Base
             regionStatus.text = s.Campaign.ThreatVersion>0 ? BaseThreats.Warning(s) : raids > 0 ? "入侵 " + raids + "：左侧迎战／过夜自动处理" : "区域探索 · 接近设施或伙伴后交互";
             Joystick.gameObject.SetActive(!PanelOpen && !owner.Busy && !owner.PlayerAway && !s.Campaign.HasActiveBattle);
             if(BaseDemoPrologue.Village(s)){introObjectiveKey=-1;RefreshIntroObjective();}
+            RefreshTrackedQuest();
             nearbyId = null; RefreshMovement(); RefreshInspection();
         }
         private int introObjectiveKey=-1;
@@ -367,6 +376,8 @@ namespace BaseConquest.Base
             DemoUiIcons.Attach(RowButton("手动保存",-210,400,()=>OpenSlots(true),!owner.State.Campaign.HasActiveBattle),"save");RowButton("读取存档",210,400,()=>OpenSlots(false));row+=60;
             if(owner.State.Campaign.HasActiveBattle){RowButton("恢复当前战斗",0,800,owner.ResumeCampaign);row+=60;}
             else if(!owner.AtBase){RowButton(BaseDesignRoutes.Active(owner.State) ? "经绑定出口返回基地" : "返回基地",0,800,()=>owner.Travel("base"),!BaseDesignRoutes.Active(owner.State)||BaseDesignRoutes.Reachable(owner.State,"base")!=null);row+=60;}
+            if(BaseDemoRuins.Enabled(owner.State)){RowButton("体力 · "+BaseRuinsRewards.Energy(owner.State)+"/"+BaseRuinsRewards.Maximum(owner.State),-210,400,OpenEnergy);RowButton("日历 · 第 "+owner.State.Day+" 天",210,400,OpenCalendar);row+=60;}
+            else {RowButton("日历 · 第 "+owner.State.Day+" 天",0,800,OpenCalendar);row+=60;}
             if(BaseAchievements.Active(owner.State)){RowButton("成就 · "+owner.State.Achievements.Records.Count+"/9",0,800,OpenAchievements);row+=60;}
             if(BaseDemoFlow.Active(owner.State)&&!BaseDemoPrologue.Village(owner.State)&&owner.State.Campaign.Location=="perimeter"&&!BaseSceneCombat.Active(owner.State)){RowButton("战前布置工事",0,800,owner.ArmConstruction);row+=60;}
             RowButton("选项",0,800,OpenOptions);row+=60;

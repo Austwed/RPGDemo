@@ -74,6 +74,14 @@ namespace BaseConquest.Base
                 if (plan != null && !BaseMuster.Confirm(s, plan)) throw new InvalidOperationException("编制已变化，重新选择"); if ((BaseSceneInstances.Active(s)||s.Campaign.Location!=location)&&!BaseCampaign.Travel(s, location,pendingDesignExit)) throw new InvalidOperationException("目前不能前往该区域，请重新靠近原出口并确认连接"); }, "前往" + BaseCampaign.LocationName(location)))
             {pendingDesignExit=null;ReloadTravelRegion();}
         }
+        // P32：领地地图的快捷传送。只切场景、落到出入口旁边，不消耗日程、不代替编队。
+        public void MapTeleport(string key, string objectId)
+        {
+            if (State == null || Busy) return;
+            string title = BaseLandMap.Nodes(State).FirstOrDefault(node => node.Key == key)?.Title ?? "目标场景";
+            if (!Change(next => { if (!BaseLandMap.Teleport(next, key, objectId)) throw new InvalidOperationException("这个场景现在过不去"); }, "已传送到" + title)) return;
+            Hud.ClosePanel(); ReloadTravelRegion();
+        }
         public void ResumeCampaign()
         {
             if (State == null || !State.Campaign.HasActiveBattle || Busy) return;

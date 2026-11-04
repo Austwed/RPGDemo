@@ -35,11 +35,27 @@ namespace BaseConquest.Base
         }
         public static void Enable(BaseState s,BaseRuinsRewardState defaults=null)
         {if(defaults!=null)ValidateDefaults(defaults);s.Demo.RuinsRewards=defaults?.Copy()??new BaseRuinsRewardState();s.Demo.RuinsRewards.EnergyDay=s.Day;s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).IsAwakened=true;foreach(var l in s.Demo.Candidates)l.IsAwakened=l.Id=="partner_craft";}
+        // 2026-11-04 裁决（P33）：体力按天部分恢复，不再跨天直接回满。
+        // 原型以 120 上限／每日 40 演示；具体数值等配表定案，这里只提供机制。
+        public const int DailyRecovery=40;
         public static void AdvanceDay(BaseState s)
         {
             if(!BaseDemoRuins.Enabled(s))return;
             if(s.Demo.RuinsRewards==null)Enable(s);
-            var r=s.Demo.RuinsRewards;if(r.EnergyDay<s.Day){r.Energy=r.MaximumEnergy;r.EnergyDay=s.Day;}
+            var r=s.Demo.RuinsRewards;
+            if(r.EnergyDay<s.Day)
+            {
+                int days=Math.Max(1,s.Day-r.EnergyDay);
+                r.Energy=(int)Math.Min(r.MaximumEnergy,(long)r.Energy+(long)DailyRecovery*days);
+                r.EnergyDay=s.Day;
+            }
+        }
+        // 补充入口的数据接口；道具与购买方式等原型定稿后再接。
+        public static bool AddEnergy(BaseState s,int amount)
+        {
+            if(amount<=0)return false;
+            var r=s.Demo.RuinsRewards;if(r==null||r.Energy>r.MaximumEnergy-amount)return false;
+            r.Energy+=amount;return true;
         }
         public static string ClaimProblem(BaseState s)
         {

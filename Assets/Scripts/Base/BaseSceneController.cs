@@ -261,7 +261,7 @@ namespace BaseConquest.Base
             if(developerPanel?.BlocksGameInput==true)return;
             var keyboard = Keyboard.current;
             if(Hud.DialogueOpen&&keyboard!=null&&(keyboard.eKey.wasPressedThisFrame||keyboard.spaceKey.wasPressedThisFrame)){Hud.ContinueDialogue();return;}
-            if(keyboard!=null&&HandlePanelShortcuts(keyboard.bKey.wasPressedThisFrame,keyboard.nKey.wasPressedThisFrame))return;
+            if(keyboard!=null&&HandlePanelShortcuts(keyboard.bKey.wasPressedThisFrame,keyboard.nKey.wasPressedThisFrame,keyboard.mKey.wasPressedThisFrame))return;
             if(ConstructionMode&&keyboard!=null&&keyboard.escapeKey.wasPressedThisFrame){StopConstruction();if(Hud.PanelOpen)Hud.ClosePanel();Message="已退出营造";Hud.RefreshSummary();return;}
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) { if (Hud.PanelOpen) Hud.ClosePanel(); else if (SelectedCell != null) ClearSelection(); else Hud.OpenMenu(); return; }
             if(Hud.PanelOpen)explorationPinchSpan=0;
@@ -290,13 +290,14 @@ namespace BaseConquest.Base
             bool sceneOnly=Hud.PanelOpen;if(sceneOnly&&!(BaseDemoPrologue.Village(State)&&Hud.DialogueOpen))return;
             Companions.Update(State,seconds,developerPanel?.BlocksGameInput!=true&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State),sceneOnly);Companions.Capture(State);
         }
-        private bool HandlePanelShortcuts(bool backpackPressed,bool questsPressed)
+        private bool HandlePanelShortcuts(bool backpackPressed,bool questsPressed,bool mapPressed=false)
         {
-            if((!backpackPressed&&!questsPressed)||Hud.DialogueOpen)return false;
+            if((!backpackPressed&&!questsPressed&&!mapPressed)||Hud.DialogueOpen)return false;
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==0)return true;
             var selected=EventSystem.current!=null?EventSystem.current.currentSelectedGameObject:null;
             // Unity destroyed objects pass ?. checks; use Unity's null comparison before GetComponent.
             if(selected!=null&&selected.GetComponent<UnityEngine.UI.InputField>()?.isFocused==true)return false;
+            if(!BaseBattleGateway.MainMenu&&!State.Aftermath.GameOver&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State)&&mapPressed){StopConstruction();Hud.ToggleLandMap();return true;}
             if(!BaseBattleGateway.MainMenu&&!State.Aftermath.GameOver&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State)&&questsPressed){StopConstruction();Hud.ToggleQuests();return true;}
             if(backpackPressed){StopConstruction();Hud.ToggleBackpack();return true;}
             return false;

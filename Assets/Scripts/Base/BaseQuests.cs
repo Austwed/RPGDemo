@@ -8,6 +8,9 @@ namespace BaseConquest.Base
     {
         public int Version, Revision, AcceptedDay, ProofDay, ClaimedDay;
         public string ProofBattleId="", ProofSiteId="";
+        // P34：常驻任务栏的追踪目标与折叠状态；空串＝没有追踪。
+        public string TrackedId="";
+        public bool TrackedCollapsed;
         public BaseQuestState Copy()=>(BaseQuestState)MemberwiseClone();
     }
     // First real town commission. Proof and receipt are independent of trimmed battle reports.
@@ -17,6 +20,8 @@ namespace BaseConquest.Base
         public const string Contact="town_quest";
         public static void Normalize(BaseState s)
         {
+            // 旧档没有追踪字段：补空串，不把 null 传进 HUD。
+            if(s.Quests!=null&&s.Quests.TrackedId==null)s.Quests.TrackedId="";
             if(s.Quests!=null&&s.Quests.Version!=0)return;
             if(s.Quests!=null&&(s.Quests.Revision!=0||s.Quests.AcceptedDay!=0||s.Quests.ProofDay!=0||s.Quests.ClaimedDay!=0||!string.IsNullOrEmpty(s.Quests.ProofBattleId)||!string.IsNullOrEmpty(s.Quests.ProofSiteId)))throw new ArgumentException("委托缺版本，拒绝覆盖已有进度");
             s.Quests=new BaseQuestState {Version=1};
