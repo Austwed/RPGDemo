@@ -30,6 +30,8 @@ namespace BaseConquest.Base
         public BaseInventory RuinsReward;
         public BaseDemoDefenseProgress Defense;
         public BaseDemoFinaleProgress Finale;
+        // 主线之后的周期随机入侵（BaseDemoRaids）；旧档没有这一段，Normalize 里补。
+        public BaseDemoRaidState Raid;
         public BaseDemoEncounterConfig Encounters;
         public BattleTacticalRules TacticalRules;
         public BaseRuinsRewardState RuinsRewards;
@@ -38,7 +40,7 @@ namespace BaseConquest.Base
         public List<BaseDemoDesignMap> ReleaseMaps=new List<BaseDemoDesignMap>();
         public List<BaseLeader> SceneFollowers=new List<BaseLeader>();
         public List<string> Evidence = new List<string>();
-        public BaseDemoProgress Copy() => new BaseDemoProgress { StoryScene=StoryScene?.Copy(),Flow=Flow?.Copy(),EnvironmentVersion=EnvironmentVersion,CampLayoutVersion=CampLayoutVersion,Rpg=Rpg?.Copy(),Version=Version,ReleaseVersion=ReleaseVersion, WakeDay=WakeDay, AcceptedDay=AcceptedDay, Stage=Stage, TerrainMemories=TerrainMemories?.Select(m=>m.Copy()).ToList(),Rescue=Rescue?.Copy(),Intro=Intro?.Copy(),BalanceSource=BalanceSource, BalanceHash=BalanceHash,ConfigHash=ConfigHash, Evidence=Evidence?.ToList(),PrologueVersion=PrologueVersion,PrologueAttempts=PrologueAttempts,PrologueCompleted=PrologueCompleted,AzhuInvitationSeen=AzhuInvitationSeen,SceneFollowers=SceneFollowers?.Select(person=>person.Copy()).ToList(),RuinsVersion=RuinsVersion,RuinsDay=RuinsDay,DeliveredDay=DeliveredDay,Candidates=Candidates?.Select(person=>person.Copy()).ToList(),MetCompanions=MetCompanions?.ToList(),RuinsArmy=RuinsArmy?.Clone(),RuinsReward=RuinsReward?.Copy(),Defense=Defense?.Copy(),Finale=Finale?.Copy(),Encounters=Encounters?.Copy(),TacticalRules=TacticalRules?.Copy(),RuinsRewards=RuinsRewards?.Copy(),ReleaseMaps=(ReleaseMaps??new List<BaseDemoDesignMap>()).Select(m=>m.Copy()).ToList() };
+        public BaseDemoProgress Copy() => new BaseDemoProgress { StoryScene=StoryScene?.Copy(),Raid=Raid?.Copy(),Flow=Flow?.Copy(),EnvironmentVersion=EnvironmentVersion,CampLayoutVersion=CampLayoutVersion,Rpg=Rpg?.Copy(),Version=Version,ReleaseVersion=ReleaseVersion, WakeDay=WakeDay, AcceptedDay=AcceptedDay, Stage=Stage, TerrainMemories=TerrainMemories?.Select(m=>m.Copy()).ToList(),Rescue=Rescue?.Copy(),Intro=Intro?.Copy(),BalanceSource=BalanceSource, BalanceHash=BalanceHash,ConfigHash=ConfigHash, Evidence=Evidence?.ToList(),PrologueVersion=PrologueVersion,PrologueAttempts=PrologueAttempts,PrologueCompleted=PrologueCompleted,AzhuInvitationSeen=AzhuInvitationSeen,SceneFollowers=SceneFollowers?.Select(person=>person.Copy()).ToList(),RuinsVersion=RuinsVersion,RuinsDay=RuinsDay,DeliveredDay=DeliveredDay,Candidates=Candidates?.Select(person=>person.Copy()).ToList(),MetCompanions=MetCompanions?.ToList(),RuinsArmy=RuinsArmy?.Clone(),RuinsReward=RuinsReward?.Copy(),Defense=Defense?.Copy(),Finale=Finale?.Copy(),Encounters=Encounters?.Copy(),TacticalRules=TacticalRules?.Copy(),RuinsRewards=RuinsRewards?.Copy(),ReleaseMaps=(ReleaseMaps??new List<BaseDemoDesignMap>()).Select(m=>m.Copy()).ToList() };
     }
 
     public static class BaseDemo
@@ -73,6 +75,7 @@ namespace BaseConquest.Base
                 for(int i=0;i<ids.Length;i++){var facility=state.Muster.Facilities.Single(f=>f.FacilityId==ids[i]);facility.Capacity=openingRules.OpeningFacilityCapacity[i];facility.MinimumWorkers=openingRules.OpeningFacilityMinimum[i];}
             }
             BaseDemoDefense.PrepareOpening(state);
+            BaseDemoRaids.PrepareOpening(state);
             if(openingRules?.OpeningBattleRewardVersion==1)
             {
                 var defense=state.Demo.Defense.Mission;var reward=openingRules.OpeningDefenseReward;var loss=openingRules.OpeningDefenseLoss;
@@ -265,6 +268,7 @@ namespace BaseConquest.Base
             BaseRuinsRewards.Validate(state);
             BaseDemoDefense.Validate(state);
             BaseDemoFinale.Validate(state);
+            BaseDemoRaids.Validate(state);
         }
 
         public static bool AcknowledgeWaking(BaseState state)

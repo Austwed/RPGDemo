@@ -34,7 +34,7 @@ namespace BaseConquest.Base
                 string id = e.Id; Line(e.Title + " · " + (e.Status == "resolved" ? "已处理" : e.AvailableDay > owner.State.Day ? "第" + e.AvailableDay + "天出现" : "待处理"), 52, 22);
                 if(e.Kind=="defense")ThreatEventLines(e);
                 if (e.Kind == "defense" && e.Status == "pending") Line("坚守 "+(e.HoldRounds>0?e.HoldRounds:30)+"秒（旧轮数暂按1秒）或提前歼灭；最后处理日第"+e.DeadlineDay+"天，过夜仍会自动迎战。", 70, 18);
-                if (e.Kind == "defense" && e.Status == "pending") Line(BaseAutoResolve.Skippable(owner.State,e.Id)?"这一战可按战力自动迎战；推算不能取胜时仍要亲自指挥。":"这一战必须亲自指挥。", 62, 18);
+                if (e.Kind == "defense" && e.Status == "pending") Line(BaseAutoResolve.Skippable(owner.State,e.Id)?"兜底自动迎战：不亲自指挥时按战力结算，伤亡比亲自打重三成半，且基地粮／料／钱各按库存被掠走 20／15／15%。能抽身就亲自打。":"这一战必须亲自指挥。", 62, 18);
                 var source=BaseThreats.Site(owner.State,e.SourceSiteId);
                 bool unopposed=e.Kind=="attack"&&source?.Owner=="enemy"&&!source.Garrison.Any(u=>u.Kind==SoldierKind.Hero);
                 RowButton(source?.Owner=="player"&&e.Kind=="attack" ? "已占领" : unopposed ? "接管无指挥者的据点" : kind == "defense" ? "预览迎战" : "预览进攻", 0, 800, () => {if(unopposed)owner.ClaimOutpost(source.Id);else OpenCampaignPreview(id, "full");}, e.Status == "pending" && e.AvailableDay <= owner.State.Day && !owner.State.Campaign.HasActiveBattle); row += 60;
@@ -66,6 +66,7 @@ namespace BaseConquest.Base
             {
                 Line(r.Title + " · 第" + r.Day + "天 · " + (r.Passive ? "过夜迎战" : "主动战斗") + " · " + BaseCampaign.OutcomeName(r.Outcome), 65, 21);
                 if(!string.IsNullOrEmpty(r.RecoveryNote))Line(r.RecoveryNote,65,20);
+                if(!string.IsNullOrEmpty(r.RaidNote))Line(r.RaidNote,64,20);
                 if(r.Realtime)Line("即时作战 "+r.Seconds.ToString("0.0")+"秒 · 特殊回合机制未接入",48,18);
                 Line("部署 " + r.Deployed + "；阵亡 " + r.Killed + "／失联 " + r.Missing + "；返营 " + r.Returned + "／伤兵 " + r.Wounded + "；倒地队长 " + r.LeadersDown + "；军需损耗 " + r.GearLost, 86, 18);
                 Line("战利品／劫掠：粮 " + r.FoodChange.ToString("+0;-0;0") + "／原料 " + r.MaterialChange.ToString("+0;-0;0") + "／钱币 " + r.CoinChange.ToString("+0;-0;0") + "（只结算一次）", 67, 18);

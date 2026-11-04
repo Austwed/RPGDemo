@@ -124,6 +124,8 @@ namespace BaseConquest.Base
             BaseTraining.AdvanceDay(s);
             if(advanceThreats)BaseThreats.AdvanceDay(s);
             else if(s.Campaign.ThreatVersion==1)s.Campaign.ThreatDay=s.Day; // Projection freezes external armies, not the calendar invariant.
+            // 主线走完后的周期流寇：与 BaseThreats 的据点派兵互不干扰，只在 Demo 且 Stage=Finished 时生效。
+            if(advanceThreats)BaseDemoRaids.AdvanceDay(s);
             BaseDevelopment.Allocate(s);
             PayMorningFood(s);
             report.FoodRequired = s.TodayFoodRequired; report.FoodConsumed = s.TodayFoodConsumed; report.FoodMissing = s.TodayFoodMissing; report.FoodAfter = s.Inventory.Food;

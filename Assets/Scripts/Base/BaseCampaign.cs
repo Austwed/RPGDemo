@@ -58,6 +58,8 @@ namespace BaseConquest.Base
         public int FoodChange, MaterialChange, CoinChange;
         public int DropMaterials;
         public string RecoveryNote="";
+        // 自动迎战额外被掠走的基地物资说明（普通战斗留空）。
+        public string RaidNote="";
         public string SourceSiteId="";
         public int EnemyDeployed, EnemyLost, EnemyCaptured, EnemyReturned, EnemyDispersed;
         public bool Passive;
@@ -206,7 +208,8 @@ namespace BaseConquest.Base
                 e.EnemyArmy=BaseThreats.EnemySnapshot(s,e,document.Scenario.B);
                 BaseItemRecovery.Normalize(s);
             }
-            bool demoCombat=realtime && BaseDemo.Active(s) && new[]{BaseDemoRuins.EventId,BaseDemoDefense.EventId,BaseDemoDefense.SecondEventId,BaseThreats.Site(s,BaseDemoFinale.Camp)?.AttackEventId}.Contains(e.Id);
+            // Demo 里的防守战一律走即时规则：首防、第二波和主线后的随机入侵共用同一条即时战斗链。
+            bool demoCombat=realtime && BaseDemo.Active(s) && (e.Kind=="defense" || new[]{BaseDemoRuins.EventId,BaseDemoDefense.EventId,BaseDemoDefense.SecondEventId,BaseThreats.Site(s,BaseDemoFinale.Camp)?.AttackEventId}.Contains(e.Id));
             if(demoCombat && string.IsNullOrEmpty(e.SourceSiteId) && e.EnemyArmy.Count==0)e.EnemyArmy=BaseDemoCombat.CreateEnemies(e.Id,document.Scenario.B,BaseDemoEncounterConfig.Preset(s,e.Id));
             if(demoCombat){BaseRpg.PrepareEnemies(s,e.EnemyArmy,e.Id);BaseItemRecovery.Normalize(s);}
             var enemies=BaseThreats.EnemySnapshot(s,e,document.Scenario.B);
@@ -390,7 +393,7 @@ namespace BaseConquest.Base
                     {
                         Settle(s,session,true);
                         var passive=s.Campaign.Reports.FirstOrDefault(r=>r.BattleId==session.Opening.Id);
-                        if(passive!=null){passive.Passive=true;passive.Title=e.Title+" · 自动迎战";}
+                        if(passive!=null){passive.Passive=true;passive.Title=e.Title+" · 自动迎战";BaseAutoResolve.ApplyRaidCost(s,passive);BaseEconomy.Validate(s);}
                         if(s.Aftermath.GameOver)return true;continue;
                     }
                     var simulation=new RealtimeCampaignBattle(session);simulation.Model.SetPaused(false);

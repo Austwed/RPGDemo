@@ -96,6 +96,14 @@ namespace BaseConquest.Base
             result.AllyWins = holdSeconds > 0 ? surviveA >= holdSeconds : result.AllyPower > result.EnemyPower;
             result.Seconds = holdSeconds > 0 ? holdSeconds : Math.Min(killB, surviveA);
             result.TimedOut = result.Seconds > MaxSeconds;
+            if (holdSeconds > 0)
+            {
+                // 坚守分支按时间线性结算：双方 DPS 恒定，撑过 N 秒时的剩余血量就是「还能撑的秒数减去已用掉的秒数」。
+                // 用战力平方比会把「撑住 3 倍时间」算成「接近全灭」，自动迎战因此出现判胜却全军覆没。
+                result.AllySurvival = result.AllyWins ? Math.Max(0, Math.Min(1, (liveA - dpsB * holdSeconds) / Math.Max(1e-9, liveA))) : 0;
+                result.EnemySurvival = Math.Max(0, Math.Min(1, (liveB - dpsA * holdSeconds) / Math.Max(1e-9, liveB)));
+                return result;
+            }
             double ratio = result.AllyWins
                 ? Math.Min(1, (result.EnemyPower / result.AllyPower) * (result.EnemyPower / result.AllyPower))
                 : Math.Min(1, (result.AllyPower / result.EnemyPower) * (result.AllyPower / result.EnemyPower));
