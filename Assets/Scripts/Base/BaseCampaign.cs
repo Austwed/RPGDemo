@@ -312,7 +312,7 @@ namespace BaseConquest.Base
                 bool lost = unit != null && (unit.InstantDead || !a.DemoCombat && lostField && !unit.Escaped && !unit.Rescued);
                 if (unit != null) r.Deployed++;
                 if (lost) { if (unit.InstantDead) r.Killed++; else r.Missing++; }
-                else { var survivor = snapshot.Copy(); survivor.Health = unit == null ? snapshot.Health : Math.Max(1, Math.Min(snapshot.MaxHealth, unit.Health)); if (unit != null && !a.DemoCombat && survivor.Health < survivor.MaxHealth * BaseDevelopment.IdleThreshold) forcedRest.Add(survivor); survivors.Add(survivor); r.Returned++; if (survivor.Health < survivor.MaxHealth) r.Wounded++; }
+                else { var survivor = snapshot.Copy(); survivor.Health = unit == null ? snapshot.Health : Math.Max(1, Math.Min(snapshot.MaxHealth, unit.Health)); if (unit != null && !a.DemoCombat && survivor.Health < survivor.MaxHealth * BaseDevelopment.DutyThreshold) forcedRest.Add(survivor); survivors.Add(survivor); r.Returned++; if (survivor.Health < survivor.MaxHealth) r.Wounded++; }
                 if (unit != null)
                 {
                     if (snapshot.Kind == BaseTroopKind.Melee) { if (lost) outcome.LostMelee++; else outcome.SafeMelee++; }

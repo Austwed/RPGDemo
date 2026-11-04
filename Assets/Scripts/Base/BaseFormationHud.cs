@@ -59,7 +59,7 @@ namespace BaseConquest.Base
             if(formationForecastOpen)
             {
                 if(production?.Production!=null)foreach(var d in production.Production.Days)Line("第"+d.Day+"天：粮田 "+d.FarmWorkers+"人／工坊 "+d.WorkshopWorkers+"人，产粮 "+d.FoodProduced+"，耗原料 "+d.MaterialsSpent+"；日结及次晨后粮 "+d.FoodAfter+"／原料 "+d.MaterialsAfter,76,18);
-                Line("生产优先按管理所最低人数（至少1人）保留各产线，允许减产；逐日计算现有粮草与原料，不计战利品或交易收入。预测不承诺入侵战果。作战优先可抽调生产人员，兵源不足按队长顺序缺编；生命低于50%或外出者不可选。自动迎战采用作战优先。",132,18);
+                Line("生产优先按管理所最低人数（至少1人）保留各产线，允许减产；逐日计算现有粮草与原料，不计战利品或交易收入。预测不承诺入侵战果。作战优先可抽调生产人员，兵源不足按队长顺序缺编；生命低于30%或外出者不可选，守家迎战不受这条限制。自动迎战采用作战优先。",132,18);
             }
             EndPanel();
         }

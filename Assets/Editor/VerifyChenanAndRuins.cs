@@ -52,9 +52,9 @@ namespace BaseConquest.Editor
             Need(Math.Abs(BattleHeightSight.ArcherBonus(board,5.5,5.5,1.5,1.5)-6)<1e-9,"高差 3 级应封顶 +6 细格（合 +3 粗格）");
             Debug.Log("[Height] 视野 14（高度2）、平射 0、高差2 +4细格、低打高 0、高差3 封顶 +6细格");
         }
-        // 伤员三档（2026-11-04 拍板，阈值一律不带等号）：
-        // 兵 HP<50% 不能主动出战但可工作；HP<20% 强制空闲；队长豁免；
-        // 「一经战斗当天禁工」摘除；恢复选A＝营内全员每日自动恢复；Resting 退化为重伤闲置派生标记。
+        // P38（2026-11-04 最新裁决，取代伤员三档的 50%／20%）：
+        // 士兵生命 <30% 不能工作也不能主动出战；≥30% 两者都可以。遇袭守家例外：还能行动就能迎战。
+        // 队长不受阈值限制；自动选兵按生命比例从高到低；30%~100% 生命预警线默认 50%，拖到 30% 即关闭。
         public static void VerifyInjuryTiers()
         {
             var s=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
@@ -62,13 +62,14 @@ namespace BaseConquest.Editor
             s.Workers.Clear();
             s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,MaxHealth=100,Health=100,FarmEfficiency=1,WorkshopEfficiency=1});
             var w=s.Workers[0];
-            w.Health=51;Need(BaseDevelopment.Effective(s,w)&&BaseDevelopment.CanFight(w),"生命 51% 应可工可战");
-            w.Health=50;Need(BaseDevelopment.Effective(s,w)&&BaseDevelopment.CanFight(w),"生命正好 50% 应可战（阈值不带等号）");
-            w.Health=49;Need(BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w),"生命 49% 应可工不可战");
-            w.Health=20;Need(BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w),"生命正好 20% 应可工不可战（阈值不带等号）");
-            w.Health=19;Need(!BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w),"生命 19% 应强制空闲");
+            w.Health=31;Need(BaseDevelopment.Effective(s,w)&&BaseDevelopment.CanFight(w),"生命 31% 应可工可战");
+            w.Health=30;Need(BaseDevelopment.Effective(s,w)&&BaseDevelopment.CanFight(w),"生命正好 30% 应可工可战（阈值不带等号）");
+            w.Health=29;Need(!BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w),"生命 29% 应强制空闲");
+            Need(BaseDevelopment.CanDefend(w),"遇袭守家例外：29% 仍应能迎战");
+            w.Health=1;Need(!BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w)&&BaseDevelopment.CanDefend(w),"1 血士兵应只能守家");
             BaseDevelopment.Normalize(s);
             Need(w.Resting,"重伤士兵应带闲置（Resting）标记");
+            w.Health=0;Need(!BaseDevelopment.CanDefend(w),"生命归零不参战");
             // 当天返岗：UnavailableDay 生产禁令已摘除，返营／招降当天即可排班。
             w.Health=100;w.Resting=false;w.UnavailableDay=s.Day;
             Need(BaseDevelopment.Effective(s,w),"当天返营／招降的士兵应可立即排班（生产禁令已摘除）");
@@ -81,18 +82,54 @@ namespace BaseConquest.Editor
             l.Health=l.MaxHealth*.1;
             Need(BaseDevelopment.CanFight(l)&&BaseDevelopment.Effective(s,l),"队长应不受血量阈值限制");
             l.Health=l.MaxHealth;l.Away=wasAway;if(wasMember)s.Adventure.Members.Add(l.Id);
-            // 恢复选A：未选择休养的伤兵同样每日恢复；越过 20% 解除闲置标记。
+            // 恢复：营内全员每日自动进行；跨过 30% 就解除闲置、恢复出战资格。
             w.Health=10;BaseDevelopment.Normalize(s);Need(w.Resting,"10% 士兵应处于重伤闲置");
             BaseDevelopment.Recover(s);
             double expected=Math.Min(w.MaxHealth,10+w.MaxHealth*BaseDevelopment.RecoveryRatio(s));
             Need(Math.Abs(w.Health-expected)<1e-6,"全员自动恢复量不符：10 → "+w.Health.ToString("0.##")+"（应 "+expected.ToString("0.##")+"）");
-            Need(!w.Resting,"恢复越过 20% 应解除重伤闲置标记");
-            w.Health=30;BaseDevelopment.Recover(s);
-            Need(Math.Abs(w.Health-Math.Min(w.MaxHealth,30+w.MaxHealth*BaseDevelopment.RecoveryRatio(s)))<1e-6,"轻伤未休养士兵也应过夜恢复（选A）");
-            Need(BaseDevelopment.CanFight(w),"恢复越过 50% 后应可重新出战");
+            Need(!w.Resting,"恢复越过 30% 应解除重伤闲置标记");
+            Need(BaseDevelopment.Effective(s,w)&&BaseDevelopment.CanFight(w),"恢复越过 30% 应可工可战");
+            w.Health=25;BaseDevelopment.Recover(s);
+            Need(BaseDevelopment.CanFight(w),"25% 未休养士兵过夜恢复后应可重新出战");
+            // 生命预警：默认 50%，范围 30%~100%，拖到 30% 即关闭。
+            Need(Math.Abs(BaseDevelopment.WarningThreshold(s)-.5)<1e-9,"默认预警线应为 50%");
+            w.Health=45;Need(BaseDevelopment.BelowWarning(s,w),"45% 应低于默认预警线");
+            w.Health=60;Need(!BaseDevelopment.BelowWarning(s,w),"60% 不应触发预警");
+            BaseDevelopment.SetWarningThreshold(s,.3);
+            Need(BaseDevelopment.WarningOff(s),"预警线拖到 30% 应视为关闭");
+            w.Health=45;Need(!BaseDevelopment.BelowWarning(s,w),"预警关闭后不再提示");
+            BaseDevelopment.SetWarningThreshold(s,.2);
+            Need(Math.Abs(BaseDevelopment.WarningThreshold(s)-.3)<1e-9,"预警线下限锁在 30%");
+            BaseDevelopment.SetWarningThreshold(s,.5);
+            // 自动选兵：生命比例高的先上；守家迎战放宽到还能行动的伤兵。
+            s.Workers.Clear();
+            s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,MaxHealth=100,Health=80,FarmEfficiency=1,WorkshopEfficiency=1});
+            s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,MaxHealth=100,Health=45,FarmEfficiency=1,WorkshopEfficiency=1});
+            s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,MaxHealth=100,Health=10,FarmEfficiency=1,WorkshopEfficiency=1});
+            var preset=s.Muster.Presets.Single(p=>p.Purpose=="expedition").Copy();
+            preset.SelectLeaders(new[]{s.PlayerLeaderId});
+            preset.SetCount(BaseTroopKind.Melee,2);preset.SetCount(BaseTroopKind.Ranged,0);preset.SetCount(BaseTroopKind.Cavalry,0);
+            var plan=BaseMuster.Preview(s,"expedition",true,preset);
+            Need(plan.Takes.Count==2&&plan.Takes[0].BucketIndex==0&&plan.Takes[1].BucketIndex==1,
+                "出征选兵应按生命比例从高到低取（80%→45%），实际 "+string.Join(",",plan.Takes.Select(t=>t.BucketIndex+":"+t.Count)));
+            preset.SetCount(BaseTroopKind.Melee,3);preset.Purpose="defense";
+            var defend=BaseMuster.Preview(s,"defense",true,preset);
+            Need(defend.Takes.Sum(t=>t.Count)==3,"守家迎战应放宽到还能行动的伤兵（含 10%），实际 "+defend.Takes.Sum(t=>t.Count));
+            Need(plan.Takes.Sum(t=>t.Count)==2,"出征不应把 10% 伤兵编进队");
+            // 生产补位与四分类：重伤不占岗位，可工作的闲置兵自动补空。
+            s.Workers.Clear();
+            s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=2,MaxHealth=100,Health=100,FarmEfficiency=1,WorkshopEfficiency=1});
+            s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,MaxHealth=100,Health=25,FarmEfficiency=1,WorkshopEfficiency=1});
+            s.Development.Automatic=true;
+            BaseDevelopment.Allocate(s);
+            Need(s.Workers.Where(x=>!x.Away&&x.Health<30).All(x=>x.FacilityId==""),"重伤士兵不应占生产岗位");
+            Need(s.Workers.Where(x=>!x.Away&&x.Health>=30).Sum(x=>x.FacilityId==""?0:x.Count)>0,"可工作士兵应自动补上空岗");
+            var tally=BaseDevelopment.Tally(s);
+            Need(tally[0]==3&&tally[1]==2&&tally[2]==2&&tally[3]==1,
+                "兵力四分类不符：总数"+tally[0]+"／可工作"+tally[1]+"／可出战"+tally[2]+"／重伤"+tally[3]);
             // 手动休养入口已关闭（恢复全员自动，Resting 由血量派生）。
             Need(!BaseDevelopment.RestWorkers(s,0,1,true),"手动休养入口应一律拒绝");
-            Debug.Log("[InjuryTiers] 50%/20% 不带等号、队长豁免、当天返岗、全员自动恢复、休养入口关闭 PASS");
+            Debug.Log("[InjuryTiers] 30% 不带等号、守家例外、队长豁免、当天返岗、全员自动恢复、预警开关、生命降序选兵、补位与四分类 PASS");
         }
         private static void At(BaseState state,string id)
         {

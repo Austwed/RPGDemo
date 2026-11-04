@@ -39,7 +39,7 @@ namespace BaseConquest.Base
                 var w=s.Workers[i];var stats=w.HasCombatProfile ? w.CombatStats.Clone() : new ArmyDefinition().Stats(BaseCampaign.ToBattle(w.Kind)).Clone();stats.Health=(float)w.MaxHealth;
                 for(int n=0;n<w.Count;n++)
                 {
-                    var u=new BasePersonnelUnit {Key="soldier:"+i+":"+n,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+(++number),w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),State=w.Away ? "外出" : w.Health<=0 ? "无法行动" : w.Resting ? "重伤 · 强制空闲" : BaseDevelopment.Effective(s,w) ? w.Health<w.MaxHealth*BaseDevelopment.FightThreshold ? "轻伤 · 可生产" : "今日可生产" : "今日不生产",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
+                    var u=new BasePersonnelUnit {Key="soldier:"+i+":"+n,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+(++number),w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),State=w.Away ? "外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.Effective(s,w) ? "今日可生产" : "重伤 · 强制空闲",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
                     Effects(s,u,w.PartyId);yield return u;
                 }
             }

@@ -24,15 +24,16 @@ namespace BaseConquest.Base
     }
     public static partial class BaseMuster
     {
-        public static IEnumerable<BaseSoldierRow> SoldierRows(BaseState s, BaseTroopKind kind)
+        public static IEnumerable<BaseSoldierRow> SoldierRows(BaseState s, BaseTroopKind kind, string purpose = "")
         {
             foreach(var entry in s.Workers.Select((w,i)=>new {Worker=w,Index=i}).Where(x=>x.Worker.Kind==kind&&x.Worker.Count>0)
-                .OrderBy(x=>x.Worker.FacilityId=="" ? -1 : s.Muster.Facilities.FirstOrDefault(f=>f.FacilityId==x.Worker.FacilityId)?.Priority??0).ThenBy(x=>x.Index))
+                .OrderByDescending(x=>x.Worker.MaxHealth>0 ? x.Worker.Health/x.Worker.MaxHealth : 0)
+                .ThenBy(x=>x.Worker.FacilityId=="" ? -1 : s.Muster.Facilities.FirstOrDefault(f=>f.FacilityId==x.Worker.FacilityId)?.Priority??0).ThenBy(x=>x.Index))
             {
                 var w=entry.Worker;
                 var stats=w.HasCombatProfile ? w.CombatStats.Clone() : new ArmyDefinition().Stats(BaseCampaign.ToBattle(kind)).Clone();
                 stats.Health=(float)w.MaxHealth;
-                string reason=w.Away ? "已外出" : w.Health<=0 ? "无法行动" : w.Health<w.MaxHealth*BaseDevelopment.FightThreshold ? "伤重不宜出战" : "";
+                string reason=w.Away ? "已外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.Eligible(purpose,w) ? "" : "生命低于30%，不能主动出战";
                 for(int n=0;n<w.Count;n++) yield return new BaseSoldierRow {Pick=new BaseSoldierPick {BucketIndex=entry.Index,Ordinal=n},Kind=kind,Stats=stats,
                     Health=w.Health,MaxHealth=w.MaxHealth,Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),EffectiveWorker=BaseDevelopment.Effective(s,w),Recruited=w.Recruited,UnavailableReason=reason};
             }
@@ -40,11 +41,11 @@ namespace BaseConquest.Base
         private static void SelectExactWorkers(BaseState s, BaseMusterPlan plan, BaseArmyPreset preset)
         {
             var picks=plan.ManualPicks;
-            if(picks.Count>90||picks.Any(p=>p==null||p.BucketIndex<0||p.BucketIndex>=s.Workers.Count||p.Ordinal<0||p.Ordinal>=s.Workers[p.BucketIndex].Count||!BaseDevelopment.CanFight(s.Workers[p.BucketIndex]))||picks.Select(p=>p.Key).Distinct().Count()!=picks.Count)
+            if(picks.Count>90||picks.Any(p=>p==null||p.BucketIndex<0||p.BucketIndex>=s.Workers.Count||p.Ordinal<0||p.Ordinal>=s.Workers[p.BucketIndex].Count||!BaseDevelopment.Eligible(plan.Purpose,s.Workers[p.BucketIndex]))||picks.Select(p=>p.Key).Distinct().Count()!=picks.Count)
                 throw new ArgumentException("逐兵选择已变化或包含不可出战／重复单位，请重新选择");
             foreach(var kind in Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>())
             {
-                int selected=picks.Count(p=>s.Workers[p.BucketIndex].Kind==kind),available=s.Workers.Where(w=>w.Kind==kind&&BaseDevelopment.CanFight(w)).Sum(w=>w.Count);
+                int selected=picks.Count(p=>s.Workers[p.BucketIndex].Kind==kind),available=s.Workers.Where(w=>w.Kind==kind&&BaseDevelopment.Eligible(plan.Purpose,w)).Sum(w=>w.Count);
                 if(selected!=preset.Count(kind)||selected>Math.Min(30,available))throw new ArgumentException("所选人数不能超过可用兵力或本队兵种上限");
                 if(!plan.IgnoreProtection&&selected>Math.Max(0,available-s.Muster.Keep(kind)))throw new InvalidOperationException("已达到留守限制：本兵种须留在基地 "+s.Muster.Keep(kind)+"人；可切换为允许抽调留守和生产人员");
             }
@@ -73,6 +74,9 @@ namespace BaseConquest.Base
         private BaseDepartureSelection() {}
         public BaseDepartureSelection Copy() => new BaseDepartureSelection {Preset=Preset.Copy(),Picks=Picks.Select(p=>p.Copy()).ToList(),Stamp=Stamp,PriorityMode=PriorityMode};
         public int Count(BaseState s,BaseTroopKind kind) => Picks.Count(p=>p.BucketIndex>=0&&p.BucketIndex<s.Workers.Count&&s.Workers[p.BucketIndex].Kind==kind);
+        // 进入战斗前的生命预警：已选名单里低于预警线的人（预警线拖到 30% 时恒为 0）。
+        public int WarningCount(BaseState s) => Picks.Count(p=>p.BucketIndex>=0&&p.BucketIndex<s.Workers.Count&&BaseDevelopment.BelowWarning(s,s.Workers[p.BucketIndex]));
+        public double WarningLowest(BaseState s) => Picks.Where(p=>p.BucketIndex>=0&&p.BucketIndex<s.Workers.Count&&BaseDevelopment.BelowWarning(s,s.Workers[p.BucketIndex])).Select(p=>s.Workers[p.BucketIndex].Health).DefaultIfEmpty(0).Min();
         public bool Selected(BaseSoldierPick pick) => Picks.Any(p=>p.Key==pick.Key);
         private void SynchronizeCounts(BaseState s) {foreach(var kind in Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>())Preset.SetCount(kind,Count(s,kind));}
         public BaseMusterPlan Preview(BaseState s,bool bypass)
@@ -98,8 +102,10 @@ namespace BaseConquest.Base
             error="没有更多可调单位";
             if(delta<0){var pick=Picks.LastOrDefault(p=>s.Workers[p.BucketIndex].Kind==kind);return pick!=null&&Toggle(s,pick,bypass,out error);}
             if(Count(s,kind)>=30){error="已达本队兵种上限";return false;}
-            foreach(var entry in s.Workers.Select((w,i)=>new {Worker=w,Index=i}).Where(x=>x.Worker.Kind==kind&&BaseDevelopment.CanFight(x.Worker))
-                .OrderBy(x=>x.Worker.FacilityId=="" ? -1 : s.Muster.Facilities.FirstOrDefault(f=>f.FacilityId==x.Worker.FacilityId)?.Priority??0).ThenBy(x=>x.Index))
+            // 加人与自动编队同一口径：生命比例高的先上。
+            foreach(var entry in s.Workers.Select((w,i)=>new {Worker=w,Index=i}).Where(x=>x.Worker.Kind==kind&&BaseDevelopment.Eligible(Preset.Purpose,x.Worker))
+                .OrderByDescending(x=>x.Worker.MaxHealth>0 ? x.Worker.Health/x.Worker.MaxHealth : 0)
+                .ThenBy(x=>x.Worker.FacilityId=="" ? -1 : s.Muster.Facilities.FirstOrDefault(f=>f.FacilityId==x.Worker.FacilityId)?.Priority??0).ThenBy(x=>x.Index))
             {
                 int ordinal=0;while(ordinal<entry.Worker.Count&&Selected(new BaseSoldierPick {BucketIndex=entry.Index,Ordinal=ordinal}))ordinal++;
                 if(ordinal<entry.Worker.Count&&Toggle(s,new BaseSoldierPick {BucketIndex=entry.Index,Ordinal=ordinal},bypass,out error))return true;
@@ -109,20 +115,20 @@ namespace BaseConquest.Base
         public bool CanAdd(BaseState s,BaseTroopKind kind,bool bypass) => Copy().Adjust(s,kind,1,bypass,out _);
         public BaseDepartureCapacity Capacity(BaseState s,BaseTroopKind kind,bool bypass)
         {
-            var trial=Copy();int selected=Count(s,kind),ready=s.Workers.Where(w=>w.Kind==kind&&BaseDevelopment.CanFight(w)).Sum(w=>w.Count);
+            var trial=Copy();int selected=Count(s,kind),ready=s.Workers.Where(w=>w.Kind==kind&&BaseDevelopment.Eligible(Preset.Purpose,w)).Sum(w=>w.Count);
             string reason="";while(trial.Count(s,kind)<30&&trial.Adjust(s,kind,1,bypass,out reason)) {}
             int limit=trial.Count(s,kind);
             if(limit==30)reason="每种兵最多携带30人";
-            else if(limit>=ready)reason="没有更多可出战人员（生命低于50%、外出者不能随队）";
-            return new BaseDepartureCapacity {Selected=selected,Ready=ready,Limit=limit,Reserved=Math.Max(0,ready-limit),Reason=reason};
+            else if(limit>=ready)reason=Preset.Purpose=="defense" ? "没有更多可迎战人员（外出者不能随队）" : "没有更多可出战人员（生命低于30%、外出者不能随队）";
+            return new BaseDepartureCapacity {Selected=selected,Ready=ready,Limit=limit,Reserved=Math.Max(0,ready-limit),Purpose=Preset.Purpose,Reason=reason};
         }
         public bool CanToggle(BaseState s,BaseSoldierPick pick,bool bypass,out string reason) => Copy().Toggle(s,pick,bypass,out reason);
     }
     public sealed class BaseDepartureCapacity
     {
         public int Selected,Ready,Limit,Reserved;
-        public string Reason;
+        public string Purpose,Reason;
         public string Summary => "已选 "+Selected+"人 · 最多可带 "+Limit+"人";
-        public string Detail => "可出战 "+Ready+"人"+(Reserved>0 ? " · 需留在基地 "+Reserved+"人" : "")+(Selected>=Limit ? "；"+Reason : "");
+        public string Detail => (Purpose=="defense" ? "可迎战 " : "可出战 ")+Ready+"人"+(Reserved>0 ? " · 需留在基地 "+Reserved+"人" : "")+(Selected>=Limit ? "；"+Reason : "");
     }
 }

@@ -12,6 +12,8 @@ namespace BaseConquest.Base
         public string Policy = "food";
         // 2026-11-03：由“每日固定生命”改为“最大生命的固定比例”，比例随营帐等级叠加。
         public double RecoveryFraction = .3;
+        // 2026-11-04 裁决：30%～100% 生命预警线，默认 50%；拖到 30%（＝可出战下限）即等同关闭。
+        public double WarningThreshold = .5;
         public BaseDevelopmentState Copy() => (BaseDevelopmentState)MemberwiseClone();
     }
     public static class BaseDevelopment
@@ -25,17 +27,41 @@ namespace BaseConquest.Base
             double baseValue = s?.Development?.RecoveryFraction ?? .3;
             return Math.Max(.01, Math.Min(1, baseValue + CampRecoveryStep * (level - 1)));
         }
-        // 2026-11-04 拍板（伤员三档，阈值一律不带等号）：
-        // 士兵生命 <50% 不能主动出战但可照常工作；<20% 强制空闲（不能工作也不能战斗）；
-        // 队长不受血量阈值限制；「一经战斗当天禁工」摘除（UnavailableDay 只保留排序等非生产用途）；
-        // 恢复改为营内全员每日自动进行（选A），Resting 退化为「重伤闲置」的派生标记，不再是玩家操作。
-        public const double FightThreshold = .5, IdleThreshold = .2;
-        public static bool HeavilyWounded(BaseWorkerBucket w) => w.Health > 0 && w.Health < w.MaxHealth * IdleThreshold;
-        public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * IdleThreshold;
+        // 2026-11-04 最新裁决（取代伤员三档的 50%／20%）：士兵生命 <30% 不可工作、不可主动出战；
+        // ≥30% 可工作也可主动出战。遇袭防守例外：生命仍 >0 就能参加迎敌战场。
+        // 队长不受血量阈值限制；恢复仍是营内全员每日自动，Resting 是「重伤闲置」的派生标记。
+        public const double DutyThreshold = .3;
+        public const double WarningDefault = .5, WarningFloor = .3, WarningCeiling = 1;
+        public static bool HeavilyWounded(BaseWorkerBucket w) => w.Health > 0 && w.Health < w.MaxHealth * DutyThreshold;
+        public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
         public static bool CanManage(BaseState s, BaseLeader l) => !l.Away && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && !BaseTraining.Busy(l.Training) && l.Health > 0;
         public static bool Effective(BaseState s, BaseLeader l) => CanManage(s,l);
-        public static bool CanFight(BaseWorkerBucket w) => !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * FightThreshold;
+        public static bool CanFight(BaseWorkerBucket w) => !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
+        // 遇袭防守例外：守家时只要还能行动就上，不受 30% 门槛限制。
+        public static bool CanDefend(BaseWorkerBucket w) => !w.Away && w.Health > 0;
+        // 编队资格：防守用途放宽到 CanDefend，其余用途一律 CanFight。
+        public static bool Eligible(string purpose, BaseWorkerBucket w) => purpose == "defense" ? CanDefend(w) : CanFight(w);
         public static bool CanFight(BaseLeader l) => !l.Away && BaseAdventure.Alive(l) && !BaseTraining.Busy(l.Training) && l.Health > 0;
+        // 预警线：0 表示旧档未写该字段，回落到默认 50%；拖到 30% 即关闭（低无可低）。
+        public static double WarningThreshold(BaseState s)
+        {
+            double value = s?.Development?.WarningThreshold ?? 0;
+            if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0) return WarningDefault;
+            return Math.Max(WarningFloor, Math.Min(WarningCeiling, value));
+        }
+        public static bool WarningOff(BaseState s) => WarningThreshold(s) <= DutyThreshold + 1e-9;
+        public static bool BelowWarning(BaseState s, BaseWorkerBucket w) => !WarningOff(s) && w.MaxHealth > 0 && w.Health > 0 && w.Health < w.MaxHealth * WarningThreshold(s);
+        public static void SetWarningThreshold(BaseState s, double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value)) throw new ArgumentException("生命预警线非法");
+            s.Development.WarningThreshold = Math.Max(WarningFloor, Math.Min(WarningCeiling, value));
+        }
+        // 兵力详情四分类：总数／可工作／可主动出战／重伤。出场人物与训练不影响士兵统计。
+        public static int[] Tally(BaseState s, BaseTroopKind? kind = null)
+        {
+            var buckets = s.Workers.Where(w => w != null && (kind == null || w.Kind == kind)).ToArray();
+            return new[] { buckets.Sum(w => w.Count), buckets.Where(w => Effective(s, w)).Sum(w => w.Count), buckets.Where(CanFight).Sum(w => w.Count), buckets.Where(w => !w.Away && HeavilyWounded(w)).Sum(w => w.Count) };
+        }
         public static double Efficiency(BaseWorkerBucket w, string facility) => facility == "farm" ? w.FarmEfficiency : w.WorkshopEfficiency;
         public static double Bonus(BaseLeader l, string facility) => BaseRpg.ProductionBonus(l,facility);
         public static string PolicyName(string id) => id == "food" ? "粮草优先" : id == "equipment" ? "军需优先" : id == "balanced" ? "均衡" : "自定优先";
@@ -43,9 +69,11 @@ namespace BaseConquest.Base
         public static void Normalize(BaseState s)
         {
             var d = s.Development;
-            // 旧档迁移：Resting 由「玩家手动休养」改为「重伤闲置」派生标记，统一按 <20% 重算（幂等）。
+            // 旧档迁移：Resting 由「玩家手动休养」改为「重伤闲置」派生标记，统一按 <30% 重算（幂等）。
             // 只重算营内工人：外出幸存者在返营流程里先清 Away 再置标记，这里抢先置会构成「外出且休养」非法态。
-            foreach (var w in s.Workers.Where(x => x != null)) if (w.MaxHealth > 0 && w.Health > 0 && !w.Away) w.Resting = w.Health < w.MaxHealth * IdleThreshold;
+            foreach (var w in s.Workers.Where(x => x != null)) if (w.MaxHealth > 0 && w.Health > 0 && !w.Away) w.Resting = w.Health < w.MaxHealth * DutyThreshold;
+            // 预警线是 P38 新增字段：旧档没写过（0）就补默认 50%，不把「未设置」当成「拖到最低」。
+            if (d != null && (double.IsNaN(d.WarningThreshold) || double.IsInfinity(d.WarningThreshold) || d.WarningThreshold <= 0)) d.WarningThreshold = WarningDefault;
             // 版本 1 的旧档存的是“每日固定生命”（旧量纲），升级为按最大生命比例，比例取默认 30%。
             if (d != null && d.Version == 1) { d.Version = 2; if (!(d.RecoveryFraction > 0 && d.RecoveryFraction <= 1)) d.RecoveryFraction = .3; return; }
             if (d != null && d.Version != 0) return;
@@ -70,7 +98,7 @@ namespace BaseConquest.Base
         public static void Validate(BaseState s)
         {
             var d = s.Development;
-            if (d.Version != 2 || !Policies.Contains(d.Policy) || !Number(d.RecoveryFraction, 1) || d.RecoveryFraction <= 0) throw new ArgumentException("发展策略或回血规则非法");
+            if (d.Version != 2 || !Policies.Contains(d.Policy) || !Number(d.RecoveryFraction, 1) || d.RecoveryFraction <= 0 || !Number(d.WarningThreshold, 1)) throw new ArgumentException("发展策略或回血规则非法");
             foreach (var l in s.Leaders)
             { if(l.HasCombatProfile&&(!BaseAftermath.ValidStats(l.CombatStats)||l.PersonalEquipment?.Version!=1&&l.CombatStats.Health!=l.MaxHealth)) throw new ArgumentException("人物战斗属性非法");
                 if (!Number(l.MaxHealth, 100000) || l.MaxHealth < 1 || !Number(l.Health, l.MaxHealth) || !BaseEconomy.Facilities.Contains(l.DesiredFacility) || !Number(l.FarmBonus, 1) || !Number(l.WorkshopBonus, 1) || l.Resting && (l.Away || l.Health <= 0)) throw new ArgumentException("队长健康／岗位意向非法");
@@ -185,7 +213,7 @@ namespace BaseConquest.Base
             { l.Health = Math.Min(l.MaxHealth, l.Health + l.MaxHealth * ratio); l.Resting = false; count++; }
             // 2026-11-04 选A：恢复不再是休养专属——营内所有伤兵每天自动恢复；Resting 只作重伤闲置标记。
             foreach (var w in s.Workers.Where(w => !w.Away && w.Health > 0 && w.Health < w.MaxHealth))
-            { w.Health = Math.Min(w.MaxHealth, w.Health + w.MaxHealth * ratio); count += w.Count; w.Resting = w.Health < w.MaxHealth * IdleThreshold; }
+            { w.Health = Math.Min(w.MaxHealth, w.Health + w.MaxHealth * ratio); count += w.Count; w.Resting = w.Health < w.MaxHealth * DutyThreshold; }
             return count;
         }
     }

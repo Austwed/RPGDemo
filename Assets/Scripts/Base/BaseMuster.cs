@@ -152,7 +152,7 @@ namespace BaseConquest.Base
             parts.AddRange(s.Muster.Facilities.Select(f => f.FacilityId + ":" + f.Priority + ":" + f.MinimumWorkers + ":" + f.Capacity + ":" + f.Level + ":" + f.MaxProductLevel));
             parts.Add(s.Muster.KeepMelee + ":" + s.Muster.KeepRanged + ":" + s.Muster.KeepCavalry); parts.AddRange(s.Muster.Parties.Select(p => p.Id)); parts.AddRange(s.Muster.ReturnedIds);
             parts.Add(s.Rules.SoldierFood + ":" + s.Rules.CavalryFood + ":" + s.Rules.LeaderFood + ":" + (BaseRpg.Active(s)?s.Demo.Rpg.ArcherFood:0) + ":" + s.FoodPaidDay + ":" + s.TodayFoodConsumed);
-            parts.Add(s.Development.Version + ":" + s.Development.Automatic + ":" + s.Development.Policy + ":" + N(s.Development.RecoveryFraction));
+            parts.Add(s.Development.Version + ":" + s.Development.Automatic + ":" + s.Development.Policy + ":" + N(s.Development.RecoveryFraction) + ":" + N(BaseDevelopment.WarningThreshold(s)));
             parts.AddRange(s.Leaders.Select(l => l.Id + ":" + N(l.Health) + ":" + N(l.MaxHealth) + ":" + l.Resting + ":" + l.DesiredFacility + ":" + l.PostLocked + ":" + l.HasAffinity + ":" + N(l.FarmBonus) + ":" + N(l.WorkshopBonus)));
             parts.AddRange(s.Workers.Select(w => N(w.Health) + ":" + N(w.MaxHealth) + ":" + w.Resting + ":" + w.DesiredFacility + ":" + w.PostLocked + ":" + N(w.FarmEfficiency) + ":" + N(w.WorkshopEfficiency)));
             parts.AddRange(s.Supply.Quotas.Select(q => q.BattleId + ":" + q.PartyId + ":" + q.Phase)); parts.AddRange(s.Supply.FinishedIds);
@@ -199,11 +199,13 @@ namespace BaseConquest.Base
         {
             foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
             {
-                int need = requested.Count(kind), total = s.Workers.Where(w => BaseDevelopment.CanFight(w) && w.Kind == kind).Sum(w => w.Count);
+                int need = requested.Count(kind), total = s.Workers.Where(w => BaseDevelopment.Eligible(plan.Purpose, w) && w.Kind == kind).Sum(w => w.Count);
                 int already=plan.Takes.Where(t=>s.Workers[t.BucketIndex].Kind==kind).Sum(t=>t.Count);
                 int canTake = plan.IgnoreProtection ? total-already : Math.Max(0, total - s.Muster.Keep(kind)-already);
-                var buckets = s.Workers.Select((w, i) => new { Worker = w, Index = i }).Where(x => BaseDevelopment.CanFight(x.Worker) && x.Worker.Kind == kind)
-                    .OrderBy(x => x.Worker.FacilityId == "" ? -1 : s.Muster.Facilities.Single(f => f.FacilityId == x.Worker.FacilityId).Priority)
+                // 2026-11-04 裁决：先按生命比例从高到低取，同档再按「先抽闲置、后抽低产设施」的老次序。
+                var buckets = s.Workers.Select((w, i) => new { Worker = w, Index = i }).Where(x => BaseDevelopment.Eligible(plan.Purpose, x.Worker) && x.Worker.Kind == kind)
+                    .OrderByDescending(x => x.Worker.MaxHealth > 0 ? x.Worker.Health / x.Worker.MaxHealth : 0)
+                    .ThenBy(x => x.Worker.FacilityId == "" ? -1 : s.Muster.Facilities.Single(f => f.FacilityId == x.Worker.FacilityId).Priority)
                     .ThenBy(x => x.Worker.UnavailableDay == s.Day ? 0 : x.Worker.FacilityId == "farm" ? s.Rules.FarmPerWorker * (1 + (BaseEconomy.Manager(s, "farm")?.ProductionBonus ?? 0)) : x.Worker.FacilityId == "workshop" ? s.Rules.WorkshopPerWorker * (1 + (BaseEconomy.Manager(s, "workshop")?.ProductionBonus ?? 0)) : 0)
                     .ThenBy(x => x.Worker.FacilityId, StringComparer.Ordinal).ThenBy(x => x.Index);
                 foreach (var entry in buckets)
