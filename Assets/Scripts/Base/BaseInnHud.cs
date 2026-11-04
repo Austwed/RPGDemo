@@ -11,11 +11,12 @@ namespace BaseConquest.Base
             if(BaseDemoFlow.Active(s)&&!s.Demo.Flow.InnWelcomed)
             {
                 owner.Change(next=>next.Demo.Flow.InnWelcomed=true,"");
-                NpcDialogue(new[]{new NpcLine(BaseScriptNames.InnKeeper,BaseScriptNames.Portrait("innkeeper"),"热汤麦酒管够！随行休息每位队长 "+BaseInn.Fee(s)+" 金币，长期寄宿也是每天 "+BaseInn.Fee(s)+" 金币，童叟无欺。")},
+                NpcDialogue(WithInjury(s,"INJ_TOWN_MAIGE",new NpcLine(BaseScriptNames.InnKeeper,BaseScriptNames.Portrait("innkeeper"),"热汤麦酒管够！随行休息每位队长 "+BaseInn.Fee(s)+" 金币，长期寄宿也是每天 "+BaseInn.Fee(s)+" 金币，童叟无欺。")),
                     new[]{new NpcReply("进店看看",()=>{ClosePanel();OpenInn();})});
                 return;
             }
             BeginPanel(BaseInn.Free(s)?BaseScriptNames.Village+" · 临时扎营点":BaseScriptNames.Town+" · 旅店","town-inn");
+            InjuryLine(s,"INJ_TOWN_MAIGE");
             Line("当地寄存 "+BaseInn.Occupied(s)+" / "+BaseInn.Capacity+" · 随行 "+s.Adventure.Members.Count+" / 3 · 营帐 "+BaseRpg.Population(s)+" / "+BaseRpg.Capacity(s),60,21);
             Line(BaseInn.Free(s)?"此处免费休息、留队，最多额外留守3名队长。":"住宿费用：每人每天 "+BaseInn.Fee(s)+" 金币（入住预付首日）",55,20);
             Line("过日自动结算各旅店住客费用，钱不足记欠费，接走前补清；免费扎营者不计费。",60,18);

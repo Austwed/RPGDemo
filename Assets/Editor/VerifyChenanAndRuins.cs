@@ -15,8 +15,42 @@ namespace BaseConquest.Editor
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();
-            VerifyBattleAppearances();VerifyRuinsFirstClear();
+            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();
             Debug.Log("[VerifyChenanAndRuins] regression PASS");
+        }
+        // P20（01C §8.5.1）：带伤应答只看主角当前生命是否低于 60%，满血与阵亡都不触发。
+        public static void VerifyInjuredLines()
+        {
+            var s=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
+            var p=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId);
+            Need(p.MaxHealth>0,"阶段档主角最大生命为 0，无法验证带伤阈值");
+            p.Health=p.MaxHealth*.59;
+            Need(BaseHud.Wounded(s),"生命低于 60% 应判为带伤");
+            foreach(var id in new[]{"INJ_TOWN_MAIGE","INJ_TOWN_GUARD","INJ_TOWN_MO","INJ_TOWN_XIAOYUN","INJ_TOWN_BALONG","INJ_TOWN_LEIEN","INJ_CAMP_ZHOU","INJ_CAMP_CHUN","INJ_CAMP_AHE","INJ_CAMP_AZHU","INJ_CAMP_JIALAN"})
+                Need(BaseHud.InjuredText(s,id)!="",id+" 缺带伤应答文案");
+            Need(BaseHud.InjuredText(s,"INJ_TOWN_MAIGE")!=BaseHud.InjuredText(s,"INJ_TOWN_GUARD"),"不同 NPC 的带伤应答不应重复");
+            p.Health=p.MaxHealth*.6;
+            Need(!BaseHud.Wounded(s),"生命正好 60% 不应算带伤");
+            p.Health=p.MaxHealth;
+            Need(!BaseHud.Wounded(s)&&BaseHud.InjuredText(s,"INJ_CAMP_ZHOU")=="","满血不应出带伤应答");
+            p.Health=p.MaxHealth*.4;p.Fate="dead";
+            Need(!BaseHud.Wounded(s),"阵亡角色不参与带伤应答");
+            p.Fate="active";
+            Debug.Log("[Injured] 阈值 60%；11 条文案就绪，满血／60% 整／阵亡均不触发");
+        }
+        // P24（2026-11-04 定）：高地换算以现行 BattleHeightSight 为准，02／05 的数字必须跟它一致。
+        // ArcherBonus 返回的是细格；粗格加成 = 返回值 ÷ Subdivision(2)。
+        public static void VerifyHeightSight()
+        {
+            var board=new BattleBoard{Width=8,Height=8};board.EnsureValid();
+            board.Cells[3*8+3].Elevation=2;
+            Need(BattleHeightSight.Radius(board,new GridPosition(3,3))==14,"高地视野应为 10+2×2=14");
+            Need(Math.Abs(BattleHeightSight.ArcherBonus(board,3.5,3.5,3.5,3.5))<1e-9,"平地不应有弓兵射程加成");
+            Need(Math.Abs(BattleHeightSight.ArcherBonus(board,3.5,3.5,5.5,5.5)-4)<1e-9,"高差 2 级应 +4 细格（合 +2 粗格）");
+            board.Cells[5*8+5].Elevation=3;
+            Need(Math.Abs(BattleHeightSight.ArcherBonus(board,3.5,3.5,5.5,5.5))<1e-9,"从低处打高处不应有加成");
+            Need(Math.Abs(BattleHeightSight.ArcherBonus(board,5.5,5.5,1.5,1.5)-6)<1e-9,"高差 3 级应封顶 +6 细格（合 +3 粗格）");
+            Debug.Log("[Height] 视野 14（高度2）、平射 0、高差2 +4细格、低打高 0、高差3 封顶 +6细格");
         }
         private static void At(BaseState state,string id)
         {

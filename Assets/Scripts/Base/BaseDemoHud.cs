@@ -103,7 +103,8 @@ namespace BaseConquest.Base
             var replies=new List<NpcReply>{new NpcReply("点点头走开",ClosePanel)};
             // 2026-11-01 韦德拍板：撤掉独立的「商人」，行商老莫接管补给摊位，交易入口并进他的对话。
             if(id=="town_peddler")replies.Insert(0,new NpcReply("看看货品",()=>{ClosePanel();OpenTownMarket();}));
-            NpcDialogue(new[]{new NpcLine(who,art,text)},replies.ToArray());
+            string injury=id=="town_guard"?"INJ_TOWN_GUARD":id=="town_peddler"?"INJ_TOWN_MO":"INJ_TOWN_XIAOYUN";
+            NpcDialogue(WithInjury(state,injury,new NpcLine(who,art,text)),replies.ToArray());
         }
         private void OpenDemoLord()
         {
@@ -160,14 +161,15 @@ namespace BaseConquest.Base
             var state=owner.State;bool ahe=id=="partner_farm",met=state.Demo.MetCompanions.Contains(id);activeObject="demo-partner";interactionObject="";
             string name=ahe?"阿禾":"阿铸",appearance=ahe?"ahe":"azhu";
             if(!ahe&&state.Leaders.Any(l=>l.Id==id)){NpcDialogue(new[]{new NpcLine("阿铸","azhu","我趁休沐帮老爷子拉拉风箱！要出征随时喊我，我的马刀可没生锈！")},new[]{new NpcReply("稍后再谈",ClosePanel)});return;}
-            NpcDialogue(met?new[]{new NpcLine(name,appearance,ahe?"我擅长在后排射击，连射能加快出手。"+BaseScriptNames.Ruins+"的气息会伤到我；回营后我也能照看粮田。你来决定。":"你的身手我服了！我能用突进快速接敌，追上威胁后排的敌人。若留下，我就照看工坊。")}:ahe?new[]{
+            var baseLines=met?new[]{new NpcLine(name,appearance,ahe?"我擅长在后排射击，连射能加快出手。"+BaseScriptNames.Ruins+"的气息会伤到我；回营后我也能照看粮田。你来决定。":"你的身手我服了！我能用突进快速接敌，追上威胁后排的敌人。若留下，我就照看工坊。")}:ahe?new[]{
                 new NpcLine("阿禾","ahe","你能下地走动啦！那一剑差点穿了心窝，真是命大！"),
                 new NpcLine("你","","多亏你和周叔冒险回村背我出来，这份情我记下了。",true),
                 new NpcLine("阿禾","ahe","别客气！我虽是凡躯，但手里的猎弓还算准，带我一个吧？")
             }:new[]{
                 new NpcLine("你","","这把短剑做得不错。你也是这里的铁匠？",true),
                 new NpcLine("阿铸","azhu","我是铁匠的儿子阿铸。看你像是练家子，来过几招？点到为止。")
-            },new[]{new NpcReply(met?(ahe?"好，一起走":"邀请加入小队"):ahe?"交谈，了解阿禾":"询问短剑并原地切磋",()=>{if(met)owner.JoinDemoPartner(id);else if(!ahe&&BaseSceneRules.Active(state))owner.BeginAzhuDuel();else owner.MeetDemoPartner(id);}),new NpcReply("再次比武",owner.BeginAzhuDuel,!ahe&&BaseSceneRules.Active(state)&&met),new NpcReply("去迎敌战场演练",owner.BeginAzhuFieldDuel,!ahe&&BaseSceneRules.Active(state)&&BaseDemoDefense.Won(state)),new NpcReply(ahe?"先在营地照看父母":"暂不邀请",ClosePanel)});
+            };
+            NpcDialogue(WithInjury(state,met?(ahe?"INJ_CAMP_AHE":"INJ_CAMP_AZHU"):"",baseLines),new[]{new NpcReply(met?(ahe?"好，一起走":"邀请加入小队"):ahe?"交谈，了解阿禾":"询问短剑并原地切磋",()=>{if(met)owner.JoinDemoPartner(id);else if(!ahe&&BaseSceneRules.Active(state))owner.BeginAzhuDuel();else owner.MeetDemoPartner(id);}),new NpcReply("再次比武",owner.BeginAzhuDuel,!ahe&&BaseSceneRules.Active(state)&&met),new NpcReply("去迎敌战场演练",owner.BeginAzhuFieldDuel,!ahe&&BaseSceneRules.Active(state)&&BaseDemoDefense.Won(state)),new NpcReply(ahe?"先在营地照看父母":"暂不邀请",ClosePanel)});
         }
         private bool OpenDemoInteraction(string id)
         {

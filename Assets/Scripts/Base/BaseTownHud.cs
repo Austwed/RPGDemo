@@ -68,20 +68,21 @@ namespace BaseConquest.Base
         private void OpenTownRecruit()
         {
             if(BaseDemo.Active(owner.State)&&!BaseDemoDefense.Delivered(owner.State))
-            {NpcDialogue(new[]{new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"［斜睨一眼］生面孔？没领主大人的手令，私募甲兵可是掉脑袋的罪过，请回吧。")},new[]{new NpcReply("先去拜访领主",ClosePanel)});return;}
+            {NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"［斜睨一眼］生面孔？没领主大人的手令，私募甲兵可是掉脑袋的罪过，请回吧。")),new[]{new NpcReply("先去拜访领主",ClosePanel)});return;}
             // TOWN_01_OPEN：拿到许可后首次进募兵处，由雷恩说明开放范围与建议兵种，只播一次。
             if(BaseDemoFlow.Active(owner.State)&&!owner.State.Demo.Flow.RecruitOpened)
             {
                 owner.Change(next=>next.Demo.Flow.RecruitOpened=true,"");
-                NpcDialogue(new[]{
+                NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",new[]{
                     new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),BaseScriptNames.Lord+"的手令到了！"+BaseScriptNames.Camp+"既已立寨，我这儿的剑士、弓手和骑兵任你挑。"),
                     new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"刚立营寨百废待兴，建议先将【剑士、弓兵、骑兵】各募一人，能战也能垦荒。")
-                },new[]{new NpcReply("开始招募",()=>{ClosePanel();OpenTownRecruit();})});
+                }),new[]{new NpcReply("开始招募",()=>{ClosePanel();OpenTownRecruit();})});
                 return;
             }
             var s=owner.State;var offer=s.Town.Recruits.Single(r=>r.Kind==townKind);int max=BaseTown.MaxHire(s,townKind),price=BaseTown.HirePrice(s,townKind);
             townQuantity=1;// 每次只能买 1 人，价格按买完后的兵力重新报价
             BeginPanel(BaseScriptNames.Town+" · 募兵处","town-recruit");
+            InjuryLine(s,"INJ_TOWN_LEIEN");
             foreach(var r in s.Town.Recruits)
             {
                 var kind=r.Kind;float x=kind==BaseTroopKind.Melee ? -290 : kind==BaseTroopKind.Ranged ? 0 : 290;

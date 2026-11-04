@@ -331,7 +331,7 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(owner.State)&&(id=="demo_rescuer"||id=="demo_chunshen"))
             {
                 if(owner.State.Demo.Stage==BaseDemoStage.Waking){OpenDemoStory();return;}
-                bool zhou=id=="demo_rescuer";NpcDialogue(new[]{new NpcLine(zhou?BaseScriptNames.LaoZhou:BaseScriptNames.ChunShen,BaseScriptNames.Portrait(zhou?"laozhou":"chunshen"),zhou?"留得青山在，总能寻回你那位同伴的。":"饿了就回营帐歇歇，哪怕天塌下来也得先填饱肚子。")},new[]{new NpcReply("回头见",ClosePanel)});return;
+                bool zhou=id=="demo_rescuer";NpcDialogue(WithInjury(owner.State,zhou?"INJ_CAMP_ZHOU":"INJ_CAMP_CHUN",new NpcLine(zhou?BaseScriptNames.LaoZhou:BaseScriptNames.ChunShen,BaseScriptNames.Portrait(zhou?"laozhou":"chunshen"),zhou?"留得青山在，总能寻回你那位同伴的。":"饿了就回营帐歇歇，哪怕天塌下来也得先填饱肚子。")),new[]{new NpcReply("回头见",ClosePanel)});return;
             }
             if(id=="town_inn"){OpenInn();return;}
             if(BaseDemo.Active(owner.State)&&id=="town_quest"){OpenDemoLord();return;}
