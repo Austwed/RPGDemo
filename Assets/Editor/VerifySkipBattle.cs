@@ -102,7 +102,25 @@ namespace BaseConquest.Editor
                 Check(report.FoodChange == -10 && report.CoinChange == -20, "掠走的部分必须计入战报净变化");
                 Check(!string.IsNullOrEmpty(report.RaidNote), "战报必须留下自动迎战的掠夺说明");
 
-                Debug.Log(failures == 0 ? "[Skip] PASS：扫荡贴真值、自动迎战更痛并扣资源、坚守按时间结算" : "[Skip] FAIL：" + failures + " 项");
+                // 5) 扫荡门槛（2026-11-05 裁决，玩法案 §15.1）：我方战力必须严格大于敌方 1.5 倍，等于不放；
+                //    达到倍数后不再叠加「推算能取胜／僵持超时」两道旧门槛。自动迎战不套这个门槛。
+                BaseEngagement Gate(double ally, double enemy, bool timedOut = false) => new BaseEngagement
+                {
+                    AllyPower = ally, EnemyPower = enemy, AllyWins = ally > enemy, TimedOut = timedOut
+                };
+                var gateState = template.Copy();
+                Check(BaseAutoResolve.Problem(gateState, BaseDemoRuins.EventId, Gate(150, 100), BaseAutoResolve.SweepAdvantage) != "", "正好 1.5 倍不应允许扫荡（裁决要求严格大于）");
+                Check(BaseAutoResolve.Problem(gateState, BaseDemoRuins.EventId, Gate(151, 100), BaseAutoResolve.SweepAdvantage) == "", "1.51 倍应允许扫荡");
+                Check(BaseAutoResolve.Problem(gateState, BaseDemoRuins.EventId, Gate(149, 100), BaseAutoResolve.SweepAdvantage) != "", "1.49 倍不应允许扫荡");
+                Check(BaseAutoResolve.Problem(gateState, BaseDemoRuins.EventId, Gate(200, 100, true), BaseAutoResolve.SweepAdvantage) == "", "超过 1.5 倍后不应再被僵持判定拦下");
+                var autoState = template.Copy();
+                if (autoState.Campaign.Events == null) autoState.Campaign.Events = new List<BaseCampaignEvent>();
+                autoState.Campaign.Events.Add(new BaseCampaignEvent { Id = "probe-auto", Kind = "defense" });
+                Check(BaseAutoResolve.Problem(autoState, "probe-auto", Gate(110, 100)) == "", "自动迎战不应套用 1.5 倍门槛");
+                Check(Math.Abs(BaseAutoResolve.SweepAdvantage - 1.5) < 1e-9, "扫荡门槛常量应为 1.5");
+                Debug.Log("[Skip] 扫荡门槛：1.50 倍拒／1.51 倍过／1.49 倍拒／僵持不再加码；自动迎战 1.1 倍仍可兜底");
+
+                Debug.Log(failures == 0 ? "[Skip] PASS：扫荡贴真值、自动迎战更痛并扣资源、坚守按时间结算、1.5 倍门槛严格" : "[Skip] FAIL：" + failures + " 项");
                 EditorApplication.Exit(failures == 0 ? 0 : 1);
             }
             catch (Exception error)

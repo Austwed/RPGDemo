@@ -42,10 +42,10 @@ namespace BaseConquest.Base
             var rules=session.Opening.Rpg??throw new InvalidOperationException("扫荡需要RPG战力规则");
             var allies=session.Battle.Soldiers.Where(u=>u.Side==BattleSide.A&&u.IsAlive).ToList();
             var enemies=session.Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&u.IsAlive).ToList();
-            // 战力与伤损统一走 BasePower 的双方相关推演；门槛（是否允许跳过）走 BaseAutoResolve。
+            // 战力与伤损统一走 BasePower 的双方相关推演；门槛走 BaseAutoResolve 的扫荡专属战力比（严格 >1.5 倍）。
             var engagement=BasePower.Engage(allies,enemies,rules);
             var p=new BaseSweepPreview {AllyPower=engagement.AllyPower,EnemyPower=engagement.EnemyPower};
-            var problem=BaseAutoResolve.Problem(state,BaseDemoRuins.EventId,engagement);
+            var problem=BaseAutoResolve.Problem(state,BaseDemoRuins.EventId,engagement,BaseAutoResolve.SweepAdvantage);
             if(!string.IsNullOrEmpty(problem)){p.Problem=problem;return p;}
             p.Injury=Math.Max(0,Math.Min(1,1-engagement.AllySurvival));
             p.Seconds=(int)Math.Ceiling(Math.Max(rules.SweepMinimumSeconds,engagement.Seconds));

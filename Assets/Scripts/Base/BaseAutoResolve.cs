@@ -28,11 +28,25 @@ namespace BaseConquest.Base
             return mission != null && mission.Kind == "defense";
         }
 
-        public static string Problem(BaseState s, string eventId, BaseEngagement e)
+        // 遗迹扫荡的专属门槛（2026-11-05 裁决，玩法案 §15.1）：我方战力必须**严格大于**敌方参考战力的 1.5 倍。
+        // 只属于扫荡，不套到自动迎战——兜底手段仍然只看「推算能赢」，代价由 AutoDefenseSeverity 承担。
+        public const double SweepAdvantage = 1.5;
+
+        public static string Problem(BaseState s, string eventId, BaseEngagement e, double minAdvantage = 0)
         {
             if (!Skippable(s, eventId)) return "这一战必须亲自指挥";
             if (e == null) return "无法推算战果";
             if (!string.IsNullOrEmpty(e.Problem)) return e.Problem;
+            if (minAdvantage > 0)
+            {
+                // 达到战力比即视为可跳：不再叠加「推算能取胜」「僵持超时」两道旧门槛，
+                // 否则 1.5 倍以上仍可能被拒，玩家看到的数与判定口径就不一致了。
+                if (!(e.Advantage > minAdvantage))
+                    return "我方战力需严格超过敌方 " + minAdvantage.ToString("0.##") + " 倍（当前 "
+                        + e.AllyPower.ToString("0.##") + " / " + e.EnemyPower.ToString("0.##")
+                        + " ≈ " + e.Advantage.ToString("0.##") + " 倍）";
+                return "";
+            }
             if (!e.AllyWins) return "推算显示无法取胜，请亲自指挥";
             if (e.TimedOut) return "推算显示僵持不下，请亲自指挥";
             return "";

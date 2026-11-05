@@ -77,18 +77,18 @@ namespace BaseConquest.Base
         public void OpenRuinsSweep(string mode="full")
         {
             var s=owner.State;var p=BaseRuinsSweep.Preview(s,mode);BeginPanel(BaseScriptNames.Ruins+" · 扫荡确认","ruins-sweep");activeObject="ruins-sweep";interactionObject="";
-            Line("已首通，且战力推算能取胜才可扫荡；按战力估算伤损，队长最低保留1生命。推算不胜或僵持不下时只能亲自指挥。",48,21);
+            Line("已首通，且我方战力严格超过敌方 1.5 倍才可扫荡（正好 1.5 倍不放）。确认前只给战力比，伤损在确认后结算，队长最低保留1生命。",48,21);
             RowButton("尽量配足军需"+(mode=="full"?" · 已选":""),-205,390,()=>OpenRuinsSweep("full"));RowButton("不使用军需"+(mode=="none"?" · 已选":""),205,390,()=>OpenRuinsSweep("none"));row+=60;
-            Line("我方战力 "+p.AllyPower.ToString("0.00")+" / 敌方 "+p.EnemyPower.ToString("0.00")+"；体力 "+BaseRuinsRewards.Energy(s)+" / "+BaseRuinsRewards.Maximum(s)+"，胜利后领奖消耗"+BaseRuinsRewards.Cost(s)+"。",50,21);
+            Line("我方战力 "+p.AllyPower.ToString("0.00")+" / 敌方 "+p.EnemyPower.ToString("0.00")+" ≈ "+(p.EnemyPower>1e-9?(p.AllyPower/p.EnemyPower).ToString("0.00"):"—")+" 倍（需 >1.5）；体力 "+BaseRuinsRewards.Energy(s)+" / "+BaseRuinsRewards.Maximum(s)+"，胜利后领奖消耗"+BaseRuinsRewards.Cost(s)+"。",50,21);
             if(p.Problem!="")Line(p.Problem,85,21);
-            else {Line("预计作战 "+p.Seconds+"秒；基础伤损 "+p.Injury.ToString("P1")+"，普通人额外侵蚀 "+p.Exposure.ToString("P0")+"（按最大生命）。普通兵预计阵亡 "+p.Deaths+"人。",58,21);SweepLossLines(p);}
+            else Line("确认后按该战力比结算伤损，不预告具体损失；不耗游戏日，军需照常磨损。",58,21);
             RowButton("确认扫荡",-205,390,()=>owner.SweepDemoRuins(mode),p.Problem=="");RowButton("取消",205,390,OpenRuinsChallenge);row+=60;
             Line("不耗游戏日，军需照常磨损；体力不足不能领奖。扫荡不解锁“破咒不伤人”。",60,19);EndPanel();
         }
         public void OpenSweepResult(BaseSweepPreview result)
         {
             BeginPanel(BaseScriptNames.Ruins+" · 扫荡完成","ruins-sweep-result");activeObject="ruins-sweep-result";interactionObject="";
-            Line("本场已胜利并保存战损；普通兵阵亡 "+result.Deaths+"人。",75,23);SweepLossLines(result);
+            Line("本场已胜利并保存战损；基础伤损 "+result.Injury.ToString("P1")+"，普通人额外侵蚀 "+result.Exposure.ToString("P0")+"（按最大生命）；普通兵阵亡 "+result.Deaths+"人。",75,23);SweepLossLines(result);
             RowButton("查看奖励",0,800,OpenRuinsReward);row+=60;RowButton("查看战果与俘虏",0,800,OpenLoot);row+=60;RowButton("关闭",0,800,ClosePanel);row+=60;EndPanel();
         }
         private void SweepLossLines(BaseSweepPreview result)
