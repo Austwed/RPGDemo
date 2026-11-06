@@ -12,6 +12,22 @@ namespace BaseConquest.Editor
     public static class VerifyChenanAndRuins
     {
         private static void Need(bool condition,string message){if(!condition)throw new InvalidOperationException(message);}
+        public static void VerifyIntelPricingWorkbook()
+        {
+            var rules=DemoBalanceTableReader.ReadVerifiedTables(System.IO.Path.GetFullPath("../策划/DEMO数值配置表.xlsx"));
+            Need(!rules.IntelPricingConfigured||rules.ThreeDayIntelPrice>=0&&rules.FiveDayIntelPrice>=0,"消息价格配置非法");
+            Debug.Log("[IntelPricingWorkbook] PASS configured="+rules.IntelPricingConfigured);
+        }
+        public static void VerifyIntelScheduleFlow()
+        {
+            string path=System.IO.Path.Combine(Application.streamingAssetsPath,"BaseScenarios",BaseDemo.BalanceTemplate);
+            var state=DemoStageSaveTools.Defense(System.IO.File.ReadAllText(path),"male",DemoBalanceRuntime.Load().Rules);
+            Need(state.Demo.Defense.ScheduledOnDelivery&&state.Demo.Defense.ArrivalDay==Math.Max(6,state.Demo.DeliveredDay+3),"完整流程的首防日期应由交付日确定");
+            state.Demo.Rpg.IntelPricingConfigured=true;state.Demo.Rpg.ThreeDayIntelPrice=1;state.Demo.Rpg.FiveDayIntelPrice=2;
+            BaseRaidIntel.Buy(state,3);BaseEconomy.Validate(state);
+            var restored=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));BaseEconomy.Validate(restored);
+            Need(restored.Demo.Flow.RaidIntel.Count==1,"真实流程消息须能通过完整存档校验");Debug.Log("[IntelScheduleFlow] PASS");
+        }
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();
@@ -174,6 +190,37 @@ namespace BaseConquest.Editor
         {
             var s=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
             BaseDevelopment.Normalize(s);
+            var schedule=s.Copy();schedule.Demo.Stage=BaseDemoStage.RuinsDelivered;schedule.Demo.DeliveredDay=schedule.Day;
+            schedule.Campaign.Events.RemoveAll(e=>e.Id==BaseDemoDefense.EventId);
+            BaseDemoDefense.ScheduleOnDelivery(schedule);
+            Need(schedule.Campaign.Events.Single(e=>e.Id==BaseDemoDefense.EventId).AvailableDay==Math.Max(6,schedule.Day+3),"首防须在交付日确定且保留三天准备");
+            schedule.Demo.Flow.FirstIntelEligible=true;Need(BaseRaidIntel.OfferFirst(schedule)&&!BaseRaidIntel.OfferFirst(schedule),"免费消息引导只能提供一次");
+            Need(BaseRaidIntel.ClaimFirst(schedule)&&!BaseRaidIntel.ClaimFirst(schedule)&&schedule.Demo.Flow.FreeFirstRaidDay==6,"免费消息领取须记录首防日期且不能重复");
+            schedule.Day=3;BaseDemoDefense.ProductionFinished(schedule,new BaseDayReport{CompletedDay=2,Product=schedule.WorkshopProduct});
+            Need(schedule.Campaign.Events.Count(e=>e.Id==BaseDemoDefense.EventId)==1&&schedule.Demo.Defense.ArrivalDay==6,"后续日结不得重复排期或改变首防日期");
+            var late=s.Copy();late.Day=7;late.Demo.Stage=BaseDemoStage.RuinsDelivered;late.Demo.DeliveredDay=7;late.Campaign.Events.RemoveAll(e=>e.Id==BaseDemoDefense.EventId);BaseDemoDefense.ScheduleOnDelivery(late);
+            Need(late.Demo.Defense.ArrivalDay==10,"晚交付须从交付当天起保留三天");
+            var limit=s.Copy();limit.Day=999998;limit.Demo.Stage=BaseDemoStage.RuinsCleared;int foodBefore=limit.Inventory.Food,coinBefore=limit.Inventory.Coins;
+            Need(!BaseDemoRuins.Deliver(limit)&&limit.Demo.Stage==BaseDemoStage.RuinsCleared&&limit.Inventory.Food==foodBefore&&limit.Inventory.Coins==coinBefore,"日期上限不能留下半完成交付或奖励");
+            var intel=s.Copy();intel.Campaign.Events.RemoveAll(e=>e.Kind=="defense");intel.Demo.Flow.RaidIntel=null;intel.Demo.Rpg.IntelPricingConfigured=true;intel.Demo.Rpg.ThreeDayIntelPrice=2;intel.Demo.Rpg.FiveDayIntelPrice=3;
+            var unpriced=intel.Copy();unpriced.Demo.Rpg.IntelPricingConfigured=false;int initialCoins=unpriced.Inventory.Coins;bool unpricedRejected=false;try{BaseRaidIntel.Buy(unpriced,3);}catch(InvalidOperationException){unpricedRejected=true;}
+            Need(unpricedRejected&&unpriced.Inventory.Coins==initialCoins&&unpriced.Demo.Flow.RaidIntel==null,"未配置价格时不得扣款或修改消息状态");
+            var fields=new System.Collections.Generic.Dictionary<string,string>{{"A62","消息类型"},{"B62","价格"},{"A63","3日"},{"B63","2"},{"#type:B63","n"},{"A64","5日"},{"B64","3"},{"#type:B64","n"}};
+            var priceRules=unpriced.Demo.Rpg.Copy();DemoBalanceTableReader.ApplyIntelPrices(priceRules,fields);Need(priceRules.IntelPricingConfigured&&priceRules.ThreeDayIntelPrice==2&&priceRules.FiveDayIntelPrice==3,"配表应独立导入两种价格");
+            fields.Remove("B64");bool partialRejected=false;try{DemoBalanceTableReader.ApplyIntelPrices(unpriced.Demo.Rpg,fields);}catch(InvalidOperationException){partialRejected=true;}Need(partialRejected&&!unpriced.Demo.Rpg.IntelPricingConfigured,"配表价格不完整时不得启用");
+            Need(BaseRaidIntel.FillMissingPrices(unpriced,priceRules)&&unpriced.Demo.Rpg.ThreeDayIntelPrice==2,"旧档缺价格时应补入新配置");priceRules.ThreeDayIntelPrice=9;Need(!BaseRaidIntel.FillMissingPrices(unpriced,priceRules)&&unpriced.Demo.Rpg.ThreeDayIntelPrice==2,"已配置的旧档价格不能被后续配表覆盖");
+            int coins=intel.Inventory.Coins;var raid=new BaseCampaignEvent{Id="intel-test-a",Title="袭击A",Kind="defense",Status="pending",AvailableDay=intel.Day+2};intel.Campaign.Events.Add(raid);
+            Need(!BaseCalendar.Quarter(intel).Single(d=>d.Day==raid.AvailableDay).Raids.Any(),"未购买消息不能显示未来袭击");
+            var cheap=BaseRaidIntel.Buy(intel,3);Need(cheap.HasRaid&&intel.Inventory.Coins==coins-2,"三日消息应扣款并冻结范围");
+            Need(BaseCalendar.Quarter(intel).Single(d=>d.Day==raid.AvailableDay).Forecast,"三日消息应标记模糊范围");
+            raid.Status="resolved";Need(BaseCalendar.Quarter(intel).Single(d=>d.Day==raid.AvailableDay).Forecast,"取消袭击不能提前撤除模糊范围");raid.Status="pending";
+            intel.Campaign.Events.Add(new BaseCampaignEvent{Id="intel-test-b",Title="袭击B",Kind="defense",Status="pending",AvailableDay=intel.Day+4});
+            Need(ReferenceEquals(cheap,BaseRaidIntel.Buy(intel,3))&&intel.Inventory.Coins==coins-2&&cheap.Entries.Count==1,"同日复习不得刷新或扣款");
+            var precise=BaseRaidIntel.Buy(intel,5);Need(precise.Entries.Count==2&&intel.Inventory.Coins==coins-5,"五日消息应独立定价并取得新快照");
+            Need(BaseCalendar.Quarter(intel).Single(d=>d.Day==raid.AvailableDay).Raids.Contains("袭击A")&&!BaseCalendar.Quarter(intel).Single(d=>d.Day==raid.AvailableDay).Forecast,"准确消息覆盖范围后应显示日期");
+            raid.Status="resolved";Need(!BaseCalendar.Quarter(intel).Single(d=>d.Day==raid.AvailableDay).Raids.Contains("袭击A"),"被取消的未来袭击不得继续显示确切日期");
+            var intelCopy=intel.Copy();Need(intelCopy.Demo.Flow.RaidIntel.Count==2&&!ReferenceEquals(intelCopy.Demo.Flow.RaidIntel[0],cheap),"消息快照复制应独立");
+            var reloaded=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(intel));Need(reloaded.Demo.Flow.RaidIntel.Count==2&&reloaded.Demo.Flow.RaidIntel[1].Entries.Count==2,"消息快照须支持存档往返");
             // 日历：15 天一个季度，起点随天数滚动，今天只标一个。
             Need(BaseCalendar.QuarterStart(1)==1&&BaseCalendar.QuarterStart(15)==1&&BaseCalendar.QuarterStart(16)==16,"季度起点应为 1／16／31…");
             Need(BaseCalendar.QuarterEnd(1)==15&&BaseCalendar.QuarterEnd(16)==30,"季度终点应为 15／30…");

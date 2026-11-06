@@ -58,6 +58,8 @@ namespace BaseConquest.Base
     [Serializable] public sealed class RpgRules
     {
         public int GenerationSeed, SceneRulesVersion;
+        public bool IntelPricingConfigured;
+        public int ThreeDayIntelPrice,FiveDayIntelPrice;
         public int Version,CampLevel=1,InnDailyFee=2,LeaderFood=2,ArcherFood=1,SupplyMaterial=2,SupplyWorkValue=5,FacilityRepairMaterials=10,FacilityRepairCoins=20;
         public double AwakenedChance=.2;
         public double EnemyLeaderDeath=.5;
@@ -145,6 +147,7 @@ namespace BaseConquest.Base
             if(OpeningInventory!=null&&(new[]{OpeningInventory.Food,OpeningInventory.Materials,OpeningInventory.Coins}.Any(v=>v<0||v>100000000)||OpeningInventory.Equipment?.Count!=2||OpeningInventory.Equipment.Any(e=>e==null||e.Product!="supply"||e.Level<1||e.Level>2||e.Count<0||e.Count>100000000)||OpeningInventory.Equipment.Select(e=>e.Level).Distinct().Count()!=2))throw new ArgumentException("Demo开局资源或通用军需非法");
             if((OpeningFacilityCapacity==null)!=(OpeningFacilityMinimum==null)||OpeningFacilityCapacity!=null&&(OpeningFacilityCapacity.Length!=2||OpeningFacilityMinimum.Length!=2||Enumerable.Range(0,2).Any(i=>OpeningFacilityCapacity[i]<1||OpeningFacilityCapacity[i]>10000||OpeningFacilityMinimum[i]<0||OpeningFacilityMinimum[i]>OpeningFacilityCapacity[i])))throw new ArgumentException("Demo设施岗位容量或最低保留人数非法");
             if(ForgeDailyStock<0||ForgeDailyStock>99)throw new ArgumentException("锻造石每日供货非法");
+            if(IntelPricingConfigured&&(ThreeDayIntelPrice<0||FiveDayIntelPrice<0||ThreeDayIntelPrice>100000000||FiveDayIntelPrice>100000000))throw new ArgumentException("商人消息价格非法");
             if((ReforgeUp==null)!=(ReforgeDown==null)||ReforgeUp!=null&&(ReforgeUp.Length!=4||ReforgeDown.Length!=4||Enumerable.Range(0,4).Any(i=>ReforgeUp[i]<0||ReforgeDown[i]<0||ReforgeUp[i]>10000||ReforgeDown[i]>10000||ReforgeUp[i]+ReforgeDown[i]>10000)))throw new ArgumentException("重铸概率非法");
             if(OpeningTownStock!=null&&(OpeningTownStock.Length!=4||OpeningTownStock.Any(n=>n<1||n>100000)))throw new ArgumentException("Demo城镇每日供货量非法");
             if(OpeningAuxVersion<0||OpeningAuxVersion>1)throw new ArgumentException("Demo物件／奖励版本非法");

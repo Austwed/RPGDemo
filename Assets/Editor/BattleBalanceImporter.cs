@@ -260,6 +260,15 @@ namespace BaseConquest.Editor
         }
         private static void Header(Dictionary<string,string> cells,string sheet,string address,string expected)
         {if(Need(cells,sheet,address)!=expected)throw new InvalidOperationException(sheet+"!"+address+"：字段应为 "+expected);}
+        public static void ApplyIntelPrices(RpgRules rules,Dictionary<string,string> cells)
+        {
+            if(cells.Count==0)return;const string sheet="05c 装备价格";
+            Header(cells,sheet,"A62","消息类型");Header(cells,sheet,"B62","价格");
+            if(Need(cells,sheet,"A63")!="3日"||Need(cells,sheet,"A64")!="5日")throw new InvalidOperationException(sheet+"!A63:A64：消息类型须为3日、5日");
+            double three=Number(cells,sheet,"B63",0,100000000),five=Number(cells,sheet,"B64",0,100000000);
+            if(three!=Math.Truncate(three)||five!=Math.Truncate(five))throw new InvalidOperationException(sheet+"!B63:B64：消息价格须为整数");
+            rules.ThreeDayIntelPrice=(int)three;rules.FiveDayIntelPrice=(int)five;rules.IntelPricingConfigured=true;
+        }
         public static RpgRules ReadVerifiedTables(string path)
         {
             byte[] bytes=File.ReadAllBytes(path);if(bytes.Length>16*1024*1024)throw new InvalidOperationException("配表超过16MB");
@@ -698,6 +707,8 @@ namespace BaseConquest.Editor
                     if(value!=Math.Truncate(value))throw new InvalidOperationException(prices+"!B"+row+"：每日供应量须为整数");
                     if(index==4)rules.ForgeDailyStock=(int)value;else rules.OpeningTownStock[index]=(int)value;
                 }
+                // Optional until the two formal prices are decided; incomplete configuration must fail import.
+                ApplyIntelPrices(rules,BattleBalanceImporter.Section(archive,prices,62,64,"AB"));
                 var camp=BattleBalanceImporter.Section(archive,economy,25,28,"ABCD");
                 Header(camp,economy,"A25","营帐等级");Header(camp,economy,"B25","队长容量");Header(camp,economy,"C25","升级原料");Header(camp,economy,"D25","升级钱币");
                 for(int level=1;level<=3;level++)

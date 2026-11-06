@@ -117,7 +117,7 @@ namespace BaseConquest.Base
             var state=owner.State;var world=state.Campaign.WorldJourney;var node=world.Nodes.Single(item=>item.Id==selected);bool marching=BaseWorldJourney.Marching(state);var route=marching?world.Route:plan?.Path;float y=-24;
             Text(panel,node.Title,new Vector2(18,y),new Vector2(196,40),22);Button(panel,"⋯",()=>owner.Hud.OpenMenu(),new Vector2(224,-18),new Vector2(48,32));y-=44;
             Text(panel,"第"+state.Day+"天 · "+world.Nodes.Single(item=>item.Id==world.NodeId).Title,new Vector2(18,y),new Vector2(254,42),16);y-=44;
-            int raidArrival=BaseDemoDefense.SecondArrival(state);string raid=raidArrival>0?"距第二波来袭 "+Math.Max(0,raidArrival-state.Day)+" 天":state.Demo?.Defense?.SecondOutcome=="intercepted"?"途中已截住第二波":"";
+            var raidEvent=state.Campaign.Events.FirstOrDefault(e=>e.Id==BaseDemoDefense.SecondEventId&&e.Status=="pending");int raidArrival=raidEvent!=null&&BaseRaidIntel.Known(state,raidEvent)?raidEvent.AvailableDay:0;string raid=raidArrival>0?"距第二波来袭 "+Math.Max(0,raidArrival-state.Day)+" 天":state.Demo?.Defense?.SecondOutcome=="intercepted"?"途中已截住第二波":"";
             if(raid!=""){Text(panel,raid,new Vector2(18,y),new Vector2(254,36),16);y-=40;}
             int days=marching?world.Route.Skip(world.RoadIndex+1).Select((id,index)=>BaseWorldJourney.Road(world,world.Route[world.RoadIndex+index],id).Days).Sum()-world.RoadDay:plan?.Days??0;
             bool reachable=selected==(route?.LastOrDefault()??world.NodeId);

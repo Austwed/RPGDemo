@@ -9,9 +9,9 @@ namespace BaseConquest.Base
         {
             BeginPanel("敌情与据点");
             RowButton("关闭",-210,400,ClosePanel);RowButton("规则 i",210,400,()=>ThreatRules(OpenThreatOverview));row+=62;
-            Line(BaseThreats.Warning(owner.State),56,22);
+            if(!BaseDemo.Active(owner.State))Line(BaseThreats.Warning(owner.State),56,22);
             foreach(var site in owner.State.Campaign.EnemySites)ThreatSiteLines(site,OpenThreatOverview);
-            foreach(var e in owner.State.Campaign.Events.Where(e=>e.Kind=="defense"&&e.Status=="pending").OrderBy(e=>e.AvailableDay))
+            foreach(var e in owner.State.Campaign.Events.Where(e=>e.Kind=="defense"&&e.Status=="pending"&&BaseRaidIntel.Known(owner.State,e)).OrderBy(e=>e.AvailableDay))
             {Line(e.Title,48,21);ThreatEventLines(e);}
             if(owner.State.Campaign.EnemySites.Count==0)Line("当前战斗保留原有快照；结束后载入据点会接入持续敌情。",80,19);
             EndPanel();
@@ -23,9 +23,9 @@ namespace BaseConquest.Base
             else
             {
                 Line("驻军："+BaseThreats.ForceSummary(site.Garrison),65,19);
-                Line("最早第"+site.NextDispatchDay+"天再次出兵；行军"+site.TravelDays+"天。同一来源最多一支待处理入侵。",70,18);
+                if(!BaseDemo.Active(owner.State))Line("最早第"+site.NextDispatchDay+"天再次出兵；行军"+site.TravelDays+"天。同一来源最多一支待处理入侵。",70,18);
             }
-            var marching=owner.State.Campaign.Events.Where(e=>e.SourceSiteId==site.Id&&e.Kind=="defense"&&e.Status=="pending").ToArray();
+            var marching=owner.State.Campaign.Events.Where(e=>e.SourceSiteId==site.Id&&e.Kind=="defense"&&e.Status=="pending"&&BaseRaidIntel.Known(owner.State,e)).ToArray();
             if(marching.Length>0)Line("已出发："+marching.Length+"支；最近第"+marching.Min(e=>e.AvailableDay)+"天抵达。",54,19);
             if(site.Owner!="enemy")return;
             RowButton(enemyRosterDetails ? "收起驻军详情" : "查看驻军详情",0,800,()=>{enemyRosterDetails=!enemyRosterDetails;refresh();});row+=60;

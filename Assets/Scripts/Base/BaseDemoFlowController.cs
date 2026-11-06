@@ -6,10 +6,18 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseSceneController
     {
+        private bool OfferFirstRaidIntel()
+        {
+            if(!BaseDemoFlow.Active(State)||!State.Demo.Flow.FirstIntelEligible||State.Demo.Flow.FirstIntelOffered)return false;
+            if(!Change(s=>{if(!BaseRaidIntel.OfferFirst(s))throw new InvalidOperationException("消息引导不可用");},"消息引导"))return false;
+            Hud.OpenFirstRaidIntel();return true;
+        }
         private void TickDemoFlow(double seconds=-1)
         {
             if(!BaseDemoFlow.Active(State)||State.Demo.Stage==BaseDemoStage.Waking||BaseDemoPrologue.Village(State)||BaseBattleGateway.MainMenu||Hud.PanelOpen||BaseBattleLoot.Pending(State)||ConstructionMode)return;
             var f=State.Demo.Flow;
+            var due=State.Campaign.Events.FirstOrDefault(e=>e.Kind=="defense"&&e.Status=="pending"&&e.AvailableDay<=State.Day&&!(f.NotifiedRaids??new System.Collections.Generic.List<string>()).Contains(e.Id+":"+e.AvailableDay));
+            if(due!=null){string key=due.Id+":"+due.AvailableDay;if(Change(s=>{s.Demo.Flow.NotifiedRaids??=new System.Collections.Generic.List<string>();s.Demo.Flow.NotifiedRaids.Add(key);},"袭击通知"))Hud.OpenDemoScoutWarning();return;}
             if(State.Campaign.Location=="base"&&BaseDemoDefense.Won(State)&&State.Demo.Defense.BatuStoryDay>0&&!State.Demo.Defense.MerchantDone)
             {TickDemoMerchant(seconds);return;}
             if(BaseDemoFlow.Recruited(State)&&!f.RecruitmentNotice)
@@ -55,9 +63,41 @@ namespace BaseConquest.Base
     }
     public sealed partial class BaseHud
     {
+        public void OpenFirstRaidIntel()
+        {
+            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"待写")},new[]{new NpcReply("领取免费首防消息",()=>{if(owner.Change(next=>{if(!BaseRaidIntel.ClaimFirst(next))throw new InvalidOperationException("首防消息不可用");},"已记录首防日期"))NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"首防日期：第 "+owner.State.Demo.Flow.FreeFirstRaidDay+" 天。查看日历，准备粮食与军需。\n待写")},new[]{new NpcReply("知道了",ClosePanel)});}),new NpcReply("离开",ClosePanel)});
+        }
+        public void OpenRaidIntel()
+        {
+            var s=owner.State;if(!BaseDemoFlow.Active(s))return;
+            if(s.Demo.Rpg?.IntelPricingConfigured==false)
+            {
+                RpgRules latest=null;try{latest=DemoBalanceRuntime.Load().Rules;}catch(InvalidOperationException){}catch(ArgumentException){}
+                if(latest?.IntelPricingConfigured==true&&owner.Change(next=>BaseRaidIntel.FillMissingPrices(next,latest),"消息价格已载入"))s=owner.State;
+            }
+            BeginPanel("商人消息");
+            foreach(int window in new[]{3,5})
+            {
+                int days=window;var snapshot=BaseRaidIntel.Get(s,days);bool configured=s.Demo.Rpg?.IntelPricingConfigured==true;int price=days==3?(s.Demo.Rpg?.ThreeDayIntelPrice??0):(s.Demo.Rpg?.FiveDayIntelPrice??0);
+                RowButton(days+"日消息 · "+(snapshot!=null?"免费复习":configured?price+"钱":"价格待配置"),0,800,()=>{if(owner.Change(next=>BaseRaidIntel.Buy(next,days),"消息已记录"))OpenRaidIntel();},snapshot!=null||configured&&s.Inventory.Coins>=price);row+=60;
+                if(snapshot==null)continue;
+                if(!snapshot.HasRaid)Line("次日起 "+days+" 天：无已知袭击。",50,18);
+                else if(days==3)
+                {
+                    bool active=snapshot.Entries.Any(entry=>s.Campaign.Events.Any(e=>e.Id==entry.EventId&&e.Status=="pending"&&e.AvailableDay==entry.Day));
+                    Line(active?"次日起三天内有袭击。":"原消息已失效。",50,18);
+                }
+                else foreach(var entry in snapshot.Entries)
+                {
+                    bool active=s.Campaign.Events.Any(e=>e.Id==entry.EventId&&e.Status=="pending"&&e.AvailableDay==entry.Day);
+                    Line(entry.Title+" · 第 "+entry.Day+" 天"+(active?"":" · 已失效"),50,18);
+                }
+            }
+            RowButton("关闭",0,800,ClosePanel);row+=60;EndPanel();
+        }
         public void OpenDemoMerchant()
         {
-            int arrival=BaseDemoDefense.SecondArrival(owner.State);string warning=arrival>0?"我听说他们的主力还会来，大约还有 "+Math.Max(0,arrival-owner.State.Day)+" 天。":"敌寨的动静我也听说了，路上要小心。";
+            string warning="待写";
             NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"我常走这条路，听说营地遇袭，特意来送个消息。"),new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),warning),new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"他们的寨子就在通往"+BaseScriptNames.Village+"的路上。从营地南边上世界道路，走一天就到。")},
                 new[]{new NpcReply("记下敌营位置",()=>{if(owner.Change(next=>{next.Demo.Defense.MerchantDone=true;next.Campaign.Layouts.Single(map=>map.Region=="base").Objects.RemoveAll(obj=>obj.Id=="demo_merchant");},"已记录敌营位置与道路")){ClosePanel();owner.RefreshDemoRegion();}})});
         }

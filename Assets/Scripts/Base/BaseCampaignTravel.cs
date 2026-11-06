@@ -63,6 +63,7 @@ namespace BaseConquest.Base
         }
         public void CompleteTravel(string location, BaseMusterPlan plan)
         {
+            if(location=="base"&&State.Campaign.Location!="base"&&OfferFirstRaidIntel())return;
             if(BaseDemoDefense.Enabled(State)&&State.Campaign.Location=="perimeter"&&location=="perimeter"){PrepareDemoDefense(plan);return;}
             if(pendingWorldEntry!=null)
             {
@@ -78,6 +79,7 @@ namespace BaseConquest.Base
         public void MapTeleport(string key, string objectId)
         {
             if (State == null || Busy) return;
+            if(State.Campaign.Location!="base"&&BaseLandMap.Nodes(State).Any(node=>node.Key==key&&node.Region=="base")&&OfferFirstRaidIntel())return;
             string title = BaseLandMap.Nodes(State).FirstOrDefault(node => node.Key == key)?.Title ?? "目标场景";
             if (!Change(next => { if (!BaseLandMap.Teleport(next, key, objectId)) throw new InvalidOperationException("这个场景现在过不去"); }, "已传送到" + title)) return;
             Hud.ClosePanel(); ReloadTravelRegion();

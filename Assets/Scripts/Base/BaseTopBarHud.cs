@@ -46,18 +46,17 @@ namespace BaseConquest.Base
                 string mark = day.Today ? "◆" : day.Past ? "·" : "○";
                 string cell = mark + day.Day.ToString();
                 if (day.Raids.Count > 0) cell += "!";
+                else if(day.Forecast)cell+="~";
                 line += cell.PadRight(6);
                 if (++column % 5 == 0) { Line(line, 38, 18); line = ""; }
             }
             if (line != "") Line(line, 38, 18);
             row += 6;
-            bool any = false;
             foreach (var day in BaseCalendar.Quarter(s).Where(d => d.Raids.Count > 0))
             {
-                any = true;
                 Line("第 " + day.Day + " 天 · " + string.Join("；", day.Raids), 40, 17);
             }
-            Line(any ? "◆今天 · ·已过去 · ○未到 · !有袭击" : "本季度还没有已知袭击。◆今天 · ·已过去 · ○未到", 44, 17);
+            Line("◆今天 · ·已过去 · ○未到 · !已知袭击 · ~模糊范围", 44, 17);
             EndPanel();
         }
         public void OpenEnergy()

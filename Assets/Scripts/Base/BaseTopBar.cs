@@ -8,7 +8,7 @@ namespace BaseConquest.Base
     public sealed class BaseCalendarDay
     {
         public int Day;
-        public bool Today, Past;
+        public bool Today, Past, Forecast;
         public List<string> Raids = new List<string>();
         public string Label => "第 " + Day + " 天";
     }
@@ -26,8 +26,15 @@ namespace BaseConquest.Base
             {
                 int day = start + offset;
                 var row = new BaseCalendarDay { Day = day, Today = day == s.Day, Past = day < s.Day };
-                foreach (var e in s.Campaign.Events.Where(item => item.Kind == "defense" && item.AvailableDay == day).OrderBy(item => item.Title, StringComparer.Ordinal))
-                    row.Raids.Add(e.Title + (e.Status == "resolved" ? " · 已处理" : " · 待迎战"));
+                var intel=s.Demo?.Flow?.RaidIntel??new List<BaseRaidIntelSnapshot>();
+                foreach(var snapshot in intel.Where(x=>x.Window==3&&x.HasRaid&&day>=x.Day+1&&day<=x.Day+3&&day>=s.Day))
+                    if(!intel.Any(precise=>precise.Window==5&&precise.Day<=snapshot.Day&&precise.Day+5>=snapshot.Day+3))row.Forecast=true;
+                foreach(var e in s.Campaign.Events.Where(item=>item.Kind=="defense"&&item.AvailableDay==day).OrderBy(item=>item.Title,StringComparer.Ordinal))
+                {
+                    bool occurred=day<=s.Day&&(e.Status=="pending"||s.Campaign.Reports.Any(r=>r.EventId==e.Id&&r.Day==day));
+                    bool known=day>s.Day&&BaseRaidIntel.Known(s,e);
+                    if(occurred||known)row.Raids.Add(e.Title);
+                }
                 days.Add(row);
             }
             return days;

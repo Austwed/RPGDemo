@@ -51,7 +51,7 @@ namespace BaseConquest.Base
                 Line(BaseDemo.Objective(state),95,23);
                 if(state.Demo.Stage==BaseDemoStage.RuinsAssigned)Line(BaseDemoRuins.Enabled(state)?"阿禾在营地，阿铸在"+BaseScriptNames.Town+"；可邀请，也可暂不邀请。从"+BaseScriptNames.Town+"东侧进入"+BaseScriptNames.Ruins+"，靠近异常者确认救助战。受控村民可制服，不会误杀；击败控制来源后带证据交差。":"此旧Demo未保存"+BaseScriptNames.Ruins+"与伙伴属性快照。继续原阶段，重新开始Demo可体验新增流程，旧档不自动换数值。",130,21);
                 if(state.Demo.Stage==BaseDemoStage.RuinsCleared)Line("控制来源消失后，失踪村民恢复神志并获救。你已取得调查证据；己方伤亡与军需已按普通战争处理，不会自动补满。经"+BaseScriptNames.Ruins+"西侧出口回"+BaseScriptNames.Town+"，向领主交差。",130,21);
-                if(BaseDemoDefense.Delivered(state))Line(BaseDemoDefense.Enabled(state)?BaseDemoDefense.Won(state)?BaseDemoFinale.Enabled(state)?state.Demo.Stage==BaseDemoStage.Finished?"你带着队长断剑与幸存者证词，准备继续追查。Demo到此结束；完整故事留待后续。可以关闭查看当前进度，或从菜单重开，不会免费恢复战损。":"首防后先补损，从营地南侧世界出口出征。攻营并处理完战果后，沿路返乡调查断剑；两段道路各1天，规划不耗日。":"此旧Demo没有攻营／结尾快照；重新开始才能体验新增内容。":"工坊与兵营的修复点在建筑前方，每座原料"+BaseDemoDefense.RepairMaterialCost(state)+"／钱币"+BaseDemoDefense.RepairCoinCost(state)+"。两座修好后，安排工坊实际产出首件军需；随后明示1天后入侵。到达后从营地左侧进入迎敌战场，不能休息自动处理。":"此旧Demo未保存修复／防守快照。继续原阶段，重新开始Demo才能体验新增内容。",145,21);
+                if(BaseDemoDefense.Delivered(state))Line(BaseDemoDefense.Enabled(state)?BaseDemoDefense.Won(state)?BaseDemoFinale.Enabled(state)?state.Demo.Stage==BaseDemoStage.Finished?"你带着队长断剑与幸存者证词，准备继续追查。Demo到此结束；完整故事留待后续。可以关闭查看当前进度，或从菜单重开，不会免费恢复战损。":"首防后先补损，从营地南侧世界出口出征。攻营并处理完战果后，沿路返乡调查断剑；两段道路各1天，规划不耗日。":"此旧Demo没有攻营／结尾快照；重新开始才能体验新增内容。":"工坊与兵营的修复点在建筑前方，每座原料"+BaseDemoDefense.RepairMaterialCost(state)+"／钱币"+BaseDemoDefense.RepairCoinCost(state)+"。安排工坊生产军需；袭击到达后从营地左侧进入迎敌战场。":"此旧Demo未保存修复／防守快照。继续原阶段，重新开始Demo才能体验新增内容。",145,21);
                 RowButton("关闭",0,800,ClosePanel);row+=60;
             }
             Line("新局读取Demo数值快照，已有存档保留原值。\n快照标识："+(string.IsNullOrEmpty(state.Demo.ConfigHash)?state.Demo.BalanceHash:state.Demo.ConfigHash).Substring(0,12),85,18);
@@ -95,14 +95,14 @@ namespace BaseConquest.Base
             string who=id=="town_guard"?BaseScriptNames.Guard:id=="town_peddler"?BaseScriptNames.Peddler:BaseScriptNames.Girl;
             string art=id=="town_peddler"?BaseScriptNames.Portrait("merchant"):BaseScriptNames.Portrait(id=="town_guard"?"guard":"girl");
             // 主线之后行商会透露下次流寇的大致日期：给区间不给准确日，保留「去打探」的价值。
-            string rumor=id=="town_peddler"?BaseDemoRaids.Rumor(state):"";
+            string rumor="";
             string text=id=="town_guard"?"爵士老爷嘴上硬气，其实镇里的卫队连守城墙都勉强，哪腾得出手管外头的荒滩。"
                 :id=="town_peddler"?"南边通往"+BaseScriptNames.Village+"的官道被【"+BaseScriptNames.Bandit+"】彻底封死了，听说他们最近发了一笔来路不明的横财。要采买粮草器械，或者出手沿途的战利品，都在我这补给摊上，价钱公道。"
                     +(string.IsNullOrEmpty(rumor)?"":"\n\n［压低声音］"+rumor)
                 :"只要一靠近镇西的树林，家里的猎犬就会夹着尾巴狂叫，那座"+BaseScriptNames.Ruins+"底下一定藏着脏东西。";
             var replies=new List<NpcReply>{new NpcReply("点点头走开",ClosePanel)};
             // 2026-11-01 韦德拍板：撤掉独立的「商人」，行商老莫接管补给摊位，交易入口并进他的对话。
-            if(id=="town_peddler")replies.Insert(0,new NpcReply("看看货品",()=>{ClosePanel();OpenTownMarket();}));
+            if(id=="town_peddler"){if(BaseDemoFlow.Active(state))replies.Insert(0,new NpcReply("查看消息",()=>{ClosePanel();OpenRaidIntel();}));replies.Insert(0,new NpcReply("看看货品",()=>{ClosePanel();OpenTownMarket();}));}
             string injury=id=="town_guard"?"INJ_TOWN_GUARD":id=="town_peddler"?"INJ_TOWN_MO":"INJ_TOWN_XIAOYUN";
             NpcDialogue(WithInjury(state,injury,new NpcLine(who,art,text)),replies.ToArray());
         }

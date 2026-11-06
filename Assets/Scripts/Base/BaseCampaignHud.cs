@@ -24,9 +24,9 @@ namespace BaseConquest.Base
             RowButton("返回",-290,270,ClosePanel);RowButton("规则 i",0,270,()=>ThreatRules(()=>OpenCampaignEvents(kind)));
             if(kind=="defense")RowButton("建造说明",290,270,()=>ConstructionRules(()=>OpenCampaignEvents(kind)));row+=62;
             if(kind=="attack")foreach(var site in owner.State.Campaign.EnemySites.Where(site=>!BaseSceneInstances.Active(owner.State)||site.Id==owner.State.Campaign.CurrentMapId))ThreatSiteLines(site,()=>OpenCampaignEvents(kind));
-            else Line(BaseThreats.Warning(owner.State),56,21);
-            var events = owner.State.Campaign.Events.Where(e => e.Kind == kind && e.Status=="pending").OrderBy(e=>e.AvailableDay)
-                .Concat(owner.State.Campaign.Events.Where(e=>e.Kind==kind&&e.Status=="resolved").Reverse().Take(4)).ToArray();
+            else if(!BaseDemo.Active(owner.State))Line(BaseThreats.Warning(owner.State),56,21);
+            var events = owner.State.Campaign.Events.Where(e => e.Kind == kind && e.Status=="pending" && (e.Kind!="defense"||BaseRaidIntel.Known(owner.State,e))).OrderBy(e=>e.AvailableDay)
+                .Concat(owner.State.Campaign.Events.Where(e=>e.Kind==kind&&e.Status=="resolved"&&(kind!="defense"||!BaseDemo.Active(owner.State)||owner.State.Campaign.Reports.Any(r=>r.EventId==e.Id))).Reverse().Take(4)).ToArray();
             if(kind=="attack"&&BaseSceneInstances.Active(owner.State))events=events.Where(item=>item.SourceSiteId==owner.State.Campaign.CurrentMapId).ToArray();
             if (events.Length == 0) Line(kind == "defense" ? "当前没有待处理入侵，可自由查看外围并返回。" : "当前没有敌点。", 80);
             foreach (var e in events)

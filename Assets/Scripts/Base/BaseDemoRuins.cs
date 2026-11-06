@@ -155,11 +155,11 @@ namespace BaseConquest.Base
         }
         public static bool Deliver(BaseState state)
         {
-            if(!Enabled(state)||state.Demo.Stage!=BaseDemoStage.RuinsCleared||!BaseInteraction.At(state,"town","town_quest"))return false;
+            if(!Enabled(state)||state.Demo.Stage!=BaseDemoStage.RuinsCleared||state.Day>1000000-BaseDemoDefense.WarningLead||!BaseInteraction.At(state,"town","town_quest"))return false;
             if(state.Demo.AcceptedDay==0&&!BaseDemo.AcceptLordQuest(state))return false;
             var reward=state.Demo.RuinsReward;if((long)state.Inventory.Food+reward.Food>100000000||(long)state.Inventory.Materials+reward.Materials>100000000||(long)state.Inventory.Coins+reward.Coins>100000000)return false;
             state.Inventory.Food+=reward.Food;state.Inventory.Materials+=reward.Materials;state.Inventory.Coins+=reward.Coins;
-            state.Demo.DeliveredDay=state.Day;state.Demo.Stage=BaseDemoStage.RuinsDelivered;state.Demo.Evidence.Add(Permit);BaseDemoDefense.PermitGranted(state);return true;
+            state.Demo.DeliveredDay=state.Day;state.Demo.Stage=BaseDemoStage.RuinsDelivered;state.Demo.Evidence.Add(Permit);BaseDemoDefense.PermitGranted(state);BaseDemoDefense.ScheduleOnDelivery(state);return true;
         }
         public static void Validate(BaseState state)
         {
