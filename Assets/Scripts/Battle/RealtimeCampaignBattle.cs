@@ -155,7 +155,7 @@ namespace BaseConquest.Battle
                     soldier.Kind==SoldierKind.Hero ? PrototypeRole.Leader : soldier.CombatKind==SoldierKind.Ranged ? PrototypeRole.Archer : PrototypeRole.Melee,
                     position,Math.Max(0,soldier.OriginCommanderSlot),soldier.Side==BattleSide.A&&soldier.Kind==SoldierKind.Hero&&soldier.OriginCommanderSlot==Battle.Scenario.PlayerLeaderSlot,soldier.Id+1);
                 if(!Model.SetFootprint(actor,length))throw new InvalidOperationException("骑兵部署体积不足");
-                if(session.Opening.DemoCombat && soldier.Kind==SoldierKind.Hero && soldier.Side==BattleSide.A)soldier.ProtectFromInstantDeath=session.Opening.Rpg==null||soldier.Rpg?.Story==true;
+                if(soldier.Kind==SoldierKind.Hero && soldier.Side==BattleSide.A)soldier.ProtectFromInstantDeath=true;
                 actor.Health=soldier.Health;actor.KnockedDown=soldier.KnockedDown;actor.MaxHealth=soldier.Stats.Health;actor.MoveSpeed=SpeedCells(session,soldier)/PrototypeArena.Subdivision;
                 actor.AttackDamage=soldier.Stats.Damage*soldier.DrinkMultiplier;actor.AttackRange=RangeCells(session,soldier)/PrototypeArena.Subdivision;actor.AttackInterval=1;actor.UsesRangedWeapon=soldier.CombatKind==SoldierKind.Ranged;
             }

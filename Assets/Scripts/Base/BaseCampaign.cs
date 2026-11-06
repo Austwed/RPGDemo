@@ -223,6 +223,7 @@ namespace BaseConquest.Base
                 if (plan.Purpose != purpose || !BaseMuster.Confirm(s, plan)) throw new InvalidOperationException("可用队长不足或编制变化，请重新预览");
                 party = s.Muster.Parties.Single(p => p.Id == plan.Id);
             }
+            if(s.Workers.Where(w=>w.Away&&w.PartyId==party.Id).Sum(w=>w.Count)>BaseMuster.BattleSoldierLimit)throw new InvalidOperationException("出战士兵总数超过24人，请返营调整");
             if(e.Kind=="attack"&&!party.Leaders.Any(l=>l.LeaderId==s.PlayerLeaderId))throw new InvalidOperationException("进攻出征需主角带队，先返营重新选择");
             if(BaseWorldJourney.Active(s)&&e.Kind=="attack"&&(party.Leaders.Any(item=>!BaseAdventure.Alive(s.Leaders.Single(leader=>leader.Id==item.LeaderId)))||!demoCombat&&s.Workers.Any(worker=>worker.PartyId==party.Id&&worker.Health<=1)))throw new InvalidOperationException("出征队有阵亡队长或重伤士兵，请沿世界道路返营整备");
             var quota = s.Supply.Quotas.FirstOrDefault(q => q.PartyId == party.Id);
@@ -324,7 +325,7 @@ namespace BaseConquest.Base
             for (int i = 0; i < a.Leaders.Count; i++)
             {
                 var leader = s.Leaders.Single(l => l.Id == a.Leaders[i].Id); var unit = battle.Soldiers.SingleOrDefault(w => w.Side == BattleSide.A && w.Kind == SoldierKind.Hero && w.OriginCommanderSlot == i);
-                bool lost = unit != null && (unit.InstantDead || !a.DemoCombat && !unit.IsAlive && lostField && !unit.Rescued);
+                bool lost = false;
                 leader.Health = unit == null ? Math.Max(1,a.Leaders[i].Health) : lost ? 0 : unit.IsAlive ? Math.Max(1,Math.Min(leader.MaxHealth, unit.Health)) : 1;
                 leader.Fate=lost ? unit.InstantDead ? "dead" : "missing" : "active";
                 if (unit != null && !unit.IsAlive) { r.LeadersDown++; if (leader.Health > 0) down.Add(leader.Id); }
@@ -469,7 +470,7 @@ namespace BaseConquest.Base
                     var l = identity;
                     if(l.PersonalEquipment?.Version==1||l.HasCombatProfile){unit.Stats=BaseCommanderIdentity.Stats(l,unit.Stats);unit.Stats.Damage*=(float)(Opening.SupplySnapshot?.AttackFactor??1);}
                     else unit.Stats=BaseCommanderIdentity.Stats(l,unit.Stats);
-                    unit.Stats.Health = (float)l.MaxHealth; unit.Health = (float)l.Health; unit.ProtectFromInstantDeath = unit.OriginCommanderSlot == Opening.Scenario.PlayerLeaderSlot;
+                    unit.Stats.Health = (float)l.MaxHealth; unit.Health = (float)l.Health; unit.ProtectFromInstantDeath = true;
                 }
                 else if (!troops.ContainsKey(unit.Id))
                 {

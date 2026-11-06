@@ -72,6 +72,7 @@ namespace BaseConquest.Base
     }
     public sealed class BaseMusterPlan
     {
+        public int SoldierLimit=24;
         public string Id, Purpose, Stamp;
         public string PartyId;
         public int RequestedMelee, RequestedRanged, RequestedCavalry;
@@ -89,6 +90,7 @@ namespace BaseConquest.Base
     }
     public static partial class BaseMuster
     {
+        public const int BattleSoldierLimit=24;
         public static readonly string[] Purposes = { "defense", "expedition" };
         public static string PurposeName(string id) => id == "defense" ? "迎战" : "出征";
         public static void Normalize(BaseState s)
@@ -123,7 +125,8 @@ namespace BaseConquest.Base
                 while (m.Strategies.Count < 3) m.Strategies.Add((int)BaseConquest.Battle.SquadStrategy.Attack);
             }
             if (m.Ranges == null || m.Ranges.Count == 0) m.Ranges = new List<int> { 3, 6, 9 };
-            if (m.Strategies.Count != 3 || m.Strategies.Any(v => !Enum.IsDefined(typeof(BaseConquest.Battle.SquadStrategy), v)) || m.Ranges.Count != 3 || m.Ranges[0] < 1 || m.Ranges[0] > m.Ranges[1] || m.Ranges[1] > m.Ranges[2] || m.Ranges[2] > 32) throw new ArgumentException("军营策略或范围非法");
+            if (m.Ranges.Count == 3) m.Ranges = Enumerable.Range(0,3).SelectMany(_ => m.Ranges).ToList();
+            if (m.Strategies.Count != 3 || m.Strategies.Any(v => !Enum.IsDefined(typeof(BaseConquest.Battle.SquadStrategy), v)) || m.Ranges.Count != 9 || Enumerable.Range(0,3).Any(slot => !ValidRanges(m.Ranges[slot*3],m.Ranges[slot*3+1],m.Ranges[slot*3+2]))) throw new ArgumentException("军营策略或范围非法");
             if (s.Development == null || s.Development.Version == 0)
                 foreach (var f in m.Facilities ?? new List<BaseFacilityProtection>()) if (f != null) { if (f.Level == 0) f.Level = 1; if (f.MaxProductLevel == 0) f.MaxProductLevel = 1; }
             if (m.Version != 1 || m.Presets == null || m.Facilities == null || m.Parties == null || m.ReturnedIds == null || m.Presets.Count != 2 || m.Presets.Select(p => p?.Purpose).Distinct().Count() != 2 || new[] { m.KeepMelee, m.KeepRanged, m.KeepCavalry }.Any(n => n < 0 || n > 10000)) throw new ArgumentException("编队数据版本／集合非法");
@@ -146,6 +149,14 @@ namespace BaseConquest.Base
                 if (!leader.Away || !m.Parties.Any(p => p.Id == leader.PartyId && p.Leaders.Any(x => x.LeaderId == leader.Id))) throw new ArgumentException("人物编队归属不存在");
             foreach (var worker in s.Workers.Where(w => !string.IsNullOrEmpty(w.PartyId) || !string.IsNullOrEmpty(w.SourceId)))
                 if (!worker.Away || worker.FacilityId != "" || !m.Parties.Any(p => p.Id == worker.PartyId && p.Sources.Any(x => x.Id == worker.SourceId && x.Kind == worker.Kind))) throw new ArgumentException("普通兵编队来源不存在");
+        }
+        public static bool ValidRanges(int guard,int alert,int attack) => guard>=1&&guard<=alert&&alert<=attack&&attack<=32;
+        public static void SetRanges(BaseState s,int slot,int guard,int alert,int attack)
+        {
+            BaseEconomy.Validate(s);
+            if(slot<0||slot>=3||!ValidRanges(guard,alert,attack))throw new ArgumentException("位次或范围非法");
+            if(s.Campaign.HasActiveBattle)throw new InvalidOperationException("战斗中不能修改军营默认范围");
+            s.Muster.Ranges[slot*3]=guard;s.Muster.Ranges[slot*3+1]=alert;s.Muster.Ranges[slot*3+2]=attack;
         }
         public static string Snapshot(BaseState s)
         {
@@ -198,6 +209,7 @@ namespace BaseConquest.Base
             if(plan.ManualPicks==null&&priorityMode!=""&&plan.Leaders.Count>0)SelectOrderedWorkers(s,plan,preset);
             else if(plan.ManualPicks==null) SelectWorkers(s, plan, preset, Apply, plan.Leaders.Count > 0);
             else SelectExactWorkers(s,plan,preset);
+            if(plan.Total>BattleSoldierLimit)throw new InvalidOperationException("出战士兵总数不能超过24人");
             if(plan.Leaders.Count>0)FinishFormation(s,plan);
             var before = BaseEconomy.Preview(s); var copy = s.Copy();
             if (plan.Leaders.Count == 0) { plan.RemainingBase = s.Workers.Where(w => !w.Away).Sum(w => w.Count); return plan; }
@@ -211,7 +223,7 @@ namespace BaseConquest.Base
             {
                 int need = requested.Count(kind), total = s.Workers.Where(w => BaseDevelopment.Eligible(plan.Purpose, w) && w.Kind == kind).Sum(w => w.Count);
                 int already=plan.Takes.Where(t=>s.Workers[t.BucketIndex].Kind==kind).Sum(t=>t.Count);
-                int canTake = plan.IgnoreProtection ? total-already : Math.Max(0, total - s.Muster.Keep(kind)-already);
+                int canTake = Math.Min(Math.Max(0,plan.SoldierLimit-plan.Total),plan.IgnoreProtection ? total-already : Math.Max(0, total - s.Muster.Keep(kind)-already));
                 // 2026-11-04 裁决：先按生命比例从高到低取，同档再按「先抽闲置、后抽低产设施」的老次序。
                 var buckets = s.Workers.Select((w, i) => new { Worker = w, Index = i }).Where(x => BaseDevelopment.Eligible(plan.Purpose, x.Worker) && x.Worker.Kind == kind)
                     .OrderByDescending(x => x.Worker.MaxHealth > 0 ? x.Worker.Health / x.Worker.MaxHealth : 0)

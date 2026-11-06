@@ -56,6 +56,7 @@ namespace BaseConquest.Base
         {
             if(unit.Kind==SoldierKind.Hero)
             {
+                if(unit.Side==BattleSide.A)return 0;
                 if(session.Opening.Rpg!=null&&unit.Side==BattleSide.B)
                 {
                     if(session.Opening.EventId==BaseDemoDefense.EventId)return 1;

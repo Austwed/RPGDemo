@@ -18,6 +18,9 @@ namespace BaseConquest.Base
             BaseEconomy.Validate(s); AppendParty(s, partyId);
             if (new[] { melee, ranged, cavalry }.Any(n => n < 0 || n > 30)) throw new ArgumentException("追加请求每兵种须在0～30之间");
             var plan = new BaseMusterPlan { Id = Guid.NewGuid().ToString("N"), PartyId = partyId, Purpose = "expedition", Stamp = Snapshot(s), IgnoreProtection = ignoreProtection, RequestedMelee = melee, RequestedRanged = ranged, RequestedCavalry = cavalry };
+            int existingTotal=s.Workers.Where(w=>w.Away&&w.PartyId==partyId).Sum(w=>w.Count);
+            if(existingTotal>BattleSoldierLimit)throw new InvalidOperationException("本队超过24人，请返营调整");
+            plan.SoldierLimit=BattleSoldierLimit-existingTotal;
             var requested = new BaseArmyPreset { Melee = melee, Ranged = ranged, Cavalry = cavalry };
             var capped = requested.Copy();
             foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))

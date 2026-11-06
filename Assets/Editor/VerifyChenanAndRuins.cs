@@ -112,6 +112,12 @@ namespace BaseConquest.Editor
             var plan=BaseMuster.Preview(s,"expedition",true,preset);
             Need(plan.Takes.Count==2&&plan.Takes[0].BucketIndex==0&&plan.Takes[1].BucketIndex==1,
                 "出征选兵应按生命比例从高到低取（80%→45%），实际 "+string.Join(",",plan.Takes.Select(t=>t.BucketIndex+":"+t.Count)));
+            var large=s.Copy();large.Workers.Clear();large.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=30,MaxHealth=100,Health=100,FarmEfficiency=1,WorkshopEfficiency=1});
+            var largePreset=preset.Copy();largePreset.Melee=30;var limited=BaseMuster.Preview(large,"expedition",true,largePreset);
+            Need(limited.Total==24&&limited.MissingMelee==6,"编成预览须限制全军24人并报告缺编");
+            Need(BaseMuster.Confirm(large,limited),"24人编成应能确认");
+            var extra=BaseMuster.PreviewAppend(large,limited.Id,1,0,0,true);
+            Need(extra.Total==0&&!BaseMuster.ConfirmAppend(large,extra),"满编队伍不能通过追加超过24人");
             preset.SetCount(BaseTroopKind.Melee,3);preset.Purpose="defense";
             var defend=BaseMuster.Preview(s,"defense",true,preset);
             Need(defend.Takes.Sum(t=>t.Count)==3,"守家迎战应放宽到还能行动的伤兵（含 10%），实际 "+defend.Takes.Sum(t=>t.Count));
@@ -245,9 +251,14 @@ namespace BaseConquest.Editor
             Need(sim.SetCommanderStrategy(BattleSide.A,0,SquadStrategy.Attack),"远程仍应允许切换策略");
             var state=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
             state.Muster.Strategies=null;state.Muster.Ranges=null;BaseEconomy.Validate(state);
-            Need(state.Muster.Strategies.Count==3&&state.Muster.Ranges.SequenceEqual(new[]{3,6,9}),"旧档应初始化三个位次和默认半径");
+            Need(state.Muster.Strategies.Count==3&&state.Muster.Ranges.SequenceEqual(new[]{3,6,9,3,6,9,3,6,9}),"旧档应初始化三个位次和默认半径");
             state.Muster.Strategies[0]=(int)SquadStrategy.Protect;state.Muster.Strategies[1]=(int)SquadStrategy.Obey;
-            state.Muster.Ranges=new System.Collections.Generic.List<int>{2,5,8};
+            state.Muster.Ranges=new System.Collections.Generic.List<int>{2,5,8};BaseEconomy.Validate(state);
+            Need(state.Muster.Ranges.SequenceEqual(new[]{2,5,8,2,5,8,2,5,8}),"旧档共用半径须迁移到三个位次");
+            BaseMuster.SetRanges(state,1,3,7,10);
+            Need(state.Muster.Ranges.SequenceEqual(new[]{2,5,8,3,7,10,2,5,8}),"只应修改选中的位次");
+            bool rejected=false;try{BaseMuster.SetRanges(state,1,7,3,10);}catch(ArgumentException){rejected=true;}
+            Need(rejected&&state.Muster.Ranges[3]==3,"非法范围不得修改已保存配置");
             var copy=state.Copy();copy.Muster.Strategies[0]=(int)SquadStrategy.Attack;copy.Muster.Ranges[0]=1;
             Need(state.Muster.Strategies[0]==(int)SquadStrategy.Protect&&state.Muster.Ranges[0]==2,"复制存档不能共享配置列表");
             var configured=new BattleScenario{CommanderControl=true};configured.A.HeroCount=1;configured.A.Commanders.Add(new CommanderLoadout());
@@ -256,6 +267,10 @@ namespace BaseConquest.Editor
             Need(state.Muster.Strategies[1]==(int)SquadStrategy.Obey,"空位配置应保留");
             var loaded=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));BaseEconomy.Validate(loaded);
             Need(loaded.Muster.Strategies.SequenceEqual(state.Muster.Strategies)&&loaded.Muster.Ranges.SequenceEqual(state.Muster.Ranges),"策略和半径应随存档往返");
+            var casualties=new BattleSimulation(new BattleScenario{CampaignRules=true,InstantDeathEnabled=true,LeaderInstantDeath=1});
+            var ally=new BattleSoldier{Id=100,Side=BattleSide.A,Kind=SoldierKind.Hero,Health=0};var enemy=new BattleSoldier{Id=101,Side=BattleSide.B,Kind=SoldierKind.Hero,Health=0};
+            casualties.Soldiers.Add(ally);casualties.Soldiers.Add(enemy);casualties.ResolveCasualties();
+            Need(!ally.InstantDead&&enemy.InstantDead,"己方队长即死须关闭且不影响敌方队长");
             Debug.Log("[StrategyTiers] 三档文案、逃跑迁移、远程权限守卫（证红＋放行）PASS");
         }
         private static void At(BaseState state,string id)

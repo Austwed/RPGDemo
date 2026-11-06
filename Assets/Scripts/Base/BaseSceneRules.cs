@@ -105,7 +105,7 @@ namespace BaseConquest.Base
             for(int n=0;n<scenario.A.Commanders.Count&&n<leaders.Count;n++)
             {
                 var c=scenario.A.Commanders[n];c.Strategy=Tier((SquadStrategy)s.Muster.Strategies[n]);
-                c.GuardRange=s.Muster.Ranges[0];c.AlertRange=s.Muster.Ranges[1];c.AttackRange=s.Muster.Ranges[2];
+                c.GuardRange=s.Muster.Ranges[n*3];c.AlertRange=s.Muster.Ranges[n*3+1];c.AttackRange=s.Muster.Ranges[n*3+2];
             }
         }
         public static void RememberStrategy(BaseState s,BaseCampaignSession session)

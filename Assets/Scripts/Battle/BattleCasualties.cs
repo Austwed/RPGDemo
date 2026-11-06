@@ -14,7 +14,7 @@ namespace BaseConquest.Battle
             foreach (var unit in Soldiers.Where(s => !s.IsAlive && !s.DeathResolved))
             {
                 unit.DeathResolved = true;
-                unit.InstantDead = !unit.ProtectFromInstantDeath && (!Scenario.InstantDeathEnabled ? unit.Kind != SoldierKind.Hero : StableRoll(Scenario.RandomSeed, unit.Id, 11) < (CasualtyChance?.Invoke(unit) ?? (unit.Kind == SoldierKind.Hero ? Scenario.LeaderInstantDeath : Scenario.TroopInstantDeath)));
+                unit.InstantDead = !(Scenario.CampaignRules && unit.Side==BattleSide.A && unit.Kind==SoldierKind.Hero) && !unit.ProtectFromInstantDeath && (!Scenario.InstantDeathEnabled ? unit.Kind != SoldierKind.Hero : StableRoll(Scenario.RandomSeed, unit.Id, 11) < (CasualtyChance?.Invoke(unit) ?? (unit.Kind == SoldierKind.Hero ? Scenario.LeaderInstantDeath : Scenario.TroopInstantDeath)));
                 if (CasualtyChance != null && !unit.InstantDead) { unit.KnockedDown = true; unit.Health = 1; }
             }
         }

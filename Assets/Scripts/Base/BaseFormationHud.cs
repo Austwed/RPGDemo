@@ -7,11 +7,26 @@ namespace BaseConquest.Base
     {
         private string compositionLeader;
         private int compositionPage;
+        private int rangeSlot;
         private bool formationForecastOpen;
         private static string TroopsText(BaseCommanderTroops p)=>"近战 "+p.Melee+"／弓兵 "+p.Ranged+"／骑兵 "+p.Cavalry;
         private void CommanderPresets()
         {
             var s=owner.State;var all=s.Leaders.ToArray();int pages=Math.Max(1,(all.Length+4)/5);compositionPage=Mathf.Clamp(compositionPage,0,pages-1);
+            Line("位次策略范围（迎战与出征共用位次配置）",48,20);
+            for(int i=0;i<3;i++){int slot=i;RowButton((rangeSlot==slot?"● ":"")+(char)('A'+slot),-270+slot*270,250,()=>{rangeSlot=slot;OpenBarracks();});}row+=56;
+            int[] values=s.Muster.Ranges.Skip(rangeSlot*3).Take(3).ToArray();
+            var sliders=new UnityEngine.UI.Slider[3];var labels=new UnityEngine.UI.Text[3];
+            for(int i=0;i<3;i++)
+            {
+                int index=i;string title=new[]{"驻守范围","威胁范围","进攻范围"}[i];
+                labels[i]=Label(content,title+"："+values[i],new Vector2(-250,-row-26),new Vector2(300,48),20,TextAnchor.MiddleLeft,new Vector2(.5f,1));
+                var track=Box("RangeSlider",content,new Vector2(.5f,1),new Vector2(135,-row-26),new Vector2(390,20),buttonColor);
+                var handle=Box("Handle",track,new Vector2(.5f,.5f),Vector2.zero,new Vector2(24,42),ink);
+                var slider=track.gameObject.AddComponent<UnityEngine.UI.Slider>();sliders[i]=slider;slider.targetGraphic=handle.GetComponent<UnityEngine.UI.Image>();slider.handleRect=handle;slider.wholeNumbers=true;slider.minValue=1;slider.maxValue=32;slider.SetValueWithoutNotify(values[i]);
+                slider.onValueChanged.AddListener(value=>{values[index]=(int)value;if(index>0)values[index]=Math.Max(values[index],values[index-1]);if(index<2)values[index]=Math.Min(values[index],values[index+1]);slider.SetValueWithoutNotify(values[index]);labels[index].text=title+"："+values[index];});row+=56;
+            }
+            RowButton("保存位次范围",0,800,()=>{owner.Change(next=>BaseMuster.SetRanges(next,rangeSlot,values[0],values[1],values[2]),"已保存位次范围");OpenBarracks();});row+=56;
             if(!all.Any(l=>l.Id==compositionLeader))compositionLeader=s.PlayerLeaderId;
             Line("保存期望编制，不提前占用士兵。出征按常驻小队顺序补兵。",60,18);
             foreach(var leader in all.Skip(compositionPage*5).Take(5))
@@ -28,7 +43,7 @@ namespace BaseConquest.Base
                     owner.Change(next=>{var l=next.Leaders.Single(x=>x.Id==compositionLeader);if(l.Away||next.Campaign.HasActiveBattle)throw new InvalidOperationException("队长外出期间保留冻结编制，请返营后修改");l.DefaultTroops.Set(kind,n);},"已保存队长预设，未抽调人员");OpenBarracks();
                 });
             }
-            Line("每名队长每兵种可预设0～30人；现有战场全军每兵种最多30人，超出部分会显示缺编。未随行者保存预设但不会自动入队。",86,18);
+            Line("各队长可保存预设，实际出战全军最多24名士兵，超出部分显示缺编。未随行者保存预设但不会自动入队。",86,18);
         }
         public void OpenDeparture(string location,string eventId=null,string mode="full",bool bypass=false,bool adviceHandled=false)
         {
