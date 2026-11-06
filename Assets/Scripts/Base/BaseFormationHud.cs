@@ -7,26 +7,26 @@ namespace BaseConquest.Base
     {
         private string compositionLeader;
         private int compositionPage;
-        private int rangeSlot;
         private bool formationForecastOpen;
         private static string TroopsText(BaseCommanderTroops p)=>"近战 "+p.Melee+"／弓兵 "+p.Ranged+"／骑兵 "+p.Cavalry;
         private void CommanderPresets()
         {
             var s=owner.State;var all=s.Leaders.ToArray();int pages=Math.Max(1,(all.Length+4)/5);compositionPage=Mathf.Clamp(compositionPage,0,pages-1);
-            Line("位次策略范围（迎战与出征共用位次配置）",48,20);
-            for(int i=0;i<3;i++){int slot=i;RowButton((rangeSlot==slot?"● ":"")+(char)('A'+slot),-270+slot*270,250,()=>{rangeSlot=slot;OpenBarracks();});}row+=56;
-            int[] values=s.Muster.Ranges.Skip(rangeSlot*3).Take(3).ToArray();
-            var sliders=new UnityEngine.UI.Slider[3];var labels=new UnityEngine.UI.Text[3];
-            for(int i=0;i<3;i++)
+            Line("位次范围：驻守 ≤ 威胁 ≤ 进攻，填入 1～32 的整数",48,20);
+            Line("              驻守                     威胁                     进攻",40,18);
+            var fields=new UnityEngine.UI.InputField[9];
+            for(int slot=0;slot<3;slot++)
             {
-                int index=i;string title=new[]{"驻守范围","威胁范围","进攻范围"}[i];
-                labels[i]=Label(content,title+"："+values[i],new Vector2(-250,-row-26),new Vector2(300,48),20,TextAnchor.MiddleLeft,new Vector2(.5f,1));
-                var track=Box("RangeSlider",content,new Vector2(.5f,1),new Vector2(135,-row-26),new Vector2(390,20),buttonColor);
-                var handle=Box("Handle",track,new Vector2(.5f,.5f),Vector2.zero,new Vector2(24,42),ink);
-                var slider=track.gameObject.AddComponent<UnityEngine.UI.Slider>();sliders[i]=slider;slider.targetGraphic=handle.GetComponent<UnityEngine.UI.Image>();slider.handleRect=handle;slider.wholeNumbers=true;slider.minValue=1;slider.maxValue=32;slider.SetValueWithoutNotify(values[i]);
-                slider.onValueChanged.AddListener(value=>{values[index]=(int)value;if(index>0)values[index]=Math.Max(values[index],values[index-1]);if(index<2)values[index]=Math.Min(values[index],values[index+1]);slider.SetValueWithoutNotify(values[index]);labels[index].text=title+"："+values[index];});row+=56;
+                Label(content,((char)('A'+slot))+" 位",new Vector2(-350,-row-26),new Vector2(100,48),20,TextAnchor.MiddleLeft,new Vector2(.5f,1));
+                for(int kind=0;kind<3;kind++)
+                {
+                    int index=slot*3+kind;var box=Box("RangeInput",content,new Vector2(.5f,1),new Vector2(-160+kind*250,-row-26),new Vector2(220,46),buttonColor);
+                    var label=Label(box,s.Muster.Ranges[index].ToString(),Vector2.zero,new Vector2(200,40),20,TextAnchor.MiddleCenter);label.raycastTarget=true;
+                    var input=box.gameObject.AddComponent<UnityEngine.UI.InputField>();input.targetGraphic=box.GetComponent<UnityEngine.UI.Image>();input.textComponent=label;input.contentType=UnityEngine.UI.InputField.ContentType.IntegerNumber;input.text=s.Muster.Ranges[index].ToString();fields[index]=input;
+                }
+                row+=56;
             }
-            RowButton("保存位次范围",0,800,()=>{owner.Change(next=>BaseMuster.SetRanges(next,rangeSlot,values[0],values[1],values[2]),"已保存位次范围");OpenBarracks();});row+=56;
+            RowButton("保存九项范围",0,800,()=>{if(owner.Change(next=>{var values=fields.Select(f=>int.TryParse(f.text,out int n)?n:0).ToArray();for(int slot=0;slot<3;slot++)BaseMuster.SetRanges(next,slot,values[slot*3],values[slot*3+1],values[slot*3+2]);},"已保存位次范围"))OpenBarracks();});row+=56;
             if(!all.Any(l=>l.Id==compositionLeader))compositionLeader=s.PlayerLeaderId;
             Line("保存期望编制，不提前占用士兵。出征按常驻小队顺序补兵。",60,18);
             foreach(var leader in all.Skip(compositionPage*5).Take(5))
