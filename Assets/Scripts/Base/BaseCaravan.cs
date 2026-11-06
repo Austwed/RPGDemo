@@ -49,7 +49,7 @@ namespace BaseConquest.Base
         {
             if (!BaseFacilityLayout.Built(s, "caravan")) return "商队设施尚未建成";
             if (s.Campaign.HasActiveBattle || BaseSceneCombat.Active(s)) return "战斗中不能安排商队";
-            if (s.Caravan.Phase != "") return "商队正在途中，返回后才能再出发";
+            if (s.Caravan.Phase != "" || s.Caravan.Route != "") return "商队事务进行中，返回或召回后才能再安排";
             if (!Routes.Contains(route)) return "未知线路";
             if (Crew(s) <= 0) return "请先在商队安排至少 1 人";
             if (route == "crow" && Site(s) == null) return "尚未攻占" + BaseScriptNames.Bandit + "，只能先做领地内跑商";

@@ -66,7 +66,7 @@ namespace BaseConquest.Base
         public static BaseLeader Manager(BaseState s, string facility) => s.Leaders.FirstOrDefault(x => BaseDevelopment.Effective(s, x) && x.FacilityId == facility);
         private static double Bonus(BaseState s, string facility) { var chief = Manager(s, facility); return chief == null ? 1 : 1 + BaseDevelopment.Bonus(chief, facility); }
         public static bool ProductionPaused(BaseState s,string facility) => s.Muster.Facilities.Any(f=>f.FacilityId==facility&&f.DeveloperProductionPaused);
-        private static double Work(BaseState s, string facility) => ProductionPaused(s,facility) ? 0 : s.Workers.Where(w => BaseDevelopment.Effective(s, w) && w.FacilityId == facility).Sum(w => w.Count * BaseDevelopment.Efficiency(w, facility));
+        private static double Work(BaseState s, string facility) => ProductionPaused(s,facility)||!BaseDemo.FacilityAvailable(s,facility) ? 0 : s.Workers.Where(w => BaseDevelopment.Effective(s, w) && w.FacilityId == facility).Sum(w => w.Count * BaseDevelopment.Efficiency(w, facility));
         public static bool PayMorningFood(BaseState s)
         {
             if (s.FoodPaidDay == s.Day) return false;

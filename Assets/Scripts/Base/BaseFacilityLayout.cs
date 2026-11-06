@@ -117,7 +117,9 @@ namespace BaseConquest.Base
                 obj = new BaseMapPlacement { Id = id, AssetId = def.Asset, Kind = "facility", Blocks = true, Width = def.Width, Height = def.Height };
                 layout.Objects.Add(obj);
             }
-            obj.Name = def.Name; obj.X = x; obj.Y = y; obj.VisualOnly = false;
+            // 未修复的工坊／兵营必须保持占位外观，否则会绕过修复流程。
+            obj.Name = def.Name; obj.X = x; obj.Y = y;
+            obj.VisualOnly = BaseDemo.Active(s) && (id == "workshop" || id == "barracks") && !BaseDemoDefense.Repaired(s, id);
             s.Layout.Stored.Remove(id);
             if (!owned) { s.Inventory.Materials -= def.Materials; s.Inventory.Coins -= def.Coins; }
             s.Layout.Revision++;
@@ -133,6 +135,7 @@ namespace BaseConquest.Base
             if (def == null) { message = "未知设施"; return false; }
             if (!Editable(s)) { message = "只能在营地和平状态下调整布局"; return false; }
             if (def.Required) { message = "必需设施不能收存"; return false; }
+            if (BaseDemo.Active(s) && (id == "workshop" || id == "barracks") && !BaseDemoDefense.Repaired(s, id)) { message = "尚未修复的设施不能收存"; return false; }
             var layout = BaseLayout(s);
             var obj = layout?.Objects.FirstOrDefault(item => item != null && item.Id == id);
             if (obj == null) { message = "该设施不在营地上"; return false; }

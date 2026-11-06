@@ -66,6 +66,13 @@ namespace BaseConquest.Editor
             BaseDevelopment.SetPolicy(s, "equipment");
             Need(BaseDevelopment.PolicyOrder(s).SequenceEqual(new[] { "workshop", "farm", "caravan" }), "军需优先的顺序应为工坊→粮田→商队");
 
+            // 收存生产设施：立即停产、不能继续派人，重新放置后恢复。
+            Need(BaseFacilityLayout.Store(s, "farm", out _), "粮田应能收存");
+            BaseDevelopment.Allocate(s);
+            Need(BaseEconomy.Preview(s).FoodProduced == 0, "粮田收存后不应继续产粮");
+            Need(!BaseEconomy.MoveWorkers(s, BaseTroopKind.Melee, "", "farm", 1), "粮田收存后不应还能派人");
+            Need(BaseFacilityLayout.AutoPlace(s, "farm", out string farmProblem, out _, out _), "粮田重新放置失败：" + farmProblem);
+            Need(BaseEconomy.Preview(s).FoodProduced >= 0, "粮田重新放置后应恢复生产入口");
             // 商队：建成后才有岗位；出发要备足往返口粮；黑鸦寨按三天往返取料，满载看当前库存。
             s.Inventory.Materials = 60;
             int beforeBuild = s.Inventory.Materials;
@@ -116,6 +123,7 @@ namespace BaseConquest.Editor
             // 本地跑商：每日进金币，不再装货。
             trip.Inventory.Food = 100; int coinsBefore = trip.Inventory.Coins;
             Need(BaseCaravan.Start(trip, "local", out _), "应能开始领地内跑商");
+            Need(!BaseCaravan.Start(trip, "local", out _), "跑商进行中不应重复出发");
             Day(trip);
             Need(trip.Inventory.Coins == coinsBefore + 8, "本地跑商应按 4 金币／人结算");
             BaseCaravan.Stop(trip, "测试结束");

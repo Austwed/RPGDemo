@@ -193,7 +193,7 @@ namespace BaseConquest.Base
             foreach(var o in m.Objects.Where(o=>BaseEnvironment.Decorative(o.Object))){var d=BaseEnvironment.Find(o.AssetId);if(d==null||!o.VisualOnly||o.Kind!=(d.Animal==""?"decoration":"wildlife"))throw new ArgumentException("环境物件定义、交互或阻挡声明非法："+o.Id);}
             foreach(var placement in m.Objects.Where(obj=>obj.Blocks&&!string.IsNullOrEmpty(obj.Shape)))
                 if(m.Objects.Any(other=>other!=placement&&other.Blocks&&placement.Object.Parts.Any(first=>other.Object.Parts.Any(second=>Math.Abs(first.X-second.X)<(first.Width+second.Width)/2-.00001&&Math.Abs(first.Y-second.Y)<(first.Height+second.Height)/2-.00001))))throw new ArgumentException("格形阻挡重叠："+placement.Name);
-            if(m.Region=="base"&&!scenery&&(demo?new[]{"home","farm","workshop","barracks"}:new[]{"home","government","farm","workshop","barracks"}).Any(id=>!m.Objects.Any(o=>o.Id==id&&o.Blocks)))throw new ArgumentException(demo?"Demo须保留营帐、粮田、工坊与兵营的固定位置":"据点实验模板须保留五种设施的唯一功能标识");
+            if(m.Region=="base"&&!scenery&&(demo?new[]{"home","barracks"}:new[]{"home","government","farm","workshop","barracks"}).Any(id=>!m.Objects.Any(o=>o.Id==id&&o.Blocks)))throw new ArgumentException(demo?"Demo须保留营帐与兵营的固定位置":"据点实验模板须保留五种设施的唯一功能标识");
         }
         public static void ValidateLayouts(BaseState s)
         {
