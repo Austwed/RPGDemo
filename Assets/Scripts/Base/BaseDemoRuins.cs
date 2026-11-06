@@ -170,7 +170,7 @@ namespace BaseConquest.Base
             var expected=progress.AcceptedDay>0?new List<string>{BaseDemo.Assignment}:new List<string>();if(cleared)expected.Add(Proof);if(delivered)expected.Add(Permit);if(BaseDemoDefense.Won(state))expected.Add(BaseDemoDefense.Proof);if(BaseDemoFinale.Later(state))expected.Add(BaseDemoFinale.AttackProof);if(progress.Stage==BaseDemoStage.Finished||BaseDemoFinale.Rebuilding(state))expected.Add(BaseDemoFinale.Sword);
             if(!progress.Evidence.SequenceEqual(expected)||(cleared?(progress.RuinsDay<progress.WakeDay||progress.RuinsDay>state.Day||!state.Campaign.Reports.Any(report=>report.EventId==EventId&&report.Outcome=="SideAWin")):progress.RuinsDay!=0))throw new ArgumentException(BaseScriptNames.Ruins+"证据与真实战果不一致");
             if(delivered?(progress.DeliveredDay<progress.RuinsDay||progress.DeliveredDay>state.Day):progress.DeliveredDay!=0)throw new ArgumentException(BaseScriptNames.Ruins+"许可与交付日期不一致");
-            if(state.Leaders.Any(person=>(person.Id=="partner_farm"||person.Id=="partner_craft")&&!progress.MetCompanions.Contains(person.Id))||InRuins(state)&&!CanExplore(state)||state.Campaign.HasActiveBattle&&!BattleActive(state)&&!BaseDemoDefense.BattleActive(state)&&!BaseDemoFinale.BattleActive(state))throw new ArgumentException("伙伴或剧情战阶段非法");
+            if(state.Leaders.Any(person=>(person.Id=="partner_farm"||person.Id=="partner_craft")&&!progress.MetCompanions.Contains(person.Id))||InRuins(state)&&!CanExplore(state)||!BaseDemoFinale.Opened(state)&&state.Campaign.HasActiveBattle&&!BattleActive(state)&&!BaseDemoDefense.BattleActive(state)&&!BaseDemoFinale.BattleActive(state))throw new ArgumentException("伙伴或剧情战阶段非法");
         }
     }
 }

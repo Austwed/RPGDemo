@@ -162,6 +162,37 @@ namespace BaseConquest.Base
             if(documents.Count>0&&!SaveBeforeBattle())yield break;
             if (Change(s => { if (!BaseCampaign.Rest(s, expectedDay, file => documents[file],BaseBattleGateway.RealtimeCampaign)) throw new InvalidOperationException("日期已结算"); }, "本日已结算；到据点管理所查看日结报告")) Hud.ClosePanel();
         }
+        // 副手迎战（P43）：后台模拟或进入战场观战，都先按副手编成锁人；两条路用同一套真实战斗与结算。
+        public void LaunchDeputyDefense(string id, bool watch)
+        {
+            if (State != null && !Busy) StartCoroutine(LaunchDeputyDefenseRoutine(id, watch));
+        }
+        private IEnumerator LaunchDeputyDefenseRoutine(string id, bool watch)
+        {
+            string problem = BaseDeputyBattle.Problem(State, id);
+            if (problem != "") { ReportMessage(problem); yield break; }
+            var mission = State.Campaign.Events.FirstOrDefault(item => item.Id == id);
+            if (mission == null) { ReportMessage("这次袭击已不存在"); yield break; }
+            Busy = true; Hud.RefreshSummary(); BattleScenarioDocument document = null;
+            yield return ReadBattle(mission.ScenarioFile, d => document = d); Busy = false;
+            if (document == null) { Hud.RefreshSummary(); yield break; }
+            if (!SaveBeforeBattle()) yield break;
+            if (watch)
+            {
+                bool entered = Change(s =>
+                {
+                    if (BaseDeputyBattle.Problem(s, id) != "") throw new InvalidOperationException("副手或袭击状态已变化");
+                    var plan = BaseDeputyBattle.Preview(s);
+                    var opening = BaseCampaign.Begin(s, id, document, "full", plan, true);
+                    opening.Deputy = true;
+                }, "副手已接管防守：只能查看、暂停、调速和调整策略");
+                if (entered) { BaseBattleGateway.RequestedId = State.Campaign.ActiveBattle.Id; ResumeCampaign(); }
+                else Hud.RefreshSummary();
+                yield break;
+            }
+            if (Change(s => BaseDeputyBattle.Resolve(s, id, document), "副手迎战结束，战果已入战报")) Hud.OpenCampaignEvents("defense");
+            else Hud.RefreshSummary();
+        }
         private bool SaveBeforeBattle() {try {BaseBattleGateway.Session().RememberBeforeBattle(State);return true;}catch(Exception e){Message="战前回退点未建立，尚未开战："+e.Message;Hud.RefreshSummary();return false;}}
     }
     public static class BaseBattleGateway

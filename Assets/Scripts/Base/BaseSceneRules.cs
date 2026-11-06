@@ -22,13 +22,24 @@ namespace BaseConquest.Base
         public static bool Active(BaseState s)=>s?.Demo?.Rpg?.SceneRulesVersion==1;
         public static bool Dungeon(BaseState s)=>Active(s)&&(BaseSceneInstances.Active(s)?s.Campaign.CurrentMapId==DungeonId:s.Campaign.Location=="dungeon");
         public static bool Entrance(BaseState s)=>Active(s)&&(BaseSceneInstances.Active(s)?s.Campaign.CurrentMapId=="demo_ruins":s.Campaign.Location=="outpost");
-        public static bool Neutral(BaseState s)=>BaseSpatial.Layout(s)?.ForbidSoldiers==true;
+        public static bool Neutral(BaseState s)=>Neutral(s, s.Campaign.Location);
+        // 按指定区域判中立：副手在营地主持防守时，不能拿玩家所在城镇的“禁止士兵”清空战场编制。
+        public static bool Neutral(BaseState s,string region)=>BaseSpatial.Layout(s,region)?.ForbidSoldiers==true;
         public static BaseTerrainMemory Memory(BaseState s)
         {
-            string mapId=BaseSpatial.Layout(s)?.SourceMapId;
-            string key=BaseDemoPrologue.Village(s)?"demo_prologue":string.IsNullOrEmpty(mapId)?s.Campaign.Location:mapId;var b=BaseBattlefield.Board(s);
-            var memories=s.Demo.TerrainMemories??(s.Demo.TerrainMemories=new List<BaseTerrainMemory>());var m=memories.SingleOrDefault(v=>v.MapId==key);
-            if(m==null){m=new BaseTerrainMemory{MapId=key,Width=b.Width,Height=b.Height,Known=new bool[b.Width*b.Height]};memories.Add(m);}return m;
+            string key=BaseDemoPrologue.Village(s)?"demo_prologue":null;
+            return Memory(s,key??s.Campaign.Location,null,key!=null);
+        }
+        // 按指定战场写记忆：副手战在别处打，已知地形不能记到玩家当前站着的地图上。
+        public static BaseTerrainMemory Memory(BaseState s,string mapKey,BattleBoard board=null,bool literalKey=false)
+        {
+            string mapId=literalKey?mapKey:BaseSpatial.Layout(s,mapKey)?.SourceMapId;
+            string key=string.IsNullOrEmpty(mapId)?mapKey:mapId;
+            var b=board??BaseBattlefield.Board(s,mapKey);
+            var memories=s.Demo.TerrainMemories??(s.Demo.TerrainMemories=new List<BaseTerrainMemory>());
+            var m=memories.FirstOrDefault(v=>v.MapId==key);
+            // 同一张图尺寸变了（换版本或旧记录）就重建，避免 Known 长度与宽高对不上。
+            if(m==null||m.Width!=b.Width||m.Height!=b.Height){if(m!=null)memories.Remove(m);m=new BaseTerrainMemory{MapId=key,Width=b.Width,Height=b.Height,Known=new bool[b.Width*b.Height]};memories.Add(m);}return m;
         }
         public static bool FogEnabled(BaseState s)
         {
@@ -96,9 +107,9 @@ namespace BaseConquest.Base
         // P36：逃跑已退出三档 UI。旧档里读到逃跑就按「驻守」处理（最接近的"不追击"行为）；
         // 枚举值保留不删，避免改动序列化位、破坏旧存档。
         public static SquadStrategy Tier(SquadStrategy value) => value == SquadStrategy.Flee ? SquadStrategy.Protect : value;
-        public static void Configure(BaseState s,BattleScenario scenario,IReadOnlyList<BaseLeader> leaders)
+        public static void Configure(BaseState s,BattleScenario scenario,IReadOnlyList<BaseLeader> leaders,string region=null)
         {
-            if(Neutral(s)){scenario.A.MeleeCount=scenario.A.RangedCount=scenario.A.CavalryCount=0;foreach(var c in scenario.A.Commanders)c.Melee=c.Ranged=c.Cavalry=0;}
+            if(Neutral(s,region??s.Campaign.Location)){scenario.A.MeleeCount=scenario.A.RangedCount=scenario.A.CavalryCount=0;foreach(var c in scenario.A.Commanders)c.Melee=c.Ranged=c.Cavalry=0;}
             if(!Active(s))return;scenario.HeightVision=true;scenario.FogEnabled=FogEnabled(s);scenario.DefenderVisionEnabled=false;scenario.VisionRadius=10;
             while(scenario.A.Commanders.Count<scenario.A.HeroCount)scenario.A.Commanders.Add(new CommanderLoadout());
             BaseMuster.Validate(s);

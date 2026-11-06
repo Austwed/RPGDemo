@@ -131,6 +131,8 @@ namespace BaseConquest.Base
             var route=path.ToList();var world=state.Campaign.WorldJourney;
             if(route.Count<2||route[0]!=world.NodeId||route.Distinct().Count()!=route.Count||route.Skip(1).Where((id,index)=>!Passable(state,Road(world,route[index],id))).Any())throw new InvalidOperationException("路线已失效，请重新规划");
             world.Route=route;world.RoadDay=world.RoadIndex=0;
+            // P42：首次出发讨伐黑鸦寨时解锁副手设立；此前没有副手，剧情防守也只能玩家亲自。
+            if(route[route.Count-1]=="bandit")BaseDeputy.Unlock(state);
         }
         public static bool Step(BaseState state,Func<string,BaseConquest.Battle.BattleScenarioDocument> resolve)
         {

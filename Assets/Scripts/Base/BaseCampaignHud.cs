@@ -33,11 +33,12 @@ namespace BaseConquest.Base
             {
                 string id = e.Id; Line(e.Title + " · " + (e.Status == "resolved" ? "已处理" : e.AvailableDay > owner.State.Day ? "第" + e.AvailableDay + "天出现" : "待处理"), 52, 22);
                 if(e.Kind=="defense")ThreatEventLines(e);
-                if (e.Kind == "defense" && e.Status == "pending") Line("坚守 "+(e.HoldRounds>0?e.HoldRounds:30)+"秒（旧轮数暂按1秒）或提前歼灭；最后处理日第"+e.DeadlineDay+"天，过夜仍会自动迎战。", 70, 18);
-                if (e.Kind == "defense" && e.Status == "pending") Line(BaseAutoResolve.Skippable(owner.State,e.Id)?"兜底自动迎战：不亲自指挥时按战力结算，伤亡比亲自打重三成半；来袭敌军每人会带走 "+Math.Min(e.FoodRaid,BaseRaidLoot.MaxRationDays)+" 天口粮"+(e.MaterialRaid>0?"＋"+e.MaterialRaid+" 原料":"")+"＋"+e.CoinRaid+" 钱（战损≥30% 轻掠、≥50% 或战败重掠，自动迎战打赢也至少轻掠）。能抽身就亲自打。":"这一战必须亲自指挥。", 62, 18);
+                if (e.Kind == "defense" && e.Status == "pending") Line("坚守 "+(e.HoldRounds>0?e.HoldRounds:30)+"秒（旧轮数暂按1秒）或提前歼灭；最后处理日第"+e.DeadlineDay+"天，过夜会由真实战斗自动处理。", 70, 18);
+                if (e.Kind == "defense" && e.Status == "pending") Line("来袭敌军每人会带走 "+Math.Min(e.FoodRaid,BaseRaidLoot.MaxRationDays)+" 天口粮"+(e.MaterialRaid>0?"＋"+e.MaterialRaid+" 原料":"")+"＋"+e.CoinRaid+" 钱（战损≥30% 轻掠、≥50% 或战败重掠）。袭击不再按战力估算，全部走真实战斗。", 62, 18);
                 var source=BaseThreats.Site(owner.State,e.SourceSiteId);
                 bool unopposed=e.Kind=="attack"&&source?.Owner=="enemy"&&!source.Garrison.Any(u=>u.Kind==SoldierKind.Hero);
                 RowButton(source?.Owner=="player"&&e.Kind=="attack" ? "已占领" : unopposed ? "接管无指挥者的据点" : kind == "defense" ? "预览迎战" : "预览进攻", 0, 800, () => {if(unopposed)owner.ClaimOutpost(source.Id);else OpenCampaignPreview(id, "full");}, e.Status == "pending" && e.AvailableDay <= owner.State.Day && !owner.State.Campaign.HasActiveBattle); row += 60;
+                if (e.Kind == "defense" && e.Status == "pending") DeputyRows(e,id);
             }
             CampaignReports(); EndPanel();
         }
@@ -60,11 +61,33 @@ namespace BaseConquest.Base
             if(campaignDetails)try{foreach(var w in s.Workers.Where(w=>w.PartyId==party.Id&&w.Away))Line(BaseEconomy.TroopName(w.Kind)+" "+w.Count+"人，生命 "+w.Health+"/"+w.MaxHealth,44,18);SupplyLines(held??BaseSupply.Preview(s,party.Id,mode).Quota);}catch(Exception error){Line(error.Message,75);}
             var f=s.Aftermath.Difficulty.RewardFactor;Line("胜利奖励：粮 "+(int)(e.FoodReward*f)+"／原料 "+(int)(e.MaterialReward*f)+"／币 "+(int)(e.CoinReward*f),64,19);EndPanel();
         }
+        // 副手迎战入口（P43）：剧情防守不给按钮，其余袭击给出后台模拟与观战两条路。
+        private void DeputyRows(BaseCampaignEvent e, string id)
+        {
+            var s = owner.State;
+            if (BaseDeputyBattle.Story(s, id))
+            {
+                Line("剧情防守：必须玩家亲自指挥，不能交给副手。", 60, 18);
+                return;
+            }
+            string problem = BaseDeputyBattle.Problem(s, id);
+            if (problem != "")
+            {
+                Line("副手迎战不可用：" + problem, 58, 18);
+                return;
+            }
+            var deputy = BaseDeputy.Leader(s);
+            Line("副手迎战：" + BasePersonnel.LeaderName(deputy) + "带队，主角与随行队伍不参战，士兵从同一份库存抽调；战斗与结算规则和玩家亲自迎战一致。", 60, 18);
+            RowButton("副手迎战 · 后台模拟（直接看结果）", 0, 800, () => owner.LaunchDeputyDefense(id, false));
+            row += 58;
+            RowButton("副手迎战 · 观战（只看／暂停／调速／改策略）", 0, 800, () => owner.LaunchDeputyDefense(id, true));
+            row += 58;
+        }
         private void CampaignReports()
         {
             foreach (var r in owner.State.Campaign.Reports.OrderByDescending(r => r.Day).ThenByDescending(r => owner.State.Campaign.Reports.IndexOf(r)).Take(4))
             {
-                Line(r.Title + " · 第" + r.Day + "天 · " + (r.Passive ? "过夜迎战" : "主动战斗") + " · " + BaseCampaign.OutcomeName(r.Outcome), 65, 21);
+                Line(r.Title + " · 第" + r.Day + "天 · " + (r.Deputy ? "副手迎战" : r.Passive ? "过夜迎战" : "主动战斗") + " · " + BaseCampaign.OutcomeName(r.Outcome), 65, 21);
                 if(!string.IsNullOrEmpty(r.RecoveryNote))Line(r.RecoveryNote,65,20);
                 if(!string.IsNullOrEmpty(r.RaidNote))Line(r.RaidNote,64,20);
                 if(r.Realtime)Line("即时作战 "+r.Seconds.ToString("0.0")+"秒 · 特殊回合机制未接入",48,18);

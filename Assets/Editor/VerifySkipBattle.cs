@@ -59,15 +59,12 @@ namespace BaseConquest.Editor
                     Check(Math.Abs(remain - (1 - injury)) <= .06, "整队剩余血量必须等于 1−injury：injury=" + injury);
                 }
 
-                // 3) 自动迎战：同一 injury 下必须比扫荡更痛。
-                foreach (double injury in new[] { .3, .5, .6 })
-                {
-                    var e = new BaseEngagement { AllyWins = true, AllySurvival = 1 - injury };
-                    int sweep = BaseAutoResolve.Losses(pure, e).Count(l => l.Dead);
-                    int auto = BaseAutoResolve.Losses(pure, e, 0, BaseAutoResolve.AutoDefenseSeverity).Count(l => l.Dead);
-                    Debug.Log("[Skip] injury=" + injury.ToString("0.00") + " → 扫荡阵亡 " + sweep + " 人／自动迎战阵亡 " + auto + " 人");
-                    Check(auto > sweep, "自动迎战必须比扫荡更痛：injury=" + injury);
-                }
+                // 3) 袭击防守不再有估算通道（2026-11-06 裁决）：只有副本扫荡可跳，防守一律真实战斗。
+                Check(!BaseAutoResolve.Skippable(template, "probe-defense"), "普通袭击不应再允许战力估算跳过");
+                Check(!BaseAutoResolve.Skippable(template, BaseDemoDefense.EventId), "首防不应允许战力估算跳过");
+                Check(!BaseAutoResolve.Skippable(template, BaseDemoDefense.SecondEventId), "第二波不应允许战力估算跳过");
+                Check(BaseAutoResolve.Skippable(template, BaseDemoRuins.EventId), "遗迹扫荡应保留估算通道");
+                Debug.Log("[Skip] 跳过白名单：普通袭击／首防／第二波均拒，只有遗迹扫荡可估算");
 
                 // 4) 坚守分支：能撑很久却只守 30 秒时，剩余血量应按时间比例接近满血，而不是「判胜却全灭」。
                 var allies = mixed.Battle.Soldiers.Where(u => u.Side == BattleSide.A && u.IsAlive).ToList();
@@ -116,11 +113,11 @@ namespace BaseConquest.Editor
                 var autoState = template.Copy();
                 if (autoState.Campaign.Events == null) autoState.Campaign.Events = new List<BaseCampaignEvent>();
                 autoState.Campaign.Events.Add(new BaseCampaignEvent { Id = "probe-auto", Kind = "defense" });
-                Check(BaseAutoResolve.Problem(autoState, "probe-auto", Gate(110, 100)) == "", "自动迎战不应套用 1.5 倍门槛");
+                Check(BaseAutoResolve.Problem(autoState, "probe-auto", Gate(110, 100)) != "", "袭击防守不应再有估算通道（1.1 倍也不行）");
                 Check(Math.Abs(BaseAutoResolve.SweepAdvantage - 1.5) < 1e-9, "扫荡门槛常量应为 1.5");
-                Debug.Log("[Skip] 扫荡门槛：1.50 倍拒／1.51 倍过／1.49 倍拒／僵持不再加码；自动迎战 1.1 倍仍可兜底");
+                Debug.Log("[Skip] 扫荡门槛：1.50 倍拒／1.51 倍过／1.49 倍拒／僵持不再加码；袭击防守无估算通道");
 
-                Debug.Log(failures == 0 ? "[Skip] PASS：扫荡贴真值、自动迎战更痛并扣资源、坚守按时间结算、1.5 倍门槛严格" : "[Skip] FAIL：" + failures + " 项");
+                Debug.Log(failures == 0 ? "[Skip] PASS：扫荡贴真值、袭击无估算通道、坚守按时间结算、1.5 倍门槛严格" : "[Skip] FAIL：" + failures + " 项");
                 EditorApplication.Exit(failures == 0 ? 0 : 1);
             }
             catch (Exception error)

@@ -9,10 +9,10 @@ namespace BaseConquest.Base
     // 「跳过战斗」的白名单与结算器。
     //
     // 口径：说哪些战斗可以跳过，不说哪些不允许跳过——默认一律不允许。
-    // 白名单目前只有两类：
+    // 2026-11-06 裁决后白名单只剩一类：
     //   ① 沉眠古窟扫荡（需已真实通关一次）
-    //   ② 基地自动迎战（普通入侵防守战）
-    // 剧情战斗（序章、遗迹首次救援、黑鸦寨两波、攻营、据点进攻、返乡）都不在白名单。
+    // 袭击防守（首防、第二波、随机入侵、异地入侵）不再允许战力估算，全部走真实战斗；
+    // 过夜无人接手时也是真实模型跑完再结算。剧情战斗同样不在白名单。
     // 战力推演不胜或僵持超时的一律不结算，回退为真实作战——跳过永远只是「能跳过时才跳」。
     public static class BaseAutoResolve
     {
@@ -21,15 +21,12 @@ namespace BaseConquest.Base
             if (s?.Campaign == null || string.IsNullOrEmpty(eventId)) return false;
             // 扫荡：沉眠古窟。是否已首通由 BaseRuinsSweep.Problem 另行判定。
             if (eventId == BaseDemoRuins.EventId) return true;
-            // 黑鸦寨两波入侵是带剧情对白的防守战，必须亲自指挥。
-            if (eventId == BaseDemoDefense.EventId || eventId == BaseDemoDefense.SecondEventId) return false;
-            // 基地自动迎战：普通入侵防守战。
-            var mission = s.Campaign.Events.FirstOrDefault(x => x.Id == eventId);
-            return mission != null && mission.Kind == "defense";
+            // 其他一律不能跳过：防守袭击（含首防、第二波、随机入侵、异地入侵）都要真实战斗。
+            return false;
         }
 
         // 遗迹扫荡的专属门槛（2026-11-05 裁决，玩法案 §15.1）：我方战力必须**严格大于**敌方参考战力的 1.5 倍。
-        // 只属于扫荡，不套到自动迎战——兜底手段仍然只看「推算能赢」，代价由 AutoDefenseSeverity 承担。
+        // 只属于扫荡；袭击防守已无估算通道，所以这里不再需要另一套门槛。
         public const double SweepAdvantage = 1.5;
 
         public static string Problem(BaseState s, string eventId, BaseEngagement e, double minAdvantage = 0)
@@ -68,8 +65,6 @@ namespace BaseConquest.Base
         // 总损失被放大成 injury + injury×(1−injury)，11 人队损失 40% 会被结算成死 4 个（真实约 2 个）。
         //   阵亡比例 d = DeathCurve × injury²；幸存者血量比 h = (1−injury)/(1−d)，保证总血量守恒。
         public const double DeathCurve = .88;
-        // 自动迎战的惩罚倍率：它是兜底手段，不是替代方案，代价要明显高于亲自上战场。
-        public const double AutoDefenseSeverity = 1.35;
         // 把「剩余血量比」摊到每个单位：普通兵按阵亡比例阵亡，队长只掉血、最低保留 1 点生命。
         public static List<BaseSweepLoss> Losses(BaseCampaignSession session, BaseEngagement e, double exposure = 0, double severity = 1)
         {
@@ -134,17 +129,5 @@ namespace BaseConquest.Base
             run.Battle.FinishRealtime(BattleOutcome.SideAWin);
         }
 
-        // 过夜／行军时的自动迎战：能跳过就跳过，不能跳过返回 false 让调用方照旧跑真实作战。
-        public static bool TryResolve(BaseState s, BaseCampaignSession session, string eventId)
-        {
-            if (session == null) return false;
-            var e = Evaluate(session);
-            if (!string.IsNullOrEmpty(Problem(s, eventId, e))) return false;
-            var run = new RealtimeCampaignBattle(session);
-            // 自动迎战的伤亡按同一套拆分，但总损失放大到 1.35 倍：它是兜底，不是替代亲自指挥。
-            var losses = Losses(session, e, 0, AutoDefenseSeverity);
-            Apply(run, losses, e.Seconds);
-            return true;
-        }
     }
 }

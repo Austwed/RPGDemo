@@ -37,6 +37,8 @@ namespace BaseConquest.Base
         public BaseEquipmentQuota SupplySnapshot;
         public bool HasCheckpoint;
         public bool RealtimeRules,HasRealtimeState,DemoCombat;
+        // 副手战（P43）：同一套真实战斗，但主角与随行队伍不参战，权限只放查看与策略。
+        public bool Deputy;
         public int[] PlayerTroopCounts;
         public int RealtimeRulesVersion;
         public double TacticalBaseDamage;
@@ -50,7 +52,7 @@ namespace BaseConquest.Base
         public List<BaseEnemyMember> Enemies = new List<BaseEnemyMember>();
         public List<BaseEnemyBinding> EnemyBindings = new List<BaseEnemyBinding>();
         public BaseCampaignBattle Copy() => new BaseCampaignBattle { Id = Id, EventId = EventId, PartyId = PartyId, MapRegion=MapRegion, MapId=MapId, StartedDay = StartedDay,
-            Rpg=Rpg?.Copy(),TacticalBaseDamage=TacticalBaseDamage,RuinsExposureFraction=RuinsExposureFraction,RuinsFirstClear=RuinsFirstClear,TacticalRules=TacticalRules?.Copy(),TacticalObjects=(TacticalObjects??new List<BattleTacticalObject>()).Select(o=>o.Copy()).ToList(),Scenario = Scenario.Clone(), Leaders = Leaders.Select(l => l.Copy()).ToList(), Troops = Troops.Select(w => w.Copy()).ToList(), Difficulty = (Difficulty??new BaseDifficulty()).Copy(), SupplySnapshot = SupplySnapshot?.Copy(), HasCheckpoint=HasCheckpoint,Checkpoint=HasCheckpoint?Checkpoint.Copy():null,RealtimeRules=RealtimeRules,DemoCombat=DemoCombat,PlayerTroopCounts=PlayerTroopCounts?.ToArray(),RealtimeRulesVersion=RealtimeRulesVersion,HasRealtimeState=HasRealtimeState,RealtimeState=HasRealtimeState?RealtimeState?.Copy():null,Bindings=(Bindings??new List<BaseCampaignBinding>()).Select(x=>x.Copy()).ToList(), Enemies=(Enemies??new List<BaseEnemyMember>()).Select(u=>u.Copy()).ToList(),EnemyBindings=(EnemyBindings??new List<BaseEnemyBinding>()).Select(x=>x.Copy()).ToList() };
+            Rpg=Rpg?.Copy(),TacticalBaseDamage=TacticalBaseDamage,RuinsExposureFraction=RuinsExposureFraction,RuinsFirstClear=RuinsFirstClear,TacticalRules=TacticalRules?.Copy(),TacticalObjects=(TacticalObjects??new List<BattleTacticalObject>()).Select(o=>o.Copy()).ToList(),Scenario = Scenario.Clone(), Leaders = Leaders.Select(l => l.Copy()).ToList(), Troops = Troops.Select(w => w.Copy()).ToList(), Difficulty = (Difficulty??new BaseDifficulty()).Copy(), SupplySnapshot = SupplySnapshot?.Copy(), HasCheckpoint=HasCheckpoint,Checkpoint=HasCheckpoint?Checkpoint.Copy():null,RealtimeRules=RealtimeRules,DemoCombat=DemoCombat,Deputy=Deputy,PlayerTroopCounts=PlayerTroopCounts?.ToArray(),RealtimeRulesVersion=RealtimeRulesVersion,HasRealtimeState=HasRealtimeState,RealtimeState=HasRealtimeState?RealtimeState?.Copy():null,Bindings=(Bindings??new List<BaseCampaignBinding>()).Select(x=>x.Copy()).ToList(), Enemies=(Enemies??new List<BaseEnemyMember>()).Select(u=>u.Copy()).ToList(),EnemyBindings=(EnemyBindings??new List<BaseEnemyBinding>()).Select(x=>x.Copy()).ToList() };
     }
     [Serializable] public sealed class BaseCampaignBinding {public int SoldierId,TroopIndex;public BaseCampaignBinding Copy()=>(BaseCampaignBinding)MemberwiseClone();}
     [Serializable] public sealed class BaseCampaignReport
@@ -65,6 +67,8 @@ namespace BaseConquest.Base
         public string SourceSiteId="";
         public int EnemyDeployed, EnemyLost, EnemyCaptured, EnemyReturned, EnemyDispersed;
         public bool Passive;
+        // 副手迎战：与主动迎战同规则、同结算，只在战报上区分由谁指挥。
+        public bool Deputy;
         public bool Realtime;
         public double Seconds;
         public BaseCampaignReport Copy() => (BaseCampaignReport)MemberwiseClone();
@@ -263,7 +267,9 @@ namespace BaseConquest.Base
             foreach (var kind in BattleSimulation.TroopKinds)
                 if(formation!=null)for(int slot=0;slot<formation.Count;slot++)raw.A.Commanders[slot].Set(kind,formation[slot].Actual.Count(ToBase(kind)));
                 else for (int n = 0; n < raw.A.Count(kind); n++) raw.A.Commanders[n % raw.A.HeroCount].Set(kind, raw.A.Commanders[n % raw.A.HeroCount].Count(kind) + 1);
-            BaseSceneRules.Configure(s,raw,sceneLeaders);
+            // 中立场景按「战场所在区域」判，不能拿玩家当前站着的城镇来判断（副手防守时玩家可能留在营地）。
+            bool neutral=BaseSceneRules.Neutral(s,e.Kind=="defense"?location:s.Campaign.Location);
+            BaseSceneRules.Configure(s,raw,sceneLeaders,e.Kind=="defense"?location:null);
             var a = new BaseCampaignBattle { Rpg=s.Demo?.Rpg?.Copy(),Id = quota.BattleId, EventId = e.Id, PartyId = party.Id, MapRegion=realtime||BaseDesignRoutes.Active(s)?location:null, StartedDay = s.Day,
                 Scenario = BaseSupply.ApplyToScenario(s, quota.BattleId, raw), Leaders = party.Leaders.Select(l => s.Leaders.Single(p => p.Id == l.LeaderId).Copy()).ToList(), Difficulty = new BaseDifficulty(), SupplySnapshot = quota.Copy(), Enemies=enemies,RealtimeRules=realtime,DemoCombat=demoCombat,PlayerTroopCounts=demoCombat?BattleSimulation.TroopKinds.Select(kind=>s.Workers.Where(w=>ToBattle(w.Kind)==kind).Sum(w=>w.Count)).ToArray():null,RealtimeRulesVersion=realtime?1:0 };
             if(BaseDemoRelease.Enabled(s)&&realtime)
@@ -271,7 +277,7 @@ namespace BaseConquest.Base
             if(BaseSceneInstances.Active(s))a.MapId=BaseSceneInstances.Layout(s,location).SourceMapId;
             if(e.Kind=="defense"&&enemies.Count>0)e.EnemyArmy=enemies.Select(u=>u.Copy()).ToList();
             a.Scenario.A.CommanderStats=a.Leaders.Select(l=>{var p=BaseCommanderIdentity.Stats(l,raw.A.Hero);p.Damage*=(float)quota.AttackFactor;return p;}).ToList();
-            foreach (var w in s.Workers.Where(w => !BaseSceneRules.Neutral(s)&&w.Away && w.PartyId == party.Id))
+            foreach (var w in s.Workers.Where(w => !neutral&&w.Away && w.PartyId == party.Id))
                 for (int n = 0; n < w.Count; n++) { var unit = w.Copy(); unit.Count = 1; a.Troops.Add(unit); }
             s.Campaign.ActiveBattle = a; s.Campaign.HasActiveBattle = true;
             BaseEconomy.Validate(s); return a;
@@ -306,7 +312,7 @@ namespace BaseConquest.Base
             bool wiped = a.Scenario.PlayerLeaderSlot >= 0 && battle.Soldiers.Any(u => u.Side == BattleSide.A) && battle.Soldiers.Where(u => u.Side == BattleSide.A && !u.DeveloperSpawned).All(u => !u.IsActive && !u.Escaped && !u.Rescued);
             if (!a.DemoCombat && (wiped || main != null && !main.IsAlive && !main.Rescued))
             { s.Aftermath.GameOver = true; s.Aftermath.Reason = wiped ? "主角队伍团灭，无人成功撤离" : "倒地主角未被救出"; }
-            var r = new BaseCampaignReport { BattleId = a.Id, EventId = e.Id, Title = e.Title, Day = s.Day, Rounds = battle.RoundNumber, Outcome = battle.Report.Outcome.ToString(), Passive = passive,Realtime=a.RealtimeRules,Seconds=a.RealtimeState?.Seconds??0 };
+            var r = new BaseCampaignReport { BattleId = a.Id, EventId = e.Id, Title = e.Title + (a.Deputy ? " · 副手迎战" : ""), Deputy = a.Deputy, Day = s.Day, Rounds = battle.RoundNumber, Outcome = battle.Report.Outcome.ToString(), Passive = passive,Realtime=a.RealtimeRules,Seconds=a.RealtimeState?.Seconds??0 };
             var outcome = new BaseSupplyOutcome(); var survivors = new List<BaseWorkerBucket>(); var forcedRest = new HashSet<BaseWorkerBucket>();
             for (int i = 0; i < a.Troops.Count; i++)
             {
@@ -351,7 +357,7 @@ namespace BaseConquest.Base
             BaseThreats.Settle(s,e,session,r,win&&!s.Aftermath.GameOver);
             // 掠夺等战果回写之后再结算：此时 EnemyDeployed 才是本场实际参战人头。
             BaseRaidLoot.Apply(s, e, r, win, passive);
-            s.Campaign.SettledIds.Add(a.Id); s.Campaign.Reports.Add(r); BaseQuests.RecordVictory(s,r); if(!passive)ToBaseLocation(s);
+            s.Campaign.SettledIds.Add(a.Id); s.Campaign.Reports.Add(r); BaseQuests.RecordVictory(s,r); if(!passive&&!a.Deputy)ToBaseLocation(s);
             BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>());
             BaseSceneRules.RememberStrategy(s,session); BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
         }
@@ -396,15 +402,8 @@ namespace BaseConquest.Base
                 if (!session.Battle.Start(out var reason)) throw new InvalidOperationException("被动部署不能开始：" + reason);
                 if(realtime)
                 {
-                    // 白名单内（基地自动迎战）且推算能取胜，就用战力结算跳过真实作战；
-                    // 不能跳过或推算不胜／僵持的，照旧由玩家亲自指挥的真实战斗处理。
-                    if(BaseAutoResolve.TryResolve(s,session,e.Id))
-                    {
-                        Settle(s,session,true);
-                        var passive=s.Campaign.Reports.FirstOrDefault(r=>r.BattleId==session.Opening.Id);
-                        if(passive!=null){passive.Passive=true;passive.Title=e.Title+" · 自动迎战";BaseEconomy.Validate(s);}
-                        if(s.Aftermath.GameOver)return true;continue;
-                    }
+                    // 2026-11-06 裁决：袭击不再走战力估算式自动迎战。过夜没人接手时也跑真实模型，
+                    // 结果直接进同一套结算；估算只留给副本扫荡（BaseAutoResolve.SweepAdvantage）。
                     var simulation=new RealtimeCampaignBattle(session);simulation.Model.SetPaused(false);
                     for(int frame=0;frame<(a.Scenario.MaxRounds+1)*4&&session.Battle.Phase!=BattlePhase.Finished;frame++)simulation.Tick(.25);
                     if(session.Battle.Phase!=BattlePhase.Finished)throw new InvalidOperationException("即时自动战斗未在时限内结束，整次过夜取消");
@@ -445,6 +444,8 @@ namespace BaseConquest.Base
             for (int i = 0; i < Opening.Leaders.Count; i++) Battle.CommanderNamesA.Add(Opening.Leaders[i].Name);
             Battle.Scenario.A.CommanderRecruited=Opening.Leaders.Select(l=>l.Recruited).ToList();
             Battle.Scenario.A.CommanderAppearances=Opening.Leaders.Select(BaseCommanderIdentity.Appearance).ToList();
+            // 副手战（P43）：玩家只能查看、暂停、调速和改策略，移动／集火／技能／范围全部走命令入口挡下。
+            if(Opening.Deputy)Battle.Control=BattleControlPolicy.RemoteDefense;
             map?.EnterBattle(Battle);
         }
         public void Bind()
@@ -505,6 +506,6 @@ namespace BaseConquest.Base
             }
         }
         public BattleSoldier UnitForEnemy(int index) => enemies.Where(x=>x.Value==index).Select(x=>Battle.Soldier(x.Key)).SingleOrDefault();
-        public void SaveCheckpoint(BaseState state) {Bind();if(!state.Campaign.HasActiveBattle||state.Campaign.ActiveBattle.Id!=Opening.Id)throw new InvalidOperationException("本场活动记录不一致");BaseWine.Bind(state,this);if(BaseSceneRules.Active(state))BaseSceneRules.Memory(state).Known=Battle.Vision.KnownTerrain(BattleSide.A);var a=state.Campaign.ActiveBattle;string region=string.IsNullOrEmpty(a.MapRegion)?state.Campaign.Location:a.MapRegion;BaseSceneInstances.SaveBoard(state,BaseSceneCombat.PersistedBoard(state,Battle.Board.Clone(),string.IsNullOrEmpty(a.MapId)?region:a.MapId),region,a.MapId);a.Checkpoint=Battle.Capture();a.HasRealtimeState=Opening.HasRealtimeState;a.RealtimeState=Opening.HasRealtimeState?Opening.RealtimeState?.Copy():null;a.Bindings=troops.Select(x=>new BaseCampaignBinding {SoldierId=x.Key,TroopIndex=x.Value}).ToList();a.EnemyBindings=enemies.Select(x=>new BaseEnemyBinding {SoldierId=x.Key,MemberIndex=x.Value}).ToList();a.HasCheckpoint=true;}
+        public void SaveCheckpoint(BaseState state) {Bind();if(!state.Campaign.HasActiveBattle||state.Campaign.ActiveBattle.Id!=Opening.Id)throw new InvalidOperationException("本场活动记录不一致");BaseWine.Bind(state,this);var a=state.Campaign.ActiveBattle;string region=string.IsNullOrEmpty(a.MapRegion)?state.Campaign.Location:a.MapRegion;if(BaseSceneRules.Active(state))BaseSceneRules.Memory(state,string.IsNullOrEmpty(a.MapId)?region:a.MapId,Battle.Board).Known=Battle.Vision.KnownTerrain(BattleSide.A);BaseSceneInstances.SaveBoard(state,BaseSceneCombat.PersistedBoard(state,Battle.Board.Clone(),string.IsNullOrEmpty(a.MapId)?region:a.MapId),region,a.MapId);a.Checkpoint=Battle.Capture();a.HasRealtimeState=Opening.HasRealtimeState;a.RealtimeState=Opening.HasRealtimeState?Opening.RealtimeState?.Copy():null;a.Bindings=troops.Select(x=>new BaseCampaignBinding {SoldierId=x.Key,TroopIndex=x.Value}).ToList();a.EnemyBindings=enemies.Select(x=>new BaseEnemyBinding {SoldierId=x.Key,MemberIndex=x.Value}).ToList();a.HasCheckpoint=true;}
     }
 }

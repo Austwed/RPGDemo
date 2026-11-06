@@ -77,7 +77,7 @@ namespace BaseConquest.Editor
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();
-            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();VerifyBaseFacilities.Run();
+            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();VerifyBaseFacilities.Run();VerifyDeputy.Run();
             Debug.Log("[VerifyChenanAndRuins] regression PASS");
         }
         // P20（01C §8.5.1）：带伤应答只看主角当前生命是否低于 60%，满血与阵亡都不触发。

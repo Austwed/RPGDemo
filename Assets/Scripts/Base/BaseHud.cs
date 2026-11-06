@@ -434,6 +434,7 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(s))
             {
                 RowButton("休息至明天",-290,270,()=>owner.Rest(day));RowButton("营地管理",0,270,()=>{activeObject="government";activePage="workers";OpenGovernment();});RowButton("关闭",290,270,ClosePanel);row+=65;
+                if(BaseDeputy.Unlocked(s)){var deputy=BaseDeputy.Leader(s);RowButton("副手："+(deputy==null?"未指定":BasePersonnel.LeaderName(deputy))+" · 更换",0,800,OpenDeputy);row+=60;}
                 if(BaseRpg.Active(s)){var rules=s.Demo.Rpg;Line("营帐 "+rules.CampLevel+"级 · 队长名额 "+BaseRpg.Population(s)+" / "+BaseRpg.Capacity(s)+"（含主角、伙伴与外出队长）",60,20);if(rules.CampLevel<3){Line("升级：原料 "+rules.CampMaterials[rules.CampLevel-1]+"、钱币 "+rules.CampCoins[rules.CampLevel-1]+"；容量 "+rules.Capacity[rules.CampLevel],48,19);RowButton("升级营帐",0,800,()=>{owner.Change(next=>{if(!BaseRpg.UpgradeCamp(next))throw new InvalidOperationException(BaseRpg.CampUpgradeProblem(next));},"营帐已升级");OpenHome();},BaseRpg.CampUpgradeProblem(s)=="");row+=60;}}
                 Line(BaseDemoDefense.Delivered(s)?BaseDemoDefense.Objective(s):"可在营帐管理岗位和库存；工坊与兵营需遗迹调查许可后修复。",90,20);
             }

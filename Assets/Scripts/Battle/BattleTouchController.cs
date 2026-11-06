@@ -142,10 +142,28 @@ namespace BaseConquest.Battle
         public void CancelAllOrders() { if(realtime!=null){RealtimeOrder(BaseConquest.RealtimePrototype.PrototypeOrder.Auto,new BaseConquest.RealtimePrototype.PrototypePoint(12,7));return;} if (animating || skipping) return; ManualPause(); CloseContext(); UserOrder(() => { if (battle.Phase != BattlePhase.Fighting) return false; battle.CancelOrders(selectedSide); return true; }); feedback = "己方手动命令与未执行技能已取消，撤退保持"; orderOverlay.Invalidate(); SyncViews(); hud?.Refresh(); }
         public void SkipBattle()
         {
-            if(IsRealtimeCampaign){feedback="即时首版不跳过战斗，可暂停或切换3倍速";return;}
+            if(IsRealtimeCampaign)
+            {
+                // P44：只有副手战允许「观看 → 直接结算」，沿当前战场状态继续跑真实模型，不是战力估算。
+                if(realtime==null||campaignSession?.Opening.Deputy!=true){feedback="即时首版不跳过战斗，可暂停或切换3倍速";return;}
+                FastForwardDeputy();
+                return;
+            }
             if (battle.Phase != BattlePhase.Fighting) return;
             if (skipping) { skipping = false; feedback = "快速模拟已停止"; return; }
             autoRun = false; CancelGesture(); CloseContext(); skipping = true; feedback = "快速模拟中…可点停止";
+        }
+        // 副手战单向快进：第一次按下即交回副手，之后不再接受策略改动；反复按会继续推进同一场战斗。
+        private void FastForwardDeputy()
+        {
+            if(battle.Phase!=BattlePhase.Fighting)return;
+            battle.Control.Strategy=false;
+            autoRun=true;realtime.Model.SetPaused(false);
+            var watch=Stopwatch.StartNew();
+            int bound=(battle.Scenario.MaxRounds+1)*8;int steps=0;
+            while(battle.Phase==BattlePhase.Fighting&&steps++<bound&&watch.ElapsedMilliseconds<1200)realtime.Tick(.5);
+            SyncRealtimeViews();hud?.Refresh();
+            feedback=battle.Phase==BattlePhase.Finished?"副手已打完，战果按同一套规则结算":"已交给副手，战斗继续快进（"+realtime.Model.Elapsed.ToString("0.0")+"秒）";
         }
         private void RunSkipBatch()
         {
