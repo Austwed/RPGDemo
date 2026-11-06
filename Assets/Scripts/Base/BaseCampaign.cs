@@ -256,7 +256,7 @@ namespace BaseConquest.Base
             raw.A.HeroCount = quota.Leaders.Count; raw.A.CaptainSlot = 0; raw.A.Capacity = 90;
             raw.PlayerLeaderSlot = quota.Leaders.IndexOf(s.PlayerLeaderId);
             var sceneLeaders=party.Leaders.Select(l=>s.Leaders.Single(p=>p.Id==l.LeaderId)).ToList();
-            raw.A.Commanders = Enumerable.Range(0, raw.A.HeroCount).Select(slot => new CommanderLoadout { Strategy = BaseSceneRules.Active(s)?sceneLeaders[slot].PreferredStrategy:SquadStrategy.Attack }).ToList();
+            raw.A.Commanders = Enumerable.Range(0, raw.A.HeroCount).Select(slot => new CommanderLoadout { Strategy = BaseSceneRules.Active(s)?BaseSceneRules.Tier(sceneLeaders[slot].PreferredStrategy):SquadStrategy.Attack }).ToList();
             var formation=BaseMuster.CurrentFormation(s,party);
             foreach (var kind in BattleSimulation.TroopKinds)
                 if(formation!=null)for(int slot=0;slot<formation.Count;slot++)raw.A.Commanders[slot].Set(kind,formation[slot].Actual.Count(ToBase(kind)));

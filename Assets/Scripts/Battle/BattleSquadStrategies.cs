@@ -13,9 +13,10 @@ namespace BaseConquest.Battle
         private bool AttackAreaContains(BattleSoldier s, GridPosition cell) => !AttackMemberLimited(s) || GridPosition.Distance(cell, CommanderFor(s).Cell) <= GuardConfiguration(Squads[s.SquadId]).AttackRange;
         // 限制战斗决策中的索敌／寻路；下达新移动或选择救援者时的通路验证仍可到达圈外。
         private bool AttackRouteAllowed(BattleSoldier s, GridPosition cell) => !planningActorPath || !AttackMemberLimited(s) || GridPosition.Distance(cell, CommanderFor(s).Cell) <= Math.Max(GuardConfiguration(Squads[s.SquadId]).AttackRange, GridPosition.Distance(s.Cell, CommanderFor(s).Cell));
-        public static string StrategyName(SquadStrategy value) => value == SquadStrategy.Obey?"听令":value == SquadStrategy.Protect ? "守护" : value == SquadStrategy.Flee ? "逃跑" : "进攻";
+        public static string StrategyName(SquadStrategy value) => value == SquadStrategy.Obey?"手动":value == SquadStrategy.Protect ? "驻守" : value == SquadStrategy.Flee ? "逃跑" : "进攻";
         public bool SetCommanderStrategy(BattleSide side, int slot, SquadStrategy strategy)
         {
+            if (!Control.Allows("strategy")) return false;
             var q = CommanderSquad(side, slot); if (q == null || Phase == BattlePhase.Finished || !Enum.IsDefined(typeof(SquadStrategy), strategy)) return false;
             Scenario.Army(side).Commanders[slot].Strategy = strategy; q.StrategyThreats.Clear(); CommandsIssued++; return true;
         }
@@ -46,7 +47,8 @@ namespace BaseConquest.Battle
             foreach (var q in Squads)
             {
                 var leader = Soldier(q.CommanderId);
-                if (leader?.IsActive != true || q.GuardAssigned || q.IssuedCommand != SquadCommand.Auto || GuardConfiguration(q).Strategy == SquadStrategy.Attack) { q.StrategyThreats.Clear(); continue; }
+                // 手动与进攻都不需要维护搜索圈：手动原地待命，进攻按队长半径即时筛选。
+                if (leader?.IsActive != true || q.GuardAssigned || q.IssuedCommand != SquadCommand.Auto || GuardConfiguration(q).Strategy == SquadStrategy.Attack || GuardConfiguration(q).Strategy == SquadStrategy.Obey) { q.StrategyThreats.Clear(); continue; }
                 var centre = GuardConfiguration(q).Strategy == SquadStrategy.Flee ? leader.Cell : StrategyCentre(leader);
                 var c = GuardConfiguration(q); int inner = StrategyGuardRadius(q, centre), alert = Math.Max(c.AlertRange, inner + 1), attack = Math.Max(c.AttackRange, alert + 1);
                 q.StrategyThreats.RemoveWhere(id => Soldier(id)?.IsActive != true || !Vision.CanSee(q.Side, Soldier(id)) || GridPosition.Distance(Soldier(id).Cell, centre) > attack);
@@ -57,6 +59,15 @@ namespace BaseConquest.Battle
         {
             var q = Squads[s.SquadId]; var leader = Soldier(q.CommanderId); if (leader?.IsActive != true) return PlanWithoutCommander(s, enemies, occupied, intent);
             var c = GuardConfiguration(q);
+            // 手动档（2026-11-06 P36）：以当前站位为锚点，不自主移动、不追击；只在自身射程内攻击或还击。
+            // 与「驻守」的区别：驻守会回守区、会主动接近守区内的威胁，手动不会。
+            if (c.Strategy == SquadStrategy.Obey)
+            {
+                var inRange = enemies.FirstOrDefault(e => CanAttack(s, s.Cell, e));
+                if (!s.IsTransit && inRange != null) { intent.Action = RoundAction.Attack; intent.Target = inRange; intent.Decision = "手动：原地还击"; }
+                else { intent.GoalCell = s.Cell; intent.Decision = "手动：原地待命"; }
+                return intent;
+            }
             if (c.Strategy == SquadStrategy.Attack)
             {
                 if (s.Kind != SoldierKind.Hero) enemies = enemies.Where(e => AttackAreaContains(s, e.Cell)).ToList();
@@ -78,7 +89,7 @@ namespace BaseConquest.Battle
             if (GridPosition.Distance(s.Cell, centre) > outer) { SetMove(intent, FindPath(s, p => GridPosition.Distance(p, centre) <= inner, occupied)); intent.Decision = "返回移动守区"; return intent; }
             if (s.Kind != SoldierKind.Hero) threats = RoleTargets(s, threats).ToList();
             var target = threats.FirstOrDefault(e => CanAttack(s, s.Cell, e));
-            if (!s.IsTransit && target != null) { intent.Action = RoundAction.Attack; intent.Target = target; intent.Decision = c.Strategy == SquadStrategy.Flee ? "逃跑：士兵反击近处威胁" : "守护：清除守区威胁"; return intent; }
+            if (!s.IsTransit && target != null) { intent.Action = RoundAction.Attack; intent.Target = target; intent.Decision = c.Strategy == SquadStrategy.Flee ? "逃跑：士兵反击近处威胁" : "驻守：清除守区威胁"; return intent; }
             Func<GridPosition, bool> allowed = p => GridPosition.Distance(p, centre) <= outer;
             foreach (var e in threats)
             {

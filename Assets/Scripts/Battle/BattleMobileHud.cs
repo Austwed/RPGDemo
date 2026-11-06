@@ -37,7 +37,9 @@ namespace BaseConquest.Battle
         private readonly RectTransform[] rangeRows = new RectTransform[4];
         private readonly BattleLogLinks logLinks;
         private readonly Text[] rangeLabels = new Text[4];
-        private readonly Button[] strategyButtons = new Button[4];
+        // P36 三档：手动／进攻／驻守。逃跑保留枚举值以兼容旧档，但不再进 UI；旧档读取时按驻守处理。
+        private static readonly SquadStrategy[] TierStrategies = { SquadStrategy.Obey, SquadStrategy.Attack, SquadStrategy.Protect };
+        private readonly Button[] strategyButtons = new Button[TierStrategies.Length];
         private readonly RectTransform armyPanel;
         private readonly List<GameObject> testHidden = new List<GameObject>();
         private readonly BattleSkillChargeGraphic[] skillCharge = new BattleSkillChargeGraphic[3];
@@ -162,9 +164,9 @@ namespace BaseConquest.Battle
                 Button("−", row, new Vector2(1, 1), new Vector2(-48, 0), new Vector2(40, 40), () => owner.AdjustCommanderRange(range, -1)).name = "RangeMinus_" + i;
                 Button("＋", row, new Vector2(1, 1), Vector2.zero, new Vector2(40, 40), () => owner.AdjustCommanderRange(range, 1)).name = "RangePlus_" + i;
             }
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < TierStrategies.Length; i++)
             {
-                var strategy = (SquadStrategy)i; strategyButtons[i] = Button(BattleSimulation.StrategyName(strategy), details, new Vector2(0, 1), new Vector2(16 + i * 158, -430), new Vector2(152, 42), () => owner.ChooseSquadStrategy(strategy)); strategyButtons[i].name = "Strategy_" + strategy;if(strategy==SquadStrategy.Attack)DemoUiIcons.Attach(strategyButtons[i],"attack");
+                var strategy = TierStrategies[i]; strategyButtons[i] = Button(BattleSimulation.StrategyName(strategy), details, new Vector2(0, 1), new Vector2(16 + i * 158, -430), new Vector2(152, 42), () => owner.ChooseSquadStrategy(strategy)); strategyButtons[i].name = "Strategy_" + strategy;if(strategy==SquadStrategy.Attack)DemoUiIcons.Attach(strategyButtons[i],"attack");
             }
             Button("关闭详情", details, new Vector2(0.5f, 0), new Vector2(0, 10), new Vector2(130, 38), owner.CloseCommanderDetails);
             if (Application.isPlaying && EventSystem.current == null)
@@ -382,7 +384,7 @@ namespace BaseConquest.Battle
                     var c = b.Scenario.Army(side).Commanders[owner.DetailsSlot]; var q = b.CommanderSquad(side, owner.DetailsSlot);
                     detailsInfo.text += "\n" + b.CommanderSkillDescription(owner.DetailsSlot) + "\n驻守≤预警≤追击，范围外轮廓按格显示" + (q.GuardAssigned ? "\n实际范围 " + q.ActualGuardRange + "/" + q.ActualAlertRange + "/" + q.ActualAttackRange : "");
                     rangeLabels[0].text = "驻守范围 " + c.GuardRange; rangeLabels[1].text = "预警范围 " + c.AlertRange; rangeLabels[2].text = "攻击／追击上限 " + c.AttackRange; rangeLabels[3].text = "率领范围 " + c.LeadRange;
-                    for (int i = 0; i < 4; i++) { strategyButtons[i].GetComponent<Image>().color = c.Strategy == (SquadStrategy)i ? highlighted : bg; strategyButtons[i].interactable = owner.CanEditDetailsCommander && b.Phase != BattlePhase.Finished && !owner.IsAnimating && !owner.Skipping; }
+                    for (int i = 0; i < TierStrategies.Length; i++) { strategyButtons[i].GetComponent<Image>().color = c.Strategy == TierStrategies[i] ? highlighted : bg; strategyButtons[i].interactable = owner.CanEditDetailsCommander && b.Phase != BattlePhase.Finished && !owner.IsAnimating && !owner.Skipping; }
                 }
             }
             Joystick.gameObject.SetActive(owner.CanSteerRealtimeCommander&&!owner.DrawerVisible);

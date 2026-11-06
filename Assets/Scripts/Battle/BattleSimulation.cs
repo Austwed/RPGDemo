@@ -13,6 +13,8 @@ namespace BaseConquest.Battle
         public readonly List<BattleSquad> Squads = new List<BattleSquad>();
         public readonly List<BattleSoldier> Soldiers = new List<BattleSoldier>();
         public BattlePhase Phase { get; private set; } = BattlePhase.Deployment;
+        // 控制权限（P36）：默认本地全开；远程防守换成 BattleControlPolicy.RemoteDefense，只放策略与查看。
+        public BattleControlPolicy Control = BattleControlPolicy.Local;
         public BattleReport Report { get; private set; }
         public int RoundNumber { get; private set; }
         public int CommandsIssued { get; private set; }

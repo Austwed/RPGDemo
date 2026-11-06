@@ -38,6 +38,7 @@ namespace BaseConquest.Battle
         }
         public bool SetCommanderRanges(BattleSide side, int slot, int guard, int alert, int attack)
         {
+            if (!Control.Allows("range")) return false;
             var q = CommanderSquad(side, slot);
             if (q == null || Phase == BattlePhase.Finished || guard < 1 || guard > alert || alert > attack || attack > 32) return false;
             var c = Scenario.Army(side).Commanders[slot]; c.GuardRange = guard; c.AlertRange = alert; c.AttackRange = attack;

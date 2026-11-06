@@ -68,6 +68,7 @@ namespace BaseConquest.Battle
         }
         public bool CastCommanderSkill(BattleSide side, int slot, bool countCommand = true)
         {
+            if (!Control.Allows("skill")) return false;
             if (!CanQueueCommanderSkill(side, slot)) return false;
             var q = CommanderSquad(side, slot); var hero = Commander(side, slot);
             q.SkillReadyRound = RoundNumber + Scenario.Effects.Cooldown;

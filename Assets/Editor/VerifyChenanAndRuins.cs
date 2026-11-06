@@ -15,7 +15,7 @@ namespace BaseConquest.Editor
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();
-            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();
+            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();
             Debug.Log("[VerifyChenanAndRuins] regression PASS");
         }
         // P20（01C §8.5.1）：带伤应答只看主角当前生命是否低于 60%，满血与阵亡都不触发。
@@ -216,6 +216,34 @@ namespace BaseConquest.Editor
             s.Quests.TrackedId=null;BaseQuests.Normalize(s);
             Need(s.Quests.TrackedId=="","旧档缺失的追踪字段应补空串");
             Debug.Log("[QuestTrack] 主支线分类、选择／取消追踪、折叠、已完成不可追踪、旧档补字段 PASS");
+        }
+        // P36（2026-11-06 裁决）：三档＝手动／进攻／驻守；逃跑退出 UI 但保留枚举位，旧档按驻守读。
+        // 权限守卫落在 BattleSimulation 命令入口：远程只放策略与查看，移动／集火／技能／改范围一律拒绝。
+        public static void VerifyStrategyTiers()
+        {
+            Need(BattleSimulation.StrategyName(SquadStrategy.Obey)=="手动","听令应显示为手动");
+            Need(BattleSimulation.StrategyName(SquadStrategy.Attack)=="进攻","Attack 应显示为进攻");
+            Need(BattleSimulation.StrategyName(SquadStrategy.Protect)=="驻守","Protect 应显示为驻守");
+            Need(BaseSceneRules.Tier(SquadStrategy.Flee)==SquadStrategy.Protect,"旧档的逃跑应迁移为驻守");
+            Need(BaseSceneRules.Tier(SquadStrategy.Obey)==SquadStrategy.Obey&&BaseSceneRules.Tier(SquadStrategy.Attack)==SquadStrategy.Attack,"其余档位不应被迁移改写");
+
+            var local=BattleControlPolicy.Local;
+            Need(local.Allows("view")&&local.Allows("strategy")&&local.Allows("order")&&local.Allows("skill")&&local.Allows("range"),"本地策略应五项全开");
+            var remote=BattleControlPolicy.RemoteDefense;
+            Need(remote.Allows("view")&&remote.Allows("strategy"),"远程应保留查看与改策略");
+            Need(!remote.Allows("order")&&!remote.Allows("skill")&&!remote.Allows("range"),"远程应禁止移动／集火／技能／改范围");
+
+            // 证红：同一入口在远程权限下必须拒绝，切回本地必须放行。
+            var scenario=new BattleScenario{CommanderControl=true};
+            scenario.A.HeroCount=1;scenario.A.Commanders=new System.Collections.Generic.List<CommanderLoadout>{new CommanderLoadout()};
+            var sim=new BattleSimulation(scenario);
+            sim.Control=BattleControlPolicy.Local;
+            Need(sim.SetCommanderRanges(BattleSide.A,0,3,6,9),"本地应允许调整范围");
+            Need(sim.SetCommanderStrategy(BattleSide.A,0,SquadStrategy.Protect),"本地应允许切换策略");
+            sim.Control=BattleControlPolicy.RemoteDefense;
+            Need(!sim.SetCommanderRanges(BattleSide.A,0,3,6,10),"远程改范围必须在入口被拒");
+            Need(sim.SetCommanderStrategy(BattleSide.A,0,SquadStrategy.Attack),"远程仍应允许切换策略");
+            Debug.Log("[StrategyTiers] 三档文案、逃跑迁移、远程权限守卫（证红＋放行）PASS");
         }
         private static void At(BaseState state,string id)
         {

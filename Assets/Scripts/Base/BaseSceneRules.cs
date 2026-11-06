@@ -93,12 +93,15 @@ namespace BaseConquest.Base
             var r=s.Demo.Rescue;
             if(r==null||r.Stage<0||r.Stage>3||new[]{r.FirstX,r.SecondX}.Any(v=>double.IsNaN(v)||double.IsInfinity(v)||v<0||v>=32)||new[]{r.FirstY,r.SecondY}.Any(v=>double.IsNaN(v)||double.IsInfinity(v)||v<0||v>=24))throw new ArgumentException("获救村民返城状态非法");
         }
+        // P36：逃跑已退出三档 UI。旧档里读到逃跑就按「驻守」处理（最接近的"不追击"行为）；
+        // 枚举值保留不删，避免改动序列化位、破坏旧存档。
+        public static SquadStrategy Tier(SquadStrategy value) => value == SquadStrategy.Flee ? SquadStrategy.Protect : value;
         public static void Configure(BaseState s,BattleScenario scenario,IReadOnlyList<BaseLeader> leaders)
         {
             if(Neutral(s)){scenario.A.MeleeCount=scenario.A.RangedCount=scenario.A.CavalryCount=0;foreach(var c in scenario.A.Commanders)c.Melee=c.Ranged=c.Cavalry=0;}
             if(!Active(s))return;scenario.HeightVision=true;scenario.FogEnabled=FogEnabled(s);scenario.DefenderVisionEnabled=false;scenario.VisionRadius=10;
             while(scenario.A.Commanders.Count<scenario.A.HeroCount)scenario.A.Commanders.Add(new CommanderLoadout());
-            for(int n=0;n<scenario.A.Commanders.Count&&n<leaders.Count;n++)scenario.A.Commanders[n].Strategy=leaders[n].PreferredStrategy;
+            for(int n=0;n<scenario.A.Commanders.Count&&n<leaders.Count;n++)scenario.A.Commanders[n].Strategy=Tier(leaders[n].PreferredStrategy);
         }
         public static void RememberStrategy(BaseState s,BaseCampaignSession session)
         {

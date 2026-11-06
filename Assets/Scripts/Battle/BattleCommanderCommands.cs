@@ -103,6 +103,7 @@ namespace BaseConquest.Battle
         }
         public bool MoveCommanders(IEnumerable<int> ids, GridPosition center)
         {
+            if (!Control.Allows("order")) return false;
             if (ModernRules) return MoveModernCommanders(ids, center);
             var squads = SelectedCommanderSquads(ids); if (squads.Count == 0) return false;
             if (!MoveUnits(squads.SelectMany(q => q.Soldiers).Where(CanCommand).Select(s => s.Id), center)) return false;
@@ -111,6 +112,7 @@ namespace BaseConquest.Battle
         }
         public bool FocusCommanders(IEnumerable<int> ids, int targetId)
         {
+            if (!Control.Allows("order")) return false;
             var squads = SelectedCommanderSquads(ids); var target = Soldier(targetId);
             if (squads.Count == 0 || target == null || !target.IsActive || target.Side == squads[0].Side || !Vision.CanSee(squads[0].Side, target)) return false;
             foreach (var q in squads)
@@ -123,6 +125,7 @@ namespace BaseConquest.Battle
         }
         public bool OrderCommanders(IEnumerable<int> ids, SquadCommand command)
         {
+            if (!Control.Allows("order")) return false;
             if (command != SquadCommand.Hold && command != SquadCommand.Auto && command != SquadCommand.Retreat) return false;
             var squads = SelectedCommanderSquads(ids); if (squads.Count == 0) return false;
             foreach (var q in squads)
@@ -136,6 +139,7 @@ namespace BaseConquest.Battle
         }
         public bool RetreatArmy(BattleSide side)
         {
+            if (!Control.Allows("order")) return false;
             if (ModernRules) return false; // 新流程仅开放所选队撤退，不允许全军入口绕过指挥权限。
             if (Phase != BattlePhase.Fighting) return false;
             bool changed = false;
