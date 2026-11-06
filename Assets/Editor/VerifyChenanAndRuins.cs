@@ -12,6 +12,52 @@ namespace BaseConquest.Editor
     public static class VerifyChenanAndRuins
     {
         private static void Need(bool condition,string message){if(!condition)throw new InvalidOperationException(message);}
+        private static void ClearRebuildTestLoot(BaseState s)
+        {
+            foreach(var p in s.Aftermath.Prisoners.Where(p=>p.Status=="held").ToArray())Need(BaseAftermath.Decide(s,p.Id,"release"),"释放俘虏");
+            foreach(var manifest in s.Aftermath.Loot.Where(x=>!x.Closed).ToArray())
+            {
+                foreach(var item in manifest.Items.Where(i=>i.Status=="pending").ToArray())Need(BaseBattleLoot.Resolve(s,manifest.BattleId,item.Id,s.PlayerLeaderId,true),"领取战果");
+                Need(BaseBattleLoot.Finish(s,manifest.BattleId),"结束战果");
+            }
+        }
+        public static void VerifyHomeReconstruction()
+        {
+            string path=System.IO.Path.Combine(Application.streamingAssetsPath,"BaseScenarios",BaseDemo.BalanceTemplate);
+            var s=DemoStageSaveTools.Defense(System.IO.File.ReadAllText(path),"male",DemoBalanceRuntime.Load().Rules);
+            var defense=BaseDemoDefense.Begin(s,"none");BattleScenePlacement.Start(s,defense);var first=new RealtimeCampaignBattle(defense);BattleScenePlacement.Snap(s,first);BaseDemoDefense.Configure(first);
+            foreach(var enemy in first.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))enemy.Escaped=true;
+            first.Model.SetPaused(false);first.Tick(.02);Need(BaseDemoDefense.Complete(s,first),"首防结算");ClearRebuildTestLoot(s);BaseDemoDefense.AcknowledgeBatu(s);
+            s.Campaign.Location="base";At(s,"demo_march_exit");BaseDemoFinale.OpenWorld(s);
+            var plan=BaseMuster.PreviewFormation(s,"expedition","combat");Need(BaseMuster.Confirm(s,plan),"出征编队");At(s,"demo_march_exit");BaseWorldJourney.EnterWorld(s,"camp_entry");
+            BaseWorldJourney.Start(s,new[]{"camp","bandit"});Need(BaseWorldJourney.Step(s,_=>null),"前往敌营");BaseWorldJourney.EnterScene(s,"bandit_entry");At(s,"demo_camp_attack");
+            var attack=BaseDemoFinale.Begin(s,"none");BattleScenePlacement.Start(s,attack);var battle=new RealtimeCampaignBattle(attack);BattleScenePlacement.Snap(s,battle);BaseDemoFinale.Configure(battle);
+            foreach(var enemy in battle.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))enemy.Escaped=true;
+            battle.Model.SetPaused(false);battle.Tick(.02);Need(BaseDemoFinale.Complete(s,battle),"攻营结算");ClearRebuildTestLoot(s);
+            var world=s.Campaign.WorldJourney;world.NodeId="home";world.LastEntryId="home_entry";s.Campaign.CurrentMapId=BaseDemoFinale.Home;s.Campaign.Location="custom";s.PlayerX=21;s.PlayerY=7;BaseAdventure.Arrive(s);At(s,"demo_broken_sword");
+            int day=s.Day,food=s.Inventory.Food,materials=s.Inventory.Materials,coins=s.Inventory.Coins;
+            Need(BaseDemoFinale.Investigate(s)&&BaseDemoFinale.Rebuilding(s)&&s.Demo.Stage==BaseDemoStage.AttackWon,"调查断剑应开始重建而非结束");
+            BaseEconomy.Validate(s);Need(!BaseDemoFinale.FinishRebuild(s),"未放齐设施不能结束");
+            Need(!BaseDemoFinale.PlaceRebuild(s,0,-1,-1)&&s.Demo.Finale.RebuildMask==0,"非法位置不能改变重建状态");
+            var tampered=s.Copy();tampered.Demo.Finale.RebuildMask=7;Need(!BaseDemoFinale.FinishRebuild(tampered),"缺少实际设施不能仅凭标记结束");
+            bool restBlocked=false;try{BaseEconomy.Rest(s,s.Day);}catch(InvalidOperationException){restBlocked=true;}Need(restBlocked&&s.Day==day,"重建期间不得跨日");
+            for(int item=0;item<3;item++)
+            {
+                int slot=item;var board=BaseBattlefield.Board(s,BaseDemoFinale.Home);
+                var position=board.Positions().Where(p=>BaseDemoFinale.RebuildProblem(s,slot,p.X,p.Z)=="").Select(p=>(GridPosition?)p).FirstOrDefault();
+                Need(position.HasValue&&BaseDemoFinale.PlaceRebuild(s,item,position.Value.X,position.Value.Z),"设施应能放置");
+                Need(!BaseDemoFinale.PlaceRebuild(s,item,position.Value.X,position.Value.Z),"设施不能重复放置");BaseEconomy.Validate(s);
+                if(item==0){s=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));BaseEconomy.Validate(s);Need(s.Demo.Finale.RebuildMask==1,"中途存档应保留单项进度");Need(BaseDemoFinale.RemoveRebuild(s,0)&&s.Demo.Finale.RebuildMask==0&&!BaseDemoFinale.RemoveRebuild(s,0),"已放置设施应能撤回，且不能重复撤回");Need(BaseDemoFinale.PlaceRebuild(s,0,position.Value.X,position.Value.Z),"撤回后应能重新放置");}
+            }
+            var saved=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));BaseEconomy.Validate(saved);
+            Need(saved.Demo.Finale.RebuildMask==7&&saved.Campaign.Layouts.Single(m=>m.SourceMapId==BaseDemoFinale.Home).Objects.Count(o=>o.Id.StartsWith("demo_rebuild_"))==3,"三处位置须随存档保留");
+            var overlap=saved.Copy();var objects=overlap.Campaign.Layouts.Single(m=>m.SourceMapId==BaseDemoFinale.Home).Objects.Where(o=>o.Id.StartsWith("demo_rebuild_")).ToArray();objects[1].X=objects[0].X;objects[1].Y=objects[0].Y;
+            Need(!BaseDemoFinale.FinishRebuild(overlap),"重叠的设施不能确认完成");bool invalidRejected=false;try{BaseEconomy.Validate(overlap);}catch(ArgumentException){invalidRejected=true;}Need(invalidRejected,"存档中重叠的重建设施应被拒绝");
+            Need(BaseDemoFinale.FinishRebuild(saved)&&saved.Demo.Finale.VillageRebuilt&&saved.Demo.Stage==BaseDemoStage.Finished&&!BaseDemoFinale.FinishRebuild(saved),"完成节点须一次性提交");
+            Need(saved.Day==day&&saved.Inventory.Food==food&&saved.Inventory.Materials==materials&&saved.Inventory.Coins==coins,"重建不能耗日或扣除资源");BaseEconomy.Validate(saved);
+            var legacy=saved.Copy();legacy.Demo.Finale.ReconstructionVersion=legacy.Demo.Finale.RebuildDay=legacy.Demo.Finale.RebuildMask=0;legacy.Demo.Finale.VillageRebuilt=false;legacy.Campaign.Layouts.Single(m=>m.SourceMapId==BaseDemoFinale.Home).Objects.RemoveAll(o=>o.Id.StartsWith("demo_rebuild_"));BaseEconomy.Validate(legacy);
+            Debug.Log("[HomeReconstruction] PASS");
+        }
         public static void VerifyIntelPricingWorkbook()
         {
             var rules=DemoBalanceTableReader.ReadVerifiedTables(System.IO.Path.GetFullPath("../策划/DEMO数值配置表.xlsx"));

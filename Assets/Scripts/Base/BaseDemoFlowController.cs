@@ -15,6 +15,7 @@ namespace BaseConquest.Base
         private void TickDemoFlow(double seconds=-1)
         {
             if(!BaseDemoFlow.Active(State)||State.Demo.Stage==BaseDemoStage.Waking||BaseDemoPrologue.Village(State)||BaseBattleGateway.MainMenu||Hud.PanelOpen||BaseBattleLoot.Pending(State)||ConstructionMode)return;
+            if(BaseDemoFinale.Rebuilding(State))return;
             var f=State.Demo.Flow;
             var due=State.Campaign.Events.FirstOrDefault(e=>e.Kind=="defense"&&e.Status=="pending"&&e.AvailableDay<=State.Day&&!(f.NotifiedRaids??new System.Collections.Generic.List<string>()).Contains(e.Id+":"+e.AvailableDay));
             if(due!=null){string key=due.Id+":"+due.AvailableDay;if(Change(s=>{s.Demo.Flow.NotifiedRaids??=new System.Collections.Generic.List<string>();s.Demo.Flow.NotifiedRaids.Add(key);},"袭击通知"))Hud.OpenDemoScoutWarning();return;}

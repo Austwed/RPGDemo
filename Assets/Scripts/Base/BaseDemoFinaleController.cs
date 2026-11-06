@@ -49,12 +49,28 @@ namespace BaseConquest.Base
             return true;
         }
         public void InvestigateDemoSword()
-        {if(Change(next=>{if(!BaseDemoFinale.Investigate(next))throw new InvalidOperationException("先处理攻营战果，返乡到断剑旁同层一格内调查");},"已记录队长断剑，Demo结束节点已保存"))Hud.OpenDemoStory();}
+        {if(Change(next=>{if(!BaseDemoFinale.Investigate(next))throw new InvalidOperationException("先处理攻营战果，返乡到断剑旁同层一格内调查");},"已记录断剑，开始返乡重建"))Hud.OpenRebuild();}
         private void ReloadTravelRegion()
         {if(Application.isPlaying)SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);else{RefreshDemoRegion();Hud.ClosePanel();}}
     }
     public sealed partial class BaseHud
     {
+        private int rebuildX=-1,rebuildY=-1;
+        public void OpenRebuild()
+        {
+            var s=owner.State;if(!BaseDemoFinale.Rebuilding(s)||s.Campaign.CurrentMapId!=BaseDemoFinale.Home)return;
+            var board=BaseBattlefield.Board(s,BaseDemoFinale.Home);if(rebuildX<0||rebuildY<0){rebuildX=Math.Min(board.Width-1,(int)s.PlayerX+2);rebuildY=Math.Min(board.Height-1,(int)s.PlayerY);}
+            BeginPanel("返乡重建 · 临时入口");Line("选择格子后放置设施；三项完成后确认。",55,19);
+            ArmyCounter("横向格",rebuildX,0,board.Width-1,n=>{rebuildX=n;OpenRebuild();},true);
+            ArmyCounter("纵向格",rebuildY,0,board.Height-1,n=>{rebuildY=n;OpenRebuild();},true);
+            for(int i=0;i<3;i++)
+            {
+                int item=i;bool placed=(s.Demo.Finale.RebuildMask&(1<<i))!=0;string name=new[]{"小粮田","营帐","仓库"}[i];string problem=placed?"已放置":BaseDemoFinale.RebuildProblem(s,item,rebuildX,rebuildY);
+                RowButton(name+" · "+(placed?"撤回重选":problem==""?"放置并确认":problem),0,800,()=>{if(owner.Change(next=>{if(placed){if(!BaseDemoFinale.RemoveRebuild(next,item))throw new InvalidOperationException("无法撤回设施");}else if(!BaseDemoFinale.PlaceRebuild(next,item,rebuildX,rebuildY))throw new InvalidOperationException(BaseDemoFinale.RebuildProblem(next,item,rebuildX,rebuildY));},placed?"已撤回":"已放置")){owner.RefreshDemoRegion();owner.Hud.OpenRebuild();}},placed||problem=="");row+=58;
+            }
+            RowButton("确认完成重建",0,800,()=>NpcDialogue(new[]{new NpcLine("旁白","","待写")},new[]{new NpcReply("结束 Demo",()=>{if(owner.Change(next=>{if(!BaseDemoFinale.FinishRebuild(next))throw new InvalidOperationException("请先完成三项重建");},"返乡重建完成"))OpenDemoStory();})}),s.Demo.Finale.RebuildMask==7);row+=58;
+            RowButton("关闭",0,800,ClosePanel);row+=58;EndPanel();
+        }
         // BANDIT_01_WIN_01/02：匪首伏诛后搜主帐，拿到密信与金叶，南下返乡的路打通。
         public void OpenBanditVictory()
         {
@@ -94,6 +110,7 @@ namespace BaseConquest.Base
             }
             if(id!="demo_broken_sword"&&id!="demo_survivor")return false;
             if(owner.State.Demo.Stage==BaseDemoStage.Finished){OpenDemoStory();return true;}
+            if(BaseDemoFinale.Rebuilding(owner.State)){OpenRebuild();return true;}
             // HOME_01_ENTER：首次踏入废墟只播一次，随行者各追加一句。
             // 断剑是搭档的佩剑，与古裔无关——迦兰只评论现场残留的织魂术气息，不碰断剑（规格 §2.4）。
             if(BaseDemoFlow.Active(owner.State)&&!owner.State.Demo.Flow.HomeEnterSeen)
@@ -115,7 +132,7 @@ namespace BaseConquest.Base
                 new NpcLine("你","","［指尖微颤］剑柄上这道被火燎焦的禁卫青绳结……是{Partner}的佩剑！",true),
                 new NpcLine("你","","断口平滑如镜，是王室秘银重剑斩断的。地上没有血泊，只有向西进山的囚车辙印！",true),
                 new NpcLine("你","","［将断剑收入怀中］还活着……不管幕后黑手是古裔还是王都，我定会把你救回来！",true)
-            },new[]{new NpcReply("记录断剑 · 完成本次Demo",owner.InvestigateDemoSword),new NpcReply("稍后调查",ClosePanel)});return true;
+            },new[]{new NpcReply("记录断剑 · 开始重建",owner.InvestigateDemoSword),new NpcReply("稍后调查",ClosePanel)});return true;
         }
     }
 }

@@ -92,6 +92,7 @@ namespace BaseConquest.Base
         // expectedDay来自打开休息预览时的日期；同一确认重复到达不能结算第二次。
         public static bool Rest(BaseState s, int expectedDay)
         {
+            if(BaseDemoFinale.Rebuilding(s))throw new InvalidOperationException("请先完成返乡重建");
             if(BaseSceneCombat.Active(s)||BaseDemoPrologue.Village(s))throw new InvalidOperationException("当前撤离／交战中不能推进经营日");
             if(s.Aftermath?.GameOver==true)return false;
             if (s.Day != expectedDay || s.LastCompletedDay >= expectedDay) return false;
@@ -106,6 +107,7 @@ namespace BaseConquest.Base
         // Economic projection and real rest share production, recovery and morning-food order.
         internal static void CompleteProductionDay(BaseState s,bool advanceThreats)
         {
+            if(advanceThreats&&BaseDemoFinale.Rebuilding(s))throw new InvalidOperationException("返乡重建期间不能推进日程");
             if(s.Day>=1000000)throw new InvalidOperationException("已达日期上限");
             BaseDevelopment.Allocate(s);
             var p = Preview(s);

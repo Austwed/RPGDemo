@@ -28,6 +28,7 @@ namespace BaseConquest.Base
         {
             if(OpenIntroStory())return;
             var state=owner.State;if(!BaseDemo.Active(state))return;
+            if(BaseDemoFinale.Rebuilding(state)&&state.Campaign.CurrentMapId==BaseDemoFinale.Home){OpenRebuild();return;}
             if(BaseDemoDefense.Won(state)&&state.Demo.Defense.BatuStoryDay==0){OpenDemoDefenseAftermath();return;}
             activeObject="demo-story";interactionObject="";
             if(BaseDemoPrologue.Village(state)){OpenPrologueStory();return;}
@@ -51,7 +52,7 @@ namespace BaseConquest.Base
                 Line(BaseDemo.Objective(state),95,23);
                 if(state.Demo.Stage==BaseDemoStage.RuinsAssigned)Line(BaseDemoRuins.Enabled(state)?"阿禾在营地，阿铸在"+BaseScriptNames.Town+"；可邀请，也可暂不邀请。从"+BaseScriptNames.Town+"东侧进入"+BaseScriptNames.Ruins+"，靠近异常者确认救助战。受控村民可制服，不会误杀；击败控制来源后带证据交差。":"此旧Demo未保存"+BaseScriptNames.Ruins+"与伙伴属性快照。继续原阶段，重新开始Demo可体验新增流程，旧档不自动换数值。",130,21);
                 if(state.Demo.Stage==BaseDemoStage.RuinsCleared)Line("控制来源消失后，失踪村民恢复神志并获救。你已取得调查证据；己方伤亡与军需已按普通战争处理，不会自动补满。经"+BaseScriptNames.Ruins+"西侧出口回"+BaseScriptNames.Town+"，向领主交差。",130,21);
-                if(BaseDemoDefense.Delivered(state))Line(BaseDemoDefense.Enabled(state)?BaseDemoDefense.Won(state)?BaseDemoFinale.Enabled(state)?state.Demo.Stage==BaseDemoStage.Finished?"你带着队长断剑与幸存者证词，准备继续追查。Demo到此结束；完整故事留待后续。可以关闭查看当前进度，或从菜单重开，不会免费恢复战损。":"首防后先补损，从营地南侧世界出口出征。攻营并处理完战果后，沿路返乡调查断剑；两段道路各1天，规划不耗日。":"此旧Demo没有攻营／结尾快照；重新开始才能体验新增内容。":"工坊与兵营的修复点在建筑前方，每座原料"+BaseDemoDefense.RepairMaterialCost(state)+"／钱币"+BaseDemoDefense.RepairCoinCost(state)+"。安排工坊生产军需；袭击到达后从营地左侧进入迎敌战场。":"此旧Demo未保存修复／防守快照。继续原阶段，重新开始Demo才能体验新增内容。",145,21);
+                if(BaseDemoDefense.Delivered(state))Line(BaseDemoDefense.Enabled(state)?BaseDemoDefense.Won(state)?BaseDemoFinale.Enabled(state)?state.Demo.Stage==BaseDemoStage.Finished?"你带着队长断剑与幸存者证词，准备继续追查。Demo到此结束；完整故事留待后续。可以关闭查看当前进度，或从菜单重开，不会免费恢复战损。":BaseDemoFinale.Rebuilding(state)?"返乡重建进行中，请返回村庄放置小粮田、营帐和仓库。":"首防后先补损，从营地南侧世界出口出征。攻营并处理完战果后，沿路返乡调查断剑；两段道路各1天，规划不耗日。":"此旧Demo没有攻营／结尾快照；重新开始才能体验新增内容。":"工坊与兵营的修复点在建筑前方，每座原料"+BaseDemoDefense.RepairMaterialCost(state)+"／钱币"+BaseDemoDefense.RepairCoinCost(state)+"。安排工坊生产军需；袭击到达后从营地左侧进入迎敌战场。":"此旧Demo未保存修复／防守快照。继续原阶段，重新开始Demo才能体验新增内容。",145,21);
                 RowButton("关闭",0,800,ClosePanel);row+=60;
             }
             Line("新局读取Demo数值快照，已有存档保留原值。\n快照标识："+(string.IsNullOrEmpty(state.Demo.ConfigHash)?state.Demo.BalanceHash:state.Demo.ConfigHash).Substring(0,12),85,18);

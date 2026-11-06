@@ -200,6 +200,7 @@ namespace BaseConquest.Base
         }
         public static BaseCampaignBattle Begin(BaseState s, string eventId, BattleScenarioDocument document, string mode = "full", BaseMusterPlan plan = null,bool realtime=false)
         {
+            if(BaseDemoFinale.Rebuilding(s))throw new InvalidOperationException("返乡重建期间不能开始战斗");
             BaseEconomy.Validate(s); BattleScenarioDocument.Validate(document);
             if (document.StartInCombat || document.InitialHealth?.Count > 0 || document.InitialEffects?.Count > 0) throw new ArgumentException("战役模板需从准备阶段开始，不能使用独立倒地／临效预置");
             var e = s.Campaign.Events.Single(x => x.Id == eventId);
@@ -374,6 +375,7 @@ namespace BaseConquest.Base
         }
         public static bool Rest(BaseState s, int day, Func<string, BattleScenarioDocument> resolve,bool realtime=false)
         {
+            if(BaseDemoFinale.Rebuilding(s))throw new InvalidOperationException("请先完成返乡重建");
             if(BaseDemoDefense.AnyDue(s))throw new InvalidOperationException("敌军已抵营门，此刻无法休息");
             BaseEconomy.Validate(s); if (s.Aftermath.GameOver || s.Day != day || s.LastCompletedDay >= day) return false;
             if (s.Campaign.HasActiveBattle || s.Muster.Parties.Any(p => p.InCombat)) throw new InvalidOperationException("先结束当前战斗");
