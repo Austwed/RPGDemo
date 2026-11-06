@@ -54,8 +54,8 @@ namespace BaseConquest.Base
             Line("所在："+u.Facility+" · "+u.State+"\n生产资格："+(u.Effective ? "今日可生产" : "今日不生产")+"；岗位："+(u.Locked ? "手动锁定" : "自动安排"),76,19);
             Line(u.IsLeader ? "管理员增益：粮田 +"+(u.FarmEfficiency*100).ToString("0.#")+"%／工坊 +"+(u.WorkshopEfficiency*100).ToString("0.#")+"%" : "工作效率：粮田×"+u.FarmEfficiency.ToString("0.##")+"／工坊×"+u.WorkshopEfficiency.ToString("0.##"),60,19);
             Line("状态效果\n"+u.Effects.Replace("／","\n"),210,19);
-            // 离队入口收在营帐（2026-11-06 裁决）：名册只显示资格，不再提供按钮，避免在兵营把人踢掉。
-            if(person?.Rpg?.Version==1){Line(BaseRpg.Describe(person.Rpg),140,18);if(!person.Rpg.Story)Line(BaseRpg.DismissProblem(s,person.Id)==""?"要此人永久离队，请回营帐办理；装备与物品会退回基地仓库。":BaseRpg.DismissProblem(s,person.Id),66,18);}
+            // 请离基地入口收在营帐（2026-11-06 裁决）：名册只显示资格，不再提供按钮，避免在兵营把人踢掉。
+            if(person?.Rpg?.Version==1){Line(BaseRpg.Describe(person.Rpg),140,18);if(!person.Rpg.Story)Line(BaseRpg.DismissProblem(s,person.Id)==""?"要此人永久离开，请回营帐办理「请离基地」；装备与物品会退回基地仓库。":BaseRpg.DismissProblem(s,person.Id),66,18);}
             if(u.Recruited)Line(UnitDisplayNames.Mark("黄色姓名",true)+"表示通过劝降加入；只标记来源。",60,18);
             EndPanel();
         }

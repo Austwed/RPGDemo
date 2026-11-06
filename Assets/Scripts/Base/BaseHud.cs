@@ -425,29 +425,29 @@ namespace BaseConquest.Base
             BeginPanel(title); Line(text, 110);
             RowButton("确认", -155, 270, yes); RowButton("取消", 155, 270, OpenMenu); row += 60; EndPanel();
         }
-        // 营帐的离队面板：只列非剧情角色，资格用 DismissProblem 统一判，确认后永久移除。
+        // 营帐的请离基地面板：只列非剧情角色，资格用 DismissProblem 统一判，确认后永久移除。
         private void OpenDismiss()
         {
             var s=owner.State;
             var people=s.Leaders.Where(l=>l.Id!=s.PlayerLeaderId&&l.Rpg!=null&&!l.Rpg.Story).OrderBy(l=>l.Id,StringComparer.Ordinal).ToArray();
-            BeginPanel("营帐 · 离队");
-            Line("离队即永久离开基地，装备与物品退回仓库，普通兵保留，此人不能再次加入。主角与剧情伙伴不可离队。",84,19);
+            BeginPanel("营帐 · 请离基地");
+            Line("请离基地即永久离开，装备与物品退回仓库，普通兵保留，此人不能再次加入。主角与剧情伙伴不可请离基地。",84,19);
             foreach(var person in people)
             {
                 string id=person.Id;string problem=BaseRpg.DismissProblem(s,id);
                 RowButton(BasePersonnel.LeaderName(person)+(problem==""?"":" · "+problem),0,800,()=>ConfirmDismiss(id),problem=="");
                 row+=58;
             }
-            if(people.Length==0)Line("营地暂无可以离队的角色。",48,19);
+            if(people.Length==0)Line("营地暂无可以请离基地的角色。",48,19);
             RowButton("返回",0,270,OpenHome);row+=60;EndPanel();
         }
         private void ConfirmDismiss(string id)
         {
             var person=owner.State.Leaders.FirstOrDefault(l=>l.Id==id);
             if(person==null){OpenHome();return;}
-            BeginPanel("确认离队 · "+person.Name);
-            Line("永久离队：所有装备与背包物品退回基地仓库，普通兵保留；此人不能再次加入。",92,19);
-            RowButton("确认离队",-210,400,()=>{owner.Change(next=>{if(!BaseRpg.Dismiss(next,id))throw new InvalidOperationException(BaseRpg.DismissProblem(next,id));},"已离队，物品已返仓");OpenHome();});
+            BeginPanel("确认请离基地 · "+person.Name);
+            Line("永久离开：所有装备与背包物品退回基地仓库，普通兵保留；此人不能再次加入。",92,19);
+            RowButton("确认请离基地",-210,400,()=>{owner.Change(next=>{if(!BaseRpg.Dismiss(next,id))throw new InvalidOperationException(BaseRpg.DismissProblem(next,id));},"已请离基地，物品已返仓");OpenHome();});
             RowButton("取消",210,400,OpenDismiss);row+=60;EndPanel();
         }
         public void OpenHome()
@@ -461,8 +461,8 @@ namespace BaseConquest.Base
             {
                 RowButton("休息至明天",-290,270,()=>owner.Rest(day));RowButton("营地管理",0,270,()=>{activeObject="government";activePage="workers";OpenGovernment();});RowButton("关闭",290,270,ClosePanel);row+=65;
                 if(BaseDeputy.Unlocked(s)){var deputy=BaseDeputy.Leader(s);RowButton("副手："+(deputy==null?"未指定":BasePersonnel.LeaderName(deputy))+" · 更换",0,800,OpenDeputy);row+=60;}
-                // 离队只在营帐办理（2026-11-06 裁决）：兵营名册不再提供这个入口。
-                if(s.Leaders.Any(l=>l.Id!=s.PlayerLeaderId&&l.Rpg!=null&&!l.Rpg.Story)){RowButton("离队 · 请人永久离开基地",0,800,OpenDismiss);row+=60;}
+                // 请离基地只在营帐办理（2026-11-06 裁决）：兵营名册不再提供这个入口。
+                if(s.Leaders.Any(l=>l.Id!=s.PlayerLeaderId&&l.Rpg!=null&&!l.Rpg.Story)){RowButton("请离基地 · 请人永久离开",0,800,OpenDismiss);row+=60;}
                 if(BaseRpg.Active(s)){var rules=s.Demo.Rpg;Line("营帐 "+rules.CampLevel+"级 · 队长名额 "+BaseRpg.Population(s)+" / "+BaseRpg.Capacity(s)+"（含主角、伙伴与外出队长）",60,20);if(rules.CampLevel<3){Line("升级：原料 "+rules.CampMaterials[rules.CampLevel-1]+"、钱币 "+rules.CampCoins[rules.CampLevel-1]+"；容量 "+rules.Capacity[rules.CampLevel],48,19);RowButton("升级营帐",0,800,()=>{owner.Change(next=>{if(!BaseRpg.UpgradeCamp(next))throw new InvalidOperationException(BaseRpg.CampUpgradeProblem(next));},"营帐已升级");OpenHome();},BaseRpg.CampUpgradeProblem(s)=="");row+=60;}}
                 Line(BaseDemoDefense.Delivered(s)?BaseDemoDefense.Objective(s):"可在营帐管理岗位和库存；工坊与兵营需遗迹调查许可后修复。",90,20);
             }
