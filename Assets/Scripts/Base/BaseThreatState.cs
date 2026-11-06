@@ -85,10 +85,12 @@ namespace BaseConquest.Base
         public int RaidMelee=3, RaidRanged=1, RaidCavalry;
         public ArmyDefinition Capacity = new ArmyDefinition { HeroCount=2, MeleeCount=6, RangedCount=3, CavalryCount=1, Capacity=90 };
         public List<BaseEnemyMember> Garrison = new List<BaseEnemyMember>();
+        // 己方据点库存（P41）：商队按当前库存决定能否满载，不预测未来产量。
+        public int Stock;
         public BaseEnemySite Copy() => new BaseEnemySite { Id=Id, Name=Name, Owner=Owner, AttackEventId=AttackEventId, CapturedDay=CapturedDay,
             NextDispatchDay=NextDispatchDay, LastReinforcementDay=LastReinforcementDay, WaveNumber=WaveNumber, NextUnitNumber=NextUnitNumber,
             DispatchInterval=DispatchInterval, TravelDays=TravelDays, ReinforcementInterval=ReinforcementInterval, RecoveryPerDay=RecoveryPerDay,
-            RaidMelee=RaidMelee, RaidRanged=RaidRanged, RaidCavalry=RaidCavalry, Capacity=Capacity.Clone(), Garrison=Garrison.Select(u=>u.Copy()).ToList() };
+            RaidMelee=RaidMelee, RaidRanged=RaidRanged, RaidCavalry=RaidCavalry, Capacity=Capacity.Clone(), Garrison=Garrison.Select(u=>u.Copy()).ToList(), Stock=Stock };
     }
     [Serializable] public sealed class BaseEnemyBinding
     {

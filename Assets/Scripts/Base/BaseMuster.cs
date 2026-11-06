@@ -96,6 +96,7 @@ namespace BaseConquest.Base
         public static void Normalize(BaseState s)
         {
             if (s == null) return;
+            EnsureCaravan(s);
             var old = s.Muster;
             if (old != null && old.Version == 1 && old.AppliedAppendIds == null) old.AppliedAppendIds = new List<string>();
             bool empty = old != null && (old.Presets == null || old.Presets.Count == 0) && (old.Facilities == null || old.Facilities.Count == 0) && (old.Parties == null || old.Parties.Count == 0) && (old.ReturnedIds == null || old.ReturnedIds.Count == 0) && (old.AppliedAppendIds == null || old.AppliedAppendIds.Count == 0);
@@ -110,6 +111,24 @@ namespace BaseConquest.Base
                 },
                 Facilities = new List<BaseFacilityProtection> { new BaseFacilityProtection { FacilityId = "farm", Priority = 2 }, new BaseFacilityProtection { FacilityId = "workshop", Priority = 0 } }
             };
+        }
+        // 商队设施建成后才有岗位记录；收存时连人带记录一起移除，避免留下 0 容量的空设施。
+        public static void EnsureCaravan(BaseState s)
+        {
+            if (s?.Muster?.Facilities == null || s.Campaign?.Layouts == null) return;
+            // 剧情场景没有营地布局时不改动岗位记录，避免出门一趟把商队编制清空。
+            if (BaseFacilityLayout.BaseLayout(s) == null) return;
+            bool built = BaseFacilityLayout.Built(s, "caravan");
+            var entry = s.Muster.Facilities.FirstOrDefault(f => f != null && f.FacilityId == "caravan");
+            if (built && entry == null)
+                s.Muster.Facilities.Add(new BaseFacilityProtection { FacilityId = "caravan", Priority = 0, MinimumWorkers = 1, Capacity = BaseFacilityLayout.Find("caravan").Capacity });
+            else if (!built && entry != null) RemoveCaravan(s);
+        }
+        public static void RemoveCaravan(BaseState s)
+        {
+            if (s?.Muster?.Facilities == null) return;
+            s.Muster.Facilities.RemoveAll(f => f != null && f.FacilityId == "caravan");
+            foreach (var worker in s.Workers.Where(w => w.FacilityId == "caravan")) { worker.FacilityId = ""; worker.DesiredFacility = ""; worker.PostLocked = false; }
         }
         private static void ValidatePreset(BaseState s, BaseArmyPreset p)
         {
@@ -132,7 +151,7 @@ namespace BaseConquest.Base
             if (m.Version != 1 || m.Presets == null || m.Facilities == null || m.Parties == null || m.ReturnedIds == null || m.Presets.Count != 2 || m.Presets.Select(p => p?.Purpose).Distinct().Count() != 2 || new[] { m.KeepMelee, m.KeepRanged, m.KeepCavalry }.Any(n => n < 0 || n > 10000)) throw new ArgumentException("编队数据版本／集合非法");
             foreach (var p in m.Presets) ValidatePreset(s, p);
             if (m.AppliedAppendIds == null || m.AppliedAppendIds.Count > 100000 || m.AppliedAppendIds.Any(string.IsNullOrWhiteSpace) || m.AppliedAppendIds.Distinct().Count() != m.AppliedAppendIds.Count) throw new ArgumentException("追加操作身份非法");
-            if (m.Facilities.Count != 2 || m.Facilities.Any(f => f == null || f.FacilityId != "farm" && f.FacilityId != "workshop" || f.Priority < 0 || f.Priority > 2 || f.MinimumWorkers < 0 || f.Capacity < f.MinimumWorkers || f.Capacity > 10000 || f.Level < 1 || f.Level > 100 || f.MaxProductLevel < 1 || f.MaxProductLevel > 2) || m.Facilities.Select(f => f.FacilityId).Distinct().Count() != 2 || m.Facilities.Any(f => BaseEconomy.WorkersAt(s, f.FacilityId) > f.Capacity)) throw new ArgumentException("设施留守与生产保留非法");
+            if (m.Facilities.Count != 2 && m.Facilities.Count != 3 || m.Facilities.Count == 3 && !m.Facilities.Any(f => f != null && f.FacilityId == "caravan") || m.Facilities.Any(f => f == null || f.FacilityId != "farm" && f.FacilityId != "workshop" && f.FacilityId != "caravan" || f.Priority < 0 || f.Priority > 2 || f.MinimumWorkers < 0 || f.Capacity < f.MinimumWorkers || f.Capacity > 10000 || f.Level < 1 || f.Level > 100 || f.MaxProductLevel < 1 || f.MaxProductLevel > 2) || m.Facilities.Select(f => f.FacilityId).Distinct().Count() != m.Facilities.Count || !m.Facilities.Any(f => f.FacilityId == "farm") || !m.Facilities.Any(f => f.FacilityId == "workshop") || m.Facilities.Any(f => BaseEconomy.WorkersAt(s, f.FacilityId) > f.Capacity)) throw new ArgumentException("设施留守与生产保留非法");
             if (m.Parties.Count > 2 || m.Parties.Any(p => p == null || string.IsNullOrWhiteSpace(p.Id) || !Purposes.Contains(p.Purpose) || p.StartedDay < 1 || p.StartedDay > s.Day || p.Leaders == null || p.Sources == null || p.Leaders.Count < 1 || p.Leaders.Count > 3) || m.Parties.Select(p => p.Id).Distinct().Count() != m.Parties.Count || m.Parties.Select(p => p.Purpose).Distinct().Count() != m.Parties.Count || m.ReturnedIds.Count > 100000 || m.ReturnedIds.Any(string.IsNullOrWhiteSpace) || m.ReturnedIds.Distinct().Count() != m.ReturnedIds.Count || m.Parties.Any(p => m.ReturnedIds.Contains(p.Id))) throw new ArgumentException("外出队伍身份非法");
             foreach (var party in m.Parties)
             {

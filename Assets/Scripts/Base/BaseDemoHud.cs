@@ -136,7 +136,14 @@ namespace BaseConquest.Base
                     questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"回营地修复设施之前，记得安排好建设人手。"));
                 }
                 questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"调查奖赏：粮草 "+reward.Food+"，原料 "+reward.Materials+"，钱币 "+reward.Coins+"。修复各需原料"+BaseDemoDefense.RepairMaterialCost(state)+"、钱币"+BaseDemoDefense.RepairCoinCost(state)+"。"));
-                NpcDialogue(questLines.ToArray(),new[]{new NpcReply(deliver?"交付证据并领取许可":"已领取",owner.DeliverDemoRuins,deliver),new NpcReply("告辞",ClosePanel)});return;
+                // P40：首防结束后领主赠送建设许可；回营地后在营地管理里放置办公设施与商队。
+                bool gift = BaseDemoDefense.Won(state) && !BaseFacilityLayout.Owned(state, "office") && state.Layout?.OfficeGift != true;
+                if (gift) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"营地守住了，我再给你一份建设许可：回营地放一座办公设施，粮田与工坊的安排就能交给它统一调度；商队也可以一并建起来。"));
+                var replies = new List<NpcReply>();
+                if (gift) replies.Add(new NpcReply("领取建设许可", () => { if (owner.Change(next => { next.Layout.OfficeGift = true; }, "已领取建设许可 · 回营地放置办公设施与商队")) ClosePanel(); }));
+                replies.Add(new NpcReply(deliver ? "交付证据并领取许可" : "已领取", owner.DeliverDemoRuins, deliver));
+                replies.Add(new NpcReply("告辞", ClosePanel));
+                NpcDialogue(questLines.ToArray(), replies.ToArray()); return;
             }
             bool available=state.Demo.Stage==BaseDemoStage.VisitLord;
             var lordLines=new List<NpcLine>{

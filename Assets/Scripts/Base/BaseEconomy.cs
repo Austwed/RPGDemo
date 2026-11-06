@@ -14,9 +14,9 @@ namespace BaseConquest.Base
     {
         public static readonly string[] Products = { "sword", "bow", "armor" };
         public static string[] ProductsFor(BaseState s)=>BaseRpg.Active(s)?new[]{"supply"}:Products;
-        public static readonly string[] Facilities = { "", "farm", "workshop" };
+        public static readonly string[] Facilities = { "", "farm", "workshop", "caravan" };
         public static string ProductName(string id) => id == "supply" ? "军需" : id == "sword" ? "剑" : id == "bow" ? "弓" : "盔甲";
-        public static string FacilityName(string id) => id == "farm" ? "粮田" : id == "workshop" ? "工坊" : "闲置";
+        public static string FacilityName(string id) => id == "farm" ? "粮田" : id == "workshop" ? "工坊" : id == "caravan" ? "商队" : id == "office" ? "办公设施" : "闲置";
         public static string TroopName(BaseTroopKind kind) => kind == BaseTroopKind.Melee ? "剑士" : kind == BaseTroopKind.Ranged ? "弓兵" : "骑兵";
         private static bool Finite(double x) => !double.IsNaN(x) && !double.IsInfinity(x);
         private static bool Fraction(double x) => Finite(x) && x >= 0 && x < 1;
@@ -27,6 +27,7 @@ namespace BaseConquest.Base
             if (new[] { s.Inventory.Food, s.Inventory.Materials, s.Inventory.Coins }.Any(x => x < 0 || x > 100000000)) throw new ArgumentException("资源数量越界");
             if (!Fraction(s.FarmFraction) || !ProductsFor(s).Contains(s.WorkshopProduct) || s.WorkshopProgress.Count != ProductsFor(s).Length || s.WorkshopProgress.Any(x => x == null || !ProductsFor(s).Contains(x.Product) || !Fraction(x.Fraction)) || s.WorkshopProgress.Select(x => x.Product).Distinct().Count() != ProductsFor(s).Length) throw new ArgumentException("生产进度或配方非法");
             BaseCampaign.Normalize(s);
+            BaseFacilityLayout.Normalize(s);
             BaseRpg.Bind(s);
             BaseSceneRules.Validate(s);BaseInn.Validate(s);
             if (s.Campaign.Location == "base" && (s.Development == null || s.Development.Version == 0)) BaseMap.RelocateLegacyBarracks(ref s.PlayerX, ref s.PlayerY);
@@ -47,7 +48,7 @@ namespace BaseConquest.Base
                 var report = s.LastReport;
                 if (new[] { report.FoodBefore, report.FoodProduced, report.MaterialsSpent, report.ProductsMade, report.FoodRequired, report.FoodConsumed, report.FoodMissing, report.FoodAfter }.Any(x => x < 0) || !ProductsFor(s).Contains(report.Product) || report.ProductLevel<0 || report.ProductLevel>2 || !Finite(report.ProductionFactor) || report.ProductionFactor < 0 || report.ProductionFactor > 1 || report.FoodBefore + (long)report.FoodProduced - report.FoodConsumed != report.FoodAfter || report.FoodConsumed + (long)report.FoodMissing != report.FoodRequired) throw new ArgumentException("日结报告收支非法");
             }
-            BaseAftermath.Normalize(s);BaseAftermath.Validate(s);BaseAftermath.MarkKnownRecruits(s); BaseMuster.Validate(s); BaseDevelopment.Normalize(s); BaseAdventure.Normalize(s); BaseAdventure.Validate(s); BaseDevelopment.Validate(s); BaseSupply.Validate(s); BaseCampaign.Validate(s); BaseTown.Validate(s); BaseBackpack.Validate(s); BaseConstruction.Validate(s); BaseQuests.Validate(s); BaseSpatial.RepairGridPositions(s);
+            BaseAftermath.Normalize(s);BaseAftermath.Validate(s);BaseAftermath.MarkKnownRecruits(s); BaseMuster.Validate(s); BaseDevelopment.Normalize(s); BaseAdventure.Normalize(s); BaseAdventure.Validate(s); BaseDevelopment.Validate(s); BaseSupply.Validate(s); BaseCampaign.Validate(s); BaseTown.Validate(s); BaseBackpack.Validate(s); BaseConstruction.Validate(s); BaseFacilityLayout.Validate(s); BaseCaravan.Validate(s); BaseQuests.Validate(s); BaseSpatial.RepairGridPositions(s);
             BaseMuster.NormalizeCompositions(s);
             BasePersonalEquipment.Validate(s);
             BasePartyInventory.Validate(s);
@@ -56,7 +57,7 @@ namespace BaseConquest.Base
             BaseDemo.Validate(s);BaseAchievements.Validate(s);
             BaseSceneCombat.Validate(s);
         }
-        public static int FoodRequired(BaseState s) => checked(s.Workers.Sum(x => x.Count * (x.Kind == BaseTroopKind.Cavalry ? s.Rules.CavalryFood : x.Kind == BaseTroopKind.Ranged && BaseRpg.Active(s) ? s.Demo.Rpg.ArcherFood : s.Rules.SoldierFood)) + s.Leaders.Count(x => x.Health > 0) * (BaseRpg.Active(s)?s.Demo.Rpg.LeaderFood:s.Rules.LeaderFood));
+        public static int FoodRequired(BaseState s) => checked(s.Workers.Sum(x => x.Count * (x.FacilityId == "caravan" ? 2 : 1) * (x.Kind == BaseTroopKind.Cavalry ? s.Rules.CavalryFood : x.Kind == BaseTroopKind.Ranged && BaseRpg.Active(s) ? s.Demo.Rpg.ArcherFood : s.Rules.SoldierFood)) + s.Leaders.Count(x => x.Health > 0) * (BaseRpg.Active(s)?s.Demo.Rpg.LeaderFood:s.Rules.LeaderFood));
         public static double Hunger(BaseState s) => s.TodayFoodRequired == 0 ? 0 : (double)s.TodayFoodMissing / s.TodayFoodRequired;
         public static double ProductionFactor(BaseState s) => 1 - s.Rules.HungerProductionPenalty * Hunger(s);
         public static double AttackFactor(BaseState s) => 1 - s.Rules.HungerAttackPenalty * Hunger(s);
@@ -130,6 +131,8 @@ namespace BaseConquest.Base
             if(advanceThreats)BaseDemoRaids.AdvanceDay(s);
             BaseDevelopment.Allocate(s);
             PayMorningFood(s);
+            // 商队按新一天结算：本地跑商进金币，黑鸦寨线推进"出发／抵达／回营"；口粮不足则解散。
+            BaseCaravan.AdvanceDay(s);
             report.FoodRequired = s.TodayFoodRequired; report.FoodConsumed = s.TodayFoodConsumed; report.FoodMissing = s.TodayFoodMissing; report.FoodAfter = s.Inventory.Food;
             s.LastReport = report; s.HasReport = true;
             if(advanceThreats){BaseDemoDefense.ProductionFinished(s,report);if(report.FoodProduced>0)BaseAchievements.Unlock(s,BaseAchievements.Harvest);}

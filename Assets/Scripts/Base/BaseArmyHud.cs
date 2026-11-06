@@ -69,7 +69,7 @@ namespace BaseConquest.Base
             {
                 string id = facility.FacilityId;
                 Line(BaseEconomy.FacilityName(id), 48, 22);
-                RowButton("经营优先级：" + (facility.Priority == 0 ? "低" : facility.Priority == 1 ? "中" : "高"), 0, 800, () => ArmyEdit(next => { var f = next.Muster.Facilities.Single(x => x.FacilityId == id); f.Priority = (f.Priority + 1) % 3; next.Development.Policy = "custom"; })); row += 58;
+                RowButton("经营优先级：" + (facility.Priority == 0 ? "低" : facility.Priority == 1 ? "中" : "高"), 0, 800, () => ArmyEdit(next => { var f = next.Muster.Facilities.Single(x => x.FacilityId == id); f.Priority = (f.Priority + 1) % 3; next.Development.Policy = "manual"; })); row += 58;
                 ArmyCounter("至少保留生产人数", facility.MinimumWorkers, 0, facility.Capacity, n => ArmyEdit(next => next.Muster.Facilities.Single(f => f.FacilityId == id).MinimumWorkers = n));
             }
             Line("人手不足时少带兵；需要增兵，可在出发前允许抽调留守和生产人员。", 58, 18);

@@ -108,6 +108,9 @@ namespace BaseConquest.Base
         public BaseInnState Inn=new BaseInnState();
         public BaseBackpackState Backpack;
         public BaseConstructionState Construction;
+        // 设施布局与商队（P40／P41）：已放置设施仍以营地布局对象为准，这里只存收存清单与商队事务。
+        public BaseLayoutState Layout;
+        public BaseCaravanState Caravan;
         public BaseQuestState Quests;
         public BaseAdventureState Adventure;
         public BasePersonalEquipmentState PersonalEquipment;
@@ -123,7 +126,7 @@ namespace BaseConquest.Base
             PlayerLeaderId = PlayerLeaderId, TemplateTitle = TemplateTitle, WorkshopProduct = WorkshopProduct,
             PlayerX = PlayerX, PlayerY = PlayerY, FarmFraction = FarmFraction, SceneBattleId=SceneBattleId,
             Inventory = Inventory.Copy(), Rules = Rules.Copy(), Leaders = Leaders.Select(x => x.Copy()).ToList(),
-            Workers = Workers.Select(x => x.Copy()).ToList(), WorkshopProgress = WorkshopProgress.Select(x => x.Copy()).ToList(), HasReport = HasReport, LastReport = LastReport?.Copy() ?? new BaseDayReport(), Muster = Muster?.Copy(), Development = Development?.Copy(), Supply = Supply?.Copy(), Campaign = Campaign?.Copy(), Aftermath = Aftermath?.Copy(), Town = Town?.Copy(), Inn=Inn?.Copy(), Backpack=Backpack?.Copy(), Construction=Construction?.Copy(), Quests=Quests?.Copy(), Adventure=Adventure?.Copy(), PersonalEquipment=PersonalEquipment?.Copy(), Demo=Demo?.Copy(),Achievements=Achievements?.Copy()
+            Workers = Workers.Select(x => x.Copy()).ToList(), WorkshopProgress = WorkshopProgress.Select(x => x.Copy()).ToList(), HasReport = HasReport, LastReport = LastReport?.Copy() ?? new BaseDayReport(), Muster = Muster?.Copy(), Development = Development?.Copy(), Supply = Supply?.Copy(), Campaign = Campaign?.Copy(), Aftermath = Aftermath?.Copy(), Town = Town?.Copy(), Inn=Inn?.Copy(), Backpack=Backpack?.Copy(), Construction=Construction?.Copy(), Layout=Layout?.Copy(), Caravan=Caravan?.Copy(), Quests=Quests?.Copy(), Adventure=Adventure?.Copy(), PersonalEquipment=PersonalEquipment?.Copy(), Demo=Demo?.Copy(),Achievements=Achievements?.Copy()
         };
     }
     [Serializable] public sealed class BaseScenarioDocument

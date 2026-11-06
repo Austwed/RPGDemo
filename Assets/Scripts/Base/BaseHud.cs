@@ -35,7 +35,7 @@ namespace BaseConquest.Base
         private string nearbyId;
         private string activeObject = "", activePage = "";
         private string interactionObject="";
-        private static readonly HashSet<string> facilityInteractions=new HashSet<string>{"home","government","farm","workshop","barracks","warehouse","town_market","town_inn","town_recruit"};
+        private static readonly HashSet<string> facilityInteractions=new HashSet<string>{"home","government","farm","workshop","barracks","warehouse","office","caravan","town_market","town_inn","town_recruit"};
         private float nextInspectionRefresh;
         public BaseJoystick Joystick { get; }
         public bool PanelOpen => modal.gameObject.activeSelf;
@@ -358,6 +358,8 @@ namespace BaseConquest.Base
             if (id == "home") OpenHome();
             else if (owner.State.Leaders.Any(l=>l.Id==id)) OpenPartner(id);
             else if (id == "government") { activePage = "workers"; OpenGovernment(); }
+            else if (id == "office") { activeObject = "government"; activePage = "development"; OpenGovernment(); }
+            else if (id == "caravan") OpenCaravan();
             else if (id == "farm" || id == "workshop") { activePage = "workers"; OpenFacility(); }
             else if (id == "barracks") { activePage = "armyinfo"; OpenBarracks(); }
         }
@@ -481,10 +483,10 @@ namespace BaseConquest.Base
         private void OpenGovernment()
         {
             if (owner.State == null || activeObject != "government") return;
-            BeginPanel(BaseDemo.Active(owner.State)?"营帐 · 库存与人员":"据点管理所 · 库存与人员", "government:" + activePage + (activePage == "army" ? ":" + armyPurpose + ":" + armyPage : ""));
+            BeginPanel(BaseDemo.Active(owner.State)?"营地管理 · 库存与人员":"据点管理所 · 库存与人员", "government:" + activePage + (activePage == "army" ? ":" + armyPurpose + ":" + armyPage : ""));
             ManagementTabs(OpenGovernment);
             if(!BaseDemo.Active(owner.State)){RowButton("规则 i",0,800,()=>FacilityRules(OpenGovernment));row+=60;}
-            if (activePage == "report") DailyReportContent(); else if (activePage == "administrators") Administrators(); else if (activePage == "workers") Workers(BaseDemo.Active(owner.State)?new[]{"farm"}:new[] { "farm", "workshop" }, OpenGovernment); else if (activePage == "army") Army(); else if (activePage == "development") Development(); else Inventory(); EndPanel();
+            if (activePage == "report") DailyReportContent(); else if (activePage == "administrators") Administrators(); else if (activePage == "workers") Workers(BaseDemo.Active(owner.State)?(BaseFacilityLayout.Built(owner.State,"caravan")?new[]{"farm","caravan"}:new[]{"farm"}):new[] { "farm", "workshop", "caravan" }, OpenGovernment); else if (activePage == "army") Army(); else if (activePage == "development") Development(); else Inventory(); EndPanel();
         }
         private void ManagementTabs(Action refresh)
         {

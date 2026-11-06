@@ -77,7 +77,7 @@ namespace BaseConquest.Editor
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();
-            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();
+            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();VerifyBaseFacilities.Run();
             Debug.Log("[VerifyChenanAndRuins] regression PASS");
         }
         // P20（01C §8.5.1）：带伤应答只看主角当前生命是否低于 60%，满血与阵亡都不触发。
@@ -188,8 +188,13 @@ namespace BaseConquest.Editor
             s.Workers.Clear();
             s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=2,MaxHealth=100,Health=100,FarmEfficiency=1,WorkshopEfficiency=1});
             s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,MaxHealth=100,Health=25,FarmEfficiency=1,WorkshopEfficiency=1});
-            s.Development.Automatic=true;
-            BaseDevelopment.Allocate(s);
+            // P40：办公设施未建成时只能手动；先证红，再放置办公设施转绿。
+            bool officeRejected=false;
+            try{BaseDevelopment.SetPolicy(s,"auto");}catch(InvalidOperationException){officeRejected=true;}
+            Need(officeRejected,"办公设施未建成时不应允许自动策略");
+            s.Layout.OfficeGift=true;
+            Need(BaseFacilityLayout.AutoPlace(s,"office",out string officeProblem,out _,out _),"办公设施放置："+officeProblem);
+            BaseDevelopment.SetPolicy(s,"auto");
             Need(s.Workers.Where(x=>!x.Away&&x.Health<30).All(x=>x.FacilityId==""),"重伤士兵不应占生产岗位");
             Need(s.Workers.Where(x=>!x.Away&&x.Health>=30).Sum(x=>x.FacilityId==""?0:x.Count)>0,"可工作士兵应自动补上空岗");
             var tally=BaseDevelopment.Tally(s);

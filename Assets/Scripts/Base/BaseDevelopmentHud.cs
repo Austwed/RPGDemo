@@ -17,24 +17,59 @@ namespace BaseConquest.Base
         private void Development()
         {
             var s = owner.State;
-            Line("当前策略：" + BaseDevelopment.PolicyName(s.Development.Policy), 48, 23);
-            RowButton("自动安排：" + (s.Development.Automatic ? "开" : "关"), 0, 800, () => { owner.Change(next => BaseDevelopment.SetAutomatic(next, !next.Development.Automatic), "已更新自动安排"); OpenGovernment(); }); row += 58;
-            foreach (string policy in BaseDevelopment.Policies.Where(p => p != "custom"))
+            bool office = BaseFacilityLayout.OfficeBuilt(s);
+            Line("当前策略：" + BaseDevelopment.PolicyName(s.Development.Policy) + (office ? "" : "（办公设施未建成，暂按手动）"), 48, 23);
+            foreach (string policy in BaseDevelopment.Policies)
             {
                 string id = policy;
-                var option=RowButton((s.Development.Policy==id ? "● " : "　 ")+BaseDevelopment.PolicyName(id), 0, 800, () => { owner.Change(next => BaseDevelopment.SetPolicy(next, id), "已按发展策略安排有效人员"); OpenGovernment(); });option.GetComponentInChildren<UnityEngine.UI.Text>().color=Color.white;row += 56;
+                bool allowed = id == "manual" || office;
+                var option=RowButton((s.Development.Policy==id ? "● " : "　 ")+BaseDevelopment.PolicyName(id), 0, 800, () => { owner.Change(next => BaseDevelopment.SetPolicy(next, id), "已按发展策略安排有效人员"); OpenGovernment(); }, allowed);
+                option.GetComponentInChildren<UnityEngine.UI.Text>().color=Color.white;row += 56;
             }
-            if(s.Development.Policy=="custom")Line("● 自定优先（当前）",48,20);
-            Line("生产与抽调共用下列优先级。先保留今日可生产的锁定岗位，再优先满足高位设施；同等效率保持原安排。", 76, 18);
+            Line("办公设施建成前只能逐人手动安排；建成后才会自动补位。切换策略立即重排，手动锁定的人不受影响。", 76, 18);
             foreach (var facility in s.Muster.Facilities)
             {
                 string id = facility.FacilityId;
                 RowButton(BaseEconomy.FacilityName(id) + "生产优先：" + (facility.Priority == 2 ? "高" : facility.Priority == 1 ? "中" : "低"), 0, 800, () =>
-                { owner.Change(next => { var f = next.Muster.Facilities.Single(x => x.FacilityId == id); f.Priority = (f.Priority + 1) % 3; next.Development.Policy = "custom"; }, "已更新统一优先级"); OpenGovernment(); }); row += 58;
+                { owner.Change(next => { var f = next.Muster.Facilities.Single(x => x.FacilityId == id); f.Priority = (f.Priority + 1) % 3; next.Development.Policy = "manual"; }, "已改为手动并更新优先级"); OpenGovernment(); }); row += 58;
                 Line("等级 " + facility.Level + "；今日生产人数 " + BaseEconomy.EligibleWorkers(s, id) + "/" + facility.Capacity + "；管理员 " + (BaseEconomy.Manager(s,id) is BaseLeader manager ? BasePersonnel.LeaderName(manager) : "空位"), 48);
             }
+            // 基地建设（P40 临时入口）：正式拖放界面等原型定稿；这里只做放置／收存与费用结算，点一下自动找空地。
+            Line("基地建设：点击放置会自动选第一处合法空地；正式拖放界面等原型定稿后替换。", 76, 18);
+            foreach (var def in BaseFacilityLayout.Catalog)
+            {
+                bool built = BaseFacilityLayout.Built(s, def.Id), stored = BaseFacilityLayout.Stored(s, def.Id);
+                bool licensed = s.Layout?.OfficeGift == true || built || stored;
+                string state = built ? "已放置" : stored ? "已收存" : def.Id == "office" || def.Id == "caravan" ? (licensed ? "待放置" : "需建设许可") : "未拥有";
+                var definition = def;
+                if (built && !def.Required)
+                    RowButton(def.Name + " · " + state + " · 收存", 0, 800, () => { owner.Change(next => { if (!BaseFacilityLayout.Store(next, definition.Id, out string problem)) throw new InvalidOperationException(problem); }, def.Name + "已收存"); OpenGovernment(); });
+                else if (!built && !def.Required)
+                    RowButton(def.Name + " · " + state + (def.Materials > 0 ? " · 原料" + def.Materials : " · 免费") + " · 放置", 0, 800, () => { owner.Change(next => { if (!BaseFacilityLayout.AutoPlace(next, definition.Id, out string problem, out _, out _)) throw new InvalidOperationException(problem); }, def.Name + "已放置"); OpenGovernment(); }, licensed);
+                else
+                    RowButton(def.Name + " · " + state, 0, 800, () => { }, false);
+                row += 58;
+            }
+            Line("商队：" + BaseCaravan.Status(s), 60, 19);
             Line("随行队长不管理设施；队长按日自然回血，不影响任职资格，也不受兵力阈值限制。士兵生命低于 30% 既不能工作也不能主动出战；遇袭守家例外，还能行动就上。全员每天自动恢复，满血停止。", 98, 18);
             Line("管理员当前每设施一席，工人位有限；以后升级可扩容和解锁配方。手动调配会锁定意向，解锁后恢复自动安排。", 85, 18);
+        }
+        private void OpenCaravan()
+        {
+            var s = owner.State;
+            activeObject = "caravan"; interactionObject = "caravan";
+            BeginPanel("商队", "caravan");
+            Line("人员 " + BaseCaravan.Crew(s) + "人 · 运力 " + BaseCaravan.Capacity(s) + " · 每日口粮 " + BaseCaravan.DailyFood(s) + "（双倍）", 56, 21);
+            Line(BaseCaravan.Status(s), 52, 21);
+            RowButton("领地内跑商 · 每日金币+" + BaseCaravan.Crew(s) * BaseCaravan.LocalCoinsPerCrew, -210, 400,
+                () => owner.Change(next => { if (!BaseCaravan.Start(next, "local", out string problem)) throw new InvalidOperationException(problem); }, "商队已开始跑商"), BaseCaravan.Problem(s, "local") == "");
+            RowButton("黑鸦寨运输 · 三天往返", 210, 400,
+                () => owner.Change(next => { if (!BaseCaravan.Start(next, "crow", out string problem)) throw new InvalidOperationException(problem); }, "商队已出发前往黑鸦寨"), BaseCaravan.Problem(s, "crow") == "");
+            row += 60;
+            RowButton("召回／解散商队", 0, 800, () => { owner.Change(next => BaseCaravan.Stop(next, "玩家召回商队，人员回到基地空闲"), "商队已召回"); OpenCaravan(); }, s.Caravan.Route != "" || s.Caravan.Phase != ""); row += 60;
+            Line("人员在「工人」页的商队一栏调配；满载以黑鸦寨当前库存为准，不预测未来产量。", 76, 18);
+            foreach (var entry in s.Caravan.Log.Skip(Math.Max(0, s.Caravan.Log.Count - 5))) Line(entry, 44, 17);
+            EndPanel();
         }
         private string PersonState(BaseLeader l) => BasePersonnel.State(owner.State,l);
         private void OpenBarracks()

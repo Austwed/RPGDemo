@@ -18,7 +18,15 @@ namespace BaseConquest.Base
     }
     public static class BaseDevelopment
     {
-        public static readonly string[] Policies = { "food", "equipment", "balanced", "custom" };
+        // P40（2026-11-06）：办公设施建成前只能逐人手动；建成后四档策略。旧 balanced／custom 迁移为自动／手动。
+        public static readonly string[] Policies = { "food", "equipment", "auto", "manual" };
+        public static bool OfficeBuilt(BaseState s) => BaseFacilityLayout.OfficeBuilt(s);
+        public static string EffectivePolicy(BaseState s) => OfficeBuilt(s) ? (s?.Development?.Policy ?? "manual") : "manual";
+        public static bool AutoAssign(BaseState s) => EffectivePolicy(s) != "manual";
+        // 策略顺序：粮草优先／军需优先按固定顺序填满；自动分配另行试算配额；手动不自动补位。
+        public static string[] PolicyOrder(BaseState s) => EffectivePolicy(s) == "equipment"
+            ? new[] { "workshop", "farm", "caravan" }
+            : new[] { "farm", "workshop", "caravan" };
         // 营帐每升一级额外 +10 个百分点：1／2／3 级 ＝ 30%／40%／50%（比例本身由配表 recovery_per_day 提供）。
         public const double CampRecoveryStep = .1;
         public static double RecoveryRatio(BaseState s)
@@ -64,7 +72,7 @@ namespace BaseConquest.Base
         }
         public static double Efficiency(BaseWorkerBucket w, string facility) => facility == "farm" ? w.FarmEfficiency : w.WorkshopEfficiency;
         public static double Bonus(BaseLeader l, string facility) => BaseRpg.ProductionBonus(l,facility);
-        public static string PolicyName(string id) => id == "food" ? "粮草优先" : id == "equipment" ? "军需优先" : id == "balanced" ? "均衡" : "自定优先";
+        public static string PolicyName(string id) => id == "food" ? "粮食优先" : id == "equipment" ? "军需优先" : id == "auto" ? "自动分配" : "手动分配";
         public static string ProfileKey(bool has, BaseConquest.Battle.SoldierStats stats) => !has ? "default" : stats == null ? "invalid" : string.Join(":",new[] {stats.Health,stats.Damage,stats.Defense,stats.CritChance,stats.CritMultiplier,stats.Penetration,stats.Resistance}.Select(x=>x.ToString("R",CultureInfo.InvariantCulture)))+":"+stats.Range+":"+stats.MoveDistance+":"+stats.HasCombatKind+":"+stats.CombatKind+":"+stats.HasProfessionKind+":"+stats.ProfessionKind+":"+stats.Level;
         public static void Normalize(BaseState s)
         {
@@ -75,10 +83,17 @@ namespace BaseConquest.Base
             // 预警线是 P38 新增字段：旧档没写过（0）就补默认 50%，不把「未设置」当成「拖到最低」。
             if (d != null && (double.IsNaN(d.WarningThreshold) || double.IsInfinity(d.WarningThreshold) || d.WarningThreshold <= 0)) d.WarningThreshold = WarningDefault;
             // 版本 1 的旧档存的是“每日固定生命”（旧量纲），升级为按最大生命比例，比例取默认 30%。
-            if (d != null && d.Version == 1) { d.Version = 2; if (!(d.RecoveryFraction > 0 && d.RecoveryFraction <= 1)) d.RecoveryFraction = .3; return; }
+            if (d != null && d.Version == 1) { d.Version = 2; if (!(d.RecoveryFraction > 0 && d.RecoveryFraction <= 1)) d.RecoveryFraction = .3; }
+            // 版本 2 的四档旧策略在 P40 换名：均衡→自动分配、自定优先→手动分配；其余保持，未知值回落手动。
+            if (d != null && d.Version == 2)
+            {
+                d.Version = 3;
+                if (d.Policy == "balanced") d.Policy = "auto";
+                else if (d.Policy == "custom" || string.IsNullOrEmpty(d.Policy) || !Policies.Contains(d.Policy)) d.Policy = "manual";
+            }
             if (d != null && d.Version != 0) return;
             // 旧进度保留手动意向，不在读档时偷偷把伙伴和工作兵全部重排。
-            s.Development = new BaseDevelopmentState { Version = 2, Automatic = false };
+            s.Development = new BaseDevelopmentState { Version = 3, Automatic = false, Policy = "manual" };
             foreach (var l in s.Leaders.Where(x => x != null))
             {
                 if (l.MaxHealth == 0) { l.MaxHealth = 200; l.Health = 200; }
@@ -98,7 +113,7 @@ namespace BaseConquest.Base
         public static void Validate(BaseState s)
         {
             var d = s.Development;
-            if (d.Version != 2 || !Policies.Contains(d.Policy) || !Number(d.RecoveryFraction, 1) || d.RecoveryFraction <= 0 || !Number(d.WarningThreshold, 1)) throw new ArgumentException("发展策略或回血规则非法");
+            if (d.Version != 3 || !Policies.Contains(d.Policy) || !Number(d.RecoveryFraction, 1) || d.RecoveryFraction <= 0 || !Number(d.WarningThreshold, 1)) throw new ArgumentException("发展策略或回血规则非法");
             foreach (var l in s.Leaders)
             { if(l.HasCombatProfile&&(!BaseAftermath.ValidStats(l.CombatStats)||l.PersonalEquipment?.Version!=1&&l.CombatStats.Health!=l.MaxHealth)) throw new ArgumentException("人物战斗属性非法");
                 if (!Number(l.MaxHealth, 100000) || l.MaxHealth < 1 || !Number(l.Health, l.MaxHealth) || !BaseEconomy.Facilities.Contains(l.DesiredFacility) || !Number(l.FarmBonus, 1) || !Number(l.WorkshopBonus, 1) || l.Resting && (l.Away || l.Health <= 0)) throw new ArgumentException("队长健康／岗位意向非法");
@@ -111,23 +126,24 @@ namespace BaseConquest.Base
         public static void SetPolicy(BaseState s, string policy)
         {
             if (!Policies.Contains(policy)) throw new ArgumentException("未知发展策略");
+            // 办公设施未建成时只允许手动；门禁放在这里，不靠界面隐藏按钮。
+            if (policy != "manual" && !OfficeBuilt(s)) throw new InvalidOperationException("办公设施未建成，只能逐人手动安排");
             s.Development.Policy = policy;
-            if (policy != "custom") foreach (var f in s.Muster.Facilities) f.Priority = policy == "balanced" ? 1 : (policy == "food") == (f.FacilityId == "farm") ? 2 : 0;
+            if (policy == "food" || policy == "equipment")
+                foreach (var f in s.Muster.Facilities)
+                    f.Priority = (policy == "food") == (f.FacilityId == "farm") ? 2 : f.FacilityId == "caravan" ? 1 : 0;
+            s.Development.Automatic = AutoAssign(s);
             Allocate(s);
         }
-        public static void SetAutomatic(BaseState s, bool enabled)
-        {
-            if (!enabled && s.Development.Automatic)
-            {
-                foreach (var w in s.Workers.Where(w => w.FacilityId != "" && !w.PostLocked)) w.DesiredFacility = w.FacilityId;
-                foreach (var l in s.Leaders.Where(l => l.FacilityId != "" && !l.PostLocked)) l.DesiredFacility = l.FacilityId;
-            }
-            s.Development.Automatic = enabled; Allocate(s);
-        }
+        public static void SetAutomatic(BaseState s, bool enabled) => SetPolicy(s, enabled ? "auto" : "manual");
         public static void Allocate(BaseState s)
         {
             Normalize(s);
-            var facilities = s.Muster.Facilities.Where(facility=>BaseDemo.FacilityAvailable(s,facility.FacilityId)).OrderByDescending(f => f.Priority).ThenBy(f => f.FacilityId, StringComparer.Ordinal).ToArray();
+            bool auto = AutoAssign(s);
+            var order = PolicyOrder(s);
+            int Rank(string id) { int index = Array.IndexOf(order, id); return index < 0 ? 9 : index; }
+            var facilities = s.Muster.Facilities.Where(facility=>BaseDemo.FacilityAvailable(s,facility.FacilityId))
+                .OrderBy(f => Rank(f.FacilityId)).ThenBy(f => f.FacilityId, StringComparer.Ordinal).ToArray();
             int Capacity(BaseFacilityProtection f)=>f.FacilityId=="workshop"&&s.Muster.Parties.Any(p=>p.PriorityMode=="production"&&p.ConserveMaterials) ? Math.Min(f.Capacity,Math.Max(1,f.MinimumWorkers)) : f.Capacity;
             bool Productive(string id) => id != "workshop" || s.Inventory.Materials >= BaseConstruction.MaterialCost(s,s.WorkshopProduct);
             var oldJobs = s.Workers.ToDictionary(w => w, w => w.FacilityId);
@@ -140,6 +156,36 @@ namespace BaseConquest.Base
                 if (n <= 0) return;
                 var w = source.Copy(); w.Count = n; w.FacilityId = id; assigned.Add(w); remaining[source] -= n;
             }
+            int Assigned(string id) => assigned.Where(w => w.FacilityId == id).Sum(w => w.Count);
+            double ChiefBonus(string id) => 1 + (s.Leaders.FirstOrDefault(l => l.FacilityId == id) is BaseLeader chief ? Bonus(chief, id) : 0);
+            double FarmPerWorker() => s.Rules.FarmPerWorker * ChiefBonus("farm") * BaseEconomy.ProductionFactor(s);
+            // 自动分配（§11.1A）：先保证粮食不赤字，再按三天原料试算工坊，最后才给商队排人。
+            int Quota(BaseFacilityProtection f)
+            {
+                int capacity = Capacity(f) - Assigned(f.FacilityId);
+                if (!auto) return capacity;
+                if (f.FacilityId == "farm")
+                {
+                    double per = FarmPerWorker();
+                    if (per <= 0) return 0;
+                    int need = BaseEconomy.FoodRequired(s) - (int)Math.Floor(s.FarmFraction);
+                    return Math.Max(0, Math.Min(capacity, (int)Math.Ceiling(Math.Max(0, need) / per)));
+                }
+                if (f.FacilityId == "workshop")
+                {
+                    double per = s.Rules.WorkshopPerWorker * ChiefBonus("workshop") * BaseEconomy.ProductionFactor(s) / BaseConstruction.ProductLevel(s);
+                    int cost = BaseConstruction.MaterialCost(s, s.WorkshopProduct);
+                    if (per <= 0 || cost <= 0) return 0;
+                    return Math.Max(0, Math.Min(capacity, (int)Math.Floor(s.Inventory.Materials / (per * cost * 3d))));
+                }
+                if (f.FacilityId == "caravan")
+                {
+                    // 商队不产粮且吃双份：只在不造成粮食赤字时安排；全员种粮仍赤字就一个也不给。
+                    double food = s.FarmFraction + Assigned("farm") * FarmPerWorker();
+                    return Math.Max(0, Math.Min(capacity, (int)Math.Floor((food - BaseEconomy.FoodRequired(s)) / 2d)));
+                }
+                return capacity;
+            }
             foreach (var f in facilities)
             {
                 int capacity = Capacity(f);
@@ -150,7 +196,7 @@ namespace BaseConquest.Base
                     .OrderByDescending(l => oldLeaders[l] == f.FacilityId).ThenBy(l => l.Id, StringComparer.Ordinal).FirstOrDefault();
                 if (chief != null) chief.FacilityId = f.FacilityId;
             }
-            if(s.Development.Automatic&&s.Muster.Parties.Any(p=>p.PriorityMode=="production"))
+            if(auto&&s.Muster.Parties.Any(p=>p.PriorityMode=="production"))
                 foreach(var f in facilities)
                 {
                     int missing=Math.Min(Capacity(f),Math.Max(1,f.MinimumWorkers))-assigned.Where(w=>w.FacilityId==f.FacilityId).Sum(w=>w.Count);
@@ -159,8 +205,8 @@ namespace BaseConquest.Base
                 }
             foreach (var f in facilities)
             {
-                int capacity = Capacity(f) - assigned.Where(w => w.FacilityId == f.FacilityId).Sum(w => w.Count);
-                if (!s.Development.Automatic)
+                int capacity = auto ? Quota(f) : Capacity(f) - Assigned(f.FacilityId);
+                if (!auto)
                 {
                     foreach (var w in s.Workers.Where(w => Effective(s, w) && !w.PostLocked && w.DesiredFacility == f.FacilityId))
                     { int n = Math.Min(capacity, remaining[w]); Put(w, f.FacilityId, n); capacity -= n; }

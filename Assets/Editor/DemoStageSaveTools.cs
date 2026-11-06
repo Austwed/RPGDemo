@@ -22,6 +22,8 @@ namespace BaseConquest.Editor
         private static void At(BaseState s,string id)
         {var obj=BaseSpatial.Objects(s).Single(o=>o.Id==id);var p=obj.Blocks?BaseStageWalk.Door(s,id):new BasePoint(obj.X,obj.Y);s.PlayerX=p.X;s.PlayerY=p.Y;BaseAdventure.Arrive(s);}
         private static void Need(bool yes,string why){if(!yes)throw new InvalidOperationException(why);}
+        // P40：办公设施在首防之后才由领主赠送，此前只能逐人手动；测试档把可工作的人先排到粮田。
+        private static void AssignFarm(BaseState s){foreach(var w in s.Workers.Where(w=>!w.Away))w.DesiredFacility="farm";BaseDevelopment.SetPolicy(s,"manual");}
         private static void Loot(BaseState s)
         {
             foreach(var p in s.Aftermath.Prisoners.Where(p=>p.Status=="held").ToArray())Need(BaseAftermath.Decide(s,p.Id,"release"),"释放俘虏");
@@ -64,12 +66,12 @@ namespace BaseConquest.Editor
                     if(!bought)break;
                 }
                 if(s.Workers.Sum(w=>w.Count)>=11||BaseDemoDefense.Due(s))break;
-                At(s,"travel_base");Need(BaseCampaign.Travel(s,"base"),"返回基地");BaseDevelopment.SetPolicy(s,"food");
+                At(s,"travel_base");Need(BaseCampaign.Travel(s,"base"),"返回基地");AssignFarm(s);
                 At(s,"home");Need(BaseEconomy.Rest(s,s.Day),"真实休息日结："+BaseDemoFlow.RestProblem(s));
                 At(s,"exit_east");Need(BaseCampaign.Travel(s,"town"),"返回城镇");At(s,"town_recruit");
             }
             Need(s.Workers.Sum(w=>w.Count)==11,"阶段档11名普通兵");s.Demo.Flow.RecruitmentNotice=true;
-            At(s,"travel_base");Need(BaseCampaign.Travel(s,"base"),"返回基地");At(s,"demo_fix_workshop");Need(BaseDemoDefense.Repair(s,"workshop"),"修复工坊");At(s,"demo_fix_barracks");Need(BaseDemoDefense.Repair(s,"barracks"),"修复兵营");BaseDevelopment.SetPolicy(s,"food");
+            At(s,"travel_base");Need(BaseCampaign.Travel(s,"base"),"返回基地");At(s,"demo_fix_workshop");Need(BaseDemoDefense.Repair(s,"workshop"),"修复工坊");At(s,"demo_fix_barracks");Need(BaseDemoDefense.Repair(s,"barracks"),"修复兵营");AssignFarm(s);
             At(s,"home");s.Demo.Flow.RestLessonDone=true;for(int n=0;n<20&&!BaseDemoDefense.Due(s);n++)Need(BaseEconomy.Rest(s,s.Day),"真实休息日结："+BaseDemoFlow.RestProblem(s));
             At(s,"home");
             Need(BaseDemoDefense.Due(s),"首防到达");s.Demo.Flow.RestLessonDone=true;s.Demo.Flow.FarmOfferShown=true;s.Demo.Flow.NoviceShop=true;
