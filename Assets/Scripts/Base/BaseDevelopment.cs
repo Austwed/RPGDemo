@@ -129,6 +129,7 @@ namespace BaseConquest.Base
             // 办公设施未建成时只允许手动；门禁放在这里，不靠界面隐藏按钮。
             if (policy != "manual" && !OfficeBuilt(s)) throw new InvalidOperationException("办公设施未建成，只能逐人手动安排");
             s.Development.Policy = policy;
+            if (s.Layout != null) s.Layout.PausedPolicy = "";
             if (policy == "food" || policy == "equipment")
                 foreach (var f in s.Muster.Facilities)
                     f.Priority = (policy == "food") == (f.FacilityId == "farm") ? 2 : f.FacilityId == "caravan" ? 1 : 0;

@@ -47,15 +47,17 @@ namespace BaseConquest.Editor
             BaseDevelopment.SetPolicy(s, "food");
             Need(s.Development.Policy == "food" && BaseDevelopment.AutoAssign(s), "办公设施建成后应能选择粮食优先");
             Need(BaseFacilityLayout.Store(s, "office", out _) && !BaseFacilityLayout.OfficeBuilt(s), "办公设施应能收存");
-            Need(s.Development.Policy == "food", "收存办公设施应保留策略设置");
+            Need(s.Development.Policy == "manual" && s.Layout.PausedPolicy == "food", "收存办公设施应暂停策略并保留设置");
             Need(BaseDevelopment.EffectivePolicy(s) == "manual" && !BaseDevelopment.AutoAssign(s), "收存办公设施后应按手动执行");
             Need(!BaseFacilityLayout.Store(s, "home", out string homeProblem) && homeProblem == "必需设施不能收存", "营帐属于必需设施，不能收存");
             Need(BaseFacilityLayout.AutoPlace(s, "office", out _, out _, out _) && s.Inventory.Materials == materials, "重新放置已拥有的办公设施不应再次扣费");
+            Need(s.Development.Policy == "manual" && s.Layout.PausedPolicy == "food", "重新放置办公设施不应自动恢复策略");
 
             // 自动分配：有缺口时先排粮田；工坊要留够三天原料；商队吃双份只在有盈余时排人。
             s.Workers.Clear();
             s.Workers.Add(new BaseWorkerBucket { Kind = BaseTroopKind.Melee, Count = 6, MaxHealth = 100, Health = 100, FarmEfficiency = 1, WorkshopEfficiency = 1 });
             BaseDevelopment.SetPolicy(s, "auto");
+            Need(s.Layout.PausedPolicy == "", "确认策略后应清掉暂停值");
             BaseDevelopment.Allocate(s);
             Need(Workers(s, "farm") > 0, "自动分配应先保证粮食生产");
             Need(Workers(s, "farm") + Workers(s, "workshop") + Workers(s, "caravan") <= 6, "自动分配不能超过可用人数");

@@ -26,7 +26,7 @@ namespace BaseConquest.Base
                 var option=RowButton((s.Development.Policy==id ? "● " : "　 ")+BaseDevelopment.PolicyName(id), 0, 800, () => { owner.Change(next => BaseDevelopment.SetPolicy(next, id), "已按发展策略安排有效人员"); OpenGovernment(); }, allowed);
                 option.GetComponentInChildren<UnityEngine.UI.Text>().color=Color.white;row += 56;
             }
-            Line("办公设施建成前只能逐人手动安排；建成后才会自动补位。切换策略立即重排，手动锁定的人不受影响。", 76, 18);
+            Line("办公设施建成前只能逐人手动安排；建成后才会自动补位。切换策略立即重排，手动锁定的人不受影响。" + (string.IsNullOrEmpty(s.Layout?.PausedPolicy) ? "" : "上次策略：" + BaseDevelopment.PolicyName(s.Layout.PausedPolicy) + "（办公设施收存后暂停，重新放置后请再确认）"), 76, 18);
             foreach (var facility in s.Muster.Facilities)
             {
                 string id = facility.FacilityId;

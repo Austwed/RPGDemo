@@ -25,8 +25,10 @@ namespace BaseConquest.Base
         public int Version, Revision;
         // 领主在首防后赠送办公设施与商队建设许可；许可到手后玩家回营地自行放置。
         public bool OfficeGift;
+        // 收存办公设施时暂停的策略值：保留给界面显示，重新放置后须玩家确认才恢复。
+        public string PausedPolicy = "";
         public List<string> Stored = new List<string>();
-        public BaseLayoutState Copy() => new BaseLayoutState { Version = Version, Revision = Revision, OfficeGift = OfficeGift, Stored = (Stored ?? new List<string>()).ToList() };
+        public BaseLayoutState Copy() => new BaseLayoutState { Version = Version, Revision = Revision, OfficeGift = OfficeGift, PausedPolicy = PausedPolicy ?? "", Stored = (Stored ?? new List<string>()).ToList() };
     }
     public static class BaseFacilityLayout
     {
@@ -58,6 +60,7 @@ namespace BaseConquest.Base
             var state = s.Layout;
             if (state.Version != Version || state.Revision < 0 || state.Revision >= int.MaxValue || state.Stored.Count > Catalog.Length) throw new ArgumentException("设施布局版本或收存清单非法");
             if (state.Stored.Distinct().Count() != state.Stored.Count || state.Stored.Any(id => Find(id) == null || Find(id).Required)) throw new ArgumentException("收存设施非法");
+            if (!string.IsNullOrEmpty(state.PausedPolicy) && !BaseDevelopment.Policies.Contains(state.PausedPolicy)) throw new ArgumentException("暂停策略值非法");
             // 剧情场景／返乡村庄会临时换掉营地布局；此时没有营地可校验，保留收存清单原样。
             if (layout == null) return;
             foreach (var def in Catalog)
@@ -145,6 +148,8 @@ namespace BaseConquest.Base
             // 收存办公设施：暂停策略但保留设置，其他岗位保持现状（先落成手动意向再重排）。
             if (id == "office")
             {
+                if (s.Development.Policy != "manual") s.Layout.PausedPolicy = s.Development.Policy;
+                s.Development.Policy = "manual";
                 foreach (var worker in s.Workers.Where(w => w.FacilityId != "" && !w.PostLocked)) worker.DesiredFacility = worker.FacilityId;
                 foreach (var leader in s.Leaders.Where(l => l.FacilityId != "" && !l.PostLocked)) leader.DesiredFacility = leader.FacilityId;
             }
