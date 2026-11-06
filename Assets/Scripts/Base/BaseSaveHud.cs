@@ -36,7 +36,7 @@ namespace BaseConquest.Base
                 Line("角色探索与养成：序章→结识伙伴／调查遗迹→领主任务→经营整备→防守／攻营→返乡断剑。Demo独立3手动／6自动槽；默认继续最近存档，无档从序章开始。不兼容旧档会清除并重新开始，不迁移。",140,20);
                 if(owner.State!=null&&!owner.State.Aftermath.GameOver){RowButton("继续Demo",0,800,()=>{BaseBattleGateway.MainMenu=false;owner.LoadSaved();});row+=60;}
                 RowButton("读取Demo存档",0,800,()=>OpenSlots(false));row+=60;
-                RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;
+                if(BaseConquest.Battle.RuntimeDeveloperOptions.Enabled)RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;
                 AddTemplates();RowButton("难度设置",0,800,OpenDifficulty);row+=60;RowButton("选项",0,800,OpenOptions);row+=60;EndPanel();return;
             }
             BeginPanel("基地征服 · 即时格战隔离流程");Line("3手动／6节点自动档；退出游戏将丢失未保存的会话更改。技能／救援／追击待接入。",58,18);
@@ -59,7 +59,7 @@ namespace BaseConquest.Base
             BeginPanel(saving ? "手动保存 · 3个槽位" : "读取游戏 · 3手动／6自动");
             RowButton("返回",-210,400,()=>{if(BaseBattleGateway.MainMenu) OpenMainMenu(); else if(owner.State?.Aftermath.GameOver==true) OpenGameOver(); else OpenMenu();});
             RowButton("存档规则 i",210,400,()=>RuleInfo("存档规则","3个手动槽需主动保存，覆盖前确认；6个自动槽只在新游戏、完整推进一天、关卡最终奖励全部处理后轮换。普通经营操作和战斗中不写盘。会话内退出普通战斗回到确认前，序章追兵战无损重试；Demo遗迹和首次防守失败可回本场战前，胜利保留真实战损。完全退出后读最近磁盘档，不保留未保存的会话更改。Demo序章完成、领主接取、遗迹救助及交付各一次节点；首防战利品／俘虏全部处理完才存，不在战胜瞬间抢存。旧档文件不删除。",()=>OpenSlots(saving))); row+=66;
-            if(!saving&&BaseBattleGateway.DemoMode){RowButton("阶段测试档",0,800,OpenDemoStages);row+=64;}
+            if(!saving&&BaseBattleGateway.DemoMode&&BaseConquest.Battle.RuntimeDeveloperOptions.Enabled){RowButton("阶段测试档",0,800,OpenDemoStages);row+=64;}
             foreach(string key in saving ? BaseSaveCatalog.Slots : BaseSaveCatalog.Slots.Concat(BaseSaveCatalog.AutoSlots))
             {
                 string id=key; var e=entries.FirstOrDefault(x=>x.Id==id);

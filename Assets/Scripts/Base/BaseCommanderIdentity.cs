@@ -10,7 +10,7 @@ namespace BaseConquest.Base
             if(!string.IsNullOrEmpty(leader.AppearanceId))return leader.AppearanceId;
             if(leader.Id=="partner_farm")return "ahe";
             if(leader.Id=="partner_craft")return "azhu";
-            if(leader.Id=="partner_test"||leader.Recruited&&UnitDisplayNames.RecruitedName(leader.Name)=="陈安")return "chenan";
+            if(leader.Recruited&&UnitDisplayNames.RecruitedName(leader.Name)=="陈安")return "chenan";
             return "";
         }
         public static SoldierStats Stats(BaseLeader leader,SoldierStats fallback)

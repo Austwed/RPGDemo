@@ -9,7 +9,7 @@ namespace BaseConquest.RealtimePrototype
 {
     [Serializable] public sealed class RealtimeBattleState
     {
-        public int Version=1,NextUnit,NextArrow,Step,Hits,Shots,CompletedSteps,YieldMoves,HitSerial;
+        public int Version=1,NextUnit,NextArrow,Step,Hits,Shots,CompletedSteps,YieldMoves,HitSerial,ShoveMoves;
         public double Seconds,Remainder;
         public bool RuinsCivilianDamaged;
         public List<PrototypeUnit> Units=new List<PrototypeUnit>();
@@ -18,13 +18,13 @@ namespace BaseConquest.RealtimePrototype
         public int RpgAttackSerial;
         public List<RealtimeCommanderSkill> Skills=new List<RealtimeCommanderSkill>();
         public RealtimeBattleState Copy()=>new RealtimeBattleState {Version=Version,NextUnit=NextUnit,NextArrow=NextArrow,Step=Step,Hits=Hits,Shots=Shots,
-            CompletedSteps=CompletedSteps,YieldMoves=YieldMoves,HitSerial=HitSerial,Seconds=Seconds,Remainder=Remainder,RuinsCivilianDamaged=RuinsCivilianDamaged,
+            CompletedSteps=CompletedSteps,YieldMoves=YieldMoves,HitSerial=HitSerial,ShoveMoves=ShoveMoves,Seconds=Seconds,Remainder=Remainder,RuinsCivilianDamaged=RuinsCivilianDamaged,
             RpgAttackSerial=RpgAttackSerial,RpgAttacks=RpgAttacks.Select(a=>a.Copy()).ToList(),Units=Units.Select(unit=>unit.Copy()).ToList(),Arrows=Arrows.Select(arrow=>arrow.Copy()).ToList(),Skills=(Skills??new List<RealtimeCommanderSkill>()).Select(skill=>skill.Copy()).ToList()};
     }
     public sealed partial class RealtimeBattlePrototype
     {
         public RealtimeBattleState Capture()=>new RealtimeBattleState {NextUnit=nextUnitId,NextArrow=nextArrowId,Step=simulationStep,Hits=Hits,Shots=Shots,
-            CompletedSteps=CompletedSteps,YieldMoves=YieldMoves,Seconds=Elapsed,Remainder=remainder,
+            CompletedSteps=CompletedSteps,YieldMoves=YieldMoves,ShoveMoves=ShoveMoves,Seconds=Elapsed,Remainder=remainder,
             Units=Units.Select(unit=>{var copy=unit.Copy();if(copy.FootprintLength==2)copy.Facing=unit.BodyAxis;return copy;}).ToList(),Arrows=Arrows.Select(arrow=>arrow.Copy()).ToList()};
         // RPG units may combine up to 1,000,000 base attack, 10,000 supply,
         // and a 2x wine multiplier. Identity checks still verify the source.
@@ -34,7 +34,7 @@ namespace BaseConquest.RealtimePrototype
             bool Finite(double value)=>PrototypeArena.Finite(value);
             bool Point(PrototypePoint point)=>Finite(point.X)&&Finite(point.Z);
             if(state==null||state.Version!=1||!Finite(state.Seconds)||state.Seconds<0||state.Seconds>10000||!Finite(state.Remainder)||state.Remainder< -1e-8||state.Remainder>=FixedSeconds+1e-8||
-                state.Units==null||state.Units.Count>186||state.Arrows==null||state.Arrows.Count>1000||new[]{state.Step,state.Hits,state.Shots,state.CompletedSteps,state.YieldMoves,state.HitSerial}.Any(value=>value<0)||
+                state.Units==null||state.Units.Count>186||state.Arrows==null||state.Arrows.Count>1000||new[]{state.Step,state.Hits,state.Shots,state.CompletedSteps,state.YieldMoves,state.HitSerial,state.ShoveMoves}.Any(value=>value<0)||
                 state.NextUnit<=state.Units.Select(unit=>unit?.Id??int.MaxValue).DefaultIfEmpty(0).Max()||state.NextArrow<=state.Arrows.Select(arrow=>arrow?.Id??int.MaxValue).DefaultIfEmpty(0).Max())throw new ArgumentException("即时战斗检查点版本／时钟／集合非法");
             foreach(var unit in state.Units)
             {
@@ -60,7 +60,7 @@ namespace BaseConquest.RealtimePrototype
             if(state.Arrows.Any(arrow=>arrow==null||arrow.Id<1||!state.Units.Any(unit=>unit.Id==arrow.SourceId&&unit.Side==arrow.Side)||!Point(arrow.Position)||!Point(arrow.Direction)||Math.Abs(arrow.Direction.Length-1)>1e-6||!Finite(arrow.Damage)||arrow.Damage<0||!Finite(arrow.Remaining)||arrow.Remaining<=0||arrow.Remaining>13)||state.Arrows.Select(arrow=>arrow.Id).Distinct().Count()!=state.Arrows.Count)throw new ArgumentException("即时弹道检查点非法");
             Units.Clear();Units.AddRange(state.Units.Select(unit=>unit.Copy()));Arrows.Clear();Arrows.AddRange(state.Arrows.Select(arrow=>arrow.Copy()));
             Elapsed=state.Seconds;remainder=state.Remainder;nextUnitId=state.NextUnit;nextArrowId=state.NextArrow;simulationStep=state.Step;
-            Hits=state.Hits;Shots=state.Shots;CompletedSteps=state.CompletedSteps;YieldMoves=state.YieldMoves;Paused=true;RebuildReservations();
+            Hits=state.Hits;Shots=state.Shots;CompletedSteps=state.CompletedSteps;YieldMoves=state.YieldMoves;ShoveMoves=state.ShoveMoves;Paused=true;RebuildReservations();
         }
     }
 }

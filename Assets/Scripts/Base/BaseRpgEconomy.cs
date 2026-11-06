@@ -23,7 +23,7 @@ namespace BaseConquest.Base
         {
             var l=s.Leaders.FirstOrDefault(p=>p.Id==id);
             if(!Active(s)||s.Campaign.Location!="base"||!BasePartyInventory.Peaceful(s)||BaseSceneCombat.Active(s))return "请在安全营地处理";
-            if(l==null||id==s.PlayerLeaderId||l.Rpg==null||l.Rpg.Story)return "主角与剧情伙伴不能请离";
+            if(l==null||id==s.PlayerLeaderId||l.Rpg==null||l.Rpg.Story)return "主角与剧情伙伴不能离队";
             if(l.Away||BaseTraining.Busy(l.Training)||!string.IsNullOrEmpty(l.PartyId)||BaseAdventure.Region(l)!="base")return "队长正在外出或训练";
             if(s.PersonalEquipment.Warehouse.Count+(l.PersonalEquipment?.Items.Count??0)>10000||s.Backpack.Revision>=int.MaxValue-1)return "仓库空间不足，保留全部物品及队长";
             if(BasePartyInventory.Entries(s).Any(e=>e.Holder==id&&!string.IsNullOrEmpty(e.Bound)))return "请先处理此人的绑定物品";

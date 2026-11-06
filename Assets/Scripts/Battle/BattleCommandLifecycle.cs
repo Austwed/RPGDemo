@@ -141,13 +141,27 @@ namespace BaseConquest.Battle
             if (cells.Count == 0) return 0;
             // 指挥者成组位于中部，小兵按近战前排、弓手后排、骑兵侧翼分配。
             int centerX = (int)Math.Round(cells.Average(p => p.X)); int centerZ = (int)Math.Round(cells.Average(p => p.Z)); int forward = side == BattleSide.A ? 1 : -1, total = 0;
+            // 骑兵占两格，开局挤在一起就再也散不开（2026-11-06 裁决：骑兵间距拉大）。
+            // 先挑四邻域最空的格子，其次才看格子本身有没有人。
+            int NeighbourLoad(GridPosition p)
+            {
+                int load = 0;
+                for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++)
+                {
+                    if (dx == 0 && dz == 0) continue;
+                    var n = new GridPosition(p.X + dx, p.Z + dz);
+                    if (n.X < 0 || n.Z < 0 || n.X >= Board.Width || n.Z >= Board.Height) continue;
+                    if (At(n) != null) load++;
+                }
+                return load;
+            }
             foreach (var kind in new[] { SoldierKind.Hero, SoldierKind.Melee, SoldierKind.Cavalry, SoldierKind.Ranged })
                 foreach (int slot in slots)
                 {
                     int dx = kind == SoldierKind.Melee ? forward : kind == SoldierKind.Ranged ? -forward : 0;
                     int dz = kind == SoldierKind.Cavalry ? 2 : kind == SoldierKind.Hero ? slot - 1 : 0;
                     var ideal = new GridPosition(centerX + dx, centerZ + dz);
-                    foreach (var p in cells.OrderBy(p => UnitsAt(p).Count).ThenBy(p => kind == SoldierKind.Ranged ? forward * p.X : kind == SoldierKind.Melee ? -forward * p.X : GridPosition.Distance(p, ideal)).ThenBy(p => GridPosition.Distance(p, ideal)).ThenBy(p => p.Z * Board.Width + p.X))
+                    foreach (var p in cells.OrderBy(p => kind == SoldierKind.Cavalry ? NeighbourLoad(p) : 0).ThenBy(p => UnitsAt(p).Count).ThenBy(p => kind == SoldierKind.Ranged ? forward * p.X : kind == SoldierKind.Melee ? -forward * p.X : GridPosition.Distance(p, ideal)).ThenBy(p => GridPosition.Distance(p, ideal)).ThenBy(p => p.Z * Board.Width + p.X))
                         while (CanDeploy(side, kind, p, slot)) { Deploy(side, kind, p, slot); total++; }
                 }
             return total;

@@ -281,7 +281,11 @@ namespace BaseConquest.Base
             input = Vector2.ClampMagnitude(input, 1);if(input.sqrMagnitude>.0001f){float magnitude=input.magnitude;float angle=Mathf.Round(Mathf.Atan2(input.y,input.x)/(Mathf.PI/4))*(Mathf.PI/4);input=new Vector2(Mathf.Cos(angle),Mathf.Sin(angle))*magnitude;}
             double x = State.PlayerX, y = State.PlayerY;
             BaseSpatial.Move(State,ref x,ref y,input.x * 4.3 * Math.Min(seconds,0.05),input.y * 4.3 * Math.Min(seconds,0.05),Companions.PlayerObstacles(State),playerMotion);
-            if(input.sqrMagnitude>.0001f)BaseDemoIntro.Walk(State,Math.Sqrt((x-State.PlayerX)*(x-State.PlayerX)+(y-State.PlayerY)*(y-State.PlayerY)));
+            if(input.sqrMagnitude>.0001f)
+            {
+                BaseInteraction.Walk(new BasePoint(input.x,input.y));
+                BaseDemoIntro.Walk(State,Math.Sqrt((x-State.PlayerX)*(x-State.PlayerX)+(y-State.PlayerY)*(y-State.PlayerY)));
+            }
             State.PlayerX = x; State.PlayerY = y; PlacePlayer(); Hud.RefreshMovement();CheckPrologueTrigger();
         }
         private void AdvanceExplorationCompanions(double seconds)

@@ -19,10 +19,12 @@ namespace BaseConquest.RealtimePrototype
         //   CavalryShove        —— 把挡路的单位顶开一格（被顶者瞬移，等同"被顶超速"）。
         public bool CavalryPathPriority=true;   // 起步顺序：骑兵先手，其余单位再从剩下的格子里挑
         // 默认开启（韦德 2026-11-01 拍板方向：接受「其他单位被顶超速」的代价）。
+        // 2026-11-06 裁决：骑兵要能横冲直撞、直取高嘲讽目标，所以默认连敌方也撞。
         // 关掉只需把这一项置 false；证据与档位对比见 策划/战斗系统_骑兵挤开与寻路优先级_v1.md。
         public bool CavalryShove=true;          // 骑兵可以挤开挡路者
-        public bool ShoveAlliesOnly=true;       // true=只挤同阵营；false=连敌方也能撞开（会打断敌方前摇，强度很高）
-        public bool ShoveCavalry=true;          // 是否允许把另一匹马也顶开（8骑互挤时必须允许）
+        public bool ShoveEnemies=true;          // 可撞敌方步兵与敌方队长（含正在前摇的敌人，撞开即打断）
+        public bool ShoveEnemyCavalry=false;    // 敌军骑兵不互撞：两匹马同体积互顶，谁也顶不动谁
+        public bool ShoveAllyCavalry=true;      // 友军骑兵必须能互挤，否则 8 骑起步会互相堵死
         public double ShoveBlockedDelay=.15;    // 堵住这么久之后才允许挤人，避免一有擦碰就乱推
         public double ShoveCooldown=.5;         // 同一单位被顶之后的免疫时间
         public int ShoveMoves;                  // 挤开次数（诊断用）
@@ -56,6 +58,12 @@ namespace BaseConquest.RealtimePrototype
             var probe=rider.Copy();probe.Facing=(landing-rider.Position).Normalized;probe.SetBodyAxis(PrototypeUnit.MajorAxis(probe.Facing,rider.BodyAxis));
             foreach(var other in Units.Where(unit=>unit.Alive&&unit.Id!=rider.Id))
                 if(BodiesCross(probe,probe.Position,other,other.Moving?Arena.Center(other.NextCell):other.Position)){Consider(other);Tally("turn");}
+            // 斜向起步时还要占住转角两侧的格子（与 TryBeginStep 的侧格校验一致）。这两格被占时
+            // 原来的收集漏掉了它们，表现为「前面明明有人却挤不开」，马原地不动。
+            int dx=wanted%Arena.FineColumns-rider.Cell%Arena.FineColumns,dz=wanted/Arena.FineColumns-rider.Cell/Arena.FineColumns;
+            if(dx!=0&&dz!=0)
+                foreach(int side in new[]{rider.Cell+dx,rider.Cell+dz*Arena.FineColumns})
+                    if(reservations.TryGetValue(side,out int sideOwner)&&sideOwner!=rider.Id)Consider(Units.FirstOrDefault(unit=>unit.Id==sideOwner));
             if(targets.Count==0){Tally("nocollision");return false;}
             foreach(var blocker in targets)if(TryShove(rider,blocker,claimed,wanted))return true;
             Tally("failed");return false;
@@ -63,9 +71,11 @@ namespace BaseConquest.RealtimePrototype
         private bool TryShove(PrototypeUnit rider,PrototypeUnit blocker,HashSet<int> claimed,int wanted)
         {
             if(blocker==null||!blocker.Alive||blocker.Moving||blocker.Id==rider.Id||blocker==rider){Tally("skip:busy");return false;}
-            if(ShoveAlliesOnly&&blocker.Side!=rider.Side){Tally("skip:enemy");return false;}
-            if(IsCavalry(blocker)&&!ShoveCavalry){Tally("skip:cavalry");return false;}
-            if(blocker.Role==PrototypeRole.Leader&&blocker.Strategy==PrototypeStrategy.Obey&&!blocker.ManualOrder){Tally("skip:leader");return false;}
+            // 敌我分开判：敌方步兵与队长可撞，敌方骑兵不撞；友军骑兵必须能互挤。
+            if(blocker.Side!=rider.Side&&!ShoveEnemies){Tally("skip:enemy");return false;}
+            if(IsCavalry(blocker)&&(blocker.Side==rider.Side?!ShoveAllyCavalry:!ShoveEnemyCavalry)){Tally("skip:cavalry");return false;}
+            // 唯一豁免是玩家自己的主角：被自家骑兵顶开会让操作者莫名其妙。其余队长（含敌方）都能撞。
+            if(blocker.Player){Tally("skip:player");return false;}
             if(Elapsed<blocker.ShoveReadyAt){Tally("skip:cooldown");return false;}
             if(!(CanMove?.Invoke(blocker)??true)){Tally("skip:immobile");return false;}
             var from=Arena.Center(blocker.Cell);
@@ -93,14 +103,17 @@ namespace BaseConquest.RealtimePrototype
             }
             return false;
         }
-        // 步兵可以往八个方向让；马只能沿身体轴向整格平移，否则瞬移就等于凭空转向。
+        // 步兵可以往八个方向让；马只能沿身体轴向平移，否则瞬移就等于凭空转向。
+        // 平移量必须是一个身长（2 个细格 = 1 个粗格）：只挪半个身长的话落点仍与推者重叠，
+        // 表现为「友军骑兵永远挤不开」，两匹马卡死在原地。
         private IEnumerable<int> CandidateCells(PrototypeUnit blocker)
         {
             if(!IsCavalry(blocker))return Arena.Neighbours(blocker.Cell);
             var axis=blocker.BodyAxis;var result=new List<int>();
             foreach(int sign in new[]{1,-1})
             {
-                int x=blocker.Cell%Arena.FineColumns+(int)axis.X*sign, z=blocker.Cell/Arena.FineColumns+(int)axis.Z*sign;
+                int x=blocker.Cell%Arena.FineColumns+(int)axis.X*sign*PrototypeArena.Subdivision;
+                int z=blocker.Cell/Arena.FineColumns+(int)axis.Z*sign*PrototypeArena.Subdivision;
                 if(x>=0&&x<Arena.FineColumns&&z>=0&&z<Arena.FineRows)result.Add(z*Arena.FineColumns+x);
             }
             return result;

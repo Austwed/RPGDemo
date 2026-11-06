@@ -32,7 +32,7 @@ namespace BaseConquest.Base
     {
         public readonly List<BaseCompanionAgent> Agents = new List<BaseCompanionAgent>();
         // Wide circles leave room to patrol; different radii/phases keep companions from sharing a target.
-        public const double GuardRadiusFirst=4.5,GuardRadiusSecond=5,PauseMinimum=1.5,PauseRange=1.5;
+        public const double GuardRadiusFirst=6,GuardRadiusSecond=6.5,PauseMinimum=1.5,PauseRange=1.5;
         public static double GuardRadius(BaseState state,string id)=>state.Adventure.Members.IndexOf(id)<=1 ? GuardRadiusFirst : GuardRadiusSecond;
         public BaseCompanionMovement()
         {

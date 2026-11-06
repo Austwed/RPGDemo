@@ -12,6 +12,12 @@ namespace BaseConquest.Base
         public bool Contains(double x,double y,double padding=0)=>Math.Abs(x-X)<Width/2+padding&&Math.Abs(y-Y)<Height/2+padding;
         public bool Touches(int x,int y)=>x<X+Width/2-.00001&&x+1>X-Width/2+.00001&&y<Y+Height/2-.00001&&y+1>Y-Height/2+.00001;
         public double Distance(double x,double y){double dx=Math.Max(Math.Abs(x-X)-Width/2,0),dy=Math.Max(Math.Abs(y-Y)-Height/2,0);return Math.Sqrt(dx*dx+dy*dy);}
+        // 包围盒上的最近点：交互朝向锥用它判断「物件在我的哪一侧」。
+        public void Closest(double x,double y,out double px,out double py,out double distance)
+        {
+            px=Math.Max(X-Width/2,Math.Min(x,X+Width/2));py=Math.Max(Y-Height/2,Math.Min(y,Y+Height/2));
+            double dx=x-px,dy=y-py;distance=Math.Sqrt(dx*dx+dy*dy);
+        }
     }
     public static class BaseObjectFootprint
     {

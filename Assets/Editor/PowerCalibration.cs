@@ -224,8 +224,9 @@ namespace BaseConquest.Editor
         private static void ApplyShove(RealtimeBattlePrototype model)
         {
             model.CavalryPathPriority = shove != "off";
-            model.CavalryShove = shove == "ally" || shove == "all";
-            model.ShoveAlliesOnly = shove != "all";
+            model.CavalryShove = shove != "off";
+            // ally = 只挤友军（旧口径）；all = 连敌方步兵与队长一起撞，敌军骑兵仍不互撞。
+            model.ShoveEnemies = shove == "all";
         }
         private static void Sample(RealtimeCampaignBattle run, Dictionary<int, UnitDiag> map)
         {
