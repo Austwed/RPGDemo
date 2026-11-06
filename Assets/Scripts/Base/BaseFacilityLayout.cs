@@ -93,6 +93,7 @@ namespace BaseConquest.Base
             double halfW = def.Width / 2, halfH = def.Height / 2;
             if (x - halfW < -.001 || y - halfH < -.001 || x + halfW > layout.Columns + .001 || y + halfH > layout.Rows + .001) return "超出营地边界";
             if (Math.Abs(x - layout.SpawnX) < halfW + .5 && Math.Abs(y - layout.SpawnY) < halfH + .5) return "不能压在营地出生点";
+            if (Math.Abs(x - s.PlayerX) < halfW + .5 && Math.Abs(y - s.PlayerY) < halfH + .5) return "不能压在角色身上";
             var others = layout.Objects.Where(obj => obj != null && obj.Id != id && (obj.Blocks || !obj.VisualOnly)).ToArray();
             if (others.Any(obj => Overlaps(obj, x, y, def.Width, def.Height))) return "与其他设施或人物占地重叠";
             var board = BaseBattlefield.Board(s, "base");
