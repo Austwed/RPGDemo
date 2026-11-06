@@ -111,17 +111,20 @@ namespace BaseConquest.Editor
             var asset=Resources.Load<TextAsset>("DemoStages/defense-male");Need(asset!=null,"缺少首防阶段档");
             var state=JsonUtility.FromJson<BaseState>(asset.text);var first=BaseDemoDefense.Begin(state,"none");BattleScenePlacement.Start(state,first);
             var firstRun=new RealtimeCampaignBattle(first);BattleScenePlacement.Snap(state,firstRun);BaseDemoDefense.Configure(firstRun);
+            Need(firstRun.Strategy(0,SquadStrategy.Protect),"首防切换策略失败");
             foreach(var enemy in firstRun.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))enemy.Escaped=true;
             firstRun.Model.SetPaused(false);firstRun.Tick(.02);Need(firstRun.Battle.Report?.Outcome==BattleOutcome.SideAWin,"首防夹具未获胜");
-            Need(BaseDemoDefense.Complete(state,firstRun),"首防结算夹具失败");BaseDemoDefense.AcknowledgeBatu(state);
+            Need(BaseDemoDefense.Complete(state,firstRun),"首防结算夹具失败");Need(state.Muster.Strategies[0]==(int)SquadStrategy.Protect,"胜利结算未回写位次策略");BaseDemoDefense.AcknowledgeBatu(state);
             var advance=typeof(BaseEconomy).GetMethod("CompleteProductionDay",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic);
             Need(advance!=null,"缺少日结入口");while(state.Day<BaseDemoDefense.SecondArrival(state))advance.Invoke(null,new object[]{state,false});
             state.Campaign.Location="perimeter";var marker=BaseSpatial.Objects(state,"perimeter").Single(o=>o.Id=="demo_defense_start");state.PlayerX=marker.X;state.PlayerY=marker.Y;BaseAdventure.Arrive(state);
             var second=BaseDemoDefense.Begin(state,"none");BattleScenePlacement.Start(state,second);var run=new RealtimeCampaignBattle(second);BattleScenePlacement.Snap(state,run);BaseDemoDefense.Configure(run);
+            Need(run.Strategy(0,SquadStrategy.Attack),"第二波切换策略失败");
             Need(!run.RetreatAll()&&run.Battle.Phase==BattlePhase.Fighting,"第二波撤退入口未被逻辑层阻止");
             foreach(var ally in run.Model.Units.Where(u=>u.Side==PrototypeSide.Ally)){ally.Health=1;ally.KnockedDown=true;var soldier=run.Battle.Soldier(ally.Id-1);soldier.Health=1;soldier.KnockedDown=true;soldier.DeathResolved=true;}
             run.Model.SetPaused(false);run.Tick(.02);Need(run.Battle.Report?.Outcome==BattleOutcome.SideBWin,"第二波我方全倒未判失败");
             Need(BaseDemoCombat.Fail(state,run)&&state.Aftermath.GameOver&&state.Demo.Defense.SecondOutcome=="failed","第二波失败未进入游戏结束状态");
+            Need(state.Muster.Strategies[0]==(int)SquadStrategy.Attack,"失败结算未回写位次策略");
             Need(state.Aftermath.Reason==BaseDemoDefense.SecondGameOverReason,"第二波失败原因未使用定稿");
             var pendingReason=state.Copy();pendingReason.Aftermath.Reason="待写";BaseAftermath.Normalize(pendingReason);Need(pendingReason.Aftermath.Reason==BaseDemoDefense.SecondGameOverReason,"旧档第二波失败原因未更新");
             BaseEconomy.Validate(state);
@@ -166,11 +169,15 @@ namespace BaseConquest.Editor
                     var session=BaseDemoDefense.Begin(loaded,"none");BattleScenePlacement.Start(loaded,session);
                     Need(session.Battle.Soldiers.Count(u=>u.Side==BattleSide.B&&u.Kind==SoldierKind.Hero)==1&&session.Battle.Commander(BattleSide.B,0).ProfessionKind==SoldierKind.Ranged,"首防巴图须为唯一弓兵队长");
                     var run=new RealtimeCampaignBattle(session);BattleScenePlacement.Snap(loaded,run);BaseDemoDefense.Configure(run);
+                    var defaults=loaded.Muster.Strategies.ToArray();
+                    Need(run.Strategy(0,SquadStrategy.Protect),"战中应允许切换策略");
                     run.Model.SetPaused(false);
                     for(int step=0;step<600&&!run.Model.Units.Any(u=>u.Moving&&u.Progress>0);step++)run.Tick(.02);
                     Need(run.Model.Units.Any(u=>u.Moving&&u.Progress>0),"未捕获移动中状态");
                     run.SaveCheckpoint(loaded);store.Save(loaded);
                     var restored=store.Load();var resumed=new RealtimeCampaignBattle(new BaseCampaignSession(restored.Campaign.ActiveBattle));BaseDemoDefense.Configure(resumed);
+                    Need(restored.Muster.Strategies.SequenceEqual(defaults),"战中检查点不得回写军营默认策略");
+                    Need(resumed.Battle.Scenario.A.Commanders[0].Strategy==SquadStrategy.Protect,"恢复检查点应保留本场策略");
                     Need(resumed.Model.Paused,"恢复后须暂停");Need(resumed.Model.Units.Count==run.Model.Units.Count,"恢复人数变化");
                     foreach(var unit in run.Model.Units)
                     {

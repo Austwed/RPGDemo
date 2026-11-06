@@ -102,6 +102,7 @@ namespace BaseConquest.Base
             BaseRuinsRewards.Enable(state,openingRules?.OpeningAuxVersion==1?openingRules.OpeningRewards:null);
             if(includePrologue)BaseDemoPrologue.PrepareOpening(state);
             BaseRpg.Initialize(state,openingRules);BaseAchievements.Enable(state);
+            state.Muster.Strategies=new List<int>{(int)SquadStrategy.Obey,(int)SquadStrategy.Attack,(int)SquadStrategy.Attack};
             BaseTown.EnableDemoRecruitment(state);
             if(includePrologue&&includeIntro)BaseDemoIntro.Enable(state,openingRules!=null);
             BaseEnvironment.Install(state);BaseDevelopment.Allocate(state);

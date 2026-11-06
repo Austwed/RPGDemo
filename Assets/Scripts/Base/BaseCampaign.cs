@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -256,7 +256,7 @@ namespace BaseConquest.Base
             raw.A.HeroCount = quota.Leaders.Count; raw.A.CaptainSlot = 0; raw.A.Capacity = 90;
             raw.PlayerLeaderSlot = quota.Leaders.IndexOf(s.PlayerLeaderId);
             var sceneLeaders=party.Leaders.Select(l=>s.Leaders.Single(p=>p.Id==l.LeaderId)).ToList();
-            raw.A.Commanders = Enumerable.Range(0, raw.A.HeroCount).Select(slot => new CommanderLoadout { Strategy = BaseSceneRules.Active(s)?BaseSceneRules.Tier(sceneLeaders[slot].PreferredStrategy):SquadStrategy.Attack }).ToList();
+            raw.A.Commanders = Enumerable.Range(0, raw.A.HeroCount).Select(slot => new CommanderLoadout()).ToList();
             var formation=BaseMuster.CurrentFormation(s,party);
             foreach (var kind in BattleSimulation.TroopKinds)
                 if(formation!=null)for(int slot=0;slot<formation.Count;slot++)raw.A.Commanders[slot].Set(kind,formation[slot].Actual.Count(ToBase(kind)));
@@ -351,7 +351,7 @@ namespace BaseConquest.Base
             BaseRaidLoot.Apply(s, e, r, win, passive);
             s.Campaign.SettledIds.Add(a.Id); s.Campaign.Reports.Add(r); BaseQuests.RecordVictory(s,r); if(!passive)ToBaseLocation(s);
             BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>());
-            BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
+            BaseSceneRules.RememberStrategy(s,session); BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
         }
         private static void ApplyEventInventory(BaseState s, BaseCampaignEvent e, bool win, BaseCampaignReport r, double? rewardFactor=null)
         {
@@ -502,6 +502,6 @@ namespace BaseConquest.Base
             }
         }
         public BattleSoldier UnitForEnemy(int index) => enemies.Where(x=>x.Value==index).Select(x=>Battle.Soldier(x.Key)).SingleOrDefault();
-        public void SaveCheckpoint(BaseState state) {Bind();BaseSceneRules.RememberStrategy(state,this);if(!state.Campaign.HasActiveBattle||state.Campaign.ActiveBattle.Id!=Opening.Id)throw new InvalidOperationException("本场活动记录不一致");BaseWine.Bind(state,this);if(BaseSceneRules.Active(state))BaseSceneRules.Memory(state).Known=Battle.Vision.KnownTerrain(BattleSide.A);var a=state.Campaign.ActiveBattle;string region=string.IsNullOrEmpty(a.MapRegion)?state.Campaign.Location:a.MapRegion;BaseSceneInstances.SaveBoard(state,BaseSceneCombat.PersistedBoard(state,Battle.Board.Clone(),string.IsNullOrEmpty(a.MapId)?region:a.MapId),region,a.MapId);a.Checkpoint=Battle.Capture();a.HasRealtimeState=Opening.HasRealtimeState;a.RealtimeState=Opening.HasRealtimeState?Opening.RealtimeState?.Copy():null;a.Bindings=troops.Select(x=>new BaseCampaignBinding {SoldierId=x.Key,TroopIndex=x.Value}).ToList();a.EnemyBindings=enemies.Select(x=>new BaseEnemyBinding {SoldierId=x.Key,MemberIndex=x.Value}).ToList();a.HasCheckpoint=true;}
+        public void SaveCheckpoint(BaseState state) {Bind();if(!state.Campaign.HasActiveBattle||state.Campaign.ActiveBattle.Id!=Opening.Id)throw new InvalidOperationException("本场活动记录不一致");BaseWine.Bind(state,this);if(BaseSceneRules.Active(state))BaseSceneRules.Memory(state).Known=Battle.Vision.KnownTerrain(BattleSide.A);var a=state.Campaign.ActiveBattle;string region=string.IsNullOrEmpty(a.MapRegion)?state.Campaign.Location:a.MapRegion;BaseSceneInstances.SaveBoard(state,BaseSceneCombat.PersistedBoard(state,Battle.Board.Clone(),string.IsNullOrEmpty(a.MapId)?region:a.MapId),region,a.MapId);a.Checkpoint=Battle.Capture();a.HasRealtimeState=Opening.HasRealtimeState;a.RealtimeState=Opening.HasRealtimeState?Opening.RealtimeState?.Copy():null;a.Bindings=troops.Select(x=>new BaseCampaignBinding {SoldierId=x.Key,TroopIndex=x.Value}).ToList();a.EnemyBindings=enemies.Select(x=>new BaseEnemyBinding {SoldierId=x.Key,MemberIndex=x.Value}).ToList();a.HasCheckpoint=true;}
     }
 }

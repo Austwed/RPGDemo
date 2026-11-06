@@ -101,16 +101,20 @@ namespace BaseConquest.Base
             if(Neutral(s)){scenario.A.MeleeCount=scenario.A.RangedCount=scenario.A.CavalryCount=0;foreach(var c in scenario.A.Commanders)c.Melee=c.Ranged=c.Cavalry=0;}
             if(!Active(s))return;scenario.HeightVision=true;scenario.FogEnabled=FogEnabled(s);scenario.DefenderVisionEnabled=false;scenario.VisionRadius=10;
             while(scenario.A.Commanders.Count<scenario.A.HeroCount)scenario.A.Commanders.Add(new CommanderLoadout());
-            for(int n=0;n<scenario.A.Commanders.Count&&n<leaders.Count;n++)scenario.A.Commanders[n].Strategy=Tier(leaders[n].PreferredStrategy);
+            BaseMuster.Validate(s);
+            for(int n=0;n<scenario.A.Commanders.Count&&n<leaders.Count;n++)
+            {
+                var c=scenario.A.Commanders[n];c.Strategy=Tier((SquadStrategy)s.Muster.Strategies[n]);
+                c.GuardRange=s.Muster.Ranges[0];c.AlertRange=s.Muster.Ranges[1];c.AttackRange=s.Muster.Ranges[2];
+            }
         }
         public static void RememberStrategy(BaseState s,BaseCampaignSession session)
         {
             if(!Active(s))return;
+            BaseMuster.Validate(s);
             foreach(var actor in session.Battle.Soldiers.Where(u=>u.Side==BattleSide.A&&u.Kind==SoldierKind.Hero))
-            {
-                var source=session.Opening.Leaders.ElementAtOrDefault(actor.OriginCommanderSlot);var leader=s.Leaders.FirstOrDefault(l=>l.Id==source?.Id);
-                if(leader!=null)leader.PreferredStrategy=session.Battle.Scenario.A.Commanders[actor.OriginCommanderSlot].Strategy;
-            }
+                if(actor.OriginCommanderSlot>=0&&actor.OriginCommanderSlot<3)
+                    s.Muster.Strategies[actor.OriginCommanderSlot]=(int)Tier(session.Battle.Scenario.A.Commanders[actor.OriginCommanderSlot].Strategy);
         }
     }
 }

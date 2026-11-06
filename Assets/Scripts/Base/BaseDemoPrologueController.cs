@@ -41,7 +41,7 @@ namespace BaseConquest.Base
         private bool FinishPrologueEncounter(RealtimeCampaignBattle run,bool abandon,bool mainMenu)
         {
             var next=State.Copy();if(!BaseDemoPrologue.Resolve(next,run,abandon))return false;
-            if(run!=null)BaseSceneRules.RememberStrategy(next,run.Session);
+            if(!abandon&&run?.Battle.Phase==BattlePhase.Finished)BaseSceneRules.RememberStrategy(next,run.Session);
             BaseEconomy.Validate(next);SaveStore.Save(next);State=next;
             BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;
             if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,()=>Hud.OpenDemoStory());return true;}

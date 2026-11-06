@@ -56,6 +56,7 @@ namespace BaseConquest.Base
     [Serializable] public sealed class BaseMusterState
     {
         public int Version = 1, KeepMelee = 1, KeepRanged = 1, KeepCavalry;
+        public List<int> Strategies, Ranges;
         public List<BaseArmyPreset> Presets = new List<BaseArmyPreset>();
         public List<BaseFacilityProtection> Facilities = new List<BaseFacilityProtection>();
         public List<BaseOutsideParty> Parties = new List<BaseOutsideParty>();
@@ -63,7 +64,7 @@ namespace BaseConquest.Base
         public List<string> AppliedAppendIds = new List<string>();
         public int Keep(BaseTroopKind kind) => kind == BaseTroopKind.Melee ? KeepMelee : kind == BaseTroopKind.Ranged ? KeepRanged : KeepCavalry;
         public void SetKeep(BaseTroopKind kind, int value) { if (kind == BaseTroopKind.Melee) KeepMelee = value; else if (kind == BaseTroopKind.Ranged) KeepRanged = value; else KeepCavalry = value; }
-        public BaseMusterState Copy() => new BaseMusterState { Version = Version, KeepMelee = KeepMelee, KeepRanged = KeepRanged, KeepCavalry = KeepCavalry, Presets = Presets.Select(x => x.Copy()).ToList(), Facilities = Facilities.Select(x => x.Copy()).ToList(), Parties = Parties.Select(x => x.Copy()).ToList(), ReturnedIds = ReturnedIds.ToList(), AppliedAppendIds = (AppliedAppendIds ?? new List<string>()).ToList() };
+        public BaseMusterState Copy() => new BaseMusterState { Version = Version, KeepMelee = KeepMelee, KeepRanged = KeepRanged, KeepCavalry = KeepCavalry, Strategies = Strategies?.ToList(), Ranges = Ranges?.ToList(), Presets = Presets.Select(x => x.Copy()).ToList(), Facilities = Facilities.Select(x => x.Copy()).ToList(), Parties = Parties.Select(x => x.Copy()).ToList(), ReturnedIds = ReturnedIds.ToList(), AppliedAppendIds = (AppliedAppendIds ?? new List<string>()).ToList() };
     }
     public sealed class BaseMusterTake
     {
@@ -115,6 +116,14 @@ namespace BaseConquest.Base
         public static void Validate(BaseState s)
         {
             Normalize(s); var m = s.Muster;
+            if (m.Strategies == null || m.Strategies.Count == 0)
+            {
+                var candidates = m.Presets?.FirstOrDefault(p => p?.Purpose == "expedition")?.Candidates ?? new List<string>();
+                m.Strategies = candidates.Take(3).Select(id => (int)BaseSceneRules.Tier(s.Leaders.FirstOrDefault(l => l.Id == id)?.PreferredStrategy ?? BaseConquest.Battle.SquadStrategy.Attack)).ToList();
+                while (m.Strategies.Count < 3) m.Strategies.Add((int)BaseConquest.Battle.SquadStrategy.Attack);
+            }
+            if (m.Ranges == null || m.Ranges.Count == 0) m.Ranges = new List<int> { 3, 6, 9 };
+            if (m.Strategies.Count != 3 || m.Strategies.Any(v => !Enum.IsDefined(typeof(BaseConquest.Battle.SquadStrategy), v)) || m.Ranges.Count != 3 || m.Ranges[0] < 1 || m.Ranges[0] > m.Ranges[1] || m.Ranges[1] > m.Ranges[2] || m.Ranges[2] > 32) throw new ArgumentException("军营策略或范围非法");
             if (s.Development == null || s.Development.Version == 0)
                 foreach (var f in m.Facilities ?? new List<BaseFacilityProtection>()) if (f != null) { if (f.Level == 0) f.Level = 1; if (f.MaxProductLevel == 0) f.MaxProductLevel = 1; }
             if (m.Version != 1 || m.Presets == null || m.Facilities == null || m.Parties == null || m.ReturnedIds == null || m.Presets.Count != 2 || m.Presets.Select(p => p?.Purpose).Distinct().Count() != 2 || new[] { m.KeepMelee, m.KeepRanged, m.KeepCavalry }.Any(n => n < 0 || n > 10000)) throw new ArgumentException("编队数据版本／集合非法");
@@ -151,6 +160,7 @@ namespace BaseConquest.Base
             parts.AddRange(s.Muster.Presets.Select(p => p.Purpose + ":" + p.LeaderCount + ":" + p.Melee + ":" + p.Ranged + ":" + p.Cavalry + ":" + string.Join(",", p.Candidates) + ":" + p.SwordPriority + p.BowPriority + p.ArmorPriority));
             parts.AddRange(s.Muster.Facilities.Select(f => f.FacilityId + ":" + f.Priority + ":" + f.MinimumWorkers + ":" + f.Capacity + ":" + f.Level + ":" + f.MaxProductLevel));
             parts.Add(s.Muster.KeepMelee + ":" + s.Muster.KeepRanged + ":" + s.Muster.KeepCavalry); parts.AddRange(s.Muster.Parties.Select(p => p.Id)); parts.AddRange(s.Muster.ReturnedIds);
+            parts.Add(string.Join(",", s.Muster.Strategies) + "/" + string.Join(",", s.Muster.Ranges));
             parts.Add(s.Rules.SoldierFood + ":" + s.Rules.CavalryFood + ":" + s.Rules.LeaderFood + ":" + (BaseRpg.Active(s)?s.Demo.Rpg.ArcherFood:0) + ":" + s.FoodPaidDay + ":" + s.TodayFoodConsumed);
             parts.Add(s.Development.Version + ":" + s.Development.Automatic + ":" + s.Development.Policy + ":" + N(s.Development.RecoveryFraction) + ":" + N(BaseDevelopment.WarningThreshold(s)));
             parts.AddRange(s.Leaders.Select(l => l.Id + ":" + N(l.Health) + ":" + N(l.MaxHealth) + ":" + l.Resting + ":" + l.DesiredFacility + ":" + l.PostLocked + ":" + l.HasAffinity + ":" + N(l.FarmBonus) + ":" + N(l.WorkshopBonus)));

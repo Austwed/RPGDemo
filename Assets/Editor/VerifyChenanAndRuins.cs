@@ -243,6 +243,19 @@ namespace BaseConquest.Editor
             sim.Control=BattleControlPolicy.RemoteDefense;
             Need(!sim.SetCommanderRanges(BattleSide.A,0,3,6,10),"远程改范围必须在入口被拒");
             Need(sim.SetCommanderStrategy(BattleSide.A,0,SquadStrategy.Attack),"远程仍应允许切换策略");
+            var state=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
+            state.Muster.Strategies=null;state.Muster.Ranges=null;BaseEconomy.Validate(state);
+            Need(state.Muster.Strategies.Count==3&&state.Muster.Ranges.SequenceEqual(new[]{3,6,9}),"旧档应初始化三个位次和默认半径");
+            state.Muster.Strategies[0]=(int)SquadStrategy.Protect;state.Muster.Strategies[1]=(int)SquadStrategy.Obey;
+            state.Muster.Ranges=new System.Collections.Generic.List<int>{2,5,8};
+            var copy=state.Copy();copy.Muster.Strategies[0]=(int)SquadStrategy.Attack;copy.Muster.Ranges[0]=1;
+            Need(state.Muster.Strategies[0]==(int)SquadStrategy.Protect&&state.Muster.Ranges[0]==2,"复制存档不能共享配置列表");
+            var configured=new BattleScenario{CommanderControl=true};configured.A.HeroCount=1;configured.A.Commanders.Add(new CommanderLoadout());
+            BaseSceneRules.Configure(state,configured,new[]{state.Leaders[0]});
+            Need(configured.A.Commanders[0].Strategy==SquadStrategy.Protect&&configured.A.Commanders[0].GuardRange==2&&configured.A.Commanders[0].AlertRange==5&&configured.A.Commanders[0].AttackRange==8,"战前应读取共用位次与半径");
+            Need(state.Muster.Strategies[1]==(int)SquadStrategy.Obey,"空位配置应保留");
+            var loaded=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));BaseEconomy.Validate(loaded);
+            Need(loaded.Muster.Strategies.SequenceEqual(state.Muster.Strategies)&&loaded.Muster.Ranges.SequenceEqual(state.Muster.Ranges),"策略和半径应随存档往返");
             Debug.Log("[StrategyTiers] 三档文案、逃跑迁移、远程权限守卫（证红＋放行）PASS");
         }
         private static void At(BaseState state,string id)

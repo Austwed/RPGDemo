@@ -86,7 +86,7 @@ namespace BaseConquest.Base
             if(beforeAzhuDuel==null)return false;var next=beforeAzhuDuel.Copy();
             bool won=!abandon&&run?.Battle.Report?.Outcome==BattleOutcome.SideAWin;
             if(won){next.Demo.Flow.AzhuDuelWon=true;if(!next.Demo.MetCompanions.Contains("partner_craft"))BaseDemoRuins.Meet(next,"partner_craft");}
-            BaseSceneRules.RememberStrategy(next,run.Session);BaseEconomy.Validate(next);SaveStore.Save(next);State=next;beforeAzhuDuel=null;
+            if(!abandon&&run?.Battle.Phase==BattlePhase.Finished)BaseSceneRules.RememberStrategy(next,run.Session);BaseEconomy.Validate(next);SaveStore.Save(next);State=next;beforeAzhuDuel=null;
             FinishLocalScene(mainMenu,()=>Hud.OpenAzhuAfterDuel(won));return true;
         }
         public bool SceneCellKnown(GridPosition p)=>(combatController?.Realtime?.Battle.Vision??explorationSight)?.TerrainVisible(BattleSide.A,p)??true;

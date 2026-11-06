@@ -239,7 +239,7 @@ namespace BaseConquest.Battle
         public bool Strategy(int slot,SquadStrategy strategy)
         {
             var actor=Model.Units.FirstOrDefault(u=>u.Alive&&u.Side==PrototypeSide.Ally&&u.Role==PrototypeRole.Leader&&u.Squad==slot);if(actor==null)return false;
-            Model.SetStrategy(actor,(PrototypeStrategy)(int)strategy);Session.Opening.Leaders[slot].PreferredStrategy=strategy;Battle.Scenario.Army(BattleSide.A).Commanders[slot].Strategy=strategy;if(strategy==SquadStrategy.Attack)TutorialAction?.Invoke(BaseDemoIntro.AutoAttack);return true;
+            Model.SetStrategy(actor,(PrototypeStrategy)(int)strategy);Battle.Scenario.Army(BattleSide.A).Commanders[slot].Strategy=strategy;if(strategy==SquadStrategy.Attack)TutorialAction?.Invoke(BaseDemoIntro.AutoAttack);return true;
         }
         public bool DefensePursuitReady=>Session.Opening.EventId==BaseDemoDefense.EventId&&Battle.Phase==BattlePhase.Fighting&&Model.Elapsed+1e-8>=Battle.Scenario.Objective.HoldRounds&&!BaseDemoCombat.Defeated(this);
         public bool FinishDefensePursuit()

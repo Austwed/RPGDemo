@@ -67,7 +67,7 @@ namespace BaseConquest.Base
         {
             bool completed=!abandon&&run?.Battle.Report.Outcome==BattleOutcome.SideAWin;
             var next=State.Copy();if(!BaseDemoIntro.FinishPractice(next,completed))return false;
-            if(run!=null)BaseSceneRules.RememberStrategy(next,run.Session);BaseEconomy.Validate(next);SaveStore.Save(next);State=next;BaseBattleGateway.MainMenu=mainMenu;
+            if(!abandon&&run?.Battle.Phase==BattlePhase.Finished)BaseSceneRules.RememberStrategy(next,run.Session);BaseEconomy.Validate(next);SaveStore.Save(next);State=next;BaseBattleGateway.MainMenu=mainMenu;
             if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu);return true;}
             if(Application.isPlaying)SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
             else{var old=combatController;combatController=null;if(old!=null)BattleBoardView.DestroyObject(old.gameObject);RebuildRegion();RebuildHud();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();}

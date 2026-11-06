@@ -43,7 +43,7 @@ namespace BaseConquest.Battle
         }
         public static void Capture(BaseState state,RealtimeCampaignBattle run)
         {
-            if(!BaseSceneRules.Active(state)||run==null)return;BaseSceneRules.RememberStrategy(state,run.Session);
+            if(!BaseSceneRules.Active(state)||run==null)return;
             // Settlement may already have returned the party; keep its destination positions.
             if(state.Campaign.Location!=run.Session.Opening.MapRegion||BaseSceneInstances.Active(state)&&state.Campaign.CurrentMapId!=run.Session.Opening.MapId)return;
             foreach(var unit in run.Model.Units.Where(u=>u.Side==RealtimePrototype.PrototypeSide.Ally&&u.Role==RealtimePrototype.PrototypeRole.Leader))
