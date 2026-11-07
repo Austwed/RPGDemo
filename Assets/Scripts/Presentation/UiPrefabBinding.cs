@@ -37,12 +37,16 @@ namespace BaseConquest.Presentation
             public Sprite Sprite;
             public Image.Type ImageType;
             public ColorBlock? ButtonColors;
+            // 只有试点页面接管描边与文字阴影：否则 Box/Label 创建节点时会把 prefab 里的美术值写回代码默认值。
+            public Color? OutlineColor, ShadowColor;
+            public Vector2? OutlineDistance, ShadowDistance;
+            public bool OutlineUseAlpha;
             public CanvasScaler.ScaleMode? ScaleMode;
             public CanvasScaler.ScreenMatchMode MatchMode;
             public Vector2 ReferenceResolution;
             public float Match, ScaleFactor, PixelsPerUnit;
             public int? SortOrder;
-            public Appearance(Transform t, UiVisualNode node)
+            public Appearance(Transform t, UiVisualNode node, bool authoredOwns)
             {
                 var r = t as RectTransform;
                 if (r != null) { Min=r.anchorMin;Max=r.anchorMax;Pivot=r.pivot;Position=r.anchoredPosition;Size=r.sizeDelta;Scale=r.localScale;Rotation=r.localRotation; }
@@ -52,6 +56,11 @@ namespace BaseConquest.Presentation
                 if(text!=null) { Ink=text.color;Font=text.font;FontSize=text.fontSize;FontStyle=text.fontStyle;Alignment=text.alignment;LineSpacing=text.lineSpacing;Text=text.text;BestFit=text.resizeTextForBestFit;BestMin=text.resizeTextMinSize;BestMax=text.resizeTextMaxSize; }
                 var image=t.GetComponent<Image>();if(image!=null){Background=image.color;Sprite=image.sprite;ImageType=image.type;}
                 var button=t.GetComponent<Button>();if(button!=null)ButtonColors=button.colors;
+                if(authoredOwns)
+                {
+                    var outline=t.GetComponent<Outline>();if(outline!=null){OutlineColor=outline.effectColor;OutlineDistance=outline.effectDistance;OutlineUseAlpha=outline.useGraphicAlpha;}
+                    var shadow=t.GetComponent<Shadow>();if(shadow!=null&&shadow.GetType()==typeof(Shadow)){ShadowColor=shadow.effectColor;ShadowDistance=shadow.effectDistance;}
+                }
                 var scaler=t.GetComponent<CanvasScaler>();if(scaler!=null){ScaleMode=scaler.uiScaleMode;MatchMode=scaler.screenMatchMode;ReferenceResolution=scaler.referenceResolution;Match=scaler.matchWidthOrHeight;ScaleFactor=scaler.scaleFactor;PixelsPerUnit=scaler.referencePixelsPerUnit;}
                 var canvas=t.GetComponent<Canvas>();if(canvas!=null)SortOrder=canvas.sortingOrder;
             }
@@ -62,6 +71,8 @@ namespace BaseConquest.Presentation
                 var text=t.GetComponent<Text>();if(text!=null&&Ink.HasValue){text.color=Ink.Value;if(Font!=null)text.font=Font;text.fontSize=FontSize;text.fontStyle=FontStyle;text.alignment=Alignment;text.lineSpacing=LineSpacing;text.resizeTextForBestFit=BestFit;text.resizeTextMinSize=BestMin;text.resizeTextMaxSize=BestMax;if(StaticText)text.text=Text;}
                 var image=t.GetComponent<Image>();if(image!=null&&Background.HasValue){image.color=Background.Value;image.sprite=Sprite;image.type=ImageType;}
                 var button=t.GetComponent<Button>();if(button!=null&&ButtonColors.HasValue)button.colors=ButtonColors.Value;
+                var outline=t.GetComponent<Outline>();if(outline!=null&&OutlineColor.HasValue){outline.effectColor=OutlineColor.Value;outline.effectDistance=OutlineDistance.Value;outline.useGraphicAlpha=OutlineUseAlpha;}
+                var shadow=t.GetComponent<Shadow>();if(shadow!=null&&shadow.GetType()==typeof(Shadow)&&ShadowColor.HasValue){shadow.effectColor=ShadowColor.Value;shadow.effectDistance=ShadowDistance.Value;}
                 var scaler=t.GetComponent<CanvasScaler>();if(scaler!=null&&ScaleMode.HasValue){scaler.uiScaleMode=ScaleMode.Value;scaler.screenMatchMode=MatchMode;scaler.referenceResolution=ReferenceResolution;scaler.matchWidthOrHeight=Match;scaler.scaleFactor=ScaleFactor;scaler.referencePixelsPerUnit=PixelsPerUnit;}
                 var canvas=t.GetComponent<Canvas>();if(canvas!=null&&SortOrder.HasValue)canvas.sortingOrder=SortOrder.Value;
             }
@@ -70,15 +81,22 @@ namespace BaseConquest.Presentation
         public static GameObject Create(string key, string name, Transform parent, bool canvas = false, GameObject source = null)
         {
             bool demo=BaseConquest.Base.BaseBattleGateway.DemoReleaseMode||BaseConquest.Base.BaseDemoRelease.Enabled(BaseConquest.Base.BaseBattleGateway.DesignOpening?.Opening);
-            var prefab=ExportDefaults ? null : source!=null ? source : (demo?Resources.Load<GameObject>("Presentation/DemoUI/"+key):null)??Resources.Load<GameObject>("Presentation/ReadableUI/"+key)??Resources.Load<GameObject>(Folder+key);
+            // 试点页面优先用「可编辑 prefab」；其余页面保持原来的模板优先级，场景显式指定的 source 仍然生效。
+            GameObject prefab=null;
+            if(!ExportDefaults)
+            {
+                if(UiAuthoredLayout.Owns(key))prefab=Resources.Load<GameObject>(UiAuthoredLayout.Folder+key);
+                if(prefab==null)prefab=source;
+                if(prefab==null)prefab=(demo?Resources.Load<GameObject>("Presentation/DemoUI/"+key):null)??Resources.Load<GameObject>("Presentation/ReadableUI/"+key)??Resources.Load<GameObject>(Folder+key);
+            }
             if(prefab==null&&!ExportDefaults&&key.StartsWith("Page_",StringComparison.Ordinal))prefab=(demo?Resources.Load<GameObject>("Presentation/DemoUI/CommonPanel"):null)??Resources.Load<GameObject>("Presentation/ReadableUI/CommonPanel")??Resources.Load<GameObject>(Folder+"CommonPanel");
             var root=prefab!=null ? Instantiate(prefab,parent,false) : new GameObject(name,typeof(RectTransform));
             root.name=name;root.transform.SetParent(parent,false);
             var binding=Ensure<UiPrefabBinding>(root);binding.ResourceKey=key;binding.authored.Clear();binding.claimed.Clear();binding.repeated.Clear();binding.prototypes.Clear();binding.completed=false;
-            binding.legacyDemo=demo&&(prefab==null||prefab.GetComponent<DemoUiRevision>()?.Version!=14);
+            binding.legacyDemo=!UiAuthoredLayout.Owns(key)&&demo&&(prefab==null||prefab.GetComponent<DemoUiRevision>()?.Version!=14);
             var rootMarker=Ensure<UiVisualNode>(root);rootMarker.BindingName=name;if(prefab==null||canvas)rootMarker.UseAuthoredLayout=!canvas;
             if(prefab!=null)foreach(var node in root.GetComponentsInChildren<UiVisualNode>(true))
-                if(!node.Decoration)binding.authored[node.transform]=new Appearance(node.transform,node);
+                if(!node.Decoration)binding.authored[node.transform]=new Appearance(node.transform,node,UiAuthoredLayout.Owns(key));
             binding.claimed.Add(root.transform);
             if(canvas){Ensure<Canvas>(root);Ensure<CanvasScaler>(root);Ensure<GraphicRaycaster>(root);}
             Ensure<UiSystemFont>(root);
@@ -119,8 +137,13 @@ namespace BaseConquest.Presentation
             }
             var marker=Ensure<UiVisualNode>(found.gameObject);marker.BindingName=name;
             // List content is arranged from live records, never from example record positions.
-            if(parent.name=="Content"||parent.GetComponent<UiDynamicContent>()!=null||!marker.UseAuthoredLayout)marker.UseAuthoredLayout=false;
-            if(parent.GetComponent<UiVisualNode>()?.UseAuthoredLayout==false&&binding?.ResourceKey!="PartyMemberCard")marker.UseAuthoredLayout=false;
+            // 例外：试点页面里来自 prefab 的节点不再被强制取消「使用 prefab 版式」，改由美术摆放。
+            bool authoredPilot=UiAuthoredLayout.Owns(binding?.ResourceKey)&&binding!=null&&binding.authored.ContainsKey(found);
+            if(!authoredPilot)
+            {
+                if(parent.name=="Content"||parent.GetComponent<UiDynamicContent>()!=null||!marker.UseAuthoredLayout)marker.UseAuthoredLayout=false;
+                if(parent.GetComponent<UiVisualNode>()?.UseAuthoredLayout==false&&binding?.ResourceKey!="PartyMemberCard")marker.UseAuthoredLayout=false;
+            }
             binding?.claimed.Add(found);return (RectTransform)found;
         }
         private static UiPrefabBinding Owner(Transform t)
@@ -128,6 +151,14 @@ namespace BaseConquest.Presentation
         public static void Complete(GameObject root)
         {
             var binding=root.GetComponent<UiPrefabBinding>();if(binding==null||binding.completed)return;
+            // prefab 主导时，把「来自 prefab 的节点」保护起来：主题只负责本次新造的节点。
+            var protectedNodes=UiAuthoredLayout.Owns(binding.ResourceKey)
+                ?new HashSet<Transform>(binding.authored.Keys.Where(t=>t!=null)):null;
+            // 嵌套的子面板（例如背包里每个人物卡）有自己的 prefab 与自己的 Complete，父面板的主题刷新不得越界。
+            if(protectedNodes!=null)
+                foreach(var nested in root.GetComponentsInChildren<UiPrefabBinding>(true))
+                    if(nested!=binding)
+                        foreach(var t in nested.GetComponentsInChildren<Transform>(true))protectedNodes.Add(t);
             foreach(var pair in binding.authored)
                 if(pair.Key!=null&&binding.claimed.Contains(pair.Key))pair.Value.Apply(pair.Key);
             foreach(var pair in binding.repeated)if(pair.Key!=null)pair.Value.Apply(pair.Key);
@@ -136,7 +167,7 @@ namespace BaseConquest.Presentation
             var set=new HashSet<Transform>(unused);
             foreach(var t in unused)if(t!=null&&!set.Contains(t.parent)){t.gameObject.SetActive(false);DestroyView(t.gameObject);}
             binding.authored.Clear();binding.claimed.Clear();binding.repeated.Clear();binding.prototypes.Clear();binding.completed=true;
-            if(binding.legacyDemo||ExportDefaults||root.GetComponent<DemoUiRevision>()?.UseThemeColors==true){DemoUiTheme.Current.Apply(root);Ensure<DemoUiRevision>(root).Version=14;}
+            if(binding.legacyDemo||ExportDefaults||root.GetComponent<DemoUiRevision>()?.UseThemeColors==true){DemoUiTheme.Current.Apply(root,protectedNodes);Ensure<DemoUiRevision>(root).Version=14;}
             if(Application.isPlaying&&root.GetComponent<Canvas>()!=null)Ensure<GameFrameCanvas>(root).Apply();
             Ensure<UiSystemFont>(root).Refresh();
         }

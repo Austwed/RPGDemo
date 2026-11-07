@@ -19,6 +19,7 @@ namespace BaseConquest.Base
         public void OpenWarehouse(){if(BasePartyInventory.AtWarehouse(owner.State))OpenInventory(true);else{owner.ReportMessage("请接近基地仓库交互");}}
         private void OpenInventory(bool warehouse)
         {
+            UiAuthoredLayout.PilotActive=false;
             var s=owner.State;if(BaseDemoIntro.Daily(s)&&s.Demo.Intro.Step==0){OpenHeroChoice();return;}if(s==null||!BasePartyInventory.Peaceful(s)){owner.ReportMessage("战斗中不能打开背包");return;}
             if(warehouse&&BaseBattleLoot.Pending(s)){OpenLoot();return;}
             if(warehouse&&!BasePartyInventory.AtWarehouse(s)){owner.ReportMessage("请接近基地仓库");return;}
@@ -30,6 +31,7 @@ namespace BaseConquest.Base
             modal.gameObject.SetActive(true);Joystick.ResetInput();Joystick.gameObject.SetActive(false);
             root.GetComponent<Canvas>().sortingOrder=100;
             string key=warehouse?"Page_party_warehouse":"Page_party_inventory";
+            UiAuthoredLayout.PilotActive=UiAuthoredLayout.Enabled&&key=="Page_party_inventory";
             float panelWidth=warehouse?1220:Mathf.Min(1220,Mathf.Max(440,people.Length*400+40));
             panel=UiPrefabBinding.Create(key,warehouse?"基地仓库与人物":"当前小队背包",modal,false,owner.PageTemplate(key)).GetComponent<RectTransform>();panel.anchorMin=panel.anchorMax=panel.pivot=Vector2.one*.5f;panel.anchoredPosition=Vector2.zero;panel.sizeDelta=new Vector2(panelWidth,680);DemoUiTheme.Current.Surface(panel.gameObject.GetOrAdd<Image>());
             MakeButton(panel,"关闭",new Vector2(Mathf.Min(panelWidth/2+62,572),228),new Vector2(100,36),ClosePanel);
@@ -70,7 +72,7 @@ namespace BaseConquest.Base
         // 下方容量行＋整理·详情、底部 6×4 方形背包格。第六槽只在 ExtraAccessory 解锁后可用。
         private void InventoryCharacter(BaseLeader l,Vector2 position,Vector2 size,RectTransform parent=null)
         {
-            var card=UiPrefabBinding.Create("PartyMemberCard","人物与背包_"+l.Id,parent??panel).GetComponent<RectTransform>();card.GetComponent<UiVisualNode>().UseAuthoredLayout=false;card.anchorMin=card.anchorMax=card.pivot=Vector2.one*.5f;card.anchoredPosition=position;card.sizeDelta=size;var cardImage=card.gameObject.GetOrAdd<Image>();cardImage.color=DemoUiTheme.Current.Inset;var cardOutline=cardImage.GetComponent<Outline>()??cardImage.gameObject.AddComponent<Outline>();cardOutline.effectColor=DemoUiTheme.Current.Line;cardOutline.effectDistance=new Vector2(1,-1);float top=size.y/2;
+            var card=UiPrefabBinding.Create("PartyMemberCard","人物与背包_"+l.Id,parent??panel).GetComponent<RectTransform>();if(!UiAuthoredLayout.Owns("PartyMemberCard"))card.GetComponent<UiVisualNode>().UseAuthoredLayout=false;card.anchorMin=card.anchorMax=card.pivot=Vector2.one*.5f;card.anchoredPosition=position;card.sizeDelta=size;var cardImage=card.gameObject.GetOrAdd<Image>();cardImage.color=DemoUiTheme.Current.Inset;var cardOutline=cardImage.GetComponent<Outline>()??cardImage.gameObject.AddComponent<Outline>();cardOutline.effectColor=DemoUiTheme.Current.Line;cardOutline.effectDistance=new Vector2(1,-1);float top=size.y/2;
             // 名字是纯文字，不套按钮底：挂一个无 Image 的 Button 保留点击切人，主题 Apply 只会给有 Image 的按钮换肤。
             var nameRect=Rect("人物名",card,Vector2.one*.5f,new Vector2(-size.x/2+12+120,top-24),new Vector2(240,30));
             var backdrop=nameRect.GetComponent<Image>();if(backdrop!=null)backdrop.enabled=false;
@@ -124,6 +126,9 @@ namespace BaseConquest.Base
         // 自建面板不走 EndPanel；Complete 会按模板重排动态子节点的坐标与字色，收尾前后各留一份快照。
         private static void CompletePreservingLayout(RectTransform root)
         {
+            // prefab 主导：不快照、不写回，直接让 Complete 把 prefab 里的版式与配色应用回来。
+            // C# 主导（含仓库页与总开关关闭）：保留原来的「收尾前后各留一份快照」路径。
+            if(UiAuthoredLayout.Owns(root.GetComponent<UiPrefabBinding>()?.ResourceKey)){UiPrefabBinding.Complete(root.gameObject);return;}
             var rects=root.GetComponentsInChildren<RectTransform>(true);
             Vector2[] mins=new Vector2[rects.Length],maxs=new Vector2[rects.Length],pivots=new Vector2[rects.Length],positions=new Vector2[rects.Length],sizes=new Vector2[rects.Length];
             for(int i=0;i<rects.Length;i++){mins[i]=rects[i].anchorMin;maxs[i]=rects[i].anchorMax;pivots[i]=rects[i].pivot;positions[i]=rects[i].anchoredPosition;sizes[i]=rects[i].sizeDelta;}

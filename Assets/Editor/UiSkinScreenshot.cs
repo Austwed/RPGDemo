@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using BaseConquest.Base;
+using BaseConquest.Presentation;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -119,6 +120,7 @@ namespace BaseConquest.Editor
                     if (Time.frameCount < frameDeadline) return;
                     if (!H.PanelOpen) Log.Add("[说明] 队伍背包未打开：" + controller.Message);
                     Capture("ui-skin-backpack");
+                    VerifyAuthoredLayout();
                     // 选中一件物品，验证说明区已改为点选后才出现的小弹框。
                     var firstItem = BasePartyInventory.Entries(controller.State).FirstOrDefault(e => e != null && !string.IsNullOrEmpty(e.Holder) && !e.Worn);
                     if (firstItem != null)
@@ -199,6 +201,27 @@ namespace BaseConquest.Editor
                     Finish(0, "OK");
                     break;
             }
+        }
+
+        // 表现权探针：prefab 里故意给第 0 格留了 3px 哨兵；C# 硬编码是 x=-132。
+        // 运行时若读到 prefab 的值、且不等于硬编码值，才证明版式权真的交给了 prefab。
+        private static void VerifyAuthoredLayout()
+        {
+            if(!UiAuthoredLayout.Enabled){Log.Add("[说明] 表现权总开关关闭，探针跳过");return;}
+            var prefab=Resources.Load<GameObject>(UiAuthoredLayout.Folder+"PartyMemberCard");
+            if(prefab==null){Log.Add("[说明] 尚无 AuthoredUI/PartyMemberCard.prefab，探针跳过");return;}
+            var authored=prefab.GetComponentsInChildren<UiVisualNode>(true).FirstOrDefault(n=>n.BindingName=="BagSlot_0");
+            var live=Object.FindObjectsByType<UiVisualNode>(FindObjectsSortMode.None).FirstOrDefault(n=>n.BindingName=="BagSlot_0"&&n.gameObject.activeInHierarchy);
+            if(authored==null||live==null){Log.Add("[失败] 表现权探针找不到 BagSlot_0（prefab="+(authored!=null)+"，运行时="+(live!=null)+"）");failed=true;return;}
+            var a=(RectTransform)authored.transform;var b=(RectTransform)live.transform;
+            bool same=Vector2.Distance(a.anchoredPosition,b.anchoredPosition)<.01f;
+            bool notHardcoded=Mathf.Abs(b.anchoredPosition.x+132f)>1f;
+            var pa=authored.GetComponent<Image>();var pb=live.GetComponent<Image>();
+            bool colorSame=pa!=null&&pb!=null&&Vector4.Distance(pa.color,pb.color)<.005f;
+            bool colorSentinel=pa!=null&&Mathf.Abs(pa.color.r-DemoUiTheme.Current.Inset.r)>.01f;
+            if(same&&notHardcoded&&colorSame&&colorSentinel)
+                Log.Add("[PASS] 版式与配色由 prefab 主导：BagSlot_0="+b.anchoredPosition+"（prefab="+a.anchoredPosition+"，C# 硬编码 -132 未生效）；颜色="+pb.color+" 与 prefab 一致且不等于主题默认色");
+            else{Log.Add("[失败] 表现权未交给 prefab：运行时位置="+b.anchoredPosition+"／prefab="+a.anchoredPosition+"（硬编码 -132）；颜色运行时="+(pb!=null?pb.color.ToString():"无")+"／prefab="+(pa!=null?pa.color.ToString():"无")+"，哨兵="+(colorSentinel?"在":"缺失"));failed=true;}
         }
 
         private static bool StartBattle()
