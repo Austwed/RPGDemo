@@ -9,7 +9,7 @@ using BaseConquest.Base;
 
 namespace BaseConquest.Editor
 {
-    // 跳过战斗探针：验证「扫荡≈真实战斗」「自动迎战明显更痛且额外扣资源」「坚守按时间比例结算」。
+    // 跳过战斗探针：验证「扫荡≈真实战斗」「袭击防守无估算通道」「掠夺按残余兵力折算」「坚守按时间比例结算」。
     // 只读，不写存档；改 Losses / Engage / BaseRaidLoot 后必须重跑，退出码非 0 视为破坏规则。
     public static class VerifySkipBattle
     {
@@ -82,7 +82,7 @@ namespace BaseConquest.Editor
                 Check(Math.Abs(engaged.AllySurvival - Math.Max(0, (endure - hold) / Math.Max(1e-9, endure))) < .02, "坚守剩余血量必须按时间比例结算");
                 Check(engaged.AllySurvival > .9, "能撑近 900 秒却只守 30 秒，剩余血量应接近满血");
 
-                // 4) 自动迎战的经济代价：按敌方人头掠（口径见 BaseRaidLoot），打赢也至少轻掠，且写进战报净变化。
+                // 4) 掠夺按折算（口径见 BaseRaidLoot，2026-11-06 裁决）：守军全灭才掠，只扣钱币，打赢不掠。
                 var wallet = template.Copy();
                 wallet.Inventory.Food = 300; wallet.Inventory.Materials = 120; wallet.Inventory.Coins = 800;
                 var mission = new BaseCampaignEvent { Kind = "defense" };
@@ -91,13 +91,16 @@ namespace BaseConquest.Editor
                     Id = "probe:" + i, Name = "剑士", Kind = SoldierKind.Melee, Stats = new SoldierStats(), Health = 100
                 }).ToList();
                 var report = new BaseCampaignReport { BattleId = "probe", Deployed = 10, Killed = 0, EnemyDeployed = 10 };
-                int taken = BaseRaidLoot.Apply(wallet, mission, report, win: true, auto: true);
-                Debug.Log("[Skip] 自动迎战资源：粮 300→" + wallet.Inventory.Food + "／料 120→" + wallet.Inventory.Materials
-                    + "／钱 800→" + wallet.Inventory.Coins + "；战报净变化 粮 " + report.FoodChange + "／料 " + report.MaterialChange + "／钱 " + report.CoinChange);
-                Check(taken == 10 + 20, "自动迎战零战损也应按轻掠扣 10 粮＋20 钱，实际 " + taken);
-                Check(wallet.Inventory.Food == 290 && wallet.Inventory.Materials == 120 && wallet.Inventory.Coins == 780, "自动迎战轻掠应为 粮 −10／钱 −20，不扣原料");
-                Check(report.FoodChange == -10 && report.CoinChange == -20, "掠走的部分必须计入战报净变化");
-                Check(!string.IsNullOrEmpty(report.RaidNote), "战报必须留下自动迎战的掠夺说明");
+                int won = BaseRaidLoot.Apply(wallet, mission, report, win: true, auto: true, enemyLeft: 6, secondsLeft: 20);
+                Check(won == 0 && wallet.Inventory.Coins == 800, "打赢不应产生掠夺，实际 " + won);
+                int taken = BaseRaidLoot.Apply(wallet, mission, report, win: false, auto: true, enemyLeft: 6, secondsLeft: 20);
+                Debug.Log("[Skip] 掠夺：6 名残敌 × 剩余 20 秒 → 钱 800→" + wallet.Inventory.Coins
+                    + "；粮 " + wallet.Inventory.Food + "／料 " + wallet.Inventory.Materials
+                    + "；战报净变化 粮 " + report.FoodChange + "／料 " + report.MaterialChange + "／钱 " + report.CoinChange);
+                Check(taken == 120, "6 名残敌 × 剩余 20 秒应掠走 120 钱，实际 " + taken);
+                Check(wallet.Inventory.Food == 300 && wallet.Inventory.Materials == 120 && wallet.Inventory.Coins == 680, "掠夺只扣钱币，粮草与原料不动");
+                Check(report.FoodChange == 0 && report.MaterialChange == 0 && report.CoinChange == -120, "掠走的钱必须计入战报净变化");
+                Check(!string.IsNullOrEmpty(report.RaidNote), "战报必须留下掠夺说明");
 
                 // 5) 扫荡门槛（2026-11-05 裁决，玩法案 §15.1）：我方战力必须严格大于敌方 1.5 倍，等于不放；
                 //    达到倍数后不再叠加「推算能取胜／僵持超时」两道旧门槛。自动迎战不套这个门槛。

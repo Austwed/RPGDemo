@@ -14,8 +14,8 @@ namespace BaseConquest.Base
         public int EnemyRecoveryDay;
         public int HoldRounds = 30;
         public int FoodReward = 12, MaterialReward = 8, CoinReward = 15;
-        // 掠夺单价：每名来袭敌军能带走多少。FoodRaid 是「口粮天数」不是粮草件数（按各兵种日耗折算），
-        // 口径见 BaseRaidLoot；0 表示这一战不掠。
+        // 掠夺开关：三个字段只决定「这一战掠不掠」，三者全 0 为不掠，数值本身不再参与计算。
+        // 实扣按 BaseRaidLoot 的折算式（残余敌军 × 剩余坚守秒数）；保留字段是为了旧档与配表不改结构。
         public int FoodRaid = 3, MaterialRaid = 1, CoinRaid = 6;
         public string SourceSiteId="";
         public int DepartedDay;
@@ -356,7 +356,8 @@ namespace BaseConquest.Base
             ApplyEventInventory(s, e, win && !s.Aftermath.GameOver, r,a.Difficulty.RewardFactor); e.Status = win && !s.Aftermath.GameOver || e.Kind == "defense" ? "resolved" : "pending";
             BaseThreats.Settle(s,e,session,r,win&&!s.Aftermath.GameOver);
             // 掠夺等战果回写之后再结算：此时 EnemyDeployed 才是本场实际参战人头。
-            double holdLeft = Math.Max(0, (battle.Scenario.Objective?.HoldRounds ?? 0) - (a.RealtimeRules ? (a.RealtimeState?.Seconds ?? 0) : battle.RoundNumber));
+            // 剩余坚守时间取「目标坚守时长 − 已用时」，缺目标时退回事件上的默认 30 秒。
+            double holdLeft = Math.Max(0, (battle.Scenario.Objective?.HoldRounds ?? e.HoldRounds) - (a.RealtimeRules ? (a.RealtimeState?.Seconds ?? 0) : battle.RoundNumber));
             int enemyLeft = battle.Soldiers.Count(u => u.Side == BattleSide.B && u.IsAlive && !u.Escaped);
             BaseRaidLoot.Apply(s, e, r, win, passive, enemyLeft, holdLeft);
             s.Campaign.SettledIds.Add(a.Id); s.Campaign.Reports.Add(r); BaseQuests.RecordVictory(s,r); if(!passive&&!a.Deputy)ToBaseLocation(s);
