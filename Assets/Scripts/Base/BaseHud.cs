@@ -155,7 +155,7 @@ namespace BaseConquest.Base
             var colors = button.colors; colors.highlightedColor = new Color(0.8f, 0.96f, 0.89f); colors.pressedColor = new Color(0.6f, 0.81f, 0.74f); colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.5f); button.colors = colors;
             DemoUiTheme.Current.StyleButton(button);
             button.onClick.AddListener(() => { if (!owner.Busy) action(); });
-            Label(rect, text, Vector2.zero, size - new Vector2(12, 6), 20, TextAnchor.MiddleCenter); return button;
+            Label(rect, text, Vector2.zero, size - new Vector2(12, 6), DemoUiMetrics.FontSubhead, TextAnchor.MiddleCenter); return button;
         }
         public void RefreshSummary()
         {
@@ -269,13 +269,13 @@ namespace BaseConquest.Base
             modal.gameObject.SetActive(true); Joystick.ResetInput(); Joystick.gameObject.SetActive(false);
             panel = UiPrefabBinding.Create(UiPrefabBinding.PageKey(title,viewKey), title, modal,false,owner.PageTemplate(UiPrefabBinding.PageKey(title,viewKey))).GetComponent<RectTransform>();
             panel.anchorMin=panel.anchorMax=panel.pivot=Vector2.one*.5f;panel.anchoredPosition=new Vector2(0,-36);panel.sizeDelta=new Vector2(960,540);panel.gameObject.GetOrAdd<Image>().color=new Color(.10f,.17f,.18f,1);
-            Label(panel, title, new Vector2(-85, 230), new Vector2(710, 55), 26);
+            Label(panel, title, new Vector2(-85, 230), new Vector2(710, 55), DemoUiMetrics.FontPanelTitle);
             var closeButton=MakeButton(panel, "关闭", new Vector2(390, 230), new Vector2(130, 50), ClosePanel);
             closeButton.interactable = !(BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) && owner.State?.Aftermath.GameOver != true && !BaseBattleGateway.MainMenu && !BaseBattleLoot.Pending(owner.State);
             var viewport = Box("Viewport", panel, Vector2.one * 0.5f, new Vector2(0, -28), new Vector2(900, 440), new Color(0.10f, 0.17f, 0.18f, 1)); viewport.gameObject.GetOrAdd<RectMask2D>();
             content = Rect("Content", viewport, new Vector2(0.5f, 1), Vector2.zero, new Vector2(880, 440)); content.pivot = new Vector2(0.5f, 1); content.gameObject.GetOrAdd<UiDynamicContent>(); content.GetComponent<UiVisualNode>().UseAuthoredLayout=false;
             panelScroll = viewport.gameObject.GetOrAdd<ScrollRect>(); panelScroll.viewport = viewport; panelScroll.content = content; panelScroll.horizontal = false; panelScroll.movementType = ScrollRect.MovementType.Clamped;
-            panelFeedback = Label(panel, owner.Message, new Vector2(0, -256), new Vector2(880, 24), 16);
+            panelFeedback = Label(panel, owner.Message, new Vector2(0, -256), new Vector2(880, 24), DemoUiMetrics.FontCaption);
             row = 0; RefreshSummary();
         }
         private void EndPanel()
@@ -287,7 +287,7 @@ namespace BaseConquest.Base
             Canvas.ForceUpdateCanvases(); panelScroll.StopMovement();
             content.anchoredPosition = new Vector2(0, Mathf.Clamp(restoreScrollOffset, 0, Mathf.Max(0, content.rect.height - panelScroll.viewport.rect.height)));
         }
-        private void Line(string text, float height = 42, int size = 20)
+        private void Line(string text, float height = 22, int size = DemoUiMetrics.FontBody)
         { Label(content, text, new Vector2(0, -row - height / 2), new Vector2(850, height), size, TextAnchor.MiddleLeft, new Vector2(0.5f, 1)); row += height; }
         private Button RowButton(string text, float x, float width, Action action, bool enabled = true)
         {

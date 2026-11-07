@@ -81,6 +81,19 @@ namespace BaseConquest.Editor
                 case "camp-shot":
                     if (Time.frameCount < frameDeadline) return;
                     Capture("ui-skin-camp-hud");
+                    H.OpenResources();
+                    stage = "resources-shot"; frameDeadline = Time.frameCount + 20;
+                    break;
+                case "resources-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("ui-skin-resources");
+                    H.OpenCalendar();
+                    stage = "calendar-shot"; frameDeadline = Time.frameCount + 20;
+                    break;
+                case "calendar-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("ui-skin-calendar");
+                    H.ClosePanel();
                     BaseBattleGateway.MainMenu = true;
                     try { H.OpenMenu(); } finally { BaseBattleGateway.MainMenu = false; }
                     stage = "menu-shot"; frameDeadline = Time.frameCount + 40;

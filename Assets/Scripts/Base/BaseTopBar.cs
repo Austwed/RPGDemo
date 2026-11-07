@@ -48,11 +48,12 @@ namespace BaseConquest.Base
             var preview = BaseEconomy.Preview(s);
             int soldiers = s.Workers.Sum(w => w.Count);
             int leaders = s.Leaders.Count(l => BaseAdventure.Alive(l));
+            var farm = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == "farm");
             return new[]
             {
-                "粮田在岗 " + BaseEconomy.EligibleWorkers(s, "farm") + " 人 · 预计产粮 " + preview.FoodProduced + "（生产系数 " + (preview.ProductionFactor * 100).ToString("0") + "%）",
-                "今日口粮 " + preview.FoodRequired + "：士兵 " + soldiers + " 人／队长 " + leaders + " 人（骑兵与队长按 2 份）",
-                "日净变化 " + (preview.FoodProduced - preview.FoodRequired).ToString("+0;-0;0") + " · 库存 " + s.Inventory.Food
+                "粮田在岗 " + BaseEconomy.WorkersAt(s, "farm") + " / " + (farm != null ? farm.Capacity : 0) + " 人 · 预计产粮 " + preview.FoodProduced + " / 日（生产系数 " + (preview.ProductionFactor * 100).ToString("0") + "%）",
+                "预计消耗 " + preview.FoodRequired + " / 日：士兵 " + soldiers + " 人／队长 " + leaders + " 人（骑兵与队长按 2 份）",
+                "日净变化 " + (preview.FoodProduced - preview.FoodRequired).ToString("+0;-0;0") + " / 日 · 库存 " + s.Inventory.Food
             };
         }
         public static string[] Materials(BaseState s)
@@ -71,10 +72,15 @@ namespace BaseConquest.Base
             int low = s.Inventory.Equipment.Where(e => e.Product == "supply" && e.Level <= 1).Sum(e => e.Count);
             int high = s.Inventory.Equipment.Where(e => e.Product == "supply" && e.Level >= 2).Sum(e => e.Count);
             bool making = s.WorkshopProduct == "supply";
+            var shop = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == "workshop");
+            string output = making
+                ? "工坊在岗 " + BaseEconomy.WorkersAt(s, "workshop") + " / " + (shop != null ? shop.Capacity : 0) + " 人 · 预计产量 " + preview.ProductsMade + " 件 / 日（" + preview.ProductLevel + " 级）"
+                : "工坊当前生产 " + BaseEconomy.ProductName(s.WorkshopProduct) + "，没有在生产军需";
+            if (making && s.Inventory.Materials < preview.MaterialsSpent) output += " · 原料不足，预计 0 / 日";
             return new[]
             {
                 "库存 一级 " + low + " 件／二级 " + high + " 件",
-                making ? "工坊当前在生产军需，预计 " + preview.ProductsMade + " 件（" + preview.ProductLevel + " 级）" : "工坊当前生产 " + BaseEconomy.ProductName(s.WorkshopProduct) + "，没有在生产军需",
+                output,
                 "军需只在战斗内加攻防，战后只扣磨损；跨阶段越级使用属于经营选择"
             };
         }
