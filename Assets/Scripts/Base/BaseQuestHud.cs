@@ -11,7 +11,7 @@ namespace BaseConquest.Base
         {
             if(owner.State==null)return;
             if(owner.State.Aftermath.GameOver){OpenGameOver();return;}
-            if(BaseDemo.Active(owner.State)){if(!string.IsNullOrEmpty(tab))questTab=tab;OpenDemoQuestPanel();return;}
+            if(BaseDemo.Active(owner.State)){questTab=string.IsNullOrEmpty(tab)?"tasks":tab;OpenDemoQuestPanel();return;}
             if(!string.IsNullOrEmpty(tab))return;
             OpenTownQuestPanel();
         }

@@ -18,6 +18,7 @@ namespace BaseConquest.Base
     {
         public string Key, Region, Title, ParentKey;
         public double X, Y;
+        public int Columns, Rows;      // 场景格数，出口圆点按它换算成百分比
         public bool Inside, Current;   // Inside＝嵌在父场景里的小场景
         public List<BaseLandMapExit> Exits = new List<BaseLandMapExit>();
     }
@@ -82,14 +83,14 @@ namespace BaseConquest.Base
                 string key = KeyOf(s, map);
                 if (string.IsNullOrEmpty(key)) continue;
                 double x, y; Spot(map.Region, out x, out y);
-                bool inside = map.Region == "custom" || !string.IsNullOrEmpty(map.ParentMapId);
-                string parent = string.IsNullOrEmpty(map.ParentMapId) ? "" : BaseSceneInstances.Active(s) ? map.ParentMapId : s.Campaign.Layouts.FirstOrDefault(item => item.SourceMapId == map.ParentMapId)?.Region ?? map.ParentMapId;
+                bool inside = Nested(map);
+                string parent = string.IsNullOrEmpty(map.ParentMapId) ? map.Region == "dungeon" ? "outpost" : "" : BaseSceneInstances.Active(s) ? map.ParentMapId : s.Campaign.Layouts.FirstOrDefault(item => item.SourceMapId == map.ParentMapId)?.Region ?? map.ParentMapId;
                 if (inside && !string.IsNullOrEmpty(parent))
                 {
                     double px, py; Spot(Scene(s, parent)?.Region ?? "", out px, out py);
                     x = px + .18; y = py - .3;
                 }
-                var node = new BaseLandMapNode { Key = key, Region = map.Region, Title = string.IsNullOrEmpty(map.Title) ? BaseCampaign.LocationName(map.Region) : map.Title, ParentKey = parent, X = x, Y = y, Inside = inside, Current = key == current };
+                var node = new BaseLandMapNode { Key = key, Region = map.Region, Title = string.IsNullOrEmpty(map.Title) ? BaseCampaign.LocationName(map.Region) : map.Title, ParentKey = parent, X = x, Y = y, Columns = Math.Max(1, map.Columns), Rows = Math.Max(1, map.Rows), Inside = inside, Current = key == current };
                 foreach (var marker in map.Objects.Where(obj => !obj.VisualOnly && !obj.Blocks))
                 {
                     string target = TargetOf(s, map, marker);
@@ -112,11 +113,9 @@ namespace BaseConquest.Base
             if (link != null) return BaseSceneInstances.Active(s) ? link.TargetMapId : Scene(s, link.TargetMapId)?.Region ?? link.TargetMapId;
             return Legacy.TryGetValue(marker.Id, out var legacy) ? legacy : "";
         }
-        private static bool InsideTarget(BaseState s, string key)
-        {
-            var map = Scene(s, key);
-            return map != null && (map.Region == "custom" || !string.IsNullOrEmpty(map.ParentMapId));
-        }
+        // 遗迹内部在原型里画成野外块内的一个小框：它没有 ParentMapId 也算内嵌。
+        private static bool Nested(BaseMapLayout map) => map != null && (map.Region == "custom" || map.Region == "dungeon" || !string.IsNullOrEmpty(map.ParentMapId));
+        private static bool InsideTarget(BaseState s, string key) => Nested(Scene(s, key));
         // 只判「这个场景现在开放没有」，不判「有没有站在出口边」——地图点击本身就是快捷传送。
         public static string Problem(BaseState s, string key)
         {

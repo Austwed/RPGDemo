@@ -140,6 +140,9 @@ namespace BaseConquest.Base
         }
         private RectTransform Box(string name, Transform parent, Vector2 anchor, Vector2 position, Vector2 size, Color color)
         { var rect = Rect(name, parent, anchor, position, size); var image=rect.gameObject.GetOrAdd<Image>();image.color=color;if(color.a>.8f)DemoUiTheme.Current.Surface(image);return rect; }
+        // 需要精确颜色的小色块（圆点、下划线、标记）：走半透明创建避开 Surface，再把颜色写成目标值。
+        private RectTransform Solid(string name, Transform parent, Vector2 anchor, Vector2 position, Vector2 size, Color color)
+        { var rect = Box(name, parent, anchor, position, size, new Color(color.r, color.g, color.b, .78f)); rect.gameObject.GetComponent<Image>().color = color; return rect; }
         private Text Label(Transform parent, string text, Vector2 position, Vector2 size, int fontSize = 20, TextAnchor alignment = TextAnchor.MiddleLeft, Vector2? anchor = null)
         {
             var rect = Rect("Text", parent, anchor ?? Vector2.one * 0.5f, position, size); var label = rect.gameObject.GetOrAdd<Text>();
@@ -289,9 +292,17 @@ namespace BaseConquest.Base
             var images = content.GetComponentsInChildren<Image>(true);
             var imageColors = new Color[images.Length];
             for (int i = 0; i < images.Length; i++) imageColors[i] = images[i].color;
+            var outlines = content.GetComponentsInChildren<Outline>(true);
+            var outlineColors = new Color[outlines.Length]; var outlineDistances = new Vector2[outlines.Length];
+            for (int i = 0; i < outlines.Length; i++) { outlineColors[i] = outlines[i].effectColor; outlineDistances[i] = outlines[i].effectDistance; }
+            var authored = new System.Collections.Generic.HashSet<Outline>(outlines);
             UiPrefabBinding.Complete(panel.gameObject);
+            // Complete 会给「无描边但有底色」的图补一圈铜边；代码新造的小色块（圆点、下划线）不需要。
+            foreach (var added in content.GetComponentsInChildren<Outline>(true))
+                if (!authored.Contains(added)) UiPrefabBinding.DestroyView(added);
             for (int i = 0; i < texts.Length; i++) if (texts[i] != null) { texts[i].color = textColors[i]; texts[i].alignment = textAnchors[i]; texts[i].fontSize = textSizes[i]; }
             for (int i = 0; i < images.Length; i++) if (images[i] != null) images[i].color = imageColors[i];
+            for (int i = 0; i < outlines.Length; i++) if (outlines[i] != null) { outlines[i].effectColor = outlineColors[i]; outlines[i].effectDistance = outlineDistances[i]; }
             DemoUiTheme.Current.Frame(panel);
             panel.GetComponent<UiPageLayout>()?.Apply(content,content.sizeDelta.y);
             Canvas.ForceUpdateCanvases(); panelScroll.StopMovement();

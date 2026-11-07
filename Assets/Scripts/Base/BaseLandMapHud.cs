@@ -7,10 +7,18 @@ using UnityEngine.UI;
 
 namespace BaseConquest.Base
 {
-    // 领地地图面板（P32）：一个场景一块，块内按出口列传送标记，点一下落到它旁边。
-    // 字段口径见《基地征服RPG-UI实施说明书（Unity）》§3.2：五场景块、蓝黄点图例、当前位置 X/Y、出口旁传送。
+    // 领地地图面板（P32）：照原型 `case 'map'` 做成一排场景块——
+    // 区域名在上、节点框在下，出口按场景坐标换算成圆点贴在框里；遗迹内部嵌在野外块内。
+    // 字段口径见《基地征服RPG-UI实施说明书（Unity）》§3.2。
     public sealed partial class BaseHud
     {
+        // 原型：territory-node 130 高、territory-link 23 宽、块宽按剩余宽度均分。
+        private const float MapTileHeight = 150, MapLinkWidth = 24;
+        private static readonly Color MapBlue = new Color(.30f, .56f, .80f);
+        private static readonly Color MapYellow = new Color(.89f, .71f, .24f);
+        private static readonly Color MapOff = new Color(.42f, .42f, .40f);
+        private static readonly Color MapRing = new Color(.97f, .94f, .86f);
+
         public void OpenLandMap()
         {
             if (owner.State == null) return;
@@ -18,69 +26,135 @@ namespace BaseConquest.Base
             var s = owner.State;
             var nodes = BaseLandMap.Nodes(s);
             BeginPanel("领地地图", "landmap");
-            RowButton("返回", -290, 270, ClosePanel);
-            RowButton("规则 i", 0, 270, () => RuleInfo("领地地图", "基地、外围、城镇、野外与遗迹内部同属这块领地，进出靠各自出入口。地图上的蓝点是地表出入口、黄点通往内嵌场景；点出口旁的传送标记直接过去，不消耗日程。遗迹内部嵌在野外，得从野外的调查点进。世界旅行走基地南侧的斥候，不在本图范围。", OpenLandMap));
-            RowButton("世界地图", 290, 270, () => { ClosePanel(); owner.Travel("world"); }, BaseLandMap.WorldEntry(s));
-            row += 64;
-            if (nodes.Count == 0) { Line("当前没有可显示的领地场景。", 60, DemoUiMetrics.FontBody); EndPanel(); return; }
+            var info = MakeButton(content, "i", new Vector2(421, -17), new Vector2(34, 34), () => RuleInfo("领地地图", "基地、外围、城镇、野外与遗迹内部同属这块领地，进出靠各自出入口。地图上的蓝点是地表出入口、黄点通往内嵌场景；点出口旁的标记直接过去，不消耗日程。遗迹内部嵌在野外，得从野外的调查点进。世界旅行走基地南侧的斥候，不在本图范围。", OpenLandMap), new Vector2(.5f, 1));
+            var infoLabel = info.GetComponentInChildren<Text>();
+            if (infoLabel != null) infoLabel.fontSize = DemoUiMetrics.FontBody;
 
-            var current = nodes.FirstOrDefault(node => node.Current);
-            Line("<color=#7FB6D9>●</color> 蓝点 ＝ 地表出入口　　<color=#E8C15A>●</color> 黄点 ＝ 通往内嵌场景（遗迹内部一类）", 24, DemoUiMetrics.FontBody);
-            Line("当前：" + (current == null ? BaseCampaign.LocationName(s.Campaign.Location) : current.Title) + " · 主角 " + s.PlayerX.ToString("0.#") + "／" + s.PlayerY.ToString("0.#"), 28, DemoUiMetrics.FontSubhead);
-            Line("点击出口旁的传送标记即落到该出入口旁，不消耗日程；跨领地旅行仍走基地南侧斥候。", 22, DemoUiMetrics.FontCaption);
-            row += 8;
-            foreach (var node in nodes) SceneBlock(s, node);
+            var outside = nodes.Where(node => !node.Inside).ToList();
+            if (outside.Count == 0)
+            {
+                Line("当前没有可显示的领地场景。", 40, DemoUiMetrics.FontBody);
+                EndPanel();
+                return;
+            }
+
+            float tileWidth = Mathf.Clamp((880 - MapLinkWidth * (outside.Count - 1)) / (float)outside.Count, 150, 240);
+            float total = tileWidth * outside.Count + MapLinkWidth * (outside.Count - 1);
+            float left = -total * .5f;
+            float nameY = -68, tileCenterY = -(82 + MapTileHeight * .5f);
+            for (int i = 0; i < outside.Count; i++)
+            {
+                float centerX = left + tileWidth * .5f + i * (tileWidth + MapLinkWidth);
+                DrawMapTile(s, nodes, outside[i], centerX, nameY, tileCenterY, tileWidth);
+                if (i < outside.Count - 1)
+                {
+                    // 场景之间的连接线：原型是 23×2 的短横线，中线对齐节点框。
+                    var link = Box("MapLink", content, new Vector2(.5f, 1), new Vector2(centerX + tileWidth * .5f + MapLinkWidth * .5f, tileCenterY), new Vector2(MapLinkWidth, 2), new Color(.55f, .64f, .55f, .55f));
+                    link.gameObject.GetComponent<Image>().raycastTarget = false;
+                }
+            }
+
+            float subY = tileCenterY - MapTileHeight * .5f - 16;
+            var current = outside.FirstOrDefault(node => node.Current) ?? nodes.FirstOrDefault(node => node.Current);
+            var pos = Label(content, "当前位置：" + (current == null ? BaseCampaign.LocationName(s.Campaign.Location) : current.Title) + " · X " + s.PlayerX.ToString("0.#") + "，Y " + s.PlayerY.ToString("0.#"), new Vector2(0, subY), new Vector2(850, 20), DemoUiMetrics.FontBody, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
+            pos.color = DemoUiTheme.Current.Ink;
+            var legend = Label(content, "蓝点为地表出入口，黄点为遗迹内部进出位置；点击标记传送至入口附近，不消耗日程。", new Vector2(0, subY - 24), new Vector2(850, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
+            legend.color = DemoUiTheme.Current.Muted;
+
+            MakeButton(content, "世界地图 →", new Vector2(0, subY - 70), new Vector2(240, 42), () => { ClosePanel(); owner.Travel("world"); }, new Vector2(.5f, 1)).interactable = BaseLandMap.WorldEntry(s);
             EndPanel();
         }
 
-        // 一个场景块：标题 + 状态 + 可用出口（两列）+ 不可用出口及原因（逐行）。
-        // 出口只列「通往别的场景」的；指向自己所在场景的自环不占位置。
-        private void SceneBlock(BaseState s, BaseLandMapNode node)
+        // 一个场景块：区域名在上，节点框内按场景坐标摆出口圆点与主角点；嵌在里面的小场景另画一个框。
+        private void DrawMapTile(BaseState s, List<BaseLandMapNode> all, BaseLandMapNode node, float centerX, float nameY, float centerY, float width)
         {
-            var open = node.Exits.Where(exit => exit.Available && exit.Problem != BaseLandMap.SamePlace).ToList();
-            var closed = node.Exits.Where(exit => !exit.Available && exit.Problem != BaseLandMap.SamePlace).ToList();
-            int rows = (open.Count + 1) / 2;
-            float chipsHeight = rows > 0 ? 6 + rows * 44 + (rows - 1) * 8 : 0;
-            float closedHeight = closed.Count > 0 ? 6 + closed.Count * 20 : 0;
-            float emptyHeight = node.Exits.Count == 0 ? 6 + 20 : 0;
-            float height = 12 + 26 + chipsHeight + closedHeight + emptyHeight + 14;
-            var block = Box("SceneBlock", content, new Vector2(.5f, 1), new Vector2(0, -row - height / 2), new Vector2(850, height), new Color(.16f, .15f, .14f, .72f));
-            var outline = block.gameObject.GetOrAdd<Outline>();
-            outline.effectColor = new Color(.72f, .55f, .32f, node.Current ? .85f : .4f);
-            outline.effectDistance = new Vector2(1, -1);
+            string problem = node.Current ? "" : BaseLandMap.Problem(s, node.Key);
+            bool open = problem == "";
+            var title = Label(content, ShortTitle(node.Title) + (node.Current ? " · 当前位置" : open ? "" : " · 未开放"), new Vector2(centerX, nameY), new Vector2(width, 20), DemoUiMetrics.FontBody, TextAnchor.MiddleCenter, new Vector2(.5f, 1));
+            title.color = node.Current ? DemoUiTheme.Current.Copper : open ? DemoUiTheme.Current.Ink : DemoUiTheme.Current.Muted;
+            title.fontStyle = FontStyle.Bold;
 
-            Label(block, (node.Inside ? "〔内嵌〕" : "") + node.Title, new Vector2(276, -12), new Vector2(520, 26), DemoUiMetrics.FontSubhead, TextAnchor.MiddleLeft, new Vector2(0, 1));
-            string problem = node.Current ? "当前所在" : BaseLandMap.Problem(s, node.Key);
-            var status = Label(block, problem == "" ? "可传送" : problem, new Vector2(-164, -12), new Vector2(300, 26), DemoUiMetrics.FontBody, TextAnchor.MiddleRight, new Vector2(1, 1));
-            status.color = node.Current ? DemoUiTheme.Current.Copper : problem == "" ? new Color(.55f, .80f, .60f) : DemoUiTheme.Current.Muted;
+            var fill = node.Current ? new Color(.30f, .29f, .20f, .78f) : open ? new Color(.20f, .22f, .17f, .78f) : new Color(.13f, .13f, .12f, .78f);
+            var tile = Box("MapTile", content, new Vector2(.5f, 1), new Vector2(centerX, centerY), new Vector2(width, MapTileHeight), fill);
+            var outline = tile.gameObject.GetOrAdd<Outline>();
+            outline.effectColor = node.Current ? new Color(.72f, .55f, .32f, .95f) : new Color(.55f, .64f, .55f, open ? .55f : .25f);
+            outline.effectDistance = node.Current ? new Vector2(2, -2) : new Vector2(1, -1);
 
-            for (int i = 0; i < open.Count; i++)
+            foreach (var exit in node.Exits)
             {
-                var exit = open[i];
-                // 只有一个出口时铺满整行，避免大片空框。
-                bool single = open.Count == 1;
-                float x = single ? 425 : i % 2 == 0 ? 218.5f : 631.5f;
-                float y = -(12 + 26 + 6 + (i / 2) * 52 + 22);
-                var button = MakeButton(block, (exit.Inside ? "黄点 · " : "蓝点 · ") + exit.Label + " → " + exit.TargetTitle,
-                    new Vector2(x, y), new Vector2(single ? 818 : 405, 44), () => owner.MapTeleport(node.Key, exit.ObjectId), new Vector2(0, 1));
-                var text = button.GetComponentInChildren<Text>();
-                if (text != null) { text.fontSize = DemoUiMetrics.FontBody; text.horizontalOverflow = HorizontalWrapMode.Overflow; }
+                if (exit.Problem == BaseLandMap.SamePlace) continue;
+                Vector2 at = MapPoint(exit.X, exit.Y, node, width, MapTileHeight);
+                DrawMapDot(tile, at, exit.Inside ? MapYellow : MapBlue, exit.Available, () => owner.MapTeleport(node.Key, exit.ObjectId));
+            }
+            if (node.Current) DrawPlayerDot(tile, MapPoint(s.PlayerX, s.PlayerY, node, width, MapTileHeight), 10);
+
+            // 嵌在父场景里的小场景（遗迹内部）：原型的 nested-ruins 方块，位置固定在节点框右下。
+            foreach (var child in all.Where(item => item.Inside && item.ParentKey == node.Key))
+            {
+                bool inside = child.Current;
+                float boxWidth = width * .42f, boxHeight = MapTileHeight * .5f;
+                Vector2 center = new Vector2(width * .22f, -MapTileHeight * .04f);
+                var nested = Box("NestedScene", tile, new Vector2(.5f, .5f), center, new Vector2(boxWidth, boxHeight), inside ? new Color(.30f, .26f, .17f, .78f) : new Color(.16f, .16f, .14f, .78f));
+                var nestedOutline = nested.gameObject.GetOrAdd<Outline>();
+                nestedOutline.effectColor = inside ? new Color(.89f, .71f, .24f, .95f) : new Color(.62f, .55f, .42f, .45f);
+                nestedOutline.effectDistance = new Vector2(1, -1);
+                var nestedLabel = Label(nested, "遗迹内部", new Vector2(0, -8), new Vector2(boxWidth, 18), DemoUiMetrics.FontCaption, TextAnchor.MiddleCenter, new Vector2(.5f, 1));
+                nestedLabel.color = inside ? DemoUiTheme.Current.Copper : DemoUiTheme.Current.Muted;
+                // 进入入口：父场景通往内嵌场景的出口已经画在父块上，这里只补内嵌场景自己的出口。
+                foreach (var exit in child.Exits)
+                {
+                    if (exit.Problem == BaseLandMap.SamePlace) continue;
+                    Vector2 at = MapPoint(exit.X, exit.Y, child, boxWidth, boxHeight);
+                    DrawMapDot(nested, at, MapYellow, exit.Available, () => owner.MapTeleport(child.Key, exit.ObjectId));
+                }
+                if (inside)
+                {
+                    Label(nested, "当前位置", new Vector2(0, -26), new Vector2(boxWidth, 16), DemoUiMetrics.FontCaption, TextAnchor.MiddleCenter, new Vector2(.5f, 1)).color = DemoUiTheme.Current.Copper;
+                    DrawPlayerDot(nested, MapPoint(s.PlayerX, s.PlayerY, child, boxWidth, boxHeight), 8);
+                }
             }
 
-            float lineY = -(12 + 26 + chipsHeight + 6 + 10);
-            if (node.Exits.Count == 0)
+            if (!open)
             {
-                var empty = Label(block, "这里没有通往其他场景的出入口。", new Vector2(425, lineY), new Vector2(818, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(0, 1));
-                empty.color = DemoUiTheme.Current.Muted;
+                var reason = Label(tile, problem, new Vector2(0, 9), new Vector2(width - 18, 16), DemoUiMetrics.FontCaption, TextAnchor.MiddleCenter, new Vector2(.5f, 0));
+                reason.color = DemoUiTheme.Current.Muted;
             }
-            foreach (var exit in closed)
-            {
-                var line = Label(block, "○ " + (exit.Inside ? "黄点 · " : "蓝点 · ") + exit.Label + " → " + exit.TargetTitle + " · " + exit.Problem,
-                    new Vector2(425, lineY), new Vector2(818, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(0, 1));
-                line.color = DemoUiTheme.Current.Muted;
-                lineY -= 20;
-            }
-            row += height + 12;
+        }
+
+        // 场景坐标 → 节点框内坐标：X 按列数、Y 按行数换算，Y 轴与世界一致（北在上）。
+        private static Vector2 MapPoint(double x, double y, BaseLandMapNode node, float width, float height)
+        {
+            float px = Mathf.Clamp01((float)(x / Mathf.Max(1, node.Columns)));
+            float py = Mathf.Clamp01((float)(y / Mathf.Max(1, node.Rows)));
+            return new Vector2((px - .5f) * width, (py - .5f) * height);
+        }
+
+        // 出口圆点：18 px 视觉 + 44 px 透明热区（§2.4 视觉与热区分离）。
+        private void DrawMapDot(RectTransform parent, Vector2 at, Color color, bool enabled, Action action)
+        {
+            var hit = Box("MapDot", parent, new Vector2(.5f, .5f), at, new Vector2(DemoUiMetrics.HitPc, DemoUiMetrics.HitPc), new Color(0, 0, 0, 0));
+            var button = hit.gameObject.GetOrAdd<Button>(); button.targetGraphic = hit.GetComponent<Image>(); button.transition = Selectable.Transition.None;
+            button.interactable = enabled;
+            button.onClick.AddListener(() => { if (!owner.Busy) action(); });
+            var ring = Box("Ring", hit, new Vector2(.5f, .5f), Vector2.zero, new Vector2(20, 20), new Color(MapRing.r, MapRing.g, MapRing.b, .62f));
+            ring.gameObject.GetComponent<Image>().raycastTarget = false;
+            var dot = Solid("Dot", ring, new Vector2(.5f, .5f), Vector2.zero, new Vector2(18, 18), enabled ? color : MapOff);
+            dot.gameObject.GetComponent<Image>().raycastTarget = false;
+        }
+
+        private void DrawPlayerDot(RectTransform parent, Vector2 at, float size)
+        {
+            var ring = Box("PlayerRing", parent, new Vector2(.5f, .5f), at, new Vector2(size + 5, size + 5), new Color(MapRing.r, MapRing.g, MapRing.b, .62f));
+            ring.gameObject.GetComponent<Image>().raycastTarget = false;
+            var dot = Solid("Player", ring, new Vector2(.5f, .5f), Vector2.zero, new Vector2(size, size), new Color(.70f, .50f, .20f));
+            dot.gameObject.GetComponent<Image>().raycastTarget = false;
+        }
+
+        private static string ShortTitle(string title)
+        {
+            if (string.IsNullOrEmpty(title)) return "";
+            int cut = title.IndexOfAny(new[] { '·', '：', ':' });
+            return cut > 0 ? title.Substring(0, cut) : title;
         }
 
         // 场景里按 M 打开；没有地图可用时给一句原因，不静默失败。
