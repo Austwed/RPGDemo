@@ -30,7 +30,7 @@ namespace BaseConquest.Editor
 
     public static class DemoBalanceImporter
     {
-        public const string WorkbookPath="../策划/DEMO数值配置表.xlsx";
+        public const string WorkbookPath="../策划/DEMO/DEMO数值配置表.xlsx";
         public const string OutputPath="Assets/Resources/DemoBalance/DemoBalance.json";
         public static DemoBalanceImport Read(string workbookPath,string seedPath,string outputPath,Func<string,BaseScenarioDocument> deserializeSeed)
         {

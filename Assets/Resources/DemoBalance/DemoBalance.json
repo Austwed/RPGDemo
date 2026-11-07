@@ -1,9 +1,12 @@
 {
     "Version": 1,
-    "WorkbookSha256": "954879311509b3a9d3f9b184f0275e36009d7a430d057ac8663742e639e762c5",
+    "WorkbookSha256": "57e3f711d49a731c12009857d43f57c6b0f48aff3ef8b6093280660d22a74b62",
     "Rules": {
         "GenerationSeed": 0,
         "SceneRulesVersion": 0,
+        "IntelPricingConfigured": true,
+        "ThreeDayIntelPrice": 30,
+        "FiveDayIntelPrice": 50,
         "Version": 1,
         "CampLevel": 1,
         "InnDailyFee": 2,

@@ -62,7 +62,8 @@ namespace BaseConquest.Base
             if (state.Stored.Distinct().Count() != state.Stored.Count || state.Stored.Any(id => Find(id) == null || Find(id).Required)) throw new ArgumentException("收存设施非法");
             if (!string.IsNullOrEmpty(state.PausedPolicy) && !BaseDevelopment.Policies.Contains(state.PausedPolicy)) throw new ArgumentException("暂停策略值非法");
             // 剧情场景／返乡村庄会临时换掉营地布局；此时没有营地可校验，保留收存清单原样。
-            if (layout == null) return;
+            // 序章村庄仍占用 base 区域，用村舍 id 识别，不对它校验营地必需设施。
+            if (layout == null || layout.Objects.Any(obj => obj != null && obj.Id == "village_house")) return;
             foreach (var def in Catalog)
             {
                 int placed = layout.Objects.Count(obj => obj != null && obj.Id == def.Id);

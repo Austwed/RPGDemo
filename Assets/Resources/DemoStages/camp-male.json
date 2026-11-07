@@ -209,6 +209,22 @@
         "KeepMelee": 1,
         "KeepRanged": 1,
         "KeepCavalry": 0,
+        "Strategies": [
+            3,
+            0,
+            0
+        ],
+        "Ranges": [
+            3,
+            6,
+            9,
+            3,
+            6,
+            9,
+            3,
+            6,
+            9
+        ],
         "Presets": [
             {
                 "Purpose": "defense",
@@ -262,10 +278,11 @@
         "AppliedAppendIds": []
     },
     "Development": {
-        "Version": 2,
+        "Version": 3,
         "Automatic": true,
         "Policy": "food",
-        "RecoveryFraction": 0.3
+        "RecoveryFraction": 0.3,
+        "WarningThreshold": 0.5
     },
     "Supply": {
         "Version": 1,
@@ -1442,7 +1459,8 @@
                             "Items": []
                         }
                     }
-                ]
+                ],
+                "Stock": 0
             }
         ],
         "ActiveBattle": {
@@ -7003,6 +7021,9 @@
             "Rpg": {
                 "GenerationSeed": 0,
                 "SceneRulesVersion": 0,
+                "IntelPricingConfigured": false,
+                "ThreeDayIntelPrice": 0,
+                "FiveDayIntelPrice": 0,
                 "Version": 0,
                 "CampLevel": 1,
                 "InnDailyFee": 2,
@@ -7323,6 +7344,7 @@
             "RealtimeRules": false,
             "HasRealtimeState": false,
             "DemoCombat": false,
+            "Deputy": false,
             "PlayerTroopCounts": [],
             "RealtimeRulesVersion": 0,
             "TacticalBaseDamage": 0.0,
@@ -7347,6 +7369,7 @@
                 "CompletedSteps": 0,
                 "YieldMoves": 0,
                 "HitSerial": 0,
+                "ShoveMoves": 0,
                 "Seconds": 0.0,
                 "Remainder": 0.0,
                 "RuinsCivilianDamaged": false,
@@ -76873,6 +76896,23 @@
             }
         ]
     },
+    "Layout": {
+        "Version": 1,
+        "Revision": 0,
+        "OfficeGift": false,
+        "PausedPolicy": "",
+        "Stored": []
+    },
+    "Caravan": {
+        "Version": 1,
+        "DepartDay": 0,
+        "Cargo": 0,
+        "TotalDelivered": 0,
+        "Route": "",
+        "Phase": "",
+        "Report": "",
+        "Log": []
+    },
     "Quests": {
         "Version": 1,
         "Revision": 0,
@@ -76880,7 +76920,9 @@
         "ProofDay": 0,
         "ClaimedDay": 0,
         "ProofBattleId": "",
-        "ProofSiteId": ""
+        "ProofSiteId": "",
+        "TrackedId": "",
+        "TrackedCollapsed": false
     },
     "Adventure": {
         "Version": 1,
@@ -76967,6 +77009,9 @@
         "Rpg": {
             "GenerationSeed": 1615048403,
             "SceneRulesVersion": 1,
+            "IntelPricingConfigured": true,
+            "ThreeDayIntelPrice": 30,
+            "FiveDayIntelPrice": 50,
             "Version": 1,
             "CampLevel": 1,
             "InnDailyFee": 2,
@@ -77772,7 +77817,7 @@
         "Stage": 0,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "23c82277fae097461c6638295eb766a8d271915646a0d0f883236d841741a6f0",
-        "ConfigHash": "954879311509b3a9d3f9b184f0275e36009d7a430d057ac8663742e639e762c5",
+        "ConfigHash": "57e3f711d49a731c12009857d43f57c6b0f48aff3ef8b6093280660d22a74b62",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -78333,6 +78378,7 @@
             "BatuStoryDay": 0,
             "WorkshopRepaired": false,
             "BarracksRepaired": false,
+            "ScheduledOnDelivery": false,
             "GearProduct": "",
             "BatuFate": "",
             "SecondOutcome": "",
@@ -78476,8 +78522,12 @@
             "Version": 1,
             "AttackDay": 0,
             "EndDay": 0,
+            "ReconstructionVersion": 0,
+            "RebuildDay": 0,
+            "RebuildMask": 0,
             "WorldOpened": false,
             "AttackBriefingSeen": false,
+            "VillageRebuilt": false,
             "CampBoard": {
                 "Width": 32,
                 "Height": 24,
@@ -93165,6 +93215,12 @@
                 ]
             }
         },
+        "Deputy": {
+            "Version": 1,
+            "Unlocked": false,
+            "LeaderId": "",
+            "UnlockedDay": 0
+        },
         "Raid": {
             "Version": 1,
             "Waves": 0,
@@ -93513,7 +93569,12 @@
             "FarmY": 0.0,
             "FarmNpcX": 0.0,
             "FarmNpcY": 0.0,
-            "FarmWalking": false
+            "FarmWalking": false,
+            "FirstIntelEligible": false,
+            "FirstIntelOffered": false,
+            "FreeFirstRaidDay": 0,
+            "RaidIntel": [],
+            "NotifiedRaids": []
         },
         "StoryScene": {
             "Format": "",
