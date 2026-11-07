@@ -13,7 +13,7 @@ namespace BaseConquest.Editor
     public static class VerifyDemoCheckpoint
     {
         private static void Need(bool yes,string reason){if(!yes)throw new InvalidOperationException(reason);}
-        public static void VerifyCampHandoff(){VerifyCampChanges();VerifyQuestSword();VerifySecondRules();VerifyGlobalDifficulty();Run();Debug.Log("VerifyCampHandoff PASS");}
+        public static void VerifyCampHandoff(){VerifyCampChanges();VerifyQuestSword();VerifyCapacityMigration();VerifySecondRules();VerifyGlobalDifficulty();Run();Debug.Log("VerifyCampHandoff PASS");}
         public static void VerifyCampChanges()
         {
             var asset=Resources.Load<TextAsset>("DemoStages/camp-male");Need(asset!=null,"缺少营地阶段档");
@@ -44,6 +44,27 @@ namespace BaseConquest.Editor
             // 旧档迁移由 EnsureCampLayout 在 BuildWorld 时统一处理，不再需要这里的假设位置模拟。
             Debug.Log("VerifyCampChanges PASS");
         }
+
+        public static void VerifyCapacityMigration()
+        {
+            var asset=Resources.Load<TextAsset>("DemoStages/camp-male");Need(asset!=null,"缺少营地阶段档");
+            var state=JsonUtility.FromJson<BaseState>(asset.text);var holder=state.PlayerLeaderId;
+            for(int cell=0;cell<BasePartyInventory.Capacity;cell++)state.Backpack.Items.Add(new BaseBagItem {Id="bag:"+state.Backpack.NextId++,ItemId=BaseBackpack.Blueprint,Count=1,Holder=holder,Cell=cell});
+            for(int cell=BasePartyInventory.Capacity;cell<24;cell++)state.Backpack.Items.Add(new BaseBagItem {Id="bag:"+state.Backpack.NextId++,ItemId=BaseBackpack.Blueprint,Count=1,Holder=holder,Cell=cell});
+            int count=state.Backpack.Items.Count;
+            BasePartyInventory.Normalize(state);
+            Need(state.Backpack.Items.Count==count,"容量迁移丢失物品");
+            Need(state.Backpack.Items.All(i=>i.Cell<BasePartyInventory.Capacity),"容量迁移后仍有越界格");
+            Need(state.Backpack.Items.Count(i=>i.Holder=="")==24-BasePartyInventory.Capacity,"满格时溢出物品未退回仓库");
+            BasePartyInventory.Validate(state);
+            var sparse=JsonUtility.FromJson<BaseState>(asset.text);
+            sparse.Backpack.Items.Add(new BaseBagItem {Id="bag:"+sparse.Backpack.NextId++,ItemId=BaseBackpack.Blueprint,Count=1,Holder=holder,Cell=23});
+            BasePartyInventory.Normalize(sparse);
+            Need(sparse.Backpack.Items.Single(i=>i.Holder==holder).Cell==0,"溢出物品未迁入空格");
+            BasePartyInventory.Validate(sparse);
+            Debug.Log("VerifyCapacityMigration PASS");
+        }
+
         public static void VerifyQuestSword()
         {
             const string sword="royal_mithril_sword";

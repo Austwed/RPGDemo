@@ -27,7 +27,7 @@ namespace BaseConquest.Base
     }
     public static class BasePartyInventory
     {
-        public const int Capacity=24;
+        public const int Capacity=20;
         public static bool QuickTransfer(BaseState s,string id,string person,bool visible)
         {
             var e=Find(s,id);
@@ -61,6 +61,27 @@ namespace BaseConquest.Base
             var b=s.Backpack;
             if(b.GridVersion==0){if(b.Items.Any(i=>!string.IsNullOrEmpty(i.Holder)||i.Cell!=-1)||s.PersonalEquipment.Warehouse.Any(i=>!string.IsNullOrEmpty(i.Holder)||i.Cell!=-1))throw new ArgumentException("背包位置数据缺少版本，拒绝覆盖");foreach(var i in b.Items){i.Holder="";i.Cell=-1;}foreach(var i in s.PersonalEquipment.Warehouse){i.Holder="";i.Cell=-1;}b.GridVersion=1;}
             if(b.GridVersion!=1)return;
+            // 容量由 24 收到 20（5×4 版式）：旧档第 21～24 格的物品迁回前 20 格，
+            // 前 20 格已满则退回基地仓库，物品不丢。Validate 每次都会先跑这里，读档入口也会显式调用。
+            var occupied = Entries(s).Where(e => !e.Worn && e.Holder != "")
+                .GroupBy(e => e.Holder).ToDictionary(g => g.Key, g => new HashSet<int>(g.Where(e => e.Cell >= 0 && e.Cell < Capacity).Select(e => e.Cell)));
+            foreach (var e in Entries(s).Where(e => !e.Worn && e.Holder != "" && e.Cell >= Capacity).OrderBy(e => e.Cell).ToArray())
+            {
+                HashSet<int> used;
+                if (!occupied.TryGetValue(e.Holder, out used)) { used = new HashSet<int>(); occupied[e.Holder] = used; }
+                int free = Enumerable.Range(0, Capacity).Where(n => !used.Contains(n)).DefaultIfEmpty(-1).First();
+                if (free < 0)
+                {
+                    if (e.Gear != null) { e.Gear.Holder = ""; e.Gear.Cell = -1; }
+                    else { e.Stack.Holder = ""; e.Stack.Cell = -1; }
+                }
+                else
+                {
+                    used.Add(free);
+                    if (e.Gear != null) e.Gear.Cell = free;
+                    else e.Stack.Cell = free;
+                }
+            }
             var player=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId);
             if(!b.RingPlaced&&!s.Campaign.HasActiveBattle&&!player.Away&&player.PersonalEquipment?.Version==1)
             {

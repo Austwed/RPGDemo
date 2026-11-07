@@ -41,7 +41,7 @@ namespace BaseConquest.Base
                     Line("选择："+BaseBattleLoot.Name(s,chosen),48,21);
                     if(chosen.Reward.Template!="")GearItemLines(new BasePersonalItem {Template=chosen.Reward.Template,Quality=chosen.Reward.Quality});
                     foreach(var person in BaseAdventure.Members(s).Where(l=>BasePartyInventory.AccessibleLeader(s,l)))
-                    {string holder=person.Id;int used=BasePartyInventory.Entries(s).Count(e=>e.Holder==holder&&!e.Worn);RowButton("交给 "+person.Name+" · 背包 "+used+"/24",0,820,()=>LootChange(next=>BaseBattleLoot.Resolve(next,m.BattleId,chosen.Id,holder),"已领取道具"));row+=56;}
+                    {string holder=person.Id;int used=BasePartyInventory.Entries(s).Count(e=>e.Holder==holder&&!e.Worn);RowButton("交给 "+person.Name+" · 背包 "+used+"/"+BasePartyInventory.Capacity,0,820,()=>LootChange(next=>BaseBattleLoot.Resolve(next,m.BattleId,chosen.Id,holder),"已领取道具"));row+=56;}
                     RowButton("放弃此物品",0,820,()=>{lootConfirmation=chosen.Id;OpenLoot();});row+=56;
                     if(lootConfirmation==chosen.Id){Line("确认永久放弃此物品？",48,20);RowButton("确认放弃",-210,400,()=>{lootConfirmation="";LootChange(next=>BaseBattleLoot.Resolve(next,m.BattleId,chosen.Id,"",true),"已放弃物品");});RowButton("取消",210,400,()=>{lootConfirmation="";OpenLoot();});row+=56;}
                 }

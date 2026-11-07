@@ -109,14 +109,14 @@ namespace BaseConquest.Base
 
             float captionY=top-gearTop-equipmentHeight-24;
             int held=BasePartyInventory.Entries(owner.State).Count(e=>e.Holder==l.Id&&!e.Worn);
-            Label(card,"背包 "+held+"/24",new Vector2(-size.x/2+12+55,captionY),new Vector2(110,26),DemoUiMetrics.FontCaption,TextAnchor.MiddleLeft);
+            Label(card,"背包 "+held+"/"+BasePartyInventory.Capacity,new Vector2(-size.x/2+12+55,captionY),new Vector2(110,26),DemoUiMetrics.FontCaption,TextAnchor.MiddleLeft);
             MakeButton(card,"分类 ▾",new Vector2(15,captionY),new Vector2(62,26),()=>InventoryPopup(card,l.Id,Vector2.zero)).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
             MakeButton(card,"整理",new Vector2(81,captionY),new Vector2(62,26),()=>InventoryChange(s=>BasePartyInventory.Sort(s,l.Id),"已整理物品")).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
             MakeButton(card,"详情",new Vector2(147,captionY),new Vector2(62,26),()=>{inventoryPerson=l.Id;inventorySelected="";OpenPersonnelDetail("leader:"+l.Id,BaseMuster.Snapshot(owner.State),()=>OpenInventory(inventoryWarehouse));}).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
 
             // 格子按卡片底边对齐，往下填满整块下半区；卡片高度变化时无需重排。
             const float cell=62f,cellGap=4f;float gridBottom=-size.y/2+28;float gridTop=gridBottom+4*cell+3*cellGap;
-            for(int n=0;n<20;n++){int index=n;var e=BasePartyInventory.Entries(owner.State).SingleOrDefault(i=>i.Holder==l.Id&&!i.Worn&&i.Cell==index);
+            for(int n=0;n<BasePartyInventory.Capacity;n++){int index=n;var e=BasePartyInventory.Entries(owner.State).SingleOrDefault(i=>i.Holder==l.Id&&!i.Worn&&i.Cell==index);
                 float x=-2f*(cell+cellGap)+(n%5)*(cell+cellGap),y=gridTop-cell/2-(n/5)*(cell+cellGap);
                 InventoryCell(card,e,l.Id,index,"",new Vector2(x,y),new Vector2(cell,cell));}
             CompletePreservingLayout(card);
