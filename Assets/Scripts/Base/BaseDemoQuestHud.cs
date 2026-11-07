@@ -60,9 +60,9 @@ namespace BaseConquest.Base
         {
             bool tracked = BaseQuestLog.TrackedId(s) == entry.Id;
             bool clickable = entry.Trackable;
-            var bar = Box("QuestRow", content, new Vector2(.5f, 1), new Vector2(0, -row - 29), new Vector2(850, 58), tracked ? new Color(.22f, .26f, .19f, .78f) : new Color(.16f, .16f, .14f, .72f));
+            var bar = Solid("QuestRow", content, new Vector2(.5f, 1), new Vector2(0, -row - 29), new Vector2(850, 58), tracked ? new Color(.933f, .961f, .914f) : new Color(1f, .996f, .980f));
             var outline = bar.gameObject.GetOrAdd<Outline>();
-            outline.effectColor = tracked ? new Color(.55f, .72f, .50f, .85f) : new Color(.72f, .55f, .32f, .30f);
+            outline.effectColor = tracked ? new Color(.557f, .682f, .549f, .95f) : new Color(.863f, .894f, .843f, .95f);
             outline.effectDistance = new Vector2(1, -1);
             if (clickable)
             {
@@ -79,7 +79,7 @@ namespace BaseConquest.Base
             var goal = Label(bar, entry.Goal, new Vector2(322, -30), new Vector2(620, 18), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(0, 1));
             goal.color = DemoUiTheme.Current.Muted;
             var state = Label(bar, tracked ? "取消追踪" : entry.Done ? "已完成" : "追踪", new Vector2(-72, -20), new Vector2(120, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleRight, new Vector2(1, 1));
-            state.color = tracked ? new Color(.60f, .80f, .58f) : entry.Done ? DemoUiTheme.Current.Muted : DemoUiTheme.Current.Copper;
+            state.color = tracked ? new Color(.259f, .420f, .314f) : entry.Done ? DemoUiTheme.Current.Muted : DemoUiTheme.Current.Copper;
             row += 66;
         }
 

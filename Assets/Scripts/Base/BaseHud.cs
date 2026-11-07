@@ -66,7 +66,6 @@ namespace BaseConquest.Base
             header.anchorMin = new Vector2(0, 1); header.anchorMax = Vector2.one;
             summary = Label(header, "正在读取据点…", Vector2.zero, Vector2.zero, 20, TextAnchor.UpperLeft);
             summary.lineSpacing=1.5f;
-            summary.gameObject.AddComponent<DemoResourceIcons>();
             summary.rectTransform.anchorMin = Vector2.zero; summary.rectTransform.anchorMax = Vector2.one;
             summary.rectTransform.offsetMin = new Vector2(18, 42); summary.rectTransform.offsetMax = new Vector2(-410, -10);
             // P33：顶栏资源文字整块可点开明细；原型定稿后改成按资源分区的下拉。
@@ -86,7 +85,7 @@ namespace BaseConquest.Base
             feedback.rectTransform.anchorMin = Vector2.zero; feedback.rectTransform.anchorMax = new Vector2(1, 0);
             feedback.rectTransform.offsetMin = new Vector2(446, 3); feedback.rectTransform.offsetMax = new Vector2(-250, 31);
             feedback.horizontalOverflow = HorizontalWrapMode.Wrap; // 单行高度截断，完整反馈仍在功能页下方可看。
-            var stick = Box("Joystick", controls, new Vector2(0, 0), new Vector2(125, 118), new Vector2(160, 160), new Color(0.10f, 0.17f, 0.18f, 0.68f));
+            var stick = Box("Joystick", controls, new Vector2(0, 0), new Vector2(125, 118), new Vector2(160, 160), new Color(0.93f, 0.95f, 0.88f, 0.72f));
             var knob = Box("Handle", stick, Vector2.one * 0.5f, Vector2.zero, new Vector2(64, 64), new Color(0.57f, 0.73f, 0.67f, 0.9f)); knob.GetComponent<Image>().raycastTarget = false;
             Joystick = stick.gameObject.GetOrAdd<BaseJoystick>(); Joystick.Handle = knob;
             Label(stick, "移动", new Vector2(0, -106), new Vector2(160, 32), 18, TextAnchor.MiddleCenter);
@@ -100,7 +99,7 @@ namespace BaseConquest.Base
                 labels[i] = Label(mapLabels, labelObjects[i].Name.Replace("伙伴 · ", ""), Vector2.zero, new Vector2(180, 36), 18, TextAnchor.MiddleCenter).rectTransform;
                 var marker=Label(labels[i],"",new Vector2(0,33),new Vector2(42,42),34,TextAnchor.MiddleCenter);marker.name="NpcStatusMarker";marker.color=new Color(1,.78f,.12f,1);marker.fontStyle=FontStyle.Bold;npcMarkers[i]=marker;
             }
-            inspection = Box("CellInformation", root, new Vector2(0.5f, 0), new Vector2(0, 123), new Vector2(740, 180), new Color(0.10f, 0.17f, 0.18f, 0.98f));
+            inspection = Box("CellInformation", root, new Vector2(0.5f, 0), new Vector2(0, 123), new Vector2(740, 180), new Color(0.969f, 0.965f, 0.925f, 0.98f));
             inspectionTitle = Label(inspection, "", new Vector2(-30, 64), new Vector2(630, 34), 22);
             inspectionDetails = Label(inspection, "", new Vector2(0, -7), new Vector2(695, 120), 18, TextAnchor.UpperLeft);
             MakeButton(inspection, "×", new Vector2(340, 65), new Vector2(42, 38), owner.ClearSelection);
@@ -170,7 +169,7 @@ namespace BaseConquest.Base
             if (s == null) { summary.text = owner.Busy ? "正在读取据点…" : "没有有效进度，请选择新开局或恢复备份"; regionStatus.text = ""; interact.interactable = false; construction.gameObject.SetActive(false); Joystick.gameObject.SetActive(false); mapLabels.gameObject.SetActive(false); return; }
             mapLabels.gameObject.SetActive(!PanelOpen); controls.gameObject.SetActive(!PanelOpen);
             var delta=BaseDailyDelta.Read(s);summary.supportRichText=true;
-            string Amount(string name,int count,int change)=>(DemoUiIcons.Load(name=="粮食"?"food":name=="原料"?"materials":name=="钱币"?"coins":"supplies")!=null?"　　":"")+name+" "+count+"（<color="+(change>0?"#EE7777":change<0?"#7BCB93":"#C6D4CE")+">"+change.ToString("+0;-0;0")+"</color>）";
+            string Amount(string name,int count,int change)=>(DemoUiIcons.Load(name=="粮食"?"food":name=="原料"?"materials":name=="钱币"?"coins":"supplies")!=null?"　　":"")+name+" "+count+"（<color="+(change>0?"#a96354":change<0?"#426b50":"#718078")+">"+change.ToString("+0;-0;0")+"</color>）";
             summary.text=BaseCampaign.LocationName(s)+(BaseDemoPrologue.Village(s)?"":" · 第 "+s.Day+" 天")+"   "+Amount("粮食",s.Inventory.Food,delta.Food)+"   "+Amount("原料",s.Inventory.Materials,delta.Materials)+"   "+Amount("钱币",s.Inventory.Coins,delta.Coins)+"\n"+Amount("军需",s.Inventory.Equipment.Where(e=>e.Product=="supply").Sum(e=>e.Count),delta.Supply)+"   兵力：剑士 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Melee).Sum(w=>w.Count)+"／弓兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Ranged).Sum(w=>w.Count)+"／骑兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Cavalry).Sum(w=>w.Count);
             if(panel!=null&&panelViewKey!="npc-dialogue"){var header=summary.transform.parent;header.SetAsLastSibling();}
             int raids = s.Campaign.Events.Count(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= s.Day);
@@ -186,7 +185,7 @@ namespace BaseConquest.Base
         {
             var s=owner.State;if(!BaseDemoPrologue.Village(s)||!BaseDemoIntro.Active(s))return;
             var i=s.Demo.Intro;int key=i.Step*100+i.FarmWorkers*4+(i.Walked>0?1:0)+(i.Zoomed?2:0);if(key==introObjectiveKey)return;introObjectiveKey=key;
-            int food=BaseDemoIntro.FarmOutput(s),need=BaseDemoIntro.VillageFood(s),net=food-need;string color=net>0?"#EE7777":net<0?"#7BCB93":"#C6D4CE";
+            int food=BaseDemoIntro.FarmOutput(s),need=BaseDemoIntro.VillageFood(s),net=food-need;string color=net>0?"#a96354":net<0?"#426b50":"#718078";
             summary.text=BaseScriptNames.Village+" · "+(BaseDemoIntro.Daily(s)?"清晨巡村":"风起村头")+"   粮食 "+s.Inventory.Food+"（<color="+color+">"+net.ToString("+0;-0;0")+"</color>） 日产 "+food+"／口粮 "+need+"  工坊 "+BaseDemoIntro.SmithWork(s)+"工点";
         }
         public void RefreshMovement()
@@ -268,14 +267,14 @@ namespace BaseConquest.Base
                 if (Application.isPlaying) UnityEngine.Object.Destroy(panel.gameObject);
                 else UnityEngine.Object.DestroyImmediate(panel.gameObject);
             }
-            modal.GetComponent<Image>().color=new Color(.02f,.06f,.07f,.80f);dialogueContinue=null;
+            modal.GetComponent<Image>().color=DemoUiTheme.Current.Shade;dialogueContinue=null;
             modal.gameObject.SetActive(true); Joystick.ResetInput(); Joystick.gameObject.SetActive(false);
             panel = UiPrefabBinding.Create(UiPrefabBinding.PageKey(title,viewKey), title, modal,false,owner.PageTemplate(UiPrefabBinding.PageKey(title,viewKey))).GetComponent<RectTransform>();
-            panel.anchorMin=panel.anchorMax=panel.pivot=Vector2.one*.5f;panel.anchoredPosition=new Vector2(0,-36);panel.sizeDelta=new Vector2(960,540);panel.gameObject.GetOrAdd<Image>().color=new Color(.10f,.17f,.18f,1);
+            panel.anchorMin=panel.anchorMax=panel.pivot=Vector2.one*.5f;panel.anchoredPosition=new Vector2(0,-36);panel.sizeDelta=new Vector2(960,540);panel.gameObject.GetOrAdd<Image>().color=DemoUiTheme.Current.Panel;
             Label(panel, title, new Vector2(-85, 230), new Vector2(710, 55), DemoUiMetrics.FontPanelTitle);
             var closeButton=MakeButton(panel, "关闭", new Vector2(390, 230), new Vector2(130, 50), ClosePanel);
             closeButton.interactable = !(BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) && owner.State?.Aftermath.GameOver != true && !BaseBattleGateway.MainMenu && !BaseBattleLoot.Pending(owner.State);
-            var viewport = Box("Viewport", panel, Vector2.one * 0.5f, new Vector2(0, -28), new Vector2(900, 440), new Color(0.10f, 0.17f, 0.18f, 1)); viewport.gameObject.GetOrAdd<RectMask2D>();
+            var viewport = Box("Viewport", panel, Vector2.one * 0.5f, new Vector2(0, -28), new Vector2(900, 440), DemoUiTheme.Current.Panel); viewport.gameObject.GetOrAdd<RectMask2D>();
             content = Rect("Content", viewport, new Vector2(0.5f, 1), Vector2.zero, new Vector2(880, 440)); content.pivot = new Vector2(0.5f, 1); content.gameObject.GetOrAdd<UiDynamicContent>(); content.GetComponent<UiVisualNode>().UseAuthoredLayout=false;
             panelScroll = viewport.gameObject.GetOrAdd<ScrollRect>(); panelScroll.viewport = viewport; panelScroll.content = content; panelScroll.horizontal = false; panelScroll.movementType = ScrollRect.MovementType.Clamped;
             panelFeedback = Label(panel, owner.Message, new Vector2(0, -256), new Vector2(880, 24), DemoUiMetrics.FontCaption);
@@ -303,6 +302,12 @@ namespace BaseConquest.Base
             for (int i = 0; i < texts.Length; i++) if (texts[i] != null) { texts[i].color = textColors[i]; texts[i].alignment = textAnchors[i]; texts[i].fontSize = textSizes[i]; }
             for (int i = 0; i < images.Length; i++) if (images[i] != null) images[i].color = imageColors[i];
             for (int i = 0; i < outlines.Length; i++) if (outlines[i] != null) { outlines[i].effectColor = outlineColors[i]; outlines[i].effectDistance = outlineDistances[i]; }
+            // 内容视口在 content 之外，不会被上面的快照覆盖；模板会把它的底色还原成旧的深色，这里单独写回。
+            if (panelScroll != null && panelScroll.viewport != null)
+            {
+                var viewportImage = panelScroll.viewport.GetComponent<Image>();
+                if (viewportImage != null) viewportImage.color = DemoUiTheme.Current.Panel;
+            }
             DemoUiTheme.Current.Frame(panel);
             panel.GetComponent<UiPageLayout>()?.Apply(content,content.sizeDelta.y);
             Canvas.ForceUpdateCanvases(); panelScroll.StopMovement();

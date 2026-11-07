@@ -3,31 +3,36 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 namespace BaseConquest.Presentation
 {
+    // 色板照原型 `:root`：纸底、墨绿字、绿色强调。改这里等于改全工程。
     [CreateAssetMenu(menuName="Demo/UI主题")]
     public sealed class DemoUiTheme : ScriptableObject
     {
-        public Color Panel=new Color(.23f,.21f,.19f,.98f),Inset=new Color(.16f,.15f,.14f,.98f),Button=new Color(.39f,.33f,.24f,1),Ink=new Color(.96f,.92f,.83f),Copper=new Color(.72f,.55f,.32f),Muted=new Color(.63f,.59f,.51f);
+        public Color Panel=new Color(.9686f,.9647f,.9255f,.98f),Inset=new Color(.9098f,.9333f,.8745f,.98f),Button=new Color(1f,.9961f,.9804f,1f),Ink=new Color(.149f,.2314f,.2039f),Copper=new Color(.2588f,.4196f,.3137f),Muted=new Color(.4431f,.502f,.4706f);
+        public Color Line=new Color(.851f,.867f,.816f),Shade=new Color(.114f,.188f,.153f,.68f);
         private static DemoUiTheme cached;
         public static DemoUiTheme Current=>cached!=null?cached:cached=Resources.Load<DemoUiTheme>("Presentation/DemoUI/Theme")??CreateInstance<DemoUiTheme>();
         public static Sprite Skin(string name)=>Resources.Load<Sprite>("PixelDemo/UI/"+name+"-v1");
+        // 原型面板＝纸底＋1 px 描边，没有像素外框；旧外框节点留着也只是关掉，避免影响已有预制。
         public void Frame(RectTransform parent,bool dialogue=false)
         {
-            var sprite=Skin(dialogue?"dialogue-frame":"window-frame");if(sprite==null)return;
-            var child=parent.Find("DemoPixelFrame") as RectTransform;
-            if(child==null){var go=new GameObject("DemoPixelFrame",typeof(RectTransform),typeof(Image));child=(RectTransform)go.transform;child.SetParent(parent,false);child.SetAsFirstSibling();}
-            child.anchorMin=Vector2.zero;child.anchorMax=Vector2.one;child.offsetMin=child.offsetMax=Vector2.zero;
-            var image=child.GetComponent<Image>();image.sprite=sprite;image.type=Image.Type.Sliced;image.color=Color.white;image.raycastTarget=false;
+            var image=parent.GetComponent<Image>();
+            if(image!=null){image.sprite=null;image.type=Image.Type.Simple;image.color=dialogue?new Color(Panel.r,Panel.g,Panel.b,.94f):Panel;}
+            var outline=parent.GetComponent<Outline>()??parent.gameObject.AddComponent<Outline>();
+            outline.effectColor=new Color(Line.r,Line.g,Line.b,.95f);outline.effectDistance=new Vector2(1,-1);outline.useGraphicAlpha=false;
+            var child=parent.Find("DemoPixelFrame");if(child!=null)child.gameObject.SetActive(false);
         }
         public void Surface(Image image,bool button=false,bool inset=false)
         {
             image.color=button?Button:inset?Inset:Panel;
-            var outline=image.GetComponent<Outline>()??image.gameObject.AddComponent<Outline>();outline.effectColor=new Color(Copper.r,Copper.g,Copper.b,.65f);outline.effectDistance=new Vector2(1,-1);outline.useGraphicAlpha=true;
+            var outline=image.GetComponent<Outline>()??image.gameObject.AddComponent<Outline>();outline.effectColor=new Color(Line.r,Line.g,Line.b,.90f);outline.effectDistance=new Vector2(1,-1);outline.useGraphicAlpha=true;
         }
         public void StyleButton(UnityEngine.UI.Button b)
         {
-            bool slot=b.name.StartsWith("BagSlot_")||b.name.StartsWith("EquipmentSlot_")||b.name.StartsWith("物品格_")||b.name.StartsWith("装备槽_");var image=b.GetComponent<Image>();Surface(image,!slot,slot);var c=b.colors;c.normalColor=Color.white;c.highlightedColor=new Color(1.28f,1.23f,1.12f);c.selectedColor=c.highlightedColor;c.pressedColor=new Color(.72f,.65f,.52f);c.disabledColor=new Color(.55f,.53f,.5f,.6f);c.fadeDuration=.08f;b.colors=c;
-            var normal=slot?null:Skin("button-normal");var selected=slot?null:Skin("button-selected");
-            if(normal!=null&&selected!=null){image.sprite=normal;image.type=Image.Type.Sliced;image.color=Color.white;b.transition=Selectable.Transition.SpriteSwap;var state=b.spriteState;state.highlightedSprite=selected;state.selectedSprite=selected;state.pressedSprite=selected;state.disabledSprite=normal;b.spriteState=state;}
+            bool slot=b.name.StartsWith("BagSlot_")||b.name.StartsWith("EquipmentSlot_")||b.name.StartsWith("物品格_")||b.name.StartsWith("装备槽_");
+            var image=b.GetComponent<Image>();Surface(image,!slot,slot);
+            image.sprite=null;image.type=Image.Type.Simple;image.color=slot?Inset:Button;
+            b.transition=Selectable.Transition.ColorTint;
+            var c=b.colors;c.normalColor=Color.white;c.highlightedColor=new Color(.91f,.93f,.87f);c.selectedColor=c.highlightedColor;c.pressedColor=new Color(.84f,.88f,.80f);c.disabledColor=new Color(.80f,.80f,.76f,.55f);c.fadeDuration=.06f;b.colors=c;
             if(b.GetComponent<DemoButtonTint>()==null)b.gameObject.AddComponent<DemoButtonTint>();
         }
         public void Apply(GameObject root)
@@ -35,22 +40,22 @@ namespace BaseConquest.Presentation
             foreach(var image in root.GetComponentsInChildren<Image>(true))
             {
                 if(image.sprite!=null||image.color.a<.35f)continue;
+                // 文字节点不该有底：模板里的文本样板自带一层白色背板，浅色主题下会挡住场景。
+                if(image.GetComponent<Text>()!=null){image.enabled=false;continue;}
                 bool shade=image.name.Contains("Shade")||image.name.Contains("Backdrop");
-                if(shade){image.color=new Color(.10f,.08f,.06f,.64f);continue;}
-                Surface(image,image.GetComponent<UnityEngine.UI.Button>()!=null,image.name.Contains("物品格")||image.name.Contains("装备槽")||image.name.Contains("Viewport"));
+                if(shade){image.color=Shade;continue;}
+                Surface(image,image.GetComponent<UnityEngine.UI.Button>()!=null,image.name.Contains("物品格")||image.name.Contains("装备槽"));
             }
             foreach(var button in root.GetComponentsInChildren<UnityEngine.UI.Button>(true))if(button.GetComponent<Image>()!=null)StyleButton(button);
             foreach(var text in root.GetComponentsInChildren<Text>(true))
             {if(text.name=="NpcStatusMarker")continue;text.color=Ink;}
         }
     }
-    /// 按钮着色与第六态：被 EventSystem 选中（键盘／手柄聚焦）时加粗描边，
-    /// 与 hover、selected、pressed、disabled 区分开。规格见 UI 实施说明书 §2.4 六态矩阵。
+    // 第六态：被 EventSystem 选中（键盘／手柄聚焦）时描边加粗。着色交给 ColorTint，这里只管焦点环。
     public sealed class DemoButtonTint : MonoBehaviour, ISelectHandler, IDeselectHandler
     {
         private Button button;private Image image;private bool focused;
         private void Awake(){button=GetComponent<Button>();image=GetComponent<Image>();}
-        private void Update(){if(button!=null&&image!=null)image.color=button.IsInteractable()?Color.white:new Color(.55f,.53f,.5f,.6f);}
         public void OnSelect(BaseEventData eventData){focused=true;ApplyFocus();}
         public void OnDeselect(BaseEventData eventData){focused=false;ApplyFocus();}
         private void ApplyFocus()
@@ -58,10 +63,9 @@ namespace BaseConquest.Presentation
             var target=image!=null?image:GetComponent<Image>();
             var ring=target!=null?target.GetComponent<Outline>():null;
             if(ring==null)return;
-            var ink=DemoUiTheme.Current!=null?DemoUiTheme.Current.Ink:new Color(.96f,.92f,.83f);
-            var copper=DemoUiTheme.Current!=null?DemoUiTheme.Current.Copper:new Color(.72f,.55f,.32f);
+            var theme=DemoUiTheme.Current;
             ring.effectDistance=focused?new Vector2(2,-2):new Vector2(1,-1);
-            ring.effectColor=focused?new Color(ink.r,ink.g,ink.b,.95f):new Color(copper.r,copper.g,copper.b,.65f);
+            ring.effectColor=focused?new Color(theme.Ink.r,theme.Ink.g,theme.Ink.b,.95f):new Color(theme.Line.r,theme.Line.g,theme.Line.b,.90f);
         }
     }
 }

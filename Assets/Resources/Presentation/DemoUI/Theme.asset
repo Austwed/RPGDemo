@@ -12,9 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 968bf60addf7a8e40b155547d29516dd, type: 3}
   m_Name: Theme
   m_EditorClassIdentifier: Assembly-CSharp::BaseConquest.Presentation.DemoUiTheme
-  Panel: {r: 0.23, g: 0.21, b: 0.19, a: 0.98}
-  Inset: {r: 0.16, g: 0.15, b: 0.14, a: 0.98}
-  Button: {r: 0.39, g: 0.33, b: 0.24, a: 1}
-  Ink: {r: 0.96, g: 0.92, b: 0.83, a: 1}
-  Copper: {r: 0.72, g: 0.55, b: 0.32, a: 1}
-  Muted: {r: 0.63, g: 0.59, b: 0.51, a: 1}
+  Panel: {r: 0.9686, g: 0.9647, b: 0.9255, a: 0.98}
+  Inset: {r: 0.9098, g: 0.9333, b: 0.8745, a: 0.98}
+  Button: {r: 1, g: 0.9961, b: 0.9804, a: 1}
+  Ink: {r: 0.149, g: 0.2314, b: 0.2039, a: 1}
+  Copper: {r: 0.2588, g: 0.4196, b: 0.3137, a: 1}
+  Muted: {r: 0.4431, g: 0.502, b: 0.4706, a: 1}
+  Line: {r: 0.851, g: 0.867, b: 0.816, a: 1}
+  Shade: {r: 0.114, g: 0.188, b: 0.153, a: 0.68}

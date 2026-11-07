@@ -17,7 +17,7 @@ namespace BaseConquest.Base
         private static readonly Color MapBlue = new Color(.30f, .56f, .80f);
         private static readonly Color MapYellow = new Color(.89f, .71f, .24f);
         private static readonly Color MapOff = new Color(.42f, .42f, .40f);
-        private static readonly Color MapRing = new Color(.97f, .94f, .86f);
+        private static readonly Color MapRing = new Color(1f, 1f, 1f);
 
         public void OpenLandMap()
         {
@@ -49,7 +49,7 @@ namespace BaseConquest.Base
                 if (i < outside.Count - 1)
                 {
                     // 场景之间的连接线：原型是 23×2 的短横线，中线对齐节点框。
-                    var link = Box("MapLink", content, new Vector2(.5f, 1), new Vector2(centerX + tileWidth * .5f + MapLinkWidth * .5f, tileCenterY), new Vector2(MapLinkWidth, 2), new Color(.55f, .64f, .55f, .55f));
+                    var link = Solid("MapLink", content, new Vector2(.5f, 1), new Vector2(centerX + tileWidth * .5f + MapLinkWidth * .5f, tileCenterY), new Vector2(MapLinkWidth, 2), new Color(.553f, .663f, .557f));
                     link.gameObject.GetComponent<Image>().raycastTarget = false;
                 }
             }
@@ -74,10 +74,10 @@ namespace BaseConquest.Base
             title.color = node.Current ? DemoUiTheme.Current.Copper : open ? DemoUiTheme.Current.Ink : DemoUiTheme.Current.Muted;
             title.fontStyle = FontStyle.Bold;
 
-            var fill = node.Current ? new Color(.30f, .29f, .20f, .78f) : open ? new Color(.20f, .22f, .17f, .78f) : new Color(.13f, .13f, .12f, .78f);
-            var tile = Box("MapTile", content, new Vector2(.5f, 1), new Vector2(centerX, centerY), new Vector2(width, MapTileHeight), fill);
+            var fill = node.Current ? new Color(.882f, .929f, .855f) : open ? new Color(.992f, .996f, .973f) : new Color(.902f, .902f, .882f);
+            var tile = Solid("MapTile", content, new Vector2(.5f, 1), new Vector2(centerX, centerY), new Vector2(width, MapTileHeight), fill);
             var outline = tile.gameObject.GetOrAdd<Outline>();
-            outline.effectColor = node.Current ? new Color(.72f, .55f, .32f, .95f) : new Color(.55f, .64f, .55f, open ? .55f : .25f);
+            outline.effectColor = node.Current ? new Color(.259f, .420f, .314f, .95f) : new Color(.655f, .725f, .647f, open ? .95f : .55f);
             outline.effectDistance = node.Current ? new Vector2(2, -2) : new Vector2(1, -1);
 
             foreach (var exit in node.Exits)
@@ -94,9 +94,9 @@ namespace BaseConquest.Base
                 bool inside = child.Current;
                 float boxWidth = width * .42f, boxHeight = MapTileHeight * .5f;
                 Vector2 center = new Vector2(width * .22f, -MapTileHeight * .04f);
-                var nested = Box("NestedScene", tile, new Vector2(.5f, .5f), center, new Vector2(boxWidth, boxHeight), inside ? new Color(.30f, .26f, .17f, .78f) : new Color(.16f, .16f, .14f, .78f));
+                var nested = Solid("NestedScene", tile, new Vector2(.5f, .5f), center, new Vector2(boxWidth, boxHeight), inside ? new Color(.973f, .918f, .776f) : new Color(.953f, .925f, .859f));
                 var nestedOutline = nested.gameObject.GetOrAdd<Outline>();
-                nestedOutline.effectColor = inside ? new Color(.89f, .71f, .24f, .95f) : new Color(.62f, .55f, .42f, .45f);
+                nestedOutline.effectColor = inside ? new Color(.690f, .502f, .243f, .95f) : new Color(.553f, .475f, .341f, .75f);
                 nestedOutline.effectDistance = new Vector2(1, -1);
                 var nestedLabel = Label(nested, "遗迹内部", new Vector2(0, -8), new Vector2(boxWidth, 18), DemoUiMetrics.FontCaption, TextAnchor.MiddleCenter, new Vector2(.5f, 1));
                 nestedLabel.color = inside ? DemoUiTheme.Current.Copper : DemoUiTheme.Current.Muted;
@@ -136,7 +136,7 @@ namespace BaseConquest.Base
             var button = hit.gameObject.GetOrAdd<Button>(); button.targetGraphic = hit.GetComponent<Image>(); button.transition = Selectable.Transition.None;
             button.interactable = enabled;
             button.onClick.AddListener(() => { if (!owner.Busy) action(); });
-            var ring = Box("Ring", hit, new Vector2(.5f, .5f), Vector2.zero, new Vector2(20, 20), new Color(MapRing.r, MapRing.g, MapRing.b, .62f));
+            var ring = Solid("Ring", hit, new Vector2(.5f, .5f), Vector2.zero, new Vector2(20, 20), MapRing);
             ring.gameObject.GetComponent<Image>().raycastTarget = false;
             var dot = Solid("Dot", ring, new Vector2(.5f, .5f), Vector2.zero, new Vector2(18, 18), enabled ? color : MapOff);
             dot.gameObject.GetComponent<Image>().raycastTarget = false;
@@ -144,7 +144,7 @@ namespace BaseConquest.Base
 
         private void DrawPlayerDot(RectTransform parent, Vector2 at, float size)
         {
-            var ring = Box("PlayerRing", parent, new Vector2(.5f, .5f), at, new Vector2(size + 5, size + 5), new Color(MapRing.r, MapRing.g, MapRing.b, .62f));
+            var ring = Solid("PlayerRing", parent, new Vector2(.5f, .5f), at, new Vector2(size + 5, size + 5), MapRing);
             ring.gameObject.GetComponent<Image>().raycastTarget = false;
             var dot = Solid("Player", ring, new Vector2(.5f, .5f), Vector2.zero, new Vector2(size, size), new Color(.70f, .50f, .20f));
             dot.gameObject.GetComponent<Image>().raycastTarget = false;

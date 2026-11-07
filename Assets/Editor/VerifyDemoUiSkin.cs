@@ -27,7 +27,9 @@ namespace BaseConquest.Editor
             try
             {
                 DemoUiTheme.Current.StyleButton(button.GetComponent<Button>());
-                Need(button.GetComponent<Image>().type==Image.Type.Sliced&&button.GetComponent<Button>().spriteState.selectedSprite==DemoUiTheme.Skin("button-selected"),"按钮状态未接入");
+                var styled=button.GetComponent<Button>();var styledImage=button.GetComponent<Image>();
+                Need(styled.transition==Selectable.Transition.ColorTint&&styledImage.sprite==null&&styledImage.type==Image.Type.Simple,"按钮应为扁平配色（原型 .btn）");
+                Need(styled.colors.highlightedColor!=Color.white&&styledImage.GetComponent<Outline>()!=null,"按钮悬停色或描边缺失");
                 var tint=button.GetComponent<DemoButtonTint>();
                 Need(tint!=null&&tint is UnityEngine.EventSystems.ISelectHandler&&tint is UnityEngine.EventSystems.IDeselectHandler,"按钮缺少键盘聚焦第六态");
                 var outline=button.GetComponent<Outline>();
@@ -36,9 +38,11 @@ namespace BaseConquest.Editor
                 Need(outline!=null&&outline.effectDistance!=rest,"聚焦时描边未变化");
                 ((UnityEngine.EventSystems.IDeselectHandler)tint).OnDeselect(new UnityEngine.EventSystems.BaseEventData(null));
                 Need(outline.effectDistance==rest,"失焦后描边未还原");
-                DemoUiTheme.Current.Frame((RectTransform)root.transform);var frame=root.transform.Find("DemoPixelFrame").GetComponent<Image>();
-                Need(frame.sprite==DemoUiTheme.Skin("window-frame")&&frame.type==Image.Type.Sliced&&!frame.raycastTarget,"窗口边框错误");
-                DemoUiTheme.Current.Frame((RectTransform)root.transform,true);Need(frame.sprite==DemoUiTheme.Skin("dialogue-frame"),"对白边框错误");
+                DemoUiTheme.Current.Frame((RectTransform)root.transform);
+                Need(root.GetComponent<Image>().color==DemoUiTheme.Current.Panel&&root.GetComponent<Outline>()!=null,"面板应为纸底＋1px 描边");
+                Need(root.transform.Find("DemoPixelFrame")==null,"面板不再使用像素外框");
+                DemoUiTheme.Current.Frame((RectTransform)root.transform,true);
+                Need(root.GetComponent<Image>().color.a<DemoUiTheme.Current.Panel.a,"对白底色应比面板半透明");
             }
             finally{UnityEngine.Object.DestroyImmediate(root);}
             Debug.Log("[VerifyDemoUiSkin] PASS");

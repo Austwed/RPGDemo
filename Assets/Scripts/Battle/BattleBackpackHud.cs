@@ -41,9 +41,9 @@ namespace BaseConquest.Battle
             void Label(Transform parent,string text,Vector2 pos,Vector2 size,int fontSize=20,Vector2? anchor=null){var o=UiPrefabBinding.Rect("Label",parent).gameObject;var r=o.GetComponent<RectTransform>();o.GetOrAdd<Text>();r.anchorMin=r.anchorMax=anchor??Vector2.one*.5f;r.anchoredPosition=pos;r.sizeDelta=size;var t=o.GetComponent<Text>();t.font=saveMenuFont;t.fontSize=fontSize;t.color=Color.white;t.alignment=TextAnchor.MiddleLeft;t.text=text;t.raycastTarget=false;}
             void Button(Transform parent,string title,Vector2 pos,Vector2 size,Action click,Vector2? anchor=null){var r=Box(parent,title,pos,size,new Color(.22f,.34f,.36f),anchor);var b=r.gameObject.GetOrAdd<Button>();b.onClick.AddListener(()=>click());Label(r,title,Vector2.zero,size-Vector2.one*8,18);}
             var shield=Box(campaignMenu.transform,"全屏遮罩",Vector2.zero,Vector2.zero,new Color(0,0,0,.65f));shield.anchorMin=Vector2.zero;shield.anchorMax=Vector2.one;shield.offsetMin=shield.offsetMax=Vector2.zero;
-            var panel=Box(campaignMenu.transform,"背包",Vector2.zero,new Vector2(960,600),new Color(.10f,.17f,.18f));
+            var panel=Box(campaignMenu.transform,"背包",Vector2.zero,new Vector2(960,600),new Color(.969f,.965f,.925f));
             Label(panel,battleJournalOpen ? "任务 · 战斗中只查看" : "背包 · 战斗中只查看",new Vector2(-90,260),new Vector2(660,48),26);Button(panel,battleJournalOpen ? "关闭 · N / Esc" : "关闭 · B / Esc",new Vector2(350,260),new Vector2(200,48),CloseBattleBackpack);
-            var viewport=Box(panel,"列表",new Vector2(0,-25),new Vector2(900,490),new Color(.10f,.17f,.18f));viewport.gameObject.GetOrAdd<RectMask2D>();
+            var viewport=Box(panel,"列表",new Vector2(0,-25),new Vector2(900,490),new Color(.969f,.965f,.925f));viewport.gameObject.GetOrAdd<RectMask2D>();
             var content=UiPrefabBinding.Rect("内容",viewport);content.gameObject.GetOrAdd<UiDynamicContent>();content.GetComponent<UiVisualNode>().UseAuthoredLayout=false;content.anchorMin=content.anchorMax=new Vector2(.5f,1);content.pivot=new Vector2(.5f,1);content.sizeDelta=new Vector2(880,490);
             var scroll=viewport.gameObject.GetOrAdd<ScrollRect>();scroll.viewport=viewport;scroll.content=content;scroll.horizontal=false;scroll.movementType=ScrollRect.MovementType.Clamped;
             float row=0;var top=new Vector2(.5f,1);var bstate=s.Backpack;

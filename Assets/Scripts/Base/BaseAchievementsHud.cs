@@ -56,12 +56,12 @@ namespace BaseConquest.Base
             string problem=BaseAchievements.ClaimProblem(s,d.Id);
             bool claimed=record!=null&&record.ClaimedDay>0;
             bool claimable=!claimed&&problem=="";
-            var card=Box("AchievementCard",content,new Vector2(.5f,1),new Vector2(-298+column*298,-row-line*148-68),new Vector2(285,136),claimed?new Color(.16f,.16f,.14f,.72f):claimable?new Color(.22f,.26f,.19f,.78f):new Color(.16f,.16f,.14f,.72f));
+            var card=Solid("AchievementCard",content,new Vector2(.5f,1),new Vector2(-298+column*298,-row-line*148-68),new Vector2(285,136),claimable?new Color(.933f,.961f,.914f):new Color(1f,.996f,.980f));
             var outline=card.gameObject.GetOrAdd<Outline>();
-            outline.effectColor=claimable?new Color(.55f,.72f,.50f,.85f):new Color(.72f,.55f,.32f,.30f);outline.effectDistance=new Vector2(1,-1);
+            outline.effectColor=claimable?new Color(.557f,.682f,.549f,.95f):new Color(.863f,.894f,.843f,.95f);outline.effectDistance=new Vector2(1,-1);
             Label(card,d.Name,new Vector2(97,-10),new Vector2(170,20),DemoUiMetrics.FontBody,TextAnchor.MiddleLeft,new Vector2(0,1)).fontStyle=FontStyle.Bold;
             var tag=Label(card,claimed?"已领取":record!=null?"可领取":"未解锁",new Vector2(-52,-10),new Vector2(80,20),DemoUiMetrics.FontCaption,TextAnchor.MiddleRight,new Vector2(1,1));
-            tag.color=claimable?new Color(.60f,.80f,.58f):DemoUiTheme.Current.Muted;
+            tag.color=claimable?new Color(.259f,.420f,.314f):DemoUiTheme.Current.Muted;
             var condition=Label(card,d.Category=="hidden"&&record==null?"隐藏条件，解锁后揭示":d.Condition,new Vector2(142,-39),new Vector2(261,34),DemoUiMetrics.FontCaption,TextAnchor.UpperLeft,new Vector2(0,1));
             condition.color=DemoUiTheme.Current.Muted;
             var reward=Label(card,"奖励："+BaseAchievements.RewardName(d),new Vector2(142,-76),new Vector2(261,16),DemoUiMetrics.FontCaption,TextAnchor.MiddleLeft,new Vector2(0,1));
