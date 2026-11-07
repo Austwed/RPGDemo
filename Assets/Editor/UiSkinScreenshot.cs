@@ -112,6 +112,14 @@ namespace BaseConquest.Editor
                     if (Time.frameCount < frameDeadline) return;
                     Capture("ui-skin-achievements");
                     H.ClosePanel();
+                    H.OpenBackpack();
+                    stage = "backpack-shot"; frameDeadline = Time.frameCount + 20;
+                    break;
+                case "backpack-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    if (!H.PanelOpen) Log.Add("[说明] 队伍背包未打开：" + controller.Message);
+                    Capture("ui-skin-backpack");
+                    H.ClosePanel();
                     BaseBattleGateway.MainMenu = true;
                     try { H.OpenMenu(); } finally { BaseBattleGateway.MainMenu = false; }
                     stage = "menu-shot"; frameDeadline = Time.frameCount + 40;
