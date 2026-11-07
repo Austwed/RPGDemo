@@ -356,7 +356,9 @@ namespace BaseConquest.Base
             ApplyEventInventory(s, e, win && !s.Aftermath.GameOver, r,a.Difficulty.RewardFactor); e.Status = win && !s.Aftermath.GameOver || e.Kind == "defense" ? "resolved" : "pending";
             BaseThreats.Settle(s,e,session,r,win&&!s.Aftermath.GameOver);
             // 掠夺等战果回写之后再结算：此时 EnemyDeployed 才是本场实际参战人头。
-            BaseRaidLoot.Apply(s, e, r, win, passive);
+            double holdLeft = Math.Max(0, (battle.Scenario.Objective?.HoldRounds ?? 0) - (a.RealtimeRules ? (a.RealtimeState?.Seconds ?? 0) : battle.RoundNumber));
+            int enemyLeft = battle.Soldiers.Count(u => u.Side == BattleSide.B && u.IsAlive && !u.Escaped);
+            BaseRaidLoot.Apply(s, e, r, win, passive, enemyLeft, holdLeft);
             s.Campaign.SettledIds.Add(a.Id); s.Campaign.Reports.Add(r); BaseQuests.RecordVictory(s,r); if(!passive&&!a.Deputy)ToBaseLocation(s);
             BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>());
             BaseSceneRules.RememberStrategy(s,session); BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
@@ -394,7 +396,7 @@ namespace BaseConquest.Base
                     var id = "unguarded:" + e.Id; var r = new BaseCampaignReport { BattleId = id, EventId = e.Id, Title = e.Title, Day = s.Day, Outcome = "Unopposed", Passive = true };
                     ApplyEventInventory(s, e, false, r); e.Status = "resolved";
                     // 没人迎战等于全营被翻一遍：按敌方人头走重掠档，然后才把残军退回来源据点。
-                    BaseRaidLoot.Apply(s, e, r, false, true, e.EnemyArmy.Count(u => !u.Dead));
+                    BaseRaidLoot.Apply(s, e, r, false, true, e.EnemyArmy.Count(u => !u.Dead), e.HoldRounds > 0 ? e.HoldRounds : 30);
                     var source=BaseThreats.Site(s,e.SourceSiteId);if(source!=null){r.SourceSiteId=source.Id;if(source.Owner=="enemy"){source.Garrison.AddRange(e.EnemyArmy.Select(u=>u.Copy()));r.EnemyReturned=e.EnemyArmy.Count;}else r.EnemyDispersed=e.EnemyArmy.Count;e.EnemyArmy.Clear();}
                     s.Campaign.SettledIds.Add(id); s.Campaign.Reports.Add(r); continue;
                 }
