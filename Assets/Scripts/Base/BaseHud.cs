@@ -281,7 +281,17 @@ namespace BaseConquest.Base
         private void EndPanel()
         {
             content.sizeDelta = new Vector2(880, Mathf.Max(440, row + 12));
+            // 页面模板收尾会把重复节点的样式还原成原型（按钮文字居中、字色统一）。
+            // 动态列表里的字号、对齐与配色是本页明确指定的，收尾前留一份、收尾后写回去。
+            var texts = content.GetComponentsInChildren<Text>(true);
+            var textColors = new Color[texts.Length]; var textAnchors = new TextAnchor[texts.Length]; var textSizes = new int[texts.Length];
+            for (int i = 0; i < texts.Length; i++) { textColors[i] = texts[i].color; textAnchors[i] = texts[i].alignment; textSizes[i] = texts[i].fontSize; }
+            var images = content.GetComponentsInChildren<Image>(true);
+            var imageColors = new Color[images.Length];
+            for (int i = 0; i < images.Length; i++) imageColors[i] = images[i].color;
             UiPrefabBinding.Complete(panel.gameObject);
+            for (int i = 0; i < texts.Length; i++) if (texts[i] != null) { texts[i].color = textColors[i]; texts[i].alignment = textAnchors[i]; texts[i].fontSize = textSizes[i]; }
+            for (int i = 0; i < images.Length; i++) if (images[i] != null) images[i].color = imageColors[i];
             DemoUiTheme.Current.Frame(panel);
             panel.GetComponent<UiPageLayout>()?.Apply(content,content.sizeDelta.y);
             Canvas.ForceUpdateCanvases(); panelScroll.StopMovement();

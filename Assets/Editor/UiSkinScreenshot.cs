@@ -93,6 +93,24 @@ namespace BaseConquest.Editor
                 case "calendar-shot":
                     if (Time.frameCount < frameDeadline) return;
                     Capture("ui-skin-calendar");
+                    H.OpenLandMap();
+                    stage = "landmap-shot"; frameDeadline = Time.frameCount + 20;
+                    break;
+                case "landmap-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("ui-skin-landmap");
+                    H.OpenQuests();
+                    stage = "quests-shot"; frameDeadline = Time.frameCount + 20;
+                    break;
+                case "quests-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("ui-skin-quests");
+                    H.OpenQuests("achievement");
+                    stage = "achievements-shot"; frameDeadline = Time.frameCount + 20;
+                    break;
+                case "achievements-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("ui-skin-achievements");
                     H.ClosePanel();
                     BaseBattleGateway.MainMenu = true;
                     try { H.OpenMenu(); } finally { BaseBattleGateway.MainMenu = false; }
