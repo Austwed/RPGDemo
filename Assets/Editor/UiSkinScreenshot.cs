@@ -119,6 +119,24 @@ namespace BaseConquest.Editor
                     if (Time.frameCount < frameDeadline) return;
                     if (!H.PanelOpen) Log.Add("[说明] 队伍背包未打开：" + controller.Message);
                     Capture("ui-skin-backpack");
+                    // 选中一件物品，验证说明区已改为点选后才出现的小弹框。
+                    var firstItem = BasePartyInventory.Entries(controller.State).FirstOrDefault(e => e != null && !string.IsNullOrEmpty(e.Holder) && !e.Worn);
+                    if (firstItem != null)
+                    {
+                        var hudType = H.GetType();
+                        hudType.GetField("inventorySelected", BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(H, firstItem.Id);
+                        hudType.GetMethod("OpenInventory", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(H, new object[] { false });
+                        stage = "backpack-menu-shot"; frameDeadline = Time.frameCount + 20;
+                        break;
+                    }
+                    H.ClosePanel();
+                    BaseBattleGateway.MainMenu = true;
+                    try { H.OpenMenu(); } finally { BaseBattleGateway.MainMenu = false; }
+                    stage = "menu-shot"; frameDeadline = Time.frameCount + 40;
+                    break;
+                case "backpack-menu-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("ui-skin-backpack-menu");
                     H.ClosePanel();
                     BaseBattleGateway.MainMenu = true;
                     try { H.OpenMenu(); } finally { BaseBattleGateway.MainMenu = false; }

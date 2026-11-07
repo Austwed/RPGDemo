@@ -52,30 +52,39 @@ namespace BaseConquest.Base
             else
             {
                 // One continuous party row, including on touch devices. No character-switch tabs.
-                var viewport=Rect("PartyViewport",panel,Vector2.one*.5f,new Vector2(0,40),new Vector2(panelWidth-30,450));
+                var viewport=Rect("PartyViewport",panel,Vector2.one*.5f,Vector2.zero,new Vector2(panelWidth-30,560));
                 viewport.gameObject.GetOrAdd<RectMask2D>();viewport.gameObject.GetOrAdd<Image>().color=new Color(0,0,0,.01f);
                 float total=people.Length*390f;
-                var party=Rect("PartyRow",viewport,new Vector2(.5f,.5f),Vector2.zero,new Vector2(Math.Max(panelWidth-30,total),450));
+                var party=Rect("PartyRow",viewport,new Vector2(.5f,.5f),Vector2.zero,new Vector2(Math.Max(panelWidth-30,total),560));
 
                 var scroll=viewport.gameObject.GetOrAdd<ScrollRect>();scroll.viewport=viewport;scroll.content=party;scroll.horizontal=true;scroll.vertical=false;scroll.movementType=ScrollRect.MovementType.Clamped;
-                for(int n=0;n<people.Length;n++)InventoryCharacter(people[n],new Vector2(-total/2+195+n*390,0),new Vector2(380,450),party);
-                var info=Box("下方物品说明",panel,Vector2.one*.5f,new Vector2(0,-258),new Vector2(panelWidth-30,132),DemoUiTheme.Current.Inset);InventoryDetails(info,false);
+                for(int n=0;n<people.Length;n++)InventoryCharacter(people[n],new Vector2(-total/2+195+n*390,0),new Vector2(380,540),party);
             }
             if(BaseDemoIntro.Daily(s))s.Demo.Intro.BackpackOpened=true;
-            panelFeedback=Label(panel,owner.Message,new Vector2(0,-328),new Vector2(panelWidth-50,24),16);CompletePreservingLayout(panel);RefreshSummary();
+            panelFeedback=Label(panel,owner.Message,new Vector2(0,-328),new Vector2(panelWidth-50,24),16);
+            if(!warehouse&&!string.IsNullOrEmpty(inventorySelected))InventoryItemMenu(panel,panelWidth);
+            CompletePreservingLayout(panel);RefreshSummary();
         }
         // 版式照原型 `renderInventoryPanel`：顶部姓名＋生命、中部「左三槽／全身像／右三槽」方形格、
         // 下方容量行＋整理·详情、底部 6×4 方形背包格。第六槽只在 ExtraAccessory 解锁后可用，否则显示「锁定」。
+        // 版式照原型 `renderInventoryPanel`：顶部姓名＋生命、中部「左三槽／竖矩形全身像／右三槽」、
+        // 下方容量行＋整理·详情、底部 6×4 方形背包格。第六槽只在 ExtraAccessory 解锁后可用。
         private void InventoryCharacter(BaseLeader l,Vector2 position,Vector2 size,RectTransform parent=null)
         {
             var card=UiPrefabBinding.Create("PartyMemberCard","人物与背包_"+l.Id,parent??panel).GetComponent<RectTransform>();card.GetComponent<UiVisualNode>().UseAuthoredLayout=false;card.anchorMin=card.anchorMax=card.pivot=Vector2.one*.5f;card.anchoredPosition=position;card.sizeDelta=size;var cardImage=card.gameObject.GetOrAdd<Image>();cardImage.color=DemoUiTheme.Current.Inset;var cardOutline=cardImage.GetComponent<Outline>()??cardImage.gameObject.AddComponent<Outline>();cardOutline.effectColor=DemoUiTheme.Current.Line;cardOutline.effectDistance=new Vector2(1,-1);float top=size.y/2;
-            var name=MakeButton(card,"MemberName",new Vector2(-57.5f,top-22),new Vector2(245,30),()=>{inventoryPerson=l.Id;inventorySelected="";OpenInventory(inventoryWarehouse);});
-            var nameText=name.GetComponentInChildren<Text>();nameText.text=BasePersonnel.LeaderName(l)+" · "+BasePersonalEquipment.ClassName(l);nameText.fontSize=DemoUiMetrics.FontSubhead;
-            BindInventoryDrop(name.gameObject,null,l.Id,-2,"");
-            var stat=Label(card,"生命 "+l.Health.ToString("0.#")+" / "+l.MaxHealth.ToString("0.#"),new Vector2(125,top-22),new Vector2(120,30),DemoUiMetrics.FontCaption,TextAnchor.MiddleRight);
+            // 名字是纯文字，不套按钮底：挂一个无 Image 的 Button 保留点击切人，主题 Apply 只会给有 Image 的按钮换肤。
+            var nameRect=Rect("人物名",card,Vector2.one*.5f,new Vector2(-size.x/2+12+120,top-24),new Vector2(240,30));
+            var backdrop=nameRect.GetComponent<Image>();if(backdrop!=null)backdrop.enabled=false;
+            var backdropOutline=nameRect.GetComponent<Outline>();if(backdropOutline!=null)backdropOutline.enabled=false;
+            Label(nameRect,BasePersonnel.LeaderName(l)+" · "+BasePersonalEquipment.ClassName(l),Vector2.zero,new Vector2(240,30),DemoUiMetrics.FontSubhead,TextAnchor.MiddleLeft);
+            var nameButton=nameRect.gameObject.GetOrAdd<Button>();nameButton.targetGraphic=null;nameButton.transition=Selectable.Transition.None;
+            nameButton.onClick.AddListener(()=>{inventoryPerson=l.Id;inventorySelected="";OpenInventory(inventoryWarehouse);});
+            BindInventoryDrop(nameRect.gameObject,null,l.Id,-2,"");
+            var stat=Label(card,"生命 "+l.Health.ToString("0.#")+" / "+l.MaxHealth.ToString("0.#"),new Vector2(size.x/2-12-70,top-24),new Vector2(140,30),DemoUiMetrics.FontCaption,TextAnchor.MiddleRight);
             stat.color=DemoUiTheme.Current.Muted;
 
-            const float gear=46f,gearGap=4f,gearTop=44f;
+            const float gear=48f,gearGap=4f,gearTop=52f;
+            float equipmentHeight=3*gear+2*gearGap;
             bool extra=BasePersonalEquipment.SlotsFor(l).Count()>=6;
             for(int n=0;n<6;n++)
             {
@@ -90,18 +99,24 @@ namespace BaseConquest.Base
                 }
                 InventoryCell(card,BasePartyInventory.Entries(owner.State).SingleOrDefault(e=>e.Holder==l.Id&&e.Slot==slot),l.Id,-1,slot,new Vector2(x,y),new Vector2(gear,gear));
             }
-            float equipmentHeight=3*gear+2*gearGap;
-            var portrait=Box("人物形象",card,Vector2.one*.5f,new Vector2(0,top-gearTop-equipmentHeight/2),new Vector2(size.x-2*(12+gear+8),equipmentHeight),new Color(DemoUiTheme.Current.Inset.r,DemoUiTheme.Current.Inset.g,DemoUiTheme.Current.Inset.b,.55f));
-            var art=Rect("角色立绘",portrait,Vector2.one*.5f,Vector2.zero,new Vector2(96,116));var avatar=art.gameObject.GetOrAdd<BattleAvatarGraphic>();avatar.PlayerHero=l.Id==owner.State.PlayerLeaderId;avatar.AppearanceId=BaseCommanderIdentity.Appearance(l);avatar.raycastTarget=false;
+            // 竖矩形相框里放四向图集的正面全身帧（不是 Portraits 的半身头像）。
+            var frame=Box("人物形象",card,Vector2.one*.5f,new Vector2(0,top-gearTop-equipmentHeight/2),new Vector2(128,equipmentHeight),new Color(DemoUiTheme.Current.Inset.r,DemoUiTheme.Current.Inset.g,DemoUiTheme.Current.Inset.b,.55f));
+            // 模板的「角色立绘」节点自带 BattleAvatarGraphic，同一 GameObject 不能再挂 RawImage，故用新节点名。
+            var art=Rect("角色全身像",frame,Vector2.one*.5f,new Vector2(0,6),new Vector2(112,112));
+            string artId=l.Id==owner.State.PlayerLeaderId?"player":BaseCommanderIdentity.Appearance(l);
+            var atlas=PixelDemoArt.Load("Characters",artId);
+            if(atlas!=null){var old=art.GetComponent<BattleAvatarGraphic>();if(old!=null)UiPrefabBinding.DestroyView(old);var raw=art.gameObject.GetOrAdd<RawImage>();raw.texture=atlas;raw.uvRect=PixelDemoArt.Frame(HeroFacing.South,HeroPose.Idle,0);raw.raycastTarget=false;}
+            else{var fallback=art.gameObject.GetOrAdd<BattleAvatarGraphic>();fallback.PlayerHero=l.Id==owner.State.PlayerLeaderId;fallback.AppearanceId=artId;fallback.raycastTarget=false;}
 
-            float captionY=top-gearTop-equipmentHeight-20;
+            float captionY=top-gearTop-equipmentHeight-24;
             int held=BasePartyInventory.Entries(owner.State).Count(e=>e.Holder==l.Id&&!e.Worn);
             Label(card,"背包 "+held+"/24",new Vector2(-size.x/2+12+55,captionY),new Vector2(110,26),DemoUiMetrics.FontCaption,TextAnchor.MiddleLeft);
             MakeButton(card,"分类 ▾",new Vector2(15,captionY),new Vector2(62,26),()=>InventoryPopup(card,l.Id,Vector2.zero)).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
             MakeButton(card,"整理",new Vector2(81,captionY),new Vector2(62,26),()=>InventoryChange(s=>BasePartyInventory.Sort(s,l.Id),"已整理物品")).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
             MakeButton(card,"详情",new Vector2(147,captionY),new Vector2(62,26),()=>{inventoryPerson=l.Id;inventorySelected="";OpenPersonnelDetail("leader:"+l.Id,BaseMuster.Snapshot(owner.State),()=>OpenInventory(inventoryWarehouse));}).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
 
-            const float cell=50f,cellGap=4f;float gridTop=top-gearTop-equipmentHeight-40;
+            // 删掉常驻说明区后格子下移放大，占满人物卡下半部。
+            const float cell=56f,cellGap=4f;float gridTop=top-gearTop-equipmentHeight-62;
             for(int n=0;n<24;n++){int index=n;var e=BasePartyInventory.Entries(owner.State).SingleOrDefault(i=>i.Holder==l.Id&&!i.Worn&&i.Cell==index);
                 float x=-2.5f*(cell+cellGap)+(n%6)*(cell+cellGap),y=gridTop-cell/2-(n/6)*(cell+cellGap);
                 InventoryCell(card,e,l.Id,index,"",new Vector2(x,y),new Vector2(cell,cell));}
@@ -154,7 +169,7 @@ namespace BaseConquest.Base
                 bool twice=inventoryClicks.Click(e?.Id,Time.unscaledTime);
                 if(twice&&inventoryWarehouse&&slot=="")
                 {if(!shown){owner.ReportMessage("此格物品被分类隐藏，请先切换全部");return;}InventoryChange(s=>BasePartyInventory.QuickTransfer(s,e.Id,inventoryPerson,true),"已完成仓库快速存取");return;}
-                inventoryPerson=holder==""?inventoryPerson:holder;inventorySelected=shown?e.Id:"";inventoryQuantity=e?.Count??1;OpenInventory(inventoryWarehouse);
+                inventoryPerson=holder==""?inventoryPerson:holder;inventorySelected=shown&&(!inventoryWarehouse&&e.Id==inventorySelected)?"":shown?e.Id:"";inventoryQuantity=e?.Count??1;OpenInventory(inventoryWarehouse);
             });var label=button.GetComponentInChildren<Text>();label.text=title;label.fontSize=slot!=""?DemoUiMetrics.FontCaption-1:DemoUiMetrics.FontCaption;
             if(shown&&e.Id==inventorySelected){var ring=button.GetComponent<Outline>()??button.gameObject.AddComponent<Outline>();ring.effectColor=DemoUiTheme.Current.Copper;ring.effectDistance=new Vector2(2,-2);}
             if(e?.Gear!=null)label.color=e.Quality>=4?DemoUiTheme.Current.Copper:ink;if(!shown&&e!=null)button.GetComponent<Image>().color=new Color(DemoUiTheme.Current.Muted.r,DemoUiTheme.Current.Muted.g,DemoUiTheme.Current.Muted.b,.35f);
@@ -168,18 +183,31 @@ namespace BaseConquest.Base
         }
         private void InventoryChange(Func<BaseState,bool> action,string message)
         {inventoryClicks.Reset();owner.Change(s=>{if(!action(s))throw new InvalidOperationException("位置、空格、职业或专属条件不允许此操作");},message);OpenInventory(inventoryWarehouse);}
-        private void InventoryDetails(RectTransform box,bool vertical)
+        private void InventoryDetails(RectTransform box,bool vertical,bool compact=false)
         {
             var inner=Rect("物品详情动态内容",box,Vector2.one*.5f,Vector2.zero,box.sizeDelta);inner.gameObject.GetOrAdd<UiDynamicContent>();box=inner;
             var s=owner.State;var e=BasePartyInventory.Find(s,inventorySelected);var l=s.Leaders.Single(p=>p.Id==inventoryPerson);float w=box.sizeDelta.x,h=box.sizeDelta.y;
             if(e==null){Label(box,"装备与物品",new Vector2(vertical?0:-420,vertical?h/2-24:28),new Vector2(vertical?w-24:310,36),21);Label(box,"点击物品查看说明 · 拖动整理或转交\n人物属性、技能与特性请打开角色详情。",new Vector2(0,-10),new Vector2(w-48,70),18,TextAnchor.MiddleCenter);return;}
             inventoryQuantity=Mathf.Clamp(inventoryQuantity,1,e.Count);
             string description=e.Gear!=null?InventoryGearDescription(e,l):e.Description;
-            Label(box,e.Name+(e.Count>1?" ×"+e.Count:""),new Vector2(vertical?0:-420,vertical?h/2-24:25),new Vector2(vertical?w-24:310,36),20);
-            float descriptionHeight=Math.Min(180,h-179);
-            Label(box,description,new Vector2(vertical?0:-40,vertical?h/2-52-descriptionHeight/2:0),new Vector2(vertical?w-24:480,vertical?descriptionHeight:92),17);
+            if(compact)
+            {
+                Label(box,e.Name+(e.Count>1?" ×"+e.Count:""),new Vector2(-10,h/2-22),new Vector2(w-56,26),DemoUiMetrics.FontSubhead,TextAnchor.MiddleCenter);
+                Label(box,"数量 "+e.Count+(e.Gear!=null?" · "+BasePersonalEquipment.SlotName(BasePersonalEquipment.Definition(e.Gear.Template).Slot):""),new Vector2(0,h/2-46),new Vector2(w-20,20),DemoUiMetrics.FontCaption,TextAnchor.MiddleCenter).color=DemoUiTheme.Current.Muted;
+                Label(box,description,new Vector2(0,h/2-66-22),new Vector2(w-20,42),DemoUiMetrics.FontCaption,TextAnchor.UpperLeft);
+            }
+            else
+            {
+                Label(box,e.Name+(e.Count>1?" ×"+e.Count:""),new Vector2(vertical?0:-420,vertical?h/2-24:25),new Vector2(vertical?w-24:310,36),20);
+                float descriptionHeight=Math.Min(180,h-179);
+                Label(box,description,new Vector2(vertical?0:-40,vertical?h/2-52-descriptionHeight/2:0),new Vector2(vertical?w-24:480,vertical?descriptionHeight:92),17);
+            }
             float x=vertical?-w/2+78:330,y=vertical?-h/2+104:23;
-            void Btn(string title,int col,int line,Action click,bool enabled=true){MakeButton(box,title,new Vector2(x+col*139,y-line*40),new Vector2(132,34),click).interactable=enabled;}
+            void Btn(string title,int col,int line,Action click,bool enabled=true)
+            {
+                if(compact){int index=col+line*2;var b=MakeButton(box,title,new Vector2(index%2==0?-50:50,-16-index/2*30),new Vector2(94,28),click);b.GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;b.interactable=enabled;}
+                else MakeButton(box,title,new Vector2(x+col*139,y-line*40),new Vector2(132,34),click).interactable=enabled;
+            }
             if(e.Gear!=null&&e.Holder!="")Btn(e.Worn?"卸下":"穿戴",0,0,()=>{string slot=e.Worn?e.Slot:BasePersonalEquipment.Definition(e.Gear.Template).Slot;if(slot=="accessory"){var p=s.Leaders.Single(v=>v.Id==e.Holder);slot=BasePersonalEquipment.SlotsFor(p).FirstOrDefault(v=>v.StartsWith("accessory")&&!p.PersonalEquipment.Items.Any(i=>i.Slot==v));}if(slot==null){owner.ReportMessage("请拖动到要替换的饰品槽");return;}InventoryChange(next=>e.Worn?BasePersonalEquipment.Unequip(next,e.Holder,slot):BasePersonalEquipment.Equip(next,e.Holder,e.Id,slot),"已更新装备");},e.Worn||BasePersonalEquipment.Definition(e.Gear.Template).Slot!="weapon"||BasePersonalEquipment.Definition(e.Gear.Template).Weapon==s.Leaders.Single(v=>v.Id==e.Holder).PersonalEquipment.Weapon);
             Btn("销毁",1,0,()=>InventoryDestroyConfirm(e),!e.Worn&&!e.Protected);
             if(inventoryWarehouse)
@@ -195,6 +223,16 @@ namespace BaseConquest.Base
             if(BaseRpg.Active(owner.State))return BaseRpg.GearDescription(owner.State,e.Gear)+BaseRpg.GearComparison(owner.State,e.Gear,string.IsNullOrEmpty(e.Holder)?null:e.Holder);
             var d=BasePersonalEquipment.Definition(e.Gear.Template);var l=owner.State.Leaders.FirstOrDefault(p=>p.Id==e.Holder)??selected;int q=e.Quality;
             return BaseBackpack.CategoryName(e.Category)+(d.Slot=="weapon"?" · "+BasePersonalEquipment.Profession(d.Weapon)+"专用":"")+(e.Protected?" · 剧情保护／主角专属":"")+"\n攻击 "+(d.Slot=="weapon"?BasePersonalEquipment.WeaponAttack(l,e.Gear):BasePersonalEquipment.Scale(d.Damage,q)).ToString("+0.##;-0.##;0")+"／防御 "+BasePersonalEquipment.Scale(d.Defense,q).ToString("+0.##;-0.##;0")+"／生命 "+BasePersonalEquipment.Scale(d.Health,q).ToString("+0.##;-0.##;0")+(d.Slot=="weapon"?"／射程 "+BasePersonalEquipment.RealtimeRange(e.Gear)+"细格"+(d.Weapon!=l.PersonalEquipment.Weapon?"\n非本职业武器：无法装备此武器":""):"");
+        }
+        // 原型 `itemMenu()`：说明与操作只在选中物品后以小浮框出现，不常驻占一块。
+        private void InventoryItemMenu(RectTransform parent,float panelWidth)
+        {
+            var e=BasePartyInventory.Find(owner.State,inventorySelected);if(e==null)return;
+            var pop=Box("物品菜单",parent,Vector2.one*.5f,new Vector2(panelWidth/2-125,-110),new Vector2(210,228),DemoUiTheme.Current.Panel);
+            pop.SetAsLastSibling();
+            var outline=pop.gameObject.GetOrAdd<Outline>();outline.effectColor=DemoUiTheme.Current.Copper;outline.effectDistance=new Vector2(2,-2);
+            MakeButton(pop,"关闭",new Vector2(72,96),new Vector2(52,24),()=>{inventorySelected="";OpenInventory(false);}).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
+            InventoryDetails(pop,true,true);
         }
         private void InventoryTransferMenu(BaseInventoryEntry e)
         {
