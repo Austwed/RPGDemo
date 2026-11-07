@@ -155,7 +155,7 @@ namespace BaseConquest.Battle
             if(s.DrinkMultiplier>1)labels.Add(s.DrinkLabel);
             if(s.HasProvisionEffects)labels.Add(ProvisionEffects.Summary(s.Kind,s.ProvisionAttackFactor,s.ProvisionWeaponBonus,s.ProvisionArmorBonus,true));
             if(s.ProfessionKind==SoldierKind.Cavalry&&s.MovedThisRound)labels.Add("机动（本轮远程伤害×0.5）");
-            if(CavalryPinned(s))labels.Add("战士近身（移动1，轮初判定）");
+            if(CavalryPinned(s))labels.Add("剑士近身（移动1，轮初判定）");
             if(Board.Cell(s.Cell)?.FixedCover==true&&Board.Walkable(s.Cell))labels.Add("固定掩体（远程伤害×0.75）");
             if (IsWeak(s)) labels.Add("虚弱" + (Math.Max(s.WeakTerrainUntil, s.WeakCrowdUntil) - RoundNumber) + "轮（攻击×" + Scenario.Effects.WeakMultiplier.ToString("0.##") + "，禁暴击）");
             if (ArcherInCloseCombat(s)) labels.Add("贴身压制（攻击×" + Scenario.Effects.RangedCloseMultiplier.ToString("0.##") + "）");

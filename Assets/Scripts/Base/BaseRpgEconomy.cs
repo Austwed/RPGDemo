@@ -89,7 +89,7 @@ namespace BaseConquest.Base
         public static string Describe(RpgCharacter c)
         {
             if(c==null)return "";var r=c.Rules;
-            return "共享模板："+(c.TemplateId.StartsWith("captain_awakened_")?"异能者队长":c.TemplateId.StartsWith("captain_normal_")?"普通队长":"普通士兵")+" · "+new[]{"战士","射手","骑士"}[c.Profession]+" · 等级"+c.Level+"\n主动："+r.Skills.Single(s=>s.Id==c.SkillId).Name+"\n特性："+(c.Traits.Count==0?"无":string.Join("；",c.Traits.Select(t=>r.Traits.Single(d=>d.Id==t.Id).Name+" "+t.Value.ToString("0.##")+TraitUnit(t.Id))))+"\n命中／闪避点数："+r.Hit[c.Profession]+" / "+r.Evasion[c.Profession];
+            return "共享模板："+(c.TemplateId.StartsWith("captain_awakened_")?"异能者队长":c.TemplateId.StartsWith("captain_normal_")?"普通队长":"普通士兵")+" · "+new[]{"剑士","弓兵","骑兵"}[c.Profession]+" · 等级"+c.Level+"\n主动："+r.Skills.Single(s=>s.Id==c.SkillId).Name+"\n特性："+(c.Traits.Count==0?"无":string.Join("；",c.Traits.Select(t=>r.Traits.Single(d=>d.Id==t.Id).Name+" "+t.Value.ToString("0.##")+TraitUnit(t.Id))))+"\n命中／闪避点数："+r.Hit[c.Profession]+" / "+r.Evasion[c.Profession];
         }
         public static string GearDescription(BaseState s,BasePersonalItem item)
         {

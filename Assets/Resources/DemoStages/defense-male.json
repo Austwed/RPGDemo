@@ -761,7 +761,7 @@
         ],
         "Parties": [],
         "ReturnedIds": [
-            "3fd840ec77984ef193ec0e24f339a183"
+            "22517ae41a694658a5615438254da643"
         ],
         "AppliedAppendIds": []
     },
@@ -799,7 +799,7 @@
             }
         ],
         "FinishedIds": [
-            "204e1836ee254b109857f23681c24b5f"
+            "ae6015234df74136a9ff8a48fae5adad"
         ]
     },
     "Campaign": {
@@ -1148,12 +1148,12 @@
         ],
         "SettledIds": [
             "demo:smith:parting-gift",
-            "204e1836ee254b109857f23681c24b5f",
-            "204e1836ee254b109857f23681c24b5f:ruins-reward"
+            "ae6015234df74136a9ff8a48fae5adad",
+            "ae6015234df74136a9ff8a48fae5adad:ruins-reward"
         ],
         "Reports": [
             {
-                "BattleId": "204e1836ee254b109857f23681c24b5f",
+                "BattleId": "ae6015234df74136a9ff8a48fae5adad",
                 "EventId": "demo:ruins:rescue",
                 "Title": "沉眠古窟 · 制服受控者并击败控制来源",
                 "Outcome": "SideAWin",
@@ -77408,8 +77408,8 @@
         },
         "Prisoners": [
             {
-                "Id": "204e1836ee254b109857f23681c24b5f:0",
-                "BattleId": "204e1836ee254b109857f23681c24b5f",
+                "Id": "ae6015234df74136a9ff8a48fae5adad:0",
+                "BattleId": "ae6015234df74136a9ff8a48fae5adad",
                 "Name": "乙方迦兰",
                 "Status": "released",
                 "CaptureSource": "沉眠古窟 · 制服受控者并击败控制来源",
@@ -77496,7 +77496,7 @@
                 ]
             },
             {
-                "BattleId": "204e1836ee254b109857f23681c24b5f",
+                "BattleId": "ae6015234df74136a9ff8a48fae5adad",
                 "Title": "遗迹挑战奖励",
                 "Closed": true,
                 "Food": 20,
@@ -77504,10 +77504,10 @@
                 "Coins": 75,
                 "Items": [
                     {
-                        "Id": "204e1836ee254b109857f23681c24b5f:ruins-reward:loot:0",
+                        "Id": "ae6015234df74136a9ff8a48fae5adad:ruins-reward:loot:0",
                         "Status": "discarded",
                         "Reward": {
-                            "Template": "novice_light_helmet",
+                            "Template": "novice_light_armor",
                             "ItemId": "",
                             "Count": 1,
                             "Quality": 2,
@@ -77515,22 +77515,11 @@
                         }
                     },
                     {
-                        "Id": "204e1836ee254b109857f23681c24b5f:ruins-reward:loot:1",
+                        "Id": "ae6015234df74136a9ff8a48fae5adad:ruins-reward:loot:1",
                         "Status": "discarded",
                         "Reward": {
                             "Template": "",
                             "ItemId": "forging_stone",
-                            "Count": 1,
-                            "Quality": 2,
-                            "RandomQuality": false
-                        }
-                    },
-                    {
-                        "Id": "204e1836ee254b109857f23681c24b5f:ruins-reward:loot:2",
-                        "Status": "discarded",
-                        "Reward": {
-                            "Template": "",
-                            "ItemId": "training_spear_basic",
                             "Count": 1,
                             "Quality": 2,
                             "RandomQuality": false
@@ -95236,7 +95225,7 @@
             "ControllerAccepted": false,
             "ControllerPledged": false,
             "BanditCleared": false,
-            "FirstControllerId": "204e1836ee254b109857f23681c24b5f:0",
+            "FirstControllerId": "ae6015234df74136a9ff8a48fae5adad:0",
             "FarmX": 0.0,
             "FarmY": 0.0,
             "FarmNpcX": 0.0,

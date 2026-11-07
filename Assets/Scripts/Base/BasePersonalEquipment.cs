@@ -48,8 +48,8 @@ namespace BaseConquest.Base
     {
         public static readonly string[] Slots={"weapon","helmet","armor","accessory1","accessory2","accessory3"};
         public static IEnumerable<string> SlotsFor(BaseLeader l)=>Slots.Take(l.PersonalEquipment.ExtraAccessory?6:5);
-        public static string Profession(string weapon)=>weapon=="bow"?"弓箭手":weapon=="spear"?"骑手":"战士";
-        public static string ClassName(BaseLeader l)=>l.PersonalEquipment?.Version==1?Profession(l.PersonalEquipment.Weapon):BaseCommanderIdentity.Appearance(l)=="ahe"?"弓箭手":BaseCommanderIdentity.Appearance(l)=="azhu"?"骑手":"战士";
+        public static string Profession(string weapon)=>weapon=="bow"?"弓兵":weapon=="spear"?"骑兵":"剑士";
+        public static string ClassName(BaseLeader l)=>l.PersonalEquipment?.Version==1?Profession(l.PersonalEquipment.Weapon):BaseCommanderIdentity.Appearance(l)=="ahe"?"弓兵":BaseCommanderIdentity.Appearance(l)=="azhu"?"骑兵":"剑士";
         public static readonly string[] Qualities={"破损","较差","一般","良好","极佳","传奇"};
         private static readonly float[] Multipliers={.5f,.75f,1,1.25f,1.5f,2};
         private static readonly BasePersonalDefinition[] Definitions={

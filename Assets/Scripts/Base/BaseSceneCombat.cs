@@ -164,7 +164,7 @@ namespace BaseConquest.Base
             {if((Ruins?.Version??0)!=0||(Defense?.Version??0)!=0||(Camp?.Version??0)!=0)throw new ArgumentException("Demo编排缺版本");return;}
             if((Version!=1&&Version!=2)||Ruins?.Version!=2||Defense?.Version!=2||Version==1&&(Camp?.Version??0)!=0||Version==2&&Camp?.Version!=2)throw new ArgumentException("Demo编排版本与两场／三场逐兵预设不匹配");
             Ruins.Validate();Defense.Validate();if(Version==2)Camp.Validate();
-            if(Ruins.Commanders.Count!=1||Ruins.Commanders[0].Profession!=SoldierKind.Melee||Ruins.Commanders[0].Level!=1||Ruins.Melee!=2||Ruins.Ranged!=0||Ruins.Cavalry!=0)throw new ArgumentException("遗迹固定一名异族队长和两名受控战士村民，只编辑站位");
+            if(Ruins.Commanders.Count!=1||Ruins.Commanders[0].Profession!=SoldierKind.Melee||Ruins.Commanders[0].Level!=1||Ruins.Melee!=2||Ruins.Ranged!=0||Ruins.Cavalry!=0)throw new ArgumentException("遗迹固定一名异族队长和两名受控近战村民，只编辑站位");
         }
         public static BaseEnemyPreset Preset(BaseState state,string eventId)=>(state.Demo?.Encounters?.Version??0)==0?null:eventId==BaseDemoRuins.EventId?state.Demo.Encounters.Ruins:eventId==BaseDemoDefense.EventId?state.Demo.Encounters.Defense:null;
         public static void ConfigureArmy(BaseState state,string eventId,ArmyDefinition army)
