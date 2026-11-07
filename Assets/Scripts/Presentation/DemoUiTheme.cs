@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 namespace BaseConquest.Presentation
 {
@@ -26,7 +27,8 @@ namespace BaseConquest.Presentation
         {
             bool slot=b.name.StartsWith("BagSlot_")||b.name.StartsWith("EquipmentSlot_")||b.name.StartsWith("物品格_")||b.name.StartsWith("装备槽_");var image=b.GetComponent<Image>();Surface(image,!slot,slot);var c=b.colors;c.normalColor=Color.white;c.highlightedColor=new Color(1.28f,1.23f,1.12f);c.selectedColor=c.highlightedColor;c.pressedColor=new Color(.72f,.65f,.52f);c.disabledColor=new Color(.55f,.53f,.5f,.6f);c.fadeDuration=.08f;b.colors=c;
             var normal=slot?null:Skin("button-normal");var selected=slot?null:Skin("button-selected");
-            if(normal!=null&&selected!=null){image.sprite=normal;image.type=Image.Type.Sliced;image.color=Color.white;b.transition=Selectable.Transition.SpriteSwap;var state=b.spriteState;state.highlightedSprite=selected;state.selectedSprite=selected;state.pressedSprite=selected;state.disabledSprite=normal;b.spriteState=state;if(b.GetComponent<DemoButtonTint>()==null)b.gameObject.AddComponent<DemoButtonTint>();}
+            if(normal!=null&&selected!=null){image.sprite=normal;image.type=Image.Type.Sliced;image.color=Color.white;b.transition=Selectable.Transition.SpriteSwap;var state=b.spriteState;state.highlightedSprite=selected;state.selectedSprite=selected;state.pressedSprite=selected;state.disabledSprite=normal;b.spriteState=state;}
+            if(b.GetComponent<DemoButtonTint>()==null)b.gameObject.AddComponent<DemoButtonTint>();
         }
         public void Apply(GameObject root)
         {
@@ -42,10 +44,24 @@ namespace BaseConquest.Presentation
             {if(text.name=="NpcStatusMarker")continue;text.color=Ink;}
         }
     }
-    public sealed class DemoButtonTint : MonoBehaviour
+    /// 按钮着色与第六态：被 EventSystem 选中（键盘／手柄聚焦）时加粗描边，
+    /// 与 hover、selected、pressed、disabled 区分开。规格见 UI 实施说明书 §2.4 六态矩阵。
+    public sealed class DemoButtonTint : MonoBehaviour, ISelectHandler, IDeselectHandler
     {
-        private Button button;private Image image;
+        private Button button;private Image image;private bool focused;
         private void Awake(){button=GetComponent<Button>();image=GetComponent<Image>();}
         private void Update(){if(button!=null&&image!=null)image.color=button.IsInteractable()?Color.white:new Color(.55f,.53f,.5f,.6f);}
+        public void OnSelect(BaseEventData eventData){focused=true;ApplyFocus();}
+        public void OnDeselect(BaseEventData eventData){focused=false;ApplyFocus();}
+        private void ApplyFocus()
+        {
+            var target=image!=null?image:GetComponent<Image>();
+            var ring=target!=null?target.GetComponent<Outline>():null;
+            if(ring==null)return;
+            var ink=DemoUiTheme.Current!=null?DemoUiTheme.Current.Ink:new Color(.96f,.92f,.83f);
+            var copper=DemoUiTheme.Current!=null?DemoUiTheme.Current.Copper:new Color(.72f,.55f,.32f);
+            ring.effectDistance=focused?new Vector2(2,-2):new Vector2(1,-1);
+            ring.effectColor=focused?new Color(ink.r,ink.g,ink.b,.95f):new Color(copper.r,copper.g,copper.b,.65f);
+        }
     }
 }
