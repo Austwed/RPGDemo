@@ -210,18 +210,36 @@ namespace BaseConquest.Editor
             if(!UiAuthoredLayout.Enabled){Log.Add("[说明] 表现权总开关关闭，探针跳过");return;}
             var prefab=Resources.Load<GameObject>(UiAuthoredLayout.Folder+"PartyMemberCard");
             if(prefab==null){Log.Add("[说明] 尚无 AuthoredUI/PartyMemberCard.prefab，探针跳过");return;}
-            var authored=prefab.GetComponentsInChildren<UiVisualNode>(true).FirstOrDefault(n=>n.BindingName=="BagSlot_0");
-            var live=Object.FindObjectsByType<UiVisualNode>(FindObjectsSortMode.None).FirstOrDefault(n=>n.BindingName=="BagSlot_0"&&n.gameObject.activeInHierarchy);
-            if(authored==null||live==null){Log.Add("[失败] 表现权探针找不到 BagSlot_0（prefab="+(authored!=null)+"，运行时="+(live!=null)+"）");failed=true;return;}
-            var a=(RectTransform)authored.transform;var b=(RectTransform)live.transform;
-            bool same=Vector2.Distance(a.anchoredPosition,b.anchoredPosition)<.01f;
-            bool notHardcoded=Mathf.Abs(b.anchoredPosition.x+132f)>1f;
-            var pa=authored.GetComponent<Image>();var pb=live.GetComponent<Image>();
-            bool colorSame=pa!=null&&pb!=null&&Vector4.Distance(pa.color,pb.color)<.005f;
-            bool colorSentinel=pa!=null&&Mathf.Abs(pa.color.r-DemoUiTheme.Current.Inset.r)>.01f;
-            if(same&&notHardcoded&&colorSame&&colorSentinel)
-                Log.Add("[PASS] 版式与配色由 prefab 主导：BagSlot_0="+b.anchoredPosition+"（prefab="+a.anchoredPosition+"，C# 硬编码 -132 未生效）；颜色="+pb.color+" 与 prefab 一致且不等于主题默认色");
-            else{Log.Add("[失败] 表现权未交给 prefab：运行时位置="+b.anchoredPosition+"／prefab="+a.anchoredPosition+"（硬编码 -132）；颜色运行时="+(pb!=null?pb.color.ToString():"无")+"／prefab="+(pa!=null?pa.color.ToString():"无")+"，哨兵="+(colorSentinel?"在":"缺失"));failed=true;}
+            // 只比对名字唯一的绑定节点。模板里有一批同名的 Text 样例节点（样式原型），
+            // 运行时按当次数据行复用，逐一对位没有意义，跳过它们。
+            var authored=prefab.GetComponentsInChildren<UiVisualNode>(true)
+                .Where(n=>!string.IsNullOrEmpty(n.BindingName))
+                .GroupBy(n=>n.BindingName).Where(g=>g.Count()==1).Select(g=>g.First()).ToArray();
+            var live=Object.FindObjectsByType<UiVisualNode>(FindObjectsSortMode.None)
+                .Where(n=>n.gameObject.activeInHierarchy&&!string.IsNullOrEmpty(n.BindingName))
+                .GroupBy(n=>n.BindingName).ToDictionary(g=>g.Key,g=>g.First());
+            // 全节点比对：美术可以随时拖任何一格，运行时都必须与 prefab 一致；
+            // 第 0 格的位置／颜色哨兵只是额外的「已知坏样本」，被改动也不该让探针误报。
+            int matched=0,mismatched=0;string first="";
+            foreach(var n in authored)
+            {
+                if(!live.TryGetValue(n.BindingName,out var r))continue;
+                matched++;
+                var a=(RectTransform)n.transform;var b=(RectTransform)r.transform;
+                var ia=n.GetComponent<Image>();var ib=r.GetComponent<Image>();
+                bool ok=Vector2.Distance(a.anchoredPosition,b.anchoredPosition)<.01f
+                     && Vector2.Distance(a.sizeDelta,b.sizeDelta)<.01f
+                     && (ia==null||ib==null||Vector4.Distance(ia.color,ib.color)<.005f);
+                if(!ok&&mismatched++==0)
+                    first=n.BindingName+"：prefab "+a.anchoredPosition+"/"+a.sizeDelta+"／颜色 "+(ia!=null?ia.color.ToString():"无")
+                        +" vs 运行时 "+b.anchoredPosition+"/"+b.sizeDelta+"／颜色 "+(ib!=null?ib.color.ToString():"无");
+            }
+            var slot0=authored.FirstOrDefault(n=>n.BindingName=="BagSlot_0");
+            bool sentinel=slot0!=null&&Mathf.Abs(((RectTransform)slot0.transform).anchoredPosition.x+132f)>1f;
+            if(matched>=10&&mismatched==0)
+                Log.Add("[PASS] 表现权由 prefab 主导："+matched+" 个绑定节点的位置／尺寸／配色与 prefab 一致"
+                    +(sentinel?"；位置哨兵仍在（C# 硬编码 -132 未生效）":"；哨兵已被改动，改由全节点比对守护"));
+            else{Log.Add("[失败] 表现权未交给 prefab：匹配 "+matched+" 个、不一致 "+mismatched+" 个"+(first!=""?"，首例 "+first:""));failed=true;}
         }
 
         private static bool StartBattle()
