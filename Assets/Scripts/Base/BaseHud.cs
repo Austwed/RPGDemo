@@ -162,7 +162,7 @@ namespace BaseConquest.Base
         public void RefreshSummary()
         {
             var s = owner.State; feedback.text = owner.Message;feedback.gameObject.SetActive(owner.Message.Contains("失败")||owner.Message.Contains("未保存"));
-            summary.transform.parent.gameObject.SetActive(!PanelOpen||panelViewKey!="npc-dialogue"&&activeObject!="backpack"&&activeObject!="warehouse");
+            summary.transform.parent.gameObject.SetActive(!PanelOpen||panelViewKey!="npc-dialogue");
             reserveRules.interactable=s!=null&&!s.Aftermath.GameOver&&!owner.Busy;
             if (panelFeedback != null) panelFeedback.text = DialogueOpen&&!owner.Message.StartsWith("操作未保存")&&!owner.Message.Contains("失败")?"交谈中 · 选择答复后继续":owner.Message;
             owner.InvalidateObjects();
@@ -174,7 +174,7 @@ namespace BaseConquest.Base
             if(panel!=null&&panelViewKey!="npc-dialogue"){var header=summary.transform.parent;header.SetAsLastSibling();}
             int raids = s.Campaign.Events.Count(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= s.Day);
             if(BaseDemoRuins.Enabled(s))summary.text+=" · 体力 "+BaseRuinsRewards.Energy(s)+"/"+BaseRuinsRewards.Maximum(s);
-            regionStatus.text = BaseDemo.Active(s) ? (raids>0 ? "入侵已到达" : "区域探索 · 接近设施或伙伴后交互") : s.Campaign.ThreatVersion>0 ? BaseThreats.Warning(s) : raids > 0 ? "入侵 " + raids + "：左侧迎战／过夜自动处理" : "区域探索 · 接近设施或伙伴后交互";
+            regionStatus.text = BaseDemo.Active(s) ? (raids>0 ? "入侵已到达" : "") : s.Campaign.ThreatVersion>0 ? BaseThreats.Warning(s) : raids > 0 ? "入侵 " + raids + "：左侧迎战／过夜自动处理" : "";
             Joystick.gameObject.SetActive(!PanelOpen && !owner.Busy && !owner.PlayerAway && !s.Campaign.HasActiveBattle);
             if(BaseDemoPrologue.Village(s)){introObjectiveKey=-1;RefreshIntroObjective();}
             RefreshTrackedQuest();
@@ -277,7 +277,7 @@ namespace BaseConquest.Base
             var viewport = Box("Viewport", panel, Vector2.one * 0.5f, new Vector2(0, -28), new Vector2(900, 440), DemoUiTheme.Current.Panel); viewport.gameObject.GetOrAdd<RectMask2D>();
             content = Rect("Content", viewport, new Vector2(0.5f, 1), Vector2.zero, new Vector2(880, 440)); content.pivot = new Vector2(0.5f, 1); content.gameObject.GetOrAdd<UiDynamicContent>(); content.GetComponent<UiVisualNode>().UseAuthoredLayout=false;
             panelScroll = viewport.gameObject.GetOrAdd<ScrollRect>(); panelScroll.viewport = viewport; panelScroll.content = content; panelScroll.horizontal = false; panelScroll.movementType = ScrollRect.MovementType.Clamped;
-            panelFeedback = Label(panel, owner.Message, new Vector2(0, -256), new Vector2(880, 24), DemoUiMetrics.FontCaption);
+            panelFeedback = Label(panel, "", new Vector2(0, -256), new Vector2(880, 24), DemoUiMetrics.FontCaption);panelFeedback.gameObject.SetActive(false);
             row = 0; RefreshSummary();
         }
         private void EndPanel()
