@@ -78,7 +78,6 @@ namespace BaseConquest.Base
             if (!BaseDemoRuins.Enabled(s)) { Line("本局没有启用体力（遗迹重战与扫荡消耗）。", 24); EndPanel(); return; }
             Line("当前 " + BaseRuinsRewards.Energy(s) + " / 上限 " + BaseRuinsRewards.Maximum(s), 26, DemoUiMetrics.FontSubhead);
             Line("每天恢复 " + BaseRuinsRewards.DailyRecovery + " 点，次日结算时补到上限为止；扫荡与重战各消耗 " + BaseRuinsRewards.Cost(s) + " 点。", 24, DemoUiMetrics.FontBody);
-            Line("补充入口留在这里（道具与购买方式待设计），当前没有可用的补充手段。", 24, DemoUiMetrics.FontBody);
             EndPanel();
         }
     }

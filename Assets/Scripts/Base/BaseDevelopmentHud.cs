@@ -35,7 +35,7 @@ namespace BaseConquest.Base
                 Line("等级 " + facility.Level + "；今日生产人数 " + BaseEconomy.EligibleWorkers(s, id) + "/" + facility.Capacity + "；管理员 " + (BaseEconomy.Manager(s,id) is BaseLeader manager ? BasePersonnel.LeaderName(manager) : "空位"), 48);
             }
             // 基地建设（P40 临时入口）：正式拖放界面等原型定稿；这里只做放置／收存与费用结算，点一下自动找空地。
-            Line("基地建设：点击放置会自动选第一处合法空地；正式拖放界面等原型定稿后替换。", 76, 18);
+            Line("基地建设：点击放置会自动选第一处合法空地。", 76, 18);
             foreach (var def in BaseFacilityLayout.Catalog)
             {
                 bool built = BaseFacilityLayout.Built(s, def.Id), stored = BaseFacilityLayout.Stored(s, def.Id);
@@ -47,7 +47,7 @@ namespace BaseConquest.Base
                 else if (!built && !def.Required)
                     RowButton(def.Name + " · " + state + (def.Materials > 0 ? " · 原料" + def.Materials : " · 免费") + " · 放置", 0, 800, () => { owner.Change(next => { if (!BaseFacilityLayout.AutoPlace(next, definition.Id, out string problem, out _, out _)) throw new InvalidOperationException(problem); }, def.Name + "已放置"); OpenGovernment(); }, licensed);
                 else
-                    RowButton(def.Name + " · " + state, 0, 800, () => { }, false);
+                    Label(content, def.Name + " · " + state, new UnityEngine.Vector2(0, -row - 26), new UnityEngine.Vector2(800, 48), 18, UnityEngine.TextAnchor.MiddleCenter, new UnityEngine.Vector2(.5f, 1));
                 row += 58;
             }
             Line("商队：" + BaseCaravan.Status(s), 60, 19);

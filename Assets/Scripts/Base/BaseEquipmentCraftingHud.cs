@@ -39,9 +39,12 @@ namespace BaseConquest.Base
             Line("从左侧背包拖入右侧重铸框；确认前不会消耗或移动物品。",48,20);
             for(int n=0;n<24;n++)
             {
-                var e=bag.Skip(forgePage*24).ElementAtOrDefault(n);var button=MakeButton(content,e==null?"":e.Name+(e.Worn?"\n已穿戴":""),new Vector2(-390+(n%6)*68,-row-28-(n/6)*60),new Vector2(64,56),()=>{},new Vector2(.5f,1));
-                button.GetComponentInChildren<UnityEngine.UI.Text>().fontSize=13;
-                if(e!=null){var drag=button.gameObject.GetOrAdd<PartyInventoryCell>();drag.ItemId=e.Id;drag.Scope=panel;}
+                var e=bag.Skip(forgePage*24).ElementAtOrDefault(n);var cell=MakeButton(content,e==null?"":e.Name+(e.Worn?"\n已穿戴":""),new Vector2(-390+(n%6)*68,-row-28-(n/6)*60),new Vector2(64,56),()=>{},new Vector2(.5f,1));
+                var cellRect=(RectTransform)cell.transform;
+                // 格子只作拖拽源，不是可点按钮：去掉 Button 组件，避免出现「点了没反应」的控件。
+                UiPrefabBinding.DestroyView(cell);
+                cellRect.GetComponentInChildren<UnityEngine.UI.Text>().fontSize=13;
+                if(e!=null){var drag=cellRect.gameObject.GetOrAdd<PartyInventoryCell>();drag.ItemId=e.Id;drag.Scope=panel;}
             }
             var slot=Box("ReforgeDropSlot",content,new Vector2(.5f,1),new Vector2(240,-row-45),new Vector2(330,84),new Color(.16f,.26f,.26f));
             Label(slot,selected==null?"将武器或护具拖到这里":selected.Name,Vector2.zero,new Vector2(310,74),20);

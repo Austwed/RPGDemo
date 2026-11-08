@@ -39,7 +39,7 @@ namespace BaseConquest.Base
                 if(BaseConquest.Battle.RuntimeDeveloperOptions.Enabled)RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;
                 AddTemplates();RowButton("难度设置",0,800,OpenDifficulty);row+=60;RowButton("选项",0,800,OpenOptions);row+=60;EndPanel();return;
             }
-            BeginPanel("基地征服 · 即时格战隔离流程");Line("3手动／6节点自动档；退出游戏将丢失未保存的会话更改。技能／救援／追击待接入。",58,18);
+            BeginPanel("基地征服 · 即时格战隔离流程");Line("3手动／6节点自动档；退出游戏将丢失未保存的会话更改。",58,18);
             RowButton("进入Demo流程起步（独立存档）",0,800,owner.EnterDemo);row+=60;
             if(owner.State!=null&&!owner.State.Aftermath.GameOver){RowButton("继续本次会话",0,800,()=>{BaseBattleGateway.MainMenu=false;owner.LoadSaved();});row+=60;}
             RowButton("读取存档",0,800,()=>OpenSlots(false));row+=60;

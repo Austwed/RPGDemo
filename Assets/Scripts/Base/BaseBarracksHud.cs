@@ -20,7 +20,7 @@ namespace BaseConquest.Base
                 string key=u.Key;Label(content,u.Name+" · 生命 "+u.Health.ToString("0.#")+"/"+u.MaxHealth.ToString("0.#")+" · 攻 "+u.Current.Damage.ToString("0.##")+" 防 "+u.Current.Defense.ToString("0.##")+"\n"+u.Facility+" · "+u.State,new Vector2(-80,-row-36),new Vector2(680,72),18,TextAnchor.MiddleLeft,new Vector2(.5f,1));
                 RowButton("详细信息",350,130,()=>OpenPersonnelDetail(key,stamp));row+=80;
             }
-            RowButton("上一页",-290,240,()=>{personnelPage--;OpenBarracks();},personnelPage>0);RowButton("第 "+(personnelPage+1)+"／"+pages+" 页",0,240,()=>{},false);RowButton("下一页",290,240,()=>{personnelPage++;OpenBarracks();},personnelPage+1<pages);row+=60;
+            RowButton("上一页",-290,240,()=>{personnelPage--;OpenBarracks();},personnelPage>0);Label(content,"第 "+(personnelPage+1)+"／"+pages+" 页",new UnityEngine.Vector2(0,-row-26),new UnityEngine.Vector2(240,48),18,UnityEngine.TextAnchor.MiddleCenter,new UnityEngine.Vector2(.5f,1));RowButton("下一页",290,240,()=>{personnelPage++;OpenBarracks();},personnelPage+1<pages);row+=60;
             Line(UnitDisplayNames.Mark("黄色姓名",true)+"：通过劝降加入。仅标记来源，工作、伤情、编队与战斗规则相同。",70,18);
         }
         private void OpenHeldPrisoners()

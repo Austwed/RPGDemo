@@ -49,7 +49,7 @@ namespace BaseConquest.Base
             var party=s.Muster.Parties.FirstOrDefault(p=>p.Purpose==purpose);
             if(party==null){OpenDeparture(e.Kind=="defense"?"perimeter":"world",id,mode);return;}
             BeginPanel(e.Title+" · 战前确认","campaign-preview:"+id);
-            RowButton("确认进入战场",-290,270,()=>owner.LaunchCampaign(id,mode,null),e.Kind!="attack"||party.Leaders.Any(l=>l.LeaderId==s.PlayerLeaderId));RowButton("返回",0,270,()=>OpenCampaignEvents(e.Kind));RowButton("规则 i",290,270,()=>RuleInfo("战斗规则","即时格战隔离流程：迎战坚守指定秒数或提前歼灭；旧时间参数暂按1轮＝1秒。守方全图，进攻方保留迷雾；抵达实际出口才撤离。技能、脚力冲锋、战中救援与胜后追击未接入。主角倒地未救出或团灭无撤离仍按原规则结束游戏，首版需及时保护主角。即死、奖励与俘获沿用本场难度快照。",()=>OpenCampaignPreview(id,mode)));row+=64;
+            RowButton("确认进入战场",-290,270,()=>owner.LaunchCampaign(id,mode,null),e.Kind!="attack"||party.Leaders.Any(l=>l.LeaderId==s.PlayerLeaderId));RowButton("返回",0,270,()=>OpenCampaignEvents(e.Kind));RowButton("规则 i",290,270,()=>RuleInfo("战斗规则","即时格战隔离流程：迎战坚守指定秒数或提前歼灭；旧时间参数暂按1轮＝1秒。守方全图，进攻方保留迷雾；抵达实际出口才撤离。主角倒地未救出或团灭无撤离仍按原规则结束游戏，首版需及时保护主角。即死、奖励与俘获沿用本场难度快照。",()=>OpenCampaignPreview(id,mode)));row+=64;
             Line("实际队长："+string.Join("、",party.Leaders.Select(x=>BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==x.LeaderId))))+"／"+s.Workers.Where(w=>w.Away&&w.PartyId==party.Id).Sum(w=>w.Count)+"兵",60,20);
             var groups=BaseMuster.CurrentFormation(s,party);if(groups!=null)foreach(var group in groups)Line(BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==group.LeaderId))+" · "+TroopsText(group.Actual),50,18);
             if(e.Kind=="defense")ThreatEventLines(e);
@@ -90,7 +90,7 @@ namespace BaseConquest.Base
                 Line(r.Title + " · 第" + r.Day + "天 · " + (r.Deputy ? "副手迎战" : r.Passive ? "过夜迎战" : "主动战斗") + " · " + BaseCampaign.OutcomeName(r.Outcome), 65, 21);
                 if(!string.IsNullOrEmpty(r.RecoveryNote))Line(r.RecoveryNote,65,20);
                 if(!string.IsNullOrEmpty(r.RaidNote))Line(r.RaidNote,64,20);
-                if(r.Realtime)Line("即时作战 "+r.Seconds.ToString("0.0")+"秒 · 特殊回合机制未接入",48,18);
+                if(r.Realtime)Line("即时作战 "+r.Seconds.ToString("0.0")+"秒",48,18);
                 Line("部署 " + r.Deployed + "；阵亡 " + r.Killed + "／失联 " + r.Missing + "；返营 " + r.Returned + "／伤兵 " + r.Wounded + "；倒地队长 " + r.LeadersDown + "；军需损耗 " + r.GearLost, 86, 18);
                 Line("战利品／劫掠：粮 " + r.FoodChange.ToString("+0;-0;0") + "／原料 " + r.MaterialChange.ToString("+0;-0;0") + "／钱币 " + r.CoinChange.ToString("+0;-0;0") + "（只结算一次）", 67, 18);
                 if(r.DropMaterials>0) Line("敌军掉落原料 +"+r.DropMaterials+"（另计，不是第二份任务奖励）",52,18);

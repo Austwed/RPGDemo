@@ -58,7 +58,7 @@ namespace BaseConquest.Base
                     Label(content,BaseConquest.Battle.UnitDisplayNames.Mark(BaseEconomy.TroopName(k)+" #"+number,unit.Recruited)+"  攻 "+unit.Stats.Damage.ToString("0.#")+"  防 "+unit.Stats.Defense.ToString("0.#")+"  生命 "+unit.Health.ToString("0.#")+"／"+unit.MaxHealth.ToString("0.#")+"\n"+unit.Facility+" · "+status,new Vector2(-70,-row-38),new Vector2(680,76),18,TextAnchor.MiddleLeft,new Vector2(.5f,1));
                     RowButton(selected ? "● 已选" : allowed ? "选择" : "不可调",350,120,()=>{departure.Toggle(s,pick,bypass,out departureMessage);Reopen();},allowed);row+=80;
                 }
-                RowButton("上一页",-290,240,()=>{departureUnitPage--;Reopen();},departureUnitPage>0);RowButton("第 "+(departureUnitPage+1)+"／"+pages+" 页",0,240,()=>{},false);RowButton("下一页",290,240,()=>{departureUnitPage++;Reopen();},departureUnitPage+1<pages);row+=60;
+                RowButton("上一页",-290,240,()=>{departureUnitPage--;Reopen();},departureUnitPage>0);Label(content,"第 "+(departureUnitPage+1)+"／"+pages+" 页",new UnityEngine.Vector2(0,-row-26),new UnityEngine.Vector2(240,48),18,UnityEngine.TextAnchor.MiddleCenter,new UnityEngine.Vector2(.5f,1));RowButton("下一页",290,240,()=>{departureUnitPage++;Reopen();},departureUnitPage+1<pages);row+=60;
             }
             foreach(var leader in BaseAdventure.Members(s))
             {

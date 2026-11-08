@@ -202,7 +202,7 @@ namespace BaseConquest.Base
             {
                 nearbyId = id;
                 interact.GetComponentInChildren<Text>().text = nearby == null ? "接近对象后交互" : (nearby.Kind=="npc"||owner.State.Leaders.Any(l=>l.Id==nearby.Id)||nearby.Id.StartsWith("demo_villager")||nearby.Id=="prologue_ahe") ? "交谈 · " + nearby.Name.Replace("伙伴 · ","").Replace(" · 交谈","") : (nearby.Kind=="facility"?"管理 · ":nearby.Id.Contains("exit")||nearby.Id.Contains("travel")||nearby.Id.Contains("trigger")?"前往 · ":"使用 · ")+nearby.Name;
-                hint.text = owner.PlayerAway ? "主角外出中：入侵信息查看敌情，兵营查看外出队伍" : nearby == null ? "设施需在边缘一格内且同层；伙伴靠近对话\n电脑：WASD／方向键移动，E交互 · B背包 · N任务" : "附近：" + nearby.Name + "\n点击右侧交互，或按 E";
+                hint.text = owner.PlayerAway ? "主角外出中：入侵信息查看敌情，兵营查看外出队伍" : nearby == null ? "设施需在边缘一格内且同层；伙伴靠近对话\n电脑：WASD／方向键移动，E交互 · B背包 · N任务 · M地图" : "附近：" + nearby.Name + "\n点击右侧交互，或按 E";
             }
             for (int i = 0; i < labels.Length; i++)
             {
@@ -408,6 +408,8 @@ namespace BaseConquest.Base
             if(BaseDemoRuins.Enabled(owner.State)){RowButton("体力 · "+BaseRuinsRewards.Energy(owner.State)+"/"+BaseRuinsRewards.Maximum(owner.State),-210,400,OpenEnergy);RowButton("日历 · 第 "+owner.State.Day+" 天",210,400,OpenCalendar);row+=60;}
             else {RowButton("日历 · 第 "+owner.State.Day+" 天",0,800,OpenCalendar);row+=60;}
             if(BaseAchievements.Active(owner.State)){RowButton("成就 · "+owner.State.Achievements.Records.Count+"/9",0,800,OpenAchievements);row+=60;}
+            RowButton("领地地图 · M",-210,400,OpenLandMap,BaseLandMap.Available(owner.State));
+            RowButton("日结报告",210,400,OpenReport);row+=60;
             if(BaseDemoFlow.Active(owner.State)&&!BaseDemoPrologue.Village(owner.State)&&owner.State.Campaign.Location=="perimeter"&&!BaseSceneCombat.Active(owner.State)){RowButton("战前布置工事",0,800,owner.ArmConstruction);row+=60;}
             RowButton("选项",0,800,OpenOptions);row+=60;
             RowButton("帮助",-210,400,OpenHelp);RowButton("回主菜单",210,400,owner.ToMainMenu);row+=60;
