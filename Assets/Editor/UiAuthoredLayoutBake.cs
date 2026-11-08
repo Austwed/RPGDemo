@@ -104,6 +104,24 @@ namespace BaseConquest.Editor
             EditorApplication.Exit(code);
         }
 
+        // 静态场景（Demo_Launcher）里没有 UI：HUD 的 Canvas 是 BaseHud 在运行时建的。
+        // 这两项直接把可编辑 prefab 打开到 Prefab Mode，层级里才会出现节点。
+        [MenuItem("Tools/UI/打开背包人物卡 Prefab")]
+        public static void OpenCard() => Open(CardKey);
+
+        [MenuItem("Tools/UI/打开背包面板外壳 Prefab")]
+        public static void OpenPanel() => Open(PanelKey);
+
+        private static void Open(string key)
+        {
+            string path = Path.Combine(Folder, key + ".prefab").Replace('\\', '/');
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (asset == null) { Debug.LogError("[UiBake] 找不到 " + path + "，请先烘焙"); return; }
+            EditorGUIUtility.PingObject(asset);
+            AssetDatabase.OpenAsset(asset);
+            Debug.Log("[UiBake] 已进入 Prefab Mode：" + path + "。改完保存资产即可，运行时直接生效，不需要重新烘焙或编译。");
+        }
+
         [MenuItem("Tools/UI/烘焙当前背包为可编辑 Prefab")]
         public static void BakeCurrent()
         {
