@@ -176,8 +176,8 @@ namespace BaseConquest.Editor
                 "出征选兵应按生命比例从高到低取（80%→45%），实际 "+string.Join(",",plan.Takes.Select(t=>t.BucketIndex+":"+t.Count)));
             var large=s.Copy();large.Workers.Clear();large.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=30,MaxHealth=100,Health=100,FarmEfficiency=1,WorkshopEfficiency=1});
             var largePreset=preset.Copy();largePreset.Melee=30;var limited=BaseMuster.Preview(large,"expedition",true,largePreset);
-            Need(limited.Total==24&&limited.MissingMelee==6,"编成预览须限制全军24人并报告缺编");
-            Need(BaseMuster.Confirm(large,limited),"24人编成应能确认");
+            Need(limited.Total==24&&limited.MissingMelee==6,"编队预览须限制全军24人并报告缺编");
+            Need(BaseMuster.Confirm(large,limited),"24人编队应能确认");
             var extra=BaseMuster.PreviewAppend(large,limited.Id,1,0,0,true);
             Need(extra.Total==0&&!BaseMuster.ConfirmAppend(large,extra),"满编队伍不能通过追加超过24人");
             preset.SetCount(BaseTroopKind.Melee,3);preset.Purpose="defense";

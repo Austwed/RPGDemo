@@ -13,7 +13,6 @@ namespace BaseConquest.Battle
     public sealed class BattleHud
     {
         private readonly BattleMobileHud mobile;
-        public BaseConquest.Base.BaseJoystick Joystick => mobile?.Joystick;
         public bool ReportVisible => mobile?.ReportVisible == true;
         public bool ContextMenuVisible => mobile != null ? mobile.ContextMenuVisible : menu != null && menu.gameObject.activeSelf;
         public void CloseReport() => mobile?.CloseReport();

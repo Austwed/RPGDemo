@@ -20,7 +20,7 @@ namespace BaseConquest.Base
         private float prepRosterScroll;
         private bool prepInventory, prepProduction;
         private ScrollRect prepRoster;
-        private BattleDeploymentGrid prepGrid;
+        private (GameObject Node, bool Visible)[] deploymentHudVisibility;
         private BasePrepUnit armedUnit;
         private readonly List<(string Team, int Grade, InputField Field, Color Ink)> prepSupplyFields = new List<(string, int, InputField, Color)>();
         private readonly Dictionary<string, RectTransform> deployCards = new Dictionary<string, RectTransform>();
@@ -40,12 +40,13 @@ namespace BaseConquest.Base
 
         internal void ClearBattlePreparation()
         {
+            owner.EndDeploymentWorld();
+            ShowExplorationHudAfterDeployment();
             battleDraft = null;
             prepTeam = prepFeedback = "";
             prepKind = null;
             prepRosterScroll = 0;
             prepRoster = null;
-            prepGrid = null;
             prepInventory = prepProduction = false;
             armedUnit = null;
             prepSupplyFields.Clear();
@@ -77,7 +78,7 @@ namespace BaseConquest.Base
             if (battleDraft == null) return;
             string message = owner.Message;
             if (panelViewKey == SweepView) ShowBattlePreparation();
-            else if (panelViewKey != DeploymentView) ShowBattleDeployment();
+            else if (panelViewKey != DeploymentView || !owner.DeploymentWorldActive) ShowBattleDeployment();
             prepFeedback = message;
             if (panelViewKey == DeploymentView) RefreshDeploymentFields();
             else RefreshPreparationFields();
@@ -117,7 +118,7 @@ namespace BaseConquest.Base
                     if (previous.Positions.TryGetValue(unit.Id, out var cell)) current.Place(unit.Id, cell);
                 }
                 if (previous.Units.Any(unit => unit.Selected && !retained.Contains(unit.Id)) || previous.Positions.Count != current.Positions.Count)
-                    prepFeedback = PrepText("roster_changed", "人员或落点已变化，请检查编成。");
+                    prepFeedback = PrepText("roster_changed", "人员或落点已变化，请检查编队。");
                 battleDraft = current;
                 ShowBattlePreparation();
             }
@@ -132,7 +133,7 @@ namespace BaseConquest.Base
             BasePrepRoute.Defense => PrepText("first_defense", "首次防守"),
             BasePrepRoute.Second => PrepText("second_defense", "第二波防守"),
             BasePrepRoute.BlackCrow => BaseScriptNames.Bandit,
-            _ => PrepText("travel", "出征编成")
+            _ => PrepText("travel", "出征编队")
         };
 
         private void PrepButton(Transform view, string path, string label, Action click, bool enabled = true)
@@ -157,6 +158,8 @@ namespace BaseConquest.Base
         private void ShowBattlePreparation()
         {
             if (battleDraft == null) return;
+            owner.EndDeploymentWorld();
+            ShowExplorationHudAfterDeployment();
             bool travel = battleDraft.Route == BasePrepRoute.Travel;
             var state = PreparationState(battleDraft.Route);
             var view = OpenScenePanel("BattlePreparation", PreparationView);
@@ -167,8 +170,7 @@ namespace BaseConquest.Base
             Ui<Text>(view, "Title").text = PrepTitle(battleDraft.Route) + (travel ? "" : " · " + PrepText("preparation", "战前准备"));
             PrepButton(view, "Close", null, ClosePanel);
             PrepButton(view, "Reset", null, () => OpenBattlePreparation(battleDraft.Route));
-            PrepButton(view, "Backpack", null, OpenBattlePreparationInventory);
-            PrepButton(view, "Continue", travel ? PrepText("travel_confirm", "确认出征编成") : null, ContinueBattlePreparation);
+            PrepButton(view, "Continue", travel ? PrepText("travel_confirm", "确认出征编队") : null, ContinueBattlePreparation);
             var priority = Ui<Button>(view, "Priority");
             priority.gameObject.SetActive(travel);
             if (travel) PrepButton(view, "Priority", prepProduction ? "生产优先" : "作战优先", () =>
@@ -210,19 +212,12 @@ namespace BaseConquest.Base
             if (activeTeam == null) activeTeam = PrepLeaders.FirstOrDefault(unit => unit.Selected);
             prepTeam = activeTeam?.Id;
             Ui<Text>(view, "Candidates/Title").text = PrepText("roster", "候选名册") + (activeTeam == null ? "" : " · " + activeTeam.Name);
-            var rosterNumbers = new Dictionary<SoldierKind, int>();
+            var roster = BasePersonnel.Units(state).Where(unit => !unit.IsLeader).ToDictionary(unit => unit.Key);
             foreach (var soldier in PrepSoldiers.Where(unit => !prepKind.HasValue || unit.Kind == prepKind.Value))
             {
-                var card = CloneSceneUi("BattlePreparationSoldier", prepRoster.content);
                 string assigned = soldier.Selected ? PrepLeaders.FirstOrDefault(unit => unit.Id == soldier.TeamId)?.Name ?? "" : PrepText("unselected", "待选");
-                int number = rosterNumbers.GetValueOrDefault(soldier.Kind) + 1;
-                rosterNumbers[soldier.Kind] = number;
-                string label = $"{soldier.Name} #{number}   生命 {Number(soldier.Health)} / {Number(soldier.MaxHealth)}\n" +
-                    $"攻 {Number(soldier.Stats.Damage)} · 防 {Number(soldier.Stats.Defense)}     {(soldier.Selected ? "● " : "○ ")}{assigned}";
-                PrepButton(card, "", label, () => SelectPrepSoldier(soldier), activeTeam != null);
-                Ui<Text>(card, "Label").alignment = TextAnchor.MiddleLeft;
-                if (soldier.Selected) Ui<Image>(card, "").color = new Color32(217, 219, 174, 255);
-                if (soldier.Selected && PrepLowHealth(state, soldier)) Ui<Text>(card, "Label").color = PrepInvalid;
+                AddPersonnelRow(prepRoster.content, roster[soldier.Id], (soldier.Selected ? "● " : "○ ") + assigned,
+                    () => SelectPrepSoldier(soldier), activeTeam != null, soldier.Selected, soldier.Selected && PrepLowHealth(state, soldier));
             }
             RefreshPreparationFields();
             Canvas.ForceUpdateCanvases();
@@ -345,9 +340,9 @@ namespace BaseConquest.Base
                 try
                 {
                     var plan = battleDraft.TravelPlan(state, prepProduction);
-                    context = PrepText("travel_context", "抵达黑鸦寨后，可在随行人员中重新编成及部署。") +
+                    context = PrepText("travel_context", "抵达黑鸦寨后，可在随行人员中重新编队及部署。") +
                         $"\n预计日产变化   粮食 {(-plan.FoodLoss):+0;-0;0}  ·  军需 {(-plan.ProductLoss):+0;-0;0}";
-                    if (prepProduction && plan.Production?.Allowed != true) problem = plan.Production?.Problem ?? PrepText("production", "当前编成无法保障生产");
+                    if (prepProduction && plan.Production?.Allowed != true) problem = plan.Production?.Problem ?? PrepText("production", "当前编队无法保障生产");
                 }
                 catch (ArgumentException error) { problem = error.Message; }
                 catch (InvalidOperationException error) { problem = error.Message; }
@@ -367,7 +362,7 @@ namespace BaseConquest.Base
             var (ally, enemy) = battleDraft.Power(state, false);
             Ui<Text>(panel, "Ally/Value").text = (travel ? "我方出征" : "我方战力 " + Number(ally)) + "\n" + PrepSummary(false);
             Ui<Text>(panel, "Enemy/Value").text = travel ? PrepText("enemy_arrival", "敌方 · 抵达战场后查看") : enemy.HasValue
-                ? "敌方参考战力 " + Number(enemy.Value) + "\n" + PrepText("enemy_roster_unknown", "敌军编成待侦察")
+                ? "敌方参考战力 " + Number(enemy.Value) + "\n" + PrepText("enemy_roster_unknown", "敌军编队待侦察")
                 : PrepText("enemy_unknown", "敌方 · 暂无已知情报");
             Ui<Text>(panel, "Context").text = context;
             Ui<Button>(panel, "Continue").interactable = problem == "";
@@ -397,7 +392,18 @@ namespace BaseConquest.Base
         {
             if (battleDraft?.Board == null) return;
             battleDraft.Prune();
+            try { owner.BeginDeploymentWorld(battleDraft); }
+            catch (InvalidOperationException error)
+            {
+                prepFeedback = error.Message;
+                ShowBattlePreparation();
+                return;
+            }
             var view = OpenScenePanel("BattleDeployment", DeploymentView);
+            var shade = modal.GetComponent<Image>();
+            shade.color = Color.clear;
+            shade.canvasRenderer.cullTransparentMesh = false;
+            HideExplorationHudForDeployment();
             activeObject = "battle-deployment";
             Ui<Text>(view, "Title").text = PrepTitle(battleDraft.Route) + " · " + PrepText("deployment", "部署");
             PrepButton(view, "Close", null, ClosePanel);
@@ -405,15 +411,11 @@ namespace BaseConquest.Base
             PrepButton(view, "Auto", null, () => { battleDraft.AutoPlace(); armedUnit = null; prepFeedback = ""; RefreshDeploymentFields(); });
             PrepButton(view, "Recall", null, () => { battleDraft.Positions.Clear(); armedUnit = NextDeploymentUnit(); prepFeedback = ""; RefreshDeploymentFields(); });
             PrepButton(view, "Start", null, () => owner.BeginPreparedBattle(battleDraft));
-            var board = Ui<RectTransform>(view, "Board");
-            var grid = new GameObject("战场格", typeof(RectTransform), typeof(CanvasRenderer), typeof(BattleDeploymentGrid));
-            var rect = (RectTransform)grid.transform;
-            rect.SetParent(board, false);
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = rect.offsetMax = Vector2.zero;
-            prepGrid = grid.GetComponent<BattleDeploymentGrid>();
-            prepGrid.Bind(battleDraft, SelectDeploymentCell);
+            var viewport = Ui<Image>(view, "Board");
+            viewport.raycastTarget = true;
+            viewport.canvasRenderer.cullTransparentMesh = false;
+            viewport.transform.SetAsFirstSibling();
+            viewport.gameObject.GetOrAdd<BattleDeploymentGrid>().Bind(owner, SelectDeploymentCell);
             prepSupplyFields.Clear();
             deployCards.Clear();
             foreach (var team in PrepLeaders.Where(unit => unit.Selected))
@@ -439,6 +441,20 @@ namespace BaseConquest.Base
             armedUnit = NextDeploymentUnit();
             prepFeedback = "";
             RefreshDeploymentFields();
+        }
+
+        private void HideExplorationHudForDeployment()
+        {
+            deploymentHudVisibility ??= new[] { summary.transform.parent, mapLabels, controls, inspection, trackedQuest?.transform.parent }
+                .Where(node => node != null).Select(node => (node.gameObject, node.gameObject.activeSelf)).ToArray();
+            foreach (var item in deploymentHudVisibility) item.Node.SetActive(false);
+        }
+
+        private void ShowExplorationHudAfterDeployment()
+        {
+            if (deploymentHudVisibility == null) return;
+            foreach (var item in deploymentHudVisibility) if (item.Node != null) item.Node.SetActive(item.Visible);
+            deploymentHudVisibility = null;
         }
 
         private BasePrepUnit NextDeploymentUnit(string team = null, SoldierKind? kind = null)
@@ -505,11 +521,11 @@ namespace BaseConquest.Base
                 Ui<Text>(card, "Placed").text = $"已布兵 {totalPlaced}";
             }
             RefreshPrepSupplyInk(state, true);
-            prepGrid.SetVerticesDirty();
+            owner.RefreshDeploymentUnits();
             Ui<Button>(panel, "Start").interactable = problem == "";
             var feedback = Ui<Text>(panel, "Feedback");
             feedback.text = !string.IsNullOrEmpty(prepFeedback) ? prepFeedback : problem != "" ? problem : PrepSummary(true);
-            feedback.color = problem != "" || !string.IsNullOrEmpty(prepFeedback) ? PrepInvalid : DemoUiTheme.Current.Ink;
+            feedback.color = problem != "" || !string.IsNullOrEmpty(prepFeedback) ? new Color32(253, 179, 153, 255) : DemoUiTheme.Current.Panel;
         }
 
         private void ShowPreparedSweep()

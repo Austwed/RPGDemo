@@ -42,7 +42,7 @@ namespace BaseConquest.Base
             return "";
         }
 
-        // 副手战的编成：副手排 A 位，再按原迎战名单补齐留守队长；主角与随行成员一律不进。
+        // 副手战的编队：副手排 A 位，再按原迎战名单补齐留守队长；主角与随行成员一律不进。
         // 士兵仍从同一份库存按「可守家」条件抽取，并受 24 人上限约束。
         public static BaseArmyPreset Selection(BaseState s)
         {

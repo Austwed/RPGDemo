@@ -19,6 +19,7 @@ namespace BaseConquest.Base
         {
             if(!State.Demo.Finale.AttackBriefingSeen&&!briefingConfirmed)
             {Hud.OpenBanditCampBriefing(()=>BeginDemoAttack(mode,true,prepared));return;}
+            if (prepared != null) EndDeploymentWorld();
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
             if (!Change(next =>
             {

@@ -12,9 +12,27 @@ namespace BaseConquest.Editor
     {
         public static void Run()
         {
+            VerifyNamedWorker();
             VerifyRuins();
             VerifyDefenseAndAttack();
             Debug.Log("[VerifyBattlePreparation] PASS");
+        }
+
+        private static void VerifyNamedWorker()
+        {
+            var state = Load("defense");
+            var worker = state.Workers.First(w => !w.Away && w.FacilityId == "farm");
+            var chosen = worker.Copy();
+            chosen.Count = 1;
+            chosen.Health = chosen.MaxHealth * .75;
+            state.Workers.Add(chosen);
+            int unassigned = state.Workers.Where(w => w.Kind == worker.Kind && w.Health == chosen.Health && w.FacilityId == "").Sum(w => w.Count);
+            var move = typeof(BaseEconomy).GetMethod("MoveWorkers", BindingFlags.NonPublic | BindingFlags.Static, null,
+                new[] { typeof(BaseState), typeof(BaseTroopKind), typeof(string), typeof(string), typeof(int), typeof(int?) }, null);
+            Need((bool)move.Invoke(null, new object[] { state, worker.Kind, "farm", "", 1, (int?)(state.Workers.Count - 1) }), "点名调离失败");
+            Need(state.Workers.Where(w => w.Kind == worker.Kind && w.Health == chosen.Health && w.FacilityId == "").Sum(w => w.Count) == unassigned + 1,
+                "点名没有移动所选人员");
+            Debug.Log("[VerifyBattlePreparation] 逐人点名调配 PASS");
         }
 
         private static BaseState Load(string id)
@@ -153,7 +171,7 @@ namespace BaseConquest.Editor
             At(state, "demo_march_exit");
             BaseDemoFinale.OpenWorld(state);
             var travel = new BaseBattlePreparation(state, BasePrepRoute.Travel);
-            Need(BaseMuster.Confirm(state, travel.TravelPlan(state)), "黑鸦寨行军编成失败");
+            Need(BaseMuster.Confirm(state, travel.TravelPlan(state)), "黑鸦寨行军编队失败");
             At(state, "demo_march_exit");
             BaseWorldJourney.EnterWorld(state, "camp_entry");
             BaseWorldJourney.Start(state, new[] { "camp", "bandit" });

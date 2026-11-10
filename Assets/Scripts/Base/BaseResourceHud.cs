@@ -17,10 +17,8 @@ namespace BaseConquest.Base
         private RectTransform resourceStrip, resourcePopover;
         private ResourceKind currentResource;
         private int calendarQuarter;
-        private int resourceDismissedFrame = -1;
 
         public bool ResourcePopoverOpen => resourcePopover != null && resourcePopover.gameObject.activeSelf;
-        public bool ResourcePopoverBlocksInput => ResourcePopoverOpen || resourceDismissedFrame == Time.frameCount;
 
         private void BindResourceStrip(RectTransform header)
         {
@@ -99,11 +97,11 @@ namespace BaseConquest.Base
             RenderResourcePopover();
         }
 
-        private void OpenMenuResource(ResourceKind kind, Action fallback)
+        internal void DismissResourcePopoverOutside(Transform hit)
         {
-            if (resourceStrip == null || BaseDemoPrologue.Village(owner.State)) { fallback(); return; }
-            ClosePanel();
-            ToggleResourcePopover(kind);
+            if (!ResourcePopoverOpen) return;
+            if (hit != null && (hit.IsChildOf(resourcePopover) || hit.IsChildOf(resourceStrip))) return;
+            CloseResourcePopover();
         }
 
         public void CloseResourcePopover()
@@ -112,7 +110,6 @@ namespace BaseConquest.Base
             resourcePopover.gameObject.SetActive(false);
             UiPrefabBinding.DestroyView(resourcePopover.gameObject);
             resourcePopover = null;
-            resourceDismissedFrame = Time.frameCount;
         }
 
         private void RenderResourcePopover()
@@ -122,11 +119,9 @@ namespace BaseConquest.Base
             var header = resourceStrip.parent;
             var layer = CloneSceneUi("ResourcePopover", header.parent);
             resourcePopover = layer;
-            // Keep the bar available for switching resources and cover all other map UI.
+            // Only the popup window participates in pointer hit testing.
             layer.SetAsLastSibling();
             header.SetAsLastSibling();
-            Joystick.ResetInput();
-            Ui<Button>(layer, "Dismiss").onClick.AddListener(CloseResourcePopover);
             var window = Ui<RectTransform>(layer, "Window");
             Ui<Button>(window, "Close").onClick.AddListener(CloseResourcePopover);
             var scroll = Ui<ScrollRect>(window, "Body");

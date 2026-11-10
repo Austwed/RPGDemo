@@ -67,8 +67,16 @@ namespace BaseConquest.Base
                 () => owner.Change(next => { if (!BaseCaravan.Start(next, "crow", out string problem)) throw new InvalidOperationException(problem); }, "商队已出发前往黑鸦寨"), BaseCaravan.Problem(s, "crow") == "");
             row += 60;
             RowButton("召回／解散商队", 0, 800, () => { owner.Change(next => BaseCaravan.Stop(next, "玩家召回商队，人员回到基地空闲"), "商队已召回"); OpenCaravan(); }, s.Caravan.Route != "" || s.Caravan.Phase != ""); row += 60;
-            Line("人员在「工人」页的商队一栏调配；满载以黑鸦寨当前库存为准，不预测未来产量。", 76, 18);
+            RowButton("人员调配", 0, 800, OpenCaravanWorkers); row += 60;
+            Line("满载以黑鸦寨当前库存为准。", 56, 18);
             foreach (var entry in s.Caravan.Log.Skip(Math.Max(0, s.Caravan.Log.Count - 5))) Line(entry, 44, 17);
+            EndPanel();
+        }
+        private void OpenCaravanWorkers()
+        {
+            BeginPanel("商队 · 人员调配", "caravan-workers");
+            RowButton("返回商队", 0, 800, () => { workerDraft = null; workerMoves.Clear(); OpenCaravan(); }); row += 60;
+            Workers(new[] { "caravan" }, OpenCaravanWorkers);
             EndPanel();
         }
         private string PersonState(BaseLeader l) => BasePersonnel.State(owner.State,l);

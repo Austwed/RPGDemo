@@ -44,7 +44,7 @@ namespace BaseConquest.Base
     {
         // Temporary Demo defaults; author balance data can replace these three baselines.
         public static int Baseline(SoldierKind kind,RpgRules rules=null)=>rules==null?(kind==SoldierKind.Melee?10:kind==SoldierKind.Ranged?8:4):rules.TroopBaseline[BaseRpg.Profession(kind)];
-        // 2026-11-04 起普通兵即死率改用三兵种合计口径：编成不再改变死亡概率，只改变战术。
+        // 2026-11-04 起普通兵即死率改用三兵种合计口径：编队不再改变死亡概率，只改变战术。
         public static int BaselineTotal(RpgRules rules=null)=>rules==null?22:rules.TroopBaseline.Sum();
         public static double Probability(int baseline,int count,RpgRules rules=null)
         {

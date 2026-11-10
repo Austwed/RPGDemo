@@ -165,7 +165,7 @@ namespace BaseConquest.Base
                 !a.SupplySnapshot.Teams.Select(t => (t.LeaderId, t.Soldiers, t.Low, t.High)).SequenceEqual(supply.Teams.Select(t => (t.LeaderId, t.Soldiers, t.Low, t.High))) ||
                 a.TroopSlots == null || a.TroopSlots.Count != a.Troops.Count || a.TroopSlots.Any(n => n < 0 || n >= a.Leaders.Count) ||
                 Enumerable.Range(0, supply.Teams.Count).Any(slot => supply.Teams[slot].Soldiers != a.TroopSlots.Count(n => n == slot))))
-                throw new ArgumentException("战斗编成与逐队军需不一致");
+                throw new ArgumentException("战斗编队与逐队军需不一致");
             BattleScenarioDocument.Validate(new BattleScenarioDocument { Scenario = a.Scenario, DeploymentMode = "explicit" });
             if(a.HasCheckpoint) {var b=BattleSimulation.Restore(a.Checkpoint,a.Rpg!=null);if(b.Scenario.SupplyBattleId!=a.Scenario.SupplyBattleId||a.Bindings==null||a.Bindings.Any(x=>x.TroopIndex<0||x.TroopIndex>=a.Troops.Count||b.Soldier(x.SoldierId)==null||b.Soldier(x.SoldierId).DeveloperSpawned||b.Soldier(x.SoldierId).Side!=BattleSide.A||b.Soldier(x.SoldierId).Kind!=ToBattle(a.Troops[x.TroopIndex].Kind))||a.Bindings.Select(x=>x.SoldierId).Distinct().Count()!=a.Bindings.Count||a.Bindings.Select(x=>x.TroopIndex).Distinct().Count()!=a.Bindings.Count||a.Bindings.Count!=b.Soldiers.Count(u=>u.Side==BattleSide.A&&u.Kind!=SoldierKind.Hero&&!u.DeveloperSpawned))throw new ArgumentException("战斗检查点来源非法");}
             ValidateRealtime(a);

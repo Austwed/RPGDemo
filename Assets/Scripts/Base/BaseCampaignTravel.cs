@@ -167,7 +167,7 @@ namespace BaseConquest.Base
             if(documents.Count>0&&!SaveBeforeBattle())yield break;
             if (Change(s => { if (!BaseCampaign.Rest(s, expectedDay, file => documents[file],BaseBattleGateway.RealtimeCampaign)) throw new InvalidOperationException("日期已结算"); }, "本日已结算；到据点管理所查看日结报告")) Hud.ClosePanel();
         }
-        // 副手迎战（P43）：后台模拟或进入战场观战，都先按副手编成锁人；两条路用同一套真实战斗与结算。
+        // 副手迎战（P43）：后台模拟或进入战场观战，都先按副手编队锁人；两条路用同一套真实战斗与结算。
         public void LaunchDeputyDefense(string id, bool watch)
         {
             if (State != null && !Busy) StartCoroutine(LaunchDeputyDefenseRoutine(id, watch));

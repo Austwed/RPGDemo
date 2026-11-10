@@ -299,7 +299,7 @@ namespace BaseConquest.Base
 
         public BaseCampaignSession Begin(BaseState state)
         {
-            if (Route == BasePrepRoute.Travel) throw new InvalidOperationException("行军编成不能在营地开战");
+            if (Route == BasePrepRoute.Travel) throw new InvalidOperationException("行军编队不能在营地开战");
             var roster = Roster(state, true);
             var plan = arrivedPartyId == null ? Plan(state, true) : null;
             var session = Route == BasePrepRoute.Ruins ? BaseDemoRuins.Begin(state, "none", plan, roster)

@@ -43,21 +43,9 @@ namespace BaseConquest.Battle
             if(chosen!=null){selection.Set(new[]{chosen.Id-1});selectedUnitId=chosen.Id-1;deploymentCommanderSlot=chosen.Squad;deploymentSlotChosen=true;}
             SyncRealtimeViews();
         }
-        public bool CanSteerRealtimeCommander=>realtime!=null&&autoRun&&!ExternalDialogue&&battle.Phase==BattlePhase.Fighting&&campaignMenu==null&&!DetailsVisible&&hud?.ReportVisible!=true&&developerPanel?.BlocksGameInput!=true&&selection.Ids.Count==1&&realtime.Model.Units.Any(u=>u.Id==selection.Primary+1&&u.Alive&&u.Side==PrototypeSide.Ally&&u.Role==PrototypeRole.Leader);
-        private int joystickDriven=-1;
-        private void ReleaseRealtimeSteering(){if(joystickDriven>=0)realtime?.Model.ReleaseSteering(joystickDriven+1);joystickDriven=-1;}
-        public bool SteerRealtimeCommander(Vector2 direction)
-        {
-            if(!CanSteerRealtimeCommander||direction.magnitude<.15f){ReleaseRealtimeSteering();return false;}
-            joystickDriven=selection.Primary;
-            var camera=boardView.Camera.transform;var right=Vector3.ProjectOnPlane(camera.right,Vector3.up).normalized;var up=Vector3.ProjectOnPlane(camera.up,Vector3.up).normalized;
-            var world=right*direction.x+up*direction.y;
-            return realtime.SteerCommander(selection.Primary,new PrototypePoint(world.x,world.z));
-        }
         private bool RealtimeOrder(PrototypeOrder order,PrototypePoint point,int target=-1,bool squadFocus=false)
         {
             if(realtime==null)return false;
-            ReleaseRealtimeSteering();hud?.Joystick?.ResetInput();
             if(order==PrototypeOrder.Auto)
             {var actor=realtime.Model.Units.FirstOrDefault(unit=>unit.Alive&&selection.Contains(unit.Id-1));if(actor==null)return false;point=actor.Position;}
             bool accepted=realtime.Issue(selection.Ids,order,point,target,true,squadFocus);
@@ -72,17 +60,17 @@ namespace BaseConquest.Battle
         }
         public void RealtimeRetreat()
         {if(realtime==null)return;ManualPause();if(realtime.DefensePursuitReady)feedback=realtime.FinishDefensePursuit()?"已结束追击，存活敌军撤离":"无法结算";else feedback=realtime.RetreatAll()?(realtime.Session.Opening.DemoCombat?"已立即撤退；返回后结算真实战损与军需":"全军向真实撤离口移动；抵达后才算成功撤离"):"暂无可撤离单位";SyncRealtimeViews();hud?.Refresh();}
-        public bool PauseForDialogue(){ReleaseRealtimeSteering();hud?.Joystick?.ResetInput();bool running=autoRun;autoRun=false;realtime?.Model.SetPaused(true);return running;}
+        public bool PauseForDialogue(){bool running=autoRun;autoRun=false;realtime?.Model.SetPaused(true);return running;}
         public void ResumeAfterDialogue(bool running){autoRun=running;realtime?.Model.SetPaused(!running);}
         public void ToggleRealtimePause()
         {
             if(realtime==null||battle.Phase!=BattlePhase.Fighting)return;
-            ReleaseRealtimeSteering();hud?.Joystick?.ResetInput();realtime.TutorialAction?.Invoke(BaseDemoIntro.Pause);autoRun=!autoRun;realtime.Model.SetPaused(!autoRun);feedback=autoRun?"即时战斗进行中":"已暂停，可以下令";hud?.Refresh();
+            realtime.TutorialAction?.Invoke(BaseDemoIntro.Pause);autoRun=!autoRun;realtime.Model.SetPaused(!autoRun);feedback=autoRun?"即时战斗进行中":"已暂停，可以下令";hud?.Refresh();
         }
         private void SelectRealtimeCommander(int id,bool alone)
         {
             var commander=battle.Soldier(id);if(commander?.Kind!=SoldierKind.Hero||!commander.IsActive||commander.Side!=BattleSide.A)return;
-            ReleaseRealtimeSteering();hud?.Joystick?.ResetInput();realtime.TutorialAction?.Invoke(BaseDemoIntro.Select);selection.Set(new[]{id});selectedUnitId=informationUnitId=id;realtimeSingleCommander=alone;
+            realtime.TutorialAction?.Invoke(BaseDemoIntro.Select);selection.Set(new[]{id});selectedUnitId=informationUnitId=id;realtimeSingleCommander=alone;
             deploymentCommanderSlot=commander.OriginCommanderSlot;deploymentSlotChosen=true;informationIsCell=inspectionTracksUnit=false;informationCell=null;boardView.SelectCell(null);ShowInformationNotice();
             informationFineCell=-1;feedback="指挥队长：单击移动／攻击，双击驻守／队伍集火；士兵按策略护卫";SyncRealtimeViews();hud?.Refresh();
         }
@@ -176,7 +164,7 @@ namespace BaseConquest.Battle
                 if(mouse?.rightButton.wasPressedThisFrame==true)RealtimePointer(mouse.position.ReadValue(),true,keyboard?.leftShiftKey.isPressed==true);
                 if(Touchscreen.current!=null)foreach(var touch in Touchscreen.current.touches)if(touch.press.wasPressedThisFrame)RealtimePointer(touch.position.ReadValue());
             }
-            int iterations=fastMode?3:1;for(int index=0;index<iterations;index++){SteerRealtimeCommander(hud.Joystick?.Direction??Vector2.zero);AdvanceRealtimeModel(Math.Min(.25,Time.unscaledDeltaTime));}
+            int iterations=fastMode?3:1;for(int index=0;index<iterations;index++)AdvanceRealtimeModel(Math.Min(.25,Time.unscaledDeltaTime));
             SyncRealtimeViews();
             UpdatePortraitHold();PersistCampaignResult();PersistCampaignCheckpoint();hud?.Refresh();
         }
@@ -218,6 +206,6 @@ namespace BaseConquest.Battle
             }
         }
         private void OnApplicationFocus(bool focused)
-        {if(!focused&&IsRealtimeCampaign){ReleaseRealtimeSteering();hud?.Joystick?.ResetInput();MapPanUp();ManualPause();realtime?.Model.SetPaused(true);PersistCampaignCheckpoint(true);}}
+        {if(!focused&&IsRealtimeCampaign){MapPanUp();ManualPause();PersistCampaignCheckpoint(true);}}
     }
 }

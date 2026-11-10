@@ -173,7 +173,7 @@ namespace BaseConquest.Battle
             if (VictoryChoicePending) { skipping = false; autoRun = false; }
             if (battle.Phase == BattlePhase.Finished) { skipping = false; feedback = OutcomeName(battle.Report.Outcome); }
         }
-        private void ManualPause() {ReleaseRealtimeSteering();autoRun=false;realtime?.Model.SetPaused(true);}
+        private void ManualPause() {autoRun=false;realtime?.Model.SetPaused(true);}
         public void TickPresentation(float delta)
         {
             if (animating) { presentation = Mathf.Min(1, presentation + delta * (fastMode ? 3 : 1) / Mathf.Max(0.1f, presentationSeconds)); if (presentation >= 1) animating = false; }

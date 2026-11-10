@@ -30,7 +30,7 @@ namespace BaseConquest.Battle
         {
             if(!IsSceneEncounter)return false;
             campaignSession=sceneEncounter;ReplaceSimulation(sceneEncounter.Battle.Scenario,sceneEncounter.Battle);if(battle.Phase!=BattlePhase.Deployment)AttachRealtime();
-            feedback=IsSecondDefense?"这一波敌军不会撤走；当前暂停，选中队长下令，空格继续。全员失能即营地失守。":IsAzhuDuel?"与阿铸点到为止；当前暂停，选中主角下令，空格继续。":IsDemoPractice?"搭档带你分步练习；当前暂停，按提示操作，打中一次即可完成。":IsDemoDefense||IsDemoAttack?"实际队伍已就近落位；当前暂停，可以选择队长下令。保留真实战损，队长倒地不立即判负，可以撤退。":IsDemoRuins?"击败控制者即可救出失踪者；己方有真实战损。已暂停，可选择队长／小队下令。":"追兵已被队长打伤，均为半血；村民自行撤向地图边缘。选择主角、点敌人集火，空格继续／暂停。";return true;
+            feedback=IsSecondDefense?"这一波敌军不会撤走；当前暂停，选中队长下令，空格继续。全员失能即营地失守。":IsAzhuDuel?"与阿铸点到为止；当前暂停，选中主角下令，空格继续。":IsDemoPractice?"搭档带你分步练习；当前暂停，按提示操作，打中一次即可完成。":IsDemoDefense||IsDemoAttack?"实际队伍已落位；当前暂停，可以选择队长下令。保留真实战损，队长倒地不立即判负，可以撤退。":IsDemoRuins?"击败控制者即可救出失踪者；己方有真实战损。已暂停，可选择队长／小队下令。":"追兵已被队长打伤，均为半血；村民自行撤向地图边缘。选择主角、点敌人集火，空格继续／暂停。";return true;
         }
         public bool WithdrawSceneEncounter()=>FinishSceneEncounter(true);
         private bool FinishSceneEncounter(bool abandon=false,bool mainMenu=false)

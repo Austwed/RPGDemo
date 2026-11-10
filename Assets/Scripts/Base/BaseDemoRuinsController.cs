@@ -56,6 +56,7 @@ namespace BaseConquest.Base
             {Hud.OpenRuinsWarning(()=>BeginDemoRuins(mode,true,prepared:prepared),prepared);return;}
             if(State.Demo.RuinsDay==0&&!confrontationConfirmed)
             {Hud.OpenRuinsConfrontation(()=>BeginDemoRuins(mode,true,true,prepared));return;}
+            if (prepared != null) EndDeploymentWorld();
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
             if(!Change(next=>encounter=prepared==null?BaseDemoRuins.Begin(next,mode):prepared.Begin(next),"军需与真实人员已锁定；进入遗迹救助战"))
             {if(prepared!=null)Hud.RefreshPreparedFailure();return;}

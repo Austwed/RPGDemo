@@ -1,12 +1,9 @@
 using System;
 using System.Linq;
-using BaseConquest.Story;
 namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        private static string TradeEntryLabel => StoryText.Get("story.ui.trade.enter", "进入交易");
-
         public void OpenSmithFather()
         {
             var smith = BaseScriptNames.Blacksmith;
@@ -25,7 +22,8 @@ namespace BaseConquest.Base
 
             NpcDialogue(WithInjury(owner.State, "INJ_TOWN_BALONG",
                     new NpcLine(smith, portrait, "欢迎。武器、护具在这里挑，营地工坊负责生产军需。")),
-                new[] { new NpcReply(TradeEntryLabel, OpenSmithEquipment), new NpcReply("稍后再来", ClosePanel) });
+                new[] { TradeEntry(TradeVendor.Smith, TradeShelf.Equipment),
+                    TradeEntry(TradeVendor.Smith, TradeShelf.Reforge), new NpcReply("稍后再来", ClosePanel) });
         }
 
         private void CompleteSmithGift()

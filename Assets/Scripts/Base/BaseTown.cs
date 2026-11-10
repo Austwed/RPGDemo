@@ -45,7 +45,7 @@ namespace BaseConquest.Base
         public static bool DemoRecruitment(BaseState s)=>BaseDemo.Active(s)&&s.Town?.RecruitRulesVersion>=1;
         public static int TroopCount(BaseState s,BaseTroopKind kind)=>s.Workers.Where(worker=>worker.Kind==kind).Sum(worker=>worker.Count);
         public static int TroopTotal(BaseState s)=>s.Workers.Sum(worker=>worker.Count);
-        // 2026-11-04 起与普通兵即死率共用同一个合计口径：N 与 B 都是三兵种之和，编成不影响概率。
+        // 2026-11-04 起与普通兵即死率共用同一个合计口径：N 与 B 都是三兵种之和，编队不影响概率。
         public static double HireProbability(BaseState s)=>BaseDemoCombat.Probability(BaseDemoCombat.BaselineTotal(s.Demo?.Rpg),TroopTotal(s),s.Demo?.Rpg);
         public static double HireProbability(BaseState s,BaseTroopKind kind)=>HireProbability(s);
         // 每日兵源总量：第 1 日固定 6（教学 2/2/2）；此后基准 150% 以内至少 1 人，超过断货。

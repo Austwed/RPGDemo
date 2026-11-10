@@ -14,7 +14,6 @@ namespace BaseConquest.Battle
     public sealed class BattleMobileHud
     {
         public readonly GameObject Root;
-        public readonly BaseConquest.Base.BaseJoystick Joystick;
         public readonly Canvas Canvas;
         private readonly BattleSceneController owner;
         private readonly Font font;
@@ -139,13 +138,6 @@ namespace BaseConquest.Battle
                 skillShadow.effectColor = new Color(0, 0, 0, 0.95f); skillShadow.effectDistance = new Vector2(1, -1);
                 ultimates[i]=Button("绝招", module, Vector2.zero, new Vector2(48, 0), new Vector2(44, 38), null);ultimates[i].interactable=false;ultimates[i].onClick.AddListener(()=>owner.ToggleRealtimeAutoSkill(slot));
             }
-            var stick=Box("BattleJoystick",safe,Vector2.zero,new Vector2(78,246),new Vector2(120,120));
-            stick.pivot=Vector2.one*.5f;
-            var handle=Box("Handle",stick,Vector2.one*.5f,Vector2.zero,new Vector2(46,46));
-            handle.GetComponent<Image>().color=DemoUiTheme.Current.Gold;handle.GetComponent<Image>().raycastTarget=false;
-            Joystick=stick.gameObject.GetOrAdd<BaseConquest.Base.BaseJoystick>();Joystick.Handle=handle;
-            Label("移动队长",stick,12).rectTransform.offsetMax=new Vector2(0,-90);
-            stick.gameObject.SetActive(false);
             var statusPanel = Box("BottomInformation", safe, Vector2.zero, Vector2.zero, new Vector2(640, 38)); statusPanel.anchorMax = new Vector2(1, 0); statusPanel.offsetMin = new Vector2(0, 0); statusPanel.offsetMax = new Vector2(0, 38); status = Label("", statusPanel, 12);
             status.rectTransform.offsetMin = new Vector2(12, 3); status.rectTransform.offsetMax = new Vector2(-12, -3); status.horizontalOverflow = HorizontalWrapMode.Wrap;
             cellMenu = Box("CellCommandMenu", safe, Vector2.zero, Vector2.zero, new Vector2(224, 100));
@@ -432,7 +424,6 @@ namespace BaseConquest.Battle
                     for (int i = 0; i < TierStrategies.Length; i++) { SetHighlighted(strategyButtons[i], c.Strategy == TierStrategies[i]); strategyButtons[i].interactable = owner.CanEditDetailsCommander && b.Phase != BattlePhase.Finished && !owner.IsAnimating && !owner.Skipping; }
                 }
             }
-            Joystick.gameObject.SetActive(owner.CanSteerRealtimeCommander&&!owner.DrawerVisible);
             if(owner.IsRealtimeCampaign)RefreshRealtimeControls(b);
             battleResult?.Refresh(b, owner.ControlledSide, owner.IsAnimating, owner.Skipping, new Vector2(area.width, area.height) / owner.HudScale);
         }

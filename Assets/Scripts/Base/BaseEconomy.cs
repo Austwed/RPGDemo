@@ -155,9 +155,14 @@ namespace BaseConquest.Base
             return BaseDevelopment.CanManage(s,l);
         }
         public static bool MoveWorkers(BaseState s, BaseTroopKind kind, string from, string to, int count)
+            => MoveWorkers(s, kind, from, to, count, null);
+
+        internal static bool MoveWorkers(BaseState s, BaseTroopKind kind, string from, string to, int count, int? bucket)
         {
             if (count <= 0 || from == to || !Facilities.Contains(from) || !Facilities.Contains(to)||!BaseDemo.FacilityAvailable(s,to)) return false;
-            var sources = s.Workers.Where(x => !x.Away && x.FacilityId == from && x.Kind == kind && (to == "" || BaseDevelopment.Effective(s, x))).ToArray();
+            if (bucket.HasValue && (bucket.Value < 0 || bucket.Value >= s.Workers.Count)) return false;
+            var sources = s.Workers.Where((x, index) => (!bucket.HasValue || bucket.Value == index) &&
+                !x.Away && x.FacilityId == from && x.Kind == kind && (to == "" || BaseDevelopment.Effective(s, x))).ToArray();
             if (sources.Sum(x => x.Count) < count || to != "" && WorkersAt(s, to) + count > s.Muster.Facilities.Single(f => f.FacilityId == to).Capacity) return false;
             int left = count;
             // 资格随数量批次转移，换岗不能洗掉当天停工状态。

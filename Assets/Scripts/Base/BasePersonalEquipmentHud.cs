@@ -26,14 +26,22 @@ namespace BaseConquest.Base
             var goods=BasePersonalEquipment.ShopFor(s)
                 .Where(d=>!BaseDemoFlow.Active(s)||!d.Id.StartsWith("novice_",StringComparison.Ordinal)||s.Demo.Flow.NoviceShop).ToArray();
             var selected=goods.FirstOrDefault(d=>d.Id==tradeSelection)??goods.FirstOrDefault();
-            if(selected==null)return;
-            tradeSelection=selected.Id;
+            bool hasStone=tradeVendor==TradeVendor.Smith;
+            if(!hasStone||tradeSelection!=BaseEquipmentCrafting.Stone)
+                tradeSelection=selected?.Id??(hasStone?BaseEquipmentCrafting.Stone:"");
             foreach(var gear in goods)
             {
                 var offer=s.PersonalEquipment.Offers.Single(o=>o.Template==gear.Id);
                 TradeOffer(offers,gear.Id,gear.Name+" · "+BasePersonalEquipment.BuyPrice(s,gear.Id)+"币 · 余 "+offer.Remaining);
             }
+            if(hasStone)RenderStoneOffer(offers);
             if(details==null)return;
+            if(tradeSelection==BaseEquipmentCrafting.Stone)
+            {
+                RenderStoneDetails(details);
+                return;
+            }
+            if(selected==null)return;
 
             string id=selected.Id,holder=recipient?.Id??"";
             int price=BasePersonalEquipment.BuyPrice(s,id);

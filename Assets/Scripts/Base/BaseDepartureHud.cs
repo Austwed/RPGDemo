@@ -49,14 +49,14 @@ namespace BaseConquest.Base
                 if(BaseTown.DemoRecruitment(s))Line("全军普通兵 "+BaseTown.TroopTotal(s)+"人（含外出） · 合计基准 "+BaseDemoCombat.BaselineTotal(s.Demo?.Rpg)+" · 普通兵即死率 "+BaseTown.HireProbability(s).ToString("P0")+"；三兵种共用，调岗出征不改变总数。",62,17);
                 if(departureExpanded!=k)continue;
                 var rows=BaseMuster.SoldierRows(s,k,purpose).ToArray();int pages=Math.Max(1,(rows.Length+7)/8);departureUnitPage=Math.Max(0,Math.Min(pages-1,departureUnitPage));
+                var roster=BasePersonnel.Units(s).Where(unit=>!unit.IsLeader&&unit.Kind==BaseCampaign.ToBattle(k)).ToDictionary(unit=>unit.Key);
                 Line("基础攻击／防御 · 当前／最大生命 · 所在设施 · 今日生产资格",42,17);
-                int number=departureUnitPage*8;
                 foreach(var unit in rows.Skip(departureUnitPage*8).Take(8))
                 {
-                    var pick=unit.Pick;bool selected=departure.Selected(pick);bool allowed=selected||departure.CanToggle(s,pick,bypass,out _);number++;
+                    var pick=unit.Pick;bool selected=departure.Selected(pick);bool allowed=selected||departure.CanToggle(s,pick,bypass,out _);
                     string status=unit.Available ? unit.EffectiveWorker ? "今日可生产" : "今日不生产" : unit.UnavailableReason+" · 今日不生产";
-                    Label(content,BaseConquest.Battle.UnitDisplayNames.Mark(BaseEconomy.TroopName(k)+" #"+number,unit.Recruited)+"  攻 "+unit.Stats.Damage.ToString("0.#")+"  防 "+unit.Stats.Defense.ToString("0.#")+"  生命 "+unit.Health.ToString("0.#")+"／"+unit.MaxHealth.ToString("0.#")+"\n"+unit.Facility+" · "+status,new Vector2(-70,-row-38),new Vector2(680,76),18,TextAnchor.MiddleLeft,new Vector2(.5f,1));
-                    RowButton(selected ? "● 已选" : allowed ? "选择" : "不可调",350,120,()=>{departure.Toggle(s,pick,bypass,out departureMessage);Reopen();},allowed);row+=80;
+                    AddPersonnelRow(content,roster["soldier:"+pick.Key],(selected?"● 已选 · ":"")+status,
+                        ()=>{departure.Toggle(s,pick,bypass,out departureMessage);Reopen();},allowed,selected);
                 }
                 RowButton("上一页",-290,240,()=>{departureUnitPage--;Reopen();},departureUnitPage>0);Label(content,"第 "+(departureUnitPage+1)+"／"+pages+" 页",new UnityEngine.Vector2(0,-row-26),new UnityEngine.Vector2(240,48),18,UnityEngine.TextAnchor.MiddleCenter,new UnityEngine.Vector2(.5f,1));RowButton("下一页",290,240,()=>{departureUnitPage++;Reopen();},departureUnitPage+1<pages);row+=60;
             }

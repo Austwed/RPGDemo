@@ -244,6 +244,7 @@ namespace BaseConquest.Base
         {
             if (!Application.isPlaying) return;
             if (RuntimeMissing()) { BeginSession(); return; }
+            if (DeploymentWorldActive) { UpdateDeploymentWorld(); return; }
             if(combatController==null) regionView?.UpdateCamera(ConstructionMode ? 190f/1280 : 0,0);
             if(State!=null&&!Busy&&runtimeRoot!=null&&runtimeRoot.gameObject.activeInHierarchy)Hud.RefreshAchievementNotice(Time.unscaledDeltaTime);
             if(State!=null&&!Busy){Hud.TickDialogue(Time.unscaledDeltaTime);RefreshSceneSight();TickPracticeGuide();TickRuinsRetreatGuide();TickDefenseIntel();}
@@ -261,14 +262,16 @@ namespace BaseConquest.Base
             TickDemoFlow();TickAzhuInvitation();
             if(developerPanel?.BlocksGameInput==true)return;
             var keyboard = Keyboard.current;
+            bool escape = keyboard?.escapeKey.wasPressedThisFrame == true;
             if(Hud.DialogueOpen&&keyboard!=null&&(keyboard.eKey.wasPressedThisFrame||keyboard.spaceKey.wasPressedThisFrame)){Hud.ContinueDialogue();return;}
-            if(Hud.DialogueExitLocked&&keyboard!=null&&keyboard.escapeKey.wasPressedThisFrame)return;
-            if (Hud.ResourcePopoverOpen && keyboard != null && keyboard.escapeKey.wasPressedThisFrame) { Hud.CloseResourcePopover(); return; }
+            if(Hud.DialogueExitLocked&&escape)return;
+            if (Hud.ResourcePopoverOpen && escape) { Hud.CloseResourcePopover(); escape = false; }
             if(keyboard!=null&&HandlePanelShortcuts(keyboard.bKey.wasPressedThisFrame,keyboard.nKey.wasPressedThisFrame,keyboard.mKey.wasPressedThisFrame))return;
-            if(ConstructionMode&&keyboard!=null&&keyboard.escapeKey.wasPressedThisFrame){StopConstruction();if(Hud.PanelOpen)Hud.ClosePanel();Message="已退出营造";Hud.RefreshSummary();return;}
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) { if (Hud.PanelOpen) Hud.ClosePanel(); else if (SelectedCell != null) ClearSelection(); else Hud.OpenMenu(); return; }
-            if (Hud.PanelOpen || Hud.ResourcePopoverBlocksInput) explorationPinchSpan = 0;
-            if (Hud.PanelOpen || Hud.ResourcePopoverBlocksInput || PlayerAway || State.Campaign.HasActiveBattle || State.Aftermath.GameOver || BaseBattleGateway.MainMenu) { touches.Clear(); mouseTap = null; return; }
+            if(ConstructionMode&&escape){StopConstruction();if(Hud.PanelOpen)Hud.ClosePanel();Message="已退出营造";Hud.RefreshSummary();return;}
+            if (escape) { if (Hud.PanelOpen) Hud.ClosePanel(); else if (SelectedCell != null) ClearSelection(); else Hud.OpenMenu(); return; }
+            if (Hud.PanelOpen) explorationPinchSpan = 0;
+            if (Hud.PanelOpen || PlayerAway || State.Campaign.HasActiveBattle || State.Aftermath.GameOver || BaseBattleGateway.MainMenu) { touches.Clear(); mouseTap = null; return; }
+            if (Hud.ResourcePopoverOpen) ReadResourceDismissPointer();
             if(ConstructionMode)UpdateConstructionPointer();else ReadPointer();
             Vector2 input = Hud.Joystick.Direction;
             if (keyboard != null)
@@ -338,6 +341,21 @@ namespace BaseConquest.Base
             uiHits.Clear(); EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current) { position = position }, uiHits);
             return uiHits.Count > 0;
         }
+        private void ReadResourceDismissPointer()
+        {
+            bool pressedTouch = false;
+            if (Touchscreen.current != null)
+                foreach (var touch in Touchscreen.current.touches)
+                {
+                    if (!touch.press.wasPressedThisFrame) continue;
+                    pressedTouch = true;
+                    DismissResourcePopoverOutside(touch.position.ReadValue());
+                }
+            var mouse = Mouse.current;
+            if (!pressedTouch && mouse?.leftButton.wasPressedThisFrame == true) DismissResourcePopoverOutside(mouse.position.ReadValue());
+        }
+        private void DismissResourcePopoverOutside(Vector2 position) =>
+            Hud.DismissResourcePopoverOutside(IsUiPoint(position) ? uiHits[0].gameObject.transform : null);
         private void ReadPointer()
         {
             float threshold = Mathf.Max(10, Screen.height / 720f * 16); bool handledTouch = false;
@@ -383,7 +401,7 @@ namespace BaseConquest.Base
         }
         public bool ZoomExploration(Vector2 screen,float wheel)
         {
-            if(State==null||combatController!=null||Hud.PanelOpen||Hud.ResourcePopoverBlocksInput||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen))return false;
+            if(State==null||combatController!=null||Hud.PanelOpen||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen))return false;
             // Input System defaults to one unit per wheel tick, not Windows' native 120 units.
             float ticks=wheel;
             if(InputSystem.settings.scrollDeltaBehavior==InputSettings.ScrollDeltaBehavior.KeepPlatformSpecificInputRange&&(Application.platform==RuntimePlatform.WindowsEditor||Application.platform==RuntimePlatform.WindowsPlayer))ticks/=120f;
@@ -391,7 +409,7 @@ namespace BaseConquest.Base
         }
         public bool ZoomExplorationFactor(Vector2 screen,float factor)
         {
-            if(State==null||combatController!=null||Hud.PanelOpen||Hud.ResourcePopoverBlocksInput||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen)||float.IsNaN(factor)||float.IsInfinity(factor)||factor<=0)return false;
+            if(State==null||combatController!=null||Hud.PanelOpen||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen)||float.IsNaN(factor)||float.IsInfinity(factor)||factor<=0)return false;
             float before=WorldCamera.orthographicSize;regionView.SetViewSize(Mathf.Clamp(before*factor,regionView.MinViewSize,regionView.FullViewSize));
             explorationViewSize=WorldCamera.orthographicSize;regionView.Follow(PlayerCameraTarget);
             if(Mathf.Abs(before-WorldCamera.orthographicSize)<.0001f)return false;
@@ -404,7 +422,7 @@ namespace BaseConquest.Base
         }
         public void SelectCell(int x, int y)
         {
-            if (State == null || Busy || PlayerAway || Hud.PanelOpen || Hud.ResourcePopoverBlocksInput || !BaseMap.TryCell(x + 0.5, y + 0.5, out _, out _,BaseBattlefield.Board(State).Width,BaseBattlefield.Board(State).Height)) return;
+            if (State == null || Busy || PlayerAway || Hud.PanelOpen || !BaseMap.TryCell(x + 0.5, y + 0.5, out _, out _,BaseBattlefield.Board(State).Width,BaseBattlefield.Board(State).Height)) return;
             if(!SceneCellKnown(new GridPosition(x,y)))return;
             if(ConstructionMode){PaintConstructionCell(new GridPosition(x,y));return;}
             SelectedCell = new BaseCellSelection(x, y); regionView.SelectCell(new GridPosition(x,y)); Hud.NotifyInspection();
@@ -413,7 +431,7 @@ namespace BaseConquest.Base
         public void Interact()
         {
             if (State?.Campaign.HasActiveBattle == true) { Hud.OpenMenu(); return; }
-            if (Busy || Hud.PanelOpen || Hud.ResourcePopoverBlocksInput || Nearby == null) return;
+            if (Busy || Hud.PanelOpen || Nearby == null) return;
             Hud.OpenObject(Nearby.Id);
         }
         public bool Change(Action<BaseState> edit, string message)
@@ -540,6 +558,6 @@ namespace BaseConquest.Base
         private void OnApplicationPause(bool paused) { if (paused) Save(); }
         private void OnApplicationFocus(bool focused) { if (!focused) { touches.Clear(); mouseTap = null; constructionBrush.EndStroke();constructionTouch=-1;Hud?.Joystick.ResetInput(); Save(); } }
         private void OnApplicationQuit() => Save();
-        private void OnDestroy() { regionView?.Dispose(); BattleBoardView.DestroyObject(mapMaterial); BattleBoardView.DestroyObject(font); }
+        private void OnDestroy() { EndDeploymentWorld(false); regionView?.Dispose(); BattleBoardView.DestroyObject(mapMaterial); BattleBoardView.DestroyObject(font); }
     }
 }

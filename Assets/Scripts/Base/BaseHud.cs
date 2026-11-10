@@ -202,7 +202,7 @@ namespace BaseConquest.Base
             regionStatus.text = BaseDemo.Active(s) ? (raids>0 ? "入侵已到达" : "") : s.Campaign.ThreatVersion>0 ? BaseThreats.Warning(s) : raids > 0 ? "入侵 " + raids + "：左侧迎战／过夜自动处理" : "";
             Joystick.gameObject.SetActive(Application.isMobilePlatform && !PanelOpen && !owner.Busy && !owner.PlayerAway && !s.Campaign.HasActiveBattle);
             if(BaseDemoPrologue.Village(s)){introObjectiveKey=-1;RefreshIntroObjective();}
-            RefreshTrackedQuest();
+            if (!owner.DeploymentWorldActive) RefreshTrackedQuest();
             nearbyId = null; RefreshMovement(); RefreshInspection();
         }
         private int introObjectiveKey=-1;
@@ -379,8 +379,8 @@ namespace BaseConquest.Base
             if(BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             workerDraft=null;workerMoves.Clear();ClearPanelSelection();
             dialogueContinue=null;modal.gameObject.SetActive(false); activeObject = "";interactionObject=""; panelViewKey = null; panelScrollOffsets.Clear();
-            if (owner.State != null) RefreshSummary();
             BattlePreparationPanelClosed();
+            if (owner.State != null) RefreshSummary();
             owner.NotifyPanelClosed();
         }
         private void ClearPanelSelection()
@@ -465,8 +465,6 @@ namespace BaseConquest.Base
             DemoUiIcons.Attach(RowButton("手动保存",-210,400,()=>OpenSlots(true),!owner.State.Campaign.HasActiveBattle),"save");RowButton("读取存档",210,400,()=>OpenSlots(false));row+=60;
             if(owner.State.Campaign.HasActiveBattle){RowButton("恢复当前战斗",0,800,owner.ResumeCampaign);row+=60;}
             else if(!owner.AtBase){RowButton(BaseDesignRoutes.Active(owner.State) ? "经绑定出口返回基地" : "返回基地",0,800,()=>owner.Travel("base"),!BaseDesignRoutes.Active(owner.State)||BaseDesignRoutes.Reachable(owner.State,"base")!=null);row+=60;}
-            if(BaseDemoRuins.Enabled(owner.State)){RowButton("体力 · "+BaseRuinsRewards.Energy(owner.State)+"/"+BaseRuinsRewards.Maximum(owner.State),-210,400,OpenEnergy);RowButton("日历 · 第 "+owner.State.Day+" 天",210,400,OpenCalendar);row+=60;}
-            else {RowButton("日历 · 第 "+owner.State.Day+" 天",0,800,OpenCalendar);row+=60;}
             if(BaseAchievements.Active(owner.State)){RowButton("成就 · "+owner.State.Achievements.Records.Count+"/9",0,800,OpenAchievements);row+=60;}
             RowButton("领地地图 · M",-210,400,OpenLandMap,BaseLandMap.Available(owner.State));
             RowButton("日结报告",210,400,OpenReport);row+=60;
@@ -474,7 +472,7 @@ namespace BaseConquest.Base
             RowButton("选项",0,800,OpenOptions);row+=60;
             RowButton("帮助",-210,400,OpenHelp);RowButton("回主菜单",210,400,owner.ToMainMenu);row+=60;
             if(BaseDemo.Active(owner.State)&&RuntimeDeveloperOptions.Enabled){RowButton("独立即时战斗测试",0,800,OpenStandaloneBattleTest);row+=60;}
-            if(BaseDemo.Active(owner.State)){RowButton("当前剧情目标",0,800,OpenDemoStory);row+=60;EndPanel();return;}
+            if(BaseDemo.Active(owner.State)){EndPanel();return;}
             RowButton(developerTemplatesOpen ? "开发存档 ▴" : "开发存档 ▾",0,800,()=>{developerTemplatesOpen=!developerTemplatesOpen;OpenMenu();});row+=60;
             if(developerTemplatesOpen)AddTemplates();
             EndPanel();
@@ -523,8 +521,8 @@ namespace BaseConquest.Base
             foreach(var person in people)
             {
                 string id=person.Id;string problem=BaseRpg.DismissProblem(s,id);
-                RowButton(BasePersonnel.LeaderName(person)+(problem==""?"":" · "+problem),0,800,()=>ConfirmDismiss(id),problem=="");
-                row+=58;
+                var record = BasePersonnel.Units(s).First(u => u.LeaderId == id);
+                AddPersonnelRow(content, record, problem == "" ? RosterText("dismiss", "点击办理请离") : problem, () => ConfirmDismiss(id), problem == "");
             }
             if(people.Length==0)Line("营地暂无可以请离基地的角色。",48,19);
             RowButton("返回",0,270,OpenHome);row+=60;EndPanel();
@@ -644,11 +642,11 @@ namespace BaseConquest.Base
             foreach (var person in s.Leaders)
             {
                 var leader = person;
-                Label(content, BasePersonnel.LeaderName(leader) + " · " + BaseEconomy.FacilityName(leader.FacilityId) + (leader.Away ? "（外出）" : ""), new Vector2(-255, -row - 26), new Vector2(340, 48), 20, TextAnchor.MiddleLeft, new Vector2(0.5f, 1));
                 bool assigned = leader.FacilityId == facility;
-                RowButton(assigned ? "解除管理员任职" : "任命为本设施管理员", 185, 440,
-                    () => ConfirmManager(leader.Id,assigned?"":facility,OpenFacility), BaseEconomy.CanAssignLeader(s,leader.Id,assigned ? "" : facility));
-                row += 62;
+                var record = BasePersonnel.Units(s).First(u => u.LeaderId == leader.Id);
+                AddPersonnelRow(content, record, assigned ? RosterText("unassign_manager", "点击解除任职") : RosterText("assign_manager", "点击任命为管理员"),
+                    () => ConfirmManager(leader.Id, assigned ? "" : facility, OpenFacility),
+                    BaseEconomy.CanAssignLeader(s, leader.Id, assigned ? "" : facility), assigned);
                 LeaderLock(leader.Id, OpenFacility);
             }
         }
@@ -679,20 +677,31 @@ namespace BaseConquest.Base
         }
         private BaseState workerDraft;
         private string workerDraftStamp;
-        private readonly System.Collections.Generic.List<(BaseTroopKind kind,string from,string to)> workerMoves=new System.Collections.Generic.List<(BaseTroopKind,string,string)>();
+        private readonly System.Collections.Generic.List<(BaseTroopKind kind,string from,string to,int? bucket)> workerMoves =
+            new System.Collections.Generic.List<(BaseTroopKind,string,string,int?)>();
+        private int workerRosterPage;
+        private static void LockCurrentPosts(BaseState state)
+        {
+            foreach (var worker in state.Workers)
+            {
+                worker.DesiredFacility = worker.FacilityId;
+                worker.PostLocked = true;
+            }
+        }
         private void Workers(string[] facilities, Action refresh)
         {
-            if(workerDraft==null){workerDraft=owner.State.Copy();workerDraftStamp=BaseMuster.Snapshot(owner.State);workerMoves.Clear();}
+            if(workerDraft==null){workerDraft=owner.State.Copy();workerDraftStamp=BaseMuster.Snapshot(owner.State);LockCurrentPosts(workerDraft);workerMoves.Clear();}
             var s = workerDraft;
             Line("安排方案：确认后实际调动并固定工人岗位；解锁岗位可恢复自动安排。", 58, 22);
             RowButton("确认方案",-210,400,()=>{
                 var moves=workerMoves.ToArray();
-                if(owner.Change(next=>{if(BaseMuster.Snapshot(next)!=workerDraftStamp)throw new InvalidOperationException("人员已变化，请重新安排");foreach(var worker in next.Workers){worker.DesiredFacility=worker.FacilityId;worker.PostLocked=true;}foreach(var m in moves){if(!BaseEconomy.MoveWorkers(next,m.kind,m.from,m.to,1))throw new InvalidOperationException("方案已失效，请重新安排");if(m.to=="farm"&&BaseDemoFlow.Active(next)&&!next.Demo.Flow.FarmOfferShown){next.Demo.Flow.FarmOfferPending=true;next.Demo.Flow.FarmX=next.PlayerX;next.Demo.Flow.FarmY=next.PlayerY;}}},"已确认工人安排"))foreach(var m in moves)owner.EnqueueWorkerTransfer(m.kind,m.from,m.to,1);
+                if(owner.Change(next=>{if(BaseMuster.Snapshot(next)!=workerDraftStamp)throw new InvalidOperationException("人员已变化，请重新安排");LockCurrentPosts(next);foreach(var m in moves){if(!BaseEconomy.MoveWorkers(next,m.kind,m.from,m.to,1,m.bucket))throw new InvalidOperationException("方案已失效，请重新安排");if(m.to=="farm"&&BaseDemoFlow.Active(next)&&!next.Demo.Flow.FarmOfferShown){next.Demo.Flow.FarmOfferPending=true;next.Demo.Flow.FarmX=next.PlayerX;next.Demo.Flow.FarmY=next.PlayerY;}}},"已确认工人安排"))foreach(var m in moves)owner.EnqueueWorkerTransfer(m.kind,m.from,m.to,1);
                 workerDraft=null;workerMoves.Clear();refresh();
             },workerMoves.Count>0);RowButton("取消方案",210,400,()=>{workerDraft=null;workerMoves.Clear();refresh();});row+=60;
             foreach (string facility in facilities)
             {
                 Line(BaseEconomy.FacilityName(facility) + "：今日生产人数 " + BaseEconomy.EligibleWorkers(s, facility) + "/" + s.Muster.Facilities.Single(f => f.FacilityId == facility).Capacity, 42);
+                RowButton(RosterText("open", "点名调配"), 0, 800, () => { workerRosterPage = 0; OpenWorkerRoster(facility, refresh); });row += 56;
                 foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
                 {
                     string target = facility; BaseTroopKind troop = kind;
@@ -718,9 +727,43 @@ namespace BaseConquest.Base
             row += 62;
             LeaderLock(leaderId, refresh);
         }
-        private void Adjust(BaseTroopKind kind, string from, string to, Action refresh)
+        private void OpenWorkerRoster(string facility, Action back)
         {
-            if(workerDraft!=null&&BaseEconomy.MoveWorkers(workerDraft,kind,from,to,1))workerMoves.Add((kind,from,to));
+            var state = workerDraft;
+            if (state == null) { back(); return; }
+            BeginPanel(BaseEconomy.FacilityName(facility) + " · 人员名册", "workers-roster:" + facility);
+            RowButton("返回调配方案", 0, 800, back); row += 60;
+            var available = BasePersonnel.Units(state).Where(u => !u.IsLeader && !u.Away &&
+                (state.Workers[u.BucketIndex].FacilityId == facility || state.Workers[u.BucketIndex].FacilityId == ""))
+                .OrderByDescending(u => state.Workers[u.BucketIndex].FacilityId == facility).ThenBy(u => u.Kind).ToArray();
+            const int pageSize = 8;
+            int pages = Math.Max(1, (available.Length + pageSize - 1) / pageSize);
+            workerRosterPage = Mathf.Clamp(workerRosterPage, 0, pages - 1);
+            int capacity = state.Muster.Facilities.Single(f => f.FacilityId == facility).Capacity;
+            bool room = BaseEconomy.WorkersAt(state, facility) < capacity;
+            Action refresh = () => OpenWorkerRoster(facility, back);
+            foreach (var unit in available.Skip(workerRosterPage * pageSize).Take(pageSize))
+            {
+                var worker = state.Workers[unit.BucketIndex];
+                bool assigned = worker.FacilityId == facility;
+                string status = assigned ? RosterText("unassign", "点击调回闲置") : !unit.Effective ? unit.State :
+                    room ? RosterText("assign", "点击安排上岗") : RosterText("full", "岗位已满");
+                AddPersonnelRow(content, unit, status,
+                    () => Adjust(worker.Kind, worker.FacilityId, assigned ? "" : facility, refresh, unit.BucketIndex),
+                    assigned || (unit.Effective && room), assigned);
+            }
+            if (available.Length == 0) Line("当前没有可调人员。", 52, 18);
+            if (pages > 1)
+            {
+                RowButton("上一页", -210, 400, () => { workerRosterPage--; refresh(); }, workerRosterPage > 0);
+                RowButton((workerRosterPage + 1) + "/" + pages + " 下一页", 210, 400,
+                    () => { workerRosterPage++; refresh(); }, workerRosterPage + 1 < pages); row += 60;
+            }
+            EndPanel();
+        }
+        private void Adjust(BaseTroopKind kind, string from, string to, Action refresh, int? bucket = null)
+        {
+            if(workerDraft!=null&&BaseEconomy.MoveWorkers(workerDraft,kind,from,to,1,bucket))workerMoves.Add((kind,from,to,bucket));
             refresh();
         }
         private void ConfirmManager(string leaderId,string facility,Action refresh)

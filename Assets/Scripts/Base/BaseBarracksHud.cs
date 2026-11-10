@@ -1,12 +1,41 @@
 using System;
 using System.Linq;
 using BaseConquest.Battle;
+using BaseConquest.Presentation;
+using BaseConquest.Story;
 using UnityEngine;
+using UnityEngine.UI;
 namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
         private int personnelFilter,personnelPage;
+        private static string RosterText(string key, string fallback) => StoryText.Get("story.ui.roster." + key, fallback);
+        private void AddPersonnelRow(Transform list, BasePersonnelUnit unit, string status, Action select,
+            bool available = true, bool selected = false, bool warning = false, bool useCurrentStats = false)
+        {
+            var card = CloneSceneUi("PersonnelRosterRow", list);
+            var button = Ui<Button>(card, "");
+            var label = Ui<Text>(card, "Label");
+            var stats = useCurrentStats ? unit.Current : unit.Basic;
+            label.text = $"{unit.Name} · 生命 {unit.Health:0.#}/{unit.MaxHealth:0.#} · 攻 {stats.Damage:0.#} 防 {stats.Defense:0.#}\n{unit.Facility} · {status}";
+            label.alignment = TextAnchor.MiddleLeft;
+            button.interactable = available && select != null;
+            if (select != null) button.onClick.AddListener(() => { if (!owner.Busy) select(); });
+            else
+            {
+                button.transition = Selectable.Transition.None;
+                Ui<Image>(card, "").color = DemoUiTheme.Current.Inset;
+            }
+            if (selected) Ui<Image>(card, "").color = new Color32(217, 219, 174, 255);
+            if (warning) label.color = new Color32(150, 35, 28, 255);
+            if (list != content) return;
+            card.anchorMin = card.anchorMax = new Vector2(.5f, 1);
+            card.pivot = new Vector2(.5f, 1);
+            card.anchoredPosition = new Vector2(0, -row);
+            card.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 800);
+            row += Mathf.CeilToInt(card.rect.height) + 8;
+        }
         private void PersonnelRoster()
         {
             var s=owner.State;var kinds=new[]{SoldierKind.Hero,SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry};
@@ -17,8 +46,8 @@ namespace BaseConquest.Base
             string stamp=BaseMuster.Snapshot(s);
             foreach(var u in units.Skip(personnelPage*8).Take(8))
             {
-                string key=u.Key;Label(content,u.Name+" · 生命 "+u.Health.ToString("0.#")+"/"+u.MaxHealth.ToString("0.#")+" · 攻 "+u.Current.Damage.ToString("0.##")+" 防 "+u.Current.Defense.ToString("0.##")+"\n"+u.Facility+" · "+u.State,new Vector2(-80,-row-36),new Vector2(680,72),18,TextAnchor.MiddleLeft,new Vector2(.5f,1));
-                RowButton("详细信息",350,130,()=>OpenPersonnelDetail(key,stamp));row+=80;
+                string key=u.Key;
+                AddPersonnelRow(content, u, u.State, () => OpenPersonnelDetail(key, stamp), useCurrentStats: true);
             }
             RowButton("上一页",-290,240,()=>{personnelPage--;OpenBarracks();},personnelPage>0);Label(content,"第 "+(personnelPage+1)+"／"+pages+" 页",new UnityEngine.Vector2(0,-row-26),new UnityEngine.Vector2(240,48),18,UnityEngine.TextAnchor.MiddleCenter,new UnityEngine.Vector2(.5f,1));RowButton("下一页",290,240,()=>{personnelPage++;OpenBarracks();},personnelPage+1<pages);row+=60;
             Line(UnitDisplayNames.Mark("黄色姓名",true)+"：通过劝降加入。仅标记来源，工作、伤情、编队与战斗规则相同。",70,18);

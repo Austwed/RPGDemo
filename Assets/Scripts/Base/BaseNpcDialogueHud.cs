@@ -62,15 +62,19 @@ namespace BaseConquest.Base
             var surface = Ui<Button>(view, "");
             surface.onClick.AddListener(() => ContinueDialogue());
             advance.onClick.AddListener(() => ContinueDialogue());
-            foreach (var reply in replies)
+            var replyRows = new (Button Button, Text Label, NpcReply Reply)[replies.Length];
+            for (int i = 0; i < replies.Length; i++)
             {
+                var reply = replies[i];
                 var button = UnityEngine.Object.Instantiate(template, choices.content, false);
-                button.GetComponentInChildren<Text>(true).text = reply.Text;
-                button.interactable = reply.Enabled;
+                var label = button.GetComponentInChildren<Text>(true);
+                label.text = "...";
+                button.interactable = false;
+                replyRows[i] = (button, label, reply);
                 button.gameObject.SetActive(true);
                 button.onClick.AddListener(() =>
                 {
-                    if (owner.Busy || panel != view || !choices.isActiveAndEnabled) return;
+                    if (owner.Busy || panel != view || !choices.isActiveAndEnabled || !button.IsInteractable()) return;
                     var previousMessage = owner.Message;
                     reply.Action();
                     if (!DialogueOpen || panel != view || previousMessage == owner.Message || string.IsNullOrEmpty(owner.Message)) return;
@@ -80,9 +84,11 @@ namespace BaseConquest.Base
             }
 
             dialogueLocked = lockExitUntilFinished;
+            choices.gameObject.SetActive(replyRows.Length > 0);
             PresentLine(0);
             RefreshSummary();
             Canvas.ForceUpdateCanvases();
+            if (replyRows.Length > 0) choices.verticalNormalizedPosition = 1;
 
             void PresentLine(int index)
             {
@@ -100,7 +106,6 @@ namespace BaseConquest.Base
                 var shown = 0;
                 var elapsed = 0f;
                 speech.text = "";
-                choices.gameObject.SetActive(false);
                 advance.gameObject.SetActive(true);
                 hint.gameObject.SetActive(true);
                 dialogueContinue = Advance;
@@ -138,12 +143,17 @@ namespace BaseConquest.Base
                     dialogueTick = null;
                     if (!last) return;
                     dialogueLocked = false;
-                    if (onCompleted != null) return;
-                    dialogueContinue = null;
-                    advance.gameObject.SetActive(false);
-                    hint.gameObject.SetActive(false);
-                    choices.gameObject.SetActive(true);
-                    choices.verticalNormalizedPosition = 1;
+                    foreach (var row in replyRows)
+                    {
+                        row.Label.text = row.Reply.Text;
+                        row.Button.interactable = row.Reply.Enabled;
+                    }
+                    if (onCompleted == null)
+                    {
+                        dialogueContinue = null;
+                        advance.gameObject.SetActive(false);
+                        hint.gameObject.SetActive(false);
+                    }
                 }
             }
         }

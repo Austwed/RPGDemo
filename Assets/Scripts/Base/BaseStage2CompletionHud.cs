@@ -17,7 +17,9 @@ namespace BaseConquest.Base
                 TrainingPages(pages);
                 foreach(var l in people.Skip(trainingPage*8).Take(8))
                 {
-                    string id=l.Id;Line(l.Name+" · "+BasePersonalEquipment.ClassName(l)+" · Lv"+l.Training.Level+" · 生命 "+l.Health.ToString("0.#")+"/"+l.MaxHealth.ToString("0.#"),52,20);
+                    string id=l.Id;
+                    var record=BasePersonnel.Units(s).First(u=>u.LeaderId==id);
+                    AddPersonnelRow(content,record,BasePersonalEquipment.ClassName(l)+" · Lv"+l.Training.Level,null);
                     if(BaseTraining.Busy(l.Training)){Line("正在训练至Lv"+l.Training.Target+"，第"+l.Training.EndDay+"天完成",48);RowButton("取消训练（不退兵书）",0,820,()=>TrainingCancel(()=>GearChange(next=>BaseTraining.CancelLeader(next,id),"训练已取消，兵书不退",OpenTraining)));row+=58;continue;}
                     int target=l.Training.Level+1;if(target>9){Line("已达9级",44);continue;}string book=BaseTraining.Book(BasePersonalEquipment.Stats(l).ProfessionKind,target);int need=BaseTraining.Books(l,target),rev=s.Backpack.Revision;
                     Line("下一级Lv"+target+" · "+s.Backpack.Catalog.Single(d=>d.Id==book).Name+" ×"+need+"（可用"+BasePartyInventory.AvailableMaterial(s,book)+"） · "+BaseTraining.Days(l,target)+"天",58,19);

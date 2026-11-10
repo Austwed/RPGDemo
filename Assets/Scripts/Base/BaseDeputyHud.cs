@@ -32,12 +32,12 @@ namespace BaseConquest.Base
             {
                 string id = leader.Id;
                 bool current = deputy != null && deputy.Id == id;
-                RowButton((current ? "● " : "　 ") + BasePersonnel.LeaderName(leader) + " · " + BasePersonnel.State(s, leader), 0, 800, () =>
+                var record = BasePersonnel.Units(s).First(u => u.LeaderId == id);
+                AddPersonnelRow(content, record, current ? RosterText("current_deputy", "现任副手") : RosterText("assign_deputy", "点击任命副手"), () =>
                 {
                     owner.Change(next => BaseDeputy.Set(next, id), BasePersonnel.LeaderName(leader) + "已担任副手");
                     OpenDeputy();
-                });
-                row += 58;
+                }, selected: current);
             }
             if (deputy != null)
             {

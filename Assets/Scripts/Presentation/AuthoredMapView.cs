@@ -104,7 +104,11 @@ namespace BaseConquest.Presentation
                 view.ownedMaterial.SetColor("_BaseColor",texture!=null ? Color.white : placement.VisualOnly ? new Color(.55f,.43f,.31f) : new Color(.7f,.65f,.4f));
                 face.GetComponent<Renderer>().sharedMaterial=view.ownedMaterial;
             }
-            view.SetExploration(exploration);MapSpriteOrder.Apply(root.transform,feet.z-(float)placement.BoundsHeight*BattleBoardView.CellSize*.5f);
+            view.SetExploration(exploration);
+            // 门洞的贴图从标记点起画，交互范围的南边缘不代表门洞的地线。
+            float sortZ = prop == "dungeon-entrance" && pixelProp != null ? feet.z - .06f
+                : feet.z - (float)placement.BoundsHeight * BattleBoardView.CellSize * .5f;
+            MapSpriteOrder.Apply(root.transform,sortZ);
             if(view.farmVisual)foreach(var renderer in root.GetComponentsInChildren<Renderer>())renderer.sortingOrder=-30500;
             return view;
         }

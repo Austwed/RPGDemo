@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BaseConquest.Story;
 using UnityEngine.SceneManagement;
 
 namespace BaseConquest.Base
@@ -98,12 +99,20 @@ namespace BaseConquest.Base
             // 主线之后行商会透露下次流寇的大致日期：给区间不给准确日，保留「去打探」的价值。
             string rumor="";
             string text=id=="town_guard"?"爵士老爷嘴上硬气，其实镇里的卫队连守城墙都勉强，哪腾得出手管外头的荒滩。"
-                :id=="town_peddler"?"南边通往"+BaseScriptNames.Village+"的官道被【"+BaseScriptNames.Bandit+"】彻底封死了，听说他们最近发了一笔来路不明的横财。要采买粮草器械，或者出手沿途的战利品，都在我这补给摊上，价钱公道。"
-                    +(string.IsNullOrEmpty(rumor)?"":"\n\n［压低声音］"+rumor)
+                :id=="town_peddler"?(BaseDemo.Active(state)
+                    ?"南边通往"+BaseScriptNames.Village+"的官道被【"+BaseScriptNames.Bandit+"】彻底封死了，听说他们最近发了一笔来路不明的横财。要采买粮草器械，或者出手沿途的战利品，都在我这补给摊上，价钱公道。"
+                        +(string.IsNullOrEmpty(rumor)?"":"\n\n［压低声音］"+rumor)
+                    :StoryText.Get("story.ui.trade.market_greeting","这里可以买卖物资、装备和随身补给。"))
                 :"只要一靠近镇西的树林，家里的猎犬就会夹着尾巴狂叫，那座"+BaseScriptNames.Ruins+"底下一定藏着脏东西。";
             var replies=new List<NpcReply>{new NpcReply("点点头走开",ClosePanel)};
             // 2026-11-01 韦德拍板：撤掉独立的「商人」，行商老莫接管补给摊位，交易入口并进他的对话。
-            if(id=="town_peddler")replies.Insert(0,new NpcReply(TradeEntryLabel,OpenTownMarket));
+            if(id=="town_peddler")
+            {
+                replies.Insert(0,TradeEntry(TradeVendor.Merchant,TradeShelf.Goods));
+                replies.Insert(1,TradeEntry(TradeVendor.Merchant,TradeShelf.Equipment));
+                replies.Insert(2,TradeEntry(TradeVendor.Merchant,TradeShelf.Supplies));
+                if(BaseDemoFlow.Active(state))replies.Insert(3,TradeEntry(TradeVendor.Merchant,TradeShelf.Intel));
+            }
             string injury=id=="town_guard"?"INJ_TOWN_GUARD":id=="town_peddler"?"INJ_TOWN_MO":"INJ_TOWN_XIAOYUN";
             NpcDialogue(WithInjury(state,injury,new NpcLine(who,art,text)),replies.ToArray());
         }

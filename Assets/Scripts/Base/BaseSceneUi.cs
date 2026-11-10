@@ -81,11 +81,7 @@ namespace BaseConquest.Base
 
             Add("领地地图 · M", OpenLandMap, BaseLandMap.Available(state));
             Add(StoryText.Get("story.ui.menu.tasks", "任务 · N"), () => OpenQuests());
-            Add("当前剧情目标", OpenDemoStory);
-            Add(StoryText.Get("story.ui.menu.resources", "资源与人员信息"), () => OpenResourceInfo(OpenMenu));
             Add("日结报告", OpenReport);
-            Add("日历 · 第 " + state.Day + " 天", () => OpenMenuResource(ResourceKind.Calendar, OpenCalendar));
-            if (BaseDemoRuins.Enabled(state)) Add("体力 · " + BaseRuinsRewards.Energy(state) + "/" + BaseRuinsRewards.Maximum(state), () => OpenMenuResource(ResourceKind.Energy, OpenEnergy));
             if (BaseAchievements.Active(state)) Add("成就 · " + state.Achievements.Records.Count + "/9", OpenAchievements);
             if (state.Campaign.HasActiveBattle) Add("恢复当前战斗", owner.ResumeCampaign);
             else if (!owner.AtBase)

@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace BaseConquest.Editor
 {
-    // 副手探针（P42～P44）：解锁、指定、剧情防守不可委托、副手编成不含玩家队伍、
+    // 副手探针（P42～P44）：解锁、指定、剧情防守不可委托、副手编队不含玩家队伍、
     // 后台真实模拟与同规则结算、权限只放查看与策略、战斗不耗日、存档往返。
     //
     // 用「首防已胜 + 世界道路已开」的状态，因为副手正是在讨伐黑鸦寨出发时解锁，
@@ -66,16 +66,16 @@ namespace BaseConquest.Editor
             Need(BaseDeputyBattle.Problem(s, BaseDemoDefense.EventId).Contains("剧情"), "剧情防守应给出明确原因");
             Debug.Log("[Deputy] 剧情防守拒绝 PASS");
 
-            // 5) 普通袭击：可以委托，编成不含玩家队伍。
+            // 5) 普通袭击：可以委托，编队不含玩家队伍。
             string eventId = AddRaid(s);
             BaseEconomy.Validate(s);
             Need(string.IsNullOrEmpty(BaseDeputyBattle.Problem(s, eventId)), "普通袭击应可交给副手：" + BaseDeputyBattle.Problem(s, eventId));
             var selection = BaseDeputyBattle.Selection(s);
             Need(selection.Candidates.Count >= 1 && selection.Candidates[0] == "partner_farm", "副手应排在 A 位");
-            Need(selection.Candidates.All(id => id != s.PlayerLeaderId), "副手编成不能包含主角");
-            Need(selection.Candidates.All(id => !s.Adventure.Members.Contains(id)), "副手编成不能包含随行队伍");
-            Need(selection.Purpose == "defense" && selection.LeaderCount == selection.Candidates.Count, "副手编成应沿用迎战用途与人数");
-            Debug.Log("[Deputy] 副手编成 A 位＝" + string.Join("、", selection.Candidates) + " PASS");
+            Need(selection.Candidates.All(id => id != s.PlayerLeaderId), "副手编队不能包含主角");
+            Need(selection.Candidates.All(id => !s.Adventure.Members.Contains(id)), "副手编队不能包含随行队伍");
+            Need(selection.Purpose == "defense" && selection.LeaderCount == selection.Candidates.Count, "副手编队应沿用迎战用途与人数");
+            Debug.Log("[Deputy] 副手编队 A 位＝" + string.Join("、", selection.Candidates) + " PASS");
 
             // 6) 后台真实模拟：同规则结算、不耗日、不搬玩家。
             int day = s.Day, food = s.Inventory.Food;
@@ -93,7 +93,7 @@ namespace BaseConquest.Editor
             Need(s.Inventory.Food <= food, "副手战不应凭空增加口粮");
             Debug.Log("[Deputy] 后台模拟：部署 " + report.Deployed + "／敌军 " + report.EnemyDeployed + "，第 " + s.Day + " 天未变 PASS");
 
-            // 7) 观战路径：同一场战斗，权限只放查看与策略；玩家队伍不进编成。
+            // 7) 观战路径：同一场战斗，权限只放查看与策略；玩家队伍不进编队。
             var watch = saved.Copy();
             string watchId = AddRaid(watch);
             BaseEconomy.Validate(watch);
@@ -103,7 +103,7 @@ namespace BaseConquest.Editor
             var session = new BaseCampaignSession(opening);
             Need(session.Battle.Control.View && session.Battle.Control.Strategy, "副手观战应保留查看与策略");
             Need(!session.Battle.Control.Order && !session.Battle.Control.Skill && !session.Battle.Control.Range, "副手观战不能移动／集火／放技能／改范围");
-            Need(session.Opening.Deputy && session.Opening.Leaders.All(l => l.Id != watch.PlayerLeaderId), "观战编成不能带主角");
+            Need(session.Opening.Deputy && session.Opening.Leaders.All(l => l.Id != watch.PlayerLeaderId), "观战编队不能带主角");
             session.Battle.AutoDeploy(BattleSide.A); session.Bind();
             Need(session.Battle.Start(out string reason), "副手观战应能开战：" + reason);
             Debug.Log("[Deputy] 观战权限：查看／策略开，移动／技能／范围关 PASS");
@@ -132,9 +132,9 @@ namespace BaseConquest.Editor
             BaseEconomy.Validate(overnight);
             Debug.Log("[Deputy] 过夜袭击走真实模型并结算 PASS");
 
-            // 10) 不能中途改成玩家指挥：副手战编成里没有主角位，换人也只能换留守角色。
+            // 10) 不能中途改成玩家指挥：副手战编队里没有主角位，换人也只能换留守角色。
             Need(Rejects(() => BaseDeputy.Set(watch, watch.PlayerLeaderId)), "副手战不能把主角改成副手");
-            Debug.Log("[Deputy] PASS：解锁、指定、剧情例外、编成、后台模拟、观战权限与不耗日");
+            Debug.Log("[Deputy] PASS：解锁、指定、剧情例外、编队、后台模拟、观战权限与不耗日");
         }
 
         // 首防胜利 → 领主交付 → 世界道路开放，玩家回到营地。

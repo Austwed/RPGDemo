@@ -33,6 +33,7 @@ namespace BaseConquest.Base
                 else Hud.OpenFirstRaidBriefing(proceed, back);
                 return;
             }
+            if (prepared != null) EndDeploymentWorld();
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
             if (!Change(next =>
             {

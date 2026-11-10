@@ -7,14 +7,17 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        private void RenderStonesTrade(RectTransform offers,RectTransform details)
+        private void RenderStoneOffer(RectTransform offers)
+        {
+            var s=owner.State;
+            TradeOffer(offers,BaseEquipmentCrafting.Stone,
+                "锻造石 · "+BaseEquipmentCrafting.BuyPrice(s)+"币 · 余 "+s.PersonalEquipment.StonesRemaining);
+        }
+
+        private void RenderStoneDetails(RectTransform details)
         {
             var s=owner.State;
             int price=BaseEquipmentCrafting.BuyPrice(s);
-            tradeSelection=BaseEquipmentCrafting.Stone;
-            TradeOffer(offers,tradeSelection,"锻造石 · "+price+"币 · 余 "+s.PersonalEquipment.StonesRemaining);
-            if(details==null)return;
-
             int max=BaseEquipmentCrafting.MaxBuy(s),revision=s.Backpack.Revision;
             TradeLine(details,"锻造石 · 单价 "+price+"币");
             TradeLine(details,"今日剩余 "+s.PersonalEquipment.StonesRemaining+"/"+BaseEquipmentCrafting.StockLimit(s));

@@ -70,7 +70,7 @@ namespace BaseConquest.Editor
                 Report("同一刻敌方普通兵的即死率", baseline, enemyChance);
                 Check(Math.Abs(enemyChance - withTwoEnemy) < 1e-9, "双方共用同一 N，同一刻概率必须相同");
 
-                // 共用 N 的核心承诺：合计相同，编成不影响概率。全战士、全弓兵、全骑兵、平均分配都必须同值。
+                // 共用 N 的核心承诺：合计相同，编队不影响概率。全战士、全弓兵、全骑兵、平均分配都必须同值。
                 foreach (var comp in new[] { new[] { baseline, 0, 0 }, new[] { 0, baseline, 0 }, new[] { 0, 0, baseline }, new[] { baseline / 3, baseline / 3, baseline - 2 * (baseline / 3) } })
                 {
                     var mixOpening = new BaseCampaignBattle { DemoCombat = true, PlayerTroopCounts = comp, Rpg = rules, Scenario = new BattleScenario() };
@@ -78,8 +78,8 @@ namespace BaseConquest.Editor
                     var mixProbe = new BattleSoldier { Id = 990, Side = BattleSide.A, Kind = SoldierKind.Melee, Health = 100, Stats = new SoldierStats { Health = 100, Damage = 12, Defense = 4 } };
                     mixSession.Battle.Soldiers.Add(mixProbe);
                     double mix = BaseDemoCombat.DeathChance(mixSession, mixProbe);
-                    Debug.Log("[Cascade] 编成 " + string.Join("/", comp) + " → 合计 N=" + comp.Sum() + "，即死率 " + mix.ToString("P1"));
-                    Check(Math.Abs(mix - atBase) < 1e-9, "合计相同则编成不得改变即死率：" + string.Join("/", comp));
+                    Debug.Log("[Cascade] 编队 " + string.Join("/", comp) + " → 合计 N=" + comp.Sum() + "，即死率 " + mix.ToString("P1"));
+                    Check(Math.Abs(mix - atBase) < 1e-9, "合计相同则编队不得改变即死率：" + string.Join("/", comp));
                 }
 
                 // 旧分兵种口径的硬伤：我方某个兵种为 0 时，敌方同兵种永远打不死、只会倒地可俘。共用后应消失。

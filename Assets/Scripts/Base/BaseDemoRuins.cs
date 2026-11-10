@@ -120,7 +120,7 @@ namespace BaseConquest.Base
             var session=new BaseCampaignSession(active);
             if (!active.ManualDeployment) session.Battle.AutoDeploy(BattleSide.A);
             if (roster != null && session.Battle.Soldiers.Count(u => u.Side == BattleSide.A) != roster.Units.Length)
-                throw new InvalidOperationException("所选编成无法完整入场");
+                throw new InvalidOperationException("所选编队无法完整入场");
             session.Bind();
             if(!session.Battle.Start(out string problem))throw new InvalidOperationException(problem);return session;
         }

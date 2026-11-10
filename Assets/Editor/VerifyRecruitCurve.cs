@@ -77,11 +77,11 @@ namespace BaseConquest.Editor
                 Check(tightCounts.Sum() == BaseTown.DemoDailyTotal(tight), "保底不得超出当日总量");
                 Check(tight.Town.Recruits.Single(r => r.Kind == BaseTroopKind.Cavalry).DailyCount >= 1, "缺位最久的兵种必须优先补");
 
-                // 5) 编成不影响报价：同样的合计兵力，全战士与平均分配同价。
+                // 5) 编队不影响报价：同样的合计兵力，全战士与平均分配同价。
                 var allMelee = Prepare(template, baseline);
                 var balanced = Prepare(template, baseline);
                 balanced.Workers[0].Kind = BaseTroopKind.Ranged;
-                Check(BaseTown.HirePrice(allMelee, BaseTroopKind.Melee) == BaseTown.HirePrice(balanced, BaseTroopKind.Melee), "合计相同则编成不得改变报价");
+                Check(BaseTown.HirePrice(allMelee, BaseTroopKind.Melee) == BaseTown.HirePrice(balanced, BaseTroopKind.Melee), "合计相同则编队不得改变报价");
 
                 Debug.Log(failures == 0 ? "[Recruit] PASS：合计兵源、随机分配与报价曲线符合裁决" : "[Recruit] FAIL：" + failures + " 项");
                 EditorApplication.Exit(failures == 0 ? 0 : 1);
