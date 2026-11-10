@@ -37,7 +37,12 @@ namespace BaseConquest.Base
             {
                 if(!BaseInteraction.CanReach(State,BaseSpatial.Layout(State).Objects.Single(obj=>obj.SourceObjectId==worldEntry.ObjectId).Object)){ReportMessage("请在世界出入口同层一格内交互");return;}
                 pendingWorldEntry=worldEntry.Id;
-                if(!State.Muster.Parties.Any(party=>party.Purpose=="expedition"&&party.Leaders.Any(leader=>leader.LeaderId==State.PlayerLeaderId))){Hud.OpenDeparture("world");return;}
+                if(!State.Muster.Parties.Any(party=>party.Purpose=="expedition"&&party.Leaders.Any(leader=>leader.LeaderId==State.PlayerLeaderId)))
+                {
+                    if(objectId=="demo_march_exit"&&BaseDemoFinale.Enabled(State))Hud.OpenBattlePreparation(BasePrepRoute.Travel);
+                    else Hud.OpenDeparture("world");
+                    return;
+                }
                 CompleteTravel("world",null);return;
             }
             pendingWorldEntry=null;

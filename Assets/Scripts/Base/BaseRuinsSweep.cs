@@ -31,10 +31,10 @@ namespace BaseConquest.Base
             if(BaseBattleLoot.Pending(s))return "请先处理上次战果";
             return "";
         }
-        public static BaseSweepPreview Preview(BaseState s,string mode="full")
+        public static BaseSweepPreview Preview(BaseState s,string mode="full",BaseBattlePreparation preparation=null)
         {
             var problem=Problem(s);if(problem!="")return new BaseSweepPreview {Problem=problem};
-            try{return Estimate(s,BaseDemoRuins.Begin(s.Copy(),mode));}
+            try{return Estimate(s,Begin(s.Copy(),mode,preparation));}
             catch(Exception e){return new BaseSweepPreview {Problem=e.Message};}
         }
         private static BaseSweepPreview Estimate(BaseState state,BaseCampaignSession session)
@@ -53,10 +53,17 @@ namespace BaseConquest.Base
             p.Losses=BaseAutoResolve.Losses(session,engagement,p.Exposure);
             return p;
         }
-        public static BaseSweepPreview Resolve(BaseState s,string mode="full")
+        private static BaseCampaignSession Begin(BaseState state, string mode, BaseBattlePreparation preparation)
         {
-            var preview=Preview(s,mode);if(preview.Problem!="")throw new InvalidOperationException(preview.Problem);
-            var session=BaseDemoRuins.Begin(s,mode);var result=Estimate(s,session);
+            if (preparation == null) return BaseDemoRuins.Begin(state, mode);
+            if (preparation.Route != BasePrepRoute.Ruins) throw new InvalidOperationException("只有古窟备战可扫荡");
+            return BaseDemoRuins.Begin(state, mode, preparation.Plan(state, false), preparation.Roster(state, false));
+        }
+
+        public static BaseSweepPreview Resolve(BaseState s,string mode="full",BaseBattlePreparation preparation=null)
+        {
+            var preview=Preview(s,mode,preparation);if(preview.Problem!="")throw new InvalidOperationException(preview.Problem);
+            var session=Begin(s,mode,preparation);var result=Estimate(s,session);
             if(result.Problem!="")throw new InvalidOperationException(result.Problem);
             var run=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(run);
             BaseAutoResolve.Apply(run,result.Losses,result.Seconds);

@@ -14,7 +14,7 @@ namespace BaseConquest.Base
         {
             bool toBase=State.Adventure.Members.Count>=BaseAdventure.Capacity;
             if(!Change(next=>{if(!BaseDemoRuins.Join(next,id))throw new InvalidOperationException(!BaseRpg.HasRoom(next)?"营帐队长名额已满，请先扩建营帐或腾出名额":"请先交谈，并确认伙伴可加入、没有未返营的队伍");},toBase?"小队已满，伙伴已加入基地":"伙伴已加入小队"))return;
-            RefreshDemoRegion();Hud.ClosePanel();if(id=="partner_craft")Hud.OpenSmithFather(true);
+            RefreshDemoRegion();Hud.ClosePanel();if(id=="partner_craft")Hud.OpenSmithFather();
         }
         public void TravelDemo(string target)
         {
@@ -28,14 +28,37 @@ namespace BaseConquest.Base
             if(!Change(next=>result=BaseRuinsSweep.Resolve(next,mode),"遗迹扫荡完成，真实战损已保存"))return;
             RefreshDemoRegion();Hud.OpenSweepResult(result);
         }
-        public void BeginDemoRuins(string mode,bool confirmed=false,bool confrontationConfirmed=false)
+        internal void SweepPreparedRuins(BaseBattlePreparation prepared)
+        {
+            BaseSweepPreview result = null;
+            if (!Change(next => result = prepared.Sweep(next), "遗迹扫荡完成，真实战损已保存")) { Hud.RefreshPreparedFailure(); return; }
+            RefreshDemoRegion();
+            Hud.OpenSweepResult(result);
+        }
+
+        internal void BeginPreparedBattle(BaseBattlePreparation prepared)
+        {
+            if (prepared == null || Busy) return;
+            string problem = prepared.Problem(State, true);
+            if (problem != "") { ReportMessage(problem); Hud.RefreshPreparedFailure(); return; }
+            switch (prepared.Route)
+            {
+                case BasePrepRoute.Ruins: BeginDemoRuins("none", prepared: prepared); break;
+                case BasePrepRoute.Defense:
+                case BasePrepRoute.Second: BeginDemoDefense("none", prepared: prepared); break;
+                case BasePrepRoute.BlackCrow: BeginDemoAttack("none", prepared: prepared); break;
+            }
+        }
+
+        public void BeginDemoRuins(string mode,bool confirmed=false,bool confrontationConfirmed=false,BaseBattlePreparation prepared=null)
         {
             if(!confirmed)
-            {Hud.OpenRuinsWarning(()=>BeginDemoRuins(mode,true));return;}
+            {Hud.OpenRuinsWarning(()=>BeginDemoRuins(mode,true,prepared:prepared),prepared);return;}
             if(State.Demo.RuinsDay==0&&!confrontationConfirmed)
-            {Hud.OpenRuinsConfrontation(()=>BeginDemoRuins(mode,true,true));return;}
+            {Hud.OpenRuinsConfrontation(()=>BeginDemoRuins(mode,true,true,prepared));return;}
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
-            if(!Change(next=>encounter=BaseDemoRuins.Begin(next,mode),"军需与真实人员已锁定；进入遗迹救助战"))return;
+            if(!Change(next=>encounter=prepared==null?BaseDemoRuins.Begin(next,mode):prepared.Begin(next),"军需与真实人员已锁定；进入遗迹救助战"))
+            {if(prepared!=null)Hud.RefreshPreparedFailure();return;}
             beforeDemoRuins=before;if(BaseSceneRules.Active(State))RefreshDemoRegion();
             try{BeginSceneEncounter(encounter,BaseDemoRuins.Configure,null,FinishDemoRuinsEncounter,"遗迹救助 · 击败控制来源");}
             catch(Exception error)

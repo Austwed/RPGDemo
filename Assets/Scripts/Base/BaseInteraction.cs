@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using BaseConquest.Battle;
+using BaseConquest.Presentation;
 
 namespace BaseConquest.Base
 {
@@ -15,6 +16,11 @@ namespace BaseConquest.Base
         {
             double length=Math.Sqrt(direction.X*direction.X+direction.Y*direction.Y);
             if(length>1e-6)Facing=new BasePoint(direction.X/length,direction.Y/length);
+        }
+        internal static void RecordWalk(double dx, double dy)
+        {
+            var axis = PlayerHeroFrames.WalkingAxis(dx, dy);
+            if (axis.X != 0 || axis.Z != 0) Facing = new BasePoint(axis.X, axis.Z);
         }
         public static bool CanReach(BattleBoard board,BaseMapObject target,double positionX,double positionY)
             =>CanReach(board,target,positionX,positionY,Facing);

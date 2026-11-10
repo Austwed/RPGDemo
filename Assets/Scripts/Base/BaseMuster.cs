@@ -82,6 +82,7 @@ namespace BaseConquest.Base
         public string PriorityMode="";
         public bool ConserveMaterials;
         public List<BaseCommanderAllocation> CommanderTroops;
+        internal List<BaseCommanderAllocation> ManualTeams;
         public BaseProductionForecast Production;
         public int MissingLeaders, MissingMelee, MissingRanged, MissingCavalry, FoodLoss, ProductLoss, RemainingBase;
         public List<string> Leaders = new List<string>();
@@ -212,6 +213,10 @@ namespace BaseConquest.Base
             return string.Join("|", parts);
         }
         public static BaseMusterPlan Preview(BaseState s, string purpose, bool ignoreProtection = false, BaseArmyPreset selection = null, IEnumerable<BaseSoldierPick> manualPicks = null,string priorityMode="")
+            => Preview(s, purpose, ignoreProtection, selection, manualPicks, priorityMode, null);
+
+        internal static BaseMusterPlan Preview(BaseState s, string purpose, bool ignoreProtection, BaseArmyPreset selection,
+            IEnumerable<BaseSoldierPick> manualPicks, string priorityMode, List<BaseCommanderAllocation> manualTeams)
         {
             BaseEconomy.Validate(s);
             if (s.Aftermath.GameOver || !Purposes.Contains(purpose) || s.Muster.Parties.Any(p => p.Purpose == purpose)) throw new InvalidOperationException("该用途已有外出队伍，先返营再重新编队");
@@ -223,6 +228,7 @@ namespace BaseConquest.Base
             if(priorityMode!="")plan.IgnoreProtection=priorityMode=="combat";
             plan.Selection = selection?.Copy();
             plan.ManualPicks = manualPicks?.Select(p=>p?.Copy()).ToList();
+            plan.ManualTeams = manualTeams?.Select(team => team.Copy()).ToList();
             plan.Leaders = preset.Candidates.Where(id => s.Leaders.Any(l => l.Id == id && BaseDevelopment.CanFight(l))).Take(preset.LeaderCount).ToList(); plan.MissingLeaders = preset.LeaderCount - plan.Leaders.Count;
             if(plan.Leaders.Count>0)PrepareProduction(s,plan);
             if(plan.ManualPicks==null&&priorityMode!=""&&plan.Leaders.Count>0)SelectOrderedWorkers(s,plan,preset);
@@ -273,7 +279,7 @@ namespace BaseConquest.Base
             BaseEconomy.Validate(s);
             if (plan == null || !string.IsNullOrEmpty(plan.PartyId) || plan.Leaders == null || plan.Leaders.Count == 0 || s.Muster.Parties.Any(p => p.Id == plan.Id) || s.Muster.ReturnedIds.Contains(plan.Id) || plan.Stamp != Snapshot(s)) return false;
             BaseMusterPlan actual;
-            try { actual = Preview(s, plan.Purpose, plan.IgnoreProtection, plan.Selection,plan.ManualPicks,plan.PriorityMode); }
+            try { actual = Preview(s, plan.Purpose, plan.IgnoreProtection, plan.Selection,plan.ManualPicks,plan.PriorityMode,plan.ManualTeams); }
             catch(ArgumentException) {return false;} catch(InvalidOperationException) {return false;}
             if (Shape(actual) != Shape(plan)) return false;
             if(actual.PriorityMode=="production"&&actual.Production?.Allowed!=true)return false;

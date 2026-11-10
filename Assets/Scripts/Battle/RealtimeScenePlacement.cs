@@ -24,13 +24,19 @@ namespace BaseConquest.Battle
     {
         public static void Start(BaseState state,BaseCampaignSession session)
         {
-            if(!BaseSceneRules.Active(state))return;
+            if(!BaseSceneRules.Active(state)&&!session.Opening.ManualDeployment)return;
             if(session.Battle.Phase==BattlePhase.Deployment)
-            {session.Battle.AutoDeploy(BattleSide.A);session.Battle.AutoDeploy(BattleSide.B);session.Bind();if(!session.Battle.Start(out string problem))throw new InvalidOperationException(problem);}
+            {
+                if (!session.Opening.ManualDeployment) session.Battle.AutoDeploy(BattleSide.A);
+                else if (session.Battle.Soldiers.Count(u=>u.Side==BattleSide.A)!=session.Opening.Troops.Count+session.Opening.Leaders.Count)
+                    throw new InvalidOperationException("战场落点已变化，请重新部署");
+                session.Battle.AutoDeploy(BattleSide.B);session.Bind();
+                if(!session.Battle.Start(out string problem))throw new InvalidOperationException(problem);
+            }
         }
         public static void Snap(BaseState state,RealtimeCampaignBattle run)
         {
-            if(!BaseSceneRules.Active(state)||run.Session.Opening.HasRealtimeState)return;
+            if(!BaseSceneRules.Active(state)||run.Session.Opening.HasRealtimeState||run.Session.Opening.ManualDeployment)return;
             foreach(var unit in run.Model.Units.Where(u=>u.Side==RealtimePrototype.PrototypeSide.Ally).OrderByDescending(u=>u.Player).ThenBy(u=>u.Id))
             {
                 var leader=run.Session.Opening.Leaders.ElementAtOrDefault(unit.Squad);

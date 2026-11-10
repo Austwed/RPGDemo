@@ -182,6 +182,12 @@
       "notes": "暖木界面功能占位，待改写。"
     },
     {
+      "key": "story.ui.trade.enter",
+      "group": "界面／交易",
+      "text": "进入交易",
+      "notes": "商人和铁匠对白共用的入口，分类在交易面板内切换。功能占位，待改写。"
+    },
+    {
       "key": "story.ui.trade.recipient",
       "group": "界面／交易",
       "text": "收货人：{name}",
@@ -230,6 +236,198 @@
       "notes": "暖木界面功能占位，待改写。"
     },
     {
+      "key": "story.ui.prep.first_defense",
+      "group": "界面／战前准备",
+      "text": "首次防守",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.second_defense",
+      "group": "界面／战前准备",
+      "text": "第二波防守",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.travel",
+      "group": "界面／战前准备",
+      "text": "出征编成",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.preparation",
+      "group": "界面／战前准备",
+      "text": "战前准备",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.enemy_arrival",
+      "group": "界面／战前准备",
+      "text": "敌方 · 抵达战场后查看",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.enemy_roster_unknown",
+      "group": "界面／战前准备",
+      "text": "敌军编成待侦察",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.enemy_unknown",
+      "group": "界面／战前准备",
+      "text": "敌方 · 暂无已知情报",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.travel_confirm",
+      "group": "界面／战前准备",
+      "text": "确认出征编成",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.assigning",
+      "group": "界面／战前准备",
+      "text": "正在分配",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.assign",
+      "group": "界面／战前准备",
+      "text": "分配士兵",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.roster",
+      "group": "界面／战前准备",
+      "text": "候选名册",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.unselected",
+      "group": "界面／战前准备",
+      "text": "待选",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.limit",
+      "group": "界面／战前准备",
+      "text": "出战士兵最多 24 人",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.travel_context",
+      "group": "界面／战前准备",
+      "text": "抵达黑鸦寨后，可在随行人员中重新编成及部署。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.production",
+      "group": "界面／战前准备",
+      "text": "当前编成无法保障生产",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.first_objective",
+      "group": "界面／战前准备",
+      "text": "坚守到敌军撤离，或击败全部来敌。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.second_objective",
+      "group": "界面／战前准备",
+      "text": "击败全部来敌。开战后无法撤退。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.attack_objective",
+      "group": "界面／战前准备",
+      "text": "使用已抵达的队伍攻占黑鸦寨。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.deployment",
+      "group": "界面／战前准备",
+      "text": "部署",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.deployment_help",
+      "group": "界面／战前准备",
+      "text": "点选或拖划浅色格部署。点击已部署单位可撤回。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.placing",
+      "group": "界面／战前准备",
+      "text": "放置中",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.recall_captain",
+      "group": "界面／战前准备",
+      "text": "撤回分队",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.captain",
+      "group": "界面／战前准备",
+      "text": "部署队长",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.illegal_cell",
+      "group": "界面／战前准备",
+      "text": "这里无法放置该单位，请选择己方部署区内的可用格。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.roster_changed",
+      "group": "界面／战前准备",
+      "text": "人员或落点已变化，请检查编成。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.resource.coins.details",
+      "group": "界面／资源栏",
+      "text": "当前 {coins} 币\n预计净变化 {delta} / 日\n交易等即时变化不计入日结预计。",
+      "notes": "功能占位，待回稿。保留 {coins}、{delta} 与换行。"
+    },
+    {
+      "key": "story.ui.resource.energy.details",
+      "group": "界面／资源栏",
+      "text": "当前 / 上限 {current} / {max}\n每日自然恢复最多 {recovery}，下次预计恢复 +{next}\n重战和扫荡各消耗 {cost} 点。",
+      "notes": "功能占位，待回稿。保留 {current}、{max}、{recovery}、{next}、{cost} 与换行。"
+    },
+    {
+      "key": "story.ui.resource.energy.disabled",
+      "group": "界面／资源栏",
+      "text": "本局没有启用体力。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.resource.calendar.title",
+      "group": "界面／资源栏",
+      "text": "日历 · 第 {quarter} 季度",
+      "notes": "功能占位，待回稿。保留 {quarter}。"
+    },
+    {
+      "key": "story.ui.resource.calendar.today",
+      "group": "界面／资源栏",
+      "text": "今日",
+      "notes": "功能占位，待回稿。格内标记 3 字以内。"
+    },
+    {
+      "key": "story.ui.resource.calendar.raid",
+      "group": "界面／资源栏",
+      "text": "军情",
+      "notes": "功能占位，待回稿。格内标记 3 字以内。"
+    },
+    {
+      "key": "story.ui.resource.calendar.event",
+      "group": "界面／资源栏",
+      "text": "第 {day} 天 · {events}",
+      "notes": "功能占位，待回稿。保留 {day}、{events}。"
+    },
+    {
       "key": "story.ui.intel.first_offer",
       "group": "剧情／免费首防消息",
       "text": "可领取一次免费首防消息。",
@@ -252,6 +450,48 @@
       "group": "剧情／返乡重建",
       "text": "小粮田、营帐和仓库均已放置。确认后结束 Demo。",
       "notes": "功能占位，待写。"
+    },
+    {
+      "key": "story.ui.menu.tasks",
+      "group": "界面／菜单",
+      "text": "任务 · N",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.menu.resources",
+      "group": "界面／菜单",
+      "text": "资源与人员信息",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.supply",
+      "group": "界面／备战",
+      "text": "军需数量超过本队人数或库存",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.changed",
+      "group": "界面／备战",
+      "text": "现场已变化，请重新备战",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.player",
+      "group": "界面／备战",
+      "text": "请先部署主角",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.captain",
+      "group": "界面／备战",
+      "text": "请为出战士兵指定在场队长",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.cells",
+      "group": "界面／备战",
+      "text": "请修正无效落点",
+      "notes": "功能占位，待回稿。"
     }
   ]
 }

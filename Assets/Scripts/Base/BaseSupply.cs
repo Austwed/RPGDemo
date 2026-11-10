@@ -19,6 +19,13 @@ namespace BaseConquest.Base
         public double Fraction;
         public BaseEquipmentWear Copy() => (BaseEquipmentWear)MemberwiseClone();
     }
+    [Serializable] public sealed class BaseTeamSupply
+    {
+        public string LeaderId;
+        public int Soldiers, Low, High;
+        public BaseTeamSupply Copy() => (BaseTeamSupply)MemberwiseClone();
+        public double Average(double low, double high) => Soldiers == 0 ? 0 : (Low * low + High * high) / Soldiers;
+    }
     [Serializable] public sealed class BaseEquipmentQuota
     {
         public string BattleId, PartyId, Phase = "prepared", Mode;
@@ -28,8 +35,23 @@ namespace BaseConquest.Base
         public List<BaseSupplyRule> Rules = new List<BaseSupplyRule>();
         public double SwordBonus, BowBonus, ArmorBonus, AttackFactor = 1;
         public double ReturnedWear, LostWear;
-        public BaseEquipmentQuota Copy() => new BaseEquipmentQuota { BattleId = BattleId, PartyId = PartyId, Phase = Phase, Mode = Mode, Melee = Melee, Ranged = Ranged, Cavalry = Cavalry, Leaders = Leaders.ToList(), Equipment = Equipment.Select(e => e.Copy()).ToList(), Rules = Rules.Select(r => r.Copy()).ToList(), SwordBonus = SwordBonus, BowBonus = BowBonus, ArmorBonus = ArmorBonus, AttackFactor = AttackFactor, ReturnedWear = ReturnedWear, LostWear = LostWear };
+        public List<BaseTeamSupply> Teams;
+        public bool PartySubset;
+        public bool ByTeam => Teams?.Count > 0;
+        public BaseEquipmentQuota Copy() => new BaseEquipmentQuota { BattleId = BattleId, PartyId = PartyId, Phase = Phase, Mode = Mode, Melee = Melee, Ranged = Ranged, Cavalry = Cavalry, Leaders = Leaders.ToList(), Equipment = Equipment.Select(e => e.Copy()).ToList(), Rules = Rules.Select(r => r.Copy()).ToList(), SwordBonus = SwordBonus, BowBonus = BowBonus, ArmorBonus = ArmorBonus, AttackFactor = AttackFactor, ReturnedWear = ReturnedWear, LostWear = LostWear, Teams = Teams?.Select(t => t.Copy()).ToList(), PartySubset = PartySubset };
         public int Demand(string product) => product == "sword" ? Melee + Cavalry : product == "bow" ? Ranged : Melee + Ranged + Cavalry;
+        public double WeaponBonus(int slot, bool ranged)
+        {
+            if (!ByTeam) return ranged ? BowBonus : SwordBonus;
+            var rule = Rules.Single(r => r.Product == "supply");
+            return Teams[slot].Average(rule.LowBonus, rule.HighBonus);
+        }
+        public double DefenseBonus(int slot)
+        {
+            if (!ByTeam) return ArmorBonus;
+            var rule = Rules.Single(r => r.Product == "supply");
+            return Teams[slot].Average(rule.LowDefense, rule.HighDefense);
+        }
     }
     [Serializable] public sealed class BaseSupplyState
     {
@@ -49,6 +71,12 @@ namespace BaseConquest.Base
     public sealed class BaseSupplyOutcome
     {
         public int SafeMelee, LostMelee, SafeRanged, LostRanged, SafeCavalry, LostCavalry;
+        internal readonly Dictionary<int, (int safe, int lost)> Teams = new Dictionary<int, (int safe, int lost)>();
+        internal void RecordTeam(int slot, bool lost)
+        {
+            Teams.TryGetValue(slot, out var count);
+            Teams[slot] = lost ? (count.safe, count.lost + 1) : (count.safe + 1, count.lost);
+        }
         public int Safe(string product) => product == "sword" ? SafeMelee + SafeCavalry : product == "bow" ? SafeRanged : SafeMelee + SafeRanged + SafeCavalry;
         public int Lost(string product) => product == "sword" ? LostMelee + LostCavalry : product == "bow" ? LostRanged : LostMelee + LostRanged + LostCavalry;
     }
@@ -88,9 +116,23 @@ namespace BaseConquest.Base
                     if(product=="supply"&&(Math.Abs(q.BowBonus-actual)>1e-8||Math.Abs(q.ArmorBonus-(demand==0?0:q.Equipment.Sum(e=>e.Count*(e.Level==1?rule.LowDefense:rule.HighDefense))/demand))>1e-8))throw new ArgumentException("统一军需攻防与配额不一致");
                     if (Math.Abs(stored - actual) > 1e-8) throw new ArgumentException("供给属性与锁定数量不一致");
                 }
-                if (party == null || party.InCombat != (q.Phase == "fighting") || !q.Leaders.SequenceEqual(party.Leaders.Select(l => l.LeaderId)) || BaseEconomy.ProductsFor(s).Any(p => q.Equipment.Where(e => e.Product == p).Sum(e => e.Count) > q.Demand(p))) throw new ArgumentException("配额与实际队伍／供给分母不一致");
-                if (q.Phase == "prepared" && (Count(s, party.Id, BaseTroopKind.Melee) != q.Melee || Count(s, party.Id, BaseTroopKind.Ranged) != q.Ranged || Count(s, party.Id, BaseTroopKind.Cavalry) != q.Cavalry)) throw new ArgumentException("备战队伍变化，先取消旧配额");
-                if (Count(s, party.Id, BaseTroopKind.Melee) > q.Melee || Count(s, party.Id, BaseTroopKind.Ranged) > q.Ranged || Count(s, party.Id, BaseTroopKind.Cavalry) > q.Cavalry) throw new ArgumentException("本场锁定后不能追加基地兵");
+                if (q.ByTeam && (!BaseEconomy.ProductsFor(s).SequenceEqual(new[] { "supply" }) ||
+                    !q.Teams.Select(t => t?.LeaderId).SequenceEqual(q.Leaders) ||
+                    q.Teams.Any(t => t.Soldiers < 0 || t.Low < 0 || t.High < 0 || (long)t.Low + t.High > t.Soldiers) ||
+                    q.Teams.Sum(t => t.Soldiers) != q.Demand("supply") ||
+                    q.Equipment.Single(e => e.Level == 1).Count != q.Teams.Sum(t => t.Low) ||
+                    q.Equipment.Single(e => e.Level == 2).Count != q.Teams.Sum(t => t.High)))
+                    throw new ArgumentException("逐队军需配额非法");
+                if (party == null || party.InCombat != (q.Phase == "fighting") ||
+                    (q.PartySubset ? !q.ByTeam || party.Purpose != "expedition" || q.Leaders.Except(party.Leaders.Select(l => l.LeaderId)).Any()
+                        : !q.Leaders.SequenceEqual(party.Leaders.Select(l => l.LeaderId))) ||
+                    BaseEconomy.ProductsFor(s).Any(p => q.Equipment.Where(e => e.Product == p).Sum(e => e.Count) > q.Demand(p)))
+                    throw new ArgumentException("配额与实际队伍／供给分母不一致");
+                if (!q.PartySubset)
+                {
+                    if (q.Phase == "prepared" && (Count(s, party.Id, BaseTroopKind.Melee) != q.Melee || Count(s, party.Id, BaseTroopKind.Ranged) != q.Ranged || Count(s, party.Id, BaseTroopKind.Cavalry) != q.Cavalry)) throw new ArgumentException("备战队伍变化，先取消旧配额");
+                    if (Count(s, party.Id, BaseTroopKind.Melee) > q.Melee || Count(s, party.Id, BaseTroopKind.Ranged) > q.Ranged || Count(s, party.Id, BaseTroopKind.Cavalry) > q.Cavalry) throw new ArgumentException("本场锁定后不能追加基地兵");
+                }
             }
             if (s.Inventory.Equipment.Any(e => Available(s, e.Product, e.Level) < 0)) throw new ArgumentException("装备配额超过唯一库存");
         }
@@ -134,6 +176,30 @@ namespace BaseConquest.Base
             if (q == null || q.Phase != "prepared") return false;
             s.Supply.Quotas.Remove(q); s.Supply.FinishedIds.Add(battleId); return true;
         }
+        internal static BaseEquipmentQuota ReserveTeams(BaseState state, BaseOutsideParty party, BasePreparedRoster roster)
+        {
+            var quota = new BaseEquipmentQuota
+            {
+                BattleId = Guid.NewGuid().ToString("N"), PartyId = party.Id, Mode = "none",
+                Leaders = roster.Leaders.ToList(), Teams = roster.Supplies.Select(t => t.Copy()).ToList(),
+                PartySubset = roster.ArrivedPartyId != null, Rules = state.Supply.Rules.Select(r => r.Copy()).ToList(),
+                Melee = roster.Troops.Values.Count(w => w.Kind == BaseTroopKind.Melee),
+                Ranged = roster.Troops.Values.Count(w => w.Kind == BaseTroopKind.Ranged),
+                Cavalry = roster.Troops.Values.Count(w => w.Kind == BaseTroopKind.Cavalry),
+                AttackFactor = BaseEconomy.AttackFactor(state), ReturnedWear = state.Supply.ReturnedWear, LostWear = state.Supply.LostWear
+            };
+            int low = quota.Teams.Sum(t => t.Low), high = quota.Teams.Sum(t => t.High);
+            if (low > Available(state, "supply", 1) || high > Available(state, "supply", 2))
+                throw new InvalidOperationException("军需库存已变化，请重新备战");
+            quota.Equipment.Add(new BaseEquipmentStock { Product = "supply", Level = 1, Count = low });
+            quota.Equipment.Add(new BaseEquipmentStock { Product = "supply", Level = 2, Count = high });
+            var rule = quota.Rules.Single(r => r.Product == "supply");
+            var totals = new BaseTeamSupply { Soldiers = quota.Demand("supply"), Low = low, High = high };
+            quota.SwordBonus = quota.BowBonus = totals.Average(rule.LowBonus, rule.HighBonus);
+            quota.ArmorBonus = totals.Average(rule.LowDefense, rule.HighDefense);
+            state.Supply.Quotas.Add(quota);
+            return quota;
+        }
         public static bool StartBattle(BaseState s, string battleId)
         {
             BaseEconomy.Validate(s); var q = s.Supply.Quotas.FirstOrDefault(x => x.BattleId == battleId);
@@ -149,7 +215,19 @@ namespace BaseConquest.Base
             {
                 int demand = q.Demand(e.Product); if (demand == 0 || e.Count == 0) continue;
                 var wear = s.Supply.Wear.Single(w => w.Product == e.Product && w.Level == e.Level);
-                double amount = wear.Fraction + e.Count * (q.ReturnedWear * result.Safe(e.Product) + q.LostWear * result.Lost(e.Product)) / demand;
+                double amount = wear.Fraction;
+                if (q.ByTeam)
+                {
+                    for (int slot = 0; slot < q.Teams.Count; slot++)
+                    {
+                        var team = q.Teams[slot];
+                        if (!result.Teams.TryGetValue(slot, out var count) || team.Soldiers == 0) continue;
+                        if (count.safe + count.lost > team.Soldiers) throw new ArgumentException("军需损耗超过出战队伍人数");
+                        amount += (e.Level == 1 ? team.Low : team.High) *
+                            (q.ReturnedWear * count.safe + q.LostWear * count.lost) / team.Soldiers;
+                    }
+                }
+                else amount += e.Count * (q.ReturnedWear * result.Safe(e.Product) + q.LostWear * result.Lost(e.Product)) / demand;
                 int lost = Math.Min(e.Count, (int)Math.Floor(amount + 1e-9)); wear.Fraction = Math.Max(0, amount - lost);
                 s.Inventory.Equipment.Single(x => x.Product == e.Product && x.Level == e.Level).Count -= lost;
             }
@@ -166,9 +244,10 @@ namespace BaseConquest.Base
             if (!string.IsNullOrEmpty(copy.SupplyBattleId))
             { if (copy.SupplyBattleId != snapshotId) throw new ArgumentException("不能叠加不同战斗／阵营的装备快照"); return copy; }
             copy.SupplyBattleId = snapshotId;
-            army.Melee.Damage = (float)((army.Melee.Damage + q.SwordBonus) * q.AttackFactor); army.Cavalry.Damage = (float)((army.Cavalry.Damage + q.SwordBonus) * q.AttackFactor);
-            army.Ranged.Damage = (float)((army.Ranged.Damage + q.BowBonus) * q.AttackFactor); army.Hero.Damage *= (float)q.AttackFactor;
-            army.Melee.Defense += (float)q.ArmorBonus; army.Ranged.Defense += (float)q.ArmorBonus; army.Cavalry.Defense += (float)q.ArmorBonus;
+            double sword = q.ByTeam ? 0 : q.SwordBonus, bow = q.ByTeam ? 0 : q.BowBonus, armor = q.ByTeam ? 0 : q.ArmorBonus;
+            army.Melee.Damage = (float)((army.Melee.Damage + sword) * q.AttackFactor); army.Cavalry.Damage = (float)((army.Cavalry.Damage + sword) * q.AttackFactor);
+            army.Ranged.Damage = (float)((army.Ranged.Damage + bow) * q.AttackFactor); army.Hero.Damage *= (float)q.AttackFactor;
+            army.Melee.Defense += (float)armor; army.Ranged.Defense += (float)armor; army.Cavalry.Defense += (float)armor;
             return copy;
         }
     }

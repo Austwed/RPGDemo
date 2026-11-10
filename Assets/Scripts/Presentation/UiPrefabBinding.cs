@@ -28,11 +28,10 @@ namespace BaseConquest.Presentation
             public bool Layout, StaticText;
             public Color? Ink, Background;
             public Font Font;
-            public int FontSize, BestMin, BestMax;
+            public int FontSize;
             public FontStyle FontStyle;
             public TextAnchor Alignment;
             public float LineSpacing;
-            public bool BestFit;
             public string Text;
             public Sprite Sprite;
             public Image.Type ImageType;
@@ -53,7 +52,7 @@ namespace BaseConquest.Presentation
                 bool dynamic=t.GetComponentInParent<UiDynamicContent>(true)!=null;
                 Layout=node.UseAuthoredLayout&&!dynamic;StaticText=node.OverrideStaticText&&!dynamic;
                 var text=t.GetComponent<Text>();
-                if(text!=null) { Ink=text.color;Font=text.font;FontSize=text.fontSize;FontStyle=text.fontStyle;Alignment=text.alignment;LineSpacing=text.lineSpacing;Text=text.text;BestFit=text.resizeTextForBestFit;BestMin=text.resizeTextMinSize;BestMax=text.resizeTextMaxSize; }
+                if(text!=null) { Ink=text.color;Font=text.font;FontSize=text.fontSize;FontStyle=text.fontStyle;Alignment=text.alignment;LineSpacing=text.lineSpacing;Text=text.text; }
                 var image=t.GetComponent<Image>();if(image!=null){Background=image.color;Sprite=image.sprite;ImageType=image.type;}
                 var button=t.GetComponent<Button>();if(button!=null)ButtonColors=button.colors;
                 if(authoredOwns)
@@ -68,7 +67,7 @@ namespace BaseConquest.Presentation
             {
                 var r=t as RectTransform;
                 if(Layout&&r!=null&&t.GetComponent<UiVisualNode>()?.UseAuthoredLayout!=false&&t.GetComponentInParent<UiDynamicContent>(true)==null){r.anchorMin=Min;r.anchorMax=Max;r.pivot=Pivot;r.anchoredPosition=Position;r.sizeDelta=Size;r.localScale=Scale;r.localRotation=Rotation;}
-                var text=t.GetComponent<Text>();if(text!=null&&Ink.HasValue){text.color=Ink.Value;if(Font!=null)text.font=Font;text.fontSize=FontSize;text.fontStyle=FontStyle;text.alignment=Alignment;text.lineSpacing=LineSpacing;text.resizeTextForBestFit=BestFit;text.resizeTextMinSize=BestMin;text.resizeTextMaxSize=BestMax;if(StaticText)text.text=Text;}
+                var text=t.GetComponent<Text>();if(text!=null&&Ink.HasValue){text.color=Ink.Value;if(Font!=null)text.font=Font;text.fontSize=FontSize;text.fontStyle=FontStyle;text.alignment=Alignment;text.lineSpacing=LineSpacing;if(StaticText)text.text=Text;}
                 var image=t.GetComponent<Image>();if(image!=null&&Background.HasValue){image.color=Background.Value;image.sprite=Sprite;image.type=ImageType;}
                 var button=t.GetComponent<Button>();if(button!=null&&ButtonColors.HasValue)button.colors=ButtonColors.Value;
                 var outline=t.GetComponent<Outline>();if(outline!=null&&OutlineColor.HasValue){outline.effectColor=OutlineColor.Value;outline.effectDistance=OutlineDistance.Value;outline.useGraphicAlpha=OutlineUseAlpha;}

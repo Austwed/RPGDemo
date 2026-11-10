@@ -72,7 +72,14 @@ namespace BaseConquest.Base
         }
         private static void SetFormation(BaseState s,BaseMusterPlan plan)
         {
-            plan.CommanderTroops=Distribute(plan.Leaders.Select(id=>new BaseCommanderAllocation {LeaderId=id,Requested=s.Leaders.Single(l=>l.Id==id).DefaultTroops.Copy()}),k=>plan.Takes.Where(t=>s.Workers[t.BucketIndex].Kind==k).Sum(t=>t.Count));
+            var requested = plan.ManualTeams ?? plan.Leaders.Select(id=>new BaseCommanderAllocation
+                {LeaderId=id,Requested=s.Leaders.Single(l=>l.Id==id).DefaultTroops.Copy()}).ToList();
+            int Taken(BaseTroopKind kind) => plan.Takes.Where(t => s.Workers[t.BucketIndex].Kind == kind).Sum(t => t.Count);
+            if (plan.ManualTeams != null && (!requested.Select(team => team.LeaderId).SequenceEqual(plan.Leaders) ||
+                requested.Any(team => !CompositionValid(team.Requested)) ||
+                Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>().Any(kind => requested.Sum(team => team.Requested.Count(kind)) != Taken(kind))))
+                throw new ArgumentException("出征分队与所选士兵不一致");
+            plan.CommanderTroops=Distribute(requested,Taken);
             plan.MissingMelee=plan.CommanderTroops.Sum(r=>r.Requested.Melee-r.Actual.Melee);
             plan.MissingRanged=plan.CommanderTroops.Sum(r=>r.Requested.Ranged-r.Actual.Ranged);
             plan.MissingCavalry=plan.CommanderTroops.Sum(r=>r.Requested.Cavalry-r.Actual.Cavalry);

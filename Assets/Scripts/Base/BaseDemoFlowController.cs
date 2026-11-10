@@ -75,11 +75,6 @@ namespace BaseConquest.Base
                     NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),text)},new[]{new NpcReply("知道了",ClosePanel)});
                 }),new NpcReply("离开",ClosePanel)});
         }
-        public void OpenRaidIntel()
-        {
-            if(BaseDemoFlow.Active(owner.State))StartTrade(TradeVendor.Merchant,TradeShelf.Intel);
-        }
-
         private void PrepareIntelTrade()
         {
             var s=owner.State;

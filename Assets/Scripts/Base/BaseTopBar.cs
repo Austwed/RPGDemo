@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace BaseConquest.Base
 {
-    // 15 天一个季度；只列本季度，标出今天与已排期的袭击（已发生／未来已知）。
+    // 15 天一个季度，只标出已发生或确切已知的袭击。
     public sealed class BaseCalendarDay
     {
         public int Day;
@@ -15,13 +15,15 @@ namespace BaseConquest.Base
     public static class BaseCalendar
     {
         public const int QuarterDays = 15;
+        public static int QuarterNumber(int day) => (Math.Max(1, day) - 1) / QuarterDays + 1;
         public static int QuarterStart(int day) => ((Math.Max(1, day) - 1) / QuarterDays) * QuarterDays + 1;
         public static int QuarterEnd(int day) => QuarterStart(day) + QuarterDays - 1;
-        public static List<BaseCalendarDay> Quarter(BaseState s)
+        public static List<BaseCalendarDay> Quarter(BaseState s) => Quarter(s, QuarterNumber(s?.Day ?? 1));
+        public static List<BaseCalendarDay> Quarter(BaseState s, int quarter)
         {
             var days = new List<BaseCalendarDay>();
-            if (s?.Campaign?.Events == null) return days;
-            int start = QuarterStart(s.Day);
+            if (s?.Campaign?.Events == null || quarter < 1 || quarter > QuarterNumber(s.Day) + 1) return days;
+            int start = (quarter - 1) * QuarterDays + 1;
             for (int offset = 0; offset < QuarterDays; offset++)
             {
                 int day = start + offset;

@@ -82,9 +82,6 @@ namespace BaseConquest.Battle
             objectiveBarFill = Rect("ObjectiveBarFill", objectiveBar, Vector2.zero, Vector2.zero, new Vector2(194, 4)).gameObject.GetOrAdd<Image>(); objectiveBarFill.color = DemoUiTheme.Current.Copper;
             objectiveProgress = Label("", objective, 10); objectiveProgress.name = "ObjectiveProgress"; objectiveProgress.alignment = TextAnchor.MiddleCenter; objectiveProgress.rectTransform.offsetMin = new Vector2(6, 2); objectiveProgress.rectTransform.offsetMax = new Vector2(-6, -27);
             objectiveTitle.horizontalOverflow = objectiveProgress.horizontalOverflow = HorizontalWrapMode.Overflow;
-            objectiveTitle.resizeTextForBestFit = objectiveProgress.resizeTextForBestFit = true;
-            objectiveTitle.resizeTextMinSize = objectiveProgress.resizeTextMinSize = 9;
-            objectiveTitle.resizeTextMaxSize = 11; objectiveProgress.resizeTextMaxSize = 10;
             automatic = Button("自动", safe, new Vector2(1, 1), new Vector2(-124, -10), new Vector2(50, 44), owner.ToggleAutomatic);
             fast = Button("3倍", safe, new Vector2(1, 1), new Vector2(-68, -10), new Vector2(50, 44), owner.ToggleFast);
             skip = Button("跳过", safe, new Vector2(1, 1), new Vector2(-12, -10), new Vector2(50, 44), owner.SkipBattle);

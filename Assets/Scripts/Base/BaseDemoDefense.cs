@@ -158,14 +158,18 @@ namespace BaseConquest.Base
             state.Campaign.Location=target;var landing=BaseSpatial.Layout(state);state.PlayerX=target=="perimeter"&&BaseDemoRelease.Enabled(state)?landing.SpawnX:target=="perimeter"?22:1.6;state.PlayerY=target=="perimeter"&&BaseDemoRelease.Enabled(state)?landing.SpawnY:6.5;BaseAdventure.Arrive(state);return true;
         }
         public static BaseCampaignSession Begin(BaseState state,string mode,BaseMusterPlan plan=null)
+            => Begin(state, mode, plan, null, null);
+
+        internal static BaseCampaignSession Begin(BaseState state, string mode, BaseMusterPlan plan, BasePreparedRoster roster, bool? expectedSecond)
         {
             if(!AnyDue(state)||!BaseInteraction.At(state,"perimeter","demo_defense_start"))throw new InvalidOperationException("请在入侵抵达后到外围迎战点确认");
             plan=plan??BaseAdventure.Preview(state,"defense",true);
             if(plan.Purpose!="defense"||!plan.Leaders.Contains(state.PlayerLeaderId))throw new InvalidOperationException("首次防守需主角在场，训练中请先取消训练或重新选队");
             bool second=SecondDue(state);string eventId=second?SecondEventId:EventId;
+            if (expectedSecond.HasValue && expectedSecond.Value != second) throw new InvalidOperationException("迎战事件已变化，请重新备战");
             var army=state.Demo.Defense.Army.Clone();if(!second){BaseDemoEncounterConfig.ConfigureArmy(state,eventId,army);army.CommanderNames=new List<string>{"巴图"};}var own=army.Clone();own.HeroCount=1;own.CaptainSlot=0;own.CommanderStats.Clear();own.CommanderNames.Clear();own.Commanders=new List<CommanderLoadout>{new CommanderLoadout()};
             var document=new BattleScenarioDocument {Title="Demo首次防守",Scenario=new BattleScenario {Board=BaseBattlefield.Board(state).Clone(),A=own,B=army,MaxRounds=90,Objective=new ObjectiveConfig {Title="守住营地外围"}}};
-            return new BaseCampaignSession(BaseCampaign.Begin(state,eventId,document,mode,plan,true));
+            return new BaseCampaignSession(BaseCampaign.Begin(state,eventId,document,mode,plan,true,roster));
         }
         public static void Configure(RealtimeCampaignBattle run)
         {

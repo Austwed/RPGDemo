@@ -5,11 +5,37 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        public void OpenSmithFather(bool joined=false)
+        private static string TradeEntryLabel => StoryText.Get("story.ui.trade.enter", "进入交易");
+
+        public void OpenSmithFather()
         {
-            bool gift=owner.State.Leaders.Any(l=>l.Id=="partner_craft")&&!owner.State.Demo.Flow.SmithGiftOffered;
-            var lines=joined||gift?new[]{new NpcLine(BaseScriptNames.Blacksmith,BaseScriptNames.Portrait("blacksmith"),"[擦了擦铁锤] 这臭小子总算遇上能降住他的人了。跟着你，比烂在镇上强。"),new NpcLine("阿铸","azhu","爹，我会照顾好自己。也会帮大家守好营地。"),new NpcLine(BaseScriptNames.Blacksmith,BaseScriptNames.Portrait("blacksmith"),"这柄【新手短剑】和一块【锻造石】你拿去。我儿性子急，战场上多担待。")}:new[]{new NpcLine(BaseScriptNames.Blacksmith,BaseScriptNames.Portrait("blacksmith"),"欢迎。武器、护具在这里挑，营地工坊负责生产军需。" )};
-            NpcDialogue(WithInjury(owner.State,"INJ_TOWN_BALONG",lines),new[]{new NpcReply("谢谢，我们会互相照应",()=>{if(owner.Change(s=>{if(!BaseDemoStories.Gift(s))throw new InvalidOperationException("赠礼已领取或阿铸尚未加入");},"老铁匠的赠礼已加入奖励清单"))OpenLoot();else OpenSmithFather();},gift),new NpcReply("看看武器和护具",OpenSmithEquipment),new NpcReply("购买锻造石",OpenSmithStones),new NpcReply(StoryText.Get("story.ui.trade.reforge_tab","重铸"),OpenReforge),new NpcReply("稍后再来",ClosePanel)});
+            var smith = BaseScriptNames.Blacksmith;
+            var portrait = BaseScriptNames.Portrait("blacksmith");
+            if (BaseDemoStories.CanOfferSmithGift(owner.State))
+            {
+                var giftLines = new[]
+                {
+                    new NpcLine(smith, portrait, "[擦了擦铁锤] 这臭小子总算遇上能降住他的人了。跟着你，比烂在镇上强。"),
+                    new NpcLine("阿铸", "azhu", "爹，我会照顾好自己。也会帮大家守好营地。"),
+                    new NpcLine(smith, portrait, "这柄【新手短剑】和一块【锻造石】你拿去。我儿性子急，战场上多担待。")
+                };
+                NpcDialogue(WithInjury(owner.State, "INJ_TOWN_BALONG", giftLines), Array.Empty<NpcReply>(), onCompleted: CompleteSmithGift);
+                return;
+            }
+
+            NpcDialogue(WithInjury(owner.State, "INJ_TOWN_BALONG",
+                    new NpcLine(smith, portrait, "欢迎。武器、护具在这里挑，营地工坊负责生产军需。")),
+                new[] { new NpcReply(TradeEntryLabel, OpenSmithEquipment), new NpcReply("稍后再来", ClosePanel) });
+        }
+
+        private void CompleteSmithGift()
+        {
+            bool awarded = owner.Change(state =>
+            {
+                if (!BaseDemoStories.Gift(state)) throw new InvalidOperationException("赠礼已领取或阿铸尚未加入");
+            }, "老铁匠的赠礼已加入奖励清单");
+            if (awarded) OpenLoot();
+            else OpenSmithFather();
         }
         private void RecruitPrisoner(string id,Action back)
         {

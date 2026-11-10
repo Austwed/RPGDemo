@@ -110,11 +110,14 @@ namespace BaseConquest.Base
             world.Entries.Add(new BaseWorldEntry {Id=id,NodeId=node,MapId=map,ObjectId=marker.SourceObjectId,X=x,Y=y});world.Discovered.Add(id);
         }
         public static BaseCampaignSession Begin(BaseState state,string mode)
+            => Begin(state, mode, null);
+
+        internal static BaseCampaignSession Begin(BaseState state, string mode, BasePreparedRoster roster)
         {
             if(!Opened(state)||state.Demo.Stage!=BaseDemoStage.DefenseWon||state.Campaign.CurrentMapId!=Camp||!BaseInteraction.At(state,"outpost","demo_camp_attack"))throw new InvalidOperationException("请率真实出征队到土匪营地进攻点，不能遥控或重复进攻");
             var army=BaseThreats.Site(state,Camp).Capacity.Clone();army.CaptainSlot=0;army.Commanders=Enumerable.Range(0,army.HeroCount).Select(slot=>new CommanderLoadout()).ToList();
             var document=new BattleScenarioDocument {Scenario=new BattleScenario {Board=BaseBattlefield.Board(state).Clone(),A=army.Clone(),B=army,MaxRounds=90}};
-            return new BaseCampaignSession(BaseCampaign.Begin(state,BaseThreats.Site(state,Camp).AttackEventId,document,mode,null,true));
+            return new BaseCampaignSession(BaseCampaign.Begin(state,BaseThreats.Site(state,Camp).AttackEventId,document,mode,null,true,roster));
         }
         public static void Configure(RealtimeCampaignBattle run)
         {run.OutcomeResolver=current=>BaseDemoCombat.Defeated(current)?BattleOutcome.SideBWin:current.Battle.RealtimeVictorySatisfied||!current.Model.Units.Any(unit=>unit.Side==PrototypeSide.Enemy&&unit.Alive)?BattleOutcome.SideAWin:current.Model.Elapsed>=90?BattleOutcome.RoundLimit:BattleOutcome.None;}

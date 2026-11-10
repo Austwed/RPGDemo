@@ -9,6 +9,9 @@ namespace BaseConquest.Base
     // P33 顶栏明细、15 天日历与体力页。
     public sealed partial class BaseHud
     {
+        private void OpenResourceInfo(Action back) => RuleInfo("资源与人员信息",
+            "基地总兵力只统计己方士兵，包含驻外、在岗、闲置与重伤士兵。\n\n带正负号的数字是按当前岗位预计的一日净变化。粮食扣除全部人员口粮，原料扣除工坊耗料，钱币扣除旅店寄存日费。主动住宿费在休息确认时另列。军需显示两档总量，库存页可查看品质拆分。\n\n姓名为黄色表示通过劝降加入，只标记来源，工作、伤情、编队和作战规则相同。\n\n格子信息 3 秒自动收起，点击信息面板可立即收起。兵营完整单位详情保持打开。", back);
+
         public void OpenResources()
         {
             if (owner.State == null) return;
@@ -38,12 +41,7 @@ namespace BaseConquest.Base
             var header = Solid("ResourceHeading", card, new Vector2(.5f, 1), new Vector2(0, -15), new Vector2(410, 28), theme.Wood);
             Label(header, title, Vector2.zero, new Vector2(384, 26), DemoUiMetrics.FontSubhead).color = theme.Panel;
             for (int i = 0; i < details.Length; i++)
-            {
-                var label = Label(card, details[i], new Vector2(0, -48 - i * 31), new Vector2(384, 30), DemoUiMetrics.FontBody, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
-                label.resizeTextForBestFit = true;
-                label.resizeTextMinSize = DemoUiMetrics.FontCaption;
-                label.resizeTextMaxSize = DemoUiMetrics.FontBody;
-            }
+                Label(card, details[i], new Vector2(0, -48 - i * 31), new Vector2(384, 30), DemoUiMetrics.FontBody, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
         }
 
         public void OpenCalendar()

@@ -74,7 +74,7 @@ namespace BaseConquest.Presentation
         {
             var delta=hasPrevious ? feet-previous : Vector3.zero;previous=feet;hasPrevious=true;
             bool moving=delta.sqrMagnitude>.000001f;if(moving)distance+=new Vector2(delta.x,delta.z).magnitude;
-            if(moving)defaultFacing=PlayerHeroFrames.Face(delta.x,delta.z,defaultFacing);
+            if(moving)defaultFacing=PlayerHeroFrames.FaceWalking(delta.x,delta.z,defaultFacing);
             bool near=observer.HasValue&&new Vector2(observer.Value.x-feet.x,observer.Value.z-feet.z).sqrMagnitude<=4*BattleBoardView.CellSize*BattleBoardView.CellSize+.0001f;
             if(moving||autonomous){facing=defaultFacing;looking=wasNear=false;lookUntil=0;}
             else if(near){facing=PlayerHeroFrames.FaceTowards(observer.Value.x-feet.x,observer.Value.z-feet.z,facing);looking=true;}
@@ -90,11 +90,14 @@ namespace BaseConquest.Presentation
         public void Battle(BattleSimulation battle,BattleSoldier unit,float progress,bool carried)
         {
             var heading=unit.LastAction==RoundAction.Attack||unit.LastAction==RoundAction.Skill ? unit.LastTargetCell : unit.Cell;
-            facing=PlayerHeroFrames.Face(heading.X-unit.PreviousCell.X,heading.Z-unit.PreviousCell.Z,facing);
+            bool walking=unit.LastAction==RoundAction.Move&&unit.CombatKind!=SoldierKind.Cavalry;
+            facing=walking ? PlayerHeroFrames.FaceWalking(heading.X-unit.PreviousCell.X,heading.Z-unit.PreviousCell.Z,facing)
+                : PlayerHeroFrames.Face(heading.X-unit.PreviousCell.X,heading.Z-unit.PreviousCell.Z,facing);
             if(unit.LastAction==RoundAction.Move&&unit.LastMovePath.Count>1)
             {
                 int step=Mathf.Min(Mathf.FloorToInt(Mathf.SmoothStep(0,1,progress)*(unit.LastMovePath.Count-1)),unit.LastMovePath.Count-2);
-                var a=unit.LastMovePath[step];var b=unit.LastMovePath[step+1];facing=PlayerHeroFrames.Face(b.X-a.X,b.Z-a.Z,facing);
+                var a=unit.LastMovePath[step];var b=unit.LastMovePath[step+1];
+                facing=walking ? PlayerHeroFrames.FaceWalking(b.X-a.X,b.Z-a.Z,facing) : PlayerHeroFrames.Face(b.X-a.X,b.Z-a.Z,facing);
             }
             var pose=unit.IsDowned||!unit.IsAlive ? HeroPose.Down : unit.LastAction==RoundAction.Move&&progress<1 ? HeroPose.Walk : (unit.LastAction==RoundAction.Attack||unit.LastAction==RoundAction.Skill)&&progress<1 ? HeroPose.Attack : HeroPose.Idle;
             // 倒地贴图按真实时间播完一遍倒地动画后定格在最后一列（完全躺平），不随回合进度回退。
@@ -106,8 +109,10 @@ namespace BaseConquest.Presentation
         public void Realtime(BaseConquest.RealtimePrototype.PrototypeUnit actor,double seconds,bool mounted)
         {
             bool attacking=actor.SwingUntil>seconds;var heading=attacking?actor.AttackFacing:actor.Facing;
-            var visual=actor.FootprintLength==2?actor.BodyAxis:heading;facing=PlayerHeroFrames.Face(visual.X,visual.Z,facing);
+            var visual=actor.FootprintLength==2?actor.BodyAxis:heading;
             var pose=actor.Health<=0||actor.KnockedDown?HeroPose.Down:attacking?HeroPose.Attack:actor.Moving&&!actor.SteeringStopped?HeroPose.Walk:HeroPose.Idle;
+            facing=pose==HeroPose.Walk&&!mounted&&actor.FootprintLength!=2&&actor.JumpDuration<=0
+                ? PlayerHeroFrames.FaceWalking(visual.X,visual.Z,facing) : PlayerHeroFrames.Face(visual.X,visual.Z,facing);
             double windup=actor.Ranged?.24:.22;
             double time=pose==HeroPose.Attack?(actor.RpgWindup?actor.AttackPoseTime(seconds,windup/(windup+.16)):Mathf.Clamp01((float)((seconds-actor.HitAt+windup)/(windup+.16)))):pose==HeroPose.Walk?actor.DistanceTravelled/4:seconds;
             if(pose==HeroPose.Down)

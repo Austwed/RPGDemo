@@ -7,6 +7,7 @@ using BaseConquest.Base;
 using BaseConquest.Presentation;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
@@ -101,18 +102,7 @@ namespace BaseConquest.Editor
                     if (Time.frameCount < frameDeadline) return;
                     RequirePanel("CampMenu");
                     Capture("ui-skin-camp-menu");
-                    H.OpenResources();
-                    stage = "resources-shot"; frameDeadline = Time.frameCount + 20;
-                    break;
-                case "resources-shot":
-                    if (Time.frameCount < frameDeadline) return;
-                    Capture("ui-skin-resources");
-                    H.OpenCalendar();
-                    stage = "calendar-shot"; frameDeadline = Time.frameCount + 20;
-                    break;
-                case "calendar-shot":
-                    if (Time.frameCount < frameDeadline) return;
-                    Capture("ui-skin-calendar");
+                    VerifyResourceHud();
                     H.OpenLandMap();
                     stage = "landmap-shot"; frameDeadline = Time.frameCount + 20;
                     break;
@@ -193,7 +183,7 @@ namespace BaseConquest.Editor
                 case "town-arrive":
                     if (Time.frameCount < frameDeadline) return;
                     H.OpenObject("town_quest");
-                    RequirePanel("NpcDialogue");
+                    VerifySavedDialogueColor(RequirePanel("NpcDialogue"));
                     if (!H.DialogueExitLocked) throw new InvalidOperationException("首次领主对白没有锁定退出");
                     H.ClosePanel();
                     if (!H.DialogueOpen) throw new InvalidOperationException("中途关闭了首次领主对白");
@@ -208,8 +198,9 @@ namespace BaseConquest.Editor
                     H.ClosePanel();
                     Approach("town_peddler");
                     H.OpenObject("town_peddler");
+                    VerifySavedDialogueColor(RequirePanel("NpcDialogue"));
                     FinishDialogue();
-                    Click("看看货品");
+                    Click(BaseConquest.Story.StoryText.Get("story.ui.trade.enter", "进入交易"));
                     RequirePanel("TownTrade");
                     stage = "trade-shot"; frameDeadline = Time.frameCount + 30;
                     break;
@@ -234,7 +225,39 @@ namespace BaseConquest.Editor
                     CaptureViewports("ui-skin-backpack-three");
                     H.ClosePanel();
                     Approach("demo_defense_start");
-                    controller.BeginDemoDefense("none");
+                    H.OpenObject("demo_defense_start");
+                    RequirePanel("BattlePreparation");
+                    stage = "defense-prep-shot"; frameDeadline = Time.frameCount + 15;
+                    break;
+                case "defense-prep-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    var preparation = RequirePanel("BattlePreparation");
+                    VerifyBelowTopBar(preparation);
+                    if (Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVED_LAYOUT") == "1" &&
+                        ((RectTransform)preparation.Find("Close")).anchoredPosition != new Vector2(1025, -9))
+                        throw new InvalidOperationException("启动后备战关闭按钮未读取保存的位置");
+                    var input = preparation.Find("Teams").GetComponentsInChildren<InputField>(true).First(f => f.interactable);
+                    var ink = input.textComponent.color;
+                    input.text = "99";
+                    if (input.textComponent.color == ink || preparation.Find("Continue").GetComponent<Button>().interactable)
+                        throw new InvalidOperationException("超额军需未标红或未禁用");
+                    input.text = "0";
+                    CaptureViewports("ui-skin-battle-preparation");
+                    Press(preparation, "Continue");
+                    var deploy = RequirePanel("BattleDeployment");
+                    if (deploy.Find("Start").GetComponent<Button>().interactable)
+                        throw new InvalidOperationException("主角未布置便可开战");
+                    Press(deploy, "Auto");
+                    Press(deploy, "Back");
+                    Press(RequirePanel("BattlePreparation"), "Continue");
+                    stage = "defense-deployment-shot"; frameDeadline = Time.frameCount + 15;
+                    break;
+                case "defense-deployment-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    CaptureViewports("ui-skin-battle-deployment");
+                    var placement = RequirePanel("BattleDeployment");
+                    VerifyBelowTopBar(placement);
+                    Press(placement, "Start");
                     FinishDialogue();
                     Click("拔剑迎战");
                     stage = "battle"; frameDeadline = Time.frameCount + 60; stageAt = EditorApplication.timeSinceStartup;
@@ -255,6 +278,103 @@ namespace BaseConquest.Editor
                     Finish(0, "OK");
                     break;
             }
+        }
+
+        private static void VerifyResourceHud()
+        {
+            var strip = Field(H, "resourceStrip") as RectTransform;
+            var stats = strip?.Find("Stats");
+            var order = new[] { "Calendar", "Food", "Supplies", "Materials", "Coins", "Energy", "Troops" };
+            if (stats == null || !stats.Cast<Transform>().Select(item => item.name).SequenceEqual(order))
+                throw new InvalidOperationException("资源栏七项的顺序不符");
+            if (strip.parent.Find("任务") != null || strip.parent.Find("i") != null || string.IsNullOrWhiteSpace(strip.Find("Location").GetComponent<Text>().text))
+                throw new InvalidOperationException("资源栏仍有旧入口或缺少地点名");
+            var positions = stats.Cast<RectTransform>().Select(item => item.anchoredPosition).ToArray();
+            if (positions.Any(position => Mathf.Abs(position.y - positions[0].y) > .01f) || !positions.Select(position => position.x).SequenceEqual(positions.Select(position => position.x).OrderBy(x => x)))
+                throw new InvalidOperationException("七项资源没有按顺序同排显示");
+
+            Click("资源与人员信息");
+            if ((string)Field(H, "panelViewKey") != "资源与人员信息") throw new InvalidOperationException("菜单信息入口没有打开资源说明");
+            Click("返回");
+            RequirePanel("CampMenu");
+            Click("任务 · N");
+            if ((string)Field(H, "panelViewKey") != "quests") throw new InvalidOperationException("菜单任务入口没有打开任务列表");
+            H.ClosePanel();
+
+            var trackerText = (Text)Field(H, "trackedQuest");
+            var tracker = trackerText.transform.parent;
+            if (tracker.gameObject.activeSelf) throw new InvalidOperationException("没有追踪任务时常驻栏应隐藏");
+            string quest = BaseQuestLog.Entries(controller.State).First(entry => entry.Trackable).Id;
+            bool folded = BaseQuestLog.Collapsed(controller.State);
+            if (!controller.Change(s => BaseQuestLog.ToggleTrack(s, quest), "界面检查")) throw new InvalidOperationException(controller.Message);
+            if (trackerText.preferredHeight > trackerText.rectTransform.rect.height + 1)
+                throw new InvalidOperationException("任务追踪的固定字号文字被截断");
+            Capture("ui-skin-tracked-quest");
+            ClickHudButton(tracker.Find("折叠"));
+            if (BaseQuestLog.Collapsed(controller.State) == folded) throw new InvalidOperationException("任务追踪折叠按钮未切换");
+            ClickHudButton(tracker);
+            if ((string)Field(H, "panelViewKey") != "quests") throw new InvalidOperationException("任务追踪入口没有打开任务列表");
+            H.ClosePanel();
+            if (!controller.Change(s => { BaseQuestLog.ToggleTrack(s, quest); BaseQuestLog.SetCollapsed(s, folded); }, "界面检查"))
+                throw new InvalidOperationException(controller.Message);
+
+            var expectedTitles = new[] { "日历", "粮食", "军需", "原料", "钱币", "体力", "兵力" };
+            for (int i = 0; i < order.Length; i++)
+            {
+                ClickHudButton(stats.Find(order[i]));
+                var popup = Field(H, "resourcePopover") as RectTransform;
+                if (!H.ResourcePopoverOpen || H.PanelOpen || !popup.Find("Window/Title").GetComponent<Text>().text.StartsWith(expectedTitles[i], StringComparison.Ordinal))
+                    throw new InvalidOperationException("资源入口没有打开对应的下拉：" + order[i]);
+                var scroll = popup.Find("Window/Body").GetComponent<ScrollRect>();
+                var body = scroll.content;
+                if (body.childCount == 0 || popup.GetComponentsInChildren<Text>().Any(t => t.resizeTextForBestFit))
+                    throw new InvalidOperationException("资源下拉缺少明细或开启了字号自适应：" + order[i]);
+                if (body.rect.width > scroll.viewport.rect.width + 1)
+                    throw new InvalidOperationException("资源明细超出可见宽度：" + order[i]);
+                if (i == 0)
+                {
+                    var calendar = body.Find("ResourceCalendar");
+                    int start = BaseCalendar.QuarterStart(controller.State.Day);
+                    if (calendar.Find("Days").childCount != 15 || !calendar.Find("Days").GetChild(0).GetComponentInChildren<Text>().text.StartsWith(start.ToString(), StringComparison.Ordinal))
+                        throw new InvalidOperationException("日历未显示本季度 15 天");
+                    CaptureViewports("ui-skin-calendar");
+                    ClickHudButton(calendar.Find("Next"));
+                    var next = ((Transform)Field(H, "resourcePopover")).Find("Window/Body/Viewport/Content/ResourceCalendar");
+                    if (next.Find("Next").GetComponent<Button>().interactable || !next.Find("Days").GetChild(0).GetComponentInChildren<Text>().text.StartsWith((start + 15).ToString(), StringComparison.Ordinal))
+                        throw new InvalidOperationException("日历没有切到下季度或允许越界");
+                    ClickHudButton(next.Find("Previous"));
+                    if (BaseCalendar.QuarterNumber(controller.State.Day) == 1 && ((Transform)Field(H, "resourcePopover")).Find("Window/Body/Viewport/Content/ResourceCalendar/Previous").GetComponent<Button>().interactable)
+                        throw new InvalidOperationException("日历允许翻到首季度以前");
+                }
+                else
+                {
+                    string name = i == 1 ? "ui-skin-resources" : "ui-skin-resource-" + order[i].ToLowerInvariant();
+                    if (i == 1 || i == 6) CaptureViewports(name);
+                    else Capture(name);
+                }
+            }
+
+            Canvas.ForceUpdateCanvases();
+            var lastPopup = (RectTransform)Field(H, "resourcePopover");
+            var outside = lastPopup.TransformPoint(new Vector3(lastPopup.rect.xMax - 18, lastPopup.rect.yMin + 100, 0));
+            var pointer = new PointerEventData(EventSystem.current) { position = RectTransformUtility.WorldToScreenPoint(null, outside) };
+            var hits = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(pointer, hits);
+            var dismiss = lastPopup.Find("Dismiss");
+            if (!H.ResourcePopoverBlocksInput || hits.FirstOrDefault().gameObject != dismiss.gameObject)
+                throw new InvalidOperationException("下拉外部点击未被遮挡层拦截");
+            ClickHudButton(dismiss);
+            if (H.ResourcePopoverOpen || H.PanelOpen || !H.ResourcePopoverBlocksInput)
+                throw new InvalidOperationException("点击外部没有只关闭下拉并阻止同帧穿透");
+            Log.Add("[PASS] 七项资源下拉、日历翻页、点击外部关闭、菜单信息和两处任务入口");
+        }
+
+        private static void ClickHudButton(Transform node)
+        {
+            var button = node == null ? null : node.GetComponent<Button>();
+            if (button == null || !button.isActiveAndEnabled || !button.interactable)
+                throw new InvalidOperationException("HUD 按钮不可操作：" + node?.name);
+            button.onClick.Invoke();
         }
 
         private static void VerifyAuthoredLayout()
@@ -320,6 +440,29 @@ namespace BaseConquest.Editor
                 .FirstOrDefault(b => b.interactable && b.GetComponentInChildren<Text>()?.text == label);
             if (button == null) throw new InvalidOperationException("找不到可操作的「" + label + "」");
             button.onClick.Invoke();
+        }
+        private static void Press(Transform root, string path)
+        {
+            var button = root.Find(path)?.GetComponent<Button>();
+            if (button?.interactable != true) throw new InvalidOperationException(root.name + "/" + path + " 不可操作");
+            button.onClick.Invoke();
+        }
+        private static void VerifyBelowTopBar(Transform panelRoot)
+        {
+            var header = panelRoot.GetComponentInParent<Canvas>().GetComponentsInChildren<RectTransform>(true)
+                .Single(t => t.name == "ResourceStrip").parent as RectTransform;
+            Canvas.ForceUpdateCanvases();
+            var corners = new Vector3[4];
+            ((RectTransform)panelRoot).GetWorldCorners(corners);
+            float panelTop = corners[1].y;
+            header.GetWorldCorners(corners);
+            if (panelTop > corners[0].y + .01f) throw new InvalidOperationException("探索顶栏压住备战标题");
+        }
+        private static void VerifySavedDialogueColor(Transform view)
+        {
+            if (Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVED_LAYOUT") == "1" &&
+                !((Color32)view.GetComponent<Image>().color).Equals(new Color32(241, 222, 182, 255)))
+                throw new InvalidOperationException("对白框未读取已保存的场景颜色");
         }
         private static object Field(object target, string name)
             => target?.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);

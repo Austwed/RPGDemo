@@ -263,11 +263,12 @@ namespace BaseConquest.Base
             var keyboard = Keyboard.current;
             if(Hud.DialogueOpen&&keyboard!=null&&(keyboard.eKey.wasPressedThisFrame||keyboard.spaceKey.wasPressedThisFrame)){Hud.ContinueDialogue();return;}
             if(Hud.DialogueExitLocked&&keyboard!=null&&keyboard.escapeKey.wasPressedThisFrame)return;
+            if (Hud.ResourcePopoverOpen && keyboard != null && keyboard.escapeKey.wasPressedThisFrame) { Hud.CloseResourcePopover(); return; }
             if(keyboard!=null&&HandlePanelShortcuts(keyboard.bKey.wasPressedThisFrame,keyboard.nKey.wasPressedThisFrame,keyboard.mKey.wasPressedThisFrame))return;
             if(ConstructionMode&&keyboard!=null&&keyboard.escapeKey.wasPressedThisFrame){StopConstruction();if(Hud.PanelOpen)Hud.ClosePanel();Message="已退出营造";Hud.RefreshSummary();return;}
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) { if (Hud.PanelOpen) Hud.ClosePanel(); else if (SelectedCell != null) ClearSelection(); else Hud.OpenMenu(); return; }
-            if(Hud.PanelOpen)explorationPinchSpan=0;
-            if (Hud.PanelOpen || PlayerAway || State.Campaign.HasActiveBattle || State.Aftermath.GameOver || BaseBattleGateway.MainMenu) { touches.Clear(); mouseTap = null; return; }
+            if (Hud.PanelOpen || Hud.ResourcePopoverBlocksInput) explorationPinchSpan = 0;
+            if (Hud.PanelOpen || Hud.ResourcePopoverBlocksInput || PlayerAway || State.Campaign.HasActiveBattle || State.Aftermath.GameOver || BaseBattleGateway.MainMenu) { touches.Clear(); mouseTap = null; return; }
             if(ConstructionMode)UpdateConstructionPointer();else ReadPointer();
             Vector2 input = Hud.Joystick.Direction;
             if (keyboard != null)
@@ -283,10 +284,11 @@ namespace BaseConquest.Base
             input = Vector2.ClampMagnitude(input, 1);if(input.sqrMagnitude>.0001f){float magnitude=input.magnitude;float angle=Mathf.Round(Mathf.Atan2(input.y,input.x)/(Mathf.PI/4))*(Mathf.PI/4);input=new Vector2(Mathf.Cos(angle),Mathf.Sin(angle))*magnitude;}
             double x = State.PlayerX, y = State.PlayerY;
             BaseSpatial.Move(State,ref x,ref y,input.x * 4.3 * Math.Min(seconds,0.05),input.y * 4.3 * Math.Min(seconds,0.05),Companions.PlayerObstacles(State),playerMotion);
+            double movedX = x - State.PlayerX, movedY = y - State.PlayerY;
+            BaseInteraction.RecordWalk(movedX, movedY);
             if(input.sqrMagnitude>.0001f)
             {
-                BaseInteraction.Walk(new BasePoint(input.x,input.y));
-                BaseDemoIntro.Walk(State,Math.Sqrt((x-State.PlayerX)*(x-State.PlayerX)+(y-State.PlayerY)*(y-State.PlayerY)));
+                BaseDemoIntro.Walk(State,Math.Sqrt(movedX*movedX+movedY*movedY));
             }
             State.PlayerX = x; State.PlayerY = y; PlacePlayer(); Hud.RefreshMovement();CheckPrologueTrigger();
         }
@@ -303,6 +305,7 @@ namespace BaseConquest.Base
             var selected=EventSystem.current!=null?EventSystem.current.currentSelectedGameObject:null;
             // Unity destroyed objects pass ?. checks; use Unity's null comparison before GetComponent.
             if(selected!=null&&selected.GetComponent<UnityEngine.UI.InputField>()?.isFocused==true)return false;
+            if(Hud.HandleBattlePreparationShortcut(backpackPressed))return true;
             if(!BaseBattleGateway.MainMenu&&!State.Aftermath.GameOver&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State)&&mapPressed){StopConstruction();Hud.ToggleLandMap();return true;}
             if(!BaseBattleGateway.MainMenu&&!State.Aftermath.GameOver&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State)&&questsPressed){StopConstruction();Hud.ToggleQuests();return true;}
             if(backpackPressed){StopConstruction();Hud.ToggleBackpack();return true;}
@@ -380,7 +383,7 @@ namespace BaseConquest.Base
         }
         public bool ZoomExploration(Vector2 screen,float wheel)
         {
-            if(State==null||combatController!=null||Hud.PanelOpen||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen))return false;
+            if(State==null||combatController!=null||Hud.PanelOpen||Hud.ResourcePopoverBlocksInput||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen))return false;
             // Input System defaults to one unit per wheel tick, not Windows' native 120 units.
             float ticks=wheel;
             if(InputSystem.settings.scrollDeltaBehavior==InputSettings.ScrollDeltaBehavior.KeepPlatformSpecificInputRange&&(Application.platform==RuntimePlatform.WindowsEditor||Application.platform==RuntimePlatform.WindowsPlayer))ticks/=120f;
@@ -388,7 +391,7 @@ namespace BaseConquest.Base
         }
         public bool ZoomExplorationFactor(Vector2 screen,float factor)
         {
-            if(State==null||combatController!=null||Hud.PanelOpen||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen)||float.IsNaN(factor)||float.IsInfinity(factor)||factor<=0)return false;
+            if(State==null||combatController!=null||Hud.PanelOpen||Hud.ResourcePopoverBlocksInput||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen)||float.IsNaN(factor)||float.IsInfinity(factor)||factor<=0)return false;
             float before=WorldCamera.orthographicSize;regionView.SetViewSize(Mathf.Clamp(before*factor,regionView.MinViewSize,regionView.FullViewSize));
             explorationViewSize=WorldCamera.orthographicSize;regionView.Follow(PlayerCameraTarget);
             if(Mathf.Abs(before-WorldCamera.orthographicSize)<.0001f)return false;
@@ -401,7 +404,7 @@ namespace BaseConquest.Base
         }
         public void SelectCell(int x, int y)
         {
-            if (State == null || Busy || PlayerAway || Hud.PanelOpen || !BaseMap.TryCell(x + 0.5, y + 0.5, out _, out _,BaseBattlefield.Board(State).Width,BaseBattlefield.Board(State).Height)) return;
+            if (State == null || Busy || PlayerAway || Hud.PanelOpen || Hud.ResourcePopoverBlocksInput || !BaseMap.TryCell(x + 0.5, y + 0.5, out _, out _,BaseBattlefield.Board(State).Width,BaseBattlefield.Board(State).Height)) return;
             if(!SceneCellKnown(new GridPosition(x,y)))return;
             if(ConstructionMode){PaintConstructionCell(new GridPosition(x,y));return;}
             SelectedCell = new BaseCellSelection(x, y); regionView.SelectCell(new GridPosition(x,y)); Hud.NotifyInspection();
@@ -410,7 +413,7 @@ namespace BaseConquest.Base
         public void Interact()
         {
             if (State?.Campaign.HasActiveBattle == true) { Hud.OpenMenu(); return; }
-            if (Busy || Hud.PanelOpen || Nearby == null) return;
+            if (Busy || Hud.PanelOpen || Hud.ResourcePopoverBlocksInput || Nearby == null) return;
             Hud.OpenObject(Nearby.Id);
         }
         public bool Change(Action<BaseState> edit, string message)
@@ -444,6 +447,7 @@ namespace BaseConquest.Base
         public void LoadSaved(bool backup = false)
         {
             if (Busy) return;
+            Hud?.ClearBattlePreparation();
             SetRegionReady(false);
             StopConstruction();
             try { var next = backup ? SaveStore.LoadBackup() : SaveStore.Load(); bool seed = !next.Campaign.ContentInitialized || next.Campaign.ThreatVersion==0&&!next.Campaign.HasActiveBattle&&!next.Aftermath.GameOver; string location = State?.Campaign.Location ?? "base"; BaseCampaign.SeedContent(next); BaseDevelopment.Allocate(next); BasePartyInventory.Normalize(next); if (seed || backup) SaveStore.Save(next); if(!RuntimeDeveloperOptions.Enabled)BaseDeveloperTools.ClearEffects(next);State = next; if (location != State.Campaign.Location) { UnityEngine.SceneManagement.SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); return; } Message = "已载入第" + State.Day + "天，未重复扣粮"; RebuildRegion(); Companions.Synchronize(State, true); PlaceCompanions(); PlacePlayer(); ClearSelection(); Hud.ClosePanel(); if (State.Campaign.HasActiveBattle || State.Aftermath.GameOver || BaseBattleGateway.MainMenu) Hud.OpenMenu(); else if(BaseBattleGateway.ShowPrisoners){BaseBattleGateway.ShowPrisoners=false;Hud.OpenLoot();} else if((State.Campaign.Location=="world"||State.Campaign.Location=="outpost")&&!State.Muster.Parties.Any(p=>p.Purpose=="expedition"))Hud.OpenDeparture("world"); }

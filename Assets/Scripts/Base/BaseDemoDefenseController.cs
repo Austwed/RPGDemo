@@ -21,19 +21,27 @@ namespace BaseConquest.Base
             if(!BaseDemoDefense.AnyDue(State)||plan==null||plan.Purpose!="defense"||plan.Stamp!=BaseMuster.Snapshot(State)){ReportMessage("选兵预览已变化，请重新选择队伍");return;}
             pendingDemoDefense=plan;Hud.OpenDemoDefenseSupply();
         }
-        public void BeginDemoDefense(string mode,bool briefingConfirmed=false)
+        public void BeginDemoDefense(string mode,bool briefingConfirmed=false,BaseBattlePreparation prepared=null)
         {
-            // DEF_01_START：首次防守开战前由巴图叫阵，只播一次。
-            if(!BaseDemoDefense.SecondDue(State)&&!State.Demo.Defense.FirstBriefingSeen&&!briefingConfirmed)
-            {Hud.OpenFirstRaidBriefing(()=>BeginDemoDefense(mode,true));return;}
-            if(!BaseDemoDefense.SecondDue(State)&&briefingConfirmed&&!Change(next=>next.Demo.Defense.FirstBriefingSeen=true,"首防战前对白已记录"))return;
-            if(BaseDemoDefense.SecondDue(State)&&!State.Demo.Defense.SecondBriefingSeen&&!briefingConfirmed)
-            {Hud.OpenSecondRaidBriefing(()=>BeginDemoDefense(mode,true));return;}
-            if(BaseDemoDefense.SecondDue(State)&&briefingConfirmed&&!Change(next=>next.Demo.Defense.SecondBriefingSeen=true,"第二波战前对白已记录"))return;
+            bool second = BaseDemoDefense.SecondDue(State);
+            bool seen = second ? State.Demo.Defense.SecondBriefingSeen : State.Demo.Defense.FirstBriefingSeen;
+            if (!seen && !briefingConfirmed)
+            {
+                Action proceed = () => BeginDemoDefense(mode, true, prepared);
+                Action back = prepared == null ? Hud.OpenDemoDefenseSupply : Hud.ReturnToBattleDeployment;
+                if (second) Hud.OpenSecondRaidBriefing(proceed, back);
+                else Hud.OpenFirstRaidBriefing(proceed, back);
+                return;
+            }
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
-            if(!Change(next=>encounter=BaseDemoDefense.Begin(next,mode,pendingDemoDefense),"真实队伍／军需已锁定，就近落格后开始迎战"))return;
+            if (!Change(next =>
+            {
+                if (second) next.Demo.Defense.SecondBriefingSeen = true;
+                else next.Demo.Defense.FirstBriefingSeen = true;
+                encounter = prepared == null ? BaseDemoDefense.Begin(next, mode, pendingDemoDefense) : prepared.Begin(next);
+            }, "真实队伍与军需已锁定")) { if (prepared != null) Hud.RefreshPreparedFailure(); return; }
             beforeDemoDefense=before;pendingDemoDefense=null;
-            try{BeginSceneEncounter(encounter,BaseDemoDefense.Configure,null,FinishDemoDefenseEncounter,encounter.Opening.EventId==BaseDemoDefense.SecondEventId?"第二波防守 · 守住营地外围":"首次防守 · 守住营地外围");}
+            try{BeginSceneEncounter(encounter,BaseDemoDefense.Configure,null,FinishDemoDefenseEncounter,encounter.Opening.EventId==BaseDemoDefense.SecondEventId?"第二波防守 · 击败全部来敌":"首次防守 · 守住营地外围");}
             catch(Exception error)
             {
                 MapSession.LeaveBattle();SaveStore.Save(before);State=before;beforeDemoDefense=null;
@@ -71,7 +79,7 @@ namespace BaseConquest.Base
             if(id=="demo_defense_exit"||id=="demo_defense_return"){owner.TravelDemo(id=="demo_defense_exit"?"perimeter":"base");return true;}
             if(id=="demo_defense_start")
             {
-                if(BaseDemoDefense.AnyDue(owner.State))OpenDeparture("perimeter");else OpenDemoStory();return true;
+                if(BaseDemoDefense.AnyDue(owner.State))OpenBattlePreparation(BaseDemoDefense.SecondDue(owner.State) ? BasePrepRoute.Second : BasePrepRoute.Defense);else OpenDemoStory();return true;
             }
             if(id!="demo_fix_workshop"&&id!="demo_fix_barracks")return false;
             string facility=id=="demo_fix_workshop"?"workshop":"barracks",problem=BaseDemoDefense.RepairProblem(owner.State,facility);
@@ -81,12 +89,12 @@ namespace BaseConquest.Base
             if(problem!="")Line(problem,65,20);RowButton("确认修复",-210,400,()=>owner.RepairDemoFacility(facility),problem=="");RowButton("暂不修复",210,400,ClosePanel);row+=60;EndPanel();return true;
         }
         // DEF_01_START_01/02：首次防守开战前巴图叫阵，主角拔剑回应。
-        public void OpenFirstRaidBriefing(Action proceed)
+        public void OpenFirstRaidBriefing(Action proceed, Action back = null)
         {
             NpcDialogue(new[]{
                 new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"哈哈！新出炉的军械，还有"+BaseScriptNames.Village+"漏网的余党，今天全归"+BaseScriptNames.Bandit+"！"),
                 new NpcLine("你","","冲着"+BaseScriptNames.Village+"幸存者来的？正好，拿你的脑袋问问幕后雇主是谁！",true)
-            },new[]{new NpcReply("拔剑迎战",proceed),new NpcReply("先看布防",OpenDemoDefenseSupply)});
+            },new[]{new NpcReply("拔剑迎战",proceed),new NpcReply("先看布防",back ?? OpenDemoDefenseSupply)});
         }
         // DEF_01_MID_INTEL：敌军只剩一人时崩溃泄密，供出敌营位置。同场只播一次（BattleIntelSeen 由调用方记录）。
         public void OpenDefenseIntel(Action proceed)
@@ -98,13 +106,13 @@ namespace BaseConquest.Base
                 new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","在……在营地南边官道拐口！山道两边全是枯树和大石，你们攻不上去的！")
             },new[]{new NpcReply("继续战斗",proceed)});
         }
-        public void OpenSecondRaidBriefing(Action proceed)
+        public void OpenSecondRaidBriefing(Action proceed, Action back = null)
         {
             var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"上次没能拿下这营地，这回我亲自来。")};
             if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"我说过我们还会回来。"));
             else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"巴图的账，今天一起算！"));
             lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"弟兄们，跟紧我，别乱了阵脚！"));
-            NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备迎战",proceed),new NpcReply("暂缓迎战",OpenDemoDefenseSupply)});
+            NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备迎战",proceed),new NpcReply("暂缓迎战",back ?? OpenDemoDefenseSupply)});
         }
         public void OpenDemoDefenseAftermath()
         {

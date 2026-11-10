@@ -84,7 +84,7 @@ namespace BaseConquest.Base
             row += 66;
         }
 
-        // 常驻任务栏：没追踪时整条隐藏；折叠只留标题，点一下展开目标。
+        // 常驻任务栏：没追踪时整条隐藏；折叠只留标题。
         private void RefreshTrackedQuest()
         {
             if (trackedQuest == null) return;
@@ -93,7 +93,9 @@ namespace BaseConquest.Base
             trackedQuest.transform.parent.gameObject.SetActive(entry != null);
             if (entry == null) return;
             bool collapsed = BaseQuestLog.Collapsed(s);
-            trackedQuest.text = (collapsed ? "任务 ▸ " : "任务 ▾ ") + entry.Title + (collapsed ? "" : "\n" + entry.Goal);
+            string prefix = trackedQuestArrow != null ? "任务 · " : collapsed ? "任务 ▸ " : "任务 ▾ ";
+            trackedQuest.text = prefix + entry.Title + (collapsed ? "" : "\n" + entry.Goal);
+            if (trackedQuestArrow != null) trackedQuestArrow.text = collapsed ? "＋" : "−";
         }
         private void ToggleTrackedQuestBar()
         {

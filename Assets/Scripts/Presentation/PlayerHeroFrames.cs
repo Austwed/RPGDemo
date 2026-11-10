@@ -12,7 +12,22 @@ namespace BaseConquest.Presentation
             var axis=BaseConquest.RealtimePrototype.PrototypeUnit.MajorAxis(new BaseConquest.RealtimePrototype.PrototypePoint(dx,dz),prior);
             return axis.X>0?HeroFacing.East:axis.X<0?HeroFacing.West:axis.Z>0?HeroFacing.North:HeroFacing.South;
         }
-        // 看向目标与行走使用同一主轴及滞回判据。
+        // 移动贴图与探索交互共用四向轴。微小浮点误差不能把纯纵向移动误判为侧向。
+        internal static (int X, int Z) WalkingAxis(double dx, double dz)
+        {
+            const double epsilon = 1e-6;
+            if (Math.Abs(dx) > epsilon) return (Math.Sign(dx), 0);
+            return (0, Math.Abs(dz) > epsilon ? Math.Sign(dz) : 0);
+        }
+
+        public static HeroFacing FaceWalking(double dx, double dz, HeroFacing previous)
+        {
+            var axis = WalkingAxis(dx, dz);
+            if (axis.X != 0) return axis.X > 0 ? HeroFacing.East : HeroFacing.West;
+            if (axis.Z != 0) return axis.Z > 0 ? HeroFacing.North : HeroFacing.South;
+            return previous;
+        }
+
         public static HeroFacing FaceTowards(double dx,double dz,HeroFacing previous)
         {
             return Face(dx,dz,previous);

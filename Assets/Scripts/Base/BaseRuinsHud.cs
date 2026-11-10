@@ -6,12 +6,13 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        public void OpenRuinsWarning(Action proceed)
+        public void OpenRuinsWarning(Action proceed, BaseBattlePreparation prepared = null)
         {
             var s=owner.State;var lines=new List<NpcLine>();
             if(BaseAdventure.Following(s,"partner_farm"))lines.Add(new NpcLine("阿禾","ahe","［打了个寒颤］洞口吹出来的黑风好邪门，吸一口胸口就像塞了团火炭……"));
             if(BaseAdventure.Following(s,"partner_craft"))lines.Add(new NpcLine("阿铸","azhu","里头瘴气太毒！咱们燃脉者扛得住，普通弟兄进去怕是撑不了几息！"));
-            bool danger=BaseRuinsRewards.VulnerableParty(s);
+            bool danger=prepared == null ? BaseRuinsRewards.VulnerableParty(s) : prepared.Units.Any(unit =>
+                prepared.Positions.ContainsKey(unit.Id) && (unit.Leader == null || !BaseRuinsRewards.Immune(s, unit.Leader)));
             lines.Add(new NpcLine(BaseScriptNames.Ruins+"警告","",(danger?"严重警告：当前随行队伍有普通人。":BaseScriptNames.Ruins+"副本存在侵蚀。")+"仅副本内，非异族、非异能者每秒损失最大生命的"+(BaseRuinsRewards.Exposure(s)*100).ToString("0.##")+"%；异族和异能者免受侵蚀伤害；"+BaseScriptNames.Ruins+"中受迦兰魂丝保护的村民暂免侵蚀。入口野外没有侵蚀，暂离成员不会进入副本。战斗中存在真实战损，请谨慎决定。"));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply(danger?"知晓危险，仍让当前队伍进入":"继续进入",proceed),new NpcReply("暂不进入，先调整随行",owner.CancelRuinsEntry)});
         }
@@ -62,17 +63,15 @@ namespace BaseConquest.Base
         }
         private void OpenRuinsChallenge()
         {
-            var s=owner.State;activeObject="demo-ruins";interactionObject="";BeginPanel(BaseScriptNames.Ruins+" · 调查与整备");
-            if(!BaseDemoRuins.CanExplore(s)){Line(BaseDemo.Objective(s),95,22);RowButton("关闭",0,800,ClosePanel);row+=60;EndPanel();return;}
-            Line(s.Demo.RuinsDay>0?"重刷每次进入均为满状态敌军；敌方队长被击败后再次生成会重新随机技能和特性。我方保留真实战损与消耗；胜利消耗体力只领取随机奖，无体力仍可挑战。":"无需先接取领主任务。首通胜利免费获得固定奖及随机副本奖，控制者固定击倒可招募，百姓获救离场。建议先与"+BaseScriptNames.Town+"的阿铸切磋并邀请同行，再来挑战；首通前独自挑战，半血时会引导撤离寻找帮手。",145,21);
-            var plan=BaseAdventure.Preview(s,"expedition",true);
-            Line("实际队长："+string.Join("、",plan.Leaders.Select(id=>s.Leaders.Single(l=>l.Id==id).Name))+"；普通兵 "+plan.Takes.Sum(t=>t.Count)+"。",75,21);
-            Line("侵蚀：非异族、非异能者每秒损失最大生命"+(BaseRuinsRewards.Exposure(s)*100).ToString("0.##")+"%。体力 "+BaseRuinsRewards.Energy(s)+" / "+BaseRuinsRewards.Maximum(s)+(s.Demo.RuinsDay==0?"，首通领奖免费":"，重刷领奖消耗 "+BaseRuinsRewards.Cost(s))+"；体力不够也能开战。",105,21);
-            if(!string.IsNullOrEmpty(s.Demo.RuinsRewards?.PendingBattleId)){RowButton("查看上次未领取奖励",0,800,OpenRuinsReward);row+=60;}
-            RowButton("确认交战 · 尽量配足军需",0,800,()=>owner.BeginDemoRuins("full"));row+=60;
-            RowButton("确认交战 · 不使用军需",0,800,()=>owner.BeginDemoRuins("none"));row+=60;
-            RowButton("扫荡 · 预览战损",0,800,()=>OpenRuinsSweep("full"),s.Demo.RuinsDay>0);row+=60;
-            RowButton("暂不交战",0,800,ClosePanel);row+=60;Line("首次胜利后领主发放任务首奖；再次挑战只结算体力副本奖励。重新开战会放弃上次未领取的副本奖励。",90,18);EndPanel();
+            var state = owner.State;
+            if (BaseDemoRuins.CanExplore(state)) { OpenBattlePreparation(BasePrepRoute.Ruins); return; }
+            activeObject = "demo-ruins";
+            interactionObject = "";
+            BeginPanel(BaseScriptNames.Ruins + " · 调查与整备");
+            Line(BaseDemo.Objective(state), 95, 22);
+            RowButton("关闭", 0, 800, ClosePanel);
+            row += 60;
+            EndPanel();
         }
         public void OpenRuinsSweep(string mode="full")
         {

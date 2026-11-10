@@ -93,6 +93,9 @@ namespace BaseConquest.Base
             return new BattleScenarioDocument {Title="Demo"+BaseScriptNames.Ruins+"救助",Scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),A=own,B=army,MaxRounds=90,FogEnabled=false,Objective=new ObjectiveConfig {Title="击败控制来源，救助失踪者"}}};
         }
         public static BaseCampaignSession Begin(BaseState state,string mode="full")
+            => Begin(state, mode, null, null);
+
+        internal static BaseCampaignSession Begin(BaseState state, string mode, BaseMusterPlan plan, BasePreparedRoster roster)
         {
             if(BaseSceneRules.Entrance(state))BaseSceneRules.EnterDungeon(state);
             if(!CanExplore(state)||!InRuins(state)||!BaseInteraction.CanReach(state,BaseSpatial.Objects(state).SingleOrDefault(o=>o.Id=="demo_ruins_investigate")))throw new InvalidOperationException("请在"+BaseScriptNames.Ruins+"调查点旁确认交战，无需先接取委托");
@@ -100,7 +103,7 @@ namespace BaseConquest.Base
             if(state.Demo.RuinsRewards==null)BaseRuinsRewards.Enable(state);
             state.Demo.RuinsRewards.PendingBattleId="";
             state.Demo.RuinsRewards.PendingFirstClear=false;
-            var document=Document(state);var plan=BaseAdventure.Preview(state,"expedition",true);
+            var document=Document(state);plan??=BaseAdventure.Preview(state,"expedition",true);
             var previous=mission.EnemyArmy;var rules=state.Demo.RuinsRewards;
             if(previous.Any(e=>e.Kind==SoldierKind.Hero&&(e.Dead||e.KnockedDown)))rules.EnemyGeneration++;
             var fresh=BaseDemoCombat.CreateEnemies(EventId,document.Scenario.B,BaseDemoEncounterConfig.Preset(state,EventId));
@@ -112,9 +115,13 @@ namespace BaseConquest.Base
                 fresh[i].Dead=fresh[i].KnockedDown=false;fresh[i].Health=fresh[i].Stats.Health;
             }
             mission.Status="pending";mission.EnemyRecoveryDay=0;mission.EnemyArmy=fresh;
-            var active=BaseCampaign.Begin(state,EventId,document,mode,plan,true);active.Difficulty.DropRate=0;active.RuinsExposureFraction=state.Demo.RuinsRewards.ExposureFraction;
+            var active=BaseCampaign.Begin(state,EventId,document,mode,plan,true,roster);active.Difficulty.DropRate=0;active.RuinsExposureFraction=state.Demo.RuinsRewards.ExposureFraction;
             active.RuinsFirstClear=state.Demo.RuinsDay==0;
-            var session=new BaseCampaignSession(active);session.Battle.AutoDeploy(BattleSide.A);session.Bind();
+            var session=new BaseCampaignSession(active);
+            if (!active.ManualDeployment) session.Battle.AutoDeploy(BattleSide.A);
+            if (roster != null && session.Battle.Soldiers.Count(u => u.Side == BattleSide.A) != roster.Units.Length)
+                throw new InvalidOperationException("所选编成无法完整入场");
+            session.Bind();
             if(!session.Battle.Start(out string problem))throw new InvalidOperationException(problem);return session;
         }
         public static IEnumerable<BattleSoldier> Civilians(BaseCampaignSession session)=>session.Opening.Enemies.Select((enemy,index)=>new {enemy,index}).Where(x=>x.enemy.IsControlled).Select(x=>session.UnitForEnemy(x.index));

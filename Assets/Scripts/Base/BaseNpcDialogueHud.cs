@@ -42,7 +42,7 @@ namespace BaseConquest.Base
             else dialogueTick = null;
         }
 
-        private void NpcDialogue(NpcLine[] lines, NpcReply[] replies, bool lockExitUntilFinished = false)
+        private void NpcDialogue(NpcLine[] lines, NpcReply[] replies, bool lockExitUntilFinished = false, Action onCompleted = null)
         {
             var view = OpenScenePanel("NpcDialogue", "npc-dialogue");
             root.GetComponent<Canvas>().sortingOrder = 300;
@@ -111,6 +111,11 @@ namespace BaseConquest.Base
                 {
                     if (shown < characters.Length) FinishLine();
                     else if (!last) PresentLine(index + 1);
+                    else if (onCompleted != null)
+                    {
+                        dialogueContinue = null;
+                        onCompleted();
+                    }
                 }
 
                 void Reveal(float seconds)
@@ -132,8 +137,9 @@ namespace BaseConquest.Base
                     speech.text = fullText;
                     dialogueTick = null;
                     if (!last) return;
-                    dialogueContinue = null;
                     dialogueLocked = false;
+                    if (onCompleted != null) return;
+                    dialogueContinue = null;
                     advance.gameObject.SetActive(false);
                     hint.gameObject.SetActive(false);
                     choices.gameObject.SetActive(true);

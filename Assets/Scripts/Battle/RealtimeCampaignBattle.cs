@@ -150,7 +150,8 @@ namespace BaseConquest.Battle
                 int length=soldier.CombatKind==SoldierKind.Cavalry?2:1;
                 var probe=new PrototypeUnit {Id=soldier.Id+1,FootprintLength=length,Facing=new PrototypePoint(soldier.Side==BattleSide.A?1:-1,0)};
                 var positions=new[]{new PrototypePoint(soldier.Cell.X+(soldier.Side==BattleSide.A?.75:.25),soldier.Cell.Z+.25),new PrototypePoint(soldier.Cell.X+(soldier.Side==BattleSide.A?.75:.25),soldier.Cell.Z+.75),new PrototypePoint(soldier.Cell.X+.25,soldier.Cell.Z+.25),new PrototypePoint(soldier.Cell.X+.75,soldier.Cell.Z+.75)};
-                var position=positions.First(point=>Model.Fits(probe,arena.CellAt(point),probe.Facing));
+                var position=session.Opening.ManualDeployment&&soldier.Side==BattleSide.A
+                    ? BaseBattlePreparation.Anchor(soldier.Cell) : positions.First(point=>Model.Fits(probe,arena.CellAt(point),probe.Facing));
                 var actor=Model.AddUnit(soldier.Side==BattleSide.A ? PrototypeSide.Ally : PrototypeSide.Enemy,
                     soldier.Kind==SoldierKind.Hero ? PrototypeRole.Leader : soldier.CombatKind==SoldierKind.Ranged ? PrototypeRole.Archer : PrototypeRole.Melee,
                     position,Math.Max(0,soldier.OriginCommanderSlot),soldier.Side==BattleSide.A&&soldier.Kind==SoldierKind.Hero&&soldier.OriginCommanderSlot==Battle.Scenario.PlayerLeaderSlot,soldier.Id+1);

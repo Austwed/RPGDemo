@@ -103,7 +103,7 @@ namespace BaseConquest.Base
                 :"只要一靠近镇西的树林，家里的猎犬就会夹着尾巴狂叫，那座"+BaseScriptNames.Ruins+"底下一定藏着脏东西。";
             var replies=new List<NpcReply>{new NpcReply("点点头走开",ClosePanel)};
             // 2026-11-01 韦德拍板：撤掉独立的「商人」，行商老莫接管补给摊位，交易入口并进他的对话。
-            if(id=="town_peddler"){if(BaseDemoFlow.Active(state))replies.Insert(0,new NpcReply("查看消息",()=>{ClosePanel();OpenRaidIntel();}));replies.Insert(0,new NpcReply("看看货品",()=>{ClosePanel();OpenTownMarket();}));}
+            if(id=="town_peddler")replies.Insert(0,new NpcReply(TradeEntryLabel,OpenTownMarket));
             string injury=id=="town_guard"?"INJ_TOWN_GUARD":id=="town_peddler"?"INJ_TOWN_MO":"INJ_TOWN_XIAOYUN";
             NpcDialogue(WithInjury(state,injury,new NpcLine(who,art,text)),replies.ToArray());
         }

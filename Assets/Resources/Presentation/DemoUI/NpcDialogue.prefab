@@ -1903,7 +1903,7 @@ MonoBehaviour:
     m_Font: {fileID: 0}
     m_FontSize: 24
     m_FontStyle: 0
-    m_BestFit: 1
+    m_BestFit: 0
     m_MinSize: 20
     m_MaxSize: 24
     m_Alignment: 0

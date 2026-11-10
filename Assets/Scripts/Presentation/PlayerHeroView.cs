@@ -46,15 +46,21 @@ namespace BaseConquest.Presentation
             var delta=hasPrevious ? feet-previous : Vector3.zero;hasPrevious=true;previous=feet;
             bool moving=delta.sqrMagnitude>.000001f;
             if(moving)walkDistance+=new Vector2(delta.x,delta.z).magnitude;
-            Facing=PlayerHeroFrames.Face(delta.x,delta.z,Facing);
+            Facing=PlayerHeroFrames.FaceWalking(delta.x,delta.z,Facing);
             Set(moving ? HeroPose.Walk : HeroPose.Idle,moving ? walkDistance/(BattleBoardView.CellSize*4) : Time.unscaledTime,false,false);
         }
         public void Battle(BattleSimulation battle,BattleSoldier unit,float progress,bool carried)
         {
             var heading=unit.LastAction==RoundAction.Attack||unit.LastAction==RoundAction.Skill ? unit.LastTargetCell : unit.Cell;
-            Facing=PlayerHeroFrames.Face(heading.X-unit.PreviousCell.X,heading.Z-unit.PreviousCell.Z,Facing);
+            bool walking=unit.LastAction==RoundAction.Move&&unit.CombatKind!=SoldierKind.Cavalry;
+            Facing=walking ? PlayerHeroFrames.FaceWalking(heading.X-unit.PreviousCell.X,heading.Z-unit.PreviousCell.Z,Facing)
+                : PlayerHeroFrames.Face(heading.X-unit.PreviousCell.X,heading.Z-unit.PreviousCell.Z,Facing);
             if(unit.LastAction==RoundAction.Move&&unit.LastMovePath.Count>1)
-            {int step=Mathf.Min(Mathf.FloorToInt(Mathf.SmoothStep(0,1,progress)*(unit.LastMovePath.Count-1)),unit.LastMovePath.Count-2);var a=unit.LastMovePath[step];var b=unit.LastMovePath[step+1];Facing=PlayerHeroFrames.Face(b.X-a.X,b.Z-a.Z,Facing);}
+            {
+                int step=Mathf.Min(Mathf.FloorToInt(Mathf.SmoothStep(0,1,progress)*(unit.LastMovePath.Count-1)),unit.LastMovePath.Count-2);
+                var a=unit.LastMovePath[step];var b=unit.LastMovePath[step+1];
+                Facing=walking ? PlayerHeroFrames.FaceWalking(b.X-a.X,b.Z-a.Z,Facing) : PlayerHeroFrames.Face(b.X-a.X,b.Z-a.Z,Facing);
+            }
             bool down=unit.IsDowned||!unit.IsAlive;if(down&&!wasDown)downProgress=0;if(down)downProgress=Mathf.Max(downProgress,progress);wasDown=down;
             bool hit=BattleSoldier.DamageFlashVisible(unit.LastDamageTaken,progress);
             var pose=down ? HeroPose.Down : unit.LastDamageTaken>0&&progress>=.85f&&progress<1 ? HeroPose.Hurt : unit.LastAction==RoundAction.Move&&progress<1 ? HeroPose.Walk : (unit.LastAction==RoundAction.Attack||unit.LastAction==RoundAction.Skill)&&progress<1 ? HeroPose.Attack : HeroPose.Idle;
@@ -69,8 +75,10 @@ namespace BaseConquest.Presentation
         public void Realtime(BaseConquest.RealtimePrototype.PrototypeUnit actor,double seconds)
         {
             bool attacking=actor.SwingUntil>seconds;var heading=attacking?actor.AttackFacing:actor.Facing;
-            var visual=actor.FootprintLength==2?actor.BodyAxis:heading;Facing=PlayerHeroFrames.Face(visual.X,visual.Z,Facing);
+            var visual=actor.FootprintLength==2?actor.BodyAxis:heading;
             var pose=actor.Health<=0||actor.KnockedDown?HeroPose.Down:attacking?HeroPose.Attack:actor.Moving&&!actor.SteeringStopped?HeroPose.Walk:HeroPose.Idle;
+            Facing=pose==HeroPose.Walk&&actor.FootprintLength!=2&&actor.JumpDuration<=0
+                ? PlayerHeroFrames.FaceWalking(visual.X,visual.Z,Facing) : PlayerHeroFrames.Face(visual.X,visual.Z,Facing);
             double windup=actor.Ranged?.24:.22;
             double time=pose==HeroPose.Down?1:pose==HeroPose.Attack?(actor.RpgWindup?actor.AttackPoseTime(seconds,windup/(windup+.16)):Mathf.Clamp01((float)((seconds-actor.HitAt+windup)/(windup+.16)))):pose==HeroPose.Walk?actor.DistanceTravelled/4:seconds;
             if(pose==HeroPose.Down)

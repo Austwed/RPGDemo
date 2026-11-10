@@ -15,12 +15,16 @@ namespace BaseConquest.Base
             if(!Change(BaseDemoFinale.OpenWorld,"已取得敌营位置与返乡道路；沿路行军才耗日"))return;
             RefreshDemoRegion();TravelConnection("demo_march_exit");
         }
-        public void BeginDemoAttack(string mode,bool briefingConfirmed=false)
+        public void BeginDemoAttack(string mode,bool briefingConfirmed=false,BaseBattlePreparation prepared=null)
         {
-            if(!State.Demo.Finale.AttackBriefingSeen&&!briefingConfirmed){Hud.OpenBanditCampBriefing(()=>BeginDemoAttack(mode,true));return;}
-            if(briefingConfirmed&&!Change(next=>next.Demo.Finale.AttackBriefingSeen=true,"敌营战前对白已记录"))return;
+            if(!State.Demo.Finale.AttackBriefingSeen&&!briefingConfirmed)
+            {Hud.OpenBanditCampBriefing(()=>BeginDemoAttack(mode,true,prepared));return;}
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
-            if(!Change(next=>encounter=BaseDemoFinale.Begin(next,mode),"队伍与军需已锁定，就近落位后暂停指挥"))return;
+            if (!Change(next =>
+            {
+                next.Demo.Finale.AttackBriefingSeen = true;
+                encounter = prepared == null ? BaseDemoFinale.Begin(next, mode) : prepared.Begin(next);
+            }, "队伍与军需已锁定")) { if (prepared != null) Hud.RefreshPreparedFailure(); return; }
             beforeDemoAttack=before;
             try{BeginSceneEncounter(encounter,BaseDemoFinale.Configure,null,FinishDemoAttack,"攻占阻路营地 · 击败驻军");}
             catch(Exception error)
@@ -104,11 +108,7 @@ namespace BaseConquest.Base
             if(id=="demo_camp_attack")
             {
                 if(BaseDemoFinale.Later(owner.State)){OpenDemoStory();return true;}
-                activeObject="demo-attack";interactionObject="";BeginPanel(BaseScriptNames.Bandit+" · 军需与进攻");
-                Line("使用已经沿路抵达的真实出征队。确认后就近落位，直接进入暂停指挥。击败驻军后保留实际战损、处理战利品，再前往"+BaseScriptNames.Village+"。",125,22);
-                Line("开战后失败／撤退保留双方战损和军需消耗，退回当地进攻点，不重复耗日。整备时可重选军需；改队伍需沿世界道路返营。",110,21);
-                foreach(string choice in new[]{"full","half","none"}){string mode=choice;RowButton("确认进攻 · "+(mode=="full"?"尽量配足军需":mode=="half"?"最多半数供给":"不使用军需"),0,800,()=>owner.BeginDemoAttack(mode));row+=60;}
-                RowButton("暂不进攻",0,800,ClosePanel);row+=60;EndPanel();return true;
+                OpenBattlePreparation(BasePrepRoute.BlackCrow);return true;
             }
             if(id!="demo_broken_sword"&&id!="demo_survivor")return false;
             if(owner.State.Demo.Stage==BaseDemoStage.Finished){OpenDemoStory();return true;}

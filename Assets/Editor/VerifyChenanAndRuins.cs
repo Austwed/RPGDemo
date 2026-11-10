@@ -278,6 +278,17 @@ namespace BaseConquest.Editor
             var quarter=BaseCalendar.Quarter(s);
             Need(quarter.Count==BaseCalendar.QuarterDays,"日历应固定 15 格，实际 "+quarter.Count);
             Need(quarter.Count(day=>day.Today)==1&&quarter.First(day=>day.Today).Day==s.Day,"今天应只标一格且与天数一致");
+            var boundary = intel.Copy(); boundary.Day = 15;
+            boundary.Campaign.Events.Clear(); boundary.Demo.Flow.RaidIntel.Clear();
+            boundary.Campaign.Events.Add(new BaseCampaignEvent { Id = "quarter-raid", Title = "跨季度袭击", Kind = "defense", Status = "pending", AvailableDay = 16 });
+            var nextQuarter = BaseCalendar.Quarter(boundary, 2);
+            Need(nextQuarter.Count == 15 && nextQuarter.First().Day == 16 && nextQuarter.Last().Day == 30 && nextQuarter.All(day => !day.Today), "下季度应显示第 16 到 30 天，不应重复今日");
+            Need(nextQuarter.All(day => day.Raids.Count == 0), "翻页不能泄露未知袭击日期");
+            BaseRaidIntel.Buy(boundary, 5);
+            Need(BaseCalendar.Quarter(boundary, 2).First().Raids.Contains("跨季度袭击"), "准确情报应标在对应季度");
+            Need(BaseCalendar.Quarter(boundary, 0).Count == 0 && BaseCalendar.Quarter(boundary, 3).Count == 0, "翻页应限制在首季度与下季度之间");
+            boundary.Day = 16;
+            Need(BaseCalendar.Quarter(boundary, 1).All(day => day.Past) && BaseCalendar.Quarter(boundary).First().Today, "进入下一季度后应仍能浏览过去的季度");
             // 顶栏四项明细：粮食／原料／军需／兵力都不能是空壳。
             Need(BaseTopBar.Food(s).Length==3&&BaseTopBar.Food(s)[0].Contains("预计产粮"),"粮食明细应包含岗位与预计产量");
             Need(BaseTopBar.Materials(s)[0].Contains("工坊在岗"),"原料明细应说明工坊在岗");

@@ -31,8 +31,6 @@ namespace BaseConquest.Base
 
         private void OpenTownMarket()=>StartTrade(TradeVendor.Merchant,TradeShelf.Goods);
         private void OpenSmithEquipment()=>StartTrade(TradeVendor.Smith,TradeShelf.Equipment);
-        private void OpenSmithStones()=>StartTrade(TradeVendor.Smith,TradeShelf.Stones);
-        private void OpenReforge()=>StartTrade(TradeVendor.Smith,TradeShelf.Reforge);
 
         private void StartTrade(TradeVendor vendor,TradeShelf shelf)
         {

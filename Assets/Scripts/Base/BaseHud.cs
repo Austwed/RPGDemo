@@ -16,7 +16,7 @@ namespace BaseConquest.Base
         private readonly Font font;
         private readonly RectTransform root, modal, inspection, mapLabels, controls;
         private readonly Text summary, hint, feedback, regionStatus;
-        private Text trackedQuest;
+        private Text trackedQuest, trackedQuestArrow;
         private readonly Text inspectionTitle, inspectionDetails;
         private Text panelFeedback;
         private readonly Button interact;
@@ -47,7 +47,7 @@ namespace BaseConquest.Base
                 return !owner.PlayerAway&&BaseInteraction.CanReach(owner.State,owner.PresentedObject(interactionObject)) ? "" : "请在设施边缘一格以内、与地基同层操作";
             }
         }
-        public void SetVisible(bool visible) { Joystick.ResetInput(); root.gameObject.SetActive(visible); }
+        public void SetVisible(bool visible) { if (!visible) CloseResourcePopover(); Joystick.ResetInput(); root.gameObject.SetActive(visible); }
         private readonly Color ink = DemoUiTheme.Current.Ink, buttonColor = DemoUiTheme.Current.Button;
 
         public BaseHud(BaseSceneController owner, Transform parent, Font font)
@@ -70,16 +70,24 @@ namespace BaseConquest.Base
             summary.lineSpacing=1.5f;
             summary.rectTransform.anchorMin = Vector2.zero; summary.rectTransform.anchorMax = Vector2.one;
             summary.rectTransform.offsetMin = new Vector2(18, 42); summary.rectTransform.offsetMax = new Vector2(-410, -10);
-            // P33：顶栏资源文字整块可点开明细；原型定稿后改成按资源分区的下拉。
-            var summaryLink=summary.gameObject.GetOrAdd<Button>();summaryLink.targetGraphic=summary;summaryLink.onClick.AddListener(OpenResources);
+            bool authoredResources = BaseBattleGateway.DemoMode && owner.SceneUiTemplate("ResourceStrip") != null;
             MakeButton(header, "菜单", new Vector2(-90, -36), new Vector2(140, 48), OpenMenu, new Vector2(1, 1));
             DemoUiIcons.Attach(MakeButton(header, "背包", new Vector2(-270, -36), new Vector2(86, 44), ToggleBackpack, new Vector2(1, 1)),"equipment");
-            DemoUiIcons.Attach(MakeButton(header, "任务", new Vector2(-364, -36), new Vector2(86, 44), ToggleQuests, new Vector2(1, 1)),"quest");
-            reserveRules=MakeButton(header,"i",new Vector2(-194,-36),new Vector2(44,44),()=>RuleInfo("资源与人员信息","基地总兵力统计全部己方士兵，包含驻外、在岗、闲置与重伤士兵；不包含主角、伙伴队长和未招降俘虏。\n\n括号内是按当前岗位预计的一日净变化：正值红色、负值绿色、零为中性色。粮食扣除全部人员口粮，原料扣除工坊耗料，钱币扣除旅店寄存日费；主动住宿费在休息确认时另列。军需显示两档总量，库存页可查看品质拆分。\n\n姓名为黄色表示通过劝降加入，只标记来源，工作、伤情、编队和作战规则相同。\n\n格子信息3秒自动收起，点击信息面板可立即收起；兵营完整单位详情保持打开。",ClosePanel),new Vector2(1,1));
-            // P34 常驻任务栏：默认隐藏，有追踪目标才出现；点一下折叠／展开。版式等原型定稿后替换。
+            if (!authoredResources)
+            {
+                var summaryLink = summary.gameObject.GetOrAdd<Button>(); summaryLink.targetGraphic = summary; summaryLink.onClick.AddListener(OpenResources);
+                DemoUiIcons.Attach(MakeButton(header, "任务", new Vector2(-364, -36), new Vector2(86, 44), ToggleQuests, new Vector2(1, 1)), "quest");
+                reserveRules = MakeButton(header, "i", new Vector2(-194, -36), new Vector2(44, 44), () => OpenResourceInfo(ClosePanel), new Vector2(1, 1));
+            }
             var questBar = Box("TrackedQuest", root, new Vector2(0, 1), new Vector2(168, -118), new Vector2(320, 74), new Color(.08f, .14f, .15f, .86f));
             trackedQuest = Label(questBar, "", Vector2.zero, new Vector2(300, 66), 17, TextAnchor.UpperLeft);
-            var questLink = questBar.gameObject.GetOrAdd<Button>(); questLink.targetGraphic = questBar.GetComponent<Image>(); questLink.onClick.AddListener(ToggleTrackedQuestBar);
+            var questLink = questBar.gameObject.GetOrAdd<Button>(); questLink.targetGraphic = questBar.GetComponent<Image>();
+            if (authoredResources)
+            {
+                questLink.onClick.AddListener(ToggleQuests);
+                trackedQuestArrow = MakeButton(questBar, "折叠", new Vector2(-20, -19), new Vector2(30, 30), ToggleTrackedQuestBar, new Vector2(1, 1)).GetComponentInChildren<Text>();
+            }
+            else questLink.onClick.AddListener(ToggleTrackedQuestBar);
             questBar.gameObject.SetActive(false);
             regionStatus = Label(header, "", new Vector2(220, 17), new Vector2(404, 28), 17, TextAnchor.MiddleLeft, new Vector2(0, 0));
             regionStatus.raycastTarget=true;var threatLink=regionStatus.gameObject.GetOrAdd<Button>();threatLink.targetGraphic=regionStatus;threatLink.onClick.AddListener(()=>{if(owner.State!=null&&!owner.Busy)OpenThreatOverview();});
@@ -114,6 +122,7 @@ namespace BaseConquest.Base
             // （世界地图隐藏主 HUD 后所有按钮失效即由此引起）。挂在 canvas 之外的父级上。
             if (Application.isPlaying && EventSystem.current == null) { var eventSystem = new GameObject("BaseEventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule)); eventSystem.transform.SetParent(owner.transform, false); eventSystem.GetComponent<InputSystemUIInputModule>().AssignDefaultActions(); }
             UiPrefabBinding.Complete(canvas);
+            BindResourceStrip(header);
             foreach (var label in labels) StyleMapName(label.GetComponent<Text>());
         }
         private static void StyleMapName(Text text)
@@ -175,17 +184,21 @@ namespace BaseConquest.Base
             var s = owner.State; feedback.text = owner.Message;feedback.gameObject.SetActive(owner.Message.Contains("失败")||owner.Message.Contains("未保存"));
             bool selectingHero = heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf;
             summary.transform.parent.gameObject.SetActive(!selectingHero && (!PanelOpen || panelViewKey != "npc-dialogue"));
-            reserveRules.interactable=s!=null&&!s.Aftermath.GameOver&&!owner.Busy;
+            if (reserveRules != null) reserveRules.interactable = s != null && !s.Aftermath.GameOver && !owner.Busy;
             if (panelFeedback != null) panelFeedback.text = owner.Message;
             owner.InvalidateObjects();
+            if (resourceStrip != null) RefreshResourceStrip(s);
             if (s == null) { summary.text = owner.Busy ? "正在读取据点…" : "没有有效进度，请选择新开局或恢复备份"; regionStatus.text = ""; interact.interactable = false; construction.gameObject.SetActive(false); Joystick.gameObject.SetActive(false); mapLabels.gameObject.SetActive(false); return; }
             mapLabels.gameObject.SetActive(!selectingHero && !PanelOpen); controls.gameObject.SetActive(!selectingHero && !PanelOpen);
-            var delta=BaseDailyDelta.Read(s);summary.supportRichText=true;
-            string Amount(string name,int count,int change)=>(DemoUiIcons.Load(name=="粮食"?"food":name=="原料"?"materials":name=="钱币"?"coins":"supplies")!=null?"　　":"")+name+" "+count+"（<color="+(change>0?"#a96354":change<0?"#426b50":"#718078")+">"+change.ToString("+0;-0;0")+"</color>）";
-            summary.text=BaseCampaign.LocationName(s)+(BaseDemoPrologue.Village(s)?"":" · 第 "+s.Day+" 天")+"   "+Amount("粮食",s.Inventory.Food,delta.Food)+"   "+Amount("原料",s.Inventory.Materials,delta.Materials)+"   "+Amount("钱币",s.Inventory.Coins,delta.Coins)+"\n"+Amount("军需",s.Inventory.Equipment.Where(e=>e.Product=="supply").Sum(e=>e.Count),delta.Supply)+"   兵力：剑士 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Melee).Sum(w=>w.Count)+"／弓兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Ranged).Sum(w=>w.Count)+"／骑兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Cavalry).Sum(w=>w.Count);
+            if (resourceStrip == null)
+            {
+                var delta=BaseDailyDelta.Read(s);summary.supportRichText=true;
+                string Amount(string name,int count,int change)=>(DemoUiIcons.Load(name=="粮食"?"food":name=="原料"?"materials":name=="钱币"?"coins":"supplies")!=null?"　　":"")+name+" "+count+"（<color="+(change>0?"#a96354":change<0?"#426b50":"#718078")+">"+change.ToString("+0;-0;0")+"</color>）";
+                summary.text=BaseCampaign.LocationName(s)+(BaseDemoPrologue.Village(s)?"":" · 第 "+s.Day+" 天")+"   "+Amount("粮食",s.Inventory.Food,delta.Food)+"   "+Amount("原料",s.Inventory.Materials,delta.Materials)+"   "+Amount("钱币",s.Inventory.Coins,delta.Coins)+"\n"+Amount("军需",s.Inventory.Equipment.Where(e=>e.Product=="supply").Sum(e=>e.Count),delta.Supply)+"   兵力：剑士 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Melee).Sum(w=>w.Count)+"／弓兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Ranged).Sum(w=>w.Count)+"／骑兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Cavalry).Sum(w=>w.Count);
+                if(BaseDemoRuins.Enabled(s))summary.text+=" · 体力 "+BaseRuinsRewards.Energy(s)+"/"+BaseRuinsRewards.Maximum(s);
+            }
             if(panel!=null&&panelViewKey!="npc-dialogue"){var header=summary.transform.parent;header.SetAsLastSibling();}
             int raids = s.Campaign.Events.Count(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= s.Day);
-            if(BaseDemoRuins.Enabled(s))summary.text+=" · 体力 "+BaseRuinsRewards.Energy(s)+"/"+BaseRuinsRewards.Maximum(s);
             regionStatus.text = BaseDemo.Active(s) ? (raids>0 ? "入侵已到达" : "") : s.Campaign.ThreatVersion>0 ? BaseThreats.Warning(s) : raids > 0 ? "入侵 " + raids + "：左侧迎战／过夜自动处理" : "";
             Joystick.gameObject.SetActive(Application.isMobilePlatform && !PanelOpen && !owner.Busy && !owner.PlayerAway && !s.Campaign.HasActiveBattle);
             if(BaseDemoPrologue.Village(s)){introObjectiveKey=-1;RefreshIntroObjective();}
@@ -197,6 +210,7 @@ namespace BaseConquest.Base
         {
             var s=owner.State;if(!BaseDemoPrologue.Village(s)||!BaseDemoIntro.Active(s))return;
             var i=s.Demo.Intro;int key=i.Step*100+i.FarmWorkers*4+(i.Walked>0?1:0)+(i.Zoomed?2:0);if(key==introObjectiveKey)return;introObjectiveKey=key;
+            if (resourceStrip != null) { RefreshResourceStrip(s); return; }
             int food=BaseDemoIntro.FarmOutput(s),need=BaseDemoIntro.VillageFood(s),net=food-need;string color=net>0?"#a96354":net<0?"#426b50":"#718078";
             summary.text=BaseScriptNames.Village+" · "+(BaseDemoIntro.Daily(s)?"清晨巡村":"风起村头")+"   粮食 "+s.Inventory.Food+"（<color="+color+">"+net.ToString("+0;-0;0")+"</color>） 日产 "+food+"／口粮 "+need+"  工坊 "+BaseDemoIntro.SmithWork(s)+"工点";
         }
@@ -267,6 +281,7 @@ namespace BaseConquest.Base
         }
         private void BeginPanel(string title, string viewKey = null)
         {
+            CloseResourcePopover();
             // 刷新设置仍在同一逻辑页；用内容偏移保留正在操作的行，不随内容总高度变化。
             if (PanelOpen && panelScroll != null && panelViewKey != null)
                 panelScrollOffsets[panelViewKey] = Mathf.Max(0, panelScroll.content.anchoredPosition.y);
@@ -358,12 +373,14 @@ namespace BaseConquest.Base
         }
         public void ClosePanel()
         {
+            if (ResourcePopoverOpen) { CloseResourcePopover(); return; }
             if (DialogueExitLocked) return;
             if(owner.State?.Aftermath.GameOver==true || BaseBattleGateway.MainMenu || BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) return;
             if(BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             workerDraft=null;workerMoves.Clear();ClearPanelSelection();
             dialogueContinue=null;modal.gameObject.SetActive(false); activeObject = "";interactionObject=""; panelViewKey = null; panelScrollOffsets.Clear();
             if (owner.State != null) RefreshSummary();
+            BattlePreparationPanelClosed();
             owner.NotifyPanelClosed();
         }
         private void ClearPanelSelection()

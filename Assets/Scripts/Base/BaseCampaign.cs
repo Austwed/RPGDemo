@@ -35,6 +35,8 @@ namespace BaseConquest.Base
         public BaseDifficulty Difficulty = new BaseDifficulty();
         public RpgRules Rpg;
         public BaseEquipmentQuota SupplySnapshot;
+        public bool ManualDeployment;
+        public List<int> TroopSlots;
         public bool HasCheckpoint;
         public bool RealtimeRules,HasRealtimeState,DemoCombat;
         // 副手战（P43）：同一套真实战斗，但主角与随行队伍不参战，权限只放查看与策略。
@@ -51,7 +53,7 @@ namespace BaseConquest.Base
         public List<BaseCampaignBinding> Bindings = new List<BaseCampaignBinding>();
         public List<BaseEnemyMember> Enemies = new List<BaseEnemyMember>();
         public List<BaseEnemyBinding> EnemyBindings = new List<BaseEnemyBinding>();
-        public BaseCampaignBattle Copy() => new BaseCampaignBattle { Id = Id, EventId = EventId, PartyId = PartyId, MapRegion=MapRegion, MapId=MapId, StartedDay = StartedDay,
+        public BaseCampaignBattle Copy() => new BaseCampaignBattle { Id = Id, EventId = EventId, PartyId = PartyId, MapRegion=MapRegion, MapId=MapId, StartedDay = StartedDay, ManualDeployment=ManualDeployment, TroopSlots=TroopSlots?.ToList(),
             Rpg=Rpg?.Copy(),TacticalBaseDamage=TacticalBaseDamage,RuinsExposureFraction=RuinsExposureFraction,RuinsFirstClear=RuinsFirstClear,TacticalRules=TacticalRules?.Copy(),TacticalObjects=(TacticalObjects??new List<BattleTacticalObject>()).Select(o=>o.Copy()).ToList(),Scenario = Scenario.Clone(), Leaders = Leaders.Select(l => l.Copy()).ToList(), Troops = Troops.Select(w => w.Copy()).ToList(), Difficulty = (Difficulty??new BaseDifficulty()).Copy(), SupplySnapshot = SupplySnapshot?.Copy(), HasCheckpoint=HasCheckpoint,Checkpoint=HasCheckpoint?Checkpoint.Copy():null,RealtimeRules=RealtimeRules,DemoCombat=DemoCombat,Deputy=Deputy,PlayerTroopCounts=PlayerTroopCounts?.ToArray(),RealtimeRulesVersion=RealtimeRulesVersion,HasRealtimeState=HasRealtimeState,RealtimeState=HasRealtimeState?RealtimeState?.Copy():null,Bindings=(Bindings??new List<BaseCampaignBinding>()).Select(x=>x.Copy()).ToList(), Enemies=(Enemies??new List<BaseEnemyMember>()).Select(u=>u.Copy()).ToList(),EnemyBindings=(EnemyBindings??new List<BaseEnemyBinding>()).Select(x=>x.Copy()).ToList() };
     }
     [Serializable] public sealed class BaseCampaignBinding {public int SoldierId,TroopIndex;public BaseCampaignBinding Copy()=>(BaseCampaignBinding)MemberwiseClone();}
@@ -152,9 +154,18 @@ namespace BaseConquest.Base
             if(a!=null){if(a.Difficulty==null||a.Difficulty.Version==0)a.Difficulty=new BaseDifficulty();a.Bindings??=new List<BaseCampaignBinding>();a.SupplySnapshot??=s.Supply.Quotas.FirstOrDefault(q=>q.BattleId==a.Id)?.Copy();foreach(var l in a.Leaders??new List<BaseLeader>())if(s.Leaders.Any(person=>person.Id==l.Id&&person.Recruited))l.Recruited=true;}
             if (a == null || a.Scenario == null || string.IsNullOrWhiteSpace(a.Id) || c.SettledIds.Contains(a.Id) || a.StartedDay != s.Day || a.Leaders == null || a.Troops == null || a.Leaders.Count < 1 || a.Leaders.Count > 3 || a.Troops.Count > 90 || a.Leaders.Any(l => l == null || !s.Leaders.Any(p => p.Id == l.Id && p.PartyId == a.PartyId && p.Away)) || a.Leaders.Select(l => l.Id).Distinct().Count() != a.Leaders.Count || a.Troops.Any(w => w == null || w.Count != 1 || !w.Away || w.PartyId != a.PartyId || w.Health <= 0 || w.Health > w.MaxHealth) || !c.Events.Any(e => e.Id == a.EventId && e.Status == "pending") || !s.Supply.Quotas.Any(q => q.BattleId == a.Id && q.PartyId == a.PartyId && q.Phase == "fighting")) throw new ArgumentException("活动战斗与真实编制／配额不一致");
             if (a.Scenario.SupplyBattleId != a.Id + ":0" || a.Scenario.A.HeroCount != a.Leaders.Count || Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>().Any(k => a.Scenario.A.Count(ToBattle(k)) != a.Troops.Count(w => w.Kind == k))) throw new ArgumentException("活动战场供给分母不一致");
-            string HealthKey(BaseWorkerBucket w) => w.SourceId + ":" + (int)w.Kind + ":" + w.Health.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + ":" + w.MaxHealth.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
             var actual = s.Workers.Where(w => w.Away && w.PartyId == a.PartyId).ToArray();
-            if (actual.Sum(w => w.Count) != a.Troops.Count || a.Troops.GroupBy(HealthKey).Any(g => actual.Where(w => HealthKey(w) == g.Key).Sum(w => w.Count) != g.Count()) || a.Leaders.Any(l => l.Health <= 0 || !Finite(l.Health) || !Finite(l.MaxHealth) || l.Health > l.MaxHealth || s.Leaders.Single(p => p.Id == l.Id).Health != l.Health)) throw new ArgumentException("活动战役的真实人员已被其他操作改变，拒绝重新生成人员");
+            var supply = s.Supply.Quotas.Single(q => q.BattleId == a.Id);
+            if ((!supply.PartySubset && actual.Sum(w => w.Count) != a.Troops.Count) ||
+                a.Troops.GroupBy(WorkerKey).Any(g => actual.Where(w => WorkerKey(w) == g.Key).Sum(w => w.Count) < g.Count()) ||
+                a.Leaders.Any(l => l.Health <= 0 || !Finite(l.Health) || !Finite(l.MaxHealth) || l.Health > l.MaxHealth || s.Leaders.Single(p => p.Id == l.Id).Health != l.Health))
+                throw new ArgumentException("活动战役的真实人员已被其他操作改变，拒绝重新生成人员");
+            if (supply.ByTeam && (a.SupplySnapshot?.ByTeam != true || a.SupplySnapshot.PartySubset != supply.PartySubset ||
+                !a.Leaders.Select(l => l.Id).SequenceEqual(supply.Leaders) ||
+                !a.SupplySnapshot.Teams.Select(t => (t.LeaderId, t.Soldiers, t.Low, t.High)).SequenceEqual(supply.Teams.Select(t => (t.LeaderId, t.Soldiers, t.Low, t.High))) ||
+                a.TroopSlots == null || a.TroopSlots.Count != a.Troops.Count || a.TroopSlots.Any(n => n < 0 || n >= a.Leaders.Count) ||
+                Enumerable.Range(0, supply.Teams.Count).Any(slot => supply.Teams[slot].Soldiers != a.TroopSlots.Count(n => n == slot))))
+                throw new ArgumentException("战斗编成与逐队军需不一致");
             BattleScenarioDocument.Validate(new BattleScenarioDocument { Scenario = a.Scenario, DeploymentMode = "explicit" });
             if(a.HasCheckpoint) {var b=BattleSimulation.Restore(a.Checkpoint,a.Rpg!=null);if(b.Scenario.SupplyBattleId!=a.Scenario.SupplyBattleId||a.Bindings==null||a.Bindings.Any(x=>x.TroopIndex<0||x.TroopIndex>=a.Troops.Count||b.Soldier(x.SoldierId)==null||b.Soldier(x.SoldierId).DeveloperSpawned||b.Soldier(x.SoldierId).Side!=BattleSide.A||b.Soldier(x.SoldierId).Kind!=ToBattle(a.Troops[x.TroopIndex].Kind))||a.Bindings.Select(x=>x.SoldierId).Distinct().Count()!=a.Bindings.Count||a.Bindings.Select(x=>x.TroopIndex).Distinct().Count()!=a.Bindings.Count||a.Bindings.Count!=b.Soldiers.Count(u=>u.Side==BattleSide.A&&u.Kind!=SoldierKind.Hero&&!u.DeveloperSpawned))throw new ArgumentException("战斗检查点来源非法");}
             ValidateRealtime(a);
@@ -172,6 +183,8 @@ namespace BaseConquest.Base
             new RealtimeCampaignBattle(new BaseCampaignSession(opening));
         }
         public static SoldierKind ToBattle(BaseTroopKind k) => k == BaseTroopKind.Melee ? SoldierKind.Melee : k == BaseTroopKind.Ranged ? SoldierKind.Ranged : SoldierKind.Cavalry;
+        private static (string source, BaseTroopKind kind, double health, double max) WorkerKey(BaseWorkerBucket worker)
+            => (worker.SourceId, worker.Kind, worker.Health, worker.MaxHealth);
         public static BaseTroopKind ToBase(SoldierKind k) => k == SoldierKind.Melee ? BaseTroopKind.Melee : k == SoldierKind.Ranged ? BaseTroopKind.Ranged : BaseTroopKind.Cavalry;
         public static IEnumerable<BaseCampaignEvent> Due(BaseState s) => s.Campaign.Events.Where(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= s.Day && e.DeadlineDay <= s.Day);
         public static bool Travel(BaseState s, string location,string connectionId=null)
@@ -203,6 +216,10 @@ namespace BaseConquest.Base
             return true;
         }
         public static BaseCampaignBattle Begin(BaseState s, string eventId, BattleScenarioDocument document, string mode = "full", BaseMusterPlan plan = null,bool realtime=false)
+            => Begin(s, eventId, document, mode, plan, realtime, null);
+
+        internal static BaseCampaignBattle Begin(BaseState s, string eventId, BattleScenarioDocument document,
+            string mode, BaseMusterPlan plan, bool realtime, BasePreparedRoster roster)
         {
             if(BaseDemoFinale.Rebuilding(s))throw new InvalidOperationException("返乡重建期间不能开始战斗");
             BaseEconomy.Validate(s); BattleScenarioDocument.Validate(document);
@@ -222,6 +239,8 @@ namespace BaseConquest.Base
             var enemies=BaseThreats.EnemySnapshot(s,e,document.Scenario.B);
             string purpose = e.Kind == "defense" ? "defense" : "expedition";
             var party = s.Muster.Parties.FirstOrDefault(p => p.Purpose == purpose);
+            if (roster != null && party?.Id != roster.ArrivedPartyId)
+                throw new InvalidOperationException("到场队伍已变化，请重新备战");
             if (party == null)
             {
                 plan = plan ?? BaseMuster.PreviewFormation(s,purpose,"combat");
@@ -230,8 +249,14 @@ namespace BaseConquest.Base
             }
             if(s.Workers.Where(w=>w.Away&&w.PartyId==party.Id).Sum(w=>w.Count)>BaseMuster.BattleSoldierLimit)throw new InvalidOperationException("出战士兵总数超过24人，请返营调整");
             if(e.Kind=="attack"&&!party.Leaders.Any(l=>l.LeaderId==s.PlayerLeaderId))throw new InvalidOperationException("进攻出征需主角带队，先返营重新选择");
-            if(BaseWorldJourney.Active(s)&&e.Kind=="attack"&&(party.Leaders.Any(item=>!BaseAdventure.Alive(s.Leaders.Single(leader=>leader.Id==item.LeaderId)))||!demoCombat&&s.Workers.Any(worker=>worker.PartyId==party.Id&&worker.Health<=1)))throw new InvalidOperationException("出征队有阵亡队长或重伤士兵，请沿世界道路返营整备");
+            if(roster==null&&BaseWorldJourney.Active(s)&&e.Kind=="attack"&&(party.Leaders.Any(item=>!BaseAdventure.Alive(s.Leaders.Single(leader=>leader.Id==item.LeaderId)))||!demoCombat&&s.Workers.Any(worker=>worker.PartyId==party.Id&&worker.Health<=1)))throw new InvalidOperationException("出征队有阵亡队长或重伤士兵，请沿世界道路返营整备");
             var quota = s.Supply.Quotas.FirstOrDefault(q => q.PartyId == party.Id);
+            if (roster != null)
+            {
+                if (quota != null && !BaseSupply.Cancel(s, quota.BattleId)) throw new InvalidOperationException("当前军需配额不能替换");
+                roster.CaptureTroops(s, plan, party);
+                quota = BaseSupply.ReserveTeams(s, party, roster);
+            }
             if (quota == null)
             {
                 var supply = BaseSupply.Preview(s, party.Id, mode);
@@ -261,24 +286,37 @@ namespace BaseConquest.Base
             raw.A.MeleeCount = quota.Melee; raw.A.RangedCount = quota.Ranged; raw.A.CavalryCount = quota.Cavalry;
             raw.A.HeroCount = quota.Leaders.Count; raw.A.CaptainSlot = 0; raw.A.Capacity = 90;
             raw.PlayerLeaderSlot = quota.Leaders.IndexOf(s.PlayerLeaderId);
-            var sceneLeaders=party.Leaders.Select(l=>s.Leaders.Single(p=>p.Id==l.LeaderId)).ToList();
+            var sceneLeaders=quota.Leaders.Select(id=>s.Leaders.Single(p=>p.Id==id)).ToList();
             raw.A.Commanders = Enumerable.Range(0, raw.A.HeroCount).Select(slot => new CommanderLoadout()).ToList();
             var formation=BaseMuster.CurrentFormation(s,party);
             foreach (var kind in BattleSimulation.TroopKinds)
-                if(formation!=null)for(int slot=0;slot<formation.Count;slot++)raw.A.Commanders[slot].Set(kind,formation[slot].Actual.Count(ToBase(kind)));
+                if(roster!=null)for(int slot=0;slot<roster.Leaders.Length;slot++)raw.A.Commanders[slot].Set(kind,roster.Units.Count(u=>u.Kind==kind&&u.TeamId==roster.Leaders[slot]));
+                else if(formation!=null)for(int slot=0;slot<formation.Count;slot++)raw.A.Commanders[slot].Set(kind,formation[slot].Actual.Count(ToBase(kind)));
                 else for (int n = 0; n < raw.A.Count(kind); n++) raw.A.Commanders[n % raw.A.HeroCount].Set(kind, raw.A.Commanders[n % raw.A.HeroCount].Count(kind) + 1);
             // 中立场景按「战场所在区域」判，不能拿玩家当前站着的城镇来判断（副手防守时玩家可能留在营地）。
             bool neutral=BaseSceneRules.Neutral(s,e.Kind=="defense"?location:s.Campaign.Location);
             BaseSceneRules.Configure(s,raw,sceneLeaders,e.Kind=="defense"?location:null);
+            if (roster?.Positions != null)
+                foreach (var unit in roster.Units)
+                    raw.Placements.Add(new UnitPlacement { Side = BattleSide.A, Kind = unit.Kind,
+                        Cell = roster.Positions[unit.Id], CommanderSlot = Array.IndexOf(roster.Leaders, unit.TeamId) });
             var a = new BaseCampaignBattle { Rpg=s.Demo?.Rpg?.Copy(),Id = quota.BattleId, EventId = e.Id, PartyId = party.Id, MapRegion=realtime||BaseDesignRoutes.Active(s)?location:null, StartedDay = s.Day,
-                Scenario = BaseSupply.ApplyToScenario(s, quota.BattleId, raw), Leaders = party.Leaders.Select(l => s.Leaders.Single(p => p.Id == l.LeaderId).Copy()).ToList(), Difficulty = new BaseDifficulty(), SupplySnapshot = quota.Copy(), Enemies=enemies,RealtimeRules=realtime,DemoCombat=demoCombat,PlayerTroopCounts=demoCombat?BattleSimulation.TroopKinds.Select(kind=>s.Workers.Where(w=>ToBattle(w.Kind)==kind).Sum(w=>w.Count)).ToArray():null,RealtimeRulesVersion=realtime?1:0 };
+                Scenario = BaseSupply.ApplyToScenario(s, quota.BattleId, raw), Leaders = sceneLeaders.Select(l => l.Copy()).ToList(), Difficulty = new BaseDifficulty(), SupplySnapshot = quota.Copy(), Enemies=enemies,RealtimeRules=realtime,DemoCombat=demoCombat,PlayerTroopCounts=demoCombat?BattleSimulation.TroopKinds.Select(kind=>s.Workers.Where(w=>ToBattle(w.Kind)==kind).Sum(w=>w.Count)).ToArray():null,RealtimeRulesVersion=realtime?1:0,
+                ManualDeployment=roster?.Positions!=null };
             if(BaseDemoRelease.Enabled(s)&&realtime)
             {a.TacticalRules=s.Demo.TacticalRules.Copy();a.TacticalObjects=BaseSpatial.Layout(s,location).TacticalObjects.Select(o=>o.Copy()).ToList();a.TacticalBaseDamage=BaseRpg.Active(s)?s.Demo.Rpg.Templates.Single(t=>t.Id=="soldier_warrior").Attack:s.Demo.RuinsArmy.Melee.Damage;}
             if(BaseSceneInstances.Active(s))a.MapId=BaseSceneInstances.Layout(s,location).SourceMapId;
             if(e.Kind=="defense"&&enemies.Count>0)e.EnemyArmy=enemies.Select(u=>u.Copy()).ToList();
             a.Scenario.A.CommanderStats=a.Leaders.Select(l=>{var p=BaseCommanderIdentity.Stats(l,raw.A.Hero);p.Damage*=(float)quota.AttackFactor;return p;}).ToList();
-            foreach (var w in s.Workers.Where(w => !neutral&&w.Away && w.PartyId == party.Id))
-                for (int n = 0; n < w.Count; n++) { var unit = w.Copy(); unit.Count = 1; a.Troops.Add(unit); }
+            if (roster != null)
+            {
+                var soldiers = roster.Units.Where(u => u.Pick != null).ToArray();
+                a.Troops = soldiers.Select(u => roster.Troops[u.Id]).ToList();
+                a.TroopSlots = soldiers.Select(u => Array.IndexOf(roster.Leaders, u.TeamId)).ToList();
+            }
+            else
+                foreach (var w in s.Workers.Where(w => !neutral&&w.Away && w.PartyId == party.Id))
+                    for (int n = 0; n < w.Count; n++) { var unit = w.Copy(); unit.Count = 1; a.Troops.Add(unit); }
             s.Campaign.ActiveBattle = a; s.Campaign.HasActiveBattle = true;
             BaseEconomy.Validate(s); return a;
         }
@@ -323,6 +361,7 @@ namespace BaseConquest.Base
                 else { var survivor = snapshot.Copy(); survivor.Health = unit == null ? snapshot.Health : Math.Max(1, Math.Min(snapshot.MaxHealth, unit.Health)); if (unit != null && !a.DemoCombat && survivor.Health < survivor.MaxHealth * BaseDevelopment.DutyThreshold) forcedRest.Add(survivor); survivors.Add(survivor); r.Returned++; if (survivor.Health < survivor.MaxHealth) r.Wounded++; }
                 if (unit != null)
                 {
+                    if (a.SupplySnapshot?.ByTeam == true) outcome.RecordTeam(unit.OriginCommanderSlot, lost);
                     if (snapshot.Kind == BaseTroopKind.Melee) { if (lost) outcome.LostMelee++; else outcome.SafeMelee++; }
                     else if (snapshot.Kind == BaseTroopKind.Ranged) { if (lost) outcome.LostRanged++; else outcome.SafeRanged++; }
                     else { if (lost) outcome.LostCavalry++; else outcome.SafeCavalry++; }
@@ -337,7 +376,21 @@ namespace BaseConquest.Base
                 leader.Fate=lost ? unit.InstantDead ? "dead" : "missing" : "active";
                 if (unit != null && !unit.IsAlive) { r.LeadersDown++; if (leader.Health > 0) down.Add(leader.Id); }
             }
-            s.Workers.RemoveAll(w => w.Away && w.PartyId == a.PartyId); s.Workers.AddRange(survivors);
+            if (a.SupplySnapshot?.PartySubset == true)
+            {
+                var fought = a.Troops.GroupBy(WorkerKey).ToDictionary(g => g.Key, g => g.Count());
+                foreach (var worker in s.Workers.Where(w => w.Away && w.PartyId == a.PartyId))
+                {
+                    var key = WorkerKey(worker);
+                    if (!fought.TryGetValue(key, out int count)) continue;
+                    int used = Math.Min(count, worker.Count);
+                    worker.Count -= used;
+                    fought[key] -= used;
+                }
+                s.Workers.RemoveAll(w => w.Count == 0);
+            }
+            else s.Workers.RemoveAll(w => w.Away && w.PartyId == a.PartyId);
+            s.Workers.AddRange(survivors);
             var returning=s.Muster.Parties.Single(p=>p.Id==a.PartyId);if(returning.CommanderTroops!=null)returning.CommanderTroops=BaseMuster.CurrentFormation(s,returning);
             int gear = s.Inventory.Equipment.Sum(x => x.Count);
             s.Campaign.HasActiveBattle = false; s.Campaign.ActiveBattle = new BaseCampaignBattle();
@@ -460,7 +513,8 @@ namespace BaseConquest.Base
             {
                 unit.HasProvisionEffects=true;unit.ProvisionAttackFactor=(float)(Opening.SupplySnapshot?.AttackFactor??1);
                 if(unit.OriginCommanderSlot>=0&&unit.OriginCommanderSlot<Opening.Leaders.Count)BaseWine.Apply(unit,Opening.Leaders[unit.OriginCommanderSlot],Opening.StartedDay);
-                unit.ProvisionWeaponBonus=unit.Kind==SoldierKind.Hero ? 0 : (float)(unit.Kind==SoldierKind.Ranged ? Opening.SupplySnapshot?.BowBonus??0 : Opening.SupplySnapshot?.SwordBonus??0);unit.ProvisionArmorBonus=unit.Kind==SoldierKind.Hero ? 0 : (float)(Opening.SupplySnapshot?.ArmorBonus??0);
+                unit.ProvisionWeaponBonus=unit.Kind==SoldierKind.Hero ? 0 : (float)(Opening.SupplySnapshot?.WeaponBonus(unit.OriginCommanderSlot, unit.Kind==SoldierKind.Ranged)??0);
+                unit.ProvisionArmorBonus=unit.Kind==SoldierKind.Hero ? 0 : (float)(Opening.SupplySnapshot?.DefenseBonus(unit.OriginCommanderSlot)??0);
                 if (unit.Kind == SoldierKind.Hero)
                 {
                     unit.Recruited=Opening.Leaders[unit.OriginCommanderSlot].Recruited;
@@ -480,10 +534,21 @@ namespace BaseConquest.Base
                 }
                 else if (!troops.ContainsKey(unit.Id))
                 {
-                    int i = Enumerable.Range(0, Opening.Troops.Count).First(n => Opening.Troops[n].Kind == BaseCampaign.ToBase(unit.Kind) && !troops.ContainsValue(n));
+                    int i = Enumerable.Range(0, Opening.Troops.Count).First(n => Opening.Troops[n].Kind == BaseCampaign.ToBase(unit.Kind)
+                        && (Opening.SupplySnapshot?.ByTeam != true || Opening.TroopSlots[n] == unit.OriginCommanderSlot) && !troops.ContainsValue(n));
                     troops.Add(unit.Id, i); var w = Opening.Troops[i];
                     unit.Recruited=w.Recruited;
-                    if (w.HasCombatProfile) { unit.Stats = w.CombatStats.Clone(); var q = Opening.SupplySnapshot; if (q != null) { unit.Stats.Damage = (unit.Stats.Damage + (float)(w.Kind == BaseTroopKind.Ranged ? q.BowBonus : q.SwordBonus)) * (float)q.AttackFactor; unit.Stats.Defense += (float)q.ArmorBonus; } }
+                    if (w.HasCombatProfile)
+                    {
+                        unit.Stats = w.CombatStats.Clone();
+                        unit.Stats.Damage = (unit.Stats.Damage + unit.ProvisionWeaponBonus) * unit.ProvisionAttackFactor;
+                        unit.Stats.Defense += unit.ProvisionArmorBonus;
+                    }
+                    else if (Opening.SupplySnapshot?.ByTeam == true)
+                    {
+                        unit.Stats.Damage += unit.ProvisionWeaponBonus * unit.ProvisionAttackFactor;
+                        unit.Stats.Defense += unit.ProvisionArmorBonus;
+                    }
                     unit.Stats.Level=1;unit.Stats.Health = (float)w.MaxHealth; unit.Health = (float)w.Health;
                 }
                 if(unit.Kind!=SoldierKind.Hero&&troops.TryGetValue(unit.Id,out int sourceIndex))unit.Recruited=Opening.Troops[sourceIndex].Recruited;
