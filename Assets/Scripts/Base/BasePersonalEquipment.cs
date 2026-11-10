@@ -207,15 +207,27 @@ namespace BaseConquest.Base
         public static int BuyPrice(BaseState s,string template)=>BaseRpg.Active(s)?BaseRpg.Price(s,BaseRpg.Value(s,template),true):Definition(template).Price;
         public static bool AtSmith(BaseState s)=>BaseInteraction.At(s,"town","town_smith")||BaseInteraction.At(s,"town","town_blacksmith");
         public static bool AtShop(BaseState s)=>BaseInteraction.At(s,"town","town_market")||AtSmith(s);
-        public static bool CanBuy(BaseState s,string template)
+        public static bool CanBuy(BaseState s,string template,string recipient)
         {
             var d=Definition(template);var offer=s.PersonalEquipment.Offers.SingleOrDefault(o=>o.Template==template);
-            return d!=null&&(!BaseDemoFlow.Active(s)||!template.StartsWith("novice_")||s.Demo.Flow.NoviceShop)&&offer?.Remaining>0&&s.Inventory.Coins>=BuyPrice(s,template)&&BasePartyInventory.PartyFreeCell(s,out _,out _)&&!s.Campaign.HasActiveBattle&&!s.Aftermath.GameOver&&AtShop(s);
+            var leader=BaseAdventure.Members(s).FirstOrDefault(l=>l.Id==recipient);
+            return d!=null&&(!BaseDemoFlow.Active(s)||!template.StartsWith("novice_")||s.Demo.Flow.NoviceShop)
+                &&offer?.Remaining>0&&s.Inventory.Coins>=BuyPrice(s,template)&&s.PersonalEquipment.NextId<int.MaxValue-401&&s.Backpack.Revision<int.MaxValue-1
+                &&leader!=null&&BasePartyInventory.AccessibleLeader(s,leader)&&BasePartyInventory.FreeCell(s,recipient)>=0
+                &&!s.Campaign.HasActiveBattle&&BasePartyInventory.Peaceful(s)&&!BaseBattleLoot.Pending(s)&&AtShop(s);
         }
-        public static bool Buy(BaseState s,string template)
+        public static bool Buy(BaseState s,string template,string recipient,int quotedPrice)
         {
-            if(!CanBuy(s,template))return false;s.Inventory.Coins-=BuyPrice(s,template);s.PersonalEquipment.Offers.Single(o=>o.Template==template).Remaining--;
-            BasePartyInventory.PartyFreeCell(s,out var holder,out var cell);var bought=Create(s,template);bought.Holder=holder;bought.Cell=cell;s.PersonalEquipment.Warehouse.Add(bought);if(template=="novice_sword")BaseAchievements.Unlock(s,BaseAchievements.Sword);return true;
+            if(!CanBuy(s,template,recipient)||BuyPrice(s,template)!=quotedPrice)return false;
+            var bought=Create(s,template);
+            bought.Holder=recipient;
+            bought.Cell=BasePartyInventory.FreeCell(s,recipient);
+            s.Inventory.Coins-=quotedPrice;
+            s.PersonalEquipment.Offers.Single(o=>o.Template==template).Remaining--;
+            s.PersonalEquipment.Warehouse.Add(bought);
+            s.Backpack.Revision++;
+            if(template=="novice_sword")BaseAchievements.Unlock(s,BaseAchievements.Sword);
+            return true;
         }
         public static void AdvanceDay(BaseState s)
         {

@@ -60,7 +60,7 @@ namespace BaseConquest.Base
         {
             var s=owner.State;if(!BaseDemoFinale.Rebuilding(s)||s.Campaign.CurrentMapId!=BaseDemoFinale.Home)return;
             var board=BaseBattlefield.Board(s,BaseDemoFinale.Home);if(rebuildX<0||rebuildY<0){rebuildX=Math.Min(board.Width-1,(int)s.PlayerX+2);rebuildY=Math.Min(board.Height-1,(int)s.PlayerY);}
-            BeginPanel("返乡重建 · 临时入口");Line("选择格子后放置设施；三项完成后确认。",55,19);
+            BeginPanel(BaseConquest.Story.StoryText.Get("story.ui.finale.rebuild_title","返乡重建"),"hometown-rebuild");Line("选择格子后放置设施；三项完成后确认。",55,19);
             ArmyCounter("横向格",rebuildX,0,board.Width-1,n=>{rebuildX=n;OpenRebuild();},true);
             ArmyCounter("纵向格",rebuildY,0,board.Height-1,n=>{rebuildY=n;OpenRebuild();},true);
             for(int i=0;i<3;i++)
@@ -68,7 +68,9 @@ namespace BaseConquest.Base
                 int item=i;bool placed=(s.Demo.Finale.RebuildMask&(1<<i))!=0;string name=new[]{"小粮田","营帐","仓库"}[i];string problem=placed?"已放置":BaseDemoFinale.RebuildProblem(s,item,rebuildX,rebuildY);
                 RowButton(name+" · "+(placed?"撤回重选":problem==""?"放置并确认":problem),0,800,()=>{if(owner.Change(next=>{if(placed){if(!BaseDemoFinale.RemoveRebuild(next,item))throw new InvalidOperationException("无法撤回设施");}else if(!BaseDemoFinale.PlaceRebuild(next,item,rebuildX,rebuildY))throw new InvalidOperationException(BaseDemoFinale.RebuildProblem(next,item,rebuildX,rebuildY));},placed?"已撤回":"已放置")){owner.RefreshDemoRegion();owner.Hud.OpenRebuild();}},placed||problem=="");row+=58;
             }
-            RowButton("确认完成重建",0,800,()=>NpcDialogue(new[]{new NpcLine("旁白","","待写")},new[]{new NpcReply("结束 Demo",()=>{if(owner.Change(next=>{if(!BaseDemoFinale.FinishRebuild(next))throw new InvalidOperationException("请先完成三项重建");},"返乡重建完成"))OpenDemoStory();})}),s.Demo.Finale.RebuildMask==7);row+=58;
+            RowButton("确认完成重建",0,800,()=>NpcDialogue(new[]{new NpcLine("旁白","",
+                BaseConquest.Story.StoryText.Get("story.ui.finale.rebuild_confirm","小粮田、营帐和仓库均已放置。确认后结束 Demo。"))},
+                new[]{new NpcReply("结束 Demo",()=>{if(owner.Change(next=>{if(!BaseDemoFinale.FinishRebuild(next))throw new InvalidOperationException("请先完成三项重建");},"返乡重建完成"))OpenDemoStory();})}),s.Demo.Finale.RebuildMask==7);row+=58;
             RowButton("关闭",0,800,ClosePanel);row+=58;EndPanel();
         }
         // BANDIT_01_WIN_01/02：匪首伏诛后搜主帐，拿到密信与金叶，南下返乡的路打通。

@@ -53,7 +53,9 @@ namespace BaseConquest.Base
         public BaseHud(BaseSceneController owner, Transform parent, Font font)
         {
             this.owner = owner; this.font = font;
-            var canvas = UiPrefabBinding.Create("BaseShell", "据点主界面 · UGUI", parent, true,owner.AuthoredHud!=null ? owner.AuthoredHud : BaseBattleGateway.SessionHud);
+            var sceneShell = BaseBattleGateway.DemoMode ? owner.SceneUiTemplate("BaseShell") : null;
+            var canvas = UiPrefabBinding.Create("BaseShell", "据点主界面 · UGUI", parent, true,
+                sceneShell ?? (owner.AuthoredHud != null ? owner.AuthoredHud : BaseBattleGateway.SessionHud), sceneShell != null);
             canvas.transform.SetParent(parent, false); canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
             var scaler = canvas.GetComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280, 720); scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
@@ -112,6 +114,15 @@ namespace BaseConquest.Base
             // （世界地图隐藏主 HUD 后所有按钮失效即由此引起）。挂在 canvas 之外的父级上。
             if (Application.isPlaying && EventSystem.current == null) { var eventSystem = new GameObject("BaseEventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule)); eventSystem.transform.SetParent(owner.transform, false); eventSystem.GetComponent<InputSystemUIInputModule>().AssignDefaultActions(); }
             UiPrefabBinding.Complete(canvas);
+            foreach (var label in labels) StyleMapName(label.GetComponent<Text>());
+        }
+        private static void StyleMapName(Text text)
+        {
+            text.color = DemoUiTheme.Current.Panel;
+            var outline = text.gameObject.GetOrAdd<Outline>();
+            outline.effectColor = DemoUiTheme.Current.Line;
+            outline.effectDistance = new Vector2(1.25f, -1.25f);
+            outline.useGraphicAlpha = true;
         }
         private RectTransform StretchLayer(string name, Transform parent)
         {
@@ -162,12 +173,13 @@ namespace BaseConquest.Base
         public void RefreshSummary()
         {
             var s = owner.State; feedback.text = owner.Message;feedback.gameObject.SetActive(owner.Message.Contains("失败")||owner.Message.Contains("未保存"));
-            summary.transform.parent.gameObject.SetActive(!PanelOpen||panelViewKey!="npc-dialogue");
+            bool selectingHero = heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf;
+            summary.transform.parent.gameObject.SetActive(!selectingHero && (!PanelOpen || panelViewKey != "npc-dialogue"));
             reserveRules.interactable=s!=null&&!s.Aftermath.GameOver&&!owner.Busy;
-            if (panelFeedback != null) panelFeedback.text = DialogueOpen&&!owner.Message.StartsWith("操作未保存")&&!owner.Message.Contains("失败")?"交谈中 · 选择答复后继续":owner.Message;
+            if (panelFeedback != null) panelFeedback.text = owner.Message;
             owner.InvalidateObjects();
             if (s == null) { summary.text = owner.Busy ? "正在读取据点…" : "没有有效进度，请选择新开局或恢复备份"; regionStatus.text = ""; interact.interactable = false; construction.gameObject.SetActive(false); Joystick.gameObject.SetActive(false); mapLabels.gameObject.SetActive(false); return; }
-            mapLabels.gameObject.SetActive(!PanelOpen); controls.gameObject.SetActive(!PanelOpen);
+            mapLabels.gameObject.SetActive(!selectingHero && !PanelOpen); controls.gameObject.SetActive(!selectingHero && !PanelOpen);
             var delta=BaseDailyDelta.Read(s);summary.supportRichText=true;
             string Amount(string name,int count,int change)=>(DemoUiIcons.Load(name=="粮食"?"food":name=="原料"?"materials":name=="钱币"?"coins":"supplies")!=null?"　　":"")+name+" "+count+"（<color="+(change>0?"#a96354":change<0?"#426b50":"#718078")+">"+change.ToString("+0;-0;0")+"</color>）";
             summary.text=BaseCampaign.LocationName(s)+(BaseDemoPrologue.Village(s)?"":" · 第 "+s.Day+" 天")+"   "+Amount("粮食",s.Inventory.Food,delta.Food)+"   "+Amount("原料",s.Inventory.Materials,delta.Materials)+"   "+Amount("钱币",s.Inventory.Coins,delta.Coins)+"\n"+Amount("军需",s.Inventory.Equipment.Where(e=>e.Product=="supply").Sum(e=>e.Count),delta.Supply)+"   兵力：剑士 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Melee).Sum(w=>w.Count)+"／弓兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Ranged).Sum(w=>w.Count)+"／骑兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Cavalry).Sum(w=>w.Count);
@@ -175,7 +187,7 @@ namespace BaseConquest.Base
             int raids = s.Campaign.Events.Count(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= s.Day);
             if(BaseDemoRuins.Enabled(s))summary.text+=" · 体力 "+BaseRuinsRewards.Energy(s)+"/"+BaseRuinsRewards.Maximum(s);
             regionStatus.text = BaseDemo.Active(s) ? (raids>0 ? "入侵已到达" : "") : s.Campaign.ThreatVersion>0 ? BaseThreats.Warning(s) : raids > 0 ? "入侵 " + raids + "：左侧迎战／过夜自动处理" : "";
-            Joystick.gameObject.SetActive(!PanelOpen && !owner.Busy && !owner.PlayerAway && !s.Campaign.HasActiveBattle);
+            Joystick.gameObject.SetActive(Application.isMobilePlatform && !PanelOpen && !owner.Busy && !owner.PlayerAway && !s.Campaign.HasActiveBattle);
             if(BaseDemoPrologue.Village(s)){introObjectiveKey=-1;RefreshIntroObjective();}
             RefreshTrackedQuest();
             nearbyId = null; RefreshMovement(); RefreshInspection();
@@ -195,7 +207,7 @@ namespace BaseConquest.Base
             bool canBuild=owner.State!=null&&BaseDemoFlow.Active(owner.State)&&owner.State.Campaign.Location=="perimeter"&&!owner.State.Campaign.HasActiveBattle&&!owner.State.Aftermath.GameOver&&!owner.Busy&&!PanelOpen&&!owner.ConstructionMode;
             construction.gameObject.SetActive(canBuild);
             construction.interactable=canBuild;
-            Joystick.gameObject.SetActive(!PanelOpen&&!owner.Busy&&!owner.PlayerAway&&owner.State?.Campaign.HasActiveBattle!=true);
+            Joystick.gameObject.SetActive(Application.isMobilePlatform&&!PanelOpen&&!owner.Busy&&!owner.PlayerAway&&owner.State?.Campaign.HasActiveBattle!=true);
             interact.interactable = nearby != null && !PanelOpen && !owner.Busy;
             string id = nearby?.Id ?? "";
             if (nearbyId != id)
@@ -258,6 +270,23 @@ namespace BaseConquest.Base
             // 刷新设置仍在同一逻辑页；用内容偏移保留正在操作的行，不随内容总高度变化。
             if (PanelOpen && panelScroll != null && panelViewKey != null)
                 panelScrollOffsets[panelViewKey] = Mathf.Max(0, panelScroll.content.anchoredPosition.y);
+            if (BaseBattleGateway.DemoMode && owner.SceneUiTemplate("CommonPanel") != null)
+            {
+                var view = OpenScenePanel("CommonPanel", viewKey ?? title);
+                panelScrollOffsets.TryGetValue(panelViewKey, out restoreScrollOffset);
+                Ui<Text>(view, "Title").text = title;
+                var close = Ui<Button>(view, "Close");
+                close.onClick.AddListener(ClosePanel);
+                close.interactable = !(BaseDemoIntro.Daily(owner.State) && owner.State.Demo.Intro.Step == 0)
+                    && owner.State?.Aftermath.GameOver != true && !BaseBattleGateway.MainMenu && !BaseBattleLoot.Pending(owner.State);
+                panelScroll = Ui<ScrollRect>(view, "Viewport");
+                content = panelScroll.content;
+                panelFeedback = Ui<Text>(view, "Feedback");
+                panelFeedback.gameObject.SetActive(false);
+                row = 0;
+                RefreshSummary();
+                return;
+            }
             panelViewKey = viewKey ?? title;
             panelScrollOffsets.TryGetValue(panelViewKey, out restoreScrollOffset);
             if (panel != null)
@@ -282,6 +311,14 @@ namespace BaseConquest.Base
         }
         private void EndPanel()
         {
+            if (panel.name == "CommonPanel" && panel.GetComponent<UiPrefabBinding>() == null)
+            {
+                content.sizeDelta = new Vector2(content.sizeDelta.x, Mathf.Max(panelScroll.viewport.rect.height, row + 12));
+                Canvas.ForceUpdateCanvases();
+                panelScroll.StopMovement();
+                content.anchoredPosition = new Vector2(0, Mathf.Clamp(restoreScrollOffset, 0, Mathf.Max(0, content.rect.height - panelScroll.viewport.rect.height)));
+                return;
+            }
             content.sizeDelta = new Vector2(880, Mathf.Max(440, row + 12));
             // 页面模板收尾会把重复节点的样式还原成原型（按钮文字居中、字色统一）。
             // 动态列表里的字号、对齐与配色是本页明确指定的，收尾前留一份、收尾后写回去。
@@ -321,6 +358,7 @@ namespace BaseConquest.Base
         }
         public void ClosePanel()
         {
+            if (DialogueExitLocked) return;
             if(owner.State?.Aftermath.GameOver==true || BaseBattleGateway.MainMenu || BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) return;
             if(BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             workerDraft=null;workerMoves.Clear();ClearPanelSelection();
@@ -398,6 +436,11 @@ namespace BaseConquest.Base
             if(owner.State.Aftermath.GameOver) { OpenGameOver(); return; }
             if(BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             activeObject = "menu";
+            if (BaseBattleGateway.DemoMode && owner.SceneUiTemplate("CampMenu") != null)
+            {
+                OpenSceneCampMenu();
+                return;
+            }
             BeginPanel("据点菜单");
             // 阶段测试档属开发期入口（P16）：正常游玩不显示，确认开发者模式后才出现。
             if(BaseBattleGateway.DemoMode&&RuntimeDeveloperOptions.Enabled){RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;}
@@ -488,6 +531,7 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(s))
             {
                 RowButton("休息至明天",-290,270,()=>owner.Rest(day));RowButton("营地管理",0,270,()=>{activeObject="government";activePage="workers";OpenGovernment();});RowButton("关闭",290,270,ClosePanel);row+=65;
+                RowButton("仓库",0,800,OpenWarehouse,BasePartyInventory.AtWarehouse(s));row+=60;
                 if(BaseDeputy.Unlocked(s)){var deputy=BaseDeputy.Leader(s);RowButton("副手："+(deputy==null?"未指定":BasePersonnel.LeaderName(deputy))+" · 更换",0,800,OpenDeputy);row+=60;}
                 // 请离基地只在营帐办理（2026-11-06 裁决）：兵营名册不再提供这个入口。
                 if(s.Leaders.Any(l=>l.Id!=s.PlayerLeaderId&&l.Rpg!=null&&!l.Rpg.Story)){RowButton("请离基地 · 请人永久离开",0,800,OpenDismiss);row+=60;}
@@ -563,7 +607,6 @@ namespace BaseConquest.Base
             string facility = activeObject;
             BeginPanel(BaseEconomy.FacilityName(facility), facility + ":" + activePage); ManagementTabs(OpenFacility);
             RowButton("规则 i",0,800,()=>FacilityRules(OpenFacility));row+=60;
-            if(facility=="workshop"){RowButton("重铸武器与护具",0,820,OpenReforge);row+=60;}
             if (activePage == "administrators") FacilityAdministrators(facility);
             else if (activePage == "workers") Workers(new[] { facility }, OpenFacility);
             else if (activePage == "production" && facility == "workshop") Production();

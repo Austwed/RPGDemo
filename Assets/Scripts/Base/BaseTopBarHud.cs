@@ -2,10 +2,11 @@ using System;
 using System.Linq;
 using BaseConquest.Presentation;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace BaseConquest.Base
 {
-    // P33 顶栏明细、15 天日历与体力页。只提供入口与数据；版式和展开方式等原型定稿后替换。
+    // P33 顶栏明细、15 天日历与体力页。
     public sealed partial class BaseHud
     {
         public void OpenResources()
@@ -14,23 +15,37 @@ namespace BaseConquest.Base
             var s = owner.State;
             interactionObject = "";
             BeginPanel("资源明细", "resources");
-            RowButton("返回", -290, 270, ClosePanel);
+            RowButton("体力", -290, 270, OpenEnergy);
             RowButton("规则 i", 0, 270, () => RuleInfo("资源与人员信息", "括号内是按当前岗位预计的一日净变化：正值红色、负值绿色、零为中性色。粮食扣除全部人员口粮，原料扣除工坊耗料，钱币扣除旅店寄存日费。军需只在战斗内加攻防。兵力四分类与编队同源：总数、可工作、可主动出战、重伤。", OpenResources));
             RowButton("日历", 290, 270, OpenCalendar);
             row += 58;
-            Line("粮食 " + s.Inventory.Food, 26, DemoUiMetrics.FontSubhead);
-            foreach (var text in BaseTopBar.Food(s)) Line(text, 20, DemoUiMetrics.FontBody);
-            row += 2;
-            Line("原料 " + s.Inventory.Materials, 26, DemoUiMetrics.FontSubhead);
-            foreach (var text in BaseTopBar.Materials(s)) Line(text, 20, DemoUiMetrics.FontBody);
-            row += 2;
-            Line("军需 " + s.Inventory.Equipment.Where(e => e.Product == "supply").Sum(e => e.Count), 26, DemoUiMetrics.FontSubhead);
-            foreach (var text in BaseTopBar.Supply(s)) Line(text, 20, DemoUiMetrics.FontBody);
-            row += 2;
-            Line("兵力 " + s.Workers.Sum(w => w.Count), 26, DemoUiMetrics.FontSubhead);
-            foreach (var text in BaseTopBar.Troops(s)) Line(text, 20, DemoUiMetrics.FontBody);
+            ResourceCard("粮食 " + s.Inventory.Food, BaseTopBar.Food(s), -1);
+            ResourceCard("原料 " + s.Inventory.Materials, BaseTopBar.Materials(s), 1);
+            row += 176;
+            ResourceCard("军需 " + s.Inventory.Equipment.Where(e => e.Product == "supply").Sum(e => e.Count), BaseTopBar.Supply(s), -1);
+            ResourceCard("兵力 " + s.Workers.Sum(w => w.Count), BaseTopBar.Troops(s), 1);
+            row += 176;
             EndPanel();
         }
+
+        private void ResourceCard(string title, string[] details, int column)
+        {
+            var theme = DemoUiTheme.Current;
+            var card = Solid("ResourceCard", content, new Vector2(.5f, 1), new Vector2(216 * column, -row - 82), new Vector2(412, 164), theme.Inset);
+            var border = card.gameObject.GetOrAdd<Outline>();
+            border.effectColor = theme.Line;
+            border.effectDistance = new Vector2(1, -1);
+            var header = Solid("ResourceHeading", card, new Vector2(.5f, 1), new Vector2(0, -15), new Vector2(410, 28), theme.Wood);
+            Label(header, title, Vector2.zero, new Vector2(384, 26), DemoUiMetrics.FontSubhead).color = theme.Panel;
+            for (int i = 0; i < details.Length; i++)
+            {
+                var label = Label(card, details[i], new Vector2(0, -48 - i * 31), new Vector2(384, 30), DemoUiMetrics.FontBody, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
+                label.resizeTextForBestFit = true;
+                label.resizeTextMinSize = DemoUiMetrics.FontCaption;
+                label.resizeTextMaxSize = DemoUiMetrics.FontBody;
+            }
+        }
+
         public void OpenCalendar()
         {
             if (owner.State == null) return;
@@ -44,6 +59,7 @@ namespace BaseConquest.Base
             // 5 列 × 3 行真网格：格子自带底色，不靠空格对齐（比例字体下对不齐）。
             const float cellWidth = 168, cellHeight = 40, cellGap = 6;
             int index = 0;
+            var theme = DemoUiTheme.Current;
             foreach (var day in BaseCalendar.Quarter(s))
             {
                 string mark = day.Today ? "◆" : day.Past ? "·" : "○";
@@ -51,10 +67,13 @@ namespace BaseConquest.Base
                 if (day.Raids.Count > 0) cell += "!";
                 else if (day.Forecast) cell += "~";
                 int column = index % 5, line = index / 5;
-                var box = Box("Day" + day.Day, content, new Vector2(0.5f, 1),
+                var fill = day.Today ? theme.Gold : day.Raids.Count > 0 ? Color.Lerp(theme.Panel, theme.Gold, .32f) : theme.Inset;
+                var box = Solid("Day" + day.Day, content, new Vector2(0.5f, 1),
                     new Vector2((column - 2) * cellWidth, -row - cellHeight / 2 - line * (cellHeight + cellGap)),
-                    new Vector2(cellWidth - cellGap, cellHeight), new Color(.16f, .15f, .14f, .55f));
-                Label(box, cell, Vector2.zero, new Vector2(cellWidth - cellGap - 8, cellHeight), DemoUiMetrics.FontSubhead, TextAnchor.MiddleCenter);
+                    new Vector2(cellWidth - cellGap, cellHeight), fill);
+                var dayLabel = Label(box, cell, Vector2.zero, new Vector2(cellWidth - cellGap - 8, cellHeight), DemoUiMetrics.FontSubhead, TextAnchor.MiddleCenter);
+                dayLabel.color = day.Past && day.Raids.Count == 0 ? theme.Muted : theme.Ink;
+                if (day.Today) dayLabel.fontStyle = FontStyle.Bold;
                 index++;
             }
             row += 3 * (cellHeight + cellGap) + 6;

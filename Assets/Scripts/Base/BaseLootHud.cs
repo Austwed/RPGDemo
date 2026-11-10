@@ -62,14 +62,28 @@ namespace BaseConquest.Base
             }
             EndPanel();
         }
-        private void OpenPersonalSell()
+        private void RenderTradeSale(RectTransform details)
         {
-            BeginPanel("出售随身物品","personal-sell");RowButton("返回交易",-210,400,OpenEquipmentTradeHome);RowButton("整理背包",210,400,OpenBackpack);row+=62;
-            Line("钱币 "+owner.State.Inventory.Coins+" · 仅出售随行背包中未穿戴的装备；剧情物不可卖。先卸下需要出售的装备。",70,19);
-            var goods=BasePartyInventory.Entries(owner.State).Where(e=>!e.Worn&&e.Holder!=""&&BasePartyInventory.People(owner.State,false).Any(l=>l.Id==e.Holder)&&BaseBattleLoot.SellPrice(owner.State,e)>0).ToArray();
-            foreach(var item in goods)
-            {string id=item.Id;RowButton("出售 "+item.Name+" · "+BaseBattleLoot.SellPrice(owner.State,item)+"币 · "+owner.State.Leaders.Single(l=>l.Id==item.Holder).Name,0,820,()=>{BeginPanel("确认出售","personal-sell-confirm");Line("出售 "+item.Name+"，获得 "+BaseBattleLoot.SellPrice(owner.State,item)+"币？",80);RowButton("确认出售",-210,400,()=>GearChange(s=>BaseBattleLoot.Sell(s,id),"已出售一件物品",OpenPersonalSell));RowButton("取消",210,400,OpenPersonalSell);row+=60;EndPanel();},BaseBattleLoot.CanSell(owner.State,id));row+=56;}
-            if(goods.Length==0)Line("暂无可出售的随身装备。",60);EndPanel();
+            var s=owner.State;
+            var item=BasePartyInventory.Find(s,tradeSale);
+            if(item==null||item.Holder!=tradePerson)
+            {
+                TradeLine(details,"请选择背包物品");
+                return;
+            }
+            string id=item.Id,holder=item.Holder;
+            int price=BaseBattleLoot.SellPrice(s,item);
+            TradeLine(details,item.Name+(item.Count>1?" ×"+item.Count:""));
+            if(item.Worn)TradeLine(details,"已穿戴，请先卸下");
+            else if(price==0)TradeLine(details,"此物品不可出售");
+            else TradeLine(details,"出售 1 件 · 获得 "+price+"币");
+            TradeButton(details,"确认出售",()=>TradeCommit(next=>{
+                var entry=BasePartyInventory.Find(next,id);
+                return entry?.Holder==holder&&BaseBattleLoot.SellPrice(next,entry)==price&&BaseBattleLoot.Sell(next,id);
+            },"已出售 "+item.Name),BaseBattleLoot.CanSell(s,id));
+            TradeButton(details,"返回货架",()=>{tradeSale=tradeFeedback="";RenderTownTrade();});
+            TradeLine(details,item.Description);
         }
+
     }
 }

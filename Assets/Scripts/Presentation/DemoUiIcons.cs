@@ -16,7 +16,14 @@ namespace BaseConquest.Presentation
             if(child==null){var go=new GameObject("DemoIcon",typeof(RectTransform),typeof(Image));child=(RectTransform)go.transform;child.SetParent(button.transform,false);}
             child.anchorMin=child.anchorMax=new Vector2(0,.5f);child.pivot=Vector2.one*.5f;child.anchoredPosition=new Vector2(22,0);child.sizeDelta=new Vector2(32,32);
             var image=child.GetComponent<Image>();image.sprite=sprite;image.preserveAspect=true;image.raycastTarget=false;
-            var label=button.GetComponentInChildren<Text>();if(label!=null){var rect=label.rectTransform;rect.anchoredPosition=new Vector2(16,rect.anchoredPosition.y);rect.sizeDelta=new Vector2(Mathf.Max(0,((RectTransform)button.transform).rect.width-40),rect.sizeDelta.y);}
+            var label=button.GetComponentInChildren<Text>();if(label!=null)
+            {
+                var rect=label.rectTransform;
+                rect.anchorMin=new Vector2(0,rect.anchorMin.y);
+                rect.anchorMax=new Vector2(1,rect.anchorMax.y);
+                rect.offsetMin=new Vector2(40,rect.offsetMin.y);
+                rect.offsetMax=new Vector2(-4,rect.offsetMax.y);
+            }
             return image;
         }
     }

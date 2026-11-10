@@ -29,16 +29,17 @@ namespace BaseConquest.Base
         private void OpenHeroChoice()
         {
             if(heroChoiceLayer!=null){heroChoiceLayer.gameObject.SetActive(true);return;}
-            modal.gameObject.SetActive(false);activeObject="";interactionObject="";Joystick.ResetInput();controls.gameObject.SetActive(false);mapLabels.gameObject.SetActive(false);var header=root.Find("Header");if(header!=null)header.gameObject.SetActive(false);
+            modal.gameObject.SetActive(false);activeObject="";interactionObject="";Joystick.ResetInput();controls.gameObject.SetActive(false);mapLabels.gameObject.SetActive(false);summary.transform.parent.gameObject.SetActive(false);
             heroChoiceLayer=StretchLayer("HeroChoice",root);heroChoiceLayer.gameObject.GetOrAdd<UnityEngine.UI.Image>().color=new Color(0,0,0,0);
             heroChoiceHint=Label(heroChoiceLayer,"点击长椅旁的人物，选择你的主角",new Vector2(0,-100),new Vector2(800,55),23,TextAnchor.MiddleCenter,new Vector2(.5f,1));
+            StyleMapName(heroChoiceHint);
             heroChoiceTargets=new Button[2];
             for(int n=0;n<2;n++)
             {
                 string hero=n==0?"male":"female";
                 var button=MakeButton(heroChoiceLayer,n==0?"男主角":"女主角",Vector2.zero,new Vector2(100,150),()=>ChooseHeroPreview(hero));
                 button.name="HeroChoice_"+hero;button.transition=Selectable.Transition.None;button.GetComponent<Image>().color=Color.clear;
-                var label=button.GetComponentInChildren<Text>();label.alignment=TextAnchor.LowerCenter;label.fontSize=17;
+                var label=button.GetComponentInChildren<Text>();label.alignment=TextAnchor.LowerCenter;label.fontSize=17;StyleMapName(label);
                 heroChoiceTargets[n]=button;
             }
             heroChoiceConfirm=MakeButton(heroChoiceLayer,"确认选择",new Vector2(120,55),new Vector2(210,52),()=>owner.SelectDemoHero(selectedHero),new Vector2(.5f,0));heroChoiceConfirm.interactable=false;

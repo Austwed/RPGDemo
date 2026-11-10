@@ -1,14 +1,15 @@
 using System;
 using System.Linq;
 using BaseConquest.Battle;
+using BaseConquest.Presentation;
+using BaseConquest.Story;
+using UnityEngine;
+using UnityEngine.UI;
 
 namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        private bool townBuying=true;
-        private int townQuantity=1;
-        private BaseTroopKind townKind;
         private void TownRules(Action back)
         {
             string production="当天可安排生产";
@@ -19,107 +20,306 @@ namespace BaseConquest.Base
             }
             RuleInfo(BaseScriptNames.Town+"交易与招募规则","交易摊位买卖粮草、原料和两级剑／弓／甲。卖出价低于买入价，价格固定；仅可出售库存中未被军需配额锁定的部分。出售由商人单独回收，不增加今日可购数量。\n\n商品与三种普通兵源每天限量补满；仅在经营日过夜后刷新，重复进出、查看页面和存读档均不补货。买卖与招募不推进日期。\n\n新募士兵满血加入基地普通兵源，按正常单位参与编队、军需、伤亡与岗位管理，不自动追加到在外队伍，也不带劝降的黄色姓名。招募当天即可按现有策略排班生产。今天的口粮已经结清，不重复扣粮，新增人员从明天开始计入口粮；今日缺粮效果不会被购物重算。\n\n招募确定成功并消耗钱币；难度中的劝降概率用于俘虏，不影响付费招募。本版先接普通兵，居民、队长雇佣及动态物价后续再做。",back);
         }
-        private void OpenTownMarket()
+        private const string TradeViewKey="town-trade";
+        private enum TradeVendor { Merchant, Smith, Recruiter }
+        private enum TradeShelf { Goods, Equipment, Stones, Supplies, Intel, Reforge, Recruits }
+        private TradeVendor tradeVendor;
+        private TradeShelf tradeShelf;
+        private string tradePerson="",tradeSelection="",tradeSale="",tradeFeedback="";
+        private int tradeQuantity=1,tradeRosterPage;
+        private bool tradeBuying=true;
+
+        private void OpenTownMarket()=>StartTrade(TradeVendor.Merchant,TradeShelf.Goods);
+        private void OpenSmithEquipment()=>StartTrade(TradeVendor.Smith,TradeShelf.Equipment);
+        private void OpenSmithStones()=>StartTrade(TradeVendor.Smith,TradeShelf.Stones);
+        private void OpenReforge()=>StartTrade(TradeVendor.Smith,TradeShelf.Reforge);
+
+        private void StartTrade(TradeVendor vendor,TradeShelf shelf)
         {
-            BeginPanel(BaseScriptNames.Town+" · 交易摊位","town-market:"+townBuying);
-            RowButton(townBuying ? "买入 ✓" : "买入",-290,270,()=>{townBuying=true;OpenTownMarket();});
-            RowButton(townBuying ? "卖出" : "卖出 ✓",0,270,()=>{townBuying=false;OpenTownMarket();});
-            RowButton("规则 i",290,270,()=>TownRules(OpenTownMarket));row+=62;
-            Line("钱币 "+owner.State.Inventory.Coins+" · 第"+owner.State.Day+"天 · 过夜后补货",48,21);
-            RowButton("购买个人装备",-210,400,OpenPersonalShop);RowButton("出售个人装备",210,400,OpenPersonalSell);row+=60;
-            RowButton("购买锻造石",0,820,OpenForgeShop);row+=60;
-            RowButton("购买酒类补给",0,820,OpenProgressShop);row+=60;
-            foreach(var g in owner.State.Town.Goods)
+            tradeVendor=vendor;
+            tradePerson=owner.State.PlayerLeaderId;
+            tradeRosterPage=0;
+            SelectTradeShelf(shelf);
+        }
+
+        private void SelectTradeShelf(TradeShelf shelf)
+        {
+            tradeShelf=shelf;
+            tradeSelection=tradeSale=tradeFeedback="";
+            tradeQuantity=1;
+            tradeBuying=true;
+            if(shelf==TradeShelf.Intel)PrepareIntelTrade();
+            RenderTownTrade(false);
+        }
+
+        private static string TradeShelfName(TradeShelf shelf)=>shelf switch
+        {
+            TradeShelf.Goods=>"物资",
+            TradeShelf.Equipment=>"装备",
+            TradeShelf.Stones=>"锻造石",
+            TradeShelf.Supplies=>"补给",
+            TradeShelf.Intel=>"消息",
+            TradeShelf.Reforge=>StoryText.Get("story.ui.trade.reforge_tab","重铸"),
+            _=>"招募"
+        };
+
+        private static void BindTradeButton(Button button,string title,Action click,bool enabled=true)
+        {
+            button.GetComponentInChildren<Text>(true).text=title;
+            button.onClick.RemoveAllListeners();
+            button.interactable=enabled;
+            if(enabled)button.onClick.AddListener(()=>click());
+        }
+
+        private void TradeButton(Transform parent,string title,Action click,bool enabled=true,string template="TradeAction",bool selected=false)
+        {
+            var button=CloneSceneUi(template,parent).GetComponent<Button>();
+            BindTradeButton(button,title,()=>{if(!owner.Busy)click();},enabled);
+            if (selected)
             {
-                string id=g.Id;int available=BaseTown.Available(owner.State,id),owned=BaseTown.Owned(owner.State,id);
-                RowButton(BaseTown.Name(id)+" · "+(townBuying ? "买价 "+BaseTown.TradePrice(owner.State,id,true)+"币 · 今日可购 "+g.Remaining+"/"+g.DailyStock : "卖价 "+BaseTown.TradePrice(owner.State,id,false)+"币 · 可卖 "+available+" / 库存 "+owned),0,820,()=>{townQuantity=1;OpenTownGood(id);});row+=59;
+                button.GetComponent<Image>().color = DemoUiTheme.Current.Gold;
+                var colors = button.colors;
+                colors.disabledColor = Color.white;
+                button.colors = colors;
             }
-            EndPanel();
         }
-        private void TownQuantityButtons(int max,Action refresh)
+
+        private void TradeLine(Transform parent,string text)
         {
-            RowButton("−1",-315,190,()=>{townQuantity=Math.Max(1,townQuantity-1);refresh();},townQuantity>1);
-            RowButton("＋1",-105,190,()=>{townQuantity=Math.Min(max,townQuantity+1);refresh();},townQuantity<max);
-            RowButton("＋5",105,190,()=>{townQuantity=Math.Min(max,townQuantity+5);refresh();},townQuantity<max);
-            RowButton("最多 "+max,315,190,()=>{townQuantity=max;refresh();},max>0);row+=62;
+            CloneSceneUi("TradeText",parent).GetComponent<Text>().text=text;
         }
-        private void TownConfirm(BaseTownQuote quote,string message,Action refresh)
+
+        private void TradeOffer(Transform list,string id,string title)
         {
-            if(quote!=null)owner.Change(s=>{if(!BaseTown.Confirm(s,quote))throw new InvalidOperationException("报价已变化，请重新选择数量");},message);
-            refresh();
+            TradeButton(list,tradeSale==""&&tradeSelection==id?"● "+title:title,()=>{
+                tradeSelection=id;
+                tradeSale=tradeFeedback="";
+                tradeQuantity=1;
+                RenderTownTrade();
+            });
         }
-        private void OpenTownGood(string id)
+
+        private void TradeCommit(Func<BaseState,bool> action,string message)
         {
-            var s=owner.State;var g=s.Town.Goods.Single(x=>x.Id==id);int max=BaseTown.MaxTrade(s,id,townBuying);
-            townQuantity=max==0 ? 0 : Math.Max(1,Math.Min(townQuantity,max));
-            BeginPanel("交易 · "+BaseTown.Name(id),"town-good:"+id+":"+townBuying);
-            RowButton("返回商品",-210,400,OpenTownMarket);RowButton("规则 i",210,400,()=>TownRules(()=>OpenTownGood(id)));row+=62;
-            Line((townBuying ? "买入" : "卖出")+" "+townQuantity+"件 · 单价 "+(townBuying ? BaseTown.TradePrice(owner.State,id,true) : BaseTown.TradePrice(owner.State,id,false))+"币 · "+(townBuying ? "花费 " : "获得 ")+(long)townQuantity*(townBuying ? BaseTown.TradePrice(owner.State,id,true) : BaseTown.TradePrice(owner.State,id,false))+"币",58,23);
-            TownQuantityButtons(max,()=>OpenTownGood(id));
-            BaseTownQuote quote=null;string reason="";
-            if(max>0)try{quote=BaseTown.QuoteTrade(s,id,townBuying,townQuantity);}catch(Exception error){reason=error.Message;}
-            RowButton(townBuying ? "确认买入" : "确认卖出",0,820,()=>TownConfirm(quote,(townBuying ? "已买入 " : "已卖出 ")+BaseTown.Name(id)+" ×"+townQuantity,()=>OpenTownGood(id)),quote!=null);row+=62;
-            Line("钱币 "+s.Inventory.Coins+" · 库存 "+BaseTown.Owned(s,id)+" · 可卖 "+BaseTown.Available(s,id)+" · 已锁 "+(BaseTown.Owned(s,id)-BaseTown.Available(s,id)),60,20);
-            Line("今日可购 "+g.Remaining+" / "+g.DailyStock+" · 本次最多 "+max+(townBuying ? "（钱币可买 "+s.Inventory.Coins/BaseTown.TradePrice(owner.State,id,true)+"件）" : ""),48,20);
-            if(max==0)Line(townBuying ? "暂时不能买入：钱币不足、今日供货已空或库存已满。" : "暂时不能卖出：没有可用库存，或钱币已达上限。已锁装备先取消军需准备才能出售。",85,19);
-            if(reason!="")Line(reason,70,19);
-            EndPanel();
+            bool ok=owner.Change(next=>{
+                if(!action(next))throw new InvalidOperationException(
+                    StoryText.Get("story.ui.trade.changed","交易条件已变化，请重新确认"));
+            },message);
+            tradeFeedback=ok?message:owner.Message;
+            RenderTownTrade();
         }
+
+        private void RenderTownTrade(bool keepScroll=true)
+        {
+            var state=owner.State;
+            var people=BaseAdventure.Members(state).Where(l=>BasePartyInventory.AccessibleLeader(state,l)).ToArray();
+            var person=people.FirstOrDefault(l=>l.Id==tradePerson)??people.FirstOrDefault();
+            tradePerson=person?.Id??"";
+            var sameView=keepScroll&&panel!=null&&panelViewKey==TradeViewKey;
+            float listPosition=sameView?Ui<ScrollRect>(panel,"OfferList").verticalNormalizedPosition:1;
+            float bagPosition=sameView?Ui<ScrollRect>(panel,"RightBody").verticalNormalizedPosition:1;
+            var view=OpenScenePanel("TownTrade",TradeViewKey);
+            var vendor=tradeVendor==TradeVendor.Recruiter?BaseScriptNames.Recruiter
+                :tradeVendor==TradeVendor.Smith?BaseScriptNames.Blacksmith:BaseScriptNames.Peddler;
+            string portrait=tradeVendor==TradeVendor.Recruiter?"recruiter":tradeVendor==TradeVendor.Smith?"blacksmith":"merchant";
+            Ui<Text>(view,"Title").text=BaseScriptNames.Town+" · "+TradeShelfName(tradeShelf);
+            Ui<Text>(view,"Wallet").text="钱币 "+state.Inventory.Coins;
+            Ui<Text>(view,"SellerName").text=vendor;
+            var avatar=Ui<RectTransform>(view,"SellerPortrait").gameObject.GetOrAdd<BattleAvatarGraphic>();
+            avatar.AppearanceId=BaseScriptNames.Portrait(portrait);
+            avatar.raycastTarget=false;
+            Ui<Text>(view,"SellerSpeech").text=tradeFeedback==""?TradeShelfName(tradeShelf):tradeFeedback;
+            BindTradeButton(Ui<Button>(view,"Return"),"返回对话",()=>{if(!owner.Busy)ReturnToTradeDialogue();});
+            BindTradeButton(Ui<Button>(view,"Close"),"关闭",()=>{if(!owner.Busy)ClosePanel();});
+
+            var tabs=Ui<RectTransform>(view,"Tabs");
+            var shelves=tradeVendor switch
+            {
+                TradeVendor.Smith=>new[]{TradeShelf.Equipment,TradeShelf.Stones,TradeShelf.Reforge},
+                TradeVendor.Recruiter=>new[]{TradeShelf.Recruits},
+                _=>new[]{TradeShelf.Goods,TradeShelf.Equipment,TradeShelf.Stones,TradeShelf.Supplies,TradeShelf.Intel}
+            };
+            foreach(var shelf in shelves)
+            {
+                if(shelf==TradeShelf.Intel&&!BaseDemoFlow.Active(state))continue;
+                TradeButton(tabs,TradeShelfName(shelf),()=>SelectTradeShelf(shelf),tradeShelf!=shelf,"TradeTab",tradeShelf==shelf);
+            }
+
+            var offers=Ui<ScrollRect>(view,"OfferList");
+            var details=Ui<ScrollRect>(view,"Details");
+            var right=Ui<ScrollRect>(view,"RightBody");
+            var rightTabs=Ui<RectTransform>(view,"RightTabs");
+            if(tradeShelf==TradeShelf.Recruits)
+            {
+                RenderRecruitTrade(offers.content,details.content,rightTabs,right.content);
+            }
+            else
+            {
+                RenderTradeShelf(offers.content,details.content,person);
+                if(tradeShelf==TradeShelf.Intel)
+                {
+                    rightTabs.gameObject.SetActive(false);
+                    right.gameObject.SetActive(false);
+                }
+                else
+                {
+                    foreach(var member in people)
+                    {
+                        TradeButton(rightTabs,member.Name,()=>{
+                            tradePerson=member.Id;
+                            tradeSale="";
+                            if(tradeShelf==TradeShelf.Reforge)tradeSelection="";
+                            RenderTownTrade(false);
+                        },member.Id!=tradePerson,"TradeTab",member.Id==tradePerson);
+                    }
+                    if(person!=null)
+                    {
+                        var card=BuildTradeInventoryCard(right.content,person,
+                            tradeShelf==TradeShelf.Reforge?tradeSelection:tradeSale,SelectTradeBagItem);
+                        var layout=card.gameObject.GetComponent<LayoutElement>()??card.gameObject.AddComponent<LayoutElement>();
+                        layout.preferredHeight=card.rect.height;
+                    }
+                }
+            }
+            Canvas.ForceUpdateCanvases();
+            offers.verticalNormalizedPosition=listPosition;
+            right.verticalNormalizedPosition=bagPosition;
+        }
+
+        private void ReturnToTradeDialogue()
+        {
+            switch(tradeVendor)
+            {
+                case TradeVendor.Merchant: OpenTownChat("town_peddler"); break;
+                case TradeVendor.Smith: OpenSmithFather(); break;
+                default:
+                    NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",
+                        new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),TradeShelfName(TradeShelf.Recruits))),
+                        new[]{new NpcReply("开始招募",OpenTownRecruit),new NpcReply("离开",ClosePanel)});
+                    break;
+            }
+        }
+
+        private void SelectTradeBagItem(BaseInventoryEntry item)
+        {
+            if(owner.Busy||item==null)return;
+            tradeFeedback="";
+            if(tradeShelf==TradeShelf.Reforge)
+            {
+                tradeSelection=item.Id;
+                tradeQuantity=1;
+            }
+            else
+            {
+                tradeSale=item.Id;
+            }
+            RenderTownTrade();
+        }
+
+        private void RenderTradeShelf(RectTransform offers,RectTransform details,BaseLeader person)
+        {
+            var shelfDetails=tradeSale==""?details:null;
+            switch(tradeShelf)
+            {
+                case TradeShelf.Goods: RenderGoodsTrade(offers,shelfDetails); break;
+                case TradeShelf.Equipment: RenderEquipmentTrade(offers,shelfDetails,person); break;
+                case TradeShelf.Stones: RenderStonesTrade(offers,shelfDetails); break;
+                case TradeShelf.Supplies: RenderSuppliesTrade(offers,shelfDetails); break;
+                case TradeShelf.Intel: RenderIntelTrade(offers,details); break;
+                case TradeShelf.Reforge: RenderReforgeTrade(offers,details,person); break;
+            }
+            if(tradeSale!="")RenderTradeSale(details);
+        }
+
+        private void TradeQuantity(RectTransform parent,int maximum)
+        {
+            tradeQuantity=maximum==0?0:Mathf.Clamp(tradeQuantity,1,maximum);
+            var controls=CloneSceneUi("TradeQuantity",parent);
+            TradeButton(controls,"−",()=>{tradeQuantity--;RenderTownTrade();},tradeQuantity>1,"TradeTab");
+            TradeLine(controls,tradeQuantity.ToString());
+            TradeButton(controls,"＋",()=>{tradeQuantity++;RenderTownTrade();},tradeQuantity<maximum,"TradeTab");
+            TradeButton(controls,"最多",()=>{tradeQuantity=maximum;RenderTownTrade();},tradeQuantity<maximum,"TradeTab");
+        }
+
+        private void RenderGoodsTrade(RectTransform offers,RectTransform details)
+        {
+            var s=owner.State;
+            var good=s.Town.Goods.FirstOrDefault(g=>g.Id==tradeSelection)??s.Town.Goods.FirstOrDefault();
+            if(good==null)return;
+            tradeSelection=good.Id;
+            foreach(var g in s.Town.Goods)
+                TradeOffer(offers,g.Id,BaseTown.Name(g.Id)+" · 今日余 "+g.Remaining);
+            if(details==null)return;
+
+            string id=good.Id;
+            int max=BaseTown.MaxTrade(s,id,tradeBuying);
+            int price=BaseTown.TradePrice(s,id,tradeBuying);
+            TradeLine(details,BaseTown.Name(id)+" · 库存 "+BaseTown.Owned(s,id)+" · 可卖 "+BaseTown.Available(s,id));
+            var direction=CloneSceneUi("TradeQuantity",details);
+            TradeButton(direction,"买入",()=>{tradeBuying=true;tradeQuantity=1;RenderTownTrade();},!tradeBuying,"TradeTab",tradeBuying);
+            TradeButton(direction,"卖出",()=>{tradeBuying=false;tradeQuantity=1;RenderTownTrade();},tradeBuying,"TradeTab",!tradeBuying);
+            TradeQuantity(details,max);
+            var quote=max>0?BaseTown.QuoteTrade(s,id,tradeBuying,tradeQuantity):null;
+            string verb=tradeBuying?"买入":"卖出";
+            TradeButton(details,"确认"+verb+" · "+(long)price*tradeQuantity+"币",
+                ()=>TradeCommit(next=>BaseTown.Confirm(next,quote),"已"+verb+" "+BaseTown.Name(id)),quote!=null);
+            TradeLine(details,"单价 "+price+"币 · 今日可购 "+good.Remaining+"/"+good.DailyStock);
+            if(max==0)TradeLine(details,tradeBuying?"当前无法买入":"当前无可卖库存");
+            TradeButton(details,"规则 i",()=>TownRules(()=>RenderTownTrade(false)));
+        }
+
         private void OpenTownRecruit()
         {
             if(BaseDemo.Active(owner.State)&&!BaseDemoDefense.Delivered(owner.State))
-            {NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"［斜睨一眼］生面孔？没领主大人的手令，私募甲兵可是掉脑袋的罪过，请回吧。")),new[]{new NpcReply("先去拜访领主",ClosePanel)});return;}
-            // TOWN_01_OPEN：拿到许可后首次进募兵处，由雷恩说明开放范围与建议兵种，只播一次。
+            {
+                NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),
+                    "［斜睨一眼］生面孔？没领主大人的手令，私募甲兵可是掉脑袋的罪过，请回吧。")),
+                    new[]{new NpcReply("先去拜访领主",ClosePanel)});
+                return;
+            }
             if(BaseDemoFlow.Active(owner.State)&&!owner.State.Demo.Flow.RecruitOpened)
             {
                 owner.Change(next=>next.Demo.Flow.RecruitOpened=true,"");
                 NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",new[]{
-                    new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),BaseScriptNames.Lord+"的手令到了！"+BaseScriptNames.Camp+"既已立寨，我这儿的剑士、弓手和骑兵任你挑。"),
-                    new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"刚立营寨百废待兴，建议先将【剑士、弓兵、骑兵】各募一人，能战也能垦荒。")
+                    new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),
+                        BaseScriptNames.Lord+"的手令到了！"+BaseScriptNames.Camp+"既已立寨，我这儿的剑士、弓兵和骑兵任你挑。"),
+                    new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),
+                        "刚立营寨百废待兴，建议先将【剑士、弓兵、骑兵】各募一人，能战也能垦荒。")
                 }),new[]{new NpcReply("开始招募",()=>{ClosePanel();OpenTownRecruit();})});
                 return;
             }
-            var s=owner.State;var offer=s.Town.Recruits.Single(r=>r.Kind==townKind);int max=BaseTown.MaxHire(s,townKind),price=BaseTown.HirePrice(s,townKind);
-            townQuantity=1;// 每次只能买 1 人，价格按买完后的兵力重新报价
-            BeginPanel(BaseScriptNames.Town+" · 募兵处","town-recruit");
-            InjuryLine(s,"INJ_TOWN_LEIEN");
-            foreach(var r in s.Town.Recruits)
-            {
-                var kind=r.Kind;float x=kind==BaseTroopKind.Melee ? -290 : kind==BaseTroopKind.Ranged ? 0 : 290;
-                RowButton((townKind==kind ? "✓ " : "")+BaseEconomy.TroopName(kind)+" · 余 "+r.Remaining+"人",x,270,()=>{townKind=kind;townQuantity=1;OpenTownRecruit();});
-            }
-            row+=62;
-            if(BaseTown.DemoRecruitment(s))
-            {
-                int count=BaseTown.TroopTotal(s),baseline=BaseDemoCombat.BaselineTotal(s.Demo?.Rpg);double probability=BaseTown.HireProbability(s);
-                int daily=s.Town.Recruits.Sum(r=>r.DailyCount);
-                Line("全军普通兵 "+count+"人 · 合计基准 "+baseline+" · 普通兵即死率 "+probability.ToString("P0")+"（三兵种共用）· 今日兵源 "+daily+"人",58,19);
-                int foodPer=townKind==BaseTroopKind.Cavalry?s.Rules.CavalryFood:townKind==BaseTroopKind.Ranged&&BaseRpg.Active(s)?s.Demo.Rpg.ArcherFood:s.Rules.SoldierFood;
-                Line("全军下一日口粮：当前 "+BaseEconomy.FoodRequired(s)+" → 招募后 "+(BaseEconomy.FoodRequired(s)+(long)foodPer*townQuantity)+"；今日已付口粮不重算。",65,18);
-                int baselinePrice=offer.Price;int diff=count-baseline;
-                Line("基准原价 "+baselinePrice+"币 · 现有"+count+"人"+(diff==0?"（正好等于基准）":diff>0?"（高出基准 "+diff+" 人，约 +"+(diff*100/baseline)+"%，报价每1%涨2%）":"（低于基准 "+(-diff)+" 人，报价每1%降1%，最低五折）")+"；兵源按兵种随机分配，连续两天缺位的次日必出 1 人",56,18);
-            }
-            Line("招募 1 人 · "+price+"币/人 · 持有 "+s.Inventory.Coins+"币（每次只能招 1 人，招后价格重算）",58,21);
-            BaseTownQuote quote=null;string reason="";
-            if(max>0)try{quote=BaseTown.QuoteHire(s,townKind,townQuantity);}catch(Exception error){reason=error.Message;}
-            BaseConquest.Presentation.DemoUiIcons.Attach(RowButton("确认招募",-210,400,()=>TownConfirm(quote,"已招募 "+BaseEconomy.TroopName(townKind)+" ×"+townQuantity+"，加入基地；"+(BaseDemoFlow.Active(s)?"今日可安排生产":"今日不生产"),OpenTownRecruit),quote!=null),"recruit");
-            RowButton("规则 i",210,400,()=>TownRules(OpenTownRecruit));row+=62;
-            var p=offer.Stats;
-            var kindForDisplay=BaseCampaign.ToBattle(townKind);int profession=BaseRpg.Profession(kindForDisplay);
-            double range=BaseRpg.Active(s)?s.Demo.Rpg.Range[profession]:RealtimeCombatRules.Range(kindForDisplay);
-            double speed=BaseRpg.Active(s)?s.Demo.Rpg.Speed[profession]:RealtimeCombatRules.Speed(kindForDisplay);
-            Line(BaseEconomy.TroopName(townKind)+" · 生命 "+p.Health.ToString("0.#")+"/"+p.Health.ToString("0.#")+" · 攻 "+p.Damage.ToString("0.#")+" · 防 "+p.Defense.ToString("0.#")+" · 射程 "+range.ToString("0.##")+"细格 · 移速 "+speed.ToString("0.##")+"细格／秒",65,19);
-            Line("今日可募 "+offer.Remaining+" / "+offer.DailyCount+" · 钱币可募 "+s.Inventory.Coins/price+"人 · 本次只能招 1 人",55,20);
-            Line("已有总兵力 "+s.Workers.Sum(w=>w.Count)+" / 10000人（含外出兵力）",45,19);
-            if(BaseTown.DemoRecruitment(s))
-            {
-                Line("今日库存按日初冻结；明日兵源总量预计 "+BaseTown.DemoDailyTotal(s)+"人，按三兵种随机分配（连续缺位两天次日必出 1 人）。兵力越接近基准，货源越少、报价越高。",70,18);
-                var last=s.Campaign.Reports.LastOrDefault();if(last!=null)Line("最近一战：永久损失 "+last.Killed+"人 · 伤员 "+last.Wounded+"人 · 返回士兵 "+last.Returned+"人；倒地恢复行动不等于满血。",70,18);
-            }
-            Line(BaseDemoFlow.Active(s)?"满血加入基地，今天即可安排生产；新兵从明天开始计入口粮。":"加入基地，今日不生产；次日起正常安排岗位。新兵从明天开始计入口粮。",65,19);
-            if(max==0)Line("暂时不能招募：钱币不足、今日兵源已空或总兵力达到10000人。",65,19);
-            if(reason!="")Line(reason,65,19);
-            EndPanel();
+            StartTrade(TradeVendor.Recruiter,TradeShelf.Recruits);
         }
+
+        private void RenderRecruitTrade(RectTransform offers,RectTransform details,RectTransform rosterTabs,RectTransform roster)
+        {
+            var s=owner.State;
+            var offer=s.Town.Recruits.FirstOrDefault(r=>r.Kind.ToString()==tradeSelection)??s.Town.Recruits.First();
+            tradeSelection=offer.Kind.ToString();
+            foreach(var entry in s.Town.Recruits)
+                TradeOffer(offers,entry.Kind.ToString(),BaseEconomy.TroopName(entry.Kind)+" · 今日余 "+entry.Remaining);
+
+            var kind=offer.Kind;
+            int maximum=BaseTown.MaxHire(s,kind);
+            int price=BaseTown.HirePrice(s,kind);
+            var quote=maximum>0?BaseTown.QuoteHire(s,kind,1):null;
+            var stats=offer.Stats;
+            TradeLine(details,BaseEconomy.TroopName(kind)+" · 生命 "+stats.Health.ToString("0.#")+" · 攻 "+stats.Damage.ToString("0.#")+" · 防 "+stats.Defense.ToString("0.#"));
+            TradeLine(details,"今日可募 "+offer.Remaining+"/"+offer.DailyCount+" · 全军 "+BaseTown.TroopTotal(s)+"人");
+            TradeButton(details,"招募 1 人 · "+price+"币",
+                ()=>TradeCommit(next=>BaseTown.Confirm(next,quote),"已招募 "+BaseEconomy.TroopName(kind)),quote!=null);
+            if(maximum==0)TradeLine(details,"当前无法招募");
+            TradeButton(details,"规则 i",()=>TownRules(()=>RenderTownTrade(false)));
+
+            const int pageSize=18;
+            int count=s.Workers.Sum(w=>w.Count),pages=Math.Max(1,(count+pageSize-1)/pageSize);
+            tradeRosterPage=Mathf.Clamp(tradeRosterPage,0,pages-1);
+            TradeButton(rosterTabs,"上一页",()=>{tradeRosterPage--;RenderTownTrade(false);},tradeRosterPage>0,"TradeTab");
+            TradeButton(rosterTabs,(tradeRosterPage+1)+"/"+pages+" 下一页",()=>{tradeRosterPage++;RenderTownTrade(false);},tradeRosterPage+1<pages,"TradeTab");
+            foreach(var unit in BasePersonnel.Units(s).Where(u=>!u.IsLeader).Skip(tradeRosterPage*pageSize).Take(pageSize))
+                TradeLine(roster,unit.Name+" · "+unit.Health.ToString("0.#")+"/"+unit.MaxHealth.ToString("0.#")+" · "+(unit.Away?unit.State:unit.Facility));
+            if(count==0)TradeLine(roster,"暂无士兵");
+        }
+
     }
 }

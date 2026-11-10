@@ -66,36 +66,66 @@ namespace BaseConquest.Base
     {
         public void OpenFirstRaidIntel()
         {
-            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"待写")},new[]{new NpcReply("领取免费首防消息",()=>{if(owner.Change(next=>{if(!BaseRaidIntel.ClaimFirst(next))throw new InvalidOperationException("首防消息不可用");},"已记录首防日期"))NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"首防日期：第 "+owner.State.Demo.Flow.FreeFirstRaidDay+" 天。查看日历，准备粮食与军需。\n待写")},new[]{new NpcReply("知道了",ClosePanel)});}),new NpcReply("离开",ClosePanel)});
+            string offer = BaseConquest.Story.StoryText.Get("story.ui.intel.first_offer", "可领取一次免费首防消息。");
+            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),offer)},new[]{
+                new NpcReply("领取免费首防消息",()=>{
+                    if(!owner.Change(next=>{if(!BaseRaidIntel.ClaimFirst(next))throw new InvalidOperationException("首防消息不可用");},"已记录首防日期"))return;
+                    string text=BaseConquest.Story.StoryText.Get("story.ui.intel.first_claimed","首防日期：第 {day} 天。查看日历，准备粮食与军需。")
+                        .Replace("{day}",owner.State.Demo.Flow.FreeFirstRaidDay.ToString());
+                    NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),text)},new[]{new NpcReply("知道了",ClosePanel)});
+                }),new NpcReply("离开",ClosePanel)});
         }
         public void OpenRaidIntel()
         {
-            var s=owner.State;if(!BaseDemoFlow.Active(s))return;
+            if(BaseDemoFlow.Active(owner.State))StartTrade(TradeVendor.Merchant,TradeShelf.Intel);
+        }
+
+        private void PrepareIntelTrade()
+        {
+            var s=owner.State;
             if(s.Demo.Rpg?.IntelPricingConfigured==false)
             {
-                RpgRules latest=null;try{latest=DemoBalanceRuntime.Load().Rules;}catch(InvalidOperationException){}catch(ArgumentException){}
-                if(latest?.IntelPricingConfigured==true&&owner.Change(next=>BaseRaidIntel.FillMissingPrices(next,latest),"消息价格已载入"))s=owner.State;
+                RpgRules latest=null;
+                try{latest=DemoBalanceRuntime.Load().Rules;}catch(InvalidOperationException){}catch(ArgumentException){}
+                if(latest?.IntelPricingConfigured==true)owner.Change(next=>BaseRaidIntel.FillMissingPrices(next,latest),"消息价格已载入");
             }
-            BeginPanel("商人消息");
-            foreach(int window in new[]{3,5})
-            {
-                int days=window;var snapshot=BaseRaidIntel.Get(s,days);bool configured=s.Demo.Rpg?.IntelPricingConfigured==true;int price=days==3?(s.Demo.Rpg?.ThreeDayIntelPrice??0):(s.Demo.Rpg?.FiveDayIntelPrice??0);
-                RowButton(days+"日消息 · "+(snapshot!=null?"免费复习":configured?price+"钱":"价格待配置"),0,800,()=>{if(owner.Change(next=>BaseRaidIntel.Buy(next,days),"消息已记录"))OpenRaidIntel();},snapshot!=null||configured&&s.Inventory.Coins>=price);row+=60;
-                if(snapshot==null)continue;
-                if(!snapshot.HasRaid)Line("次日起 "+days+" 天：无已知袭击。",50,18);
-                else if(days==3)
-                {
-                    bool active=snapshot.Entries.Any(entry=>s.Campaign.Events.Any(e=>e.Id==entry.EventId&&e.Status=="pending"&&e.AvailableDay==entry.Day));
-                    Line(active?"次日起三天内有袭击。":"原消息已失效。",50,18);
-                }
-                else foreach(var entry in snapshot.Entries)
-                {
-                    bool active=s.Campaign.Events.Any(e=>e.Id==entry.EventId&&e.Status=="pending"&&e.AvailableDay==entry.Day);
-                    Line(entry.Title+" · 第 "+entry.Day+" 天"+(active?"":" · 已失效"),50,18);
-                }
-            }
-            RowButton("关闭",0,800,ClosePanel);row+=60;EndPanel();
         }
+
+        private void RenderIntelTrade(RectTransform offers,RectTransform details)
+        {
+            var s=owner.State;
+            bool configured=s.Demo.Rpg?.IntelPricingConfigured==true;
+            int selected=tradeSelection=="5"?5:3;
+            tradeSelection=selected.ToString();
+            foreach(int days in new[]{3,5})
+            {
+                var existing=BaseRaidIntel.Get(s,days);
+                int price=RaidIntelPrice(s,days);
+                TradeOffer(offers,days.ToString(),days+"日消息 · "+(existing!=null?"免费复习":configured?price+"币":"价格待配置"));
+            }
+
+            var snapshot=BaseRaidIntel.Get(s,selected);
+            if(snapshot==null)
+            {
+                int price=RaidIntelPrice(s,selected);
+                TradeLine(details,selected==3?"三日消息 · 查看未来三天是否有袭击":"五日消息 · 查看未来五天的具体袭击");
+                TradeButton(details,"购买 "+selected+" 日消息 · "+price+"币",
+                    ()=>TradeCommit(next=>RaidIntelPrice(next,selected)==price&&BaseRaidIntel.Buy(next,selected)!=null,"消息已记录"),
+                    configured&&s.Inventory.Coins>=price);
+                if(!configured)TradeLine(details,"消息价格待配置");
+                else if(s.Inventory.Coins<price)TradeLine(details,"钱币不足");
+                return;
+            }
+
+            bool Active(BaseRaidIntelEntry entry)=>s.Campaign.Events.Any(e=>e.Id==entry.EventId&&e.Status=="pending"&&e.AvailableDay==entry.Day);
+            if(!snapshot.HasRaid)TradeLine(details,"次日起 "+selected+" 天：无已知袭击。");
+            else if(selected==3)TradeLine(details,snapshot.Entries.Any(Active)?"次日起三天内有袭击。":"原消息已失效。");
+            else foreach(var entry in snapshot.Entries)
+                TradeLine(details,entry.Title+" · 第 "+entry.Day+" 天"+(Active(entry)?"":" · 已失效"));
+        }
+
+        private static int RaidIntelPrice(BaseState s,int days)=>days==3?(s.Demo.Rpg?.ThreeDayIntelPrice??0):(s.Demo.Rpg?.FiveDayIntelPrice??0);
+
         public void OpenDemoMerchant()
         {
             string warning="待写";

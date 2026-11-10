@@ -220,7 +220,17 @@ namespace BaseConquest.Base
         public static bool BeginEditorTest()
         {bool first=editorTestPending;editorTestPending=false;if(!workshopSession)editorTestSession=true;return first;}
         public static void UseWorkshop()=>workshopSession=true;
-        public static string SaveDirectory=>Path.Combine(Application.persistentDataPath,"BaseConquest","RealtimeCampaignExperiment",DemoMode ? "Demo/"+OpeningProfile : DesignMode ? "DesignPackageExperiment/"+designPackage.Id : workshopSession ? "EditorExperiment" : editorTestSession ? "EditorDevelopment/"+Path.GetFileNameWithoutExtension(OpeningProfile??"33_即时格战经营闭环.json") : "");
+        public static string SaveDirectory
+        {
+            get
+            {
+#if UNITY_EDITOR
+                var checkPath = Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES");
+                if (Application.isBatchMode && !string.IsNullOrEmpty(checkPath)) return checkPath;
+#endif
+                return Path.Combine(Application.persistentDataPath,"BaseConquest","RealtimeCampaignExperiment",DemoMode ? "Demo/"+OpeningProfile : DesignMode ? "DesignPackageExperiment/"+designPackage.Id : workshopSession ? "EditorExperiment" : editorTestSession ? "EditorDevelopment/"+Path.GetFileNameWithoutExtension(OpeningProfile??"33_即时格战经营闭环.json") : "");
+            }
+        }
         public static BaseSaveCatalog Catalog() => new BaseSaveCatalog(SaveDirectory, d=>JsonUtility.ToJson(d,true), json=>JsonUtility.FromJson<BaseSaveDocument>(json),DemoMode);
         private static readonly Dictionary<string,BasePlaySession> sessions=new Dictionary<string,BasePlaySession>();
         public static BasePlaySession Session()

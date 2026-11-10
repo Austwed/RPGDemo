@@ -174,6 +174,84 @@
       "group": "任务／城镇防务",
       "text": "第{day}天已领取。图册使用后不会自动补发。",
       "notes": "原有委托文案；不修改目标、奖励或事务。保留{day}占位符。"
+    },
+    {
+      "key": "story.ui.dialogue.advance",
+      "group": "界面／对白",
+      "text": "点击正文或按 E／空格继续",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.trade.recipient",
+      "group": "界面／交易",
+      "text": "收货人：{name}",
+      "notes": "暖木界面功能占位，待改写。保留{name}。"
+    },
+    {
+      "key": "story.ui.trade.recipient_full",
+      "group": "界面／交易",
+      "text": "所选角色背包已满，请切换角色",
+      "notes": "暖木界面功能占位，待写。"
+    },
+    {
+      "key": "story.ui.trade.recipient_missing",
+      "group": "界面／交易",
+      "text": "当前没有可收货的随行角色",
+      "notes": "暖木界面功能占位，待写。"
+    },
+    {
+      "key": "story.ui.trade.changed",
+      "group": "界面／交易",
+      "text": "交易条件已变化，请重新确认",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.trade.reforge_tab",
+      "group": "界面／交易",
+      "text": "重铸",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.trade.reforge_location",
+      "group": "界面／交易",
+      "text": "请靠近灰岩镇铁匠",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.trade.reforge_target",
+      "group": "界面／交易",
+      "text": "请选择随行角色的武器或护具",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.trade.stone_description",
+      "group": "界面／交易",
+      "text": "在灰岩镇铁匠处重铸武器或护具。每次使用 1～10 颗。",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.intel.first_offer",
+      "group": "剧情／免费首防消息",
+      "text": "可领取一次免费首防消息。",
+      "notes": "功能占位，待写。"
+    },
+    {
+      "key": "story.ui.intel.first_claimed",
+      "group": "剧情／免费首防消息",
+      "text": "首防日期：第 {day} 天。查看日历，准备粮食与军需。",
+      "notes": "功能占位，待改写。保留{day}。"
+    },
+    {
+      "key": "story.ui.finale.rebuild_title",
+      "group": "界面／返乡重建",
+      "text": "返乡重建",
+      "notes": "功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.finale.rebuild_confirm",
+      "group": "剧情／返乡重建",
+      "text": "小粮田、营帐和仓库均已放置。确认后结束 Demo。",
+      "notes": "功能占位，待写。"
     }
   ]
 }

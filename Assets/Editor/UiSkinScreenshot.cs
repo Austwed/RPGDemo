@@ -14,21 +14,20 @@ namespace BaseConquest.Editor
 {
     // P8（W8）C4～C6 离屏截图验收：
     //   Unity.exe -batchmode -projectPath RPGDemo -executeMethod BaseConquest.Editor.UiSkinScreenshot.Run
-    // 不加 -nographics、不加 -quit。流程：读 camp 阶段档 → 营地 HUD → 主菜单 → 进镇与镇民小芸对白 → 独立战斗 HUD。
-    // 产物：Logs/ui-skin-*.png 与 Logs/ui-skin-report.txt。
+    // 不加 -nographics、不加 -quit。使用本次检查专用进度验证正式 Demo 流程。
+    // 产物：Logs/wood-ui/。
     // 世界地图不在此脚本内：Demo 阶段档的 WorldJourney.Nodes／Entries 为空且全流程走领地内直达，
     // 游戏内没有可进入的世界地图画面，见 LOG 记录；C6 以 VerifyWorldArt 的静态断言为准。
     // 截图沿用 UiInventoryCapture 的双遍合成：世界相机渲一张，屏幕空间 Overlay 的 Canvas 再单独渲到透明底按 alpha 叠回。
     public static class UiSkinScreenshot
     {
-        private const string OutDir = "Logs";
+        private static readonly string OutDir = Path.Combine("Logs", "wood-ui");
         private static double deadline, stageAt, nextLog;
         private static int frameDeadline;
         private static string stage = "boot";
         private static BaseSceneController controller;
         private static bool failed;
         private static readonly List<string> Log = new List<string>();
-        private static PropertyInfo devProperty; private static object devOriginal;
 
         private static BaseSceneController C => Object.FindAnyObjectByType<BaseSceneController>();
         private static BaseHud H => C?.Hud;
@@ -36,7 +35,9 @@ namespace BaseConquest.Editor
         public static void Run()
         {
             Directory.CreateDirectory(OutDir);
-            foreach (var old in Directory.GetFiles(OutDir, "ui-skin-*.png")) File.Delete(old);
+            if (!Application.isBatchMode) throw new InvalidOperationException("界面检查须在独立后台编辑器运行");
+            Environment.SetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES",
+                Path.GetFullPath(Path.Combine(OutDir, "check-saves", Guid.NewGuid().ToString("N"))));
             UnityEditor.SceneManagement.EditorSceneManager.OpenScene(DemoStartup.Launcher);
             deadline = EditorApplication.timeSinceStartup + 480;
             EditorApplication.update += Tick;
@@ -45,13 +46,24 @@ namespace BaseConquest.Editor
 
         private static void Tick()
         {
+            try { TickStage(); }
+            catch (Exception error) { Finish(2, stage + "：" + error); }
+        }
+
+        private static void TickStage()
+        {
             if (failed || EditorApplication.timeSinceStartup > deadline) { Finish(2, "超时或前置失败：" + stage); return; }
             if (!EditorApplication.isPlaying) { Note("等待进入 playmode"); return; }
             switch (stage)
             {
                 case "boot":
                     controller = C;
-                    if (controller == null) { Note("等待场景控制器"); return; }
+                    if (controller?.Message?.StartsWith("开局失败", StringComparison.Ordinal) == true)
+                        throw new InvalidOperationException(controller.Message);
+                    if (controller?.State == null || Object.FindAnyObjectByType<SceneLoadingCover>() != null)
+                    { Note("等待序章进度"); return; }
+                    if (!BaseDemoPrologue.Village(controller.State)) throw new InvalidOperationException("新档未进入白桦村");
+                    CaptureViewports("ui-skin-prologue");
                     controller.LoadDemoStage("camp", "female");
                     stage = "loading"; stageAt = EditorApplication.timeSinceStartup;
                     break;
@@ -81,7 +93,14 @@ namespace BaseConquest.Editor
                     break;
                 case "camp-shot":
                     if (Time.frameCount < frameDeadline) return;
-                    Capture("ui-skin-camp-hud");
+                    CaptureViewports("ui-skin-camp-hud");
+                    H.OpenMenu();
+                    stage = "camp-menu-shot"; frameDeadline = Time.frameCount + 20;
+                    break;
+                case "camp-menu-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    RequirePanel("CampMenu");
+                    Capture("ui-skin-camp-menu");
                     H.OpenResources();
                     stage = "resources-shot"; frameDeadline = Time.frameCount + 20;
                     break;
@@ -118,8 +137,8 @@ namespace BaseConquest.Editor
                     break;
                 case "backpack-shot":
                     if (Time.frameCount < frameDeadline) return;
-                    if (!H.PanelOpen) Log.Add("[说明] 队伍背包未打开：" + controller.Message);
-                    Capture("ui-skin-backpack");
+                    RequirePanel("PartyInventory");
+                    CaptureViewports("ui-skin-backpack");
                     VerifyAuthoredLayout();
                     // 选中一件物品，验证说明区已改为点选后才出现的小弹框。
                     var firstItem = BasePartyInventory.Entries(controller.State).FirstOrDefault(e => e != null && !string.IsNullOrEmpty(e.Holder) && !e.Worn);
@@ -131,14 +150,17 @@ namespace BaseConquest.Editor
                         stage = "backpack-menu-shot"; frameDeadline = Time.frameCount + 20;
                         break;
                     }
-                    H.ClosePanel();
-                    BaseBattleGateway.MainMenu = true;
-                    try { H.OpenMenu(); } finally { BaseBattleGateway.MainMenu = false; }
-                    stage = "menu-shot"; frameDeadline = Time.frameCount + 40;
+                    OpenWarehouseShot();
                     break;
                 case "backpack-menu-shot":
                     if (Time.frameCount < frameDeadline) return;
                     Capture("ui-skin-backpack-menu");
+                    OpenWarehouseShot();
+                    break;
+                case "warehouse-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    RequirePanel("PartyWarehouse");
+                    Capture("ui-skin-warehouse");
                     H.ClosePanel();
                     BaseBattleGateway.MainMenu = true;
                     try { H.OpenMenu(); } finally { BaseBattleGateway.MainMenu = false; }
@@ -165,35 +187,67 @@ namespace BaseConquest.Editor
                         return;
                     }
                     if (Time.frameCount < frameDeadline) return;
-                    if (!controller.Change(s =>
-                    {
-                        var girl = BaseSpatial.Objects(s).Single(o => o.Id == "town_girl");
-                        s.PlayerX = girl.X; s.PlayerY = girl.Y + 1; BaseAdventure.Arrive(s);
-                    }, "截图：走向镇民小芸")) { Finish(2, "移动被拒：" + controller.Message); return; }
+                    Approach("town_quest");
                     stage = "town-arrive"; frameDeadline = Time.frameCount + 30;
                     break;
                 case "town-arrive":
                     if (Time.frameCount < frameDeadline) return;
-                    H.OpenObject("town_girl");
+                    H.OpenObject("town_quest");
+                    RequirePanel("NpcDialogue");
+                    if (!H.DialogueExitLocked) throw new InvalidOperationException("首次领主对白没有锁定退出");
+                    H.ClosePanel();
+                    if (!H.DialogueOpen) throw new InvalidOperationException("中途关闭了首次领主对白");
+                    FinishDialogue();
+                    if (H.DialogueExitLocked) throw new InvalidOperationException("领主叙述完成后仍锁定退出");
                     stage = "dialogue-shot"; frameDeadline = Time.frameCount + 45;
                     break;
                 case "dialogue-shot":
                     if (Time.frameCount < frameDeadline) return;
-                    if (!H.PanelOpen) Log.Add("[说明] 小芸对白未打开：" + controller.Message);
-                    Capture("ui-skin-dialogue");
+                    RequirePanel("NpcDialogue");
+                    CaptureViewports("ui-skin-dialogue");
                     H.ClosePanel();
-                    if (!StartBattle()) { Log.Add("[说明] 独立战斗入口不存在，战斗 HUD 跳过"); Finish(0, "四张，战斗 HUD 缺失"); return; }
+                    Approach("town_peddler");
+                    H.OpenObject("town_peddler");
+                    FinishDialogue();
+                    Click("看看货品");
+                    RequirePanel("TownTrade");
+                    stage = "trade-shot"; frameDeadline = Time.frameCount + 30;
+                    break;
+                case "trade-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    CaptureViewports("ui-skin-trade");
+                    H.ClosePanel();
+                    controller.LoadDemoStage("defense", "female");
+                    stage = "defense-ready"; stageAt = EditorApplication.timeSinceStartup;
+                    break;
+                case "defense-ready":
+                    controller = C;
+                    if (controller?.State == null || controller.State.Demo.Stage != BaseDemoStage.DefenseWarned
+                        || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    H.OpenBackpack();
+                    if (RequirePanel("PartyInventory").Find("Cards").childCount != 3)
+                        throw new InvalidOperationException("整备阶段背包应同屏显示三名队员");
+                    stage = "defense-inventory-shot"; frameDeadline = Time.frameCount + 5;
+                    break;
+                case "defense-inventory-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    CaptureViewports("ui-skin-backpack-three");
+                    H.ClosePanel();
+                    Approach("demo_defense_start");
+                    controller.BeginDemoDefense("none");
+                    FinishDialogue();
+                    Click("拔剑迎战");
                     stage = "battle"; frameDeadline = Time.frameCount + 60; stageAt = EditorApplication.timeSinceStartup;
                     break;
                 case "battle":
                     if (Field(controller, "combatController") == null)
                     {
-                        if (EditorApplication.timeSinceStartup - stageAt > 90) Finish(2, "独立战斗未进入");
+                        if (EditorApplication.timeSinceStartup - stageAt > 30) Finish(2, "首防未开战：" + controller.Message);
                         frameDeadline = Time.frameCount + 20;
                         return;
                     }
                     if (Time.frameCount < frameDeadline) return;
-                    Capture("ui-icons-battle-hud");
+                    CaptureViewports("ui-icons-battle-hud");
                     stage = "done"; frameDeadline = Time.frameCount + 60;
                     break;
                 case "done":
@@ -203,58 +257,70 @@ namespace BaseConquest.Editor
             }
         }
 
-        // 表现权探针：prefab 里故意给第 0 格留了 3px 哨兵；C# 硬编码是 x=-132。
-        // 运行时若读到 prefab 的值、且不等于硬编码值，才证明版式权真的交给了 prefab。
         private static void VerifyAuthoredLayout()
         {
-            if(!UiAuthoredLayout.Enabled){Log.Add("[说明] 表现权总开关关闭，探针跳过");return;}
-            var prefab=Resources.Load<GameObject>(UiAuthoredLayout.Folder+"PartyMemberCard");
-            if(prefab==null){Log.Add("[说明] 尚无 AuthoredUI/PartyMemberCard.prefab，探针跳过");return;}
-            // 只比对名字唯一的绑定节点。模板里有一批同名的 Text 样例节点（样式原型），
-            // 运行时按当次数据行复用，逐一对位没有意义，跳过它们。
-            var authored=prefab.GetComponentsInChildren<UiVisualNode>(true)
-                .Where(n=>!string.IsNullOrEmpty(n.BindingName))
-                .GroupBy(n=>n.BindingName).Where(g=>g.Count()==1).Select(g=>g.First()).ToArray();
-            var live=Object.FindObjectsByType<UiVisualNode>(FindObjectsSortMode.None)
-                .Where(n=>n.gameObject.activeInHierarchy&&!string.IsNullOrEmpty(n.BindingName))
-                .GroupBy(n=>n.BindingName).ToDictionary(g=>g.Key,g=>g.First());
-            // 全节点比对：美术可以随时拖任何一格，运行时都必须与 prefab 一致；
-            // 第 0 格的位置／颜色哨兵只是额外的「已知坏样本」，被改动也不该让探针误报。
-            int matched=0,mismatched=0;string first="";
-            foreach(var n in authored)
+            var source = (RectTransform)controller.transform.Find("UI 布局源/PartyMemberCard/BagSlot_0");
+            var image = source.GetComponent<Image>();
+            var originalPosition = source.anchoredPosition;
+            var originalColor = image.color;
+            try
             {
-                if(!live.TryGetValue(n.BindingName,out var r))continue;
-                matched++;
-                var a=(RectTransform)n.transform;var b=(RectTransform)r.transform;
-                var ia=n.GetComponent<Image>();var ib=r.GetComponent<Image>();
-                bool ok=Vector2.Distance(a.anchoredPosition,b.anchoredPosition)<.01f
-                     && Vector2.Distance(a.sizeDelta,b.sizeDelta)<.01f
-                     && (ia==null||ib==null||Vector4.Distance(ia.color,ib.color)<.005f);
-                if(!ok&&mismatched++==0)
-                    first=n.BindingName+"：prefab "+a.anchoredPosition+"/"+a.sizeDelta+"／颜色 "+(ia!=null?ia.color.ToString():"无")
-                        +" vs 运行时 "+b.anchoredPosition+"/"+b.sizeDelta+"／颜色 "+(ib!=null?ib.color.ToString():"无");
+                source.anchoredPosition += new Vector2(7, -3);
+                image.color = new Color32(190, 141, 84, 255);
+                H.ClosePanel();
+                H.OpenBackpack();
+                var card = RequirePanel("PartyInventory").Find("Cards").GetChild(0);
+                var live = (RectTransform)card.Find("BagSlot_0");
+                if (Vector2.Distance(source.anchoredPosition, live.anchoredPosition) > .01f
+                    || Vector4.Distance(image.color, live.GetComponent<Image>().color) > .005f)
+                    throw new InvalidOperationException("背包格运行时覆盖了场景位置或配色");
+                Log.Add("[PASS] 场景编辑的背包格位置与配色在重新打开时生效");
             }
-            var slot0=authored.FirstOrDefault(n=>n.BindingName=="BagSlot_0");
-            bool sentinel=slot0!=null&&Mathf.Abs(((RectTransform)slot0.transform).anchoredPosition.x+132f)>1f;
-            if(matched>=10&&mismatched==0)
-                Log.Add("[PASS] 表现权由 prefab 主导："+matched+" 个绑定节点的位置／尺寸／配色与 prefab 一致"
-                    +(sentinel?"；位置哨兵仍在（C# 硬编码 -132 未生效）":"；哨兵已被改动，改由全节点比对守护"));
-            else{Log.Add("[失败] 表现权未交给 prefab：匹配 "+matched+" 个、不一致 "+mismatched+" 个"+(first!=""?"，首例 "+first:""));failed=true;}
+            finally { source.anchoredPosition = originalPosition; image.color = originalColor; }
         }
 
-        private static bool StartBattle()
+        private static void OpenWarehouseShot()
         {
-            var dev = FindType("BaseConquest.Battle.RuntimeDeveloperOptions");
-            var prop = dev?.GetProperty("Enabled", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-            if (prop != null) { devProperty = prop; devOriginal = prop.GetValue(null); prop.SetValue(null, true); }
-            var mi = controller.GetType().GetMethod("StartStandaloneBattle", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            var preset = FindType("BaseConquest.Base.BaseStandaloneBattlePreset");
-            if (mi == null || preset == null) return false;
-            mi.Invoke(controller, new object[] { Enum.Parse(preset, "Mixed") });
-            return true;
+            H.ClosePanel();
+            Approach("home");
+            H.OpenObject("home");
+            Click("仓库");
+            stage = "warehouse-shot"; frameDeadline = Time.frameCount + 20;
         }
 
-        private static Type FindType(string fullName) => AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType(fullName)).FirstOrDefault(t => t != null);
+        private static Transform RequirePanel(string name)
+        {
+            var value = Field(H, "panel") as RectTransform;
+            if (!H.PanelOpen || value == null || value.name != name)
+                throw new InvalidOperationException("未进入 " + name + "：" + controller.Message);
+            return value;
+        }
+
+        private static void Approach(string id)
+        {
+            if (!controller.Change(s =>
+            {
+                var target = BaseSpatial.Objects(s).Single(o => o.Id == id);
+                var point = target.Blocks ? BaseStageWalk.Door(s, id) : new BasePoint(target.X, target.Y);
+                s.PlayerX = point.X; s.PlayerY = point.Y;
+                BaseInteraction.Walk(new BasePoint(target.X - point.X, target.Y - point.Y));
+                BaseAdventure.Arrive(s);
+            }, "界面检查")) throw new InvalidOperationException(controller.Message);
+        }
+
+        private static void FinishDialogue()
+        {
+            RequirePanel("NpcDialogue");
+            for (int i = 0; i < 80 && H.ContinueDialogue(); i++) { }
+        }
+
+        private static void Click(string label)
+        {
+            var button = ((RectTransform)Field(H, "panel")).GetComponentsInChildren<Button>()
+                .FirstOrDefault(b => b.interactable && b.GetComponentInChildren<Text>()?.text == label);
+            if (button == null) throw new InvalidOperationException("找不到可操作的「" + label + "」");
+            button.onClick.Invoke();
+        }
         private static object Field(object target, string name)
             => target?.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
 
@@ -265,13 +331,21 @@ namespace BaseConquest.Editor
             Debug.Log("[UiSkin] " + message + "（阶段 " + stage + "）");
         }
 
-        private static void Capture(string name)
+        private static void CaptureViewports(string name)
         {
-            const int w = 1280, h = 720;
+            Capture(name);
+            Capture(name + "-1080p", 1920, 1080);
+            Capture(name + "-narrow", 1024, 640);
+        }
+
+        private static void Capture(string name, int w = 1280, int h = 720)
+        {
             var cams = Camera.allCameras.Where(c => c.enabled && c.targetTexture == null).OrderBy(c => c.depth).ToList();
             if (cams.Count == 0 && controller?.WorldCamera != null) cams.Add(controller.WorldCamera);
             if (cams.Count == 0) { Log.Add("[失败] " + name + "：找不到相机"); failed = true; return; }
-            foreach (var frame in Object.FindObjectsByType<BaseConquest.Presentation.GameFrameCanvas>(FindObjectsSortMode.None)) frame.ApplyLayout(new Rect(0, 0, w, h), w, h);
+            var fit = GameFrameLayout.Fit(w, h, 0, 0, w, h);
+            var area = new Rect((float)fit.X, (float)fit.Y, (float)fit.Width, (float)fit.Height);
+            foreach (var frame in Object.FindObjectsByType<GameFrameCanvas>()) frame.ApplyLayout(area, w, h);
             var rects = cams.ToDictionary(c => c, c => c.rect);
             var targets = cams.ToDictionary(c => c, c => c.targetTexture);
             var rt = new RenderTexture(w, h, 24); rt.Create();
@@ -281,7 +355,7 @@ namespace BaseConquest.Editor
             foreach (var cam in cams) cam.Render();
             var tex = Read(rt, w, h);
             var top = cams.LastOrDefault();
-            var canvases = Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None).Where(c => c.isRootCanvas && c.isActiveAndEnabled && c.renderMode == RenderMode.ScreenSpaceOverlay).OrderBy(c => c.sortingOrder).ToArray();
+            var canvases = Object.FindObjectsByType<Canvas>().Where(c => c.isRootCanvas && c.isActiveAndEnabled && c.renderMode == RenderMode.ScreenSpaceOverlay).OrderBy(c => c.sortingOrder).ToArray();
             var layers = new Dictionary<GameObject, int>();
             if (top != null && canvases.Length > 0)
             {
@@ -306,6 +380,7 @@ namespace BaseConquest.Editor
                 tex.SetPixels32(a); tex.Apply(); Object.DestroyImmediate(ui);
             }
             foreach (var cam in cams) { cam.targetTexture = targets[cam]; cam.rect = rects[cam]; }
+            foreach (var frame in Object.FindObjectsByType<GameFrameCanvas>()) frame.Apply();
             RenderTexture.active = prev; rt.Release(); uiRt.Release();
             File.WriteAllBytes(Path.Combine(OutDir, name + ".png"), tex.EncodeToPNG());
             Object.DestroyImmediate(tex);
@@ -325,7 +400,6 @@ namespace BaseConquest.Editor
             Log.Insert(0, "exit=" + code + " " + message + " ｜ " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
             File.WriteAllText(Path.Combine(OutDir, "ui-skin-report.txt"), string.Join("\n", Log));
             if (code == 0) Debug.Log("[UiSkin] " + message); else Debug.LogError("[UiSkin] " + message);
-            if (devProperty != null && devOriginal != null) { try { devProperty.SetValue(null, devOriginal); } catch (Exception e) { Debug.LogError("[UiSkin] 开发者模式还原失败：" + e.Message); } devProperty = null; }
             failed = code != 0;
             EditorApplication.isPlaying = false;
             EditorApplication.Exit(code);

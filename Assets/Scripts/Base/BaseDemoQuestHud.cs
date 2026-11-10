@@ -28,14 +28,14 @@ namespace BaseConquest.Base
             EndPanel();
         }
 
-        // 页签：原型是面板头里的两个小胶囊，选中填色。这里用字重＋铜色下划线表达，不额外造色块。
+        // 选中的页签用原型的暖金色，动态任务仍由同一份任务日志提供。
         private void QuestTab(string key, string name, int index)
         {
             bool active = questTab == key;
             var button = MakeButton(content, name, new Vector2(-330 + index * 96, -18), new Vector2(88, 34), () => { questTab = key; OpenDemoQuestPanel(); }, new Vector2(.5f, 1));
             var label = button.GetComponentInChildren<Text>();
             if (label != null) { label.fontSize = DemoUiMetrics.FontBody; label.fontStyle = active ? FontStyle.Bold : FontStyle.Normal; label.color = active ? DemoUiTheme.Current.Ink : DemoUiTheme.Current.Muted; }
-            if (active) Solid("TabUnderline", button.transform, new Vector2(.5f, 0), new Vector2(0, 2), new Vector2(72, 2), DemoUiTheme.Current.Copper);
+            if (active) button.GetComponent<Image>().color = DemoUiTheme.Current.Gold;
         }
 
         // 一个分组：小标题 + 若干任务行；空分组给一句说明，不留空档。
@@ -60,9 +60,10 @@ namespace BaseConquest.Base
         {
             bool tracked = BaseQuestLog.TrackedId(s) == entry.Id;
             bool clickable = entry.Trackable;
-            var bar = Solid("QuestRow", content, new Vector2(.5f, 1), new Vector2(0, -row - 29), new Vector2(850, 58), tracked ? new Color(.933f, .961f, .914f) : new Color(1f, .996f, .980f));
+            var theme = DemoUiTheme.Current;
+            var bar = Solid("QuestRow", content, new Vector2(.5f, 1), new Vector2(0, -row - 29), new Vector2(850, 58), tracked ? Color.Lerp(theme.Panel, theme.Gold, .36f) : theme.Inset);
             var outline = bar.gameObject.GetOrAdd<Outline>();
-            outline.effectColor = tracked ? new Color(.557f, .682f, .549f, .95f) : new Color(.863f, .894f, .843f, .95f);
+            outline.effectColor = tracked ? theme.Copper : theme.Line;
             outline.effectDistance = new Vector2(1, -1);
             if (clickable)
             {
@@ -79,7 +80,7 @@ namespace BaseConquest.Base
             var goal = Label(bar, entry.Goal, new Vector2(322, -30), new Vector2(620, 18), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(0, 1));
             goal.color = DemoUiTheme.Current.Muted;
             var state = Label(bar, tracked ? "取消追踪" : entry.Done ? "已完成" : "追踪", new Vector2(-72, -20), new Vector2(120, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleRight, new Vector2(1, 1));
-            state.color = tracked ? new Color(.259f, .420f, .314f) : entry.Done ? DemoUiTheme.Current.Muted : DemoUiTheme.Current.Copper;
+            state.color = tracked ? theme.Ink : entry.Done ? theme.Muted : theme.Copper;
             row += 66;
         }
 

@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using BaseConquest.Battle;
+using BaseConquest.Story;
+using UnityEngine;
 
 namespace BaseConquest.Base
 {
@@ -18,13 +20,34 @@ namespace BaseConquest.Base
             Line("攻击 "+BasePersonalEquipment.Scale(d.Damage,q).ToString("+0.##;-0.##;0")+" · 防御 "+BasePersonalEquipment.Scale(d.Defense,q).ToString("+0.##;-0.##;0")+" · 生命 "+BasePersonalEquipment.Scale(d.Health,q).ToString("+0.##;-0.##;0"),48,18);
             Line("暴击+"+BasePersonalEquipment.Scale(d.CritChance,q).ToString("P1")+" · 暴伤+"+BasePersonalEquipment.Scale(d.CritMultiplier,q).ToString("P1")+(d.Slot=="weapon" ? " · 武器射程 "+BasePersonalEquipment.RealtimeRange(item)+"细格" : "")+" · 移动 "+BasePersonalEquipment.Scale(d.Movement,q).ToString("+0.##;-0.##;0")+"（未启用）",48,18);
         }
-        private void OpenPersonalShop()
+        private void RenderEquipmentTrade(RectTransform offers,RectTransform details,BaseLeader recipient)
         {
-            var s=owner.State;BeginPanel(BaseDemoFlow.Active(s)&&!s.Demo.Flow.NoviceShop?"基础装备 · 每日限量":"装备 · 每日限量","personal-shop");RowButton("返回交易",-210,400,OpenEquipmentTradeHome);RowButton("查看个人装备",210,400,OpenPersonalEquipment);row+=62;
-            Line("钱币 "+s.Inventory.Coins+" · 一般品质 · 购买后放入随行成员有空位的背包；非战斗时均可换装",58,20);
-            foreach(var d in BasePersonalEquipment.ShopFor(s).Where(d=>!BaseDemoFlow.Active(s)||!d.Id.StartsWith("novice_")||s.Demo.Flow.NoviceShop))
-            {string id=d.Id;var offer=s.PersonalEquipment.Offers.Single(o=>o.Template==id);RowButton("购买 "+d.Name+" · "+BasePersonalEquipment.BuyPrice(s,id)+"币 · 今日剩余 "+offer.Remaining+"/1",0,820,()=>GearChange(next=>BasePersonalEquipment.Buy(next,id),"已购入"+d.Name,OpenPersonalShop),BasePersonalEquipment.CanBuy(s,id));row+=56;GearItemLines(new BasePersonalItem {Template=id,Quality=2});}
-            EndPanel();
+            var s=owner.State;
+            var goods=BasePersonalEquipment.ShopFor(s)
+                .Where(d=>!BaseDemoFlow.Active(s)||!d.Id.StartsWith("novice_",StringComparison.Ordinal)||s.Demo.Flow.NoviceShop).ToArray();
+            var selected=goods.FirstOrDefault(d=>d.Id==tradeSelection)??goods.FirstOrDefault();
+            if(selected==null)return;
+            tradeSelection=selected.Id;
+            foreach(var gear in goods)
+            {
+                var offer=s.PersonalEquipment.Offers.Single(o=>o.Template==gear.Id);
+                TradeOffer(offers,gear.Id,gear.Name+" · "+BasePersonalEquipment.BuyPrice(s,gear.Id)+"币 · 余 "+offer.Remaining);
+            }
+            if(details==null)return;
+
+            string id=selected.Id,holder=recipient?.Id??"";
+            int price=BasePersonalEquipment.BuyPrice(s,id);
+            bool full=recipient!=null&&BasePartyInventory.FreeCell(s,holder)<0;
+            TradeLine(details,selected.Name+" · "+price+"币");
+            if(recipient!=null)TradeLine(details,StoryText.Get("story.ui.trade.recipient","收货人：{name}").Replace("{name}",recipient.Name));
+            if(full)TradeLine(details,StoryText.Get("story.ui.trade.recipient_full","所选角色背包已满，请切换角色"));
+            if(recipient==null)TradeLine(details,StoryText.Get("story.ui.trade.recipient_missing","当前没有可收货的随行角色"));
+            TradeButton(details,"确认买入",()=>TradeCommit(next=>BasePersonalEquipment.Buy(next,id,holder,price),"已购入 "+selected.Name),
+                BasePersonalEquipment.CanBuy(s,id,holder));
+            var sample=new BasePersonalItem {Template=id,Quality=2};
+            if(BaseRpg.Active(s))TradeLine(details,BaseRpg.GearDescription(s,sample)+BaseRpg.GearComparison(s,sample));
+            else TradeLine(details,"攻击 "+selected.Damage.ToString("0.##")+" · 防御 "+selected.Defense.ToString("0.##")+" · 生命 "+selected.Health.ToString("0.##"));
         }
+
     }
 }

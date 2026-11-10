@@ -18,7 +18,7 @@ namespace BaseConquest.Presentation
         [NonSerialized] private readonly Dictionary<Transform, Appearance> repeated = new Dictionary<Transform, Appearance>();
         [NonSerialized] private readonly Dictionary<Transform, Transform> prototypes = new Dictionary<Transform, Transform>();
         [NonSerialized] private bool completed;
-        private bool legacyDemo;
+        private bool legacyDemo, sceneLayout;
 
         private sealed class Appearance
         {
@@ -78,25 +78,24 @@ namespace BaseConquest.Presentation
             }
         }
 
-        public static GameObject Create(string key, string name, Transform parent, bool canvas = false, GameObject source = null)
+        public static GameObject Create(string key, string name, Transform parent, bool canvas = false, GameObject source = null, bool sceneLayout = false)
         {
             bool demo=BaseConquest.Base.BaseBattleGateway.DemoReleaseMode||BaseConquest.Base.BaseDemoRelease.Enabled(BaseConquest.Base.BaseBattleGateway.DesignOpening?.Opening);
-            // 试点页面优先用「可编辑 prefab」；其余页面保持原来的模板优先级，场景显式指定的 source 仍然生效。
             GameObject prefab=null;
             if(!ExportDefaults)
             {
-                if(UiAuthoredLayout.Owns(key))prefab=Resources.Load<GameObject>(UiAuthoredLayout.Folder+key);
-                if(prefab==null)prefab=source;
+                prefab=source;
                 if(prefab==null)prefab=(demo?Resources.Load<GameObject>("Presentation/DemoUI/"+key):null)??Resources.Load<GameObject>("Presentation/ReadableUI/"+key)??Resources.Load<GameObject>(Folder+key);
             }
             if(prefab==null&&!ExportDefaults&&key.StartsWith("Page_",StringComparison.Ordinal))prefab=(demo?Resources.Load<GameObject>("Presentation/DemoUI/CommonPanel"):null)??Resources.Load<GameObject>("Presentation/ReadableUI/CommonPanel")??Resources.Load<GameObject>(Folder+"CommonPanel");
             var root=prefab!=null ? Instantiate(prefab,parent,false) : new GameObject(name,typeof(RectTransform));
             root.name=name;root.transform.SetParent(parent,false);
             var binding=Ensure<UiPrefabBinding>(root);binding.ResourceKey=key;binding.authored.Clear();binding.claimed.Clear();binding.repeated.Clear();binding.prototypes.Clear();binding.completed=false;
-            binding.legacyDemo=!UiAuthoredLayout.Owns(key)&&demo&&(prefab==null||prefab.GetComponent<DemoUiRevision>()?.Version!=14);
+            binding.sceneLayout=sceneLayout&&prefab!=null;
+            binding.legacyDemo=demo;
             var rootMarker=Ensure<UiVisualNode>(root);rootMarker.BindingName=name;if(prefab==null||canvas)rootMarker.UseAuthoredLayout=!canvas;
             if(prefab!=null)foreach(var node in root.GetComponentsInChildren<UiVisualNode>(true))
-                if(!node.Decoration)binding.authored[node.transform]=new Appearance(node.transform,node,UiAuthoredLayout.Owns(key));
+                if(!node.Decoration)binding.authored[node.transform]=new Appearance(node.transform,node,binding.sceneLayout);
             binding.claimed.Add(root.transform);
             if(canvas){Ensure<Canvas>(root);Ensure<CanvasScaler>(root);Ensure<GraphicRaycaster>(root);}
             Ensure<UiSystemFont>(root);
@@ -137,9 +136,7 @@ namespace BaseConquest.Presentation
             }
             var marker=Ensure<UiVisualNode>(found.gameObject);marker.BindingName=name;
             // List content is arranged from live records, never from example record positions.
-            // 例外：试点页面里来自 prefab 的节点不再被强制取消「使用 prefab 版式」，改由美术摆放。
-            bool authoredPilot=UiAuthoredLayout.Owns(binding?.ResourceKey)&&binding!=null&&binding.authored.ContainsKey(found);
-            if(!authoredPilot)
+            if(binding?.sceneLayout!=true||!binding.authored.ContainsKey(found))
             {
                 if(parent.name=="Content"||parent.GetComponent<UiDynamicContent>()!=null||!marker.UseAuthoredLayout)marker.UseAuthoredLayout=false;
                 if(parent.GetComponent<UiVisualNode>()?.UseAuthoredLayout==false&&binding?.ResourceKey!="PartyMemberCard")marker.UseAuthoredLayout=false;
@@ -152,7 +149,7 @@ namespace BaseConquest.Presentation
         {
             var binding=root.GetComponent<UiPrefabBinding>();if(binding==null||binding.completed)return;
             // prefab 主导时，把「来自 prefab 的节点」保护起来：主题只负责本次新造的节点。
-            var protectedNodes=UiAuthoredLayout.Owns(binding.ResourceKey)
+            var protectedNodes=binding.sceneLayout
                 ?new HashSet<Transform>(binding.authored.Keys.Where(t=>t!=null)):null;
             // 嵌套的子面板（例如背包里每个人物卡）有自己的 prefab 与自己的 Complete，父面板的主题刷新不得越界。
             if(protectedNodes!=null)

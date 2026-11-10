@@ -153,7 +153,7 @@ namespace BaseConquest.Base
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"［捻须沉吟］准你们立寨倒也不难，但灰岩镇的军饷与地契，从不白送外人。"),
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"镇西那座【沉眠古窟】近日黑雾翻涌，两名采石镇民误入其中，至今下落不明。"),
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"听说你是燃脉者，不惧古窟瘴气。只要你能查明异动、救回活口，手令与赏金双手奉上。")});
-            NpcDialogue(lordLines.ToArray(),new[]{new NpcReply(available?"接受"+BaseScriptNames.Ruins+"调查":"已接取",()=>{if(owner.Change(next=>{if(!BaseDemo.AcceptLordQuest(next))throw new InvalidOperationException("请先了解营地现状，并在领主同层一格以内接取");},BaseScriptNames.Ruins+"调查已接取并保存节点"))ClosePanel();},available),new NpcReply("暂且告辞",ClosePanel)});
+            NpcDialogue(lordLines.ToArray(),new[]{new NpcReply(available?"接受"+BaseScriptNames.Ruins+"调查":"已接取",()=>{if(owner.Change(next=>{if(!BaseDemo.AcceptLordQuest(next))throw new InvalidOperationException("请先了解营地现状，并在领主同层一格以内接取");},BaseScriptNames.Ruins+"调查已接取并保存节点"))ClosePanel();},available),new NpcReply("暂且告辞",ClosePanel)},lockExitUntilFinished:available);
         }
         public void OpenAzhuInvitation()
         {

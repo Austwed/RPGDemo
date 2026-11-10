@@ -29,7 +29,7 @@ namespace BaseConquest.Base
             if(!BaseDemoDefense.SecondDue(State)&&briefingConfirmed&&!Change(next=>next.Demo.Defense.FirstBriefingSeen=true,"首防战前对白已记录"))return;
             if(BaseDemoDefense.SecondDue(State)&&!State.Demo.Defense.SecondBriefingSeen&&!briefingConfirmed)
             {Hud.OpenSecondRaidBriefing(()=>BeginDemoDefense(mode,true));return;}
-            if(briefingConfirmed&&!Change(next=>next.Demo.Defense.SecondBriefingSeen=true,"第二波战前对白已记录"))return;
+            if(BaseDemoDefense.SecondDue(State)&&briefingConfirmed&&!Change(next=>next.Demo.Defense.SecondBriefingSeen=true,"第二波战前对白已记录"))return;
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
             if(!Change(next=>encounter=BaseDemoDefense.Begin(next,mode,pendingDemoDefense),"真实队伍／军需已锁定，就近落格后开始迎战"))return;
             beforeDemoDefense=before;pendingDemoDefense=null;

@@ -115,6 +115,7 @@ namespace BaseConquest.Base
         private bool RuntimeMissing() => Hud == null || Companions == null || SaveStore == null || WorldCamera == null || player == null || selectionFrame == null;
         private void BeginSession()
         {
+            if (SceneUiSource != null) SceneUiSource.gameObject.SetActive(false);
             if(initializedSession>=0&&initializedSession!=session)realtimeProfile=null;
             regionView?.Dispose(); if(mapMaterial!=null)BattleBoardView.DestroyObject(mapMaterial); combatController=null;
             initializedSession = session; constructionOpen=false;constructionBrush.Cancel();constructionTouch=-1; StopAllCoroutines(); State = null; Busy = loadingTemplate = false;
@@ -245,7 +246,7 @@ namespace BaseConquest.Base
             if (RuntimeMissing()) { BeginSession(); return; }
             if(combatController==null) regionView?.UpdateCamera(ConstructionMode ? 190f/1280 : 0,0);
             if(State!=null&&!Busy&&runtimeRoot!=null&&runtimeRoot.gameObject.activeInHierarchy)Hud.RefreshAchievementNotice(Time.unscaledDeltaTime);
-            if(State!=null&&!Busy){RefreshSceneSight();TickPracticeGuide();TickRuinsRetreatGuide();TickDefenseIntel();}
+            if(State!=null&&!Busy){Hud.TickDialogue(Time.unscaledDeltaTime);RefreshSceneSight();TickPracticeGuide();TickRuinsRetreatGuide();TickDefenseIntel();}
             if (State == null || Busy || combatController != null) {ClearWorkerTravel();return;}
             TickWorkerTravel(Math.Min(Time.deltaTime,.05));
             TickDemoIntro(Math.Min(Time.deltaTime,.05));if(!Hud.PanelOpen)TickRescueJourney(Math.Min(Time.deltaTime,.05));
@@ -261,6 +262,7 @@ namespace BaseConquest.Base
             if(developerPanel?.BlocksGameInput==true)return;
             var keyboard = Keyboard.current;
             if(Hud.DialogueOpen&&keyboard!=null&&(keyboard.eKey.wasPressedThisFrame||keyboard.spaceKey.wasPressedThisFrame)){Hud.ContinueDialogue();return;}
+            if(Hud.DialogueExitLocked&&keyboard!=null&&keyboard.escapeKey.wasPressedThisFrame)return;
             if(keyboard!=null&&HandlePanelShortcuts(keyboard.bKey.wasPressedThisFrame,keyboard.nKey.wasPressedThisFrame,keyboard.mKey.wasPressedThisFrame))return;
             if(ConstructionMode&&keyboard!=null&&keyboard.escapeKey.wasPressedThisFrame){StopConstruction();if(Hud.PanelOpen)Hud.ClosePanel();Message="已退出营造";Hud.RefreshSummary();return;}
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) { if (Hud.PanelOpen) Hud.ClosePanel(); else if (SelectedCell != null) ClearSelection(); else Hud.OpenMenu(); return; }
@@ -481,11 +483,23 @@ namespace BaseConquest.Base
                 {
                     if (request.result != UnityWebRequest.Result.Success) throw new IOException(request.error);
                     var opening = JsonUtility.FromJson<BaseScenarioDocument>(request.downloadHandler.text);
-                    if(BaseBattleGateway.DemoMode){var config=DemoBalanceRuntime.Load();opening=BaseDemo.CreateOpening(opening,request.downloadHandler.text,true,BaseBattleGateway.DemoReleaseMode,true,config.Rules,config.WorkbookSha256,StorySceneFile());}
+                    if (BaseBattleGateway.DemoMode)
+                    {
+                        var config = DemoBalanceRuntime.Load();
+                        bool release = BaseBattleGateway.DemoReleaseMode;
+                        // The release profile has fixed tactical snapshots; the authored story package belongs to the ordinary profile.
+                        var story = release ? null : StorySceneFile();
+                        opening = BaseDemo.CreateOpening(opening, request.downloadHandler.text, true, release, true, config.Rules, config.WorkbookSha256, story);
+                    }
                     if (opening == null) throw new ArgumentException("模板为空");
                     InstallOpening(opening);
                 }
-                catch (Exception e) { Message = "开局失败，原进度保留：" + e.Message; if (State == null) Hud.OpenRecovery(); }
+                catch (Exception e)
+                {
+                    Message = "开局失败，原进度保留：" + e.Message;
+                    if (Application.isBatchMode) Debug.LogException(e);
+                    if (State == null) Hud.OpenRecovery();
+                }
             }
             Busy = loadingTemplate = false; Hud.RefreshSummary();SetRegionReady(true);
         }

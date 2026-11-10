@@ -9,6 +9,21 @@ namespace BaseConquest.Editor
     public static class VerifyDemoUiSkin
     {
         private static void Need(bool ok,string message){if(!ok)throw new InvalidOperationException(message);}
+        public static void RunWoodUiChecks()
+        {
+            try
+            {
+                Run();
+                VerifyDemoTrade.Run();
+                VerifyChenanAndRuins.RunAll();
+                UiSkinScreenshot.Run();
+            }
+            catch (Exception error)
+            {
+                Debug.LogException(error);
+                EditorApplication.Exit(2);
+            }
+        }
         public static void Run()
         {
             foreach(string id in new[]{"button-normal","button-selected","window-frame","dialogue-frame"})
@@ -39,7 +54,10 @@ namespace BaseConquest.Editor
                 ((UnityEngine.EventSystems.IDeselectHandler)tint).OnDeselect(new UnityEngine.EventSystems.BaseEventData(null));
                 Need(outline.effectDistance==rest,"失焦后描边未还原");
                 DemoUiTheme.Current.Frame((RectTransform)root.transform);
-                Need(root.GetComponent<Image>().color==DemoUiTheme.Current.Panel&&root.GetComponent<Outline>()!=null,"面板应为纸底＋1px 描边");
+                Need(root.GetComponent<Image>().color==DemoUiTheme.Current.Panel&&root.GetComponent<Outline>()!=null,"面板应为暖纸底与深木描边");
+                var theme = DemoUiTheme.Current;
+                Need(theme.Panel.r > theme.Panel.g && theme.Panel.g > theme.Panel.b && theme.Ink.r < .3f && theme.Gold.r > .85f,
+                    "暖木、暖纸和金色强调色板不匹配");
                 Need(root.transform.Find("DemoPixelFrame")==null,"面板不再使用像素外框");
                 DemoUiTheme.Current.Frame((RectTransform)root.transform,true);
                 Need(root.GetComponent<Image>().color.a<DemoUiTheme.Current.Panel.a,"对白底色应比面板半透明");

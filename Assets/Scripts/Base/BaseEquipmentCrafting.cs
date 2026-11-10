@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using BaseConquest.Battle;
+using BaseConquest.Story;
 
 namespace BaseConquest.Base
 {
@@ -15,11 +16,17 @@ namespace BaseConquest.Base
     {
         public const string Stone="forging_stone";
         public const int StonePrice=10, DailyStones=10;
+        private const string StoneDescription="在灰岩镇铁匠处重铸武器或护具。每次使用 1～10 颗。";
+        private const string OldStoneDescription="在基地工坊重铸武器或护具。每次1～10颗，可能升级、留级或降级；可存入基地仓库。";
+        public static string DescribeStone(string description)=>description==StoneDescription||description==OldStoneDescription
+            ? StoryText.Get("story.ui.trade.stone_description",StoneDescription) : description;
         public static int StockLimit(BaseState s)=>BaseRpg.Active(s)&&s.Demo.Rpg.ForgeDailyStock>0?s.Demo.Rpg.ForgeDailyStock:DailyStones;
         public static void Normalize(BaseState s)
         {
             var g=s.PersonalEquipment;
-            if(!s.Backpack.Catalog.Any(d=>d.Id==Stone))s.Backpack.Catalog.Add(new BaseBagDefinition {Id=Stone,Name="锻造石",Category="material",MaxStack=99,Description="在基地工坊重铸武器或护具。每次1～10颗，可能升级、留级或降级；可存入基地仓库。"});
+            var stone=s.Backpack.Catalog.FirstOrDefault(d=>d.Id==Stone);
+            if(stone==null)s.Backpack.Catalog.Add(new BaseBagDefinition {Id=Stone,Name="锻造石",Category="material",MaxStack=99,Description=StoneDescription});
+            else if(stone.Description==OldStoneDescription)stone.Description=StoneDescription;
             if(g.ForgeVersion!=0)return;
             if(g.StonesRemaining!=0||g.ReforgeRolls!=0)throw new ArgumentException("锻造状态缺少版本");
             g.ForgeVersion=1;g.StonesRemaining=StockLimit(s);
@@ -56,12 +63,14 @@ namespace BaseConquest.Base
             }
             s.Inventory.Coins-=count*BuyPrice(s);s.PersonalEquipment.StonesRemaining-=count;s.Backpack.Revision++;return true;
         }
-        private static bool Accessible(BaseState s,BaseInventoryEntry e)=>e!=null&&e.Gear!=null&&!e.Protected&&e.Category!="accessory"&&(e.Holder==""||s.Leaders.Any(l=>l.Id==e.Holder&&BasePartyInventory.AccessibleLeader(s,l)));
+        public static bool CanSelectReforge(BaseState s,BaseInventoryEntry entry)=>entry?.Gear!=null&&!entry.Protected&&entry.Category!="accessory"
+            &&BaseAdventure.Members(s).Any(l=>l.Id==entry.Holder&&BasePartyInventory.AccessibleLeader(s,l));
         public static string Blocked(BaseState s,string id,int stones)
         {
-            if(!At(s,"base","workshop"))return "请在非战斗时接近基地工坊";
+            if(!BasePersonalEquipment.AtSmith(s)||s.Campaign.HasActiveBattle||!BasePartyInventory.Peaceful(s)||BaseBattleLoot.Pending(s))
+                return StoryText.Get("story.ui.trade.reforge_location","请靠近灰岩镇铁匠");
             var e=BasePartyInventory.Find(s,id);
-            if(!Accessible(s,e))return "请选择基地可用人物或仓库中的武器、护具";
+            if(!CanSelectReforge(s,e))return StoryText.Get("story.ui.trade.reforge_target","请选择随行角色的武器或护具");
             if(e.Quality==5)return "传奇已是最高品质，不能继续重铸";
             if(stones<1||stones>10)return "每次使用1～10颗锻造石";
             if(BasePartyInventory.AvailableMaterial(s,Stone)<stones)return "可用锻造石不足";

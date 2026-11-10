@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using BaseConquest.Presentation;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -22,7 +23,7 @@ namespace BaseConquest.Base
         private string selected,entryId,lastState;
         private Coroutine animation;
         private Vector2 mapSize;
-        private readonly Color ink=new Color(.88f,.94f,.88f),surface=new Color(.09f,.2f,.21f),gold=new Color(.89f,.73f,.43f);
+        private readonly Color ink=DemoUiTheme.Current.Panel,surface=DemoUiTheme.Current.Wood,gold=DemoUiTheme.Current.Gold;
         public int PreviewRevision {get;private set;}
         public void Initialize(BaseSceneController controller,Font textFont)
         {
@@ -67,7 +68,7 @@ namespace BaseConquest.Base
         }
         private Button Button(Transform parent,string label,Action action,Vector2 position,Vector2 size)
         {
-            var rect=Box(label,parent,new Color(.2f,.32f,.32f));rect.anchorMin=rect.anchorMax=new Vector2(0,1);rect.pivot=new Vector2(0,1);rect.anchoredPosition=position;rect.sizeDelta=size;
+            var rect=Box(label,parent,DemoUiTheme.Current.Line);rect.anchorMin=rect.anchorMax=new Vector2(0,1);rect.pivot=new Vector2(0,1);rect.anchoredPosition=position;rect.sizeDelta=size;
             var button=rect.gameObject.AddComponent<Button>();button.onClick.AddListener(()=>{if(!owner.Busy)action();});var labelText=Text(rect,label,new Vector2(6,-4),size-new Vector2(12,8));labelText.alignment=TextAnchor.MiddleCenter;return button;
         }
         private RectTransform Marker(string name,Transform parent,string label,Color color)

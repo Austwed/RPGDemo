@@ -1,4 +1,5 @@
-﻿using BaseConquest.Presentation;
+using BaseConquest.Base;
+using BaseConquest.Presentation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -53,13 +54,21 @@ namespace BaseConquest.Battle
         private readonly Text objectiveTitle, objectiveProgress;
         private readonly Image objectiveBarFill;
         private readonly RectTransform objectiveBar;
+        private readonly Image objectivePanel;
+        private readonly Vector2 drawerPosition, detailsSize, effectsSize, fightingSize, objectiveFillSize, cellMenuOffset;
+        private readonly float cellMenuWidth;
+        private readonly Vector2[] portraitPositions = new Vector2[3];
+        private readonly Quaternion[] portraitRotations = new Quaternion[3];
+        private readonly Dictionary<Button, (Image Surface, Text Label, Color Background, Color Ink)> restingColors =
+            new Dictionary<Button, (Image, Text, Color, Color)>();
+        private readonly Color objectiveTitleColor, objectiveProgressColor;
         private string informationKey;
         private int eventCount = -1;
-        private readonly Color bg = new Color(0.055f, 0.08f, 0.12f, 0.93f), highlighted = new Color(0.15f, 0.39f, 0.52f);
         public BattleMobileHud(BattleSceneController owner, Transform parent, Font font)
         {
             this.owner = owner; this.font = font;
-            Root = UiPrefabBinding.Create("BattleShell", "BattleHud", parent, true);
+            var sceneShell = parent.GetComponentInParent<BaseSceneController>()?.SceneUiTemplate("BattleShell");
+            Root = UiPrefabBinding.Create("BattleShell", "BattleHud", parent, true, sceneShell, sceneShell != null);
             Canvas = Root.GetComponent<Canvas>(); Canvas.renderMode = RenderMode.ScreenSpaceOverlay; Canvas.sortingOrder = 50;
             Root.GetComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             safe = Rect("SafeArea", Root.transform, Vector2.zero, Vector2.zero, Vector2.zero); safe.anchorMax = Vector2.one; safe.offsetMin = safe.offsetMax = Vector2.zero;
@@ -67,9 +76,10 @@ namespace BaseConquest.Battle
             drawer = Button("测试", safe, new Vector2(0, 1), new Vector2(82, -10), new Vector2(66, 44), owner.ToggleDrawer);
             switchSide = Button("切换阵营", safe, new Vector2(0, 1), new Vector2(154, -10), new Vector2(90, 44), owner.SwitchSide);
             var objective = Box("Objective", safe, new Vector2(0.5f, 1), new Vector2(0, -10), new Vector2(210, 44)); objective.name = "Objective";
+            objectivePanel = objective.GetComponent<Image>();
             objectiveTitle = Label("", objective, 11); objectiveTitle.name = "ObjectiveTitle"; objectiveTitle.alignment = TextAnchor.MiddleCenter; objectiveTitle.rectTransform.offsetMin = new Vector2(6, 27); objectiveTitle.rectTransform.offsetMax = new Vector2(-6, -2);
             objectiveBar = Rect("ObjectiveBar", objective, new Vector2(0, 1), new Vector2(8, -20), new Vector2(194, 4)); objectiveBar.gameObject.GetOrAdd<Image>().color = new Color(1, 1, 1, 0.18f);
-            objectiveBarFill = Rect("ObjectiveBarFill", objectiveBar, Vector2.zero, Vector2.zero, new Vector2(194, 4)).gameObject.GetOrAdd<Image>(); objectiveBarFill.color = new Color(0.36f, 0.72f, 1f);
+            objectiveBarFill = Rect("ObjectiveBarFill", objectiveBar, Vector2.zero, Vector2.zero, new Vector2(194, 4)).gameObject.GetOrAdd<Image>(); objectiveBarFill.color = DemoUiTheme.Current.Copper;
             objectiveProgress = Label("", objective, 10); objectiveProgress.name = "ObjectiveProgress"; objectiveProgress.alignment = TextAnchor.MiddleCenter; objectiveProgress.rectTransform.offsetMin = new Vector2(6, 2); objectiveProgress.rectTransform.offsetMax = new Vector2(-6, -27);
             objectiveTitle.horizontalOverflow = objectiveProgress.horizontalOverflow = HorizontalWrapMode.Overflow;
             objectiveTitle.resizeTextForBestFit = objectiveProgress.resizeTextForBestFit = true;
@@ -135,7 +145,7 @@ namespace BaseConquest.Battle
             var stick=Box("BattleJoystick",safe,Vector2.zero,new Vector2(78,246),new Vector2(120,120));
             stick.pivot=Vector2.one*.5f;
             var handle=Box("Handle",stick,Vector2.one*.5f,Vector2.zero,new Vector2(46,46));
-            handle.GetComponent<Image>().color=new Color(.57f,.73f,.67f,.9f);handle.GetComponent<Image>().raycastTarget=false;
+            handle.GetComponent<Image>().color=DemoUiTheme.Current.Gold;handle.GetComponent<Image>().raycastTarget=false;
             Joystick=stick.gameObject.GetOrAdd<BaseConquest.Base.BaseJoystick>();Joystick.Handle=handle;
             Label("移动队长",stick,12).rectTransform.offsetMax=new Vector2(0,-90);
             stick.gameObject.SetActive(false);
@@ -148,7 +158,6 @@ namespace BaseConquest.Battle
             cellMenuScroll = cellMenu.gameObject.GetOrAdd<ScrollRect>(); cellMenuScroll.viewport = cellViewport; cellMenuScroll.content = cellMenuContent; cellMenuScroll.horizontal = false; cellMenuScroll.movementType = ScrollRect.MovementType.Clamped; cellMenu.gameObject.SetActive(false);
             detailBackdrop = Box("CommanderDetailBackdrop", safe, Vector2.zero, Vector2.zero, Vector2.zero); detailBackdrop.anchorMax = Vector2.one; detailBackdrop.offsetMin = detailBackdrop.offsetMax = Vector2.zero; detailBackdrop.GetComponent<Image>().color = new Color(0, 0, 0, 0.4f);
             details = Box("CommanderDetails", safe, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(720, 540));
-            details.GetComponent<Image>().color = new Color(0.055f, 0.08f, 0.12f, 1);
             var figure = Rect("UnitPortrait", details, new Vector2(0, 1), new Vector2(18, -18), new Vector2(105, 160));
             detailsPortrait = figure.gameObject.GetOrAdd<BattleAvatarGraphic>(); detailsPortrait.raycastTarget = false;
             detailsInfo = Label("", details, 13); detailsInfo.alignment = TextAnchor.UpperLeft;
@@ -176,6 +185,26 @@ namespace BaseConquest.Battle
             battleResult = new BattleResultPanel(safe, font, owner); hits.Add(battleResult.Blocker);
             reportButton = Button("查看战报", resultPanel, Vector2.zero, new Vector2(8, 8), new Vector2(136,44), () => { battleResult.Open(); Refresh(); });
             UiPrefabBinding.Complete(Root);
+            drawerPosition = ((RectTransform)drawer.transform).anchoredPosition;
+            detailsSize = details.sizeDelta;
+            effectsSize = detailEffectsPanel.sizeDelta;
+            fightingSize = fightingPanel.sizeDelta;
+            objectiveFillSize = objectiveBarFill.rectTransform.sizeDelta;
+            cellMenuOffset = cellMenu.anchoredPosition;
+            cellMenuWidth = cellMenu.rect.width;
+            objectiveTitleColor = objectiveTitle.color;
+            objectiveProgressColor = objectiveProgress.color;
+            for (int i = 0; i < portraits.Length; i++)
+            {
+                portraitPositions[i] = ((RectTransform)portraits[i].transform).anchoredPosition;
+                portraitRotations[i] = portraitGraphics[i].localRotation;
+            }
+            foreach (var button in new[] { automatic, fast }.Concat(cards).Concat(portraits).Concat(strategyButtons))
+            {
+                var image = button.GetComponent<Image>();
+                var text = button.GetComponentInChildren<Text>(true);
+                restingColors.Add(button, (image, text, image.color, text.color));
+            }
             Refresh();
         }
         private RectTransform Rect(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size)
@@ -184,16 +213,23 @@ namespace BaseConquest.Battle
         }
         private RectTransform Box(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size)
         {
-            var r = Rect(name, parent, anchor, pos, size); r.gameObject.GetOrAdd<Image>().color = bg; hits.Add(r); return r;
+            var r = Rect(name, parent, anchor, pos, size); r.gameObject.GetOrAdd<Image>().color = DemoUiTheme.Current.Panel; hits.Add(r); return r;
         }
         private Text Label(string value, Transform parent, int size)
         {
             var r = Rect("Label", parent, Vector2.zero, Vector2.zero, Vector2.zero); r.anchorMax = Vector2.one; r.offsetMin = r.offsetMax = Vector2.zero;
-            var t = r.gameObject.GetOrAdd<Text>(); t.font = font; t.fontSize = size; t.text = value; t.color = Color.white; t.alignment = TextAnchor.MiddleCenter; t.raycastTarget = false; return t;
+            var t = r.gameObject.GetOrAdd<Text>(); t.font = font; t.fontSize = size; t.text = value; t.color = DemoUiTheme.Current.Ink; t.alignment = TextAnchor.MiddleCenter; t.raycastTarget = false; return t;
         }
         private Button Button(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size, Action action)
         {
-            var r = Box(name, parent, anchor, pos, size); var b = r.gameObject.GetOrAdd<Button>(); b.targetGraphic = r.GetComponent<Image>(); Label(name, r, 13); if (action != null) b.onClick.AddListener(() => action()); return b;
+            var r = Box(name, parent, anchor, pos, size); var b = r.gameObject.GetOrAdd<Button>(); b.targetGraphic = r.GetComponent<Image>(); DemoUiTheme.Current.StyleButton(b); Label(name, r, 13); if (action != null) b.onClick.AddListener(() => action()); return b;
+        }
+
+        private void SetHighlighted(Button button, bool marked)
+        {
+            var resting = restingColors[button];
+            resting.Surface.color = marked ? DemoUiTheme.Current.Gold : resting.Background;
+            resting.Label.color = marked ? DemoUiTheme.Current.Ink : resting.Ink;
         }
         public void ShowMenu(Vector2 point)
         {
@@ -202,7 +238,7 @@ namespace BaseConquest.Battle
             while (cellMenuButtons.Count < commands.Count)
             {
                 int index = cellMenuButtons.Count;
-                var button = Button("", cellMenuContent, new Vector2(0, 1), new Vector2(0, -index * 36), new Vector2(216, 32), null);
+                var button = Button("", cellMenuContent, new Vector2(0, 1), new Vector2(0, -index * 36), new Vector2(Mathf.Max(1, cellMenuWidth - 8), 32), null);
                 button.GetComponentInChildren<Text>().fontSize = 11; cellMenuButtons.Add(button);
             }
             for (int i = 0; i < cellMenuButtons.Count; i++)
@@ -215,26 +251,33 @@ namespace BaseConquest.Battle
             cellMenuTitle.text = "格 " + owner.ContextCell.Value + " · 快捷操作";
             cellMenuContent.sizeDelta = new Vector2(0, commands.Count * 36);
             float height = Mathf.Min(commands.Count * 36 + 32, Mathf.Max(100, safe.rect.height - 24));
-            cellMenu.sizeDelta = new Vector2(224, height);
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(safe, point, Canvas.worldCamera, out var local);
-            var corner = local - safe.rect.min;
-            cellMenu.anchoredPosition = new Vector2(Mathf.Clamp(corner.x + 10, 4, Mathf.Max(4, safe.rect.width - 228)), Mathf.Clamp(corner.y - height / 2, 4, Mathf.Max(4, safe.rect.height - height - 4)));
-            cellMenu.gameObject.SetActive(true); cellMenu.SetAsLastSibling(); cellMenuScroll.StopMovement(); cellMenuScroll.verticalNormalizedPosition = 1;
+            PositionCellMenu(point, height);
         }
         public void CloseMenu() => cellMenu.gameObject.SetActive(false);
         public void ShowRealtimeCandidates(Vector2 point,List<BattleSoldier> units,Action<BattleSoldier> choose)
         {
             Canvas.ForceUpdateCanvases();
-            while(cellMenuButtons.Count<units.Count)cellMenuButtons.Add(Button("",cellMenuContent,new Vector2(0,1),Vector2.zero,new Vector2(216,36),null));
+            while(cellMenuButtons.Count<units.Count)cellMenuButtons.Add(Button("",cellMenuContent,new Vector2(0,1),Vector2.zero,new Vector2(Mathf.Max(1, cellMenuWidth - 8),36),null));
             for(int i=0;i<cellMenuButtons.Count;i++){
                 var button=cellMenuButtons[i];button.gameObject.SetActive(i<units.Count);button.onClick.RemoveAllListeners();if(i>=units.Count)continue;
                 var unit=units[i];button.name="UnitCandidate_"+unit.Id;button.GetComponent<RectTransform>().anchoredPosition=new Vector2(0,-i*40);button.GetComponentInChildren<Text>().text=(unit.Side==BattleSide.A?"选中 ":"指定目标 ")+owner.PreviewSimulation.UnitName(unit);button.onClick.AddListener(()=>choose(unit));
             }
             cellMenuTitle.text="选择单位";cellMenuContent.sizeDelta=new Vector2(0,units.Count*40);
-            float height=Mathf.Min(units.Count*40+34,safe.rect.height-24);cellMenu.sizeDelta=new Vector2(224,height);
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(safe,point,Canvas.worldCamera,out var local);var corner=local-safe.rect.min;
-            cellMenu.anchoredPosition=new Vector2(Mathf.Clamp(corner.x+10,4,Mathf.Max(4,safe.rect.width-228)),Mathf.Clamp(corner.y-height/2,4,Mathf.Max(4,safe.rect.height-height-4)));
-            cellMenu.gameObject.SetActive(true);cellMenu.SetAsLastSibling();cellMenuScroll.StopMovement();cellMenuScroll.verticalNormalizedPosition=1;
+            float height=Mathf.Min(units.Count*40+34,safe.rect.height-24);
+            PositionCellMenu(point, height);
+        }
+        private void PositionCellMenu(Vector2 point, float height)
+        {
+            cellMenu.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(safe, point, Canvas.worldCamera, out var local);
+            var corner = local - safe.rect.min + cellMenuOffset;
+            cellMenu.anchoredPosition = new Vector2(
+                Mathf.Clamp(corner.x + 10, 4, Mathf.Max(4, safe.rect.width - cellMenuWidth - 4)),
+                Mathf.Clamp(corner.y - height / 2, 4, Mathf.Max(4, safe.rect.height - height - 4)));
+            cellMenu.gameObject.SetActive(true);
+            cellMenu.SetAsLastSibling();
+            cellMenuScroll.StopMovement();
+            cellMenuScroll.verticalNormalizedPosition = 1;
         }
         public bool ReportVisible => battleResult?.Visible == true;
         public bool ContextMenuVisible => cellMenu.gameObject.activeSelf;
@@ -263,13 +306,14 @@ namespace BaseConquest.Battle
         public void Refresh()
         {
             var b = owner.PreviewSimulation; Root.GetComponent<CanvasScaler>().scaleFactor = owner.HudScale;
-            armyPanel.gameObject.SetActive(!owner.DrawerVisible); drawer.GetComponent<RectTransform>().anchoredPosition = owner.DrawerVisible ? new Vector2(360, -10) : new Vector2(82, -10);
+            armyPanel.gameObject.SetActive(!owner.DrawerVisible);
+            ((RectTransform)drawer.transform).anchoredPosition = drawerPosition + (owner.DrawerVisible ? Vector2.right * 278 : Vector2.zero);
             foreach (var element in testHidden) element.SetActive(!owner.DrawerVisible);
             drawer.GetComponentInChildren<Text>().text = owner.DrawerVisible ? "收起测试" : "测试";
             if (owner.IsCampaignBattle) { drawer.GetComponentInChildren<Text>().text = "菜单"; drawer.interactable = !owner.IsAnimating && !owner.Skipping; switchSide.gameObject.SetActive(false); }
             else drawer.interactable = true;
             foreach (var portrait in portraits) portrait.transform.parent.gameObject.SetActive(!owner.DrawerVisible);
-            var area=BaseConquest.Presentation.GameFrameCanvas.Area;safe.anchorMin=Vector2.zero;safe.anchorMax=Vector2.one;
+            var area=BaseConquest.Presentation.GameFrameCanvas.Area;
             bool won = b.VictoryDeclared || b.Report?.Outcome == BattleOutcome.SideAWin;
             RefreshObjective(b);
             bool after = won && !owner.PursuitChosen || b.Phase == BattlePhase.Finished;
@@ -285,7 +329,7 @@ namespace BaseConquest.Battle
             testRestart.gameObject.SetActive(!owner.IsCampaignBattle && !owner.DrawerVisible && !after && b.Phase == BattlePhase.Fighting);
             bool fighting = b.Phase == BattlePhase.Fighting && !owner.VictoryChoicePending; automatic.interactable = fighting; skip.interactable = fighting; fast.interactable = !owner.Skipping;
             automatic.gameObject.SetActive(b.Phase == BattlePhase.Fighting && (!won || owner.PursuitChosen)); skip.gameObject.SetActive(b.Phase == BattlePhase.Fighting && (!won || owner.PursuitChosen)); fast.gameObject.SetActive(b.Phase == BattlePhase.Fighting);
-            automatic.GetComponent<Image>().color = owner.Automatic ? highlighted : bg; fast.GetComponent<Image>().color = owner.FastMode ? highlighted : bg;
+            SetHighlighted(automatic, owner.Automatic); SetHighlighted(fast, owner.FastMode);
             step.GetComponentInChildren<Text>().text = "下一轮"; step.interactable = !owner.IsAnimating && !owner.Skipping;
             cancel.interactable = fighting && !owner.IsAnimating && !owner.Skipping;
             undo.interactable = preparationUndo.interactable = owner.CanUndoAction;
@@ -300,7 +344,7 @@ namespace BaseConquest.Battle
                 troopStatus[i].text = BattleSimulation.KindName(k) + "\n" + armyStatus.InField + "／" + armyStatus.Lost + "／" + armyStatus.Stock;
 
                 cards[i].interactable = owner.CanChooseDeployment(k) || owner.DeploymentArmed && owner.DeploymentKind == k && !owner.IsAnimating;
-                cards[i].GetComponent<Image>().color = owner.DeploymentArmed && owner.DeploymentKind == k ? highlighted : bg;
+                SetHighlighted(cards[i], owner.DeploymentArmed && owner.DeploymentKind == k);
             }
             withdraw.interactable = owner.CanWithdrawSelection;
             for (int i = 0; i < 3; i++)
@@ -312,7 +356,7 @@ namespace BaseConquest.Battle
                 float chargeProgress = owner.CommanderSkillCharge(i);
                 skillCharge[i].Show(chargeProgress, chargeProgress >= 1 && b.CanQueueCommanderSkill(owner.ControlledSide, i) || b.CommanderSkillQueued(owner.ControlledSide, i));
                 var skillLabel = skills[i].GetComponentInChildren<Text>();
-                skillLabel.color = skillCharge[i].Ready ? new Color(0.055f, 0.075f, 0.10f) : Color.white;
+                skillLabel.color = skillCharge[i].Ready ? DemoUiTheme.Current.Ink : DemoUiTheme.Current.Panel;
                 var labelShadow = skillLabel.GetComponent<Shadow>();
                 if (labelShadow != null) labelShadow.enabled = !skillCharge[i].Ready;
                 var chargeText = b.CommanderSkillQueued(owner.ControlledSide, i) ? "本轮后" : b.CommanderSkillCooldown(owner.ControlledSide, i) > 0 ? b.CommanderSkillCooldown(owner.ControlledSide, i).ToString() : "";
@@ -321,9 +365,12 @@ namespace BaseConquest.Battle
                 portraitGraphics[i].GetComponent<BattleAvatarGraphic>().Crown = BattlePawn2D.CrownColor(b, owner.ControlledSide, i);
                 portraitGraphics[i].GetComponent<BattleAvatarGraphic>().PlayerHero=(b.Scenario.CampaignRules||b.Scenario.PlayerHeroAppearance)&&PlayerHeroFrames.IsPlayer(true,owner.ControlledSide==BattleSide.A,i,b.Scenario.PlayerLeaderSlot);
                 portraitGraphics[i].GetComponent<BattleAvatarGraphic>().AppearanceId=b.CommanderAppearance(owner.ControlledSide,i);
-                portraitGraphics[i].localRotation = c?.IsDowned == true ? Quaternion.Euler(0, 0, c.CarriedById >= 0 ? 90 : 90 + Mathf.Sin(Time.unscaledTime * 6) * 9) : Quaternion.identity;
-                portraits[i].GetComponent<Image>().color = c != null && owner.SelectedUnits.Contains(c.Id) || c == null && owner.DeploymentSlotChosen && owner.DeploymentCommanderSlot == i ? highlighted : bg;
-                portraits[i].GetComponent<RectTransform>().anchoredPosition = new Vector2(0, 44 + (c != null && owner.SelectedUnits.Contains(c.Id) ? 6 : 0));
+                portraitGraphics[i].localRotation = c?.IsDowned == true
+                    ? portraitRotations[i] * Quaternion.Euler(0, 0, c.CarriedById >= 0 ? 90 : 90 + Mathf.Sin(Time.unscaledTime * 6) * 9)
+                    : portraitRotations[i];
+                bool selected = c != null && owner.SelectedUnits.Contains(c.Id);
+                SetHighlighted(portraits[i], selected || c == null && owner.DeploymentSlotChosen && owner.DeploymentCommanderSlot == i);
+                ((RectTransform)portraits[i].transform).anchoredPosition = portraitPositions[i] + (selected ? Vector2.up * 6 : Vector2.zero);
             }
             infoPanel.gameObject.SetActive(owner.InformationNoticeVisible);
             var descriptions = new List<string>();
@@ -341,12 +388,13 @@ namespace BaseConquest.Battle
             string key = owner.InformationCell?.ToString() ?? "unit:" + owner.InformationUnitId;
             if (informationKey != key) { informationKey = key; informationScroll.StopMovement(); informationScroll.verticalNormalizedPosition = 1; }
             var known = b.KnownEvents(owner.ControlledSide).ToList(); log.supportRichText = true;
+            logPanel.gameObject.SetActive(known.Count > 0);
             var recent = known.Skip(Math.Max(0, known.Count - 45)).ToList();
-            log.text = string.Join("\n", recent.Select(e => FormatEvent(b, e, owner.ControlledSide)));
+            bool darkLog = logPanel.GetComponent<Image>().color.grayscale < .5f;
+            log.text = string.Join("\n", recent.Select(e => FormatEvent(b, e, owner.ControlledSide, darkLog)));
             logLinks.SetEntries(b, recent);
-            logScroll.content.sizeDelta = new Vector2(0, Mathf.Max(logPanel.sizeDelta.y - 28, log.preferredHeight + 8));
+            logScroll.content.sizeDelta = new Vector2(0, Mathf.Max(logScroll.viewport.rect.height, log.preferredHeight + 8));
             if (known.Count != eventCount) { eventCount = known.Count; logScroll.verticalNormalizedPosition = 0; }
-            float height = area.height / owner.HudScale; logPanel.sizeDelta = new Vector2(212, Mathf.Clamp(height - 475, 95, 160));
             status.text = BattleSimulation.SideName(owner.ControlledSide) + " · 第" + b.RoundNumber + "轮 · " + (owner.Automatic ? "自动" : "暂停") + " · " + (owner.FastMode ? "3" : "1") + "倍 · 已选" + owner.SelectedUnits.Count + "队\n" + owner.Feedback;
             if (b.VictoryDeclared && b.Phase == BattlePhase.Fighting) status.text = "已获胜 · 选择乘胜追击／直接结算 · 第" + b.RoundNumber + "轮\n" + owner.Feedback;
             if (b.Phase == BattlePhase.Finished) status.text = "战斗结束 · " + BattleSceneController.OutcomeName(b.Report.Outcome) + (owner.IsCampaignBattle ? " · 返回基地继续经营\n" + owner.Feedback : " · 可重开测试");
@@ -358,7 +406,7 @@ namespace BaseConquest.Battle
                 bool commanderDetails = owner.DetailsCommander;
                 var stats = unit?.Stats ?? b.Scenario.Army(side).CommanderProfile(owner.DetailsSlot);
                 var leader = b.CommanderFor(unit);
-                details.sizeDelta = new Vector2(720, commanderDetails ? 540 : 300);
+                details.sizeDelta = new Vector2(detailsSize.x, commanderDetails ? detailsSize.y : detailsSize.y * (300f / 540f));
                 detailsPortrait.Kind = unit?.Kind ?? SoldierKind.Hero;
                 detailsPortrait.AppearanceId=detailsPortrait.Kind==SoldierKind.Hero ? unit?.AppearanceId??b.CommanderAppearance(side,owner.DetailsSlot) : "";
                 detailsPortrait.PlayerHero=(b.Scenario.CampaignRules||b.Scenario.PlayerHeroAppearance)&&PlayerHeroFrames.IsPlayer(detailsPortrait.Kind==SoldierKind.Hero,side==BattleSide.A,unit?.OriginCommanderSlot??owner.DetailsSlot,b.Scenario.PlayerLeaderSlot);
@@ -375,7 +423,7 @@ namespace BaseConquest.Battle
                     + "\n" + (unit == null ? "待部署" : b.Behavior(unit));
                 for (int i = 0; i < 4; i++) { rangeRows[i].gameObject.SetActive(commanderDetails); foreach (var button in rangeRows[i].GetComponentsInChildren<Button>()) button.interactable = owner.CanEditDetailsCommander && !owner.IsAnimating && !owner.Skipping && b.Phase != BattlePhase.Finished; }
                 foreach (var button in strategyButtons) button.gameObject.SetActive(commanderDetails);
-                                detailEffectsPanel.sizeDelta = new Vector2(196, (commanderDetails ? 540 : 300) - 68);
+                detailEffectsPanel.sizeDelta = new Vector2(effectsSize.x, Mathf.Max(1, effectsSize.y + details.sizeDelta.y - detailsSize.y));
                 var state = unit == null ? "待部署" : b.EffectsSummary(unit).Replace("／", "\n");
                 if (unit != null) { if (unit.IsDowned) state += "\n倒地，等待救援"; if (unit.CarriedById >= 0) state += "\n正在被携带"; if (unit.Escaped) state += "\n已撤离"; if (unit.IsTransit) state += "\n通行：不能攻击／战技"; }
                 detailsEffects.text = string.IsNullOrWhiteSpace(state) ? "无临时状态效果" : state.Trim();
@@ -384,7 +432,7 @@ namespace BaseConquest.Battle
                     var c = b.Scenario.Army(side).Commanders[owner.DetailsSlot]; var q = b.CommanderSquad(side, owner.DetailsSlot);
                     detailsInfo.text += "\n" + b.CommanderSkillDescription(owner.DetailsSlot) + "\n驻守≤预警≤追击，范围外轮廓按格显示" + (q.GuardAssigned ? "\n实际范围 " + q.ActualGuardRange + "/" + q.ActualAlertRange + "/" + q.ActualAttackRange : "");
                     rangeLabels[0].text = "驻守范围 " + c.GuardRange; rangeLabels[1].text = "预警范围 " + c.AlertRange; rangeLabels[2].text = "攻击／追击上限 " + c.AttackRange; rangeLabels[3].text = "率领范围 " + c.LeadRange;
-                    for (int i = 0; i < TierStrategies.Length; i++) { strategyButtons[i].GetComponent<Image>().color = c.Strategy == TierStrategies[i] ? highlighted : bg; strategyButtons[i].interactable = owner.CanEditDetailsCommander && b.Phase != BattlePhase.Finished && !owner.IsAnimating && !owner.Skipping; }
+                    for (int i = 0; i < TierStrategies.Length; i++) { SetHighlighted(strategyButtons[i], c.Strategy == TierStrategies[i]); strategyButtons[i].interactable = owner.CanEditDetailsCommander && b.Phase != BattlePhase.Finished && !owner.IsAnimating && !owner.Skipping; }
                 }
             }
             Joystick.gameObject.SetActive(owner.CanSteerRealtimeCommander&&!owner.DrawerVisible);
@@ -394,7 +442,7 @@ namespace BaseConquest.Battle
         private void RefreshRealtimeControls(BattleSimulation battle)
         {
             bool fighting=battle.Phase==BattlePhase.Fighting;realtimeMinimap.gameObject.SetActive(false);foreach(var ultimate in ultimates)ultimate.gameObject.SetActive(false);
-            fightingPanel.sizeDelta=new Vector2(296,172);skip.gameObject.SetActive(false);undo.gameObject.SetActive(false);
+            fightingPanel.sizeDelta=fightingSize+Vector2.up*50;skip.gameObject.SetActive(false);undo.gameObject.SetActive(false);
             realtimeGuard.gameObject.SetActive(fighting);realtimeRetreat.gameObject.SetActive(fighting&&!owner.IsSecondDefense);
             realtimeRetreat.GetComponentInChildren<Text>().text=owner.Realtime?.DefensePursuitReady==true?"结束追击":owner.Realtime?.Session.Opening.DemoCombat==true?"立即撤退":"全军撤离";
             automatic.GetComponentInChildren<Text>().text=owner.Automatic?"暂停":"继续";
@@ -406,7 +454,7 @@ namespace BaseConquest.Battle
                 bool exists=i<battle.Scenario.Army(owner.ControlledSide).HeroCount;skills[i].gameObject.SetActive(exists);skills[i].interactable=owner.CanUseCommanderSkill(i);
                 float charge=owner.CommanderSkillCharge(i);skillCharge[i].Show(charge,charge>=1&&skills[i].interactable);
                 double cooldown=owner.Realtime?.SkillCooldown(owner.ControlledSide,i)??battle.Scenario.Effects.OpeningCooldowns[i];
-                var label=skills[i].GetComponentInChildren<Text>();label.color=skillCharge[i].Ready?new Color(.055f,.075f,.10f):Color.white;var shadow=label.GetComponent<Shadow>();if(shadow!=null)shadow.enabled=!skillCharge[i].Ready;
+                var label=skills[i].GetComponentInChildren<Text>();label.color=skillCharge[i].Ready?DemoUiTheme.Current.Ink:DemoUiTheme.Current.Panel;var shadow=label.GetComponent<Shadow>();if(shadow!=null)shadow.enabled=!skillCharge[i].Ready;
                 ultimates[i].gameObject.SetActive(exists&&owner.Realtime?.Session.Opening.Rpg!=null);ultimates[i].interactable=exists&&owner.ControlledSide==BattleSide.A;ultimates[i].GetComponentInChildren<Text>().text=owner.Realtime?.AutoSkill(owner.ControlledSide,i)==true?"自动开":"自动关";
                 label.text=(owner.Realtime?.SkillName(owner.ControlledSide,i)??BattleSimulation.CommanderSkillName(i))+(cooldown>1e-7?"\n"+Math.Ceiling(cooldown).ToString("0"):"");
             }
@@ -445,10 +493,12 @@ namespace BaseConquest.Battle
             objectiveProgress.text = BattleObjectiveView.Line2(progress);
             float fill = BattleObjectiveView.Progress01(progress);
             objectiveBar.gameObject.SetActive(fill >= 0);
-            if (fill >= 0) objectiveBarFill.rectTransform.sizeDelta = new Vector2(194 * Mathf.Clamp01(fill), 4);
-            // 情报不足时用偏暗文字，明确"未知／情报不足"，不画假百分比。
-            var tone = progress.Declared ? new Color(0.5f, 1f, 0.65f) : progress.Failed ? new Color(1f, 0.7f, 0.5f) : progress.Exact || progress.Preparing ? Color.white : new Color(0.82f, 0.87f, 0.92f);
-            objectiveTitle.color = tone; objectiveProgress.color = tone;
+            if (fill >= 0) objectiveBarFill.rectTransform.sizeDelta = new Vector2(objectiveFillSize.x * Mathf.Clamp01(fill), objectiveFillSize.y);
+            bool dark = objectivePanel.color.grayscale < .5f;
+            Color tone = progress.Declared ? (Color)(dark ? new Color32(206, 229, 161, 255) : new Color32(56, 85, 41, 255))
+                : dark ? new Color32(255, 197, 154, 255) : new Color32(135, 62, 45, 255);
+            objectiveTitle.color = progress.Failed || progress.Declared ? tone : objectiveTitleColor;
+            objectiveProgress.color = progress.Failed || progress.Declared ? tone : objectiveProgressColor;
             if (progress.Failed || progress.Declared) objectiveBar.gameObject.SetActive(false);
         }
         public static string CellInformation(BattleSimulation b, GridPosition p, BattleSide observer)
@@ -461,10 +511,12 @@ namespace BaseConquest.Battle
             return "格 " + p + exit + "\n" + terrain + "\n" + (c.Zone == DeploymentZone.None ? "无部署权限" : c.Zone == DeploymentZone.A ? "甲方部署区域" : "乙方部署区域");
         }
         public static string RawEvent(BattleSimulation b, BattleEvent e) => e.Message ?? (e.SourceName ?? b.UnitName(b.Soldier(e.SourceId))) + " → " + (e.TargetName ?? b.UnitName(b.Soldier(e.TargetId))) + " " + e.Damage.ToString("0.#") + "伤害" + (e.Critical ? "（暴击）" : "") + "，余血" + e.RemainingHealth.ToString("0.#") + (e.Lethal ? "（致死）" : e.Downed ? "（击倒）" : "");
-        public static string FormatEvent(BattleSimulation b, BattleEvent e, BattleSide observer)
+        public static string FormatEvent(BattleSimulation b, BattleEvent e, BattleSide observer, bool darkPanel = false)
         {
             string raw = RawEvent(b, e);
-            return "[" + e.Round + "] " + Regex.Replace(raw, "(甲方|乙方)(?:金冠队长|银冠副队长|铜冠副队长|剑士?#[0-9]+|弓兵#[0-9]+|远程#[0-9]+|骑兵#[0-9]+|指挥者)?", m => "<color=" + ((m.Value.StartsWith("甲方") == (observer == BattleSide.A)) ? "#5CB9FF" : "#FFAA62") + ">" + m.Value + "</color>");
+            string ally = darkPanel ? "#9AD3FF" : "#275A8A";
+            string enemy = darkPanel ? "#FFC59A" : "#924922";
+            return "[" + e.Round + "] " + Regex.Replace(raw, "(甲方|乙方)(?:金冠队长|银冠副队长|铜冠副队长|剑士?#[0-9]+|弓兵#[0-9]+|远程#[0-9]+|骑兵#[0-9]+|指挥者)?", m => "<color=" + ((m.Value.StartsWith("甲方") == (observer == BattleSide.A)) ? ally : enemy) + ">" + m.Value + "</color>");
         }
     }
 

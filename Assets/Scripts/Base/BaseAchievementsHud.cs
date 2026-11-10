@@ -37,7 +37,7 @@ namespace BaseConquest.Base
                 var button=MakeButton(content,names[i],new Vector2(-330+i*96,-row-17),new Vector2(88,34),()=>{achievementTab=tab;RepaintAchievements();},new Vector2(.5f,1));
                 var label=button.GetComponentInChildren<Text>();
                 if(label!=null){label.fontSize=DemoUiMetrics.FontBody;label.fontStyle=active?FontStyle.Bold:FontStyle.Normal;label.color=active?DemoUiTheme.Current.Ink:DemoUiTheme.Current.Muted;}
-                if(active)Solid("TabUnderline",button.transform,new Vector2(.5f,0),new Vector2(0,2),new Vector2(72,2),DemoUiTheme.Current.Copper);
+                if(active)button.GetComponent<Image>().color=DemoUiTheme.Current.Gold;
             }
             row+=48;
             var definitions=s.Achievements.Definitions.Where(d=>d.Category==achievementTab).ToList();
@@ -56,12 +56,13 @@ namespace BaseConquest.Base
             string problem=BaseAchievements.ClaimProblem(s,d.Id);
             bool claimed=record!=null&&record.ClaimedDay>0;
             bool claimable=!claimed&&problem=="";
-            var card=Solid("AchievementCard",content,new Vector2(.5f,1),new Vector2(-298+column*298,-row-line*148-68),new Vector2(285,136),claimable?new Color(.933f,.961f,.914f):new Color(1f,.996f,.980f));
+            var theme=DemoUiTheme.Current;
+            var card=Solid("AchievementCard",content,new Vector2(.5f,1),new Vector2(-298+column*298,-row-line*148-68),new Vector2(285,136),claimable?Color.Lerp(theme.Panel,theme.Gold,.28f):theme.Inset);
             var outline=card.gameObject.GetOrAdd<Outline>();
-            outline.effectColor=claimable?new Color(.557f,.682f,.549f,.95f):new Color(.863f,.894f,.843f,.95f);outline.effectDistance=new Vector2(1,-1);
+            outline.effectColor=claimable?theme.Copper:theme.Line;outline.effectDistance=new Vector2(1,-1);
             Label(card,d.Name,new Vector2(97,-10),new Vector2(170,20),DemoUiMetrics.FontBody,TextAnchor.MiddleLeft,new Vector2(0,1)).fontStyle=FontStyle.Bold;
             var tag=Label(card,claimed?"已领取":record!=null?"可领取":"未解锁",new Vector2(-52,-10),new Vector2(80,20),DemoUiMetrics.FontCaption,TextAnchor.MiddleRight,new Vector2(1,1));
-            tag.color=claimable?new Color(.259f,.420f,.314f):DemoUiTheme.Current.Muted;
+            tag.color=claimable?theme.Ink:theme.Muted;
             var condition=Label(card,d.Category=="hidden"&&record==null?"隐藏条件，解锁后揭示":d.Condition,new Vector2(142,-39),new Vector2(261,34),DemoUiMetrics.FontCaption,TextAnchor.UpperLeft,new Vector2(0,1));
             condition.color=DemoUiTheme.Current.Muted;
             var reward=Label(card,"奖励："+BaseAchievements.RewardName(d),new Vector2(142,-76),new Vector2(261,16),DemoUiMetrics.FontCaption,TextAnchor.MiddleLeft,new Vector2(0,1));
@@ -75,7 +76,13 @@ namespace BaseConquest.Base
         }
         public void RefreshAchievementNotice(double seconds)
         {
-            var s=owner.State;string id=BaseAchievements.AdvanceNotice(s,seconds);
+            var s=owner.State;
+            if (PanelOpen || s?.Campaign.HasActiveBattle == true)
+            {
+                if (achievementToast != null) achievementToast.SetActive(false);
+                return;
+            }
+            string id=BaseAchievements.AdvanceNotice(s,seconds);
             if(id==null){if(achievementToast!=null)achievementToast.SetActive(false);return;}
             if(achievementToast==null)
             {
@@ -83,9 +90,12 @@ namespace BaseConquest.Base
                 var canvas=achievementToast.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.sortingOrder=400;
                 var scaler=achievementToast.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1280,720);scaler.screenMatchMode=CanvasScaler.ScreenMatchMode.Expand;
                 achievementToast.GetComponent<GraphicRaycaster>().enabled=false;
-                var box=Box("AchievementNotice",achievementToast.transform,Vector2.one,new Vector2(-240,-112),new Vector2(440,82),new Color(.08f,.19f,.2f,.97f));
+                var theme=DemoUiTheme.Current;
+                var box=Box("AchievementNotice",achievementToast.transform,Vector2.one,new Vector2(-240,-112),new Vector2(440,82),theme.Wood);
                 achievementToastText=Label(box,"",Vector2.zero,new Vector2(400,70),DemoUiMetrics.FontSubhead);achievementToastText.raycastTarget=false;box.GetComponent<Image>().raycastTarget=false;
                 UiPrefabBinding.Complete(achievementToast);
+                box.GetComponent<Image>().color=theme.Wood;
+                achievementToastText.color=theme.Panel;
             }
             achievementToast.SetActive(true);achievementToastText.text="成就达成 · "+s.Achievements.Definitions.Single(d=>d.Id==id).Name+"\n奖励待领取 · 菜单 → 成就";
         }

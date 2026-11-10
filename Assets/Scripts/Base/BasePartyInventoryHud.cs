@@ -5,249 +5,442 @@ using UnityEngine;
 using UnityEngine.UI;
 using BaseConquest.Battle;
 using BaseConquest.Presentation;
+
 namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
+        private const int WarehouseSlots = 24;
         private bool inventoryWarehouse;
-        private readonly InventoryClickTracker inventoryClicks=new InventoryClickTracker();
-        private string inventoryPerson="",inventorySelected="";
-        private int inventoryQuantity=1,warehousePage;
-        private readonly Dictionary<string,string> inventoryFilters=new Dictionary<string,string>();
-        private static readonly string[] InventoryCategories={"all","weapon","armor","accessory","consumable","quest","material","exclusive"};
-        private string InventoryFilter(string holder)=>inventoryFilters.TryGetValue(holder,out var value)?value:"all";
-        public void OpenWarehouse(){if(BasePartyInventory.AtWarehouse(owner.State))OpenInventory(true);else{owner.ReportMessage("请接近基地仓库交互");}}
+        private readonly InventoryClickTracker inventoryClicks = new InventoryClickTracker();
+        private string inventoryPerson = "", inventorySelected = "";
+        private int inventoryQuantity = 1, warehousePage;
+        private RectTransform inventorySelectedCell, inventoryChoice;
+        private readonly Dictionary<string, string> inventoryFilters = new Dictionary<string, string>();
+        private static readonly string[] InventoryCategories =
+            { "all", "weapon", "armor", "accessory", "consumable", "quest", "material", "exclusive" };
+
+        private string InventoryFilter(string holder) =>
+            inventoryFilters.TryGetValue(holder, out var value) ? value : "all";
+
+        public void OpenWarehouse()
+        {
+            if (BasePartyInventory.AtWarehouse(owner.State)) OpenInventory(true);
+            else owner.ReportMessage("请接近基地仓库交互");
+        }
+
         private void OpenInventory(bool warehouse)
         {
-            UiAuthoredLayout.PilotActive=false;
-            var s=owner.State;if(BaseDemoIntro.Daily(s)&&s.Demo.Intro.Step==0){OpenHeroChoice();return;}if(s==null||!BasePartyInventory.Peaceful(s)){owner.ReportMessage("战斗中不能打开背包");return;}
-            if(warehouse&&BaseBattleLoot.Pending(s)){OpenLoot();return;}
-            if(warehouse&&!BasePartyInventory.AtWarehouse(s)){owner.ReportMessage("请接近基地仓库");return;}
-            if(inventoryWarehouse!=warehouse||!PanelOpen)inventoryClicks.Reset();
-            inventoryWarehouse=warehouse;activeObject=warehouse?"warehouse":"backpack";interactionObject=warehouse?"warehouse":"";
-            var people=BasePartyInventory.People(s,warehouse).Where(l=>l.PersonalEquipment?.Version==1).ToArray();if(people.Length==0)return;
-            if(!people.Any(l=>l.Id==inventoryPerson))inventoryPerson=people[0].Id;
-            if(panel!=null){ClearPanelSelection();panel.gameObject.SetActive(false);UiPrefabBinding.DestroyView(panel.gameObject);}panelScroll=null;panelViewKey=null;
-            modal.gameObject.SetActive(true);Joystick.ResetInput();Joystick.gameObject.SetActive(false);
-            root.GetComponent<Canvas>().sortingOrder=100;
-            string key=warehouse?"Page_party_warehouse":"Page_party_inventory";
-            UiAuthoredLayout.PilotActive=UiAuthoredLayout.Enabled&&key=="Page_party_inventory";
-            float panelWidth=warehouse?1220:Mathf.Min(1220,Mathf.Max(440,people.Length*400+40));
-            panel=UiPrefabBinding.Create(key,warehouse?"基地仓库与人物":"当前小队背包",modal,false,owner.PageTemplate(key)).GetComponent<RectTransform>();panel.anchorMin=panel.anchorMax=panel.pivot=Vector2.one*.5f;panel.anchoredPosition=Vector2.zero;panel.sizeDelta=new Vector2(panelWidth,680);DemoUiTheme.Current.Surface(panel.gameObject.GetOrAdd<Image>());
-            MakeButton(panel,"关闭",new Vector2(Mathf.Min(panelWidth/2+62,572),228),new Vector2(100,36),ClosePanel);
-            if(warehouse)
+            var state = owner.State;
+            if (BaseDemoIntro.Daily(state) && state.Demo.Intro.Step == 0) { OpenHeroChoice(); return; }
+            if (state == null || !BasePartyInventory.Peaceful(state))
             {
-                float width=Math.Min(140,520f/people.Length);
-                for(int i=0;i<people.Length;i++){var person=people[i];var b=MakeButton(panel,(person.Id==inventoryPerson?"● ":"")+person.Name,new Vector2(-586+width/2+i*width,228),new Vector2(width-5,40),()=>{inventoryClicks.Reset();inventoryPerson=person.Id;inventorySelected="";OpenInventory(true);});var tab=b.GetComponentInChildren<Text>();tab.color=person.Recruited?DemoUiTheme.Current.Copper:ink;tab.fontStyle=person.Recruited?FontStyle.Bold:FontStyle.Normal;}
-                InventoryCharacter(people.Single(l=>l.Id==inventoryPerson),new Vector2(-342,-65),new Vector2(510,540));
-                var store=Box("仓库物品与分类",panel,Vector2.one*.5f,new Vector2(260,94),new Vector2(660,294),new Color(DemoUiTheme.Current.Inset.r,DemoUiTheme.Current.Inset.g,DemoUiTheme.Current.Inset.b,.74f));
-                store.GetComponent<UiVisualNode>().UseAuthoredLayout=false;store.gameObject.GetOrAdd<UiDynamicContent>();
-                Label(store,"基地仓库 · 不限格数",new Vector2(-150,119),new Vector2(340,32),21);InventoryTools(store,"",new Vector2(178,119));
-                var entries=BasePartyInventory.Entries(s).Where(e=>!e.Worn&&e.Holder=="").ToArray();int pages=Math.Max(1,(entries.Length+23)/24);warehousePage=Mathf.Clamp(warehousePage,0,pages-1);
-                for(int n=0;n<24;n++){var e=entries.Skip(warehousePage*24+n).FirstOrDefault();InventoryCell(store,e,"",warehousePage*24+n,"",new Vector2(-265+(n%6)*106,72-(n/6)*52),new Vector2(100,46));}
-                MakeButton(store,"上一页",new Vector2(-220,-126),new Vector2(140,32),()=>{inventoryClicks.Reset();warehousePage--;OpenInventory(true);}).interactable=warehousePage>0;
-                Label(store,(warehousePage+1)+" / "+pages,new Vector2(0,-126),new Vector2(120,30),17,TextAnchor.MiddleCenter);
-                MakeButton(store,"下一页",new Vector2(220,-126),new Vector2(140,32),()=>{inventoryClicks.Reset();warehousePage++;OpenInventory(true);}).interactable=warehousePage+1<pages;
-                var details=Box("右侧物品描述与操作",panel,Vector2.one*.5f,new Vector2(260,-175),new Vector2(660,274),new Color(DemoUiTheme.Current.Inset.r,DemoUiTheme.Current.Inset.g,DemoUiTheme.Current.Inset.b,.74f));InventoryDetails(details,true);
+                owner.ReportMessage("战斗中不能打开背包");
+                return;
             }
+            if (warehouse && BaseBattleLoot.Pending(state)) { OpenLoot(); return; }
+            if (warehouse && !BasePartyInventory.AtWarehouse(state))
+            {
+                owner.ReportMessage("请接近基地仓库");
+                return;
+            }
+
+            var people = BasePartyInventory.People(state, warehouse)
+                .Where(person => person.PersonalEquipment?.Version == 1).ToArray();
+            if (people.Length == 0) return;
+            if (!people.Any(person => person.Id == inventoryPerson)) inventoryPerson = people[0].Id;
+            if (inventoryWarehouse != warehouse || !PanelOpen) inventoryClicks.Reset();
+            inventoryWarehouse = warehouse;
+            inventorySelectedCell = null;
+            inventoryChoice = null;
+            OpenScenePanel(warehouse ? "PartyWarehouse" : "PartyInventory", warehouse ? "party-warehouse" : "party-inventory");
+            activeObject = warehouse ? "warehouse" : "backpack";
+            interactionObject = warehouse ? BasePartyInventory.WarehouseObject(state).Id : "";
+            root.GetComponent<Canvas>().sortingOrder = 100;
+            InventoryButton(panel, "Close", null, ClosePanel);
+
+            var entries = BasePartyInventory.Entries(state).ToArray();
+            if (warehouse) BuildWarehouseInventory(people, entries);
             else
             {
-                // One continuous party row, including on touch devices. No character-switch tabs.
-                var viewport=Rect("PartyViewport",panel,Vector2.one*.5f,new Vector2(0,-65),new Vector2(panelWidth-30,540));
-                viewport.gameObject.GetOrAdd<RectMask2D>();viewport.gameObject.GetOrAdd<Image>().color=new Color(0,0,0,.01f);
-                float total=people.Length*390f;
-                var party=Rect("PartyRow",viewport,new Vector2(.5f,.5f),Vector2.zero,new Vector2(Math.Max(panelWidth-30,total),540));
-
-                var scroll=viewport.gameObject.GetOrAdd<ScrollRect>();scroll.viewport=viewport;scroll.content=party;scroll.horizontal=true;scroll.vertical=false;scroll.movementType=ScrollRect.MovementType.Clamped;
-                for(int n=0;n<people.Length;n++)InventoryCharacter(people[n],new Vector2(-total/2+195+n*390,0),new Vector2(380,540),party);
+                var cards = Ui<RectTransform>(panel, "Cards");
+                var cardSize = ((RectTransform)owner.SceneUiTemplate("PartyMemberCard").transform).rect.width;
+                var spacing = Ui<HorizontalLayoutGroup>(panel, "Cards").spacing;
+                float margin = Mathf.Max(24, panel.rect.width - cardSize * 3 - spacing * 2);
+                panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,
+                    margin + cardSize * people.Length + spacing * (people.Length - 1));
+                foreach (var person in people)
+                    BuildInventoryCard(cards, person, entries, inventorySelected, true, null);
+                if (inventorySelectedCell != null) ShowInventoryItemMenu();
             }
-            if(BaseDemoIntro.Daily(s))s.Demo.Intro.BackpackOpened=true;
-            panelFeedback=null;
-            if(!warehouse&&!string.IsNullOrEmpty(inventorySelected))InventoryItemMenu(panel,panelWidth);
-            CompletePreservingLayout(panel);RefreshSummary();
+            if (BaseDemoIntro.Daily(state)) state.Demo.Intro.BackpackOpened = true;
+            RefreshSummary();
         }
-        // 版式照原型 `renderInventoryPanel`：顶部姓名＋生命、中部「左三槽／全身像／右三槽」方形格、
-        // 下方容量行＋整理·详情、底部 6×4 方形背包格。第六槽只在 ExtraAccessory 解锁后可用，否则显示「锁定」。
-        // 版式照原型 `renderInventoryPanel`：顶部姓名＋生命、中部「左三槽／竖矩形全身像／右三槽」、
-        // 下方容量行＋整理·详情、底部 6×4 方形背包格。第六槽只在 ExtraAccessory 解锁后可用。
-        private void InventoryCharacter(BaseLeader l,Vector2 position,Vector2 size,RectTransform parent=null)
-        {
-            var card=UiPrefabBinding.Create("PartyMemberCard","人物与背包_"+l.Id,parent??panel).GetComponent<RectTransform>();if(!UiAuthoredLayout.Owns("PartyMemberCard"))card.GetComponent<UiVisualNode>().UseAuthoredLayout=false;card.anchorMin=card.anchorMax=card.pivot=Vector2.one*.5f;card.anchoredPosition=position;card.sizeDelta=size;var cardImage=card.gameObject.GetOrAdd<Image>();cardImage.color=DemoUiTheme.Current.Inset;var cardOutline=cardImage.GetComponent<Outline>()??cardImage.gameObject.AddComponent<Outline>();cardOutline.effectColor=DemoUiTheme.Current.Line;cardOutline.effectDistance=new Vector2(1,-1);float top=size.y/2;
-            // 名字是纯文字，不套按钮底：挂一个无 Image 的 Button 保留点击切人，主题 Apply 只会给有 Image 的按钮换肤。
-            var nameRect=Rect("人物名",card,Vector2.one*.5f,new Vector2(-size.x/2+12+120,top-24),new Vector2(240,30));
-            var backdrop=nameRect.GetComponent<Image>();if(backdrop!=null)backdrop.enabled=false;
-            var backdropOutline=nameRect.GetComponent<Outline>();if(backdropOutline!=null)backdropOutline.enabled=false;
-            Label(nameRect,BasePersonnel.LeaderName(l)+" · "+BasePersonalEquipment.ClassName(l),Vector2.zero,new Vector2(240,30),DemoUiMetrics.FontSubhead,TextAnchor.MiddleLeft);
-            var nameButton=nameRect.gameObject.GetOrAdd<Button>();nameButton.targetGraphic=null;nameButton.transition=Selectable.Transition.None;
-            nameButton.onClick.AddListener(()=>{inventoryPerson=l.Id;inventorySelected="";OpenInventory(inventoryWarehouse);});
-            BindInventoryDrop(nameRect.gameObject,null,l.Id,-2,"");
-            var stat=Label(card,"生命 "+l.Health.ToString("0.#")+" / "+l.MaxHealth.ToString("0.#"),new Vector2(size.x/2-12-70,top-24),new Vector2(140,30),DemoUiMetrics.FontCaption,TextAnchor.MiddleRight);
-            stat.color=DemoUiTheme.Current.Muted;
 
-            const float gear=48f,gearGap=4f,gearTop=52f;
-            float equipmentHeight=3*gear+2*gearGap;
-            bool extra=BasePersonalEquipment.SlotsFor(l).Count()>=6;
-            for(int n=0;n<6;n++)
+        private void BuildWarehouseInventory(BaseLeader[] people, BaseInventoryEntry[] entries)
+        {
+            var tabs = Ui<RectTransform>(panel, "Tabs");
+            foreach (var person in people)
             {
-                string slot=BasePersonalEquipment.Slots[n];bool left=n<3;int line=n%3;
-                float x=left?-size.x/2+12+gear/2:size.x/2-12-gear/2;
-                float y=top-gearTop-gear/2-line*(gear+gearGap);
-                if(n==5&&!extra)
+                var option = CloneSceneUi("InventoryOption", tabs);
+                InventoryButton(option, "", (person.Id == inventoryPerson ? "● " : "") + person.Name,
+                    () => { inventoryClicks.Reset(); inventoryPerson = person.Id; inventorySelected = ""; OpenInventory(true); });
+            }
+            var recipient = people.Single(person => person.Id == inventoryPerson);
+            BuildInventoryCard(Ui<RectTransform>(panel, "Card"), recipient, entries, inventorySelected, true, null);
+
+            InventoryButton(panel, "Filter", BaseBackpack.CategoryName(InventoryFilter("")) + " ▾", () => InventoryPopup(""));
+            InventoryButton(panel, "Sort", null, () => InventoryChange(state => BasePartyInventory.Sort(state, ""), "已整理物品"));
+            var stored = entries.Where(entry => !entry.Worn && entry.Holder == "").ToArray();
+            int pages = Math.Max(1, (stored.Length + WarehouseSlots - 1) / WarehouseSlots);
+            warehousePage = Mathf.Clamp(warehousePage, 0, pages - 1);
+            var grid = Ui<RectTransform>(panel, "Grid");
+            for (int index = 0; index < WarehouseSlots; index++)
+            {
+                int absolute = warehousePage * WarehouseSlots + index;
+                var slot = CloneSceneUi("WarehouseSlot", grid).GetComponent<Button>();
+                BindInventoryCell(slot, absolute < stored.Length ? stored[absolute] : null, "", absolute, "", inventorySelected, true, null);
+            }
+            InventoryButton(panel, "Prev", null, () => { inventoryClicks.Reset(); warehousePage--; OpenInventory(true); }, warehousePage > 0);
+            InventoryButton(panel, "Next", null, () => { inventoryClicks.Reset(); warehousePage++; OpenInventory(true); }, warehousePage + 1 < pages);
+            Ui<Text>(panel, "Page").text = (warehousePage + 1) + " / " + pages;
+            BindInventoryDetails(Ui<RectTransform>(panel, "Details"), entries.SingleOrDefault(entry => entry.Id == inventorySelected), recipient, true);
+        }
+
+        private RectTransform BuildTradeInventoryCard(RectTransform parent, BaseLeader person, string selectedItemId,
+            Action<BaseInventoryEntry> select)
+        {
+            var entries = BasePartyInventory.Entries(owner.State).ToArray();
+            return BuildInventoryCard(parent, person, entries, selectedItemId, false, select);
+        }
+
+        private RectTransform BuildInventoryCard(RectTransform parent, BaseLeader person, BaseInventoryEntry[] entries,
+            string selectedItemId, bool editable, Action<BaseInventoryEntry> select)
+        {
+            var card = CloneSceneUi("PartyMemberCard", parent);
+            card.name = "人物与背包_" + person.Id;
+            var title = InventoryButton(card, "Name", BasePersonnel.LeaderName(person) + " · " + BasePersonalEquipment.ClassName(person),
+                editable ? (Action)(() => { inventoryPerson = person.Id; inventorySelected = ""; OpenInventory(inventoryWarehouse); }) : null);
+            if (editable) BindInventoryDrop(title.gameObject, null, person.Id, -2, "");
+            Ui<Text>(card, "Vitals").text = "生命 " + person.Health.ToString("0.#") + " / " + person.MaxHealth.ToString("0.#");
+
+            var held = entries.Where(entry => entry.Holder == person.Id).ToArray();
+            Ui<Text>(card, "Capacity").text = "背包 " + held.Count(entry => !entry.Worn) + "/" + BasePartyInventory.Capacity;
+            InventoryButton(card, "Filter", BaseBackpack.CategoryName(InventoryFilter(person.Id)) + " ▾",
+                editable ? (Action)(() => InventoryPopup(person.Id)) : null).gameObject.SetActive(editable);
+            InventoryButton(card, "Sort", null,
+                editable ? (Action)(() => InventoryChange(state => BasePartyInventory.Sort(state, person.Id), "已整理物品")) : null)
+                .gameObject.SetActive(editable);
+            InventoryButton(card, "Details", null,
+                editable ? (Action)(() =>
                 {
-                    var locked=MakeButton(card,"EquipmentSlot_locked",new Vector2(x,y),new Vector2(gear,gear),()=>{});
-                    locked.interactable=false;var lockedText=locked.GetComponentInChildren<Text>();lockedText.text=BasePersonalEquipment.SlotName(slot)+"\n锁定";lockedText.fontSize=DemoUiMetrics.FontCaption-1;
+                    inventoryPerson = person.Id;
+                    inventorySelected = "";
+                    OpenPersonnelDetail("leader:" + person.Id, BaseMuster.Snapshot(owner.State), () => OpenInventory(inventoryWarehouse));
+                }) : null).gameObject.SetActive(editable);
+
+            BindInventoryPortrait(Ui<RectTransform>(card, "Portrait"), person);
+            bool extra = BasePersonalEquipment.SlotsFor(person).Count() >= 6;
+            for (int index = 0; index < 6; index++)
+            {
+                string key = "EquipmentSlot_" + index;
+                string slot = BasePersonalEquipment.Slots[index];
+                if (index == 5 && !extra)
+                {
+                    InventoryButton(card, key, BasePersonalEquipment.SlotName(slot) + "\n锁定", null);
                     continue;
                 }
-                InventoryCell(card,BasePartyInventory.Entries(owner.State).SingleOrDefault(e=>e.Holder==l.Id&&e.Slot==slot),l.Id,-1,slot,new Vector2(x,y),new Vector2(gear,gear));
+                BindInventoryCell(Ui<Button>(card, key), held.SingleOrDefault(entry => entry.Slot == slot),
+                    person.Id, -1, slot, selectedItemId, editable, select);
             }
-            // 竖矩形相框里放四向图集的正面全身帧（不是 Portraits 的半身头像）。
-            var frame=Box("人物形象",card,Vector2.one*.5f,new Vector2(0,top-gearTop-equipmentHeight/2),new Vector2(112,equipmentHeight),new Color(DemoUiTheme.Current.Inset.r,DemoUiTheme.Current.Inset.g,DemoUiTheme.Current.Inset.b,.55f));
-            // 模板的「角色立绘」节点自带 BattleAvatarGraphic，同一 GameObject 不能再挂 RawImage，故用新节点名。
-            var art=Rect("角色全身像",frame,Vector2.one*.5f,Vector2.zero,new Vector2(112,112));
-            string artId=l.Id==owner.State.PlayerLeaderId?"player":BaseCommanderIdentity.Appearance(l);
-            var atlas=PixelDemoArt.Load("Characters",artId);
-            if(atlas!=null){var old=art.GetComponent<BattleAvatarGraphic>();if(old!=null)UiPrefabBinding.DestroyView(old);var raw=art.gameObject.GetOrAdd<RawImage>();raw.texture=atlas;raw.uvRect=PixelDemoArt.Frame(HeroFacing.South,HeroPose.Idle,0);raw.raycastTarget=false;}
-            else{var fallback=art.gameObject.GetOrAdd<BattleAvatarGraphic>();fallback.PlayerHero=l.Id==owner.State.PlayerLeaderId;fallback.AppearanceId=artId;fallback.raycastTarget=false;}
-
-            float captionY=top-gearTop-equipmentHeight-24;
-            int held=BasePartyInventory.Entries(owner.State).Count(e=>e.Holder==l.Id&&!e.Worn);
-            Label(card,"背包 "+held+"/"+BasePartyInventory.Capacity,new Vector2(-size.x/2+12+55,captionY),new Vector2(110,26),DemoUiMetrics.FontCaption,TextAnchor.MiddleLeft);
-            MakeButton(card,"分类 ▾",new Vector2(15,captionY),new Vector2(62,26),()=>InventoryPopup(card,l.Id,Vector2.zero)).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
-            MakeButton(card,"整理",new Vector2(81,captionY),new Vector2(62,26),()=>InventoryChange(s=>BasePartyInventory.Sort(s,l.Id),"已整理物品")).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
-            MakeButton(card,"详情",new Vector2(147,captionY),new Vector2(62,26),()=>{inventoryPerson=l.Id;inventorySelected="";OpenPersonnelDetail("leader:"+l.Id,BaseMuster.Snapshot(owner.State),()=>OpenInventory(inventoryWarehouse));}).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
-
-            // 格子按卡片底边对齐，往下填满整块下半区；卡片高度变化时无需重排。
-            const float cell=62f,cellGap=4f;float gridBottom=-size.y/2+28;float gridTop=gridBottom+4*cell+3*cellGap;
-            for(int n=0;n<BasePartyInventory.Capacity;n++){int index=n;var e=BasePartyInventory.Entries(owner.State).SingleOrDefault(i=>i.Holder==l.Id&&!i.Worn&&i.Cell==index);
-                float x=-2f*(cell+cellGap)+(n%5)*(cell+cellGap),y=gridTop-cell/2-(n/5)*(cell+cellGap);
-                InventoryCell(card,e,l.Id,index,"",new Vector2(x,y),new Vector2(cell,cell));}
-            CompletePreservingLayout(card);
-        }
-        // 自建面板不走 EndPanel；Complete 会按模板重排动态子节点的坐标与字色，收尾前后各留一份快照。
-        private static void CompletePreservingLayout(RectTransform root)
-        {
-            // prefab 主导：不快照、不写回，直接让 Complete 把 prefab 里的版式与配色应用回来。
-            // C# 主导（含仓库页与总开关关闭）：保留原来的「收尾前后各留一份快照」路径。
-            if(UiAuthoredLayout.Owns(root.GetComponent<UiPrefabBinding>()?.ResourceKey)){UiPrefabBinding.Complete(root.gameObject);return;}
-            var rects=root.GetComponentsInChildren<RectTransform>(true);
-            Vector2[] mins=new Vector2[rects.Length],maxs=new Vector2[rects.Length],pivots=new Vector2[rects.Length],positions=new Vector2[rects.Length],sizes=new Vector2[rects.Length];
-            for(int i=0;i<rects.Length;i++){mins[i]=rects[i].anchorMin;maxs[i]=rects[i].anchorMax;pivots[i]=rects[i].pivot;positions[i]=rects[i].anchoredPosition;sizes[i]=rects[i].sizeDelta;}
-            var texts=root.GetComponentsInChildren<Text>(true);
-            var textColors=new Color[texts.Length];var textAnchors=new TextAnchor[texts.Length];var textSizes=new int[texts.Length];
-            for(int i=0;i<texts.Length;i++){textColors[i]=texts[i].color;textAnchors[i]=texts[i].alignment;textSizes[i]=texts[i].fontSize;}
-            var images=root.GetComponentsInChildren<Image>(true);
-            var imageColors=new Color[images.Length];
-            for(int i=0;i<images.Length;i++)imageColors[i]=images[i].color;
-            var outlines=root.GetComponentsInChildren<Outline>(true);
-            var outlineColors=new Color[outlines.Length];var outlineDistances=new Vector2[outlines.Length];
-            for(int i=0;i<outlines.Length;i++){outlineColors[i]=outlines[i].effectColor;outlineDistances[i]=outlines[i].effectDistance;}
-            var known=new HashSet<Outline>(outlines);
-            UiPrefabBinding.Complete(root.gameObject);
-            foreach(var added in root.GetComponentsInChildren<Outline>(true))if(!known.Contains(added))UiPrefabBinding.DestroyView(added);
-            for(int i=0;i<rects.Length;i++)if(rects[i]!=null){rects[i].anchorMin=mins[i];rects[i].anchorMax=maxs[i];rects[i].pivot=pivots[i];rects[i].anchoredPosition=positions[i];rects[i].sizeDelta=sizes[i];}
-            for(int i=0;i<texts.Length;i++)if(texts[i]!=null){texts[i].color=textColors[i];texts[i].alignment=textAnchors[i];texts[i].fontSize=textSizes[i];}
-            for(int i=0;i<images.Length;i++)if(images[i]!=null)images[i].color=imageColors[i];
-            for(int i=0;i<outlines.Length;i++)if(outlines[i]!=null){outlines[i].effectColor=outlineColors[i];outlines[i].effectDistance=outlineDistances[i];}
-        }
-        private void InventoryTools(RectTransform parent,string holder,Vector2 position)
-        {
-            MakeButton(parent,BaseBackpack.CategoryName(InventoryFilter(holder))+" ▾",position,new Vector2(132,30),()=>InventoryPopup(parent,holder,position));
-            MakeButton(parent,"整理",position+new Vector2(101,0),new Vector2(62,30),()=>InventoryChange(s=>BasePartyInventory.Sort(s,holder),"已整理物品"));
-        }
-        private void InventoryPopup(RectTransform parent,string holder,Vector2 pos)
-        {
-            inventoryClicks.Reset();
-            var pop=Box("分类选择",panel,Vector2.one*.5f,Vector2.zero,new Vector2(260,382),DemoUiTheme.Current.Panel);pop.SetAsLastSibling();
-            for(int i=0;i<InventoryCategories.Length;i++){string id=InventoryCategories[i];MakeButton(pop,BaseBackpack.CategoryName(id),new Vector2(0,161-i*41),new Vector2(244,36),()=>{inventoryFilters[holder]=id;OpenInventory(inventoryWarehouse);});}
-            MakeButton(pop,"取消",new Vector2(0,-167),new Vector2(244,36),()=>OpenInventory(inventoryWarehouse));
-        }
-        private void InventoryCell(RectTransform parent,BaseInventoryEntry e,string holder,int cell,string slot,Vector2 pos,Vector2 size)
-        {
-            bool shown=e!=null&&(e.Worn||InventoryFilter(holder)=="all"||InventoryFilter(holder)==e.Category);
-            string Short(string value,int take)=>string.IsNullOrEmpty(value)?value:value.Length>take?value.Substring(0,take):value;
-            // 装备名带 "[品质] " 前缀，方形槽里先剥掉品质再截，避免只剩 "[一" 这类残字。
-            string GearShort(string value){if(string.IsNullOrEmpty(value))return value;int close=value.IndexOf(']');if(close>=0&&close+1<value.Length)value=value.Substring(close+1).TrimStart();return Short(value,3);}
-            string title=slot!=""?BasePersonalEquipment.SlotName(slot)+"\n"+(shown?GearShort(e.Name):"空"):shown?Short(e.Name,3)+(e.Count>1?" ×"+e.Count:""):e==null?"":"·";
-            string key=slot!=""?"EquipmentSlot_"+slot:"BagSlot_"+cell.ToString();
-            var button=MakeButton(parent,key,pos,size,()=>{
-                bool twice=inventoryClicks.Click(e?.Id,Time.unscaledTime);
-                if(twice&&inventoryWarehouse&&slot=="")
-                {if(!shown){owner.ReportMessage("此格物品被分类隐藏，请先切换全部");return;}InventoryChange(s=>BasePartyInventory.QuickTransfer(s,e.Id,inventoryPerson,true),"已完成仓库快速存取");return;}
-                inventoryPerson=holder==""?inventoryPerson:holder;inventorySelected=shown&&(!inventoryWarehouse&&e.Id==inventorySelected)?"":shown?e.Id:"";inventoryQuantity=e?.Count??1;OpenInventory(inventoryWarehouse);
-            });var label=button.GetComponentInChildren<Text>();label.text=title;label.fontSize=slot!=""?DemoUiMetrics.FontCaption-1:DemoUiMetrics.FontCaption;
-            if(shown&&e.Id==inventorySelected){var ring=button.GetComponent<Outline>()??button.gameObject.AddComponent<Outline>();ring.effectColor=DemoUiTheme.Current.Copper;ring.effectDistance=new Vector2(2,-2);}
-            if(e?.Gear!=null)label.color=e.Quality>=4?DemoUiTheme.Current.Copper:ink;if(!shown&&e!=null)button.GetComponent<Image>().color=new Color(DemoUiTheme.Current.Muted.r,DemoUiTheme.Current.Muted.g,DemoUiTheme.Current.Muted.b,.35f);
-            button.gameObject.name=slot!=""?"装备槽_"+holder+"_"+slot:"物品格_"+(holder==""?"仓库":holder)+"_"+(e?.Id??cell.ToString());
-            BindInventoryDrop(button.gameObject,shown?e:null,holder,cell,slot,!shown&&e!=null);
-        }
-        private void BindInventoryDrop(GameObject obj,BaseInventoryEntry e,string holder,int cell,string slot,bool hidden=false)
-        {
-            var drag=obj.GetOrAdd<PartyInventoryCell>();drag.ItemId=e?.Id;drag.Holder=holder;drag.Cell=cell;drag.Slot=slot;drag.Scope=panel;drag.BeginDrag=inventoryClicks.Reset;
-            drag.Move=(id,target,index,gear)=>{if(hidden){owner.ReportMessage("此格物品被分类隐藏，请先切换全部");return;}if(index==-2)index=BasePartyInventory.FreeCell(owner.State,target);InventoryChange(s=>BasePartyInventory.Move(s,id,target,index,gear),"已移动物品");};
-        }
-        private void InventoryChange(Func<BaseState,bool> action,string message)
-        {inventoryClicks.Reset();owner.Change(s=>{if(!action(s))throw new InvalidOperationException("位置、空格、职业或专属条件不允许此操作");},message);OpenInventory(inventoryWarehouse);}
-        private void InventoryDetails(RectTransform box,bool vertical,bool compact=false)
-        {
-            var inner=Rect("物品详情动态内容",box,Vector2.one*.5f,Vector2.zero,box.sizeDelta);inner.gameObject.GetOrAdd<UiDynamicContent>();box=inner;
-            var s=owner.State;var e=BasePartyInventory.Find(s,inventorySelected);var l=s.Leaders.Single(p=>p.Id==inventoryPerson);float w=box.sizeDelta.x,h=box.sizeDelta.y;
-            if(e==null)return;
-            inventoryQuantity=Mathf.Clamp(inventoryQuantity,1,e.Count);
-            string description=e.Gear!=null?InventoryGearDescription(e,l):e.Description;
-            if(compact)
+            for (int index = 0; index < BasePartyInventory.Capacity; index++)
             {
-                Label(box,e.Name+(e.Count>1?" ×"+e.Count:""),new Vector2(-10,h/2-22),new Vector2(w-56,26),DemoUiMetrics.FontSubhead,TextAnchor.MiddleCenter);
-                Label(box,"数量 "+e.Count+(e.Gear!=null?" · "+BasePersonalEquipment.SlotName(BasePersonalEquipment.Definition(e.Gear.Template).Slot):""),new Vector2(0,h/2-46),new Vector2(w-20,20),DemoUiMetrics.FontCaption,TextAnchor.MiddleCenter).color=DemoUiTheme.Current.Muted;
-                Label(box,description,new Vector2(0,h/2-66-22),new Vector2(w-20,42),DemoUiMetrics.FontCaption,TextAnchor.UpperLeft);
+                BindInventoryCell(Ui<Button>(card, "BagSlot_" + index),
+                    held.SingleOrDefault(entry => !entry.Worn && entry.Cell == index),
+                    person.Id, index, "", selectedItemId, editable, select);
+            }
+            return card;
+        }
+
+        private void BindInventoryPortrait(RectTransform portrait, BaseLeader person)
+        {
+            bool player = person.Id == owner.State.PlayerLeaderId;
+            string appearance = player ? BaseDemoIntro.PlayerArt(owner.State) : BaseCommanderIdentity.Appearance(person);
+            var image = new GameObject("全身像", typeof(RectTransform));
+            var art = image.GetComponent<RectTransform>();
+            art.SetParent(portrait, false);
+            art.anchorMin = Vector2.zero;
+            art.anchorMax = Vector2.one;
+            art.offsetMin = art.offsetMax = Vector2.zero;
+            var atlas = PixelDemoArt.Load("Characters", appearance);
+            if (atlas != null)
+            {
+                var raw = image.AddComponent<RawImage>();
+                raw.texture = atlas;
+                raw.uvRect = PixelDemoArt.Frame(HeroFacing.South, HeroPose.Idle, 0);
+                raw.raycastTarget = false;
+                var aspect = image.AddComponent<AspectRatioFitter>();
+                aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+                aspect.aspectRatio = 1;
             }
             else
             {
-                Label(box,e.Name+(e.Count>1?" ×"+e.Count:""),new Vector2(vertical?0:-420,vertical?h/2-24:25),new Vector2(vertical?w-24:310,36),20);
-                float descriptionHeight=Math.Min(180,h-179);
-                Label(box,description,new Vector2(vertical?0:-40,vertical?h/2-52-descriptionHeight/2:0),new Vector2(vertical?w-24:480,vertical?descriptionHeight:92),17);
+                var fallback = image.GetOrAdd<BattleAvatarGraphic>();
+                fallback.PlayerHero = player;
+                fallback.AppearanceId = appearance;
+                fallback.raycastTarget = false;
             }
-            float x=vertical?-w/2+78:330,y=vertical?-h/2+104:23;
-            void Btn(string title,int col,int line,Action click,bool enabled=true)
+        }
+
+        private void BindInventoryCell(Button button, BaseInventoryEntry entry, string holder, int index, string slot,
+            string selectedItemId, bool editable, Action<BaseInventoryEntry> select)
+        {
+            string filter = InventoryFilter(holder);
+            bool visible = entry != null && (!editable || entry.Worn || filter == "all" || filter == entry.Category);
+            string title = slot != ""
+                ? BasePersonalEquipment.SlotName(slot) + "\n" + (visible ? InventoryShortName(entry) : "空")
+                : visible ? InventoryShortName(entry) + (entry.Count > 1 ? " ×" + entry.Count : "")
+                : entry == null ? "" : "·";
+            var label = button.GetComponentInChildren<Text>(true);
+            label.text = title;
+            button.interactable = editable || visible && select != null;
+            if (editable) button.onClick.AddListener(() => SelectInventoryCell(visible ? entry : null, holder, slot));
+            else if (visible && select != null) button.onClick.AddListener(() => select(entry));
+
+            if (visible && entry.Id == selectedItemId)
             {
-                if(compact){int index=col+line*2;var b=MakeButton(box,title,new Vector2(index%2==0?-50:50,-16-index/2*30),new Vector2(94,28),click);b.GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;b.interactable=enabled;}
-                else MakeButton(box,title,new Vector2(x+col*139,y-line*40),new Vector2(132,34),click).interactable=enabled;
+                var outline = button.gameObject.GetOrAdd<Outline>();
+                outline.effectColor = DemoUiTheme.Current.Copper;
+                outline.effectDistance = new Vector2(2, -2);
+                if (editable) inventorySelectedCell = button.GetComponent<RectTransform>();
             }
-            if(e.Gear!=null&&e.Holder!="")Btn(e.Worn?"卸下":"穿戴",0,0,()=>{string slot=e.Worn?e.Slot:BasePersonalEquipment.Definition(e.Gear.Template).Slot;if(slot=="accessory"){var p=s.Leaders.Single(v=>v.Id==e.Holder);slot=BasePersonalEquipment.SlotsFor(p).FirstOrDefault(v=>v.StartsWith("accessory")&&!p.PersonalEquipment.Items.Any(i=>i.Slot==v));}if(slot==null){owner.ReportMessage("请拖动到要替换的饰品槽");return;}InventoryChange(next=>e.Worn?BasePersonalEquipment.Unequip(next,e.Holder,slot):BasePersonalEquipment.Equip(next,e.Holder,e.Id,slot),"已更新装备");},e.Worn||BasePersonalEquipment.Definition(e.Gear.Template).Slot!="weapon"||BasePersonalEquipment.Definition(e.Gear.Template).Weapon==s.Leaders.Single(v=>v.Id==e.Holder).PersonalEquipment.Weapon);
-            Btn("销毁",1,0,()=>InventoryDestroyConfirm(e),!e.Worn&&!e.Protected);
-            if(inventoryWarehouse)
+            if (visible && entry.Gear != null && entry.Quality >= 4) label.color = DemoUiTheme.Current.Copper;
+            if (editable) BindInventoryDrop(button.gameObject, visible ? entry : null, holder, index, slot, !visible && entry != null);
+            else
             {
-                Btn(e.Holder==""?"取出给"+l.Name:"存入仓库",0,1,()=>InventoryChange(next=>BasePartyInventory.Move(next,e.Id,e.Holder==""?inventoryPerson:"",e.Holder==""?BasePartyInventory.FreeCell(next,inventoryPerson):-1,"",inventoryQuantity),"已完成仓库存取"),!e.Worn);
-                Btn("转交",1,1,()=>InventoryTransferMenu(e),!e.Worn&&string.IsNullOrEmpty(e.Bound));
+                var cell = button.gameObject.GetOrAdd<PartyInventoryCell>();
+                cell.ItemId = visible ? entry.Id : null;
+                cell.Holder = holder;
+                cell.Cell = index;
+                cell.Slot = slot;
             }
-            bool wine=e.Stack!=null&&new[]{BaseWine.Strong,BaseWine.Sake}.Contains(e.Stack.ItemId);if(wine&&e.Count==1)Btn("使用",0,0,()=>OpenWine(e.Id));
-            if(e.Count>1){Btn(wine?"使用／拆分":"拆分",0,0,()=>{if(wine)OpenWine(e.Id);else InventoryChange(next=>BasePartyInventory.Move(next,e.Id,e.Holder,e.Holder==""?-1:BasePartyInventory.FreeCell(next,e.Holder),"",inventoryQuantity),"已拆分物品");},wine||inventoryQuantity<e.Count);int line=inventoryWarehouse?2:1;Btn("数量 −",0,line,()=>{inventoryQuantity=Math.Max(1,inventoryQuantity-1);OpenInventory(inventoryWarehouse);});Btn(inventoryQuantity+" / "+e.Count+" ＋",1,line,()=>{inventoryQuantity=Math.Min(e.Count,inventoryQuantity+1);OpenInventory(inventoryWarehouse);});}
         }
-        private string InventoryGearDescription(BaseInventoryEntry e,BaseLeader selected)
+
+        private static string InventoryShortName(BaseInventoryEntry entry)
         {
-            if(BaseRpg.Active(owner.State))return BaseRpg.GearDescription(owner.State,e.Gear)+BaseRpg.GearComparison(owner.State,e.Gear,string.IsNullOrEmpty(e.Holder)?null:e.Holder);
-            var d=BasePersonalEquipment.Definition(e.Gear.Template);var l=owner.State.Leaders.FirstOrDefault(p=>p.Id==e.Holder)??selected;int q=e.Quality;
-            return BaseBackpack.CategoryName(e.Category)+(d.Slot=="weapon"?" · "+BasePersonalEquipment.Profession(d.Weapon)+"专用":"")+(e.Protected?" · 剧情保护／主角专属":"")+"\n攻击 "+(d.Slot=="weapon"?BasePersonalEquipment.WeaponAttack(l,e.Gear):BasePersonalEquipment.Scale(d.Damage,q)).ToString("+0.##;-0.##;0")+"／防御 "+BasePersonalEquipment.Scale(d.Defense,q).ToString("+0.##;-0.##;0")+"／生命 "+BasePersonalEquipment.Scale(d.Health,q).ToString("+0.##;-0.##;0")+(d.Slot=="weapon"?"／射程 "+BasePersonalEquipment.RealtimeRange(e.Gear)+"细格"+(d.Weapon!=l.PersonalEquipment.Weapon?"\n非本职业武器：无法装备此武器":""):"");
+            string title = entry.Name;
+            if (entry.Gear != null)
+            {
+                int qualityEnd = title.IndexOf(']');
+                if (qualityEnd >= 0 && qualityEnd + 1 < title.Length) title = title.Substring(qualityEnd + 1).TrimStart();
+            }
+            return title.Length > 4 ? title.Substring(0, 4) : title;
         }
-        // 原型 `itemMenu()`：说明与操作只在选中物品后以小浮框出现，不常驻占一块。
-        private void InventoryItemMenu(RectTransform parent,float panelWidth)
+
+        private void SelectInventoryCell(BaseInventoryEntry entry, string holder, string slot)
         {
-            var e=BasePartyInventory.Find(owner.State,inventorySelected);if(e==null)return;
-            var pop=Box("物品菜单",parent,Vector2.one*.5f,new Vector2(panelWidth/2-125,-175),new Vector2(210,228),DemoUiTheme.Current.Panel);
-            pop.SetAsLastSibling();
-            var outline=pop.gameObject.GetOrAdd<Outline>();outline.effectColor=DemoUiTheme.Current.Copper;outline.effectDistance=new Vector2(2,-2);
-            MakeButton(pop,"关闭",new Vector2(72,96),new Vector2(52,24),()=>{inventorySelected="";OpenInventory(false);}).GetComponentInChildren<Text>().fontSize=DemoUiMetrics.FontCaption;
-            InventoryDetails(pop,true,true);
+            bool twice = inventoryClicks.Click(entry?.Id, Time.unscaledTime);
+            if (twice && inventoryWarehouse && slot == "")
+            {
+                InventoryChange(state => BasePartyInventory.QuickTransfer(state, entry.Id, inventoryPerson, true), "已完成仓库快速存取");
+                return;
+            }
+            if (holder != "") inventoryPerson = holder;
+            inventorySelected = entry == null || (!inventoryWarehouse && inventorySelected == entry.Id) ? "" : entry.Id;
+            inventoryQuantity = entry?.Count ?? 1;
+            OpenInventory(inventoryWarehouse);
         }
-        private void InventoryTransferMenu(BaseInventoryEntry e)
+
+        private void BindInventoryDrop(GameObject obj, BaseInventoryEntry entry, string holder, int cell, string slot, bool hidden = false)
         {
-            var people=BasePartyInventory.People(owner.State,true).Where(l=>l.Id!=e.Holder).ToArray();var pop=Box("仓库转交选择",panel,Vector2.one*.5f,Vector2.zero,new Vector2(410,Math.Max(140,people.Length*48+60)),DemoUiTheme.Current.Panel);float y=people.Length*24;
-            foreach(var l in people){string id=l.Id;MakeButton(pop,"转交给 "+l.Name,new Vector2(0,y),new Vector2(386,42),()=>InventoryChange(s=>BasePartyInventory.Move(s,e.Id,id,BasePartyInventory.FreeCell(s,id),"",inventoryQuantity),"已转交物品"));y-=48;}
-            MakeButton(pop,"取消",new Vector2(0,y),new Vector2(386,42),()=>OpenInventory(true));
+            var drag = obj.GetOrAdd<PartyInventoryCell>();
+            drag.ItemId = entry?.Id;
+            drag.Holder = holder;
+            drag.Cell = cell;
+            drag.Slot = slot;
+            drag.Scope = panel;
+            drag.BeginDrag = inventoryClicks.Reset;
+            drag.Move = (id, target, index, gear) =>
+            {
+                if (hidden) { owner.ReportMessage("此格物品被分类隐藏，请先切换全部"); return; }
+                InventoryChange(state => BasePartyInventory.Move(state, id, target,
+                    index == -2 ? BasePartyInventory.FreeCell(state, target) : index, gear), "已移动物品");
+            };
         }
-        private void InventoryDestroyConfirm(BaseInventoryEntry e)
+
+        private static Button InventoryButton(RectTransform parent, string path, string text, Action action, bool enabled = true)
         {
-            var pop=Box("销毁确认",panel,Vector2.one*.5f,Vector2.zero,new Vector2(660,200),DemoUiTheme.Current.Panel);Label(pop,"销毁 "+e.Name+" ×"+inventoryQuantity+"？\n此操作不可恢复。",new Vector2(0,40),new Vector2(610,100),23,TextAnchor.MiddleCenter);
-            MakeButton(pop,"确认销毁",new Vector2(-150,-57),new Vector2(270,44),()=>InventoryChange(s=>BasePartyInventory.Destroy(s,e.Id,inventoryQuantity),"已销毁物品"));MakeButton(pop,"取消",new Vector2(150,-57),new Vector2(270,44),()=>OpenInventory(inventoryWarehouse));
+            var button = Ui<Button>(parent, path);
+            if (text != null) button.GetComponentInChildren<Text>(true).text = text;
+            button.interactable = action != null && enabled;
+            if (action != null) button.onClick.AddListener(() => action());
+            return button;
+        }
+
+        private void InventoryChange(Func<BaseState, bool> action, string message)
+        {
+            inventoryClicks.Reset();
+            owner.Change(state =>
+            {
+                if (!action(state)) throw new InvalidOperationException("位置、空格、职业或专属条件不允许此操作");
+            }, message);
+            OpenInventory(inventoryWarehouse);
+        }
+
+        private void ShowInventoryItemMenu()
+        {
+            var entry = BasePartyInventory.Find(owner.State, inventorySelected);
+            if (entry == null) return;
+            var popup = CloneSceneUi("InventoryItemMenu", panel);
+            InventoryButton(popup, "Close", null, () => { inventorySelected = ""; OpenInventory(false); });
+            BindInventoryDetails(popup, entry, owner.State.Leaders.Single(person => person.Id == inventoryPerson), false);
+            Canvas.ForceUpdateCanvases();
+
+            var selected = inventorySelectedCell;
+            var center = (Vector2)panel.InverseTransformPoint(selected.TransformPoint(selected.rect.center));
+            var offset = popup.anchoredPosition;
+            float distance = selected.rect.width / 2 + popup.rect.width / 2 + 8;
+            float x = center.x + distance + offset.x;
+            if (x + popup.rect.width / 2 > panel.rect.xMax) x = center.x - distance + offset.x;
+            popup.anchoredPosition = new Vector2(
+                Mathf.Clamp(x, panel.rect.xMin + popup.rect.width / 2, panel.rect.xMax - popup.rect.width / 2),
+                Mathf.Clamp(center.y + offset.y, panel.rect.yMin + popup.rect.height / 2, panel.rect.yMax - popup.rect.height / 2));
+        }
+
+        private void BindInventoryDetails(RectTransform details, BaseInventoryEntry entry, BaseLeader recipient, bool warehouse)
+        {
+            details.gameObject.SetActive(entry != null);
+            if (entry == null) return;
+            inventoryQuantity = Mathf.Clamp(inventoryQuantity, 1, entry.Count);
+            Ui<Text>(details, "Title").text = entry.Name + (entry.Count > 1 ? " ×" + entry.Count : "");
+            string quantity = entry.Count > 1 ? inventoryQuantity + " / " + entry.Count : entry.Count.ToString();
+            Ui<Text>(details, "Meta").text = "数量 " + quantity + (entry.Gear != null
+                ? " · " + BasePersonalEquipment.SlotName(BasePersonalEquipment.Definition(entry.Gear.Template).Slot) : "");
+            Ui<Text>(details, "Description").text = entry.Gear != null ? InventoryGearDescription(entry, recipient) : entry.Description;
+
+            string primary = null;
+            Action act = null;
+            bool allowed = true;
+            if (entry.Gear != null && entry.Holder != "")
+            {
+                var definition = BasePersonalEquipment.Definition(entry.Gear.Template);
+                primary = entry.Worn ? "卸下" : "穿戴";
+                act = () => EquipInventoryEntry(entry, definition.Slot);
+                var wearer = owner.State.Leaders.Single(person => person.Id == entry.Holder);
+                allowed = entry.Worn || definition.Slot != "weapon" || definition.Weapon == wearer.PersonalEquipment.Weapon;
+            }
+            else if (entry.Stack != null && (entry.Stack.ItemId == BaseWine.Strong || entry.Stack.ItemId == BaseWine.Sake))
+            {
+                primary = entry.Count > 1 ? "使用／拆分" : "使用";
+                act = () => OpenWine(entry.Id);
+            }
+            else if (entry.Count > 1)
+            {
+                primary = "拆分";
+                act = () => InventoryChange(next => BasePartyInventory.Move(next, entry.Id, entry.Holder,
+                    entry.Holder == "" ? -1 : BasePartyInventory.FreeCell(next, entry.Holder), "", inventoryQuantity), "已拆分物品");
+                allowed = inventoryQuantity < entry.Count;
+            }
+
+            InventoryButton(details, "Primary", primary, act, allowed).gameObject.SetActive(act != null);
+            InventoryButton(details, "Destroy", null, () => InventoryDestroyConfirm(entry), !entry.Worn && !entry.Protected);
+            InventoryButton(details, "QuantityDown", null, () => { inventoryQuantity--; OpenInventory(inventoryWarehouse); },
+                inventoryQuantity > 1).gameObject.SetActive(entry.Count > 1);
+            InventoryButton(details, "QuantityUp", null,
+                () => { inventoryQuantity++; OpenInventory(inventoryWarehouse); }, inventoryQuantity < entry.Count)
+                .gameObject.SetActive(entry.Count > 1);
+            if (warehouse)
+            {
+                InventoryButton(details, "Store", entry.Holder == "" ? "取出给" + recipient.Name : "存入仓库", () =>
+                    InventoryChange(next => BasePartyInventory.Move(next, entry.Id, entry.Holder == "" ? inventoryPerson : "",
+                        entry.Holder == "" ? BasePartyInventory.FreeCell(next, inventoryPerson) : -1, "", inventoryQuantity), "已完成仓库存取"), !entry.Worn);
+                InventoryButton(details, "Transfer", null, () => InventoryTransferMenu(entry), !entry.Worn && string.IsNullOrEmpty(entry.Bound));
+            }
+        }
+
+        private void EquipInventoryEntry(BaseInventoryEntry entry, string itemSlot)
+        {
+            string slot = entry.Worn ? entry.Slot : itemSlot;
+            if (slot == "accessory")
+            {
+                var wearer = owner.State.Leaders.Single(person => person.Id == entry.Holder);
+                slot = BasePersonalEquipment.SlotsFor(wearer).FirstOrDefault(candidate =>
+                    candidate.StartsWith("accessory") && !wearer.PersonalEquipment.Items.Any(item => item.Slot == candidate));
+            }
+            if (slot == null) { owner.ReportMessage("请拖动到要替换的饰品槽"); return; }
+            InventoryChange(next => entry.Worn
+                ? BasePersonalEquipment.Unequip(next, entry.Holder, slot)
+                : BasePersonalEquipment.Equip(next, entry.Holder, entry.Id, slot), "已更新装备");
+        }
+
+        private string InventoryGearDescription(BaseInventoryEntry entry, BaseLeader selected)
+        {
+            var state = owner.State;
+            if (BaseRpg.Active(state))
+                return BaseRpg.GearDescription(state, entry.Gear) + BaseRpg.GearComparison(state, entry.Gear,
+                    string.IsNullOrEmpty(entry.Holder) ? null : entry.Holder);
+
+            var definition = BasePersonalEquipment.Definition(entry.Gear.Template);
+            var person = state.Leaders.FirstOrDefault(candidate => candidate.Id == entry.Holder) ?? selected;
+            bool weapon = definition.Slot == "weapon";
+            int quality = entry.Quality;
+            var damage = weapon ? BasePersonalEquipment.WeaponAttack(person, entry.Gear) : BasePersonalEquipment.Scale(definition.Damage, quality);
+            return BaseBackpack.CategoryName(entry.Category)
+                + (weapon ? " · " + BasePersonalEquipment.Profession(definition.Weapon) + "专用" : "")
+                + (entry.Protected ? " · 剧情保护／主角专属" : "")
+                + "\n攻击 " + damage.ToString("+0.##;-0.##;0")
+                + "／防御 " + BasePersonalEquipment.Scale(definition.Defense, quality).ToString("+0.##;-0.##;0")
+                + "／生命 " + BasePersonalEquipment.Scale(definition.Health, quality).ToString("+0.##;-0.##;0")
+                + (weapon ? "／射程 " + BasePersonalEquipment.RealtimeRange(entry.Gear) + "细格"
+                    + (definition.Weapon != person.PersonalEquipment.Weapon ? "\n非本职业武器：无法装备此武器" : "") : "");
+        }
+
+        private RectTransform OpenInventoryChoice(string title)
+        {
+            if (inventoryChoice != null)
+            {
+                inventoryChoice.gameObject.SetActive(false);
+                UiPrefabBinding.DestroyView(inventoryChoice.gameObject);
+            }
+            inventoryChoice = CloneSceneUi("InventoryChoice", panel);
+            Ui<Text>(inventoryChoice, "Title").text = title;
+            return Ui<RectTransform>(inventoryChoice, "Actions");
+        }
+
+        private void AddInventoryChoice(RectTransform actions, string title, Action select)
+        {
+            InventoryButton(CloneSceneUi("InventoryOption", actions), "", title, select);
+        }
+
+        private void InventoryPopup(string holder)
+        {
+            inventoryClicks.Reset();
+            var actions = OpenInventoryChoice("物品分类");
+            foreach (string category in InventoryCategories)
+                AddInventoryChoice(actions, BaseBackpack.CategoryName(category), () =>
+                {
+                    inventoryFilters[holder] = category;
+                    inventorySelected = "";
+                    OpenInventory(inventoryWarehouse);
+                });
+            AddInventoryChoice(actions, "取消", () => OpenInventory(inventoryWarehouse));
+        }
+
+        private void InventoryTransferMenu(BaseInventoryEntry entry)
+        {
+            var actions = OpenInventoryChoice("转交物品");
+            foreach (var person in BasePartyInventory.People(owner.State, true).Where(candidate => candidate.Id != entry.Holder))
+                AddInventoryChoice(actions, "转交给 " + person.Name, () => InventoryChange(state =>
+                    BasePartyInventory.Move(state, entry.Id, person.Id, BasePartyInventory.FreeCell(state, person.Id), "", inventoryQuantity), "已转交物品"));
+            AddInventoryChoice(actions, "取消", () => OpenInventory(true));
+        }
+
+        private void InventoryDestroyConfirm(BaseInventoryEntry entry)
+        {
+            var actions = OpenInventoryChoice("销毁 " + entry.Name + " ×" + inventoryQuantity + "？\n此操作不可恢复。");
+            AddInventoryChoice(actions, "确认销毁", () => InventoryChange(state =>
+                BasePartyInventory.Destroy(state, entry.Id, inventoryQuantity), "已销毁物品"));
+            AddInventoryChoice(actions, "取消", () => OpenInventory(inventoryWarehouse));
         }
     }
 }

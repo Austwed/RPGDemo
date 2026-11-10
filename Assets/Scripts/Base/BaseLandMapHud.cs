@@ -16,8 +16,6 @@ namespace BaseConquest.Base
         private const float MapTileHeight = 150, MapLinkWidth = 24;
         private static readonly Color MapBlue = new Color(.30f, .56f, .80f);
         private static readonly Color MapYellow = new Color(.89f, .71f, .24f);
-        private static readonly Color MapOff = new Color(.42f, .42f, .40f);
-        private static readonly Color MapRing = new Color(1f, 1f, 1f);
 
         public void OpenLandMap()
         {
@@ -49,7 +47,7 @@ namespace BaseConquest.Base
                 if (i < outside.Count - 1)
                 {
                     // 场景之间的连接线：原型是 23×2 的短横线，中线对齐节点框。
-                    var link = Solid("MapLink", content, new Vector2(.5f, 1), new Vector2(centerX + tileWidth * .5f + MapLinkWidth * .5f, tileCenterY), new Vector2(MapLinkWidth, 2), new Color(.553f, .663f, .557f));
+                    var link = Solid("MapLink", content, new Vector2(.5f, 1), new Vector2(centerX + tileWidth * .5f + MapLinkWidth * .5f, tileCenterY), new Vector2(MapLinkWidth, 2), DemoUiTheme.Current.Copper);
                     link.gameObject.GetComponent<Image>().raycastTarget = false;
                 }
             }
@@ -74,10 +72,11 @@ namespace BaseConquest.Base
             title.color = node.Current ? DemoUiTheme.Current.Copper : open ? DemoUiTheme.Current.Ink : DemoUiTheme.Current.Muted;
             title.fontStyle = FontStyle.Bold;
 
-            var fill = node.Current ? new Color(.882f, .929f, .855f) : open ? new Color(.992f, .996f, .973f) : new Color(.902f, .902f, .882f);
+            var theme = DemoUiTheme.Current;
+            var fill = node.Current ? Color.Lerp(theme.Panel, theme.Gold, .35f) : open ? theme.Inset : Color.Lerp(theme.Panel, theme.Wood, .16f);
             var tile = Solid("MapTile", content, new Vector2(.5f, 1), new Vector2(centerX, centerY), new Vector2(width, MapTileHeight), fill);
             var outline = tile.gameObject.GetOrAdd<Outline>();
-            outline.effectColor = node.Current ? new Color(.259f, .420f, .314f, .95f) : new Color(.655f, .725f, .647f, open ? .95f : .55f);
+            outline.effectColor = node.Current ? theme.Copper : open ? theme.Line : theme.Muted;
             outline.effectDistance = node.Current ? new Vector2(2, -2) : new Vector2(1, -1);
 
             foreach (var exit in node.Exits)
@@ -94,9 +93,9 @@ namespace BaseConquest.Base
                 bool inside = child.Current;
                 float boxWidth = width * .42f, boxHeight = MapTileHeight * .5f;
                 Vector2 center = new Vector2(width * .22f, -MapTileHeight * .04f);
-                var nested = Solid("NestedScene", tile, new Vector2(.5f, .5f), center, new Vector2(boxWidth, boxHeight), inside ? new Color(.973f, .918f, .776f) : new Color(.953f, .925f, .859f));
+                var nested = Solid("NestedScene", tile, new Vector2(.5f, .5f), center, new Vector2(boxWidth, boxHeight), inside ? Color.Lerp(theme.Panel, theme.Gold, .42f) : theme.Panel);
                 var nestedOutline = nested.gameObject.GetOrAdd<Outline>();
-                nestedOutline.effectColor = inside ? new Color(.690f, .502f, .243f, .95f) : new Color(.553f, .475f, .341f, .75f);
+                nestedOutline.effectColor = inside ? theme.Copper : theme.Line;
                 nestedOutline.effectDistance = new Vector2(1, -1);
                 var nestedLabel = Label(nested, "遗迹内部", new Vector2(0, -8), new Vector2(boxWidth, 18), DemoUiMetrics.FontCaption, TextAnchor.MiddleCenter, new Vector2(.5f, 1));
                 nestedLabel.color = inside ? DemoUiTheme.Current.Copper : DemoUiTheme.Current.Muted;
@@ -126,7 +125,8 @@ namespace BaseConquest.Base
         {
             float px = Mathf.Clamp01((float)(x / Mathf.Max(1, node.Columns)));
             float py = Mathf.Clamp01((float)(y / Mathf.Max(1, node.Rows)));
-            return new Vector2((px - .5f) * width, (py - .5f) * height);
+            const float inset = 12;
+            return new Vector2((px - .5f) * Mathf.Max(0, width - 2 * inset), (py - .5f) * Mathf.Max(0, height - 2 * inset));
         }
 
         // 出口圆点：18 px 视觉 + 44 px 透明热区（§2.4 视觉与热区分离）。
@@ -136,17 +136,17 @@ namespace BaseConquest.Base
             var button = hit.gameObject.GetOrAdd<Button>(); button.targetGraphic = hit.GetComponent<Image>(); button.transition = Selectable.Transition.None;
             button.interactable = enabled;
             button.onClick.AddListener(() => { if (!owner.Busy) action(); });
-            var ring = Solid("Ring", hit, new Vector2(.5f, .5f), Vector2.zero, new Vector2(20, 20), MapRing);
+            var ring = Solid("Ring", hit, new Vector2(.5f, .5f), Vector2.zero, new Vector2(22, 22), DemoUiTheme.Current.Wood);
             ring.gameObject.GetComponent<Image>().raycastTarget = false;
-            var dot = Solid("Dot", ring, new Vector2(.5f, .5f), Vector2.zero, new Vector2(18, 18), enabled ? color : MapOff);
+            var dot = Solid("Dot", ring, new Vector2(.5f, .5f), Vector2.zero, new Vector2(18, 18), enabled ? color : DemoUiTheme.Current.Muted);
             dot.gameObject.GetComponent<Image>().raycastTarget = false;
         }
 
         private void DrawPlayerDot(RectTransform parent, Vector2 at, float size)
         {
-            var ring = Solid("PlayerRing", parent, new Vector2(.5f, .5f), at, new Vector2(size + 5, size + 5), MapRing);
+            var ring = Solid("PlayerRing", parent, new Vector2(.5f, .5f), at, new Vector2(size + 5, size + 5), DemoUiTheme.Current.Wood);
             ring.gameObject.GetComponent<Image>().raycastTarget = false;
-            var dot = Solid("Player", ring, new Vector2(.5f, .5f), Vector2.zero, new Vector2(size, size), new Color(.70f, .50f, .20f));
+            var dot = Solid("Player", ring, new Vector2(.5f, .5f), Vector2.zero, new Vector2(size, size), DemoUiTheme.Current.Gold);
             dot.gameObject.GetComponent<Image>().raycastTarget = false;
         }
 
