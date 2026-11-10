@@ -27,7 +27,7 @@ namespace BaseConquest.Base
         public Camera WorldCamera { get; private set; }
         public bool Busy { get; private set; }
         public BasePoint EnvironmentPlayer=>combatController?.Realtime?.Model.Player!=null?new BasePoint(combatController.Realtime.Model.Player.Position.X,combatController.Realtime.Model.Player.Position.Z):new BasePoint(State.PlayerX,State.PlayerY);
-        public bool EnvironmentPaused=>Busy||combatController!=null&&(combatController.ExternalDialogue||combatController.Realtime?.Model.Paused!=false);
+        public bool EnvironmentPaused=>Busy||DeploymentWorldActive||combatController!=null&&(combatController.ExternalDialogue||combatController.Realtime?.Model.Paused!=false);
         private string environmentMapKey;
         private readonly Dictionary<string,EnvironmentAnimal[]> environmentAnimals=new Dictionary<string,EnvironmentAnimal[]>();
         public EnvironmentAnimal[] EnvironmentAnimals(BaseMapObject placement,EnvironmentDefinition d)
@@ -443,8 +443,12 @@ namespace BaseConquest.Base
             if (State.Campaign.HasActiveBattle&&(preparationInventoryClosed==null||!BasePartyInventory.Peaceful(State))) { Message = "先恢复并结束当前战斗"; Hud.RefreshSummary(); return false; }
             try
             {
-                Companions.Capture(State); var next = State.Copy(); edit(next); BaseDemoIntro.CheckEquipment(next); BaseDevelopment.Allocate(next); BaseEconomy.Validate(next); SaveStore.Save(next); if(State.Campaign.Location==next.Campaign.Location&&State.Campaign.CurrentMapId==next.Campaign.CurrentMapId)BaseBattlefield.KeepLiveBoard(next,MapSession.Board); State = next; Message = message;
-                Companions.Synchronize(State); PlaceCompanions(); PlacePlayer(); RefreshFarmVisuals(); if (PlayerAway) ClearSelection(); Hud.RefreshSummary(); return true;
+                Companions.Capture(State); var next = State.Copy(); edit(next); BaseDemoIntro.CheckEquipment(next); BaseDevelopment.Allocate(next); BaseEconomy.Validate(next); SaveStore.Save(next);
+                if(!deploymentChangedMap&&State.Campaign.Location==next.Campaign.Location&&State.Campaign.CurrentMapId==next.Campaign.CurrentMapId)BaseBattlefield.KeepLiveBoard(next,MapSession.Board);
+                State = next; Message = message;
+                Companions.Synchronize(State);
+                if (!DeploymentWorldActive) { PlaceCompanions(); PlacePlayer(); }
+                RefreshFarmVisuals(); if (PlayerAway) ClearSelection(); Hud.RefreshSummary(); return true;
             }
             catch (Exception e) { Message = "操作未保存，原状态保留：" + e.Message; Hud.RefreshSummary(); return false; }
         }

@@ -87,7 +87,7 @@ namespace BaseConquest.Base
         public static bool Geometry(IEnumerable<BaseMapObject> objects,double x,double y,double width=24,double height=14)
         {
             if(!BaseMap.Walkable(x,y,null,false,width,height))return false;
-            foreach(var o in objects)if(o.Blocks&&!o.Id.StartsWith("partner")&&o.Contains(x,y,BaseMap.Radius))return false;
+            foreach(var o in objects)if(!o.Id.StartsWith("partner")&&BaseMap.Blocks(o,x,y))return false;
             return true;
         }
         public static bool Geometry(BaseState s,double x,double y,string region=null) => Geometry(Objects(s,region),x,y,BaseBattlefield.Board(s,region).Width,BaseBattlefield.Board(s,region).Height);

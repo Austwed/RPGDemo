@@ -77,7 +77,7 @@ namespace BaseConquest.Editor
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();
-            VerifyBattleAppearances();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();VerifyBaseFacilities.Run();VerifyDeputy.Run();
+            VerifyBattleAppearances();VerifyRuinsEntranceCollision();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();VerifyBaseFacilities.Run();VerifyDeputy.Run();
             Debug.Log("[VerifyChenanAndRuins] regression PASS");
         }
         // P20（01C §8.5.1）：带伤应答只看主角当前生命是否低于 60%，满血与阵亡都不触发。
@@ -431,6 +431,68 @@ namespace BaseConquest.Editor
             Need(BaseDemoNpcs.MotionChecks(camp).All(o=>o.Kind=="npc"),"检查台对象混入了战斗编组");
             Debug.Log("[VerifyBattleAppearances] 序章搭档、7 场景外观白名单、wilderness 旧档回退、村民攻击图与 NPC 行为入口 PASS");
         }
+        public static void VerifyRuinsEntranceCollision()
+        {
+            var state = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
+            At(state,"home");
+            Need(BaseDemo.AcknowledgeWaking(state),"无法推进苏醒");
+            At(state,"demo_ahe");
+            Need(BaseDemoRuins.Meet(state,"partner_farm") && BaseDemoRuins.Join(state,"partner_farm"),"无法加入随行测试伙伴");
+            At(state,"exit_east");
+            Need(BaseCampaign.Travel(state,"town"),"无法进入城镇");
+            At(state,"demo_ruins_exit");
+            Need(BaseCampaign.Travel(state,"outpost") && BaseSceneRules.Entrance(state),"无法进入正式遗迹入口地图");
+            var portal = BaseSpatial.Objects(state).Single(o => o.Id == "demo_ruins_investigate");
+            var savedFacing = BaseInteraction.Facing;
+            try
+            {
+                var center = WalkNorth(0);
+                Need(center.Y > portal.Y + .10 && center.Y <= portal.Y + .241,"中线应停在门槛前");
+                var pillar = WalkNorth(.8);
+                Need(pillar.Y > portal.Y - .15 && pillar.Y <= portal.Y - .029,"石柱应在门槛前挡住角色");
+                Need(WalkNorth(1.55).Y > portal.Y + 1.4,"入口侧面应可绕行");
+                double backX = portal.X - .65, backY = portal.Y + 1.55;
+                BaseSpatial.Move(state,ref backX,ref backY,0,-2);
+                Need(backY >= portal.Y + 1.329 && backY < portal.Y + 1.46,"从入口背面也不能穿墙");
+
+                var legacy = state.Copy();
+                legacy.PlayerX = portal.X;
+                legacy.PlayerY = portal.Y + .65;
+                var companion = legacy.Leaders.Single(l => l.Id == "partner_farm");
+                companion.MapX = portal.X - .4;
+                companion.MapY = portal.Y + .65;
+                legacy = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(legacy));
+                BaseEconomy.Validate(legacy);
+                companion = legacy.Leaders.Single(l => l.Id == "partner_farm");
+                Need(BaseSpatial.Walkable(legacy,legacy.PlayerX,legacy.PlayerY) && BaseSpatial.Walkable(legacy,companion.MapX,companion.MapY),"旧档角色或伙伴仍陷在门洞内");
+
+                state.PlayerX = center.X;
+                state.PlayerY = center.Y;
+                BaseInteraction.Walk(new BasePoint(0,1));
+                Need(BaseInteraction.CanReach(state,portal),"从南侧抵达门槛后应能交互");
+                BaseSceneRules.EnterDungeon(state);
+                Need(BaseSceneRules.Dungeon(state),"入口交互应切入地下回廊");
+                var missingPortal = state.Copy();
+                missingPortal.Campaign.Layouts.Single(map => map.Objects.Any(o => o.AssetId == "dungeon-entrance"))
+                    .Objects.RemoveAll(o => o.AssetId == "dungeon-entrance");
+                BaseSceneRules.LeaveDungeon(missingPortal);
+                Need(BaseSceneRules.Entrance(missingPortal) && BaseSpatial.Walkable(missingPortal,missingPortal.PlayerX,missingPortal.PlayerY),
+                    "缺少门洞标记的旧地图仍应允许离开回廊");
+                BaseSceneRules.LeaveDungeon(state);
+                Need(BaseSceneRules.Entrance(state) && BaseSpatial.Walkable(state,state.PlayerX,state.PlayerY) &&
+                    state.PlayerY < portal.Y + .24,"离开回廊应落在门槛前的可行走地面");
+            }
+            finally { BaseInteraction.Facing = savedFacing; }
+            Debug.Log("[RuinsEntranceCollision] PASS 门槛、石柱、侧绕、旧档坐标、进出回廊");
+
+            BasePoint WalkNorth(double offset)
+            {
+                double x = portal.X + offset, y = portal.Y - .55;
+                BaseSpatial.Move(state,ref x,ref y,0,2);
+                return new BasePoint(x,y);
+            }
+        }
+
         // 遗迹首通专属剧情：RuinsDay==0 开战置 RuinsFirstClear，结算写入 FirstControllerId。
         public static void VerifyRuinsFirstClear()
         {

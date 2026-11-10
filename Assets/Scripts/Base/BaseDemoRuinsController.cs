@@ -53,18 +53,18 @@ namespace BaseConquest.Base
         public void BeginDemoRuins(string mode,bool confirmed=false,bool confrontationConfirmed=false,BaseBattlePreparation prepared=null)
         {
             if(!confirmed)
-            {Hud.OpenRuinsWarning(()=>BeginDemoRuins(mode,true,prepared:prepared),prepared);return;}
+            {if(prepared!=null)ShowDeploymentBriefing();Hud.OpenRuinsWarning(()=>BeginDemoRuins(mode,true,prepared:prepared),prepared);return;}
             if(State.Demo.RuinsDay==0&&!confrontationConfirmed)
-            {Hud.OpenRuinsConfrontation(()=>BeginDemoRuins(mode,true,true,prepared));return;}
-            if (prepared != null) EndDeploymentWorld();
+            {if(prepared!=null)ShowDeploymentBriefing();Hud.OpenRuinsConfrontation(()=>BeginDemoRuins(mode,true,true,prepared));return;}
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
             if(!Change(next=>encounter=prepared==null?BaseDemoRuins.Begin(next,mode):prepared.Begin(next),"军需与真实人员已锁定；进入遗迹救助战"))
             {if(prepared!=null)Hud.RefreshPreparedFailure();return;}
-            beforeDemoRuins=before;if(BaseSceneRules.Active(State))RefreshDemoRegion();
-            try{BeginSceneEncounter(encounter,BaseDemoRuins.Configure,null,FinishDemoRuinsEncounter,"遗迹救助 · 击败控制来源");}
+            beforeDemoRuins=before;if(BaseSceneRules.Active(State)&&!DeploymentWorldActive)RefreshDemoRegion();
+            try{BeginSceneEncounter(encounter,BaseDemoRuins.Configure,null,FinishDemoRuinsEncounter,"遗迹救助 · 击败控制来源",prepared);}
             catch(Exception error)
             {
                 MapSession.LeaveBattle();SaveStore.Save(before);State=before;beforeDemoRuins=null;
+                EndDeploymentWorld(false);
                 if(combatController!=null){combatController.gameObject.SetActive(false);BattleBoardView.DestroyObject(combatController.gameObject);combatController=null;}
                 RefreshDemoRegion();ReportMessage("未启动战斗，已恢复战前人员与军需："+error.Message);
             }

@@ -19,9 +19,52 @@ namespace BaseConquest.Base
     public static class BaseSceneRules
     {
         public const string DungeonId="demo_dungeon";
+        private const string EntranceId = "demo_ruins_investigate";
+        private const double EntranceHalfWidth = 1.15, DoorHalfWidth = .40;
+        private const double PostFront = .25, DoorSill = .52, EntranceBack = 1.05;
         public static bool Active(BaseState s)=>s?.Demo?.Rpg?.SceneRulesVersion==1;
         public static bool Dungeon(BaseState s)=>Active(s)&&(BaseSceneInstances.Active(s)?s.Campaign.CurrentMapId==DungeonId:s.Campaign.Location=="dungeon");
         public static bool Entrance(BaseState s)=>Active(s)&&(BaseSceneInstances.Active(s)?s.Campaign.CurrentMapId=="demo_ruins":s.Campaign.Location=="outpost");
+
+        internal static bool BlocksEntrance(BaseMapObject portal, double x, double y)
+        {
+            if (portal.Id != EntranceId || portal.AssetId != "dungeon-entrance") return false;
+            // 两侧石柱比正中的门槛靠前，按角色原有半径检查三段实体占地。
+            double lateral = Math.Abs(x - portal.X), north = y - portal.Y;
+            double front = lateral + BaseMap.Radius > DoorHalfWidth ? PostFront : DoorSill;
+            return lateral < EntranceHalfWidth + BaseMap.Radius &&
+                north > front - BaseMap.Radius && north < EntranceBack + BaseMap.Radius;
+        }
+
+        private static BasePoint EntranceApproach(BaseState s, BaseMapObject portal, string map = null) =>
+            BaseSpatial.Nearest(s, new BasePoint(portal.X, portal.Y + DoorSill - BaseMap.Radius - .05), map);
+
+        internal static void RepairEntrancePositions(BaseState s)
+        {
+            if (!Active(s)) return;
+            bool instanced = BaseSceneInstances.Active(s);
+            string map = instanced ? "demo_ruins" : "outpost";
+            var layout = s.Campaign.Layouts?.FirstOrDefault(m => m != null && (instanced ? m.SourceMapId : m.Region) == map);
+            var portal = layout?.Objects?.FirstOrDefault(p => p?.Id == EntranceId && p.AssetId == "dungeon-entrance")?.Object;
+            if (portal == null) return;
+            bool current = Entrance(s);
+            // 旧档可以站在原本无碰撞的门洞内。只修复新碰撞影响到的坐标。
+            if (current && BlocksEntrance(portal, s.PlayerX, s.PlayerY))
+            {
+                var point = EntranceApproach(s, portal, map);
+                s.PlayerX = point.X;
+                s.PlayerY = point.Y;
+            }
+            foreach (var leader in s.Leaders)
+            {
+                if (leader?.HasMapPosition != true || !BlocksEntrance(portal, leader.MapX, leader.MapY)) continue;
+                if (BaseAdventure.MapKey(s, leader) != map &&
+                    !(current && string.IsNullOrEmpty(leader.MapId) && BaseAdventure.Region(leader) == layout.Region)) continue;
+                var point = BaseSpatial.Nearest(s, new BasePoint(leader.MapX, leader.MapY), map);
+                leader.MapX = point.X;
+                leader.MapY = point.Y;
+            }
+        }
         public static bool Neutral(BaseState s)=>Neutral(s, s.Campaign.Location);
         // 按指定区域判中立：副手在营地主持防守时，不能拿玩家所在城镇的“禁止士兵”清空战场编制。
         public static bool Neutral(BaseState s,string region)=>BaseSpatial.Layout(s,region)?.ForbidSoldiers==true;
@@ -83,7 +126,9 @@ namespace BaseConquest.Base
         {
             if(!Dungeon(s))return;
             s.Campaign.Location=BaseSceneInstances.Active(s)?"custom":"outpost";if(BaseSceneInstances.Active(s))s.Campaign.CurrentMapId="demo_ruins";
-            s.PlayerX=11;s.PlayerY=7;BaseAdventure.Arrive(s);
+            var portal=BaseSpatial.Objects(s).FirstOrDefault(o=>o.Id==EntranceId);
+            var landing=portal==null ? BaseSpatial.Nearest(s,new BasePoint(11,7)) : EntranceApproach(s,portal);
+            s.PlayerX=landing.X;s.PlayerY=landing.Y;BaseAdventure.Arrive(s);
         }
         public static bool TalkRescued(BaseState s)
         {if(!Entrance(s)||s.Demo.Rescue?.Stage!=1||!new[]{"demo_rescued_1","demo_rescued_2"}.Any(id=>BaseInteraction.At(s,s.Campaign.Location,id)))return false;s.Demo.Rescue.Stage=2;return true;}

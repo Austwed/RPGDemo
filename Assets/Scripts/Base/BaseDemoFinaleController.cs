@@ -18,8 +18,7 @@ namespace BaseConquest.Base
         public void BeginDemoAttack(string mode,bool briefingConfirmed=false,BaseBattlePreparation prepared=null)
         {
             if(!State.Demo.Finale.AttackBriefingSeen&&!briefingConfirmed)
-            {Hud.OpenBanditCampBriefing(()=>BeginDemoAttack(mode,true,prepared));return;}
-            if (prepared != null) EndDeploymentWorld();
+            {if(prepared!=null)ShowDeploymentBriefing();Hud.OpenBanditCampBriefing(()=>BeginDemoAttack(mode,true,prepared));return;}
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
             if (!Change(next =>
             {
@@ -27,10 +26,11 @@ namespace BaseConquest.Base
                 encounter = prepared == null ? BaseDemoFinale.Begin(next, mode) : prepared.Begin(next);
             }, "队伍与军需已锁定")) { if (prepared != null) Hud.RefreshPreparedFailure(); return; }
             beforeDemoAttack=before;
-            try{BeginSceneEncounter(encounter,BaseDemoFinale.Configure,null,FinishDemoAttack,"攻占阻路营地 · 击败驻军");}
+            try{BeginSceneEncounter(encounter,BaseDemoFinale.Configure,null,FinishDemoAttack,"攻占阻路营地 · 击败驻军",prepared);}
             catch(Exception error)
             {
                 MapSession.LeaveBattle();SaveStore.Save(before);State=before;beforeDemoAttack=null;
+                EndDeploymentWorld(false);
                 if(combatController!=null){combatController.gameObject.SetActive(false);BattleBoardView.DestroyObject(combatController.gameObject);combatController=null;}
                 RefreshDemoRegion();ReportMessage("未启动进攻，已恢复现场战前状态："+error.Message);
             }

@@ -67,7 +67,7 @@ namespace BaseConquest.Presentation
             tacticalKey=Key();BindArt();
         }
         private string Key()=>string.Join("|",(BaseSpatial.Layout(Owner.State)?.TacticalObjects??new List<BattleTacticalObject>()).Select(o=>o.Id+":"+o.Fallen+":"+o.X+":"+o.Y+":"+string.Join(",",o.Trunk)));
-        public void Tick(){if(Owner.State==null)return;if(tacticalKey!=Key())Refresh();if(children!=Owner.transform.childCount)BindArt();}
+        public void Tick(){if(Owner.State==null)return;if(!Owner.DeploymentWorldActive&&tacticalKey!=Key())Refresh();if(children!=Owner.transform.childCount)BindArt();}
         private void LateUpdate(){if(Time.unscaledTime<nextScan)return;nextScan=Time.unscaledTime+.25f;Tick();}
         public void BindArt()
         {

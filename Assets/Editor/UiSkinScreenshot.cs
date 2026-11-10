@@ -28,6 +28,12 @@ namespace BaseConquest.Editor
         private static int frameDeadline;
         private static string stage = "boot";
         private static BaseSceneController controller;
+        private static BattleSceneController defenseBattle;
+        private static GameObject defenseHud;
+        private static Camera defenseCamera;
+        private static Rect defenseViewport;
+        private static Camera ruinsEntranceCamera;
+        private static string ruinsEntranceMap;
         private static bool failed;
         private static readonly List<string> Log = new List<string>();
 
@@ -239,20 +245,34 @@ namespace BaseConquest.Editor
                 case "ruins-entrance":
                     if (Time.frameCount < frameDeadline) return;
                     VerifyRuinsEntrance();
-                    Capture("ui-skin-ruins-entrance");
-                    var entranceCamera = controller.WorldCamera;
-                    var entranceMap = controller.State.Campaign.CurrentMapId;
-                    H.OpenObject("demo_ruins_investigate");
+                    ruinsEntranceCamera = controller.WorldCamera;
+                    ruinsEntranceMap = controller.State.Campaign.CurrentMapId;
+                    controller.Interact();
                     Press(RequirePanel("BattlePreparation"), "Continue");
-                    var ruinsPlacement = RequirePanel("BattleDeployment");
-                    if (controller.WorldCamera == entranceCamera || controller.State.Campaign.CurrentMapId != entranceMap || controller.State.Campaign.HasActiveBattle)
+                    stage = "ruins-deployment"; frameDeadline = Time.frameCount + 5;
+                    break;
+                case "ruins-deployment":
+                    if (Time.frameCount < frameDeadline) return;
+                    var ruinsPlacement = RequireBattleDraft();
+                    if (controller.WorldCamera == ruinsEntranceCamera || controller.State.Campaign.CurrentMapId != ruinsEntranceMap || controller.State.Campaign.HasActiveBattle)
                         throw new InvalidOperationException("从遗迹入口预览地牢时写入了进度或未显示实际地牢");
-                    Press(ruinsPlacement, "Auto");
+                    VerifyDeploymentPointer(ruinsPlacement);
                     Capture("ui-skin-ruins-deployment");
-                    Press(ruinsPlacement, "Back");
-                    if (controller.WorldCamera != entranceCamera || controller.State.Campaign.CurrentMapId != entranceMap)
+                    Press(BattleSafeArea(ruinsPlacement), "测试");
+                    if (controller.State.Campaign.CurrentMapId != ruinsEntranceMap || !BaseSceneRules.Entrance(controller.State) ||
+                        Object.FindObjectsByType<BattleSceneController>().Any(b => b.DeploymentDraftActive) ||
+                        !Object.FindObjectsByType<Renderer>().Any(r => r.name == "PixelDemo_dungeon-entrance"))
                         throw new InvalidOperationException("返回备战没有恢复遗迹入口");
-                    H.ClosePanel();
+                    Press(RequirePanel("BattlePreparation"), "Continue");
+                    var cancelRuins = BattleSafeArea(RequireBattleDraft());
+                    Press(cancelRuins, "Deployment");
+                    Press(cancelRuins, "Deployment");
+                    FinishDialogue();
+                    Click("暂不进入，先调整随行");
+                    if (H.PanelOpen || controller.State.Campaign.CurrentMapId != ruinsEntranceMap ||
+                        controller.State.Campaign.HasActiveBattle || Object.FindObjectsByType<BattleSceneController>().Any(b => b.DeploymentDraftActive))
+                        throw new InvalidOperationException("取消遗迹交战没有恢复入口或清空草案");
+                    Log.Add("[PASS] 遗迹返回备战及对白拒绝均恢复入口，未提交战斗");
                     controller.LoadDemoStage("defense", "female");
                     stage = "defense-ready"; stageAt = EditorApplication.timeSinceStartup;
                     break;
@@ -293,21 +313,36 @@ namespace BaseConquest.Editor
                     CaptureViewports("ui-skin-battle-preparation");
                     var fieldCamera = controller.WorldCamera;
                     Press(preparation, "Continue");
-                    var deploy = RequirePanel("BattleDeployment");
-                    if (deploy.Find("Start").GetComponent<Button>().interactable)
-                        throw new InvalidOperationException("主角未布置便可开战");
-                    VerifyDeploymentPointer(deploy, fieldCamera);
-                    Press(deploy, "Auto");
-                    Press(deploy, "Back");
+                    var deploy = RequireBattleDraft();
+                    if (deploy.PreviewBoard.Camera != fieldCamera)
+                        throw new InvalidOperationException("迎战部署替换了当前战场相机");
+                    CaptureViewports("ui-skin-battle-deployment-entry");
+                    VerifyDeploymentPointer(deploy);
+                    var draftArea = BattleSafeArea(deploy);
+                    const string supplies = "SelectedUnitInformation/DraftSupplies/";
+                    var validation = draftArea.Find(supplies + "Validation").GetComponentInChildren<Text>();
+                    var validColor = validation.color;
+                    Press(draftArea, supplies + "Grade_0/Plus");
+                    if (draftArea.Find("Deployment").GetComponent<Button>().interactable || validation.color == validColor)
+                        throw new InvalidOperationException("战场军需超出落位人数时未标红并拦截开战");
+                    Press(draftArea, supplies + "Grade_0/Minus");
+                    if (!draftArea.Find("Deployment").GetComponent<Button>().interactable || validation.color != validColor)
+                        throw new InvalidOperationException("战场修改军需后未恢复确认");
+                    Press(BattleSafeArea(deploy), "测试");
                     Press(RequirePanel("BattlePreparation"), "Continue");
+                    defenseBattle = RequireBattleDraft();
+                    defenseHud = defenseBattle.PreviewHud.Root;
+                    defenseCamera = defenseBattle.PreviewBoard.Camera;
+                    defenseViewport = defenseCamera.rect;
+                    if (defenseBattle.PreviewSimulation.Soldiers.Count(s => s.Side == BattleSide.A) != 1)
+                        throw new InvalidOperationException("从备战返回丢失了原落点");
+                    Press(BattleSafeArea(defenseBattle), "Deployment");
                     stage = "defense-deployment-shot"; frameDeadline = Time.frameCount + 15;
                     break;
                 case "defense-deployment-shot":
                     if (Time.frameCount < frameDeadline) return;
                     CaptureViewports("ui-skin-battle-deployment");
-                    var placement = RequirePanel("BattleDeployment");
-                    VerifyBelowTopBar(placement);
-                    Press(placement, "Start");
+                    Press(BattleSafeArea(defenseBattle), "Deployment");
                     FinishDialogue();
                     Click("拔剑迎战");
                     stage = "battle"; frameDeadline = Time.frameCount + 60; stageAt = EditorApplication.timeSinceStartup;
@@ -320,6 +355,11 @@ namespace BaseConquest.Editor
                         return;
                     }
                     if (Time.frameCount < frameDeadline) return;
+                    if (!defenseBattle || defenseBattle.DeploymentDraftActive || defenseBattle.PreviewHud.Root != defenseHud ||
+                        defenseBattle.PreviewBoard.Camera != defenseCamera || defenseCamera.rect != defenseViewport ||
+                        defenseBattle.PreviewSimulation.Phase != BattlePhase.Fighting)
+                        throw new InvalidOperationException("开战时没有沿用同一战场、相机和战斗 HUD");
+                    Log.Add("[PASS] 确认开战沿用原战场相机、同一战斗 HUD，未重新建场");
                     if (Object.FindObjectsByType<RectTransform>().Any(t => t.name == "BattleJoystick"))
                         throw new InvalidOperationException("正式战斗仍显示角色操控摇杆");
                     CaptureViewports("ui-icons-battle-hud");
@@ -541,29 +581,72 @@ namespace BaseConquest.Editor
                 BaseAdventure.Arrive(s);
             }, "检查遗迹遮挡")) throw new InvalidOperationException(controller.Message);
             var portal = Object.FindObjectsByType<Renderer>().Single(r => r.name == "PixelDemo_dungeon-entrance");
-            int expected = MapSpriteOrder.At(controller.WorldPoint(marker.X, marker.Y).z - .06f);
             var avatar = (Transform)Field(controller, "player");
-            if (portal.sortingOrder != expected || avatar.GetComponentsInChildren<Renderer>().Max(r => r.sortingOrder) <= expected)
-                throw new InvalidOperationException("门洞以交互占地遮住了前方主角");
+            var sprite = avatar.GetComponentsInChildren<MeshRenderer>().Single(r => r.name == "PixelDemoCharacter");
+            var walk = typeof(BaseSceneController).GetMethod("MoveExploration", BindingFlags.Instance | BindingFlags.NonPublic);
+            foreach (double offset in new[] { .10, .18 })
+            {
+                double target = marker.Y + offset;
+                for (int step = 0; step < 40 && target - controller.State.PlayerY > .001; step++)
+                    walk.Invoke(controller, new object[] { Vector2.up, Math.Min(.02, (target - controller.State.PlayerY) / 4.3) });
+                if (Math.Abs(controller.State.PlayerY - target) > .02)
+                    throw new InvalidOperationException("主角向北未走到门洞取样位置：" + offset);
+                if (sprite.sortingOrder <= portal.sortingOrder)
+                    throw new InvalidOperationException("向北穿过门槛时贴图排序错误：" + offset);
+            }
+            for (int step = 0; step < 30; step++) walk.Invoke(controller, new object[] { Vector2.up, .01 });
+            if (Math.Abs(controller.State.PlayerX - marker.X) > .02 || controller.State.PlayerY < marker.Y + .18 ||
+                controller.State.PlayerY > marker.Y + .241 || sprite.sortingOrder <= portal.sortingOrder ||
+                !BaseInteraction.CanReach(controller.State, marker))
+                throw new InvalidOperationException("遗迹门前没有正确阻挡移动、显示角色或保留交互");
+            Capture("ui-skin-ruins-entrance");
+            Log.Add("[PASS] 北向移动停在门槛外，角色完整且仍可交互");
         }
 
-        private static void VerifyDeploymentPointer(Transform view, Camera camera)
+        private static BattleSceneController RequireBattleDraft()
         {
-            if (controller.WorldCamera != camera || controller.State.Campaign.HasActiveBattle)
-                throw new InvalidOperationException("迎战部署应在当前战场且尚未提交开战");
+            var battle = Object.FindObjectsByType<BattleSceneController>().SingleOrDefault(b => b.DeploymentDraftActive);
+            if (battle == null) throw new InvalidOperationException("正式战斗部署未打开：" + controller.Message);
+            if (battle.PreviewBoard.Camera != controller.WorldCamera || !battle.PreviewHud.Root.activeInHierarchy ||
+                battle.PreviewSimulation.Phase != BattlePhase.Deployment || controller.State.Campaign.HasActiveBattle ||
+                BattleSafeArea(battle).Find("Deployment")?.GetComponentInChildren<Text>()?.text != "部署" ||
+                Object.FindObjectsByType<RectTransform>().Any(t => t.name == "ResourceStrip" || t.name == "BattleDeployment"))
+                throw new InvalidOperationException("部署应由正常战场和战斗 HUD 承载，且尚未提交开战");
+            return battle;
+        }
+
+        private static RectTransform BattleSafeArea(BattleSceneController battle) =>
+            battle.PreviewHud.Root.GetComponentsInChildren<RectTransform>(true).Single(t => t.name == "SafeArea");
+
+        private static void VerifyDeploymentPointer(BattleSceneController battle)
+        {
+            var root = BattleSafeArea(battle);
             var draft = (BaseBattlePreparation)Field(H, "battleDraft");
-            var grid = view.Find("Board").GetComponent<BattleDeploymentGrid>();
             var cell = draft.Board.Positions().First(p => draft.CanPlace(draft.PlayerId, p));
-            var pointer = new PointerEventData(EventSystem.current)
+            if (battle.TryDraftDeploymentCell(cell) || draft.Positions.Count != 0)
+                throw new InvalidOperationException("未点「部署」已经可以落位");
+            Press(root, "Deployment");
+            Canvas.ForceUpdateCanvases();
+            if (root.Find("Deployment").GetComponent<Button>().interactable)
+                throw new InvalidOperationException("主角未布置便可开战");
+            int visible = 0, picked = 0, unblocked = 0;
+            foreach (var point in draft.Board.Positions().Where(p => draft.CanPlace(draft.PlayerId, p)))
             {
-                pointerId = -1, button = PointerEventData.InputButton.Left,
-                position = camera.WorldToScreenPoint(BattleBoardView.World(cell, draft.Board))
-            };
-            grid.OnPointerDown(pointer);
-            grid.OnPointerUp(pointer);
-            if (!draft.Positions.TryGetValue(draft.PlayerId, out var chosen) || chosen != cell)
-                throw new InvalidOperationException("从战场坐标点击未放置主角");
-            Log.Add("[PASS] 在实际战场点选地格部署，开战前未写进度");
+                var screen = (Vector2)battle.PreviewBoard.Camera.WorldToScreenPoint(BattleBoardView.World(point, draft.Board));
+                if (!battle.PreviewBoard.Camera.pixelRect.Contains(screen)) continue;
+                visible++;
+                if (!battle.PreviewBoard.Pick(screen, out var hit) || hit != point) continue;
+                picked++;
+                if (battle.PreviewHud.BlocksPointer(screen)) continue;
+                unblocked++;
+                battle.PointerDown(-1, screen);
+                battle.PointerUp(-1, screen);
+                if (!draft.Positions.TryGetValue(draft.PlayerId, out var chosen)) continue;
+                if (chosen != point) throw new InvalidOperationException("战场点击没有落在所选地格");
+                Log.Add("[PASS] 独立部署按钮开启后，在实际战场点选落位，开战前未写进度");
+                return;
+            }
+            throw new InvalidOperationException($"从战场坐标点击未放置主角：可见 {visible} 格，拾取 {picked} 格，无遮挡 {unblocked} 格，反馈 {battle.Feedback}");
         }
         private static object Field(object target, string name)
             => target?.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
@@ -596,9 +679,14 @@ namespace BaseConquest.Editor
             var rt = new RenderTexture(w, h, 24); rt.Create();
             var uiRt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32); uiRt.Create();
             var prev = RenderTexture.active;
-            var deployment = Field(H, "panel") as RectTransform;
-            var worldArea = deployment?.name == "BattleDeployment" ? CaptureBoardRect((RectTransform)deployment.Find("Board"), area, w, h) : new RectInt(0, 0, w, h);
-            var tex = CaptureWorld(cams, rt, w, h, worldArea);
+            foreach (var camera in cams)
+            {
+                camera.rect = new Rect(0, 0, 1, 1);
+                camera.targetTexture = rt;
+                camera.aspect = w / (float)h;
+                camera.Render();
+            }
+            var tex = Read(rt, w, h);
             var top = cams.LastOrDefault();
             var canvases = Object.FindObjectsByType<Canvas>().Where(c => c.isRootCanvas && c.isActiveAndEnabled && c.renderMode == RenderMode.ScreenSpaceOverlay).OrderBy(c => c.sortingOrder).ToArray();
             var layers = new Dictionary<GameObject, int>();
@@ -637,52 +725,6 @@ namespace BaseConquest.Editor
         private static Texture2D Read(RenderTexture rt, int w, int h)
         {
             RenderTexture.active = rt; var tex = new Texture2D(w, h, TextureFormat.RGBA32, false); tex.ReadPixels(new Rect(0, 0, w, h), 0, 0); tex.Apply(); return tex;
-        }
-        private static RectInt CaptureBoardRect(RectTransform board, Rect area, int w, int h)
-        {
-            Canvas.ForceUpdateCanvases();
-            var points = new Vector3[4];
-            board.GetWorldCorners(points);
-            var gameFrame = board.GetComponentInParent<GameFrameCanvas>().transform.Find("游戏显示区域 · 16比9");
-            Vector2 Pixel(Vector3 point) => area.center + (Vector2)gameFrame.InverseTransformPoint(point) * (area.width / 1280f);
-            var min = Pixel(points[0]);
-            var max = Pixel(points[2]);
-            int x = Mathf.Clamp(Mathf.RoundToInt(min.x), 0, w - 1);
-            int y = Mathf.Clamp(Mathf.RoundToInt(min.y), 0, h - 1);
-            return new RectInt(x, y, Mathf.Clamp(Mathf.RoundToInt(max.x), x + 1, w) - x,
-                Mathf.Clamp(Mathf.RoundToInt(max.y), y + 1, h) - y);
-        }
-        private static Texture2D CaptureWorld(List<Camera> cameras, RenderTexture full, int w, int h, RectInt worldArea)
-        {
-            if (worldArea.width == w && worldArea.height == h)
-            {
-                foreach (var camera in cameras)
-                {
-                    camera.rect = new Rect(0, 0, 1, 1);
-                    camera.targetTexture = full;
-                    camera.Render();
-                }
-                return Read(full, w, h);
-            }
-            RenderTexture.active = full;
-            GL.Clear(true, true, new Color(.1f, .08f, .06f, 1));
-            var result = Read(full, w, h);
-            var view = RenderTexture.GetTemporary(worldArea.width, worldArea.height, 24);
-            foreach (var camera in cameras)
-            {
-                camera.rect = new Rect(0, 0, 1, 1);
-                camera.targetTexture = view;
-                camera.aspect = view.width / (float)view.height;
-                camera.Render();
-            }
-            var world = Read(view, view.width, view.height);
-            result.SetPixels32(worldArea.x, worldArea.y, worldArea.width, worldArea.height, world.GetPixels32());
-            result.Apply();
-            Object.DestroyImmediate(world);
-            foreach (var camera in cameras) camera.targetTexture = full;
-            RenderTexture.active = full;
-            RenderTexture.ReleaseTemporary(view);
-            return result;
         }
 
         private static void Finish(int code, string message)

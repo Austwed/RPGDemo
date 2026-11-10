@@ -10,6 +10,7 @@ namespace BaseConquest.Presentation
         private bool shaped;
         private Vector3 feet;
         private Material ownedMaterial;
+        private Renderer dungeonEntrance;
         private bool farmVisual;
         private string farmAppearance;
         private HeroPose? previewPose;
@@ -34,7 +35,11 @@ namespace BaseConquest.Presentation
             if(BaseEnvironment.Decorative(placement)){view.shaped=true;EnvironmentDecorView.Attach(root,placement,source);return view;}
             string prop=placement.AssetId=="dungeon-entrance"?"dungeon-entrance":placement.Kind=="pixel-prop"?placement.AssetId:placement.Kind=="tactical-rock"?"boulder":placement.Kind=="tactical-tree"?"dead-tree":placement.Kind=="tactical-trunk"?"fallen-log":placement.AssetId=="demo-broken-sword"?"broken-sword":placement.AssetId=="demo-long-sword"?"longsword":placement.AssetId=="demo-debris"?"ruined-wall":null;
             var pixelProp=prop==null?null:PixelDemoArt.Prop(root.transform,prop,Vector3.zero,source,prop=="dungeon-entrance"?3:prop=="dead-tree"?1.25f:1.5f,prop=="dungeon-entrance"?3:prop=="dead-tree"?2.5f:prop=="ruined-wall"?.75f:1.5f);
-            if(pixelProp!=null){view.shaped=false;}
+            if(pixelProp!=null)
+            {
+                view.shaped=false;
+                if(prop=="dungeon-entrance")view.dungeonEntrance=pixelProp.GetComponent<Renderer>();
+            }
             else if(placement.Kind?.StartsWith("tactical-")==true||placement.Kind=="demo-prop")
             {
                 view.shaped=true;view.ownedMaterial=new Material(source);view.ownedMaterial.SetTexture("_BaseMap",Texture2D.whiteTexture);view.ownedMaterial.SetColor("_BaseColor",Color.white);
@@ -105,10 +110,8 @@ namespace BaseConquest.Presentation
                 face.GetComponent<Renderer>().sharedMaterial=view.ownedMaterial;
             }
             view.SetExploration(exploration);
-            // 门洞的贴图从标记点起画，交互范围的南边缘不代表门洞的地线。
-            float sortZ = prop == "dungeon-entrance" && pixelProp != null ? feet.z - .06f
-                : feet.z - (float)placement.BoundsHeight * BattleBoardView.CellSize * .5f;
-            MapSpriteOrder.Apply(root.transform,sortZ);
+            if(view.dungeonEntrance==null)
+                MapSpriteOrder.Apply(root.transform,feet.z-(float)placement.BoundsHeight*BattleBoardView.CellSize*.5f);
             if(view.farmVisual)foreach(var renderer in root.GetComponentsInChildren<Renderer>())renderer.sortingOrder=-30500;
             return view;
         }
@@ -126,6 +129,16 @@ namespace BaseConquest.Presentation
             transform.localRotation=exploration&&!shaped ? person ? BattleBoardView.BasePawnTilt : BattleBoardView.BaseArtTilt : Quaternion.identity;
             transform.localScale=person&&exploration ? new Vector3(1,1,2) : Vector3.one;
             var pawn=GetComponent<BattlePawn2D>();if(pawn!=null){pawn.UprightExploration=exploration;pawn.SyncExploration(feet,Color.white);}
+            if(dungeonEntrance!=null)
+            {
+                // dungeon-entrance-v1 的门洞正中到第 204 行为止，门槛下还有透明留白。
+                const float sillV = (256f - 205f) / 256f;
+                var sill=dungeonEntrance.transform.TransformPoint(new Vector3(0,sillV-.5f,0));
+                var viewUp=exploration?BattleBoardView.BaseArtTilt*Vector3.forward:Vector3.forward;
+                float groundZ=transform.position.z+Vector3.Dot(sill-transform.position,viewUp)/viewUp.z;
+                // 贴着门槛时，同一排序档内仍能看见角色。
+                dungeonEntrance.sortingOrder=MapSpriteOrder.At(groundZ)-1;
+            }
         }
         private double autonomousUntil;
         public bool AutonomousMoving=>Time.unscaledTimeAsDouble<autonomousUntil;

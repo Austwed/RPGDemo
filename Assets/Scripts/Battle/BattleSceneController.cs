@@ -95,12 +95,22 @@ namespace BaseConquest.Battle
             material.SetColor("_BaseColor", Color.white); lineMaterial.SetColor("_BaseColor", Color.white);
             font = Font.CreateDynamicFontFromOSFont(new[] { "Microsoft YaHei", "Noto Sans CJK SC", "Arial" }, 16);
             presentationSeconds = Settings != null ? Settings.RoundPresentationSeconds * 2 : 1.1f;
+            if (DeploymentDraftActive)
+            {
+                InitializeDraftDeployment();
+                hud = new BattleHud(this, transform, font);
+                return;
+            }
             if(!Application.isPlaying&&campaignSession!=null)ReplaceSimulation(campaignSession.Battle.Scenario,campaignSession.Battle);
             else if (!InitializeCampaignBattle()) ReplaceSimulation(Settings != null ? Settings.Scenario : new BattleScenario());
             hud = new BattleHud(this, transform, font);
+            InitializeBattleDeveloperPanel();
+            if (!IsCampaignBattle) TryLoadDefaultScenario();
+        }
+        private void InitializeBattleDeveloperPanel()
+        {
             developerPanel=GetComponent<DeveloperPanel>()??gameObject.AddComponent<DeveloperPanel>();developerPanel.Initialize(this,font);
             developerPanel.enabled=true;
-            if (!IsCampaignBattle) TryLoadDefaultScenario();
         }
         public void PreparePreview(BattleSettings settings, bool autoDeploy = true)
         {
@@ -121,7 +131,7 @@ namespace BaseConquest.Battle
             if (prepared == null && battle.ModernRules && !battle.Scenario.TestAutoDeployment && !suppressInitialDeploy) battle.AutoDeploy(BattleSide.B);
             boardView = sharedMapView ?? new BattleBoardView(battle.Board, transform, material, lineMaterial); boardView.FlatView = battle.ModernRules;
             float previousView=boardView.Camera.orthographicSize;bool preserve=sharedMapView!=null&&battle.Scenario.HeightVision;boardView.SetCombatMode(true,preserve);if(preserve)boardView.SetViewSize(previousView);
-            if (battle.ModernRules) { boardView.MarkExits(font,battle.ExitCell(BattleSide.A),battle.ExitCell(BattleSide.B)); boardView.Refresh(); }
+            if (battle.ModernRules && !DeploymentDraftActive) { boardView.MarkExits(font,battle.ExitCell(BattleSide.A),battle.ExitCell(BattleSide.B)); boardView.Refresh(); }
             if (Application.isPlaying && boardView.Camera.GetComponent<AudioListener>()==null) boardView.Camera.gameObject.AddComponent<AudioListener>();
             unitsRoot = new GameObject("DeployedUnits").transform; unitsRoot.SetParent(transform, false);
             orderOverlay = new BattleOrderOverlay(transform, lineMaterial);
@@ -147,7 +157,7 @@ namespace BaseConquest.Battle
             if(realtime!=null){SyncRealtimeViews();return;}
             selection.Prune(battle, selectedSide); selectedUnitId = selection.Primary;
             if (battle.ModernRules && selectedUnitId >= 0 && informationUnitId < 0) informationUnitId = selectedUnitId;
-            boardView.MarkExits(battle.ExitCell(BattleSide.A),battle.ExitCell(BattleSide.B));
+            if (!DeploymentDraftActive) boardView.MarkExits(battle.ExitCell(BattleSide.A),battle.ExitCell(BattleSide.B));
             boardView.RefreshVision(battle.Vision, selectedSide, !battle.ModernRules && drawerOpen && tab == 0 && battle.Phase == BattlePhase.Deployment, battle.ModernRules && battle.Scenario.ShowEnemiesThroughFog);
             foreach (BattleSoldierView view in views.Values)
             {
@@ -212,6 +222,7 @@ namespace BaseConquest.Battle
         {
             if(ExternalDialogue)return;
             if (battle == null) return;
+            if (DeploymentDraftActive) { UpdateDraftDeployment(); return; }
             if(IsRealtimeCampaign&&realtime!=null){UpdateRealtime();return;}
             if(preparationInventoryOpen){if(Keyboard.current!=null&&(Keyboard.current.bKey.wasPressedThisFrame||Keyboard.current.escapeKey.wasPressedThisFrame))GetComponentInParent<BaseConquest.Base.BaseSceneController>()?.Hud.ClosePanel();return;}
             boardView.UpdateCamera(drawerOpen ? Mathf.Min(0.44f, PanelWidth / 1280f) : battle.ModernRules ? Mathf.Min(0.21f, 132f / 1280) : 0, battle.ModernRules ? 0.08f : 0);
@@ -272,6 +283,7 @@ namespace BaseConquest.Battle
         }
         public void StartBattle()
         {
+            if (DeploymentDraftActive) return;
             if (IsCampaignBattle && campaignSession == null) { feedback = "战役进度未读取，请返回基地恢复存档"; return; }
             campaignSession?.Bind();
             if (battle.Start(out feedback)) { tab = 3; formationOpen = false; drawerOpen = deployArmed = false; strokeFrom = rectangleFrom = null; autoRun = false; hud?.CloseMenu();if(IsRealtimeCampaign)AttachRealtime(); }

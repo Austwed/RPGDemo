@@ -27,13 +27,13 @@ namespace BaseConquest.Base
             bool seen = second ? State.Demo.Defense.SecondBriefingSeen : State.Demo.Defense.FirstBriefingSeen;
             if (!seen && !briefingConfirmed)
             {
+                if (prepared != null) ShowDeploymentBriefing();
                 Action proceed = () => BeginDemoDefense(mode, true, prepared);
                 Action back = prepared == null ? Hud.OpenDemoDefenseSupply : Hud.ReturnToBattleDeployment;
                 if (second) Hud.OpenSecondRaidBriefing(proceed, back);
                 else Hud.OpenFirstRaidBriefing(proceed, back);
                 return;
             }
-            if (prepared != null) EndDeploymentWorld();
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
             if (!Change(next =>
             {
@@ -42,10 +42,11 @@ namespace BaseConquest.Base
                 encounter = prepared == null ? BaseDemoDefense.Begin(next, mode, pendingDemoDefense) : prepared.Begin(next);
             }, "真实队伍与军需已锁定")) { if (prepared != null) Hud.RefreshPreparedFailure(); return; }
             beforeDemoDefense=before;pendingDemoDefense=null;
-            try{BeginSceneEncounter(encounter,BaseDemoDefense.Configure,null,FinishDemoDefenseEncounter,encounter.Opening.EventId==BaseDemoDefense.SecondEventId?"第二波防守 · 击败全部来敌":"首次防守 · 守住营地外围");}
+            try{BeginSceneEncounter(encounter,BaseDemoDefense.Configure,null,FinishDemoDefenseEncounter,encounter.Opening.EventId==BaseDemoDefense.SecondEventId?"第二波防守 · 击败全部来敌":"首次防守 · 守住营地外围",prepared);}
             catch(Exception error)
             {
                 MapSession.LeaveBattle();SaveStore.Save(before);State=before;beforeDemoDefense=null;
+                EndDeploymentWorld(false);
                 if(combatController!=null){combatController.gameObject.SetActive(false);BattleBoardView.DestroyObject(combatController.gameObject);combatController=null;}
                 RefreshDemoRegion();ReportMessage("未启动防守，已恢复战前人员与军需："+error.Message);
             }

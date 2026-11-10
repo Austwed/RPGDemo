@@ -95,6 +95,7 @@ namespace BaseConquest.Battle
         }
         public void ChooseDeployment(SoldierKind kind)
         {
+            if (DeploymentDraftActive) { SelectDraftTroop(kind); return; }
             if (battle.ModernRules && kind != SoldierKind.Hero && deployArmed && selectedKind == kind) { EndDeployment(); return; }
             if (!CanChooseDeployment(kind)) return;
             ManualPause(); CancelGesture(); CloseContext(); if (!battle.ModernRules) { selection.Clear(); selectedUnitId = -1; }
@@ -104,6 +105,7 @@ namespace BaseConquest.Battle
         public void EndDeployment() { CancelGesture(); CloseContext(); deployArmed = false; feedback = battle.ModernRules ? "点头像选队，点地格移动／点敌人集火，长按或右键打开格子菜单" : "指挥模式：点选单位、点目标或拖动下令"; hud?.Refresh(); }
         public void AutoDeployControlled()
         {
+            if (DeploymentDraftActive) { AutoPlaceDraftDeployment(); return; }
             if (animating || skipping || battle.Phase == BattlePhase.Finished) return;
             ManualPause(); CancelGesture(); int deployed = 0; UserOrder(() => { deployed = battle.ModernRules ? battle.AutoDeploySelected(selectedSide, selection.Ids) : battle.AutoDeploy(selectedSide); return deployed > 0; }); feedback = "已为" + BattleSimulation.SideName(selectedSide) + "部署 " + deployed + " 人"; RefreshUnits(); SyncViews(); hud?.Refresh();
         }
@@ -138,7 +140,7 @@ namespace BaseConquest.Battle
             if (placed && battle.ModernRules && selectedKind != SoldierKind.Hero && !CanChooseDeployment(selectedKind)) deployArmed = false;
             RefreshUnits(); SyncViews(); hud?.Refresh();
         }
-        public void ToggleDrawer() { if (IsCampaignBattle) { OpenCampaignMenu(); return; } ManualPause(); CancelGesture(); CloseContext(); formationOpen = false; drawerOpen = !drawerOpen; if (drawerOpen && battle.ModernRules) RefreshScenarioFiles(); hud?.Refresh(); }
+        public void ToggleDrawer() { if (DeploymentDraftActive) { ReturnFromDeploymentDraft(); return; } if (IsCampaignBattle) { OpenCampaignMenu(); return; } ManualPause(); CancelGesture(); CloseContext(); formationOpen = false; drawerOpen = !drawerOpen; if (drawerOpen && battle.ModernRules) RefreshScenarioFiles(); hud?.Refresh(); }
         public void CancelAllOrders() { if(realtime!=null){RealtimeOrder(BaseConquest.RealtimePrototype.PrototypeOrder.Auto,new BaseConquest.RealtimePrototype.PrototypePoint(12,7));return;} if (animating || skipping) return; ManualPause(); CloseContext(); UserOrder(() => { if (battle.Phase != BattlePhase.Fighting) return false; battle.CancelOrders(selectedSide); return true; }); feedback = "己方手动命令与未执行技能已取消，撤退保持"; orderOverlay.Invalidate(); SyncViews(); hud?.Refresh(); }
         public void SkipBattle()
         {
@@ -280,9 +282,10 @@ namespace BaseConquest.Battle
                     return;
                 }
             }
-            if(IsRealtimeCampaign&&ReadMapCameraInput(Time.unscaledDeltaTime))return;
+            bool normalCamera = IsRealtimeCampaign || DeploymentDraftActive;
+            if(normalCamera&&ReadMapCameraInput(Time.unscaledDeltaTime))return;
             Mouse mouse = Mouse.current; if (mouse == null) return; Vector2 position = mouse.position.ReadValue();
-            if(!IsRealtimeCampaign)
+            if(!normalCamera)
             {
                 if (mouse.middleButton.wasPressedThisFrame) MapPanDown(position);
                 if (mouse.middleButton.isPressed) { MapPanMove(position); return; }
@@ -294,7 +297,7 @@ namespace BaseConquest.Battle
             if (mouse.rightButton.wasPressedThisFrame) RightPointerDown(position);
             if (!gestureActive && !IsUiPoint(position)) hover = ResolvePointer(position, out var hovered) ? hovered : (GridPosition?)null;
             var wheel = mouse.scroll.ReadValue();
-            if (!IsRealtimeCampaign&&!IsUiPoint(position))
+            if (!normalCamera&&!IsUiPoint(position))
             {
                 if (wheel.x != 0 || Keyboard.current?.shiftKey.isPressed == true) boardView.Pan(new Vector2(wheel.x, wheel.y) * 0.35f);
                 else if (wheel.y != 0) boardView.Zoom(wheel.y > 0 ? 0.9f : 1.1f);
@@ -303,6 +306,7 @@ namespace BaseConquest.Battle
         // 这些入口也用于不进入 Play 的原生手势验证，实际设备与测试走同一路由。
         public void PointerDown(int id, Vector2 position)
         {
+            if (DeploymentDraftActive) { DraftPointerDown(id, position); return; }
             if (battle.ModernRules) { ModernPointerDown(id, position); return; }
             if (IsUiPoint(position) || skipping) return;
             if (gestureActive) { CancelGesture(); return; }
@@ -319,6 +323,7 @@ namespace BaseConquest.Battle
         }
         public void PointerMove(int id, Vector2 position)
         {
+            if (DeploymentDraftActive) { DraftPointerMove(id, position); return; }
             if (battle.ModernRules && modernPointerActive) { ModernPointerMove(id, position); return; }
             if (!gestureActive || id != gestureId) return; gestureCurrent = position;
             if (gestureLong) return;
@@ -364,6 +369,7 @@ namespace BaseConquest.Battle
         }
         public void PointerUp(int id, Vector2 position, bool canceled = false)
         {
+            if (DeploymentDraftActive) { DraftPointerUp(id, position, canceled); return; }
             if (battle.ModernRules && modernPointerActive) { ModernPointerUp(id, position, canceled); return; }
             if (!gestureActive || id != gestureId) return;
             bool wasDrag = gestureDragging, wasLong = gestureLong, fromUnit = gestureStartedOnUnit; GridPosition? start = gestureCell;

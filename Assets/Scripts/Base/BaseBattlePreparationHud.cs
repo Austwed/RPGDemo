@@ -12,7 +12,7 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        private const string PreparationView = "battle-preparation", DeploymentView = "battle-deployment", SweepView = "prepared-ruins-sweep";
+        private const string PreparationView = "battle-preparation", SweepView = "prepared-ruins-sweep";
         private static readonly Color PrepInvalid = new Color32(150, 35, 28, 255);
         private BaseBattlePreparation battleDraft;
         private string prepTeam, prepFeedback;
@@ -21,9 +21,7 @@ namespace BaseConquest.Base
         private bool prepInventory, prepProduction;
         private ScrollRect prepRoster;
         private (GameObject Node, bool Visible)[] deploymentHudVisibility;
-        private BasePrepUnit armedUnit;
         private readonly List<(string Team, int Grade, InputField Field, Color Ink)> prepSupplyFields = new List<(string, int, InputField, Color)>();
-        private readonly Dictionary<string, RectTransform> deployCards = new Dictionary<string, RectTransform>();
         private static string PrepText(string key, string fallback) => StoryText.Get("story.ui.prep." + key, fallback);
 
         internal void OpenBattlePreparation(BasePrepRoute route)
@@ -40,17 +38,17 @@ namespace BaseConquest.Base
 
         internal void ClearBattlePreparation()
         {
+            bool wasDeploying = owner.DeploymentWorldActive;
             owner.EndDeploymentWorld();
             ShowExplorationHudAfterDeployment();
+            if (wasDeploying) SetVisible(true);
             battleDraft = null;
             prepTeam = prepFeedback = "";
             prepKind = null;
             prepRosterScroll = 0;
             prepRoster = null;
             prepInventory = prepProduction = false;
-            armedUnit = null;
             prepSupplyFields.Clear();
-            deployCards.Clear();
         }
 
         internal void BattlePreparationPanelClosed()
@@ -77,11 +75,10 @@ namespace BaseConquest.Base
         {
             if (battleDraft == null) return;
             string message = owner.Message;
+            if (owner.DeploymentWorldActive) { owner.ResumeDeploymentWorld(message); return; }
             if (panelViewKey == SweepView) ShowBattlePreparation();
-            else if (panelViewKey != DeploymentView || !owner.DeploymentWorldActive) ShowBattleDeployment();
             prepFeedback = message;
-            if (panelViewKey == DeploymentView) RefreshDeploymentFields();
-            else RefreshPreparationFields();
+            if (panelViewKey == PreparationView) RefreshPreparationFields();
         }
 
         private void OpenBattlePreparationInventory()
@@ -149,9 +146,9 @@ namespace BaseConquest.Base
         private IEnumerable<BasePrepUnit> SelectedPrepSoldiers => PrepSoldiers.Where(unit => unit.Selected);
         private static string Number(double value) => value.ToString("0.#");
         private static string PrepCount(IEnumerable<BasePrepUnit> units, SoldierKind kind) => units.Count(unit => unit.Kind == kind).ToString();
-        private string PrepSummary(bool deployed)
+        private string PrepSummary()
         {
-            var units = battleDraft.Units.Where(unit => unit.Selected && (!deployed || battleDraft.Positions.ContainsKey(unit.Id))).ToArray();
+            var units = battleDraft.Units.Where(unit => unit.Selected).ToArray();
             return $"队长 {PrepCount(units, SoldierKind.Hero)} · 剑士 {PrepCount(units, SoldierKind.Melee)} · 弓兵 {PrepCount(units, SoldierKind.Ranged)} · 骑兵 {PrepCount(units, SoldierKind.Cavalry)}";
         }
 
@@ -160,6 +157,7 @@ namespace BaseConquest.Base
             if (battleDraft == null) return;
             owner.EndDeploymentWorld();
             ShowExplorationHudAfterDeployment();
+            SetVisible(true);
             bool travel = battleDraft.Route == BasePrepRoute.Travel;
             var state = PreparationState(battleDraft.Route);
             var view = OpenScenePanel("BattlePreparation", PreparationView);
@@ -199,7 +197,7 @@ namespace BaseConquest.Base
                     PrepButton(card, key + "/Plus", null, () => AdjustPrepTroops(team.Id, kind, true), team.Selected && SelectedPrepSoldiers.Count() < BaseMuster.BattleSoldierLimit && PrepSoldiers.Any(unit => unit.Kind == kind && !unit.Selected));
                 }
                 Ui<RectTransform>(card, "Supply").gameObject.SetActive(!travel);
-                if (!travel) BindPrepSupply(card, "Supply/", team.Id, false, team.Selected);
+                if (!travel) BindPrepSupply(card, team.Id, team.Selected);
             }
 
             PrepButton(view, "Candidates/All", prepKind == null ? "● 全部" : null, () => SetPrepFilter(prepTeam, null));
@@ -286,12 +284,12 @@ namespace BaseConquest.Base
 
         private static bool PrepLowHealth(BaseState state, BasePrepUnit soldier) => !BaseDevelopment.WarningOff(state) && soldier.MaxHealth > 0 && soldier.Health / soldier.MaxHealth < BaseDevelopment.WarningThreshold(state);
 
-        private void BindPrepSupply(Transform card, string prefix, string team, bool deployed, bool enabled = true)
+        private void BindPrepSupply(Transform card, string team, bool enabled)
         {
             for (int i = 0; i < 2; i++)
             {
                 int grade = i;
-                var field = Ui<InputField>(card, prefix + "Grade" + (i + 1) + "/Input");
+                var field = Ui<InputField>(card, "Supply/Grade" + (i + 1) + "/Input");
                 field.SetTextWithoutNotify(battleDraft.Supplies[team][grade].ToString(CultureInfo.InvariantCulture));
                 field.interactable = enabled;
                 prepSupplyFields.Add((team, grade, field, field.textComponent.color));
@@ -300,15 +298,15 @@ namespace BaseConquest.Base
                     if (battleDraft == null) return;
                     battleDraft.Supplies[team][grade] = int.TryParse(value, out int n) ? n : 0;
                     prepFeedback = "";
-                    if (deployed) RefreshDeploymentFields(); else RefreshPreparationFields();
+                    RefreshPreparationFields();
                 });
             }
         }
 
-        private void RefreshPrepSupplyInk(BaseState state, bool deployed)
+        private void RefreshPrepSupplyInk(BaseState state)
         {
             var teams = PrepLeaders.Where(unit => unit.Selected).Select(unit => unit.Id).ToArray();
-            var soldiers = SelectedPrepSoldiers.Where(unit => !deployed || battleDraft.Positions.ContainsKey(unit.Id)).ToLookup(unit => unit.TeamId);
+            var soldiers = SelectedPrepSoldiers.ToLookup(unit => unit.TeamId);
             var overstock = new bool[2];
             for (int grade = 0; grade < 2; grade++)
                 overstock[grade] = teams.Sum(team => Math.Max(0, battleDraft.Supplies[team][grade])) > battleDraft.AvailableSupply(state, grade + 1);
@@ -357,10 +355,10 @@ namespace BaseConquest.Base
                     BasePrepRoute.Second => PrepText("second_objective", "击败全部来敌。开战后无法撤退。"),
                     _ => PrepText("attack_objective", "使用已抵达的队伍攻占黑鸦寨。")
                 });
-                RefreshPrepSupplyInk(state, false);
+                RefreshPrepSupplyInk(state);
             }
             var (ally, enemy) = battleDraft.Power(state, false);
-            Ui<Text>(panel, "Ally/Value").text = (travel ? "我方出征" : "我方战力 " + Number(ally)) + "\n" + PrepSummary(false);
+            Ui<Text>(panel, "Ally/Value").text = (travel ? "我方出征" : "我方战力 " + Number(ally)) + "\n" + PrepSummary();
             Ui<Text>(panel, "Enemy/Value").text = travel ? PrepText("enemy_arrival", "敌方 · 抵达战场后查看") : enemy.HasValue
                 ? "敌方参考战力 " + Number(enemy.Value) + "\n" + PrepText("enemy_roster_unknown", "敌军编队待侦察")
                 : PrepText("enemy_unknown", "敌方 · 暂无已知情报");
@@ -392,62 +390,27 @@ namespace BaseConquest.Base
         {
             if (battleDraft?.Board == null) return;
             battleDraft.Prune();
-            try { owner.BeginDeploymentWorld(battleDraft); }
+            try
+            {
+                owner.BeginDeploymentWorld(battleDraft, ShowBattlePreparation, ExitBattleDeployment);
+                HideForBattleDeployment();
+            }
             catch (InvalidOperationException error)
             {
                 prepFeedback = error.Message;
                 ShowBattlePreparation();
-                return;
             }
-            var view = OpenScenePanel("BattleDeployment", DeploymentView);
-            var shade = modal.GetComponent<Image>();
-            shade.color = Color.clear;
-            shade.canvasRenderer.cullTransparentMesh = false;
-            HideExplorationHudForDeployment();
-            activeObject = "battle-deployment";
-            Ui<Text>(view, "Title").text = PrepTitle(battleDraft.Route) + " · " + PrepText("deployment", "部署");
-            PrepButton(view, "Close", null, ClosePanel);
-            PrepButton(view, "Back", null, ShowBattlePreparation);
-            PrepButton(view, "Auto", null, () => { battleDraft.AutoPlace(); armedUnit = null; prepFeedback = ""; RefreshDeploymentFields(); });
-            PrepButton(view, "Recall", null, () => { battleDraft.Positions.Clear(); armedUnit = NextDeploymentUnit(); prepFeedback = ""; RefreshDeploymentFields(); });
-            PrepButton(view, "Start", null, () => owner.BeginPreparedBattle(battleDraft));
-            var viewport = Ui<Image>(view, "Board");
-            viewport.raycastTarget = true;
-            viewport.canvasRenderer.cullTransparentMesh = false;
-            viewport.transform.SetAsFirstSibling();
-            viewport.gameObject.GetOrAdd<BattleDeploymentGrid>().Bind(owner, SelectDeploymentCell);
-            prepSupplyFields.Clear();
-            deployCards.Clear();
-            foreach (var team in PrepLeaders.Where(unit => unit.Selected))
-            {
-                var card = CloneSceneUi("BattleDeploymentTeam", Ui<RectTransform>(view, "Teams"));
-                deployCards.Add(team.Id, card);
-                PrepButton(card, "Captain", null, () =>
-                {
-                    if (battleDraft.Positions.ContainsKey(team.Id)) battleDraft.Recall(team.Id);
-                    armedUnit = team;
-                    prepFeedback = "";
-                    RefreshDeploymentFields();
-                });
-                foreach (var kind in BattleSimulation.TroopKinds)
-                    PrepButton(card, BaseCampaign.ToBase(kind).ToString(), null, () =>
-                    {
-                        armedUnit = NextDeploymentUnit(team.Id, kind);
-                        prepFeedback = "";
-                        RefreshDeploymentFields();
-                    });
-                BindPrepSupply(card, "", team.Id, true);
-            }
-            armedUnit = NextDeploymentUnit();
-            prepFeedback = "";
-            RefreshDeploymentFields();
         }
 
-        private void HideExplorationHudForDeployment()
+        internal void HideForBattleDeployment()
         {
             deploymentHudVisibility ??= new[] { summary.transform.parent, mapLabels, controls, inspection, trackedQuest?.transform.parent }
                 .Where(node => node != null).Select(node => (node.gameObject, node.gameObject.activeSelf)).ToArray();
             foreach (var item in deploymentHudVisibility) item.Node.SetActive(false);
+            ClearPanelSelection();
+            modal.gameObject.SetActive(false);
+            dialogueContinue = null;
+            SetVisible(false);
         }
 
         private void ShowExplorationHudAfterDeployment()
@@ -457,75 +420,10 @@ namespace BaseConquest.Base
             deploymentHudVisibility = null;
         }
 
-        private BasePrepUnit NextDeploymentUnit(string team = null, SoldierKind? kind = null)
+        private void ExitBattleDeployment()
         {
-            var missing = battleDraft.Units.Where(unit => unit.Selected && !battleDraft.Positions.ContainsKey(unit.Id)).ToArray();
-            if (team != null) return missing.FirstOrDefault(unit => unit.TeamId == team && (!kind.HasValue || unit.Kind == kind));
-            foreach (var leader in PrepLeaders.Where(unit => unit.Selected))
-            {
-                if (!battleDraft.Positions.ContainsKey(leader.Id)) return leader;
-                var soldier = missing.FirstOrDefault(unit => unit.TeamId == leader.Id);
-                if (soldier != null) return soldier;
-            }
-            return null;
-        }
-
-        private void SelectDeploymentCell(GridPosition cell, bool recall, bool dragging)
-        {
-            if (battleDraft == null) return;
-            var occupant = battleDraft.Positions.FirstOrDefault(pair => pair.Value == cell).Key;
-            if (occupant != null)
-            {
-                if (dragging) return;
-                battleDraft.Recall(occupant);
-                armedUnit = battleDraft.Units.FirstOrDefault(unit => unit.Id == occupant);
-                prepFeedback = "";
-            }
-            else if (!recall && armedUnit != null)
-            {
-                if (battleDraft.Place(armedUnit.Id, cell))
-                {
-                    var placed = armedUnit;
-                    armedUnit = NextDeploymentUnit(placed.TeamId, placed.Kind) ?? NextDeploymentUnit(placed.TeamId) ?? NextDeploymentUnit();
-                    prepFeedback = "";
-                }
-                else prepFeedback = PrepText("illegal_cell", "这里无法放置该单位，请选择己方部署区内的可用格。");
-            }
-            RefreshDeploymentFields();
-        }
-
-        private void RefreshDeploymentFields()
-        {
-            var state = owner.State;
-            var problem = battleDraft.Problem(state, true);
-            var context = Ui<Text>(panel, "Context");
-            string help = PrepText("deployment_help", "点选或拖划浅色格部署。点击已部署单位可撤回。");
-            context.text = (armedUnit == null ? "" : PrepText("placing", "放置中") + " · " + armedUnit.Name + "    |    ") + help + "    |    " + PrepSupplyStock(state);
-            foreach (var pair in deployCards)
-            {
-                var team = PrepLeaders.Single(unit => unit.Id == pair.Key);
-                var card = pair.Value;
-                bool placed = battleDraft.Positions.ContainsKey(team.Id);
-                Ui<Text>(card, "Captain/Label").text = (armedUnit == team ? "● " : "") + team.Name + (placed ? " · " + PrepText("recall_captain", "撤回分队") : " · " + PrepText("captain", "部署队长"));
-                int totalPlaced = 0;
-                foreach (var kind in BattleSimulation.TroopKinds)
-                {
-                    string key = BaseCampaign.ToBase(kind).ToString();
-                    var group = SelectedPrepSoldiers.Where(unit => unit.TeamId == team.Id && unit.Kind == kind).ToArray();
-                    int count = group.Count(unit => battleDraft.Positions.ContainsKey(unit.Id));
-                    totalPlaced += count;
-                    bool active = armedUnit?.TeamId == team.Id && armedUnit.Kind == kind;
-                    Ui<Text>(card, key + "/Label").text = (active ? "● " : "") + BattleSimulation.KindName(kind) + " " + count + "/" + group.Length;
-                    Ui<Button>(card, key).interactable = placed && count < group.Length;
-                }
-                Ui<Text>(card, "Placed").text = $"已布兵 {totalPlaced}";
-            }
-            RefreshPrepSupplyInk(state, true);
-            owner.RefreshDeploymentUnits();
-            Ui<Button>(panel, "Start").interactable = problem == "";
-            var feedback = Ui<Text>(panel, "Feedback");
-            feedback.text = !string.IsNullOrEmpty(prepFeedback) ? prepFeedback : problem != "" ? problem : PrepSummary(true);
-            feedback.color = problem != "" || !string.IsNullOrEmpty(prepFeedback) ? new Color32(253, 179, 153, 255) : DemoUiTheme.Current.Panel;
+            SetVisible(true);
+            ClosePanel();
         }
 
         private void ShowPreparedSweep()

@@ -54,7 +54,8 @@ namespace BaseConquest.Base
             var candidates = new[] { new BasePoint(x, barracks.Y - barracks.Height / 2 - Radius - 0.05), new BasePoint(x, barracks.Y + barracks.Height / 2 + Radius + 0.05), new BasePoint(barracks.X - barracks.Width / 2 - Radius - 0.05, y), new BasePoint(barracks.X + barracks.Width / 2 + Radius + 0.05, y) };
             var nearest = candidates.Where(p => Walkable(p.X, p.Y)).OrderBy(p => p.Distance(original)).First(); x = nearest.X; y = nearest.Y; return true;
         }
-        private static bool Blocks(BaseMapObject obj, double x, double y) => obj.Blocks && obj.Contains(x,y,Radius);
+        internal static bool Blocks(BaseMapObject obj, double x, double y) =>
+            BaseSceneRules.BlocksEntrance(obj, x, y) || obj.Blocks && obj.Contains(x, y, Radius);
         public static void Move(ref double x, ref double y, double dx, double dy, IEnumerable<BaseMapObject> occupants = null, bool useBaseBuildings = true, Func<double, double, bool> terrain = null,double width=Width,double height=Height)
         {
             int steps = Math.Max(1, (int)Math.Ceiling(Math.Max(Math.Abs(dx), Math.Abs(dy)) / 0.1));

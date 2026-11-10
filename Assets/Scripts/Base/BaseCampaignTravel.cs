@@ -12,17 +12,33 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseSceneController
     {
-        public void BeginSceneEncounter(BaseCampaignSession encounter,Action<BaseConquest.Battle.RealtimeCampaignBattle> configure,Action<double> advance,Func<BaseConquest.Battle.RealtimeCampaignBattle,bool,bool,bool> finish,string objective)
+        public void BeginSceneEncounter(BaseCampaignSession encounter,Action<BaseConquest.Battle.RealtimeCampaignBattle> configure,Action<double> advance,Func<BaseConquest.Battle.RealtimeCampaignBattle,bool,bool,bool> finish,string objective,BaseBattlePreparation prepared=null)
         {
             if(State==null||combatController!=null||State.SceneBattleId!=encounter.Opening.Id&&!(State.Campaign.HasActiveBattle&&State.Campaign.ActiveBattle.Id==encounter.Opening.Id)||encounter.Opening.MapRegion!=State.Campaign.Location)throw new InvalidOperationException("同图遭遇身份、地图或交战状态不一致");
             BattleScenePlacement.Start(State,encounter);
             if(BaseSceneRules.Active(State))BattleScenePlacement.Snap(State.Copy(),new RealtimeCampaignBattle(encounter));
             MapSession.PrepareCombat(State,encounter.Battle.Board);MapSession.EnterBattle(encounter.Battle);
+            bool reuseDeployment = prepared != null && deploymentDraft == prepared && DeploymentWorldActive;
+            if (reuseDeployment) combatController = TakeDeploymentController();
             Hud.ClosePanel();Hud.SetVisible(false);HideSceneParticipants(encounter);
+            void Configure(RealtimeCampaignBattle run)
+            {
+                BattleScenePlacement.Snap(State, run);
+                if (BaseSceneRules.Active(State)) run.Battle.Vision.RememberTerrain(BattleSide.A, BaseSceneRules.Memory(State).Known);
+                configure?.Invoke(run);
+                run.RefreshDeveloperState();
+            }
+            if (reuseDeployment)
+            {
+                combatController.UseCurrentMap(regionView, MapSession);
+                combatController.ActivateDeploymentEncounter(encounter, Configure, advance, finish, objective);
+                combatController.ExternalDialogue = false;
+                return;
+            }
             if(encounter.Opening.Id==BaseDemoIntro.BattleId)foreach(var prop in runtimeRoot.GetComponentsInChildren<BaseConquest.Presentation.AuthoredMapView>(true))if(prop.name.StartsWith(BaseDemoIntro.DummyId+" ·"))prop.gameObject.SetActive(false);
             var host=new GameObject("BattleOnCurrentMap");host.SetActive(false);host.transform.SetParent(transform,false);
             combatController=host.AddComponent<BattleSceneController>();combatController.UseCurrentMap(regionView,MapSession);
-            combatController.ConfigureSceneEncounter(encounter,run=>{BattleScenePlacement.Snap(State,run);if(BaseSceneRules.Active(State))run.Battle.Vision.RememberTerrain(BattleSide.A,BaseSceneRules.Memory(State).Known);configure?.Invoke(run);run.RefreshDeveloperState();},advance,finish,objective);host.SetActive(true);
+            combatController.ConfigureSceneEncounter(encounter,Configure,advance,finish,objective);host.SetActive(true);
         }
         private string pendingDesignExit;
         public BaseState DepartureState(string location)

@@ -139,6 +139,17 @@ namespace BaseConquest.Battle
         public Material WaterMaterial => waterMaterial;
         public Material WallMaterial => wallMaterial;
         private readonly BattleBoard board;
+        private BattleBoard draftDeploymentZones;
+        private bool showDraftDeploymentZones;
+        internal void SetDraftDeploymentZones(BattleBoard draft, bool show = false)
+        {
+            if (draftDeploymentZones == draft && showDraftDeploymentZones == show) return;
+            draftDeploymentZones = draft;
+            showDraftDeploymentZones = show;
+            foreach (Transform child in Root.transform)
+                if (child.name.StartsWith("ExitMarker_")) child.gameObject.SetActive(draft == null && CombatMode);
+            Refresh();
+        }
         private readonly Dictionary<int,BoardCell> appearanceCells=new Dictionary<int,BoardCell>();
         public BoardCell DisplayCell(GridPosition point)=>appearanceCells.TryGetValue(point.Z*board.Width+point.X,out var cell)?cell:board.Cell(point);
         public void SetCombatAppearance(BattleBoard original)
@@ -153,6 +164,7 @@ namespace BaseConquest.Battle
         public void SetCombatMode(bool combat,bool preserveView=false)
         {
             if(combat&&!CombatMode&&!preserveView){zoomFactor=1;panOffset=Vector3.zero;}
+            if (!combat) { draftDeploymentZones = null; showDraftDeploymentZones = false; }
             fieldworkArt?.SetKnown(null);
             CombatMode=combat; SelectCell(null); Refresh();
             foreach(var edge in Root.GetComponentsInChildren<BaseConquest.Presentation.EnvironmentRoadEdges>(true)){edge.SetRaised(ObliqueExploration);edge.SetKnown(null);}
@@ -366,8 +378,11 @@ namespace BaseConquest.Battle
                 Vector3 position = World(p, board); float height = 0.18f;
                 Color color = (p.X + p.Z) % 2 == 0 ? new Color(0.19f, 0.24f, 0.3f) : new Color(0.23f, 0.29f, 0.35f);
                 color = new Color(.34f,.43f,.30f);
-                if (CombatMode && cell.Zone == DeploymentZone.A) color = new Color(.17f,.4f,.59f);
-                if (CombatMode && cell.Zone == DeploymentZone.B) color = new Color(.58f,.32f,.17f);
+                var zone = draftDeploymentZones == null ? cell.Zone : showDraftDeploymentZones && draftDeploymentZones.Cell(p)?.Zone == DeploymentZone.A
+                    ? DeploymentZone.A : DeploymentZone.None;
+                bool draftAlly = draftDeploymentZones != null && zone == DeploymentZone.A && draftDeploymentZones.Walkable(p);
+                if (CombatMode && zone == DeploymentZone.A && !draftAlly) color = new Color(.17f,.4f,.59f);
+                if (CombatMode && zone == DeploymentZone.B) color = new Color(.58f,.32f,.17f);
                 position.y = -0.1f;
                 tile.sharedMaterials = new[] {groundMaterial};
                 tile.sortingOrder=0;
@@ -377,8 +392,8 @@ namespace BaseConquest.Battle
                     if(surface!=GroundSurface.Default)
                     {
                         if(!surfaceMaterials.TryGetValue(surface,out var skin)){var texture=(homeTerrainTrial?BaseConquest.Presentation.HomeTerrainTrial.Texture(surface):null)??BaseConquest.Presentation.MapSurfaceView.Texture(surface);if(texture!=null)surfaceMaterials[surface]=skin=MakeMaterial(groundMaterial,texture,"Ground_"+surface);}
-                        if(skin!=null){var groundSkin=ObliqueExploration&&surface==GroundSurface.Grass&&baseGrassMaterial!=null ? baseGrassMaterial : skin;tile.sharedMaterial=surface==GroundSurface.Grass?GrassVariant(groundSkin,p.X,p.Z):groundSkin;if(!CombatMode||cell.Zone==DeploymentZone.None)color=Color.white;}
-                        if(homeTerrainTrial&&(!CombatMode||cell.Zone==DeploymentZone.None)&&(surface==GroundSurface.Grass||surface==GroundSurface.Road||surface==GroundSurface.DirtPath))color*=Mathf.Lerp(.94f,1.02f,Mathf.PerlinNoise(p.X*.12f,p.Z*.12f));
+                        if(skin!=null){var groundSkin=ObliqueExploration&&surface==GroundSurface.Grass&&baseGrassMaterial!=null ? baseGrassMaterial : skin;tile.sharedMaterial=surface==GroundSurface.Grass?GrassVariant(groundSkin,p.X,p.Z):groundSkin;if(!CombatMode||zone==DeploymentZone.None)color=Color.white;}
+                        if(homeTerrainTrial&&(!CombatMode||zone==DeploymentZone.None)&&(surface==GroundSurface.Grass||surface==GroundSurface.Road||surface==GroundSurface.DirtPath))color*=Mathf.Lerp(.94f,1.02f,Mathf.PerlinNoise(p.X*.12f,p.Z*.12f));
                     }
                 }
                 tile.GetComponent<MeshFilter>().sharedMesh=cubeMesh;
@@ -469,6 +484,7 @@ namespace BaseConquest.Battle
                         if(wallCaps[index]!=null)foreach(var cap in wallCaps[index].GetComponentsInChildren<Renderer>()){cap.sharedMaterial=skin;cap.sortingOrder=tile.sortingOrder+1;var tint=new MaterialPropertyBlock();tint.SetColor("_BaseColor",new Color(1,.94f,.77f));cap.SetPropertyBlock(tint);}
                     }
                 }
+                if (CombatMode && draftAlly) color = Color.Lerp(color, new Color(.24f, .84f, 1f), .72f);
                 properties.SetColor("_BaseColor", color); tile.SetPropertyBlock(properties);
                 tileColors[index] = color;
             }
@@ -646,8 +662,13 @@ namespace BaseConquest.Battle
             for (int i = 0; i < 2; i++)
             {
                 var cell = i == 0 ? exitA??new GridPosition(0, board.Height - 1) : exitB??new GridPosition(board.Width - 1, 0);
-                var marker = new GameObject("ExitMarker_" + (i == 0 ? "A" : "B")); marker.transform.SetParent(Root.transform, false); marker.transform.position = World(cell, board) + new Vector3(0, 0.5f, -0.34f); marker.transform.rotation = Quaternion.Euler(90, 0, 0);
-                var text = marker.AddComponent<TextMesh>(); text.text = i == 0 ? "甲方撤离" : "乙方撤离"; text.fontSize = 36; text.characterSize = 0.08f; text.anchor = TextAnchor.MiddleCenter; text.color = new Color(0.65f, 1, 0.75f);
+                string name = "ExitMarker_" + (i == 0 ? "A" : "B");
+                var existing = Root.transform.Find(name);
+                var marker = existing != null ? existing.gameObject : new GameObject(name);
+                marker.transform.SetParent(Root.transform, false); marker.transform.position = World(cell, board) + new Vector3(0, 0.5f, -0.34f); marker.transform.rotation = Quaternion.Euler(90, 0, 0);
+                var text = marker.GetComponent<TextMesh>();
+                if (text == null) text = marker.AddComponent<TextMesh>();
+                text.text = i == 0 ? "甲方撤离" : "乙方撤离"; text.fontSize = 36; text.characterSize = 0.08f; text.anchor = TextAnchor.MiddleCenter; text.color = new Color(0.65f, 1, 0.75f);
                 if (font != null) { text.font = font; marker.GetComponent<Renderer>().sharedMaterial = font.material; }
             }
         }

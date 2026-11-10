@@ -56,6 +56,7 @@ namespace BaseConquest.Battle
         public bool PortraitSelectionDragging => cardDragging;
         public void BeginPortraitSelection(int slot, Vector2 point)
         {
+            if (DeploymentDraftActive) return;
             if (DetailsVisible || skipping) return;
             cardGesture = true; cardDragging = false; cardStartSlot = slot; cardStartPoint = cardLastPoint = point; cardVisited.Clear();
             var leader = battle.Commander(selectedSide, slot); cardAdd = leader == null || !selection.Contains(leader.Id); PortraitPressStarted(slot);
@@ -196,6 +197,7 @@ namespace BaseConquest.Battle
         }
         public void ClickCommanderPortrait(int slot)
         {
+            if (DeploymentDraftActive) { SelectDraftCommander(slot); return; }
             if(realtime!=null){var commander=battle.Commander(BattleSide.A,slot);if(commander!=null)SelectRealtimeCommander(commander.Id,false);return;}
             if (suppressPortraitClick) { suppressPortraitClick = false; return; }
             if (slot < 0 || slot >= battle.Scenario.Army(selectedSide).HeroCount || skipping) return;
@@ -357,6 +359,12 @@ namespace BaseConquest.Battle
         public GridPosition? ContextCell => menuPoint;
         public void RightPointerDown(Vector2 point)
         {
+            if (DeploymentDraftActive)
+            {
+                CancelGesture();
+                if (!IsUiPoint(point) && ResolvePointer(point, out var draftCell)) TryDraftDeploymentCell(draftCell, true);
+                return;
+            }
             if (battle.ModernRules) { CancelGesture(); OpenCellContext(point); return; }
             if (IsUiPoint(point) || !ResolvePointer(point, out var cell) || !HasSelection || battle.Phase != BattlePhase.Fighting || animating || skipping) return;
             ManualPause(); menuPoint = cell; hud?.ShowMenu(point);
