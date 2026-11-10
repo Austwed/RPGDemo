@@ -92,7 +92,7 @@ namespace BaseConquest.Battle
 
         private void CreateFormalTroops(RectTransform module, int slot)
         {
-            var row = Rect("DraftTroops", module, Vector2.zero, new Vector2(0, 134), new Vector2(92, 42));
+            var row = Rect("DraftTroops", module, Vector2.zero, new Vector2(0, 134), new Vector2(92, 146));
             formalTroopRows[slot] = row;
             formalTroopToggles[slot] = Button("TroopToggle", module, Vector2.one, new Vector2(-2, -2), new Vector2(25, 24), () =>
             {
@@ -102,12 +102,13 @@ namespace BaseConquest.Battle
             for (int i = 0; i < BattleSimulation.TroopKinds.Length; i++)
             {
                 var kind = BattleSimulation.TroopKinds[i];
-                var button = Button("Deploy_" + kind, row, Vector2.zero, new Vector2(i * 31, 0), new Vector2(29, 42),
+                var button = Button("Deploy_" + kind, row, Vector2.zero, new Vector2(0, (2 - i) * 50), new Vector2(92, 46),
                     () => owner.SelectDraftTroop(slot, kind));
                 var count = button.GetComponentInChildren<Text>();
-                count.alignment = TextAnchor.LowerCenter;
-                count.rectTransform.offsetMin = new Vector2(0, 1);
-                var icon = Rect("TroopIcon", button.transform, new Vector2(.5f, 1), new Vector2(0, -1), new Vector2(17, 17));
+                count.alignment = TextAnchor.MiddleRight;
+                count.rectTransform.offsetMin = new Vector2(42, 0);
+                count.rectTransform.offsetMax = new Vector2(-12, 0);
+                var icon = Rect("TroopIcon", button.transform, new Vector2(0, .5f), new Vector2(8, 0), new Vector2(28, 28));
                 icon.gameObject.SetActive(true);
                 var art = icon.gameObject.GetOrAdd<BattleAvatarGraphic>();
                 art.Kind = kind;

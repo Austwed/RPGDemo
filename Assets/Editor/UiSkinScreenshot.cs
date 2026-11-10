@@ -366,16 +366,21 @@ namespace BaseConquest.Editor
                     if (!summary.gameObject.activeInHierarchy) throw new InvalidOperationException("战况不能重新展开");
                     var firstTroopRow = draftArea.Find("CommanderSlot0/DraftTroops");
                     var secondTroopRow = draftArea.Find("CommanderSlot1/DraftTroops");
+                    Canvas.ForceUpdateCanvases();
+                    var cards = firstTroopRow.GetComponentsInChildren<Button>().Select(b => (RectTransform)b.transform).ToArray();
+                    float portraitWidth = ((RectTransform)draftArea.Find("CommanderSlot0/CommanderPortrait_0")).rect.width;
                     if (draftArea.Find("ControlledArmy").gameObject.activeInHierarchy ||
-                        firstTroopRow.GetComponentsInChildren<Button>().Length != 3)
-                        throw new InvalidOperationException("兵种数量未移到各队长头像上方");
+                        cards.Length != 3 || cards.Any(card => card.rect.width < portraitWidth - .01f || card.rect.height < 44) ||
+                        cards[0].anchoredPosition.y <= cards[1].anchoredPosition.y + cards[1].rect.height ||
+                        cards[1].anchoredPosition.y <= cards[2].anchoredPosition.y + cards[2].rect.height)
+                        throw new InvalidOperationException("兵种卡未按头像全宽竖向排列");
                     Press(draftArea, "CommanderSlot0/TroopToggle");
                     if (firstTroopRow.gameObject.activeInHierarchy || !secondTroopRow.gameObject.activeInHierarchy)
                         throw new InvalidOperationException("兵种卡未按队独立收起");
                     Press(draftArea, "CommanderSlot0/TroopToggle");
                     if (!firstTroopRow.gameObject.activeInHierarchy)
                         throw new InvalidOperationException("兵种卡未重新展开");
-                    Log.Add("[PASS] 战况统一进横幅，三张兵种卡可按队独立折叠");
+                    Log.Add("[PASS] 战况统一进横幅，三张全宽兵种卡竖排且可按队独立折叠");
                     VerifyContinuousDeployment(deploy);
                     Press(draftArea, "PreparationControls/一键清场");
                     if (deploy.PreviewSimulation.Soldiers.Any(s => s.Side == BattleSide.A))
