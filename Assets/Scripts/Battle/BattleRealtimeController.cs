@@ -40,7 +40,7 @@ namespace BaseConquest.Battle
             feedback="即时战斗已暂停：点选细格查看；选队长后单击移动／攻击，双击空地驻守／敌人集火；空格继续。";
             if(realtime.Tactics.Objects.Count>0)feedback+=" 点击枯树可攻击倒障；点击巨石可沿攻击方向推动，双方均可能受伤。";
             var chosen=realtime.Model.Units.Where(u=>u.Alive&&u.Side==PrototypeSide.Ally&&u.Role==PrototypeRole.Leader&&u.Strategy==PrototypeStrategy.Obey).OrderByDescending(u=>u.Player).ThenBy(u=>u.Squad).FirstOrDefault();
-            if(chosen!=null){selection.Set(new[]{chosen.Id-1});selectedUnitId=chosen.Id-1;deploymentCommanderSlot=chosen.Squad;deploymentSlotChosen=true;}
+            if(chosen!=null&&!manualFieldEncounter){selection.Set(new[]{chosen.Id-1});selectedUnitId=chosen.Id-1;deploymentCommanderSlot=chosen.Squad;deploymentSlotChosen=true;}
             SyncRealtimeViews();
         }
         private bool RealtimeOrder(PrototypeOrder order,PrototypePoint point,int target=-1,bool squadFocus=false)
@@ -67,9 +67,22 @@ namespace BaseConquest.Battle
             if(realtime==null||battle.Phase!=BattlePhase.Fighting)return;
             realtime.TutorialAction?.Invoke(BaseDemoIntro.Pause);autoRun=!autoRun;realtime.Model.SetPaused(!autoRun);feedback=autoRun?"即时战斗进行中":"已暂停，可以下令";hud?.Refresh();
         }
-        private void SelectRealtimeCommander(int id,bool alone)
+        private void SelectRealtimeCommander(int id,bool alone,bool toggle = false)
         {
             var commander=battle.Soldier(id);if(commander?.Kind!=SoldierKind.Hero||!commander.IsActive||commander.Side!=BattleSide.A)return;
+            if (manualFieldEncounter && toggle)
+            {
+                lastRealtimeTap = int.MinValue;
+                lastRealtimeGround = false;
+                if (selection.Contains(id))
+                {
+                    selection.ToggleUnit(id, true);
+                    deploymentSlotChosen = HasSelection;
+                    if (!informationIsCell) informationUnitId = selection.Primary;
+                    feedback = HasSelection ? "已取消该队长的选择。" : "点击格子查看战况。点击头像或按 1–3 选择指挥队长。";
+                    SyncRealtimeViews(); hud?.Refresh(); return;
+                }
+            }
             realtime.TutorialAction?.Invoke(BaseDemoIntro.Select);selection.Set(new[]{id});selectedUnitId=informationUnitId=id;realtimeSingleCommander=alone;
             deploymentCommanderSlot=commander.OriginCommanderSlot;deploymentSlotChosen=true;informationIsCell=inspectionTracksUnit=false;informationCell=null;boardView.SelectCell(null);ShowInformationNotice();
             informationFineCell=-1;feedback="指挥队长：单击移动／攻击，双击驻守／队伍集火；士兵按策略护卫";SyncRealtimeViews();hud?.Refresh();
@@ -85,6 +98,13 @@ namespace BaseConquest.Battle
             if(!plane.Raycast(ray,out float distance))return false;
             var world=ray.GetPoint(distance);var point=new PrototypePoint(world.x/BattleBoardView.CellSize+battle.Board.Width*.5,world.z/BattleBoardView.CellSize+battle.Board.Height*.5);
             int fine=realtime.Model.Arena.CellAt(point);if(fine<0)return false;
+            if (manualFieldEncounter && !HasSelection)
+            {
+                InspectRealtimeFine(point);
+                feedback = "查看格内可见单位与地形。";
+                hud?.Refresh();
+                return true;
+            }
             var nearby=realtime.Model.Units.Where(a=>!a.Escaped&&(a.Alive||a.KnockedDown)).Select(a=>new {Actor=a,Unit=battle.Soldier(a.Id-1),Screen=(Vector2)boardView.Camera.WorldToScreenPoint(RealtimeWorld(a.BodyCenter)+boardView.Camera.transform.up*.55f)}).Where(a=>battle.CanInspectUnit(selectedSide,a.Unit)).Select(a=>new{a.Unit,Distance=Vector2.Distance(screen,a.Screen)}).Where(a=>a.Distance<=26).OrderBy(a=>a.Distance).ToArray();
             var picked=realtimeCandidate>=0?battle.Soldier(realtimeCandidate):nearby.FirstOrDefault()?.Unit??RealtimeFineUnits(fine).OrderBy(u=>u.IsActive?0:1).FirstOrDefault();
             if(realtimeCandidate<0&&!secondary&&nearby.Length>1&&nearby[1].Distance-nearby[0].Distance<8){hud.ShowRealtimeCandidates(screen,nearby.Select(a=>a.Unit).ToList(),unit=>{hud.CloseMenu();realtimeCandidate=unit.Id;RealtimePointer(screen,secondary,single);});return true;}

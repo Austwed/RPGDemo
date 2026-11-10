@@ -12,7 +12,7 @@ using UnityEngine.UI;
 
 namespace BaseConquest.Battle
 {
-    public sealed class BattleMobileHud
+    public sealed partial class BattleMobileHud
     {
         public readonly GameObject Root;
         public readonly Canvas Canvas;
@@ -27,10 +27,6 @@ namespace BaseConquest.Battle
         private readonly Button realtimeGuard,realtimeRetreat;
         private readonly BattleResultPanel battleResult;
         private readonly RectTransform preparationPanel, fightingPanel, resultPanel;
-        private readonly RectTransform draftSupplies;
-        private readonly Text draftSupplyHeading, draftSupplyMessage;
-        private readonly Text[] draftSupplyLabels = new Text[2];
-        private readonly Button[] draftSupplyMinus = new Button[2], draftSupplyPlus = new Button[2];
         private readonly Text[] troopStatus = new Text[3];
         private readonly RectTransform cellMenu, cellMenuContent;
         private readonly Text cellMenuTitle;
@@ -60,6 +56,7 @@ namespace BaseConquest.Battle
         private readonly Image objectiveBarFill;
         private readonly RectTransform objectiveBar;
         private readonly Image objectivePanel;
+        private readonly RectTransform objectivePanelRect;
         private readonly Vector2 drawerPosition, detailsSize, effectsSize, fightingSize, objectiveFillSize, cellMenuOffset;
         private readonly float cellMenuWidth;
         private readonly Vector2[] portraitPositions = new Vector2[3];
@@ -78,10 +75,12 @@ namespace BaseConquest.Battle
             Canvas = Root.GetComponent<Canvas>(); Canvas.renderMode = RenderMode.ScreenSpaceOverlay; Canvas.sortingOrder = 50;
             Root.GetComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             safe = Rect("SafeArea", Root.transform, Vector2.zero, Vector2.zero, Vector2.zero); safe.anchorMax = Vector2.one; safe.offsetMin = safe.offsetMax = Vector2.zero;
+            CreateFormalBanner();
             var map = Box("Minimap", safe, new Vector2(0, 1), new Vector2(10, -10), new Vector2(66, 48)); realtimeMinimap=map;Label("小地图\n占位", map, 12);if(owner.IsSceneEncounter)map.gameObject.SetActive(false);
             drawer = Button("测试", safe, new Vector2(0, 1), new Vector2(82, -10), new Vector2(66, 44), owner.ToggleDrawer);
             switchSide = Button("切换阵营", safe, new Vector2(0, 1), new Vector2(154, -10), new Vector2(90, 44), owner.SwitchSide);
             var objective = Box("Objective", safe, new Vector2(0.5f, 1), new Vector2(0, -10), new Vector2(210, 44)); objective.name = "Objective";
+            objectivePanelRect = objective;
             objectivePanel = objective.GetComponent<Image>();
             objectiveTitle = Label("", objective, 11); objectiveTitle.name = "ObjectiveTitle"; objectiveTitle.alignment = TextAnchor.MiddleCenter; objectiveTitle.rectTransform.offsetMin = new Vector2(6, 27); objectiveTitle.rectTransform.offsetMax = new Vector2(-6, -2);
             objectiveBar = Rect("ObjectiveBar", objective, new Vector2(0, 1), new Vector2(8, -20), new Vector2(194, 4)); objectiveBar.gameObject.GetOrAdd<Image>().color = new Color(1, 1, 1, 0.18f);
@@ -127,22 +126,6 @@ namespace BaseConquest.Battle
             var infoContent = Rect("InformationContent", infoViewport, new Vector2(0, 1), Vector2.zero, Vector2.zero); infoContent.anchorMin = new Vector2(0, 1); infoContent.anchorMax = Vector2.one; infoContent.pivot = new Vector2(0, 1);
             information = Label("点击格查看全部单位信息", infoContent, 12); information.alignment = TextAnchor.UpperLeft; information.verticalOverflow = VerticalWrapMode.Overflow;
             informationScroll = infoPanel.gameObject.GetOrAdd<ScrollRect>(); informationScroll.viewport = infoViewport; informationScroll.content = infoContent; informationScroll.horizontal = false; informationScroll.movementType = ScrollRect.MovementType.Clamped;
-            draftSupplies = Rect("DraftSupplies", infoPanel, Vector2.zero, Vector2.zero, Vector2.zero);
-            draftSupplies.anchorMax = Vector2.one; draftSupplies.offsetMin = draftSupplies.offsetMax = Vector2.zero;
-            draftSupplyHeading = Label("", Rect("Heading", draftSupplies, new Vector2(0, 1), new Vector2(8, -8), new Vector2(192, 26)), 14);
-            for (int grade = 0; grade < 2; grade++)
-            {
-                int index = grade;
-                var supplyRow = Rect("Grade_" + grade, draftSupplies, new Vector2(0, 1), new Vector2(8, -42 - grade * 43), new Vector2(192, 36));
-                draftSupplyLabels[grade] = Label("", Rect("Name", supplyRow, Vector2.zero, Vector2.zero, new Vector2(104, 36)), 13);
-                draftSupplyLabels[grade].alignment = TextAnchor.MiddleLeft;
-                draftSupplyMinus[grade] = Button("Minus", supplyRow, Vector2.zero, new Vector2(108, 0), new Vector2(36, 36), () => owner.ChangeDraftSupply(index, -1));
-                draftSupplyPlus[grade] = Button("Plus", supplyRow, Vector2.zero, new Vector2(151, 0), new Vector2(36, 36), () => owner.ChangeDraftSupply(index, 1));
-                draftSupplyMinus[grade].GetComponentInChildren<Text>().text = "−";
-                draftSupplyPlus[grade].GetComponentInChildren<Text>().text = "＋";
-            }
-            draftSupplyMessage = Label("", Rect("Validation", draftSupplies, new Vector2(0, 1), new Vector2(8, -128), new Vector2(192, 56)), 13);
-            draftSupplies.gameObject.SetActive(false);
             logPanel = Box("BattleLogPanel", safe, new Vector2(1, 1), new Vector2(-12, -290), new Vector2(212, 150));
             var logTitle = Label("战斗日志", logPanel, 13); logTitle.rectTransform.anchorMin = new Vector2(0, 0.91f);
             var viewport = Rect("LogViewport", logPanel, Vector2.zero, Vector2.zero, Vector2.zero); viewport.anchorMax = Vector2.one; viewport.offsetMin = new Vector2(8, 6); viewport.offsetMax = new Vector2(-8, -26); viewport.gameObject.GetOrAdd<RectMask2D>();
@@ -154,6 +137,7 @@ namespace BaseConquest.Battle
             {
                 int slot = i; var module = Rect("CommanderSlot" + i, safe, Vector2.zero, new Vector2(10 + i * 100, 44), new Vector2(92, 130));
                 portraits[i] = Button("", module, Vector2.zero, new Vector2(0, 44), new Vector2(92, 86), () => owner.ClickCommanderPortrait(slot)); portraits[i].name = "CommanderPortrait_" + i;
+                CreateFormalTroops(module, slot);
                 var press = portraits[i].gameObject.GetOrAdd<BattlePortraitPress>(); press.Owner = owner; press.Slot = i;
                 portraitGraphics[i] = Rect("CommanderIcon", portraits[i].transform, new Vector2(0.5f, 0.7f), Vector2.zero, new Vector2(38, 38)); var avatar = portraitGraphics[i].gameObject.GetOrAdd<BattleAvatarGraphic>(); avatar.color = Color.white; avatar.raycastTarget = false;
                 portraitLabels[i] = Label("", portraits[i].transform, 11); portraitLabels[i].rectTransform.anchorMax = new Vector2(1, 0.43f);
@@ -199,6 +183,7 @@ namespace BaseConquest.Battle
             battleResult = new BattleResultPanel(safe, font, owner); hits.Add(battleResult.Blocker);
             reportButton = Button("查看战报", resultPanel, Vector2.zero, new Vector2(8, 8), new Vector2(136,44), () => { battleResult.Open(); Refresh(); });
             UiPrefabBinding.Complete(Root);
+            if (owner.FormalFieldHud) ApplyFormalLayout(sceneShell != null && sceneShell.transform.Find("SafeArea/FormalBanner") != null);
             drawerPosition = ((RectTransform)drawer.transform).anchoredPosition;
             detailsSize = details.sizeDelta;
             effectsSize = detailEffectsPanel.sizeDelta;
@@ -213,7 +198,7 @@ namespace BaseConquest.Battle
                 portraitPositions[i] = ((RectTransform)portraits[i].transform).anchoredPosition;
                 portraitRotations[i] = portraitGraphics[i].localRotation;
             }
-            foreach (var button in new[] { automatic, fast }.Concat(cards).Concat(portraits).Concat(strategyButtons))
+            foreach (var button in new[] { automatic, fast }.Concat(cards).Concat(portraits).Concat(strategyButtons).Concat(formalTroops.Cast<Button>()))
             {
                 var image = button.GetComponent<Image>();
                 var text = button.GetComponentInChildren<Text>(true);
@@ -229,9 +214,9 @@ namespace BaseConquest.Battle
         {
             var r = Rect(name, parent, anchor, pos, size); r.gameObject.GetOrAdd<Image>().color = DemoUiTheme.Current.Panel; hits.Add(r); return r;
         }
-        private Text Label(string value, Transform parent, int size)
+        private Text Label(string value, Transform parent, int size, string name = "Label")
         {
-            var r = Rect("Label", parent, Vector2.zero, Vector2.zero, Vector2.zero); r.anchorMax = Vector2.one; r.offsetMin = r.offsetMax = Vector2.zero;
+            var r = Rect(name, parent, Vector2.zero, Vector2.zero, Vector2.zero); r.anchorMax = Vector2.one; r.offsetMin = r.offsetMax = Vector2.zero;
             var t = r.gameObject.GetOrAdd<Text>(); t.font = font; t.fontSize = size; t.text = value; t.color = DemoUiTheme.Current.Ink; t.alignment = TextAnchor.MiddleCenter; t.raycastTarget = false; return t;
         }
         private Button Button(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size, Action action)
@@ -325,13 +310,12 @@ namespace BaseConquest.Battle
             if (showedDraft)
             {
                 showedDraft = false;
-                draftSupplies.gameObject.SetActive(false);
-                informationScroll.viewport.gameObject.SetActive(true);
                 preparationPanel.GetComponent<Image>().enabled = true;
                 hits.Add(preparationPanel);
                 foreach (var action in new[] { preparationClear, withdraw, preparationUndo, preparationStart }) action.gameObject.SetActive(true);
+                preparationClear.GetComponentInChildren<Text>().text = "一键清场";
             }
-            armyPanel.gameObject.SetActive(!owner.DrawerVisible);
+            armyPanel.gameObject.SetActive(!owner.DrawerVisible && !owner.FormalFieldHud);
             ((RectTransform)drawer.transform).anchoredPosition = drawerPosition + (owner.DrawerVisible ? Vector2.right * 278 : Vector2.zero);
             foreach (var element in testHidden) element.SetActive(!owner.DrawerVisible);
             drawer.GetComponentInChildren<Text>().text = owner.DrawerVisible ? "收起测试" : "测试";
@@ -461,6 +445,7 @@ namespace BaseConquest.Battle
                 }
             }
             if(owner.IsRealtimeCampaign)RefreshRealtimeControls(b);
+            RefreshFormalField(b);
             battleResult?.Refresh(b, owner.ControlledSide, owner.IsAnimating, owner.Skipping, new Vector2(area.width, area.height) / owner.HudScale);
         }
         private void RefreshDraft(BattleSimulation battle)
@@ -470,7 +455,7 @@ namespace BaseConquest.Battle
                 showedDraft = true;
                 preparationPanel.GetComponent<Image>().enabled = false;
                 hits.Remove(preparationPanel);
-                foreach (var control in new[] { preparationClear, withdraw, preparationUndo, preparationStart, automatic, fast, skip, switchSide, testRestart })
+                foreach (var control in new[] { withdraw, preparationUndo, preparationStart, automatic, fast, skip, switchSide, testRestart })
                     control.gameObject.SetActive(false);
                 foreach (var panel in new[] { realtimeMinimap, fightingPanel, resultPanel, infoPanel, logPanel, details, detailBackdrop })
                     panel.gameObject.SetActive(false);
@@ -479,42 +464,12 @@ namespace BaseConquest.Battle
             bool placing = owner.DraftPlacementActive;
             var teams = owner.DraftTeams;
             drawer.GetComponentInChildren<Text>().text = "返回备战";
-            deployment.GetComponentInChildren<Text>().text = placing
-                ? StoryText.Get("story.ui.prep.deployment_confirm", "确认开战") : StoryText.Get("story.ui.prep.deployment", "部署");
-            deployment.interactable = !placing || owner.DraftCanConfirm;
+            deployment.GetComponentInChildren<Text>().text = StoryText.Get("story.ui.prep.deployment_confirm", "开战");
+            deployment.interactable = owner.DraftCanConfirm;
+            preparationClear.GetComponentInChildren<Text>().text = StoryText.Get("story.ui.prep.deployment_clear", "一键撤销");
             preparationPanel.gameObject.SetActive(placing);
-            objectiveTitle.text = "战前准备";
-            objectiveProgress.text = placing ? "在己方部署区落位" : "点击部署开始布置";
-            objectiveBar.gameObject.SetActive(false);
-            heading.text = (placing && teams.Count > 0 ? teams[owner.DraftTeamSlot].Name : "己方全军") + "\n场／损／备";
+            armyPanel.gameObject.SetActive(false);
             status.text = owner.Feedback;
-            bool showSupplies = placing && teams.Count > 0;
-            infoPanel.gameObject.SetActive(showSupplies);
-            draftSupplies.gameObject.SetActive(showSupplies);
-            informationScroll.viewport.gameObject.SetActive(false);
-            if (showSupplies)
-            {
-                draftSupplyHeading.text = teams[owner.DraftTeamSlot].Name + " · 军需";
-                for (int grade = 0; grade < 2; grade++)
-                {
-                    int amount = owner.DraftSupply(grade);
-                    draftSupplyLabels[grade].text = $"{grade + 1} 级军需  {amount}";
-                    draftSupplyMinus[grade].interactable = amount > 0;
-                    draftSupplyPlus[grade].interactable = amount < BaseMuster.BattleSoldierLimit;
-                }
-                string problem = owner.DraftSupplyProblem;
-                draftSupplyMessage.text = problem == "" ? $"本队已部署 {owner.DraftTeamDeployedTroops} 名士兵" : problem;
-                draftSupplyMessage.color = problem == "" ? DemoUiTheme.Current.Ink : new Color32(135, 43, 25, 255);
-            }
-
-            for (int i = 0; i < cards.Length; i++)
-            {
-                var kind = BattleSimulation.TroopKinds[i];
-                var counts = owner.DraftTroops(kind);
-                troopStatus[i].text = BattleSimulation.KindName(kind) + $"\n{counts.placed}／0／{counts.stock}";
-                cards[i].interactable = owner.DraftCanChooseTroop(kind);
-                SetHighlighted(cards[i], placing && owner.DraftArmedKind == kind);
-            }
             for (int i = 0; i < portraits.Length; i++)
             {
                 bool exists = i < teams.Count;
@@ -531,6 +486,7 @@ namespace BaseConquest.Battle
                 skills[i].gameObject.SetActive(false);
                 ultimates[i].gameObject.SetActive(false);
             }
+            RefreshFormalField(battle);
         }
 
         private void RefreshRealtimeControls(BattleSimulation battle)

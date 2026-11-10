@@ -331,10 +331,15 @@ namespace BaseConquest.Battle
         }
         private void PaintStroke(GridPosition from, GridPosition to)
         {
+            foreach (var cell in StrokeCells(from, to)) ApplyBrush(cell);
+        }
+        private static IEnumerable<GridPosition> StrokeCells(GridPosition from, GridPosition to)
+        {
             int dx = Math.Abs(to.X - from.X), dz = Math.Abs(to.Z - from.Z), sx = Math.Sign(to.X - from.X), sz = Math.Sign(to.Z - from.Z), error = dx - dz;
             while (true)
             {
-                ApplyBrush(from); if (from == to) break;
+                yield return from;
+                if (from == to) yield break;
                 int doubled = error * 2;
                 if (doubled > -dz) { error -= dz; from.X += sx; }
                 if (doubled < dx) { error += dx; from.Z += sz; }
@@ -372,7 +377,7 @@ namespace BaseConquest.Battle
         }
         private void DrawRuntimeGUI()
         {
-            if (battle == null || campaignMenu!=null || developerPanel?.BlocksGameInput==true) return;
+            if (battle == null || ExternalDialogue || campaignMenu!=null || developerPanel?.BlocksGameInput==true) return;
             if (!numericFocus && Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Space) { HandleSpaceInput(); Event.current.Use(); }
             if (battle.ModernRules && !drawerOpen) { numericFocus = false; return; }
             EnsureStyles(); var frame=BaseConquest.Presentation.GameFrameCanvas.Area;GUI.matrix = Matrix4x4.TRS(new Vector3(frame.x,Screen.height-frame.yMax,0),Quaternion.identity,Vector3.one * UiScale);

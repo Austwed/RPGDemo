@@ -15,27 +15,39 @@ namespace BaseConquest.Battle
         private Action deploymentBack, deploymentExit, deploymentConfirm;
         private BasePrepUnit[] draftTeams;
         private BasePrepUnit draftArmedUnit;
+        private SoldierKind? draftPreferredKind;
+        private bool manualFieldEncounter;
 
         public bool DeploymentDraftActive => deploymentDraft != null;
         public bool DraftPlacementActive { get; private set; }
+        internal bool FormalFieldHud => DeploymentDraftActive || manualFieldEncounter;
         internal IReadOnlyList<BasePrepUnit> DraftTeams => draftTeams;
         internal int DraftTeamSlot { get; private set; }
         internal SoldierKind? DraftArmedKind => draftArmedUnit?.Kind;
         internal bool DraftCanConfirm => deploymentDraft.Positions.ContainsKey(deploymentDraft.PlayerId) &&
             deploymentDraft.Problem(deploymentState(), true) == "";
         internal bool DraftTeamPlaced(int slot) => deploymentDraft.Positions.ContainsKey(draftTeams[slot].Id);
-        internal int DraftSupply(int grade) => deploymentDraft.Supplies[draftTeams[DraftTeamSlot].Id][grade];
-        internal string DraftSupplyProblem => deploymentDraft.InvalidSupplyTeams(deploymentState(), true).Contains(draftTeams[DraftTeamSlot].Id)
-            ? StoryText.Get("story.ui.prep.validation.supply", "军需数量超过本队人数或库存") : "";
-        internal int DraftTeamDeployedTroops => deploymentDraft.Units.Count(u => u.Selected && u.Kind != SoldierKind.Hero &&
-            u.TeamId == draftTeams[DraftTeamSlot].Id && deploymentDraft.Positions.ContainsKey(u.Id));
-        internal bool DraftCanChooseTroop(SoldierKind kind) => DraftPlacementActive && DraftUnitForKind(kind) != null;
-        internal (int placed, int stock) DraftTroops(SoldierKind kind)
+        internal int DraftRemaining(int slot, SoldierKind kind) => deploymentDraft.Units.Count(u => u.Selected &&
+            u.TeamId == draftTeams[slot].Id && u.Kind == kind && !deploymentDraft.Positions.ContainsKey(u.Id));
+        internal string FieldMapName => DeploymentDraftActive && deploymentDraft.Route == BasePrepRoute.Ruins ? BaseScriptNames.Ruins :
+            GetComponentInParent<BaseSceneController>()?.State is BaseState state ? BaseCampaign.LocationName(state) : "战场";
+        internal string FieldDraftGoal => deploymentDraft.Route switch
         {
-            var team = DraftPlacementActive && draftTeams.Length > 0 ? draftTeams[DraftTeamSlot].Id : null;
-            var troops = deploymentDraft.Units.Where(u => u.Selected && u.Kind == kind && (team == null || u.TeamId == team)).ToArray();
-            int placed = troops.Count(u => deploymentDraft.Positions.ContainsKey(u.Id));
-            return (placed, troops.Length - placed);
+            BasePrepRoute.Defense => StoryText.Get("story.ui.prep.first_objective", "坚守到敌军撤离，或击败全部来敌。"),
+            BasePrepRoute.Second => StoryText.Get("story.ui.prep.second_objective", "击败全部来敌。开战后无法撤退。"),
+            BasePrepRoute.BlackCrow => StoryText.Get("story.ui.prep.attack_objective", "使用已抵达的队伍攻占黑鸦寨。"),
+            _ => "击败控制来源，救出失踪者。"
+        };
+        internal (string Ally, string Enemy, string Supply) FieldDraftSummary()
+        {
+            var placed = deploymentDraft.Units.Where(u => u.Selected && deploymentDraft.Positions.ContainsKey(u.Id)).ToArray();
+            var enemy = deploymentDraft.KnownEnemyCount();
+            int grade = deploymentDraft.SupplyGrade;
+            int required = deploymentDraft.RequiredSupply(true);
+            string supply = grade == 0 ? $"所需 {required} 件 · 未选等级" : $"{grade} 级 · 已部署需 {required} 件";
+            return ($"我方已部署  队长 {placed.Count(u => u.Kind == SoldierKind.Hero)} · 剑 {placed.Count(u => u.Kind == SoldierKind.Melee)} · 弓 {placed.Count(u => u.Kind == SoldierKind.Ranged)} · 骑 {placed.Count(u => u.Kind == SoldierKind.Cavalry)}",
+                "敌方  " + (enemy.HasValue ? $"队长 {deploymentDraft.KnownEnemyCount(SoldierKind.Hero)} · 剑 {deploymentDraft.KnownEnemyCount(SoldierKind.Melee)} · 弓 {deploymentDraft.KnownEnemyCount(SoldierKind.Ranged)} · 骑 {deploymentDraft.KnownEnemyCount(SoldierKind.Cavalry)}" : "暂无已知情报"),
+                "军需  " + supply);
         }
 
         public void ConfigureDeploymentDraft(BaseBattlePreparation draft, Func<BaseState> state, Action back, Action exit, Action confirm)
@@ -46,8 +58,8 @@ namespace BaseConquest.Battle
             deploymentExit = exit;
             deploymentConfirm = confirm;
             draftTeams = draft.Units.Where(u => u.Selected && u.Kind == SoldierKind.Hero).ToArray();
-            DraftPlacementActive = false;
-            DraftTeamSlot = 0;
+            DraftPlacementActive = true;
+            ArmDraftTeam(0);
         }
 
         public void ActivateDeploymentEncounter(BaseCampaignSession encounter, Action<RealtimeCampaignBattle> configure,
@@ -61,8 +73,15 @@ namespace BaseConquest.Battle
             draftTeams = null;
             draftArmedUnit = null;
             DraftPlacementActive = false;
+            manualFieldEncounter = true;
             ConfigureSceneEncounter(encounter, configure, advance, finish, objective);
             InitializeSceneEncounter();
+            if (realtime != null)
+            {
+                autoRun = true;
+                realtime.Model.SetPaused(false);
+                feedback = "点击格子查看战况。点击头像或按 1–3 选择指挥队长。";
+            }
             InitializeBattleDeveloperPanel();
             hud?.Refresh();
         }
@@ -115,14 +134,14 @@ namespace BaseConquest.Battle
         {
             var preview = BuildDraftPreview();
             ReplaceSimulation(preview.Scenario, preview);
-            boardView.SetDraftDeploymentZones(deploymentDraft.Board);
+            boardView.SetDraftDeploymentZones(deploymentDraft.Board, true);
             SyncViews();
             var cells = deploymentDraft.Board.Positions().Where(p => deploymentDraft.Board.Walkable(p) &&
                 deploymentDraft.Board.Cell(p).Zone == DeploymentZone.A).ToArray();
             if (cells.Length > 0)
                 boardView.CenterOn(new GridPosition((int)cells.Average(p => p.X), (int)cells.Average(p => p.Z)));
             boardView.UpdateCamera(132f / 1280f, .08f);
-            feedback = StoryText.Get("story.ui.prep.deployment_start_hint", "点击部署后选择队长和兵种，再在己方部署区落位。");
+            feedback = StoryText.Get("story.ui.prep.deployment_help", "选择队长或兵种，点选或拖划己方部署格。可拖动调整位置，右键或长按撤回。");
         }
 
         public void RefreshDeploymentDraft(string problem = null)
@@ -149,33 +168,26 @@ namespace BaseConquest.Battle
         public void ToggleDraftDeployment()
         {
             if (!DeploymentDraftActive || ExternalDialogue) return;
-            if (DraftPlacementActive)
-            {
-                string problem = deploymentDraft.Problem(deploymentState(), true);
-                if (!string.IsNullOrEmpty(problem)) { RefreshDeploymentDraft(problem); return; }
-                deploymentConfirm?.Invoke();
-                return;
-            }
-            DraftPlacementActive = true;
-            boardView.SetDraftDeploymentZones(deploymentDraft.Board, true);
-            SyncViews();
-            draftArmedUnit = draftTeams.FirstOrDefault();
-            RefreshDeploymentDraft(StoryText.Get("story.ui.prep.deployment_help", "选择队长或兵种，点选或拖划己方部署格。拖动已落位单位调整，右键或长按撤回。"));
+            string problem = deploymentDraft.Problem(deploymentState(), true);
+            if (!string.IsNullOrEmpty(problem)) { RefreshDeploymentDraft(problem); return; }
+            deploymentConfirm?.Invoke();
         }
 
-        internal void ChangeDraftSupply(int grade, int delta)
+        internal void ClearDraftDeployment()
         {
-            if (!DraftPlacementActive || ExternalDialogue || draftTeams.Length == 0) return;
-            int[] quota = deploymentDraft.Supplies[draftTeams[DraftTeamSlot].Id];
-            quota[grade] = Mathf.Clamp(quota[grade] + delta, 0, BaseMuster.BattleSoldierLimit);
-            RefreshDeploymentDraft();
+            if (!DraftPlacementActive || ExternalDialogue) return;
+            CancelGesture();
+            deploymentDraft.Positions.Clear();
+            ArmDraftTeam(0);
+            feedback = "已撤销本次部署，可以重新布置。";
+            RefreshDraftPositions();
         }
 
         internal void AutoPlaceDraftDeployment()
         {
             if (!DraftPlacementActive || ExternalDialogue) return;
             int added = deploymentDraft.AutoPlace();
-            draftArmedUnit = null;
+            if (DraftTeamSlot >= 0) AdvanceDraftQueue();
             feedback = added > 0 ? $"已部署 {added} 人。确认开战前可调整位置。" : "没有可继续部署的单位。";
             RefreshDraftPositions();
         }
@@ -186,26 +198,80 @@ namespace BaseConquest.Battle
             deploymentBack?.Invoke();
         }
 
-        private BasePrepUnit DraftUnitForKind(SoldierKind kind)
+        private BasePrepUnit DraftNextUnit(int slot, SoldierKind? kind = null)
         {
-            if (draftTeams.Length == 0 || !DraftTeamPlaced(DraftTeamSlot)) return null;
-            return deploymentDraft.Units.FirstOrDefault(u => u.Selected && u.TeamId == draftTeams[DraftTeamSlot].Id &&
-                u.Kind == kind && !deploymentDraft.Positions.ContainsKey(u.Id));
+            if (slot < 0 || slot >= draftTeams.Length) return null;
+            if (!DraftTeamPlaced(slot)) return kind.HasValue ? null : draftTeams[slot];
+            var pending = deploymentDraft.Units.Where(u => u.Selected && u.TeamId == draftTeams[slot].Id &&
+                u.Kind != SoldierKind.Hero && !deploymentDraft.Positions.ContainsKey(u.Id));
+            if (kind.HasValue) return pending.FirstOrDefault(u => u.Kind == kind.Value);
+            foreach (var troopKind in BattleSimulation.TroopKinds)
+            {
+                var next = pending.FirstOrDefault(u => u.Kind == troopKind);
+                if (next != null) return next;
+            }
+            return null;
+        }
+
+        private void ArmDraftTeam(int slot)
+        {
+            DraftTeamSlot = slot >= 0 && slot < draftTeams.Length ? slot : -1;
+            draftPreferredKind = null;
+            draftArmedUnit = DraftNextUnit(DraftTeamSlot);
+        }
+
+        private void AdvanceDraftQueue()
+        {
+            int current = DraftTeamSlot;
+            if (current >= 0 && draftPreferredKind.HasValue)
+            {
+                var kinds = BattleSimulation.TroopKinds;
+                int start = Array.IndexOf(kinds, draftPreferredKind.Value);
+                for (int offset = 0; offset < kinds.Length; offset++)
+                {
+                    var kind = kinds[(start + offset) % kinds.Length];
+                    var next = DraftNextUnit(current, kind);
+                    if (next == null) continue;
+                    draftPreferredKind = kind;
+                    draftArmedUnit = next;
+                    return;
+                }
+                draftPreferredKind = null;
+            }
+            for (int offset = 0; offset < draftTeams.Length; offset++)
+            {
+                int slot = (current + offset) % draftTeams.Length;
+                var next = DraftNextUnit(slot);
+                if (next == null) continue;
+                DraftTeamSlot = slot;
+                draftArmedUnit = next;
+                return;
+            }
+            ArmDraftTeam(-1);
         }
 
         internal void SelectDraftCommander(int slot)
         {
             if (!DraftPlacementActive || ExternalDialogue || slot < 0 || slot >= draftTeams.Length) return;
-            DraftTeamSlot = slot;
-            draftArmedUnit = draftTeams[slot];
-            RefreshDeploymentDraft("已选择" + draftArmedUnit.Name + "。点己方部署格放置或调整位置。");
+            ArmDraftTeam(DraftTeamSlot == slot ? -1 : slot);
+            RefreshDeploymentDraft(DraftTeamSlot < 0 ? "已取消选择。" : "已选择" + draftTeams[slot].Name + "。点己方部署格落位。");
         }
 
-        internal void SelectDraftTroop(SoldierKind kind)
+        internal bool DraftCanChooseTroop(int slot, SoldierKind kind) => DraftNextUnit(slot, kind) != null;
+        internal void SelectDraftTroop(SoldierKind kind) => SelectDraftTroop(DraftTeamSlot, kind);
+        internal void SelectDraftTroop(int slot, SoldierKind kind)
         {
             if (!DraftPlacementActive || ExternalDialogue) return;
-            var unit = DraftUnitForKind(kind);
+            var unit = DraftNextUnit(slot, kind);
             if (unit == null) return;
+            if (DraftTeamSlot == slot && draftArmedUnit?.Kind == kind)
+            {
+                ArmDraftTeam(-1);
+                RefreshDeploymentDraft("已取消选择。");
+                return;
+            }
+            DraftTeamSlot = slot;
+            draftPreferredKind = kind;
             draftArmedUnit = unit;
             RefreshDeploymentDraft("点己方部署格放置" + unit.Name + "。");
         }
@@ -221,26 +287,32 @@ namespace BaseConquest.Battle
             {
                 if (placed == null) return false;
                 deploymentDraft.Recall(placed.Id);
-                draftArmedUnit = placed;
-                DraftTeamSlot = Array.FindIndex(draftTeams, u => u.Id == placed.TeamId);
+                if (DraftTeamSlot >= 0) ArmDraftTeam(DraftTeamSlot);
                 feedback = "已撤回" + placed.Name + "。";
             }
             else if (placed != null)
             {
                 draftArmedUnit = placed;
+                draftPreferredKind = null;
                 DraftTeamSlot = Array.FindIndex(draftTeams, u => u.Id == placed.TeamId);
                 RefreshDeploymentDraft("已选择" + placed.Name + "。点另一格或拖动可调整位置。");
                 return true;
             }
             else
             {
-                var unit = draftArmedUnit;
-                if (unit == null) return false;
-                if (!deploymentDraft.Place(unit.Id, cell)) { RefreshDeploymentDraft("此处不能部署，原位置保留。"); return false; }
-                draftArmedUnit = unit.Kind == SoldierKind.Hero ? null : DraftUnitForKind(unit.Kind);
-                feedback = "已部署" + unit.Name + "。";
+                if (draftArmedUnit == null) return false;
+                if (!PlaceDraftUnit(cell)) { RefreshDeploymentDraft("此处不能部署，原位置保留。"); return false; }
             }
             RefreshDraftPositions();
+            return true;
+        }
+
+        private bool PlaceDraftUnit(GridPosition cell)
+        {
+            var unit = draftArmedUnit;
+            if (unit == null || !deploymentDraft.Place(unit.Id, cell)) return false;
+            feedback = "已部署" + unit.Name + "。";
+            AdvanceDraftQueue();
             return true;
         }
 
@@ -251,14 +323,12 @@ namespace BaseConquest.Battle
             if (keyboard?.escapeKey.wasPressedThisFrame == true)
             {
                 CancelGesture();
-                if (!DraftPlacementActive) { (deploymentExit ?? deploymentBack)?.Invoke(); return; }
-                DraftPlacementActive = false;
-                draftArmedUnit = null;
-                boardView.SetDraftDeploymentZones(deploymentDraft.Board);
-                SyncViews();
-                RefreshDeploymentDraft("已退出部署操作，保留当前站位。");
+                if (DraftTeamSlot < 0) { (deploymentExit ?? deploymentBack)?.Invoke(); return; }
+                ArmDraftTeam(-1);
+                RefreshDeploymentDraft("已取消选择，保留当前站位。");
                 return;
             }
+            if (keyboard?.spaceKey.wasPressedThisFrame == true) { HandleSpaceInput(); return; }
             ReadPointer();
             if (gestureActive && gestureId != -1 && !gestureLong && gestureCell.HasValue &&
                 Vector2.Distance(gestureStart, gestureCurrent) < 10 * UiScale && Time.unscaledTime - gestureStartTime >= .5f)
@@ -284,35 +354,44 @@ namespace BaseConquest.Battle
         {
             if (!gestureActive || gestureId != id) return;
             gestureCurrent = point;
-            if (gestureLong || gestureStartedOnUnit || draftArmedUnit == null || draftArmedUnit.Kind == SoldierKind.Hero) return;
-            if (!gestureDragging)
+            if (gestureLong || gestureStartedOnUnit || draftArmedUnit == null) return;
+            if (!gestureDragging && Vector2.Distance(gestureStart, point) <= 10 * UiScale) return;
+            if (!gestureDragging) { gestureDragging = true; strokeFrom = gestureCell; }
+            if (IsUiPoint(point) || !boardView.Pick(point, out var cell)) { strokeFrom = null; return; }
+            ApplyDraftStroke(cell);
+        }
+
+        private void ApplyDraftStroke(GridPosition cell)
+        {
+            bool changed = false;
+            foreach (var crossed in StrokeCells(strokeFrom ?? cell, cell))
             {
-                if (Vector2.Distance(gestureStart, point) <= 10 * UiScale) return;
-                gestureDragging = true;
-                strokeFrom = gestureCell;
-                if (strokeFrom.HasValue) TryDraftDeploymentCell(strokeFrom.Value);
+                if (draftArmedUnit == null) break;
+                if (DraftUnitAt(crossed) == null && PlaceDraftUnit(crossed)) changed = true;
             }
-            if (IsUiPoint(point) || !ResolvePointer(point, out var cell) || strokeFrom == cell || DraftUnitAt(cell) != null) return;
             strokeFrom = cell;
-            TryDraftDeploymentCell(cell);
+            if (changed) RefreshDraftPositions();
         }
 
         private void DraftPointerUp(int id, Vector2 point, bool canceled)
         {
             if (!gestureActive || gestureId != id) return;
             gestureActive = false;
-            if (canceled || gestureLong || IsUiPoint(point) || !ResolvePointer(point, out var cell)) return;
-            if (gestureDragging)
+            if (canceled || gestureLong || IsUiPoint(point)) return;
+            if (!gestureStartedOnUnit && (gestureDragging || Vector2.Distance(gestureStart, point) > 10 * UiScale))
             {
-                if (strokeFrom != cell && DraftUnitAt(cell) == null) TryDraftDeploymentCell(cell);
+                if (!gestureDragging) strokeFrom = gestureCell;
+                if (boardView.Pick(point, out var end)) ApplyDraftStroke(end);
                 return;
             }
+            if (!ResolvePointer(point, out var cell)) return;
             if (gestureStartedOnUnit && gestureCell.HasValue && gestureCell.Value != cell)
             {
                 var from = DraftUnitAt(gestureCell.Value);
                 if (from == null) return;
                 if (DraftUnitAt(cell) != null) { RefreshDeploymentDraft("此处已有单位，原位置保留。"); return; }
                 draftArmedUnit = from;
+                draftPreferredKind = null;
                 DraftTeamSlot = Array.FindIndex(draftTeams, u => u.Id == from.TeamId);
             }
             TryDraftDeploymentCell(cell);

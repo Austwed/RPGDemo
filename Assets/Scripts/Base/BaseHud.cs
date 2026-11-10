@@ -374,6 +374,7 @@ namespace BaseConquest.Base
         public void ClosePanel()
         {
             if (ResourcePopoverOpen) { CloseResourcePopover(); return; }
+            if (ClosePreparationHelp()) return;
             if (DialogueExitLocked) return;
             if(owner.State?.Aftermath.GameOver==true || BaseBattleGateway.MainMenu || BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) return;
             if(BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}

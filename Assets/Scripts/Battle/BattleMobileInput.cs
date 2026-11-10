@@ -113,6 +113,7 @@ namespace BaseConquest.Battle
         }
         public void StartManualDeployment()
         {
+            if (DeploymentDraftActive) { ClearDraftDeployment(); return; }
             if (IsCampaignBattle) return;
             if (animating || skipping) return;
             activeScenarioDocument = null; activeScenarioPath = null;
@@ -198,8 +199,8 @@ namespace BaseConquest.Battle
         public void ClickCommanderPortrait(int slot)
         {
             if (DeploymentDraftActive) { SelectDraftCommander(slot); return; }
-            if(realtime!=null){var commander=battle.Commander(BattleSide.A,slot);if(commander!=null)SelectRealtimeCommander(commander.Id,false);return;}
             if (suppressPortraitClick) { suppressPortraitClick = false; return; }
+            if(realtime!=null){var commander=battle.Commander(BattleSide.A,slot);if(commander!=null)SelectRealtimeCommander(commander.Id,false,true);return;}
             if (slot < 0 || slot >= battle.Scenario.Army(selectedSide).HeroCount || skipping) return;
             if (animating) { ManualPause(); pendingInputs.Enqueue(() => ClickCommanderPortrait(slot)); return; }
             ShowInformationNotice();CloseContext(); deploymentCommanderSlot = slot; deploymentSlotChosen = true; informationIsCell = inspectionTracksUnit = false; informationCell = null; boardView.SelectCell(null);

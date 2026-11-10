@@ -380,9 +380,135 @@
       "notes": "功能占位，待回稿。"
     },
     {
+      "key": "story.ui.prep.back",
+      "group": "界面／战前准备",
+      "text": "返回",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.help_title",
+      "group": "界面／战前准备",
+      "text": "备战说明",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.help_close",
+      "group": "界面／战前准备",
+      "text": "返回备战",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.selected_count",
+      "group": "界面／战前准备",
+      "text": "已选",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.help_roster",
+      "group": "界面／战前准备",
+      "text": "选定队长后，可以修改各兵种人数，或在候选名册中点选具体士兵。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.help_supply",
+      "group": "界面／战前准备",
+      "text": "每名士兵需要一份军需，所有士兵使用同一等级。仅队长出战时无需军需。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.help_place",
+      "group": "界面／战前准备",
+      "text": "敌方只显示已知情报。进入战场后先放置队长，再点按或拖划部署所属士兵。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.sort_role",
+      "group": "界面／战前准备",
+      "text": "兵种",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.sort_health",
+      "group": "界面／战前准备",
+      "text": "生命",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.sort_status",
+      "group": "界面／战前准备",
+      "text": "状态",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.supply_none",
+      "group": "界面／战前准备",
+      "text": "仅队长出战 · 所需军需 0",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.supply_required",
+      "group": "界面／战前准备",
+      "text": "本次所需军需",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.grade_1",
+      "group": "界面／战前准备",
+      "text": "一级",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.grade_2",
+      "group": "界面／战前准备",
+      "text": "二级",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.stock",
+      "group": "界面／战前准备",
+      "text": "库存",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.supply_use_1",
+      "group": "界面／战前准备",
+      "text": "使用一级军需",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.supply_use_2",
+      "group": "界面／战前准备",
+      "text": "使用二级军需",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.deployment_enter",
+      "group": "界面／战前准备",
+      "text": "进入战场",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.deployment_confirm",
+      "group": "界面／战前准备",
+      "text": "开战",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.deployment_clear",
+      "group": "界面／战前准备",
+      "text": "一键撤销",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.supply_grade",
+      "group": "界面／战前准备",
+      "text": "请选择一级或二级军需",
+      "notes": "功能占位，待回稿。"
+    },
+    {
       "key": "story.ui.prep.deployment_help",
       "group": "界面／战前准备",
-      "text": "点选或拖划浅色格部署。点击已部署单位可撤回。",
+      "text": "选择队长或兵种，点选或拖划己方部署格。可拖动调整位置，右键或长按撤回。",
       "notes": "功能占位，待回稿。"
     },
     {
@@ -490,7 +616,7 @@
     {
       "key": "story.ui.prep.validation.supply",
       "group": "界面／备战",
-      "text": "军需数量超过本队人数或库存",
+      "text": "所选等级的军需库存不足",
       "notes": "功能占位，待回稿。"
     },
     {

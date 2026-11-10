@@ -160,7 +160,8 @@ namespace BaseConquest.Base
                 a.Troops.GroupBy(WorkerKey).Any(g => actual.Where(w => WorkerKey(w) == g.Key).Sum(w => w.Count) < g.Count()) ||
                 a.Leaders.Any(l => l.Health <= 0 || !Finite(l.Health) || !Finite(l.MaxHealth) || l.Health > l.MaxHealth || s.Leaders.Single(p => p.Id == l.Id).Health != l.Health))
                 throw new ArgumentException("活动战役的真实人员已被其他操作改变，拒绝重新生成人员");
-            if (supply.ByTeam && (a.SupplySnapshot?.ByTeam != true || a.SupplySnapshot.PartySubset != supply.PartySubset ||
+            if ((a.SupplySnapshot?.FullConsumptionGrade ?? 0) != supply.FullConsumptionGrade ||
+                supply.ByTeam && (a.SupplySnapshot?.ByTeam != true || a.SupplySnapshot.PartySubset != supply.PartySubset ||
                 !a.Leaders.Select(l => l.Id).SequenceEqual(supply.Leaders) ||
                 !a.SupplySnapshot.Teams.Select(t => (t.LeaderId, t.Soldiers, t.Low, t.High)).SequenceEqual(supply.Teams.Select(t => (t.LeaderId, t.Soldiers, t.Low, t.High))) ||
                 a.TroopSlots == null || a.TroopSlots.Count != a.Troops.Count || a.TroopSlots.Any(n => n < 0 || n >= a.Leaders.Count) ||
@@ -255,7 +256,7 @@ namespace BaseConquest.Base
             {
                 if (quota != null && !BaseSupply.Cancel(s, quota.BattleId)) throw new InvalidOperationException("当前军需配额不能替换");
                 roster.CaptureTroops(s, plan, party);
-                quota = BaseSupply.ReserveTeams(s, party, roster);
+                quota = BaseSupply.ReservePrepared(s, party, roster);
             }
             if (quota == null)
             {

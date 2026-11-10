@@ -117,16 +117,40 @@ namespace BaseConquest.Editor
             var repeat = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
             var sweep = repeat.PreviewSweep(state);
             Need(sweep.EnemyPower > 0 && (sweep.Problem == "") == (sweep.AllyPower > sweep.EnemyPower * 1.5), "扫荡门槛与正式战力不一致");
+            VerifyPreparedSweepSupply(state.Copy());
             repeat.AutoPlace();
             Need(!Start(state, repeat).Session.Opening.RuinsFirstClear, "古窟重战误作首通");
             Debug.Log("[VerifyBattlePreparation] 古窟首通、重打、扫荡门槛 PASS");
+        }
+
+        private static BaseEquipmentStock Stock(BaseState state, int grade) => state.Inventory.Equipment.Single(e => e.Product == "supply" && e.Level == grade);
+
+        private static void VerifyPreparedSweepSupply(BaseState state)
+        {
+            var stats = new SoldierStats { Health = 1000, Damage = 1000, Defense = 100 };
+            state.Workers.Add(new BaseWorkerBucket { Kind = BaseTroopKind.Melee, Count = 2, Health = stats.Health,
+                MaxHealth = stats.Health, HasCombatProfile = true, CombatStats = stats });
+            Stock(state, 2).Count = 2;
+            var draft = new BaseBattlePreparation(state, BasePrepRoute.Ruins) { SupplyGrade = 2 };
+            foreach (var soldier in draft.Units.Where(u => u.Kind != SoldierKind.Hero))
+            {
+                soldier.Selected = true;
+                soldier.TeamId = draft.PlayerId;
+            }
+            string before = JsonUtility.ToJson(state);
+            var estimate = draft.PreviewSweep(state);
+            Need(estimate.Problem == "", "扫荡军需夹具无法扫荡：" + estimate.Problem);
+            Need(before == JsonUtility.ToJson(state), "扫荡预览修改军需库存");
+            draft.Sweep(state);
+            Need(Stock(state, 2).Count == 0 && state.Campaign.Reports.Last().GearLost == 2 && state.Supply.Quotas.Count == 0,
+                "扫荡未按实际编队人数全额扣军需");
         }
 
         private static void VerifyDefenseAndAttack()
         {
             var state = Load("defense");
             At(state, "demo_defense_start");
-            foreach (var stock in state.Inventory.Equipment.Where(e => e.Product == "supply")) stock.Count = 12;
+            Stock(state, 1).Count = Stock(state, 2).Count = 24;
             var before = JsonUtility.ToJson(state);
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Defense);
             var soldier = draft.Units.First(u => u.Selected && u.Kind != SoldierKind.Hero && u.TeamId == draft.PlayerId);
@@ -134,26 +158,40 @@ namespace BaseConquest.Editor
             Need(!draft.Place(soldier.Id, cell), "队长未落位时布置士兵");
             Need(draft.AutoPlace() > 0, "首防不能自动部署");
             Need(!draft.Place(soldier.Id, draft.Positions[draft.PlayerId]), "接受重叠部署");
-            draft.Supplies[draft.PlayerId][0] = 25;
-            Need(draft.InvalidSupplyTeams(state, true).Contains(draft.PlayerId) && draft.Problem(state, true) != "", "超量军需没有拒绝");
-            draft.Supplies[draft.PlayerId][0] = 1;
+            Need(draft.SupplyGrade == 0 && draft.SupplyProblem(state, false) != "" && draft.SupplyProblem(state, true) != "", "未选军需等级可出战士兵");
+            draft.SupplyGrade = 1;
+            var limited = state.Copy();
+            Stock(limited, 1).Count = draft.RequiredSupply(true) - 1;
+            Need(draft.SupplyProblem(limited, false) != "" && draft.SupplyProblem(limited, true) != "", "军需不足时未拦截");
             draft.Recall(soldier.Id);
-            if (!draft.Units.Any(u => u.Kind != SoldierKind.Hero && u.TeamId == draft.PlayerId && draft.Positions.ContainsKey(u.Id)))
-                Need(draft.InvalidSupplyTeams(state, true).Contains(draft.PlayerId), "军需未按实际落位校验");
-            draft.AutoPlace();
+            int deployed = draft.RequiredSupply(true);
+            Need(deployed < draft.RequiredSupply(false) && draft.SupplyProblem(limited, true) == "", "军需未按实际落位校验");
             Need(before == JsonUtility.ToJson(state), "预览、落位或撤回修改了真实状态");
+            var retreatState = state.Copy();
+            var retreatDraft = new BaseBattlePreparation(retreatState, BasePrepRoute.Defense) { SupplyGrade = 2 };
+            retreatDraft.AutoPlace();
+            var retreat = Start(retreatState, retreatDraft);
+            Need(BaseDemoCombat.Fail(retreatState, retreat) && Stock(retreatState, 2).Count == 24 - retreatDraft.RequiredSupply(true) &&
+                Stock(retreatState, 1).Count == 24 && retreatState.Supply.Quotas.Count == 0, "正式撤退军需未全扣或错扣等级");
+
+            var wear = state.Supply.Wear.Select(entry => entry.Fraction).ToArray();
             var battle = Start(state, draft);
             var tier = state.Supply.Rules.Single(r => r.Product == "supply");
-            var team = battle.Session.Opening.SupplySnapshot.Teams[0];
             var member = battle.Battle.Soldiers.First(u => u.Side == BattleSide.A && u.Kind != SoldierKind.Hero && u.OriginCommanderSlot == 0);
-            Need(Math.Abs(member.ProvisionWeaponBonus - tier.LowBonus / team.Soldiers) < .0001, "逐队攻防平均口径错误");
+            Need(Math.Abs(member.ProvisionWeaponBonus - tier.LowBonus) < .0001 && Math.Abs(member.ProvisionArmorBonus - tier.LowDefense) < .0001,
+                "所选军需等级未作用于实际上场士兵");
+            Need(Stock(state, 1).Count == 24 && BaseSupply.Available(state, "supply", 1) == 24 - deployed, "确认开战应只锁定实际用量");
             var restored = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
             BaseEconomy.Validate(restored);
             var resumed = new RealtimeCampaignBattle(new BaseCampaignSession(restored.Campaign.ActiveBattle));
             Need(resumed.Model.Player.Position.Equals(battle.Model.Player.Position) &&
-                resumed.Session.Opening.SupplySnapshot.Teams[0].Low == 1, "开战检查点丢失军需或落点");
+                resumed.Session.Opening.SupplySnapshot.FullConsumptionGrade == 1 &&
+                resumed.Session.Opening.SupplySnapshot.Equipment.Single(entry => entry.Level == 1).Count == deployed, "开战检查点丢失军需或落点");
             BaseDemoDefense.Configure(battle);
             Win(state, battle, () => BaseDemoDefense.Complete(state, battle));
+            Need(Stock(state, 1).Count == 24 - deployed && Stock(state, 2).Count == 24 && state.Supply.Quotas.Count == 0 &&
+                state.Campaign.Reports.Last().GearLost == deployed && state.Supply.Wear.Select(entry => entry.Fraction).SequenceEqual(wear),
+                "正式胜利未按实际上场全扣或改写旧磨损余数");
             BaseDemoDefense.AcknowledgeBatu(state);
 
             var second = state.Copy();
@@ -161,11 +199,16 @@ namespace BaseConquest.Editor
             while (second.Day < BaseDemoDefense.SecondArrival(second)) advance.Invoke(null, new object[] { second, false });
             second.Campaign.Location = "perimeter";
             At(second, "demo_defense_start");
-            var secondDraft = new BaseBattlePreparation(second, BasePrepRoute.Second);
+            var secondDraft = new BaseBattlePreparation(second, BasePrepRoute.Second) { SupplyGrade = 2 };
             secondDraft.AutoPlace();
+            int secondStock = Stock(second, 2).Count;
             var wave = Start(second, secondDraft);
             BaseDemoDefense.Configure(wave);
             Need(!wave.RetreatAll(), "第二波可撤退");
+            wave.OutcomeResolver = _ => BattleOutcome.SideBWin;
+            wave.Model.SetPaused(false);
+            wave.Tick(.02);
+            Need(BaseDemoCombat.Fail(second, wave) && Stock(second, 2).Count == secondStock - secondDraft.RequiredSupply(true), "正式败北军需未全扣");
 
             state.Campaign.Location = "base";
             At(state, "demo_march_exit");
@@ -183,12 +226,14 @@ namespace BaseConquest.Editor
             var reserve = state.Workers.Where(w => w.PartyId == party.Id).Sum(w => w.Count);
             Need(reserve > 0, "攻营夹具没有随行士兵");
             Need(attack.Place(attack.PlayerId, attack.Board.Positions().First(p => attack.CanPlace(attack.PlayerId, p))), "无法仅部署主角");
+            Need(attack.SupplyGrade == 0 && attack.RequiredSupply(true) == 0 && attack.SupplyProblem(state, true) == "", "只有队长上场时被要求配军需");
             var encounter = Start(state, attack);
             Need(encounter.Session.Opening.Troops.Count == 0 && state.Workers.Where(w => w.PartyId == party.Id).Sum(w => w.Count) == reserve,
                 "未参战随行士兵被锁进战场");
             BaseDemoFinale.Configure(encounter);
             Win(state, encounter, () => BaseDemoFinale.Complete(state, encounter));
-            Need(state.Workers.Where(w => w.PartyId == party.Id).Sum(w => w.Count) == reserve, "结算改动了场外随行士兵");
+            Need(state.Workers.Where(w => w.PartyId == party.Id).Sum(w => w.Count) == reserve && state.Campaign.Reports.Last().GearLost == 0,
+                "仅队长参战时误扣军需或改动了场外随行士兵");
             Debug.Log("[VerifyBattlePreparation] 首防、第二波、行军、黑鸦寨、军需与存读 PASS");
         }
 

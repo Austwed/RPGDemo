@@ -32,6 +32,7 @@ namespace BaseConquest.Editor
         private static GameObject defenseHud;
         private static Camera defenseCamera;
         private static Rect defenseViewport;
+        private static int defenseSupplyStock;
         private static Camera ruinsEntranceCamera;
         private static string ruinsEntranceMap;
         private static bool failed;
@@ -266,7 +267,6 @@ namespace BaseConquest.Editor
                     Press(RequirePanel("BattlePreparation"), "Continue");
                     var cancelRuins = BattleSafeArea(RequireBattleDraft());
                     Press(cancelRuins, "Deployment");
-                    Press(cancelRuins, "Deployment");
                     FinishDialogue();
                     Click("暂不进入，先调整随行");
                     if (H.PanelOpen || controller.State.Campaign.CurrentMapId != ruinsEntranceMap ||
@@ -304,12 +304,49 @@ namespace BaseConquest.Editor
                     if (Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVED_LAYOUT") == "1" &&
                         ((RectTransform)preparation.Find("Close")).anchoredPosition != new Vector2(1025, -9))
                         throw new InvalidOperationException("启动后备战关闭按钮未读取保存的位置");
-                    var input = preparation.Find("Teams").GetComponentsInChildren<InputField>(true).First(f => f.interactable);
-                    var ink = input.textComponent.color;
-                    input.text = "99";
-                    if (input.textComponent.color == ink || preparation.Find("Continue").GetComponent<Button>().interactable)
-                        throw new InvalidOperationException("超额军需未标红或未禁用");
-                    input.text = "0";
+                    var defenseDraft = (BaseBattlePreparation)Field(H, "battleDraft");
+                    if (defenseDraft.RequiredSupply(false) <= 0 || preparation.Find("Continue").GetComponent<Button>().interactable)
+                        throw new InvalidOperationException("编入士兵后仍可未选军需进场");
+                    Press(preparation, "Help");
+                    if (!preparation.Find("HelpOverlay").gameObject.activeInHierarchy)
+                        throw new InvalidOperationException("备战说明未打开");
+                    H.ClosePanel();
+                    if (preparation.Find("HelpOverlay").gameObject.activeInHierarchy ||
+                        !ReferenceEquals(defenseDraft, Field(H, "battleDraft")))
+                        throw new InvalidOperationException("退出备战说明清空了草案");
+                    Press(preparation, "Candidates/SortHealth");
+                    preparation = RequirePanel("BattlePreparation");
+                    var roster = preparation.Find("Candidates/List").GetComponent<ScrollRect>();
+                    Press(roster.content.GetChild(0), "Info");
+                    preparation = RequirePanel("BattlePreparation");
+                    if (!preparation.Find("Candidates/Detail").gameObject.activeInHierarchy ||
+                        !ReferenceEquals(defenseDraft, Field(H, "battleDraft")))
+                        throw new InvalidOperationException("备战名册详情未打开或改变了草案");
+                    Press(preparation, "Candidates/Detail/Back");
+                    preparation = RequirePanel("BattlePreparation");
+                    if (defenseDraft.AvailableSupply(controller.State, 2) >= defenseDraft.RequiredSupply(false))
+                        throw new InvalidOperationException("检查用首防阵容没有二级军需缺口");
+                    var gradeTwo = preparation.Find("Supply/Grade2").GetComponent<Button>();
+                    if (gradeTwo.interactable)
+                    {
+                        Press(preparation, "Supply/Grade2");
+                        if (preparation.Find("Continue").GetComponent<Button>().interactable)
+                            throw new InvalidOperationException("二级军需不足仍可进场");
+                    }
+                    if (defenseDraft.AvailableSupply(controller.State, 1) < defenseDraft.RequiredSupply(false))
+                    {
+                        // The stage fixture can start with one more soldier than the level I stock.
+                        H.ClosePanel();
+                        if (!controller.Change(s => s.Inventory.Equipment.Single(e => e.Product == "supply" && e.Level == 1).Count += 2,
+                            "检查一级军需选择"))
+                            throw new InvalidOperationException(controller.Message);
+                        H.OpenObject("demo_defense_start");
+                        preparation = RequirePanel("BattlePreparation");
+                    }
+                    Press(preparation, "Supply/Grade1");
+                    if (((BaseBattlePreparation)Field(H, "battleDraft")).SupplyGrade != 1)
+                        throw new InvalidOperationException("一级军需未作为整场档位保存");
+                    defenseSupplyStock = controller.State.Inventory.Equipment.Single(e => e.Product == "supply" && e.Level == 1).Count;
                     CaptureViewports("ui-skin-battle-preparation");
                     var fieldCamera = controller.WorldCamera;
                     Press(preparation, "Continue");
@@ -317,32 +354,51 @@ namespace BaseConquest.Editor
                     if (deploy.PreviewBoard.Camera != fieldCamera)
                         throw new InvalidOperationException("迎战部署替换了当前战场相机");
                     CaptureViewports("ui-skin-battle-deployment-entry");
-                    VerifyDeploymentPointer(deploy);
                     var draftArea = BattleSafeArea(deploy);
-                    const string supplies = "SelectedUnitInformation/DraftSupplies/";
-                    var validation = draftArea.Find(supplies + "Validation").GetComponentInChildren<Text>();
-                    var validColor = validation.color;
-                    Press(draftArea, supplies + "Grade_0/Plus");
-                    if (draftArea.Find("Deployment").GetComponent<Button>().interactable || validation.color == validColor)
-                        throw new InvalidOperationException("战场军需超出落位人数时未标红并拦截开战");
-                    Press(draftArea, supplies + "Grade_0/Minus");
-                    if (!draftArea.Find("Deployment").GetComponent<Button>().interactable || validation.color != validColor)
-                        throw new InvalidOperationException("战场修改军需后未恢复确认");
+                    var banner = (RectTransform)draftArea.Find("FormalBanner");
+                    if (banner == null || !banner.gameObject.activeInHierarchy || banner.anchorMin.x != 0 || banner.anchorMax.x != 1)
+                        throw new InvalidOperationException("战况没有汇入横贯屏幕的顶栏");
+                    var summary = banner.Find("FormalSummary");
+                    if (!summary.gameObject.activeInHierarchy) throw new InvalidOperationException("战况未默认展开");
+                    Press(banner, "DraftSummaryToggle");
+                    if (summary.gameObject.activeInHierarchy) throw new InvalidOperationException("战况不能收起");
+                    Press(banner, "DraftSummaryToggle");
+                    if (!summary.gameObject.activeInHierarchy) throw new InvalidOperationException("战况不能重新展开");
+                    var firstTroopRow = draftArea.Find("CommanderSlot0/DraftTroops");
+                    var secondTroopRow = draftArea.Find("CommanderSlot1/DraftTroops");
+                    if (draftArea.Find("ControlledArmy").gameObject.activeInHierarchy ||
+                        firstTroopRow.GetComponentsInChildren<Button>().Length != 3)
+                        throw new InvalidOperationException("兵种数量未移到各队长头像上方");
+                    Press(draftArea, "CommanderSlot0/TroopToggle");
+                    if (firstTroopRow.gameObject.activeInHierarchy || !secondTroopRow.gameObject.activeInHierarchy)
+                        throw new InvalidOperationException("兵种卡未按队独立收起");
+                    Press(draftArea, "CommanderSlot0/TroopToggle");
+                    if (!firstTroopRow.gameObject.activeInHierarchy)
+                        throw new InvalidOperationException("兵种卡未重新展开");
+                    Log.Add("[PASS] 战况统一进横幅，三张兵种卡可按队独立折叠");
+                    VerifyContinuousDeployment(deploy);
+                    Press(draftArea, "PreparationControls/一键清场");
+                    if (deploy.PreviewSimulation.Soldiers.Any(s => s.Side == BattleSide.A))
+                        throw new InvalidOperationException("一键撤销未清空全部落点");
+                    VerifyDeploymentPointer(deploy);
+                    var resetDraft = (BaseBattlePreparation)Field(H, "battleDraft");
+                    var firstSoldier = resetDraft.Units.First(u => u.TeamId == resetDraft.PlayerId &&
+                        u.Selected && u.Kind != SoldierKind.Hero);
+                    PlaceByPointer(deploy, resetDraft, firstSoldier.Id);
                     Press(BattleSafeArea(deploy), "测试");
                     Press(RequirePanel("BattlePreparation"), "Continue");
                     defenseBattle = RequireBattleDraft();
                     defenseHud = defenseBattle.PreviewHud.Root;
                     defenseCamera = defenseBattle.PreviewBoard.Camera;
                     defenseViewport = defenseCamera.rect;
-                    if (defenseBattle.PreviewSimulation.Soldiers.Count(s => s.Side == BattleSide.A) != 1)
+                    if (defenseBattle.PreviewSimulation.Soldiers.Count(s => s.Side == BattleSide.A) != 2)
                         throw new InvalidOperationException("从备战返回丢失了原落点");
-                    Press(BattleSafeArea(defenseBattle), "Deployment");
                     stage = "defense-deployment-shot"; frameDeadline = Time.frameCount + 15;
                     break;
                 case "defense-deployment-shot":
                     if (Time.frameCount < frameDeadline) return;
                     CaptureViewports("ui-skin-battle-deployment");
-                    Press(BattleSafeArea(defenseBattle), "Deployment");
+                    VerifyDeploymentSpace(defenseBattle);
                     FinishDialogue();
                     Click("拔剑迎战");
                     stage = "battle"; frameDeadline = Time.frameCount + 60; stageAt = EditorApplication.timeSinceStartup;
@@ -360,6 +416,12 @@ namespace BaseConquest.Editor
                         defenseBattle.PreviewSimulation.Phase != BattlePhase.Fighting)
                         throw new InvalidOperationException("开战时没有沿用同一战场、相机和战斗 HUD");
                     Log.Add("[PASS] 确认开战沿用原战场相机、同一战斗 HUD，未重新建场");
+                    var opening = defenseBattle.Realtime.Session.Opening;
+                    if (opening.SupplySnapshot.FullConsumptionGrade != 1 || opening.SupplySnapshot.Demand("supply") != 1 ||
+                        controller.State.Inventory.Equipment.Single(e => e.Product == "supply" && e.Level == 1).Count != defenseSupplyStock)
+                        throw new InvalidOperationException("开战未按实际落位人数锁定军需，或提前扣除了库存");
+                    Log.Add("[PASS] 备战军需按计划校验，实际开战按一个落位士兵锁定且未扣库存");
+                    VerifyEmptyBattleSelection(defenseBattle);
                     if (Object.FindObjectsByType<RectTransform>().Any(t => t.name == "BattleJoystick"))
                         throw new InvalidOperationException("正式战斗仍显示角色操控摇杆");
                     CaptureViewports("ui-icons-battle-hud");
@@ -609,7 +671,8 @@ namespace BaseConquest.Editor
             if (battle == null) throw new InvalidOperationException("正式战斗部署未打开：" + controller.Message);
             if (battle.PreviewBoard.Camera != controller.WorldCamera || !battle.PreviewHud.Root.activeInHierarchy ||
                 battle.PreviewSimulation.Phase != BattlePhase.Deployment || controller.State.Campaign.HasActiveBattle ||
-                BattleSafeArea(battle).Find("Deployment")?.GetComponentInChildren<Text>()?.text != "部署" ||
+                !battle.DraftPlacementActive ||
+                BattleSafeArea(battle).Find("Deployment")?.GetComponentInChildren<Text>()?.text != "开战" ||
                 Object.FindObjectsByType<RectTransform>().Any(t => t.name == "ResourceStrip" || t.name == "BattleDeployment"))
                 throw new InvalidOperationException("部署应由正常战场和战斗 HUD 承载，且尚未提交开战");
             return battle;
@@ -622,15 +685,17 @@ namespace BaseConquest.Editor
         {
             var root = BattleSafeArea(battle);
             var draft = (BaseBattlePreparation)Field(H, "battleDraft");
-            var cell = draft.Board.Positions().First(p => draft.CanPlace(draft.PlayerId, p));
-            if (battle.TryDraftDeploymentCell(cell) || draft.Positions.Count != 0)
-                throw new InvalidOperationException("未点「部署」已经可以落位");
-            Press(root, "Deployment");
             Canvas.ForceUpdateCanvases();
             if (root.Find("Deployment").GetComponent<Button>().interactable)
                 throw new InvalidOperationException("主角未布置便可开战");
+            PlaceByPointer(battle, draft, draft.PlayerId);
+            Log.Add("[PASS] 进场直接点选落位，开战前未写进度");
+        }
+
+        private static void PlaceByPointer(BattleSceneController battle, BaseBattlePreparation draft, string id)
+        {
             int visible = 0, picked = 0, unblocked = 0;
-            foreach (var point in draft.Board.Positions().Where(p => draft.CanPlace(draft.PlayerId, p)))
+            foreach (var point in draft.Board.Positions().Where(p => draft.CanPlace(id, p) && !draft.Positions.ContainsValue(p)))
             {
                 var screen = (Vector2)battle.PreviewBoard.Camera.WorldToScreenPoint(BattleBoardView.World(point, draft.Board));
                 if (!battle.PreviewBoard.Camera.pixelRect.Contains(screen)) continue;
@@ -641,12 +706,70 @@ namespace BaseConquest.Editor
                 unblocked++;
                 battle.PointerDown(-1, screen);
                 battle.PointerUp(-1, screen);
-                if (!draft.Positions.TryGetValue(draft.PlayerId, out var chosen)) continue;
+                if (!draft.Positions.TryGetValue(id, out var chosen)) continue;
                 if (chosen != point) throw new InvalidOperationException("战场点击没有落在所选地格");
-                Log.Add("[PASS] 独立部署按钮开启后，在实际战场点选落位，开战前未写进度");
                 return;
             }
-            throw new InvalidOperationException($"从战场坐标点击未放置主角：可见 {visible} 格，拾取 {picked} 格，无遮挡 {unblocked} 格，反馈 {battle.Feedback}");
+            throw new InvalidOperationException($"从战场坐标点击未放置 {id}：可见 {visible} 格，拾取 {picked} 格，无遮挡 {unblocked} 格，反馈 {battle.Feedback}");
+        }
+
+        private static void VerifyContinuousDeployment(BattleSceneController battle)
+        {
+            var draft = (BaseBattlePreparation)Field(H, "battleDraft");
+            var next = draft.Units.Where(u => u.Selected && u.Kind == SoldierKind.Hero && u.Id != draft.PlayerId).First();
+            int length = draft.Units.Count(u => u.Selected && u.Kind != SoldierKind.Hero && u.TeamId == draft.PlayerId) + 2;
+            Canvas.ForceUpdateCanvases();
+            bool CanPoint(GridPosition cell)
+            {
+                if (!draft.CanPlace(draft.PlayerId, cell)) return false;
+                var screen = BattleScreen(battle, draft.Board, cell);
+                return !battle.PreviewHud.BlocksPointer(screen) && battle.PreviewBoard.Pick(screen, out var hit) && hit == cell;
+            }
+            var stroke = draft.Board.Positions().Select(p => Enumerable.Range(0, length)
+                .Select(i => new GridPosition(p.X, p.Z + i)).ToArray()).FirstOrDefault(cells => cells.All(CanPoint));
+            if (stroke == null) throw new InvalidOperationException("找不到连续可点的部署格");
+            var from = BattleScreen(battle, draft.Board, stroke[0]);
+            var to = BattleScreen(battle, draft.Board, stroke[stroke.Length - 1]);
+            battle.PointerDown(-1, from);
+            battle.PointerMove(-1, to);
+            battle.PointerUp(-1, to);
+            if (!draft.Positions.TryGetValue(draft.PlayerId, out var first) || first != stroke[0] ||
+                !draft.Positions.TryGetValue(next.Id, out var second) || second != stroke[stroke.Length - 1])
+                throw new InvalidOperationException("快划未补齐跨过的格或未自动衔接下一位队长");
+            Log.Add("[PASS] 一次快划连续摆放首位队长、所属士兵和下一位队长");
+        }
+
+        private static Vector2 BattleScreen(BattleSceneController battle, BattleBoard board, GridPosition cell) =>
+            battle.PreviewBoard.Camera.WorldToScreenPoint(BattleBoardView.World(cell, board));
+
+        private static void VerifyDeploymentSpace(BattleSceneController battle)
+        {
+            // Batch mode has no focused Game view. Exercise the command shared by both Space input paths.
+            battle.SpaceAction();
+            if (!H.DialogueOpen)
+                throw new InvalidOperationException("空格对应的开战操作未提交：" + battle.Feedback);
+        }
+
+        private static void VerifyEmptyBattleSelection(BattleSceneController battle)
+        {
+            if (battle.SelectedUnits.Count > 0 || !battle.RealtimeStatus.Contains("进行中"))
+                throw new InvalidOperationException("正式开战未以空选运行");
+            var player = battle.Realtime.Model.Player;
+            var board = battle.PreviewSimulation.Board;
+            var center = player.BodyCenter;
+            var position = new Vector3(((float)center.X - board.Width * .5f) * BattleBoardView.CellSize, 0,
+                ((float)center.Z - board.Height * .5f) * BattleBoardView.CellSize);
+            var camera = battle.PreviewBoard.Camera;
+            if (!battle.RealtimePointer(camera.WorldToScreenPoint(position + camera.transform.up * .55f)) ||
+                battle.SelectedUnits.Count > 0)
+                throw new InvalidOperationException("空选点击友军格重新选中了队长");
+            battle.ClickCommanderPortrait(0);
+            if (battle.SelectedUnits.Count == 0)
+                throw new InvalidOperationException("主动点击头像未恢复指挥");
+            battle.ClickCommanderPortrait(0);
+            if (battle.SelectedUnits.Count > 0)
+                throw new InvalidOperationException("再次点击当前头像未取消选中");
+            Log.Add("[PASS] 空格共用的开战操作、空选点友军格只查看、头像可选中和取消");
         }
         private static object Field(object target, string name)
             => target?.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);

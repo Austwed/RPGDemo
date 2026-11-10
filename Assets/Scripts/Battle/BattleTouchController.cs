@@ -77,6 +77,7 @@ namespace BaseConquest.Battle
         public void ToggleQuickSelection() { if (battle.ModernRules) return; quickSelection = !quickSelection; feedback = quickSelection ? "快速选择开启：连续点选加入／移出" : "快速选择关闭：单击只选当前单位"; hud?.Refresh(); }
         public void SpaceAction()
         {
+            if (DeploymentDraftActive) { ToggleDraftDeployment(); return; }
             if(IsRealtimeCampaign){ToggleRealtimePause();return;}
             if (battle.Phase != BattlePhase.Fighting || skipping) return;
             if (autoRun) { autoRun = false; feedback = "自动已关闭，本轮播放结束后暂停"; }

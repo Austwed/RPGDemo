@@ -35,7 +35,7 @@ namespace BaseConquest.Base
         public IReadOnlyList<BasePrepUnit> Units => units;
         public string PlayerId { get; }
         public Dictionary<string, GridPosition> Positions { get; } = new Dictionary<string, GridPosition>();
-        public Dictionary<string, int[]> Supplies { get; } = new Dictionary<string, int[]>();
+        public int SupplyGrade { get; set; }
 
         public BaseBattlePreparation(BaseState state, BasePrepRoute route)
         {
@@ -58,7 +58,6 @@ namespace BaseConquest.Base
                 Health = l.Health, MaxHealth = l.MaxHealth, Stats = BaseCommanderIdentity.Stats(l, new ArmyDefinition().Hero),
                 Selected = selected == null || selected.Leaders.Contains(l.Id)
             }).ToList();
-            foreach (var leader in rows) Supplies.Add(leader.Id, new int[2]);
             var teams = rows.Where(l => l.Selected).ToArray();
             var initialFormation = party == null ? selected.CommanderTroops : BaseMuster.CurrentFormation(state, party);
             var selectedBuckets = selected?.Takes.ToDictionary(t => t.BucketIndex, t => t.Count);
@@ -117,31 +116,21 @@ namespace BaseConquest.Base
         }
 
         private IEnumerable<BasePrepUnit> Taking(bool deployed) => units.Where(u => u.Selected && (!deployed || Positions.ContainsKey(u.Id)));
-        private int SupplyAt(string id, int grade) => Supplies.TryGetValue(id, out var pair) && pair?.Length == 2 ? pair[grade] : -1;
-        public int AvailableSupply(BaseState state, int level) => BaseSupply.Available(state, "supply", level) +
-            state.Supply.Quotas.Where(q => arrivedPartyId != null && q.PartyId == arrivedPartyId && q.Phase == "prepared")
-                .SelectMany(q => q.Equipment).Where(e => e.Product == "supply" && e.Level == level).Sum(e => e.Count);
+        public int RequiredSupply(bool deployed) => Route == BasePrepRoute.Travel ? 0 : Taking(deployed).Count(u => u.Kind != SoldierKind.Hero);
+        public int AvailableSupply(BaseState state, int level) => level is 1 or 2
+            ? BaseSupply.Available(state, "supply", level) + state.Supply.Quotas
+                .Where(q => arrivedPartyId != null && q.PartyId == arrivedPartyId && q.Phase == "prepared")
+                .SelectMany(q => q.Equipment).Where(e => e.Product == "supply" && e.Level == level).Sum(e => e.Count)
+            : 0;
 
-        public HashSet<string> InvalidSupplyTeams(BaseState state, bool deployed)
+        public string SupplyProblem(BaseState state, bool deployed)
         {
-            var selected = Taking(deployed).Where(u => u.Kind != SoldierKind.Hero).ToLookup(u => u.TeamId);
-            var invalid = new HashSet<string>();
-            var teams = units.Where(u => u.Kind == SoldierKind.Hero && u.Selected).Select(u => u.Id).ToArray();
-            foreach (string id in teams)
-            {
-                int low = SupplyAt(id, 0), high = SupplyAt(id, 1);
-                if (low < 0 || high < 0 || (long)low + high > selected[id].Count()) invalid.Add(id);
-            }
-            for (int grade = 0; grade < 2; grade++)
-            {
-                if (teams.Sum(id => (long)Math.Max(0, SupplyAt(id, grade))) <= AvailableSupply(state, grade + 1)) continue;
-                invalid.UnionWith(teams.Where(id => SupplyAt(id, grade) > 0));
-            }
-            return invalid;
+            int required = RequiredSupply(deployed);
+            if (required == 0) return "";
+            if (SupplyGrade is not (1 or 2)) return StoryText.Get("story.ui.prep.validation.supply_grade", "请选择一级或二级军需");
+            return required <= AvailableSupply(state, SupplyGrade) ? "" :
+                StoryText.Get("story.ui.prep.validation.supply", "所选等级的军需库存不足");
         }
-
-        public string SupplyProblem(BaseState state, bool deployed) => Route == BasePrepRoute.Travel || InvalidSupplyTeams(state, deployed).Count == 0
-            ? "" : StoryText.Get("story.ui.prep.validation.supply", "军需数量超过本队人数或库存");
 
         public string Problem(BaseState state, bool deployed)
         {
@@ -252,9 +241,7 @@ namespace BaseConquest.Base
                 Units = selected,
                 Positions = deployed ? new Dictionary<string, GridPosition>(Positions) : null,
                 ArrivedPartyId = arrivedPartyId,
-                Supplies = selected.Where(u => u.Kind == SoldierKind.Hero)
-                    .Select(u => new BaseTeamSupply { LeaderId = u.Id, Low = SupplyAt(u.Id, 0), High = SupplyAt(u.Id, 1),
-                        Soldiers = selected.Count(s => s.Kind != SoldierKind.Hero && s.TeamId == u.Id) }).ToList()
+                SupplyGrade = RequiredSupply(deployed) == 0 ? 0 : SupplyGrade
             };
         }
 
@@ -262,20 +249,16 @@ namespace BaseConquest.Base
         {
             var rule = state.Supply.Rules.FirstOrDefault(r => r.Product == "supply");
             var chosen = Taking(deployed).ToArray();
-            var sizes = chosen.Where(u => u.Kind != SoldierKind.Hero).ToLookup(u => u.TeamId);
+            double attackBonus = SupplyGrade == 1 ? rule?.LowBonus ?? 0 : SupplyGrade == 2 ? rule?.HighBonus ?? 0 : 0;
+            double defenseBonus = SupplyGrade == 1 ? rule?.LowDefense ?? 0 : SupplyGrade == 2 ? rule?.HighDefense ?? 0 : 0;
             var allies = chosen.Select(u =>
             {
                 var stats = u.Stats.Clone();
                 stats.Health = (float)u.MaxHealth;
-                int ratio = sizes[u.TeamId].Count();
-                if (u.Kind != SoldierKind.Hero && ratio > 0 && rule != null)
+                if (u.Kind != SoldierKind.Hero)
                 {
-                    int low = Math.Max(0, SupplyAt(u.TeamId ?? "", 0)), high = Math.Max(0, SupplyAt(u.TeamId ?? "", 1));
-                    if ((long)low + high <= ratio)
-                    {
-                        stats.Damage += (float)((low * rule.LowBonus + high * rule.HighBonus) / ratio);
-                        stats.Defense += (float)((low * rule.LowDefense + high * rule.HighDefense) / ratio);
-                    }
+                    stats.Damage += (float)attackBonus;
+                    stats.Defense += (float)defenseBonus;
                 }
                 stats.Damage *= (float)BaseEconomy.AttackFactor(state);
                 var actor = new BattleSoldier { Kind = u.Kind, Health = (float)u.Health, Stats = stats,
@@ -296,6 +279,8 @@ namespace BaseConquest.Base
 
         public double AllyPower(BaseState state, bool deployed) => Power(state, deployed).ally;
         public double? KnownEnemyPower(BaseState state) => Power(state, false).enemy;
+        public int? KnownEnemyCount() => enemyReference?.Length;
+        public int KnownEnemyCount(SoldierKind kind) => enemyReference?.Count(unit => unit.Kind == kind) ?? 0;
 
         public BaseCampaignSession Begin(BaseState state)
         {
@@ -322,7 +307,7 @@ namespace BaseConquest.Base
         public string[] Leaders;
         public BasePrepUnit[] Units;
         public Dictionary<string, GridPosition> Positions;
-        public List<BaseTeamSupply> Supplies;
+        public int SupplyGrade;
         public string ArrivedPartyId;
         public readonly Dictionary<string, BaseWorkerBucket> Troops = new Dictionary<string, BaseWorkerBucket>();
 
