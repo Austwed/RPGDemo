@@ -6,6 +6,7 @@ namespace BaseConquest.Base
     [Serializable] public sealed class BaseDemoFlowState
     {
         public int HiredKinds;
+        public bool HideoutRecruitClueSeen;
         public bool RecruitmentNotice, RecruitOpened, InnWelcomed, HomeEnterSeen, RestLessonDone, FarmOfferPending, FarmOfferShown, NoviceShop;
         public bool AzhuDuelWon, SmithGiftOffered, ControllerAccepted, ControllerPledged, BanditCleared;
         public string FirstControllerId="";

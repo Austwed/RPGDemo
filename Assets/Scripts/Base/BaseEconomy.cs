@@ -23,6 +23,11 @@ namespace BaseConquest.Base
         public static void Validate(BaseState s, bool initialized = true)
         {
             if (s == null || s.Version != 1 || s.Day < 1 || s.Day > 1000000 || s.LastCompletedDay != s.Day - 1 || s.FoodPaidDay != (initialized ? s.Day : 0)) throw new ArgumentException("存档版本或日期／日初／日末状态非法");
+            s.InjuryDialogueIds ??= new System.Collections.Generic.List<string>();
+            if(s.InjuryDialogueDay<0||s.InjuryDialogueDay>s.Day||s.InjuryDialogueIds.Count>32
+                ||s.InjuryDialogueDay==0&&s.InjuryDialogueIds.Count>0
+                ||s.InjuryDialogueIds.Any(string.IsNullOrWhiteSpace)||s.InjuryDialogueIds.Distinct().Count()!=s.InjuryDialogueIds.Count)
+                throw new ArgumentException("带伤对白记录非法");
             if (s.Inventory == null || s.Rules == null || s.Leaders == null || s.Workers == null || s.WorkshopProgress == null || s.Inventory.Equipment == null) throw new ArgumentException("据点数据缺少库存、人员或生产规则");
             if (new[] { s.Inventory.Food, s.Inventory.Materials, s.Inventory.Coins }.Any(x => x < 0 || x > 100000000)) throw new ArgumentException("资源数量越界");
             if (!Fraction(s.FarmFraction) || !ProductsFor(s).Contains(s.WorkshopProduct) || s.WorkshopProgress.Count != ProductsFor(s).Length || s.WorkshopProgress.Any(x => x == null || !ProductsFor(s).Contains(x.Product) || !Fraction(x.Fraction)) || s.WorkshopProgress.Select(x => x.Product).Distinct().Count() != ProductsFor(s).Length) throw new ArgumentException("生产进度或配方非法");

@@ -334,7 +334,7 @@ namespace BaseConquest.Battle
             bool after = won && !owner.PursuitChosen || b.Phase == BattlePhase.Finished;
             preparationPanel.gameObject.SetActive(!owner.DrawerVisible && !after && b.Phase == BattlePhase.Deployment);
             fightingPanel.gameObject.SetActive(!owner.DrawerVisible && !after && b.Phase == BattlePhase.Fighting);
-            resultPanel.gameObject.SetActive(!owner.DrawerVisible && after);
+            resultPanel.gameObject.SetActive(!owner.DrawerVisible && after && !owner.ContinuesThroughDialogue);
             bool finished = b.Phase == BattlePhase.Finished;
             pursue.gameObject.SetActive(won && !finished); settlement.gameObject.SetActive(won && !finished);
             failureRestart.gameObject.SetActive(!owner.IsCampaignBattle && (finished || !won)); reportButton.gameObject.SetActive(finished);
@@ -413,6 +413,7 @@ namespace BaseConquest.Battle
             status.text = BattleSimulation.SideName(owner.ControlledSide) + " · 第" + b.RoundNumber + "轮 · " + (owner.Automatic ? "自动" : "暂停") + " · " + (owner.FastMode ? "3" : "1") + "倍 · 已选" + owner.SelectedUnits.Count + "队\n" + owner.Feedback;
             if (b.VictoryDeclared && b.Phase == BattlePhase.Fighting) status.text = "已获胜 · 选择乘胜追击／直接结算 · 第" + b.RoundNumber + "轮\n" + owner.Feedback;
             if (b.Phase == BattlePhase.Finished) status.text = "战斗结束 · " + BattleSceneController.OutcomeName(b.Report.Outcome) + (owner.IsCampaignBattle ? " · 返回基地继续经营\n" + owner.Feedback : " · 可重开测试");
+            status.transform.parent.gameObject.SetActive(!finished || !owner.ContinuesThroughDialogue);
             details.gameObject.SetActive(owner.DetailsVisible);
             detailBackdrop.gameObject.SetActive(owner.DetailsVisible);
             if (owner.DetailsVisible)
@@ -523,7 +524,7 @@ namespace BaseConquest.Battle
             if(owner.IsSceneEncounter)
             {
                 objectiveTitle.text=owner.SceneEncounterObjective;
-                objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsBanditHideout?owner.SceneEncounterObjective:owner.IsDemoPractice?(owner.Realtime?.TutorialProgress?.Invoke()??"完成六项指挥练习"):owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsSecondDefense?"击败全部来敌":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0.0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 可提前击退":owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":"村民先离开 · 击倒一人，重创另一人";
+                objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsBanditHideout?owner.SceneEncounterObjective:owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsSecondDefense?"击败全部来敌":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0.0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 可提前击退":owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":"";
                 status.text=(battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.RealtimeStatus)+"\n"+owner.Feedback;
             }
             if(owner.DetailsVisible)

@@ -294,7 +294,14 @@ namespace BaseConquest.RealtimePrototype
             }
             if(!Arena.FineWalkable(goal)||goal==cell)return;
             if(unit.FootprintLength==2)
-            {foreach(int step in PlanFootprint(unit,cell,goal))points.Add(Arena.Center(step));return;}
+            {
+                var arrival = unit.GroupArrivalAxis;
+                Func<PrototypePoint,bool> acceptArrival = arrival.Length > .5 &&
+                    (unit.Order==PrototypeOrder.Move||unit.Order==PrototypeOrder.Guard)&&Arena.CellAt(unit.Goal)==goal
+                    ? axis => axis.Equals(arrival) : null;
+                foreach(int step in PlanFootprint(unit,cell,goal,acceptArrival:acceptArrival))points.Add(Arena.Center(step));
+                return;
+            }
             var distances=Arena.Distances(goal);
             if(double.IsPositiveInfinity(distances[cell]))return;
             for(int count=0;cell!=goal&&count<Arena.FineColumns*Arena.FineRows;count++)
@@ -317,32 +324,130 @@ namespace BaseConquest.RealtimePrototype
             if(order==PrototypeOrder.Focus&&target==null)return false;
             var selected=Units.Where(unit=>unit.Alive&&unit.Side==PrototypeSide.Ally&&(squads!=null ? squads.Contains(unit.Squad)&&(!leadersOnly||unit.Role==PrototypeRole.Leader) : commanderId>=0 ? unit.Id==commanderId&&unit.Role==PrototypeRole.Leader : squad<0||unit.Squad==squad)).OrderBy(unit=>unit.Role==PrototypeRole.Leader ? 0 : 1).ThenBy(unit=>unit.Id).ToArray();
             if(selected.Length==0)return false;
-            var slots=new Dictionary<int,int>();var used=new HashSet<int>();
+            var slots = new Dictionary<int, int>();
+            var groupRoutes = new Dictionary<int, BodyRoute>();
+            bool groupPlacement = leadersOnly && selected.Length > 1 && (order == PrototypeOrder.Move || order == PrototypeOrder.Guard);
             if(order==PrototypeOrder.Move||order==PrototypeOrder.Guard)
             {
                 int anchor=Arena.CellAt(goal);var candidates=Enumerable.Range(0,Arena.FineColumns*Arena.FineRows)
                     .Where(cell=>Arena.FineWalkable(cell)&&(Arena.Center(cell)-goal).Length<=4&&
                         Math.Abs(cell%Arena.FineColumns-anchor%Arena.FineColumns)%2==0&&Math.Abs(cell/Arena.FineColumns-anchor/Arena.FineColumns)%2==0).ToArray();
-                foreach(var unit in selected)
+                if (groupPlacement)
+                {
+                    if (!TryCommanderDestinations(selected, candidates, goal, slots, groupRoutes)) return false;
+                }
+                else foreach(var unit in selected)
                 {
                     var distances=Arena.Distances(unit.Cell,true);int best=-1;double score=double.PositiveInfinity;
                     foreach(int cell in candidates)
                     {
-                        if(used.Contains(cell)||double.IsPositiveInfinity(distances[cell])||Units.Any(other=>other.Alive&&!selected.Contains(other)&&(other.Cell==cell||other.NextCell==cell)))continue;
+                        if(slots.ContainsValue(cell)||double.IsPositiveInfinity(distances[cell])||Units.Any(other=>other.Alive&&!selected.Contains(other)&&(other.Cell==cell||other.NextCell==cell)))continue;
                         double candidate=(Arena.Center(cell)-Arena.Center(anchor)).Length*4+distances[cell]*.12;
                         if(candidate<score){score=candidate;best=cell;}
                     }
-                    if(best<0)return false;used.Add(best);slots.Add(unit.Id,best);
+                    if(best<0)return false;slots.Add(unit.Id,best);
                 }
             }
             foreach(var unit in selected)
             {
+                bodyRoutes.Remove(unit.Id);
+                unit.GroupArrivalAxis = default;
                 if(AttackTriggered!=null)CancelWindup(unit);
                 unit.Order=order;unit.Anchor=Arena.Center(Arena.CellAt(goal));unit.Goal=slots.TryGetValue(unit.Id,out int slot) ? Arena.Center(slot) : unit.Position;
+                if (groupPlacement)
+                {
+                    unit.Anchor = unit.Goal;
+                    if (groupRoutes.TryGetValue(unit.Id, out var route))
+                    {
+                        bodyRoutes[unit.Id] = route;
+                        if(unit.FootprintLength==2)unit.GroupArrivalAxis = route.ArrivalAxis;
+                    }
+                }
                 unit.TargetId=order==PrototypeOrder.Focus ? target.Id : -1;unit.AttackSlot=-1;unit.NextThinkAt=0;unit.BlockedFor=0;
                 if(order==PrototypeOrder.Retreat)unit.Goal=unit.Anchor;
             }
             return true;
+        }
+
+        private bool TryCommanderDestinations(PrototypeUnit[] commanders, int[] candidates, PrototypePoint goal,
+            Dictionary<int, int> slots, Dictionary<int, BodyRoute> routes)
+        {
+            var occupied = new HashSet<int>();
+            foreach (var unit in Units.Where(unit => unit.Alive && !commanders.Contains(unit)))
+            {
+                occupied.UnionWith(Footprint(unit, unit.Cell, unit.BodyAxis));
+                if (unit.Moving) occupied.UnionWith(Footprint(unit, unit.NextCell, unit.BodyAxis));
+            }
+
+            var rings = candidates.GroupBy(cell => (Arena.Center(cell) - goal).Length).OrderBy(ring => ring.Key).ToArray();
+            foreach (var commander in commanders.OrderBy(unit => unit.Squad))
+            {
+                if (!(CanMove?.Invoke(commander) ?? true)) return false;
+                int start = commander.Moving ? commander.NextCell : commander.Cell;
+                var distances = Arena.Distances(start, true);
+                int chosen = -1;
+                int[] chosenFootprint = null;
+                List<int> chosenSteps = null;
+                PrototypePoint chosenAxis = default;
+                foreach (var ring in rings)
+                {
+                    double bestCost = double.PositiveInfinity;
+                    foreach (int cell in ring)
+                    {
+                        if (occupied.Contains(cell) || double.IsPositiveInfinity(distances[cell])) continue;
+                        if (!TryCommanderLanding(commander, start, cell, occupied, distances[cell], out var footprint, out var steps,
+                            out var axis, out double cost)) continue;
+                        if (cost >= bestCost) continue;
+                        chosen = cell;
+                        chosenFootprint = footprint;
+                        chosenSteps = steps;
+                        chosenAxis = axis;
+                        bestCost = cost;
+                    }
+                    if (chosen >= 0) break;
+                }
+                if (chosen < 0) return false;
+                occupied.UnionWith(chosenFootprint);
+                slots.Add(commander.Id, chosen);
+                if (chosenSteps != null)
+                    routes.Add(commander.Id, new BodyRoute { Goal = chosen, Cell = start, Revision = Arena.NavigationRevision,
+                        Steps = chosenSteps, ArrivalAxis = chosenAxis });
+            }
+            return true;
+        }
+
+        private bool TryCommanderLanding(PrototypeUnit commander, int start, int cell, HashSet<int> occupied, double distance,
+            out int[] footprint, out List<int> steps, out PrototypePoint axis, out double cost)
+        {
+            int[] arrivalCells = null;
+            PrototypePoint arrivalAxis = default;
+            bool AcceptArrival(PrototypePoint facing)
+            {
+                if (!Fits(commander, cell, facing, false)) return false;
+                var cells = Footprint(commander, cell, facing).ToArray();
+                if (cells.Any(occupied.Contains)) return false;
+                arrivalCells = cells;
+                arrivalAxis = facing;
+                return true;
+            }
+
+            cost = distance;
+            steps = null;
+            if ((commander.FootprintLength == 2 || UnitCellAllowed != null) && start != cell)
+            {
+                steps = PlanFootprint(commander, start, cell, acceptArrival: AcceptArrival);
+                cost = 0;
+                int previous = start;
+                foreach (int step in steps)
+                {
+                    cost += Arena.StepCost(previous, step);
+                    previous = step;
+                }
+            }
+            else AcceptArrival(commander.BodyAxis);
+            footprint = arrivalCells;
+            axis = arrivalAxis;
+            return footprint != null;
         }
         public void Tick(double seconds)
         {
@@ -374,14 +479,15 @@ namespace BaseConquest.RealtimePrototype
                 if(unit.Moving)continue;
                 var distances=Arena.Distances(unit.MoveGoal);
                 var heading=(Arena.Center(unit.MoveGoal)-unit.Position).Normalized;
-                int preferred=-1;
-                int detour=DetourNext(unit);if(detour>=0)preferred=detour;
-                var candidates=Arena.Neighbours(unit.Cell).Where(cell=>!double.IsPositiveInfinity(distances[cell]))
+                var groupRoute=GroupRoute(unit);
+                int preferred=unit.BlockedFor<.6 ? GroupRouteNext(unit,groupRoute) : -1;
+                if(preferred<0)preferred=DetourNext(unit);
+                var candidates=Arena.Neighbours(unit.Cell).Where(cell=>!double.IsPositiveInfinity(distances[cell])&&GroupArrivalAllowed(unit,groupRoute,cell))
                     .OrderBy(cell=>cell==preferred?-10000:distances[cell]+Arena.StepCost(unit.Cell,cell)+(reservations.TryGetValue(cell,out int owner)&&owner!=unit.Id ? 3 : 0)+(cell==unit.PreviousCell ? .5 : 0)+Math.Max(0,Cross(heading,(Arena.Center(cell)-unit.Position).Normalized))).ToArray();
                 bool started=false;
                 foreach(int cell in candidates)
                 {
-                    if(cell==unit.PreviousCell&&unit.BlockedFor<.75)continue;
+                    if(cell==unit.PreviousCell&&(groupRoute==null||cell!=preferred)&&unit.BlockedFor<.75)continue;
                     if(cell!=preferred&&distances[cell]>=distances[unit.Cell]-.001&&unit.BlockedFor<.6)continue;
                     if(cell!=preferred&&distances[cell]>distances[unit.Cell]+.8&&unit.BlockedFor<.5)continue;
                     if(TryBeginStep(unit,cell)){started=true;break;}

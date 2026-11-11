@@ -101,8 +101,7 @@ namespace BaseConquest.Base
             if(!CanExplore(state)||!InRuins(state)||!BaseInteraction.CanReach(state,BaseSpatial.Objects(state).SingleOrDefault(o=>o.Id=="demo_ruins_investigate")))throw new InvalidOperationException("请在"+BaseScriptNames.Ruins+"调查点旁确认交战，无需先接取委托");
             var mission=state.Campaign.Events.Single(e=>e.Id==EventId);
             if(state.Demo.RuinsRewards==null)BaseRuinsRewards.Enable(state);
-            state.Demo.RuinsRewards.PendingBattleId="";
-            state.Demo.RuinsRewards.PendingFirstClear=false;
+            BaseRuinsRewards.Skip(state);
             var document=Document(state);plan??=BaseAdventure.Preview(state,"expedition",true);
             var previous=mission.EnemyArmy;var rules=state.Demo.RuinsRewards;
             if(previous.Any(e=>e.Kind==SoldierKind.Hero&&(e.Dead||e.KnockedDown)))rules.EnemyGeneration++;
@@ -154,9 +153,7 @@ namespace BaseConquest.Base
             BaseAchievements.Unlock(state,BaseAchievements.Ruins);if(allowMercyAchievement&&!run.Battle.RuinsCivilianDamaged)BaseAchievements.Unlock(state,BaseAchievements.Mercy);
             if(state.Demo.RuinsDay==0){state.Demo.RuinsDay=state.Day;state.Demo.Evidence.Add(Proof);if(BaseSceneRules.Active(state)&&state.Demo.Rescue.Stage==0)state.Demo.Rescue.Stage=1;
             state.Demo.Stage=BaseDemoStage.RuinsCleared;}
-            if(state.Demo.RuinsRewards==null)BaseRuinsRewards.Enable(state);state.Demo.RuinsRewards.PendingBattleId=run.Session.Opening.Id;
-            state.Demo.RuinsRewards.PendingFirstClear=run.Session.Opening.RuinsFirstClear;
-            if(run.Session.Opening.RuinsFirstClear&&!BaseRuinsRewards.Claim(state))throw new InvalidOperationException(BaseRuinsRewards.ClaimProblem(state));
+            BaseRuinsRewards.RecordVictory(state,run.Session.Opening.Id,BasePrepRoute.Ruins,run.Session.Opening.RuinsFirstClear);
             foreach(var manifest in state.Aftermath.Loot.Where(item=>item.BattleId==run.Session.Opening.Id))if(BaseBattleLoot.CanFinish(state,manifest)&&!state.Aftermath.Prisoners.Any(p=>p.BattleId==manifest.BattleId&&p.Status=="held"))BaseBattleLoot.Finish(state,manifest.BattleId);
             BaseSceneRules.LeaveDungeon(state);BaseEconomy.Validate(state);return true;
         }

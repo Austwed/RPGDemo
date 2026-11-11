@@ -99,17 +99,28 @@ namespace BaseConquest.Base
                 c.Events.Add(new BaseCampaignEvent {Id=id,Title=site.Name+" · 第"+site.WaveNumber+"次入侵",Kind="defense",SourceSiteId=site.Id,DepartedDay=s.Day,AvailableDay=arrival,DeadlineDay=arrival,ScenarioFile="23_据点迎战.json",HoldRounds=30,EnemyArmy=wave.Select(u=>u.Copy()).ToList()});
                 site.NextDispatchDay=Date(s.Day,site.DispatchInterval);
             }
-            c.ThreatDay=s.Day;Prune(c);
+            c.ThreatDay=s.Day;Prune(s);
         }
-        private static void Prune(BaseCampaignState c)
+        private static void Prune(BaseState state)
         {
+            var c=state.Campaign;
             var keep=c.Events.Where(e=>e.Kind=="defense"&&e.Status=="resolved").Reverse().Take(128).Select(e=>e.Id).ToArray();
             c.Events.RemoveAll(e=>e.Kind=="defense"&&e.Status=="resolved"&&!keep.Contains(e.Id));
             if(c.Reports.Count>256)c.Reports.RemoveRange(0,c.Reports.Count-256);
             if(c.SettledIds.Count>4096)
             {
                 var receipts=new HashSet<string>(c.SettledIds.AsEnumerable().Reverse().Take(4096));
-                receipts.UnionWith(c.Reports.Select(r=>r.BattleId));c.SettledIds.RemoveAll(id=>!receipts.Contains(id));
+                receipts.UnionWith(c.Reports.Select(r=>r.BattleId));
+                var rewards=state.Demo?.RuinsRewards;
+                if (rewards != null)
+                {
+                    foreach (string battle in new[] { rewards.HideoutFirstClearBattleId, rewards.HideoutPendingBattleId }.Where(id => !string.IsNullOrEmpty(id)))
+                    {
+                        receipts.Add(battle);
+                        receipts.Add(BaseRuinsRewards.HideoutVictoryReceipt(battle));
+                    }
+                }
+                c.SettledIds.RemoveAll(id=>!receipts.Contains(id));
             }
         }
         public static List<BaseEnemyMember> EnemySnapshot(BaseState s,BaseCampaignEvent e,ArmyDefinition template)

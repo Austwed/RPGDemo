@@ -9,8 +9,7 @@ namespace BaseConquest.Base
     // 「跳过战斗」的白名单与结算器。
     //
     // 口径：说哪些战斗可以跳过，不说哪些不允许跳过——默认一律不允许。
-    // 2026-11-06 裁决后白名单只剩一类：
-    //   ① 沉眠古窟扫荡（需已真实通关一次）
+    // 允许跳过已真实通关的副本：沉眠古窟和土匪窝点。
     // 袭击防守（首防、第二波、随机入侵、异地入侵）不再允许战力估算，全部走真实战斗；
     // 过夜无人接手时也是真实模型跑完再结算。剧情战斗同样不在白名单。
     // 战力推演不胜或僵持超时的一律不结算，回退为真实作战——跳过永远只是「能跳过时才跳」。
@@ -19,10 +18,8 @@ namespace BaseConquest.Base
         public static bool Skippable(BaseState s, string eventId)
         {
             if (s?.Campaign == null || string.IsNullOrEmpty(eventId)) return false;
-            // 扫荡：沉眠古窟。是否已首通由 BaseRuinsSweep.Problem 另行判定。
-            if (eventId == BaseDemoRuins.EventId) return true;
-            // 其他一律不能跳过：防守袭击（含首防、第二波、随机入侵、异地入侵）都要真实战斗。
-            return false;
+            // 是否已首通由 BaseRuinsSweep.Problem 另行判定。
+            return eventId == BaseDemoRuins.EventId || eventId == BaseBanditHideout.EventId;
         }
 
         // 遗迹扫荡的专属门槛（2026-11-05 裁决，玩法案 §15.1）：我方战力必须**严格大于**敌方参考战力的 1.5 倍。
@@ -119,9 +116,16 @@ namespace BaseConquest.Base
                 soldier.InstantDead = loss.Dead;
                 soldier.DeathResolved = loss.Dead;
             }
-            // 敌方指挥被击溃，作为「敌方溃败」的结算依据。
-            var controller = run.Battle.Commander(BattleSide.B, 0);
-            if (controller != null) run.Model.Units.Single(u => u.Id == controller.Id + 1).Health = 0;
+            if (run.Battle.Scenario.BanditHideout)
+            {
+                foreach (var unit in run.Battle.Soldiers.Where(u => u.Side == BattleSide.B))
+                    run.Model.Units.Single(actor => actor.Id == unit.Id + 1).Health = 0;
+            }
+            else
+            {
+                var controller = run.Battle.Commander(BattleSide.B, 0);
+                if (controller != null) run.Model.Units.Single(u => u.Id == controller.Id + 1).Health = 0;
+            }
             var clock = run.Model.Capture();
             clock.Seconds = Math.Max(0, seconds);
             run.Model.Restore(clock, RealtimePrototype.RealtimeBattlePrototype.RpgAttackDamageLimit);

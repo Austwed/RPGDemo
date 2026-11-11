@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using BaseConquest.Battle;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -31,9 +32,9 @@ namespace BaseConquest.Base
         internal void SweepPreparedRuins(BaseBattlePreparation prepared)
         {
             BaseSweepPreview result = null;
-            if (!Change(next => result = prepared.Sweep(next), "遗迹扫荡完成，真实战损已保存")) { Hud.RefreshPreparedFailure(); return; }
+            if (!Change(next => result = prepared.Sweep(next), "扫荡完成，战损已保存")) { Hud.RefreshPreparedFailure(); return; }
             RefreshDemoRegion();
-            Hud.OpenSweepResult(result);
+            Hud.OpenSweepResult(result, prepared.Route);
         }
 
         internal void BeginPreparedBattle(BaseBattlePreparation prepared)
@@ -74,17 +75,24 @@ namespace BaseConquest.Base
         {
             if(beforeDemoRuins==null)return false;
             bool victory=run?.Battle.Report?.Outcome==BattleOutcome.SideAWin;
+            bool soloRetreat=abandon&&run!=null&&ruinsRetreatGuideId==run.Session.Opening.Id;
             var next=run==null?beforeDemoRuins.Copy():State.Copy();
             if(victory?!BaseDemoRuins.Complete(next,run):run!=null&&!BaseDemoCombat.Fail(next,run))return false;
             if(!victory&&run!=null)BaseDemoCombat.RetreatPosition(next,false);
             if(BaseSceneRules.Active(next)){if(victory&&BaseSceneRules.Dungeon(next))BattleScenePlacement.Capture(next,run);BaseSceneRules.LeaveDungeon(next);}
-            BaseEconomy.Validate(next);SaveStore.Save(next);State=next;beforeDemoRuins=null;
-            if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,()=>{if(victory)Hud.OpenRuinsVictory();else Hud.OpenDemoStory();});return true;}
+            BaseEconomy.Validate(next);SaveStore.Save(next);State=next;beforeDemoRuins=null;ruinsRetreatGuideId=null;
+            if(soloRetreat)Message="";
+            void AfterRetreat()
+            {
+                if(victory)Hud.OpenRuinsVictory();
+                else if(soloRetreat)Hud.OpenRuinsRetreatMonologue();
+            }
+            if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,AfterRetreat);return true;}
             if(Application.isPlaying){BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
             else
             {
                 var previous=combatController;combatController=null;if(previous!=null){previous.gameObject.SetActive(false);BattleBoardView.DestroyObject(previous.gameObject);}
-                RefreshDemoRegion();if(victory)Hud.OpenRuinsVictory();else Hud.OpenDemoStory();
+                RefreshDemoRegion();AfterRetreat();
             }
             return true;
         }
@@ -92,9 +100,28 @@ namespace BaseConquest.Base
         {if(Change(next=>{if(!BaseDemoRuins.Deliver(next))throw new InvalidOperationException("请带真实救助证据到领主同层一格以内，且库存未达上限");},"遗迹证据已交付，奖赏与建设许可只发放一次"))Hud.OpenObject("town_quest");}
         public void CancelRuinsEntry()
         {if(Change(s=>BaseAchievements.Unlock(s,BaseAchievements.Caution),"已暂缓进入遗迹"))Hud.ClosePanel();}
-        public void ClaimRuinsReward()
-        {if(Change(next=>{if(!BaseRuinsRewards.Claim(next))throw new InvalidOperationException(BaseRuinsRewards.ClaimProblem(next));},"消耗体力领取本次副本奖励，与领主任务首奖分开")){Hud.ClosePanel();Hud.OpenLoot();}}
-        public void SkipRuinsReward()
-        {Change(next=>BaseRuinsRewards.Skip(next),"本次不领取副本奖励，不扣体力");Hud.ClosePanel();}
+        public void ClaimRuinsReward(BasePrepRoute route)
+        {
+            string battle = BaseRuinsRewards.PendingBattle(State, route);
+            if (Change(next =>
+            {
+                if (!BaseRuinsRewards.Claim(next, route)) throw new InvalidOperationException(BaseRuinsRewards.ClaimProblem(next, route));
+            }, "已领取本次副本奖励"))
+            {
+                Hud.ClosePanel();
+                Hud.OpenLoot(battle);
+            }
+        }
+        public void SkipRuinsReward(BasePrepRoute route)
+        {
+            string battle = BaseRuinsRewards.PendingBattle(State, route);
+            if (!Change(next =>
+            {
+                if (!BaseRuinsRewards.Skip(next, route)) throw new InvalidOperationException(BaseRuinsRewards.ClaimProblem(next, route));
+            }, "已放弃本次副本奖励")) return;
+            Hud.ClosePanel();
+            if (route == BasePrepRoute.Hideout && State.Aftermath.Loot.Any(item => item.BattleId == battle && !item.Closed))
+                Hud.OpenLoot(battle);
+        }
     }
 }

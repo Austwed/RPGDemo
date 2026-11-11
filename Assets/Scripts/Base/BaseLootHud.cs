@@ -7,14 +7,16 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        private string lootTab="items",lootSelected="",lootConfirmation="";
+        private string lootTab="items",lootSelected="",lootConfirmation="",lootBattle;
         private void LootChange(Func<BaseState,bool> action,string message)
         {owner.Change(s=>{if(!action(s))throw new InvalidOperationException("操作未完成：请检查背包空格、人数上限或当前条目状态。");},message);OpenLoot();}
-        public void OpenLoot()
+        public void OpenLoot() => OpenLoot(activeObject=="loot" ? lootBattle : null);
+        internal void OpenLoot(string battle)
         {
             var s=owner.State;if(s==null||s.Aftermath.GameOver)return;
-            var m=s.Aftermath.Loot.FirstOrDefault(x=>!x.Closed);
+            var m=s.Aftermath.Loot.FirstOrDefault(x=>!x.Closed&&(battle==null||x.BattleId==battle));
             if(m==null){ClosePanel();return;}
+            lootBattle=m.BattleId;
             activeObject="loot";BeginPanel("奖励 · "+m.Title,"loot:"+m.BattleId+":"+lootTab);
             var report=s.Campaign.Reports.FirstOrDefault(r=>r.BattleId==m.BattleId);if(!string.IsNullOrEmpty(report?.RecoveryNote))Line(report.RecoveryNote,70,20);
             if(report?.EventId==BaseDemoDefense.EventId)Line("本场Demo敌方队长固定击倒，可尝试招降。队长的技能与特性各不相同，营帐满员时可暂留俘虏。",76,19);

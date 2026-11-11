@@ -83,6 +83,7 @@ namespace BaseConquest.Base
         private void OpenBarracks()
         {
             if (activeObject != "barracks" || owner.State == null) return;
+            if (UseFacilityPanel) { OpenBarracksFacility(); return; }
             BeginPanel("兵营 · 军队与伤情", "barracks:" + activePage); ManagementTabs(OpenBarracks);
             RowButton("规则 i",0,800,()=>FacilityRules(OpenBarracks));row+=60;
             BaseConquest.Presentation.DemoUiIcons.Attach(RowButton("角色等级训练",0,820,OpenTraining),"training");row+=60;

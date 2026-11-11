@@ -77,10 +77,10 @@ namespace BaseConquest.Editor
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();
-            VerifyBattleAppearances();VerifyRuinsEntranceCollision();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();VerifyBaseFacilities.Run();VerifyDeputy.Run();
+            VerifyBattleAppearances();VerifyRuinsEntranceCollision();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyTemporaryBattleDialogue();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();VerifyBaseFacilities.Run();VerifyDeputy.Run();
             Debug.Log("[VerifyChenanAndRuins] regression PASS");
         }
-        // P20（01C §8.5.1）：带伤应答只看主角当前生命是否低于 60%，满血与阵亡都不触发。
+        // 带伤应答对每位 NPC 按游戏日记录，保留读档当天的播放次数。
         public static void VerifyInjuredLines()
         {
             var s=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
@@ -91,14 +91,66 @@ namespace BaseConquest.Editor
             foreach(var id in new[]{"INJ_TOWN_MAIGE","INJ_TOWN_GUARD","INJ_TOWN_MO","INJ_TOWN_XIAOYUN","INJ_TOWN_BALONG","INJ_TOWN_LEIEN","INJ_CAMP_ZHOU","INJ_CAMP_CHUN","INJ_CAMP_AHE","INJ_CAMP_AZHU","INJ_CAMP_JIALAN"})
                 Need(BaseHud.InjuredText(s,id)!="",id+" 缺带伤应答文案");
             Need(BaseHud.InjuredText(s,"INJ_TOWN_MAIGE")!=BaseHud.InjuredText(s,"INJ_TOWN_GUARD"),"不同 NPC 的带伤应答不应重复");
+            Need(BaseHud.RecordInjuryDialogue(s,"INJ_TOWN_MO"),"当天第一次交谈应触发");
+            Need(!BaseHud.RecordInjuryDialogue(s.Copy(),"INJ_TOWN_MO"),"状态复制后同一 NPC 当天不得重复触发");
+            var restored=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));
+            BaseEconomy.Validate(restored);
+            Need(!BaseHud.RecordInjuryDialogue(restored,"INJ_TOWN_MO"),"读档后同一天同一 NPC 不应再次触发");
+            Need(BaseHud.RecordInjuryDialogue(restored,"INJ_TOWN_BALONG"),"另一名 NPC 的当天触发独立记录");
+            restored.Day++;
+            Need(BaseHud.RecordInjuryDialogue(restored,"INJ_TOWN_MO")&&restored.InjuryDialogueIds.Count==1,"下一日同一 NPC 可重新触发");
             p.Health=p.MaxHealth*.6;
-            Need(!BaseHud.Wounded(s),"生命正好 60% 不应算带伤");
+            Need(!BaseHud.Wounded(s)&&!BaseHud.RecordInjuryDialogue(s,"INJ_TOWN_BALONG"),"生命正好 60% 不应算带伤");
             p.Health=p.MaxHealth;
             Need(!BaseHud.Wounded(s)&&BaseHud.InjuredText(s,"INJ_CAMP_ZHOU")=="","满血不应出带伤应答");
             p.Health=p.MaxHealth*.4;p.Fate="dead";
             Need(!BaseHud.Wounded(s),"阵亡角色不参与带伤应答");
             p.Fate="active";
-            Debug.Log("[Injured] 阈值 60%；11 条文案就绪，满血／60% 整／阵亡均不触发");
+            Debug.Log("[Injured] PASS：阈值、每人每日、存档往返、过日重置");
+        }
+        public static void VerifyTemporaryBattleDialogue()
+        {
+            const BindingFlags Instance = BindingFlags.Instance | BindingFlags.NonPublic;
+            var dispatch=typeof(BattleSceneController).GetMethod("ContinueFinishedSceneDialogue",Instance);
+            var simulation=typeof(BattleSceneController).GetField("battle",Instance);
+            var retryAt=typeof(BattleSceneController).GetField("campaignRetryAt",Instance);
+            var finish=typeof(BattleSimulation).GetMethod("FinishRealtime",Instance);
+            Check(BaseDemoIntro.BattleId,BattleOutcome.SideAWin,true);
+            Check(BaseDemoIntro.BattleId,BattleOutcome.Retreat,true);
+            Check(BaseDemoPrologue.BattleId,BattleOutcome.SideAWin,true);
+            Check(BaseDemoPrologue.BattleId,BattleOutcome.SideBWin,true);
+            Check(BaseDemoRuins.EventId,BattleOutcome.SideAWin,false);
+            Debug.Log("[TemporaryBattleDialogue] PASS：演练与追兵成功／失败回调各一次，正式古窟不自动结算");
+
+            void Check(string id,BattleOutcome outcome,bool expected)
+            {
+                var host=new GameObject("TemporaryBattleDialogueCheck");
+                try
+                {
+                    var controller=host.AddComponent<BattleSceneController>();
+                    var opening = new BaseCampaignBattle { Id=id, EventId=id, Scenario=new BattleScenario() };
+                    opening.Leaders.Add(new BaseLeader { Name="演练者", AppearanceId="female" });
+                    var session = new BaseCampaignSession(opening);
+                    int calls=0;
+                    controller.ConfigureSceneEncounter(session,null,null,(_,abandon,mainMenu)=>
+                    {
+                        Need(!abandon&&!mainMenu&&session.Battle.Report.Outcome==outcome,"回调须保留战斗结果与离场方式");
+                        calls++;
+                        return true;
+                    },"");
+                    simulation.SetValue(controller,session.Battle);
+                    bool Dispatch()=>(bool)dispatch.Invoke(controller,null);
+                    Need(!Dispatch()&&calls==0,"部署阶段不得自动切入对白");
+                    finish.Invoke(session.Battle,new object[]{outcome});
+                    controller.ExternalDialogue=true;
+                    Need(!Dispatch()&&calls==0,"进行中的对白结束前不得切入结果");
+                    controller.ExternalDialogue=false;
+                    Need(Dispatch()==expected&&calls==(expected?1:0),"结束时必须按战斗类型派发");
+                    retryAt.SetValue(controller,-1f);
+                    Need(!Dispatch()&&calls==(expected?1:0),"重复帧不得再提交同一战斗回调");
+                }
+                finally { UnityEngine.Object.DestroyImmediate(host); }
+            }
         }
         // P24（2026-11-04 定）：高地换算以现行 BattleHeightSight 为准，02／05 的数字必须跟它一致。
         // ArcherBonus 返回的是细格；粗格加成 = 返回值 ÷ Subdivision(2)。

@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 using BaseConquest.Battle;
 using BaseConquest.Presentation;
 using BaseConquest.Story;
@@ -18,8 +19,11 @@ namespace BaseConquest.Base
         }
         private sealed class NpcReply
         {
-            public string Text;public Action Action;public bool Enabled;
-            public NpcReply(string text,Action action,bool enabled=true){Text=text;Action=action;Enabled=enabled;}
+            public readonly string Text;
+            public readonly Action Action;
+            public readonly bool Enabled, Unlocked;
+            public NpcReply(string text, Action action, bool enabled = true, bool unlocked = true)
+            { Text = text; Action = action; Enabled = enabled; Unlocked = unlocked; }
         }
         private const float DialogueCharacterSeconds = .035f;
         private Action dialogueContinue;
@@ -42,7 +46,8 @@ namespace BaseConquest.Base
             else dialogueTick = null;
         }
 
-        private void NpcDialogue(NpcLine[] lines, NpcReply[] replies, bool lockExitUntilFinished = false, Action onCompleted = null)
+        private void NpcDialogue(NpcLine[] lines, NpcReply[] replies, bool lockExitUntilFinished = false, Action onCompleted = null,
+            bool quietAdvance = false)
         {
             var view = OpenScenePanel("NpcDialogue", "npc-dialogue");
             root.GetComponent<Canvas>().sortingOrder = 300;
@@ -62,10 +67,11 @@ namespace BaseConquest.Base
             var surface = Ui<Button>(view, "");
             surface.onClick.AddListener(() => ContinueDialogue());
             advance.onClick.AddListener(() => ContinueDialogue());
-            var replyRows = new (Button Button, Text Label, NpcReply Reply)[replies.Length];
-            for (int i = 0; i < replies.Length; i++)
+            var visibleReplies = replies.Where(reply => reply.Unlocked).ToArray();
+            var replyRows = new (Button Button, Text Label, NpcReply Reply)[visibleReplies.Length];
+            for (int i = 0; i < visibleReplies.Length; i++)
             {
-                var reply = replies[i];
+                var reply = visibleReplies[i];
                 var button = UnityEngine.Object.Instantiate(template, choices.content, false);
                 var label = button.GetComponentInChildren<Text>(true);
                 label.text = "...";
@@ -83,7 +89,7 @@ namespace BaseConquest.Base
                 });
             }
 
-            dialogueLocked = lockExitUntilFinished;
+            dialogueLocked = lockExitUntilFinished || quietAdvance;
             choices.gameObject.SetActive(replyRows.Length > 0);
             PresentLine(0);
             RefreshSummary();
@@ -106,8 +112,8 @@ namespace BaseConquest.Base
                 var shown = 0;
                 var elapsed = 0f;
                 speech.text = "";
-                advance.gameObject.SetActive(true);
-                hint.gameObject.SetActive(true);
+                advance.gameObject.SetActive(!quietAdvance);
+                hint.gameObject.SetActive(!quietAdvance);
                 dialogueContinue = Advance;
                 dialogueTick = Reveal;
                 if (characters.Length == 0) FinishLine();
@@ -119,6 +125,7 @@ namespace BaseConquest.Base
                     else if (onCompleted != null)
                     {
                         dialogueContinue = null;
+                        dialogueLocked = false;
                         onCompleted();
                     }
                 }
@@ -142,7 +149,7 @@ namespace BaseConquest.Base
                     speech.text = fullText;
                     dialogueTick = null;
                     if (!last) return;
-                    dialogueLocked = false;
+                    dialogueLocked = quietAdvance;
                     foreach (var row in replyRows)
                     {
                         row.Label.text = row.Reply.Text;

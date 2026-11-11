@@ -317,6 +317,13 @@ namespace BaseConquest.Base
 
         public BaseSweepPreview PreviewSweep(BaseState state) => BaseRuinsSweep.Preview(state, "none", this);
         public BaseSweepPreview Sweep(BaseState state) => BaseRuinsSweep.Resolve(state, "none", this);
+        internal BaseCampaignSession BeginSweep(BaseState state, string mode)
+        {
+            var roster = Roster(state, false);
+            var plan = Plan(state, false);
+            return Route == BasePrepRoute.Hideout ? BaseBanditHideout.Begin(state, plan, roster, hideoutEnemies, hideoutSeed)
+                : BaseDemoRuins.Begin(state, mode, plan, roster);
+        }
     }
 
     internal sealed class BasePreparedRoster

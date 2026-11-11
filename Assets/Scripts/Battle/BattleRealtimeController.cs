@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BaseConquest.Base;
 using BaseConquest.RealtimePrototype;
+using BaseConquest.Story;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -25,7 +26,7 @@ namespace BaseConquest.Battle
         {var actor=realtime?.Model.Units.FirstOrDefault(a=>a.Id==unit.Id+1);return actor==null?RealtimeCampaignBattle.SpeedCells(campaignSession,unit):realtime.Model.MovementSpeed(actor)*2;}
         public double RealtimeAttack(BattleSoldier unit)
         {var actor=realtime?.Model.Units.FirstOrDefault(a=>a.Id==unit.Id+1);return actor==null?unit.Stats.Damage*unit.DrinkMultiplier:realtime.Model.DamageFor(actor);}
-        public string RealtimeStatus=>realtime?.TutorialProgress!=null?realtime.TutorialProgress():"即时格战 · "+(realtime?.Model.Elapsed??0).ToString("0.0")+"秒 · "+(autoRun?"进行中":"暂停")+" · "+(campaignSession?.Opening.RealtimeRulesVersion==0?"旧实验数值·本场保留":"细格数值")+(campaignSession?.Opening.DemoCombat==true?" · Demo独立存档":" · 独立实验存档");
+        public string RealtimeStatus=>"即时格战 · "+(realtime?.Model.Elapsed??0).ToString("0.0")+"秒 · "+(autoRun?"进行中":"暂停")+" · "+(campaignSession?.Opening.RealtimeRulesVersion==0?"旧实验数值·本场保留":"细格数值")+(campaignSession?.Opening.DemoCombat==true?" · Demo独立存档":" · 独立实验存档");
         public const string RealtimePending="首版：1轮参数暂按1秒；脚力冲锋／救援／胜后追击未接入";
         public void PrepareCampaignPreview(BaseCampaignSession session)
         {
@@ -39,9 +40,20 @@ namespace BaseConquest.Battle
             if(realtime.Model.Player!=null)boardView.CenterOn(battle.Soldier(realtime.Model.Player.Id-1).Cell);
             feedback="即时战斗已暂停：点选细格查看；选队长后单击移动／攻击，双击空地驻守／敌人集火；空格继续。";
             if(realtime.Tactics.Objects.Count>0)feedback+=" 点击枯树可攻击倒障；点击巨石可沿攻击方向推动，双方均可能受伤。";
-            var chosen=realtime.Model.Units.Where(u=>u.Alive&&u.Side==PrototypeSide.Ally&&u.Role==PrototypeRole.Leader&&u.Strategy==PrototypeStrategy.Obey).OrderByDescending(u=>u.Player).ThenBy(u=>u.Squad).FirstOrDefault();
-            if(chosen!=null&&!manualFieldEncounter){selection.Set(new[]{chosen.Id-1});selectedUnitId=chosen.Id-1;deploymentCommanderSlot=chosen.Squad;deploymentSlotChosen=true;}
+            SelectOpeningCommanders();
             SyncRealtimeViews();
+        }
+
+        private void SelectOpeningCommanders()
+        {
+            var chosen = realtime.Model.Units.Where(unit => unit.Alive && unit.Side == PrototypeSide.Ally &&
+                unit.Role == PrototypeRole.Leader && unit.Strategy == PrototypeStrategy.Obey && battle.SelectableCommander(battle.Soldier(unit.Id - 1)))
+                .OrderBy(unit => unit.Squad).ToArray();
+            selection.Set(chosen.Select(unit => unit.Id - 1));
+            selectedUnitId = selection.Primary;
+            realtimeSingleCommander = true;
+            deploymentSlotChosen = chosen.Length > 0;
+            deploymentCommanderSlot = deploymentSlotChosen ? chosen[0].Squad : 0;
         }
         private bool RealtimeOrder(PrototypeOrder order,PrototypePoint point,int target=-1,bool squadFocus=false)
         {
@@ -49,7 +61,10 @@ namespace BaseConquest.Battle
             if(order==PrototypeOrder.Auto)
             {var actor=realtime.Model.Units.FirstOrDefault(unit=>unit.Alive&&selection.Contains(unit.Id-1));if(actor==null)return false;point=actor.Position;}
             bool accepted=realtime.Issue(selection.Ids,order,point,target,true,squadFocus);
-            feedback=accepted?(autoRun?"指令已执行":"指令已写入，按空格或继续按钮运行"):"未下令：请选择可行动队长／小队，确认目标可见、落点可达";
+            bool groupPlacement = selection.Ids.Count > 1 && (order == PrototypeOrder.Move || order == PrototypeOrder.Guard);
+            feedback=accepted?(autoRun?"指令已执行":"指令已写入，按空格或继续按钮运行"):groupPlacement
+                ? StoryText.Get("story.ui.battle.group_no_space", "队长落点不足，原指令保留。")
+                : "未下令：请选择可行动队长／小队，确认目标可见、落点可达";
             SyncRealtimeViews();hud?.Refresh();return accepted;
         }
         public bool RealtimeMove(PrototypePoint point)=>RealtimeOrder(PrototypeOrder.Move,point);

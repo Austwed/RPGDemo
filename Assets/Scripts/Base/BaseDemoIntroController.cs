@@ -24,12 +24,12 @@ namespace BaseConquest.Base
         }
         public void SelectDemoHero(string hero)
         {
-            if(!Change(next=>{if(!BaseDemoIntro.Choose(next,hero))throw new InvalidOperationException("请在新旅程选择主角");},BaseScriptNames.Village+"的清晨 · 走近搭档交谈"))return;
+            if(!Change(next=>{if(!BaseDemoIntro.Choose(next,hero))throw new InvalidOperationException("请在新旅程选择主角");},""))return;
             RebuildRegion();RebuildHud();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();Hud.ClosePanel();Hud.OpenDemoStory();
         }
-        public void AdvanceDemoIntro(Func<BaseState,bool> action,string message)
+        public void AdvanceDemoIntro(Func<BaseState,bool> action)
         {
-            if(!Change(next=>{if(!action(next))throw new InvalidOperationException(BaseDemoIntro.Objective(next));},message))return;
+            if(!Change(next=>{if(!action(next))throw new InvalidOperationException(BaseDemoIntro.Objective(next));},""))return;
             Hud.ClosePanel();RebuildRegion();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();
         }
         private void TickDemoIntro(double seconds)
@@ -65,12 +65,12 @@ namespace BaseConquest.Base
         }
         private bool FinishDemoPractice(RealtimeCampaignBattle run,bool abandon,bool mainMenu)
         {
-            bool completed=!abandon&&run?.Battle.Report.Outcome==BattleOutcome.SideAWin;
+            bool completed=!abandon&&run?.Battle.Report?.Outcome==BattleOutcome.SideAWin;
             var next=State.Copy();if(!BaseDemoIntro.FinishPractice(next,completed))return false;
             if(!abandon&&run?.Battle.Phase==BattlePhase.Finished)BaseSceneRules.RememberStrategy(next,run.Session);BaseEconomy.Validate(next);SaveStore.Save(next);State=next;BaseBattleGateway.MainMenu=mainMenu;
-            if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu);return true;}
+            if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,()=>Hud.OpenPracticeResult(completed));return true;}
             if(Application.isPlaying)SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
-            else{var old=combatController;combatController=null;if(old!=null)BattleBoardView.DestroyObject(old.gameObject);RebuildRegion();RebuildHud();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();}
+            else{var old=combatController;combatController=null;if(old!=null)BattleBoardView.DestroyObject(old.gameObject);RebuildRegion();RebuildHud();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();if(!mainMenu)Hud.OpenPracticeResult(completed);}
             return true;
         }
     }

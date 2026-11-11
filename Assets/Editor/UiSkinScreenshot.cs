@@ -6,6 +6,7 @@ using System.Reflection;
 using BaseConquest.Base;
 using BaseConquest.Battle;
 using BaseConquest.Presentation;
+using BaseConquest.RealtimePrototype;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -235,6 +236,7 @@ namespace BaseConquest.Editor
                     VerifyTradeCardLayout(RequirePanel("TownTrade"));
                     CaptureViewports("ui-skin-trade");
                     H.ClosePanel();
+                    VerifyAzhuDuelDialogue();
                     Approach("town_quest");
                     if (!controller.Change(s =>
                     {
@@ -279,6 +281,7 @@ namespace BaseConquest.Editor
                         controller.State.Campaign.HasActiveBattle || Object.FindObjectsByType<BattleSceneController>().Any(b => b.DeploymentDraftActive))
                         throw new InvalidOperationException("取消遗迹交战没有恢复入口或清空草案");
                     Log.Add("[PASS] 古窟免疫队伍跳过警告、落位普通士兵弹出确认，接受进入首次对峙，拒绝恢复入口");
+                    VerifyRuinsSoloRetreat();
                     VerifyHideoutUi();
                     controller.LoadDemoStage("defense", "female");
                     stage = "defense-ready"; stageAt = EditorApplication.timeSinceStartup;
@@ -308,6 +311,9 @@ namespace BaseConquest.Editor
                     if (Time.frameCount < frameDeadline || controller?.State?.Campaign.Location != "perimeter" ||
                         Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
                     H.ClosePanel();
+                    if (!controller.Change(s => s.Muster.Strategies = new List<int>
+                        { (int)SquadStrategy.Obey, (int)SquadStrategy.Attack, (int)SquadStrategy.Obey }, "界面检查"))
+                        throw new InvalidOperationException(controller.Message);
                     Approach("demo_defense_start");
                     H.OpenObject("demo_defense_start");
                     RequirePanel("BattlePreparation");
@@ -413,13 +419,16 @@ namespace BaseConquest.Editor
                     var firstSoldier = resetDraft.Units.First(u => u.TeamId == resetDraft.PlayerId &&
                         u.Selected && u.Kind != SoldierKind.Hero);
                     PlaceByPointer(deploy, resetDraft, firstSoldier.Id);
+                    foreach (var leader in resetDraft.Units.Where(u => u.Selected && u.Kind == SoldierKind.Hero && u.Id != resetDraft.PlayerId))
+                        if (!resetDraft.Place(leader.Id, resetDraft.Board.Positions().First(p => resetDraft.CanPlace(leader.Id, p))))
+                            throw new InvalidOperationException("未能摆放默认选中检查用的队长");
                     Press(BattleSafeArea(deploy), "DraftPreparationControls/Back");
                     Press(RequirePanel("BattlePreparation"), "Continue");
                     defenseBattle = RequireBattleDraft();
                     defenseHud = defenseBattle.PreviewHud.Root;
                     defenseCamera = defenseBattle.PreviewBoard.Camera;
                     defenseViewport = defenseCamera.rect;
-                    if (defenseBattle.PreviewSimulation.Soldiers.Count(s => s.Side == BattleSide.A) != 2)
+                    if (defenseBattle.PreviewSimulation.Soldiers.Count(s => s.Side == BattleSide.A) != 4)
                         throw new InvalidOperationException("从备战返回丢失了原落点");
                     stage = "defense-deployment-shot"; frameDeadline = Time.frameCount + 15;
                     break;
@@ -449,7 +458,7 @@ namespace BaseConquest.Editor
                         controller.State.Inventory.Equipment.Single(e => e.Product == "supply" && e.Level == 1).Count != defenseSupplyStock)
                         throw new InvalidOperationException("开战未按实际落位人数锁定军需，或提前扣除了库存");
                     Log.Add("[PASS] 备战军需按计划校验，实际开战按一个落位士兵锁定且未扣库存");
-                    VerifyEmptyBattleSelection(defenseBattle);
+                    VerifyOpeningBattleSelection(defenseBattle);
                     if (Object.FindObjectsByType<RectTransform>().Any(t => t.name == "BattleJoystick"))
                         throw new InvalidOperationException("正式战斗仍显示角色操控摇杆");
                     CaptureViewports("ui-icons-battle-hud");
@@ -484,22 +493,8 @@ namespace BaseConquest.Editor
             if ((string)Field(H, "panelViewKey") != "quests") throw new InvalidOperationException("菜单任务入口没有打开任务列表");
             H.ClosePanel();
 
-            var trackerText = (Text)Field(H, "trackedQuest");
-            var tracker = trackerText.transform.parent;
-            if (tracker.gameObject.activeSelf) throw new InvalidOperationException("没有追踪任务时常驻栏应隐藏");
-            string quest = BaseQuestLog.Entries(controller.State).First(entry => entry.Trackable).Id;
-            bool folded = BaseQuestLog.Collapsed(controller.State);
-            if (!controller.Change(s => BaseQuestLog.ToggleTrack(s, quest), "界面检查")) throw new InvalidOperationException(controller.Message);
-            if (trackerText.preferredHeight > trackerText.rectTransform.rect.height + 1)
-                throw new InvalidOperationException("任务追踪的固定字号文字被截断");
-            Capture("ui-skin-tracked-quest");
-            ClickHudButton(tracker.Find("折叠"));
-            if (BaseQuestLog.Collapsed(controller.State) == folded) throw new InvalidOperationException("任务追踪折叠按钮未切换");
-            ClickHudButton(tracker);
-            if ((string)Field(H, "panelViewKey") != "quests") throw new InvalidOperationException("任务追踪入口没有打开任务列表");
-            H.ClosePanel();
-            if (!controller.Change(s => { BaseQuestLog.ToggleTrack(s, quest); BaseQuestLog.SetCollapsed(s, folded); }, "界面检查"))
-                throw new InvalidOperationException(controller.Message);
+            if (Object.FindObjectsByType<RectTransform>().Any(t => t.name == "TrackedQuest"))
+                throw new InvalidOperationException("仍显示常驻任务追踪");
 
             var expectedTitles = new[] { "日历", "粮食", "军需", "原料", "钱币", "体力", "兵力" };
             for (int i = 0; i < order.Length; i++)
@@ -558,7 +553,7 @@ namespace BaseConquest.Editor
             if (H.ResourcePopoverOpen || H.PanelOpen || controller.SelectedCell == null)
                 throw new InvalidOperationException("点击外部没有关闭下拉并保留同帧地图交互");
             controller.ClearSelection();
-            Log.Add("[PASS] 七项资源下拉、日历翻页、点击外部关闭且地图可操作、系统菜单与两处任务入口");
+            Log.Add("[PASS] 七项资源下拉、日历翻页、点击外部关闭且地图可操作、菜单任务册、移除常驻追踪");
         }
 
         private static void ClickHudButton(Transform node)
@@ -635,7 +630,22 @@ namespace BaseConquest.Editor
 
         private static void VerifyHideoutUi()
         {
+            if (!controller.Change(s =>
+            {
+                var west = BaseSpatial.Nearest(s, new BasePoint(14.5, 12.5));
+                s.PlayerX = west.X; s.PlayerY = west.Y;
+                BaseAdventure.Arrive(s);
+            }, "界面检查")) throw new InvalidOperationException(controller.Message);
+            var refreshSight = controller.GetType().GetMethod("RefreshSceneSight", BindingFlags.Instance | BindingFlags.NonPublic);
+            refreshSight.Invoke(controller, new object[] { true });
+            var entrance = BaseSpatial.Objects(controller.State).Single(o => o.Id == BaseBanditHideout.EntryId);
+            if (BaseBanditHideout.VisibleFromPlayer(controller.State, entrance) || controller.PresentedObject(entrance.Id) != null)
+                throw new InvalidOperationException("墙前看见了土匪窝点");
+            Capture("ui-bandit-hideout-before-wall");
             Approach(BaseBanditHideout.EntryId);
+            refreshSight.Invoke(controller, new object[] { true });
+            if (!BaseBanditHideout.VisibleFromPlayer(controller.State, entrance) || controller.PresentedObject(entrance.Id) == null)
+                throw new InvalidOperationException("绕到墙后仍不能发现窝点");
             CaptureViewports("ui-bandit-hideout-entrance");
             H.OpenObject(BaseBanditHideout.EntryId);
             var preparation = RequirePanel("BattlePreparation");
@@ -643,6 +653,9 @@ namespace BaseConquest.Editor
             if (draft.Route != BasePrepRoute.Hideout || draft.KnownEnemyCount() <= 0 ||
                 !preparation.Find("Enemy/Value").GetComponent<Text>().text.Contains("敌方"))
                 throw new InvalidOperationException("窝点没有进入备战并公开敌方阵容");
+            if (preparation.Find("Sweep").gameObject.activeInHierarchy || preparation.Find("Reward").gameObject.activeInHierarchy ||
+                !preparation.GetComponentsInChildren<Text>().Any(label => label.text.Contains("体力") && label.text.Contains("首通")))
+                throw new InvalidOperationException("窝点首战没有显示体力规则，或提前显示扫荡及待领奖");
             if (draft.RequiredSupply(false) == 0)
             {
                 Press(preparation.Find("Teams").GetChild(0), "Melee/Plus");
@@ -676,7 +689,66 @@ namespace BaseConquest.Editor
             VerifyBattleMenu(battle, null);
             if (!battle.WithdrawSceneEncounter() || !BaseSceneRules.Entrance(controller.State))
                 throw new InvalidOperationException("窝点撤退没有回到入口");
-            Log.Add("[PASS] 窝点入口、实际备战阵容、部署返回、无队长与侵蚀、撤退返回入口");
+            Log.Add("[PASS] 断壁前隐藏、绕墙后发现窝点，预览阵容与实战一致，部署返回、无队长与侵蚀、撤退回入口");
+        }
+
+        private static void VerifyRuinsSoloRetreat()
+        {
+            Approach("demo_ruins_investigate");
+            H.OpenObject("demo_ruins_investigate");
+            var prep = RequirePanel("BattlePreparation");
+            if (((BaseBattlePreparation)Field(H, "battleDraft")).RequiredSupply(false) > 0)
+                Press(prep, "Supply/Grade1");
+            Press(RequirePanel("BattlePreparation"), "Continue");
+            var battle = RequireBattleDraft();
+            VerifyDeploymentPointer(battle);
+            Press(BattleSafeArea(battle), "DraftPreparationControls/Start");
+            FinishDialogue();
+            Click("准备交战");
+            var player = battle.Realtime.Model.Player;
+            player.Health = player.MaxHealth * .5;
+            var retreat = controller.GetType().GetMethod("TickRuinsRetreatGuide", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (!(bool)retreat.Invoke(controller, null) || controller.State.Campaign.HasActiveBattle || !BaseSceneRules.Entrance(controller.State))
+                throw new InvalidOperationException("主角半血没有真实撤退并回到遗迹入口");
+            var dialogue = RequirePanel("NpcDialogue");
+            H.ContinueDialogue();
+            if (dialogue.Find("DialogueText").GetComponent<Text>().text != "那个骑马的家伙或许可以帮忙。" ||
+                new[] { "DialogueHint", "AdvanceButton", "Replies" }.Any(path => dialogue.Find(path).gameObject.activeInHierarchy))
+                throw new InvalidOperationException("撤退独白仍有额外提示或选项");
+            Capture("ui-skin-ruins-solo-retreat");
+            H.ContinueDialogue();
+            if (H.PanelOpen) throw new InvalidOperationException("独白收起后又显示了其他面板");
+            Log.Add("[PASS] 古窟单人半血真实撤退，只有主角独白，收起后回探索");
+        }
+
+        private static void VerifyAzhuDuelDialogue()
+        {
+            Approach("demo_azhu");
+            H.OpenObject("demo_azhu");
+            var replies = RequirePanel("NpcDialogue").Find("Replies");
+            var buttons = replies.GetComponentsInChildren<Button>();
+            if (buttons.Length != 2 || buttons.Any(button => button.GetComponentInChildren<Text>().text != "..."))
+                throw new InvalidOperationException("未解锁的比武选项生成了占位");
+            FinishDialogue();
+            var player = controller.State.Leaders.Single(l => l.Id == controller.State.PlayerLeaderId);
+            double health = player.Health;
+            Click("询问短剑并原地切磋");
+            var duel = (BattleSceneController)Field(controller, "combatController");
+            if (duel?.Realtime == null || !duel.IsAzhuDuel)
+                throw new InvalidOperationException("原地比武未开战");
+            duel.ResumeAfterDialogue(true);
+            var opponent = duel.Realtime.Model.Units.Single(u => u.Side == PrototypeSide.Enemy);
+            opponent.Health = opponent.MaxHealth * .5;
+            duel.AdvanceRealtime(.04);
+            var finish = duel.GetType().GetMethod("ContinueFinishedSceneDialogue", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (!(bool)finish.Invoke(duel, null) || Field(controller, "combatController") != null ||
+                controller.State.Leaders.Single(l => l.Id == controller.State.PlayerLeaderId).Health != health ||
+                !controller.State.Demo.Flow.AzhuDuelWon)
+                throw new InvalidOperationException("比武胜利没有恢复状态并接入阿铸对白");
+            FinishDialogue();
+            Capture("ui-skin-azhu-duel-dialogue");
+            Click("暂缓邀请");
+            Log.Add("[PASS] 隐藏未解锁比武选项，原地比武胜利恢复状态并直进阿铸对白");
         }
 
         private static void VerifyRuinsWarning()
@@ -876,12 +948,20 @@ namespace BaseConquest.Editor
             if (controller.State.Campaign.Location != "base") throw new InvalidOperationException(controller.Message);
             Approach("farm");
             H.OpenObject("farm");
-            Click(BaseConquest.Story.StoryText.Get("story.ui.roster.open", "点名调配"));
-            var view = (RectTransform)Field(H, "panel");
-            var rows = view.GetComponentsInChildren<RectTransform>().Where(node => node.name == "PersonnelRosterRow").ToArray();
+            var view = RequirePanel("FacilityPanel");
+            var actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
+            var list = view.Find("Right/List").GetComponent<ScrollRect>();
+            var rows = list.content.Cast<RectTransform>().Where(node => node.name == "PersonnelRosterRow").ToArray();
             if (rows.Length == 0) throw new InvalidOperationException("粮田点名名册没有显示可调士兵");
             foreach (var row in rows) VerifyRosterRow(row, false);
-            Capture("ui-skin-facility-roster");
+            CaptureViewports("ui-skin-facility-farm");
+            Canvas.ForceUpdateCanvases();
+            float scrollTop = list.content.anchoredPosition.y;
+            float actionTop = actions.anchoredPosition.y;
+            list.verticalNormalizedPosition = 0;
+            if (list.content.anchoredPosition.y <= scrollTop || actions.anchoredPosition.y != actionTop)
+                throw new InvalidOperationException("粮田名册没有独立滚动");
+            list.verticalNormalizedPosition = 1;
             int assigned = BaseEconomy.WorkersAt(controller.State, "farm");
             ClickHudButton(rows.First(row => row.GetComponent<Button>().interactable));
             if (BaseEconomy.WorkersAt(controller.State, "farm") != assigned)
@@ -889,21 +969,56 @@ namespace BaseConquest.Editor
             var draft = (BaseState)Field(H, "workerDraft");
             if (BaseEconomy.WorkersAt(draft, "farm") == assigned)
                 throw new InvalidOperationException("点名没有更新设施草案");
+            view = RequirePanel("FacilityPanel");
+            actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
+            Press(actions, "FacilityActionRow/Cancel");
+            if (BaseEconomy.WorkersAt(controller.State, "farm") != assigned ||
+                BaseEconomy.WorkersAt((BaseState)Field(H, "workerDraft"), "farm") != assigned)
+                throw new InvalidOperationException("取消点名后岗位未恢复");
+            Press(RequirePanel("FacilityPanel"), "Right/Filters/Managers");
+            if (RequirePanel("FacilityPanel").Find("Right/Title").GetComponent<Text>().text != "负责人名册")
+                throw new InvalidOperationException("生产设施负责人名册无法切换");
+            H.ClosePanel();
+            Approach("workshop");
+            H.OpenObject("workshop");
+            view = RequirePanel("FacilityPanel");
+            actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
+            var workshop = controller.State.Muster.Facilities.Single(f => f.FacilityId == "workshop");
+            if (!actions.GetComponentsInChildren<Button>().Any(b => b.name == "Grade1") ||
+                actions.GetComponentsInChildren<Button>().Any(b => b.name == "Grade2") != (workshop.MaxProductLevel >= 2))
+                throw new InvalidOperationException("工坊生产档位没有按解锁显示");
+            CaptureViewports("ui-skin-facility-workshop");
             H.ClosePanel();
             Approach("barracks");
             H.OpenObject("barracks");
-            Click(BaseFacilityPages.PageName("roster"));
-            Click(BattleSimulation.KindName(SoldierKind.Melee));
-            view = (RectTransform)Field(H, "panel");
-            var soldier = view.GetComponentsInChildren<RectTransform>().First(node => node.name == "PersonnelRosterRow");
+            Press(RequirePanel("FacilityPanel"), "Right/Filters/Melee");
+            view = RequirePanel("FacilityPanel");
+            list = view.Find("Right/List").GetComponent<ScrollRect>();
+            var soldier = list.content.Cast<RectTransform>().First(node => node.name == "PersonnelRosterRow");
             VerifyRosterRow(soldier, false);
-            var list = (ScrollRect)Field(H, "panelScroll");
+            CaptureViewports("ui-skin-facility-barracks");
             list.verticalNormalizedPosition = 0;
-            Capture("ui-skin-barracks-roster");
             ClickHudButton(soldier);
-            if (!((string)Field(H, "panelViewKey")).StartsWith("personnel:"))
-                throw new InvalidOperationException("兵营名册无法打开对应士兵详情");
-            Log.Add("[PASS] 粮田点名使用共用名册、只更新未确认草案，兵营士兵可打开详情");
+            view = RequirePanel("FacilityPanel");
+            if (view.Find("Right/Title").GetComponent<Text>().text != "单位详情")
+                throw new InvalidOperationException("兵营名册无法在右侧打开对应士兵详情");
+            Press(view, "Right/Filters/Back");
+            H.ClosePanel();
+            Approach("home");
+            H.OpenObject("home");
+            view = RequirePanel("FacilityPanel");
+            actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
+            list = view.Find("Right/List").GetComponent<ScrollRect>();
+            if (actions.Find("Rest") == null || !list.content.GetComponentsInChildren<Text>().Any(t =>
+                t.text.Contains("扣粮后库存 " + BaseEconomy.Preview(controller.State).NextFood)))
+                throw new InvalidOperationException("营帐休息操作或日结预估缺失");
+            CaptureViewports("ui-skin-facility-home");
+            int day = controller.State.Day;
+            Press(actions, "Rest");
+            if (!H.DialogueOpen || controller.State.Day != day)
+                throw new InvalidOperationException("来袭时营帐休息没有接入对白拦截");
+            H.ClosePanel();
+            Log.Add("[PASS] 四个设施三种横屏，粮田局部滚动、草案可取消和切负责人，工坊按解锁显示，兵营详情，营帐日结预估与来袭拦截");
         }
 
         private static void VerifyRecruitRoster()
@@ -931,12 +1046,26 @@ namespace BaseConquest.Editor
             ClickHudButton(offerButton.transform);
             var quote = BaseTown.QuoteHire(state, kind, 1);
             Click("招募 1 人 · " + quote.Total + "币");
+            if (!controller.State.Demo.Flow.HideoutRecruitClueSeen || !H.DialogueOpen)
+                throw new InvalidOperationException("首次成功招募后未触发雷恩的窝点线索");
+            H.ContinueDialogue();
+            if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("土匪营地"))
+                throw new InvalidOperationException("雷恩没有介绍断壁后的窝点");
+            Capture("ui-skin-recruit-clue");
+            FinishDialogue();
             if (BaseTown.TroopTotal(controller.State) != BaseTown.TroopTotal(state) + 1 ||
                 controller.State.Inventory.Coins != state.Inventory.Coins - quote.Total ||
                 !RequirePanel("TownTrade").Find("Details").GetComponentsInChildren<Text>().Any(text =>
                     text.text == "招募 1 人 · " + BaseTown.HirePrice(controller.State, kind) + "币"))
                 throw new InvalidOperationException("逐人招募未结算、更新名册或重新报价");
-            Log.Add("[PASS] 军官共用只读名册，逐人招募及招后重报价");
+            var secondKind = controller.State.Town.Recruits.First(offer => BaseTown.MaxHire(controller.State, offer.Kind) > 0).Kind;
+            var secondOffer = RequirePanel("TownTrade").Find("OfferList").GetComponentsInChildren<Button>().Single(button =>
+                button.GetComponentInChildren<Text>().text.TrimStart('●', ' ').StartsWith(BaseEconomy.TroopName(secondKind) + " · 今日余 "));
+            ClickHudButton(secondOffer.transform);
+            Click("招募 1 人 · " + BaseTown.QuoteHire(controller.State, secondKind, 1).Total + "币");
+            if (H.DialogueOpen || BaseTown.TroopTotal(controller.State) != BaseTown.TroopTotal(state) + 2)
+                throw new InvalidOperationException("同一存档第二次购兵重复播出了窝点线索");
+            Log.Add("[PASS] 军官共用只读名册，逐人招募、首次介绍窝点并回到交易重报价");
         }
 
         private static void OpenWarehouseShot()
@@ -1166,10 +1295,24 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("空格对应的开战操作未提交：" + battle.Feedback);
         }
 
-        private static void VerifyEmptyBattleSelection(BattleSceneController battle)
+        private static void VerifyOpeningBattleSelection(BattleSceneController battle)
         {
-            if (battle.SelectedUnits.Count > 0 || !battle.RealtimeStatus.Contains("进行中"))
-                throw new InvalidOperationException("正式开战未以空选运行");
+            var leaders = battle.Realtime.Model.Units.Where(unit => unit.Alive &&
+                unit.Role == PrototypeRole.Leader && unit.Side == PrototypeSide.Ally).OrderBy(unit => unit.Squad).ToArray();
+            var strategies = leaders.Select(unit => unit.Strategy).ToArray();
+            if (leaders.Length != 3 || !battle.SelectedUnits.SequenceEqual(leaders.Where(unit =>
+                    unit.Strategy == PrototypeStrategy.Obey).Select(unit => unit.Id - 1)) ||
+                battle.SelectedUnits.Count != 2 || !battle.RealtimeStatus.Contains("进行中"))
+                throw new InvalidOperationException("开战未按编队顺位仅选中手动队长");
+            var select = battle.GetType().GetMethod("SelectOpeningCommanders", BindingFlags.Instance | BindingFlags.NonPublic);
+            for (int count = 3; count >= 0; count--)
+            {
+                for (int i = 0; i < leaders.Length; i++) leaders[i].Strategy = i < count ? PrototypeStrategy.Obey : PrototypeStrategy.Attack;
+                select.Invoke(battle, null);
+                if (!battle.SelectedUnits.SequenceEqual(leaders.Take(count).Select(unit => unit.Id - 1)))
+                    throw new InvalidOperationException($"开战默认选择在 {count} 名手动队长时不正确");
+            }
+            for (int i = 0; i < leaders.Length; i++) leaders[i].Strategy = strategies[i];
             var player = battle.Realtime.Model.Player;
             var board = battle.PreviewSimulation.Board;
             var center = player.BodyCenter;
@@ -1185,7 +1328,25 @@ namespace BaseConquest.Editor
             battle.ClickCommanderPortrait(0);
             if (battle.SelectedUnits.Count > 0)
                 throw new InvalidOperationException("再次点击当前头像未取消选中");
-            Log.Add("[PASS] 空格共用的开战操作、空选点友军格只查看、头像可选中和取消");
+            Canvas.ForceUpdateCanvases();
+            var area = BattleSafeArea(battle);
+            Vector2 PortraitCenter(int slot)
+            {
+                var rect = (RectTransform)area.Find($"CommanderSlot{slot}/CommanderPortrait_{slot}");
+                return RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center));
+            }
+            battle.BeginPortraitSelection(0, PortraitCenter(0));
+            battle.MovePortraitSelection(PortraitCenter(2));
+            battle.EndPortraitSelection();
+            if (battle.SelectedUnits.Count != 3 || leaders.Any(unit => !battle.SelectedUnits.Contains(unit.Id - 1)))
+                throw new InvalidOperationException("滑过三张头像后没有选择三名队长");
+            battle.BeginPortraitSelection(0, PortraitCenter(0));
+            battle.MovePortraitSelection(PortraitCenter(2));
+            battle.EndPortraitSelection();
+            if (battle.SelectedUnits.Count != 0) throw new InvalidOperationException("滑过已选头像后未取消选择");
+            battle.ResumeAfterDialogue(true);
+            select.Invoke(battle, null);
+            Log.Add("[PASS] 混合策略与零至三名手动队长默认选择、空选点格查看、头像点击和滑选");
         }
         private static object Field(object target, string name)
             => target?.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);

@@ -116,6 +116,8 @@ namespace BaseConquest.Base
         public BasePersonalEquipmentState PersonalEquipment;
         public BaseDemoProgress Demo;
         public BaseAchievementState Achievements;
+        public int InjuryDialogueDay;
+        public List<string> InjuryDialogueIds = new List<string>();
         public string SceneBattleId="";
         // Unity按值序列化自定义类；用显式标记区分无报告，避免依赖null的回读行为。
         public bool HasReport;
@@ -124,6 +126,7 @@ namespace BaseConquest.Base
             Version = Version, Day = Day, FoodPaidDay = FoodPaidDay, LastCompletedDay = LastCompletedDay,
             TodayFoodRequired = TodayFoodRequired, TodayFoodConsumed = TodayFoodConsumed, TodayFoodMissing = TodayFoodMissing,
             PlayerLeaderId = PlayerLeaderId, TemplateTitle = TemplateTitle, WorkshopProduct = WorkshopProduct,
+            InjuryDialogueDay = InjuryDialogueDay, InjuryDialogueIds = InjuryDialogueIds?.ToList(),
             PlayerX = PlayerX, PlayerY = PlayerY, FarmFraction = FarmFraction, SceneBattleId=SceneBattleId,
             Inventory = Inventory.Copy(), Rules = Rules.Copy(), Leaders = Leaders.Select(x => x.Copy()).ToList(),
             Workers = Workers.Select(x => x.Copy()).ToList(), WorkshopProgress = WorkshopProgress.Select(x => x.Copy()).ToList(), HasReport = HasReport, LastReport = LastReport?.Copy() ?? new BaseDayReport(), Muster = Muster?.Copy(), Development = Development?.Copy(), Supply = Supply?.Copy(), Campaign = Campaign?.Copy(), Aftermath = Aftermath?.Copy(), Town = Town?.Copy(), Inn=Inn?.Copy(), Backpack=Backpack?.Copy(), Construction=Construction?.Copy(), Layout=Layout?.Copy(), Caravan=Caravan?.Copy(), Quests=Quests?.Copy(), Adventure=Adventure?.Copy(), PersonalEquipment=PersonalEquipment?.Copy(), Demo=Demo?.Copy(),Achievements=Achievements?.Copy()

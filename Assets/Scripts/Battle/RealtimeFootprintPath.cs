@@ -6,7 +6,7 @@ namespace BaseConquest.RealtimePrototype
     public sealed partial class RealtimeBattlePrototype
     {
         private sealed class BodyRoute
-        {public int Goal,Revision,Cell,Index;public List<int> Steps;}
+        {public int Goal,Revision,Cell,Index;public List<int> Steps;public PrototypePoint ArrivalAxis;}
         private readonly Dictionary<int,BodyRoute> bodyRoutes=new Dictionary<int,BodyRoute>();
         private static int Direction(PrototypePoint facing)
         {var a=PrototypeUnit.Axis(facing);return a.X>0?0:a.Z>0?1:a.X<0?2:3;}
@@ -39,7 +39,7 @@ namespace BaseConquest.RealtimePrototype
         }
         // A* includes heading in each state. Other units reserve during execution, not in the static route.
         // This permits waiting/yielding while avoiding routes that require a horse to cut through a corner.
-        private List<int> PlanFootprint(PrototypeUnit u,int start,int goal,bool occupied=false)
+        private List<int> PlanFootprint(PrototypeUnit u,int start,int goal,bool occupied=false,Func<PrototypePoint,bool> acceptArrival=null)
         {
             var result=new List<int>();if(!Arena.FineWalkable(start)||!Arena.FineWalkable(goal)||start==goal)return result;
             int count=Arena.FineColumns*Arena.FineRows*4,source=start*4+Direction(u.BodyAxis),serial=0,last=-1;
@@ -50,8 +50,12 @@ namespace BaseConquest.RealtimePrototype
                 var entry=open.Min;open.Remove(entry);int state=entry.Item3,cell=state/4;
                 double heuristic=(Arena.Center(cell)-Arena.Center(goal)).Length;
                 if(entry.Item1>cost[state]+heuristic+1e-8)continue;
-                if(cell==goal){last=state;break;}
-                bool headFirst=u.FootprintLength==2;
+                if(cell==goal)
+                {
+                    if(acceptArrival?.Invoke(Heading(state%4))??true){last=state;break;}
+                    continue;
+                }
+                bool headFirst=u.FootprintLength==2&&acceptArrival==null;
                 foreach(int next in Arena.Neighbours(cell))
                 {
                     if(!CanTurnStep(u,cell,next,Heading(state%4),occupied,headFirst))continue;
@@ -64,15 +68,31 @@ namespace BaseConquest.RealtimePrototype
             if(last<0)return result;
             for(int state=last;state!=source;state=parent[state]){if(state<0)return new List<int>();result.Add(state/4);}result.Reverse();return result;
         }
-        private int FootprintNext(PrototypeUnit u,int goal)
+        private BodyRoute GroupRoute(PrototypeUnit unit)
         {
-            if(bodyRoutes.TryGetValue(u.Id,out var route)&&route.Goal==goal&&route.Revision==Arena.NavigationRevision)
+            if((unit.Order!=PrototypeOrder.Move&&unit.Order!=PrototypeOrder.Guard)||Arena.CellAt(unit.Goal)!=unit.MoveGoal)return null;
+            if(bodyRoutes.TryGetValue(unit.Id,out var route)&&route.Goal==unit.MoveGoal)return route;
+            if(unit.FootprintLength!=2||unit.GroupArrivalAxis.Length<.5)return null;
+            route=new BodyRoute {Goal=unit.MoveGoal,Cell=-1,ArrivalAxis=unit.GroupArrivalAxis,Steps=new List<int>()};
+            bodyRoutes[unit.Id]=route;
+            return route;
+        }
+        private int GroupRouteNext(PrototypeUnit unit,BodyRoute route)
+        {
+            if(route==null)return -1;
+            if(route.Index<route.Steps.Count&&route.Steps[route.Index]==unit.Cell){route.Cell=unit.Cell;route.Index++;}
+            if(route.Cell!=unit.Cell||route.Revision!=Arena.NavigationRevision)
             {
-                if(route.Index<route.Steps.Count&&route.Steps[route.Index]==u.Cell){route.Cell=u.Cell;route.Index++;}
-                bool headFirst=u.FootprintLength==2;
-                if(route.Cell==u.Cell&&route.Index<route.Steps.Count&&CanTurnStep(u,u.Cell,route.Steps[route.Index],u.BodyAxis,false,headFirst))return route.Steps[route.Index];
+                route.Steps=PlanFootprint(unit,unit.Cell,route.Goal,
+                    acceptArrival: axis=>unit.FootprintLength==1||axis.Equals(route.ArrivalAxis));
+                route.Index=0;route.Cell=unit.Cell;route.Revision=Arena.NavigationRevision;
             }
-            var steps=PlanFootprint(u,u.Cell,goal);bodyRoutes[u.Id]=new BodyRoute {Goal=goal,Revision=Arena.NavigationRevision,Cell=u.Cell,Steps=steps};return steps.Count==0?-1:steps[0];
+            return route.Index<route.Steps.Count ? route.Steps[route.Index] : -1;
+        }
+        private bool GroupArrivalAllowed(PrototypeUnit unit,BodyRoute route,int cell)
+        {
+            return route==null||unit.FootprintLength!=2||cell!=route.Goal||
+                PrototypeUnit.MajorAxis(Arena.Center(cell)-unit.Position,unit.BodyAxis).Equals(route.ArrivalAxis);
         }
     }
 }

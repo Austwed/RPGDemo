@@ -233,7 +233,6 @@ namespace BaseConquest.Base
             var session=new BaseCampaignSession(new BaseCampaignBattle {Rpg=s.Demo.Rpg?.Copy(),Enemies=enemies,Id=BattleId,EventId=BattleId,DemoCombat=true,MapRegion="base",StartedDay=s.Day,Scenario=scenario,RealtimeRules=true,RealtimeRulesVersion=1,Leaders=new List<BaseLeader>{player},TacticalBaseDamage=stats.Damage,TacticalRules=new BattleTacticalRules(),TacticalObjects=new List<BattleTacticalObject>{new BattleTacticalObject{Id=DummyId,Kind="dummy",X=dummy.X,Y=dummy.Z,Health=500}}});
             session.Bind();if(!session.Battle.Start(out string problem))throw new InvalidOperationException(problem);return session;
         }
-        public static string DrillHint(int flags)=>"演练："+string.Join(" · ",new[]{Tuple.Create(Select,"选主角"),Tuple.Create(Pause,"暂停／继续"),Tuple.Create(Move,"移动"),Tuple.Create(Attack,"攻击"),Tuple.Create(Guard,"驻守"),Tuple.Create(Skill,"手动鼓舞"),Tuple.Create(Inspect,"查看增益")}.Select(x=>((flags&x.Item1)!=0?"■":"□")+x.Item2));
         public static int NextExercise(BaseDemoIntroState intro)
         {
             if(intro.TutorialDelay>1e-8)return 0;
@@ -246,7 +245,6 @@ namespace BaseConquest.Base
         {
             int Next()=>NextExercise(intro);
             run.TutorialAction=flag=>{int next=Next();if((flag&next)==0)return;if(next==AutoAttack){intro.DummyPhase=3;run.Issue(new[]{run.Model.Player.Id-1},PrototypeOrder.Auto,run.Model.Player.Position);return;}if(next==Move){intro.MoveOrdered=true;intro.DrillMoveOrigin=run.Model.Player.DistanceTravelled;}else {intro.DrillFlags|=next;if(next!=Attack)intro.TutorialDelay=1;}};
-            run.TutorialProgress=()=>intro.DummyPhase>=2&&intro.DummyPhase<4?"进攻策略：自动攻击木桩 "+intro.DummyHits+"/3":DrillHint(intro.DrillFlags);
             run.Model.SetStrategy(run.Model.Player,PrototypeStrategy.Obey);run.Model.DefaultDestination=_=>-1;
             foreach(var u in run.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))run.Model.SetStrategy(u,PrototypeStrategy.Obey);
             run.Tactics.ObjectHit=(actor,obj,power)=>{

@@ -700,8 +700,8 @@
     {
       "key": "story.ui.hideout.report",
       "group": "界面／土匪窝点",
-      "text": "按实际参战结算军需和战损，结算后返回窝点入口。",
-      "notes": "战斗说明，建议 40 字以内。"
+      "text": "战果按实际参战结算，副本奖励另行领取。",
+      "notes": "旧战场说明，保留作回稿参考，建议 40 字以内。"
     },
     {
       "key": "story.ui.hideout.return",
@@ -792,6 +792,132 @@
       "group": "界面／人员名册",
       "text": "点击办理请离",
       "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.scene.prologue.practice_won",
+      "group": "剧情／白桦村序章",
+      "text": "练得不错。你听，村头有人跑过来了。",
+      "notes": "演练成功后返回村庄，搭档对白。功能占位，待回稿。"
+    },
+    {
+      "key": "story.scene.prologue.practice_retry",
+      "group": "剧情／白桦村序章",
+      "text": "先歇一歇。想再练，随时来找我。",
+      "notes": "演练未完成并返回村庄。功能占位，待回稿。"
+    },
+    {
+      "key": "story.scene.prologue.pursuit_retry",
+      "group": "剧情／白桦村序章",
+      "text": "还不能倒在这儿。先带乡亲们往东走。",
+      "notes": "回到撤离检查点后独白。功能占位，待回稿。"
+    },
+    {
+      "key": "story.scene.ruins.solo_retreat",
+      "group": "剧情／沉眠古窟",
+      "text": "那个骑马的家伙或许可以帮忙。",
+      "notes": "首通前独战半血自动撤回入口后独白。用户原句。"
+    },
+    {
+      "key": "story.scene.home_rebuild.finished",
+      "group": "剧情／返乡断剑",
+      "text": "断剑和证词都在手上。这件事还没完。",
+      "notes": "确认结束 Demo 后主角独白。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.hideout.recruiter_clue_1",
+      "group": "剧情／灰岩镇募兵处",
+      "text": "野外那截破旧城墙背后，藏着个小土匪营地。那帮人隔三岔五就袭扰路过的百姓。",
+      "notes": "第一次成功购买任一兵种后的线索。用户给出内容，待回稿。"
+    },
+    {
+      "key": "story.ui.hideout.recruiter_clue_2",
+      "group": "剧情／灰岩镇募兵处",
+      "text": "你要是有心，就去跟他们碰一碰。营地里都是他们搜刮来的不义之财，你能帮我们处理掉他们，那些东西就算你的辛苦酬劳。",
+      "notes": "承接土匪窝点线索，用户给出内容，待回稿。"
+    },
+    {
+      "key": "story.ui.hideout.recruiter_clue_3",
+      "group": "剧情／灰岩镇募兵处",
+      "text": "要是能打服他们，也能把肯归顺的人招来做事。坏是坏了点，可有了正经差事，或许能帮你的营地早点站稳。",
+      "notes": "承接土匪窝点线索，用户给出内容，待回稿。"
+    },
+    {
+      "key": "story.ui.battle.group_no_space",
+      "group": "界面／战场",
+      "text": "队长落点不足，原指令保留。",
+      "notes": "同时选中多队长后点选空地，落点不足时回写。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.production",
+      "group": "界面／营地设施",
+      "text": "生产与岗位",
+      "notes": "粮田、工坊左栏。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.managers",
+      "group": "界面／营地设施",
+      "text": "负责人名册",
+      "notes": "粮田、工坊负责人页。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.workers",
+      "group": "界面／营地设施",
+      "text": "工人名册",
+      "notes": "粮田、工坊工人页。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.draft",
+      "group": "界面／营地设施",
+      "text": "岗位调配待确认",
+      "notes": "有未确认岗位调整。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.barracks",
+      "group": "界面／营地设施",
+      "text": "军队与编队",
+      "notes": "兵营左栏。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.details",
+      "group": "界面／营地设施",
+      "text": "单位详情",
+      "notes": "兵营选中个人。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.forecast",
+      "group": "界面／营地设施",
+      "text": "日结预览",
+      "notes": "营帐右栏。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.dungeon_energy",
+      "group": "界面／副本备战",
+      "text": "体力 {0} / {1}",
+      "notes": "当前体力、体力上限。古窟与土匪窝点共享。"
+    },
+    {
+      "key": "story.ui.prep.dungeon_first_reward",
+      "group": "界面／副本备战",
+      "text": "首通领奖免费",
+      "notes": "本副本没有胜绩时展示。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.dungeon_repeat_reward",
+      "group": "界面／副本备战",
+      "text": "复打领奖消耗 {0}",
+      "notes": "本副本已有胜绩时展示，参数为领奖消耗。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.dungeon.reward_items",
+      "group": "界面／副本奖励",
+      "text": "副本奖励 · 钱币 {0}、个人装备 ×1、锻造石 ×{1}，有机会获得基础兵书。",
+      "notes": "参数为钱币、锻造石数量。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.hideout.sweep_result",
+      "group": "界面／土匪窝点",
+      "text": "战损已结算 · 基础伤损 {0:P1} · 阵亡士兵 {1} 人",
+      "notes": "扫荡结束时展示，参数为基础伤损率、阵亡士兵数。功能占位，待回稿。"
     }
   ]
 }

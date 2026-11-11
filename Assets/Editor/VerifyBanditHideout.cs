@@ -32,7 +32,8 @@ namespace BaseConquest.Editor
                 if (phase == "smoke")
                 {
                     VerifyRoute(fixture);
-                    Debug.Log("[VerifyBanditHideout] PASS route, roster, old save, cancellation and checkpoint");
+                    VerifyVictory(fixture);
+                    Debug.Log("[VerifyBanditHideout] PASS route, entrance migration, checkpoint, survivor recruitment, rewards and sweep");
                 }
                 else if (phase == "calibrate")
                 {
@@ -196,7 +197,7 @@ namespace BaseConquest.Editor
 
         private static void VerifyRoute(BaseState fixture)
         {
-            var state = fixture.Copy();
+            var state = VerifyEntranceMigration(fixture);
             BaseBanditHideout.Install(state);
             Need(BaseSpatial.Objects(state).Count(node => node.Id == BaseBanditHideout.EntryId) == 1, "补挂入口不幂等");
             var first = Draft(state, 31701);
@@ -220,11 +221,50 @@ namespace BaseConquest.Editor
             Need(!BaseBanditHideout.Complete(state, restored), "窝点战果可以重复结算");
         }
 
+        private static BaseState VerifyEntranceMigration(BaseState fixture)
+        {
+            var legacy = fixture.Copy();
+            var oldEntrance = BaseSpatial.Layout(legacy).Objects.Single(item => item.Id == BaseBanditHideout.EntryId);
+            oldEntrance.X = 12.5;
+            oldEntrance.Y = 4.5;
+            var state = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(legacy));
+            var map = state.Campaign.Layouts.Single(item => item.SourceMapId == BaseBanditHideout.MapId);
+            var mission = state.Campaign.Events.Single(item => item.Id == BaseBanditHideout.EventId);
+            BaseEconomy.Validate(state);
+            var entrance = BaseSpatial.Objects(state).Single(item => item.Id == BaseBanditHideout.EntryId);
+            var board = BaseBattlefield.Board(state);
+            Need(entrance.X == 18.5 && entrance.Y == 12.5 &&
+                board.Cell(new GridPosition(15, 12)).Terrain == TerrainKind.Wall &&
+                board.Cell(new GridPosition(15, 8)).Terrain == TerrainKind.Ground &&
+                state.Campaign.Layouts.Single(item => item.SourceMapId == BaseBanditHideout.MapId) == map &&
+                state.Campaign.Events.Single(item => item.Id == BaseBanditHideout.EventId) == mission,
+                "旧档未将同一入口迁到断壁后，或副本地图与事件被重建");
+            state.PlayerX = 14.5;
+            state.PlayerY = 8.5;
+            Need(!BaseBanditHideout.VisibleFromPlayer(state, entrance), "穿过断壁前已显示窝点");
+            state.PlayerX = 16.5;
+            state.PlayerY = 12.5;
+            Need(BaseBanditHideout.VisibleFromPlayer(state, entrance), "穿过断壁后未显示窝点");
+            var between = board.Cell(new GridPosition(17, 12));
+            var terrain = between.Terrain;
+            between.Terrain = TerrainKind.Wall;
+            Need(!BaseBanditHideout.VisibleFromPlayer(state, entrance), "墙后的遮挡未隐藏窝点");
+            between.Terrain = terrain;
+            At(state, BaseBanditHideout.EntryId);
+            return state;
+        }
+
         private static void VerifyVictory(BaseState fixture)
         {
+            bool won = false;
             for (int seed = 71101; seed < 71121; seed++)
             {
                 var state = fixture.Copy();
+                var rules = state.Demo.RuinsRewards;
+                int coins = state.Inventory.Coins, food = state.Inventory.Food, materials = state.Inventory.Materials;
+                rules.Energy = 0;
+                Need(!BaseRuinsRewards.Cleared(state, BasePrepRoute.Hideout) &&
+                    BaseRuinsSweep.Problem(state, BasePrepRoute.Hideout) != "", "窝点未首通便可以扫荡");
                 var run = Start(state, Draft(state, seed));
                 if (AutoFight(run) != BattleOutcome.SideAWin) continue;
                 string id = run.Session.Opening.Id;
@@ -232,12 +272,95 @@ namespace BaseConquest.Editor
                     "窝点胜利无法结算并回到入口");
                 Need(state.Campaign.Reports.Count(report => report.BattleId == id) == 1 && BaseBattleLoot.Pending(state) &&
                     state.Aftermath.Loot.Count(loot => loot.BattleId == id) == 1 && !BaseBanditHideout.Complete(state, run) &&
-                    state.Demo.Stage == fixture.Demo.Stage && BaseRuinsRewards.Energy(state) == BaseRuinsRewards.Energy(fixture),
-                    "窝点胜利战果重复或附带了古窟剧情与体力领奖");
-                Debug.Log($"[VerifyBanditHideout] PASS victory settlement, seed {seed}");
+                    state.Demo.Stage == fixture.Demo.Stage,
+                    "窝点胜利战果重复或触发了古窟剧情");
+                var loot = state.Aftermath.Loot.Single(item => item.BattleId == id);
+                Need(BaseRuinsRewards.Cleared(state, BasePrepRoute.Hideout) &&
+                    !BaseRuinsRewards.Cleared(state, BasePrepRoute.Ruins) &&
+                    BaseRuinsRewards.PendingBattle(state, BasePrepRoute.Hideout) == "" &&
+                    BaseRuinsRewards.Energy(state) == 0 && state.Campaign.SettledIds.Contains(id + ":ruins-reward") &&
+                    state.Inventory.Coins == coins + rules.Coins + rules.FirstCoins &&
+                    state.Inventory.Food == food + rules.FirstFood && state.Inventory.Materials == materials + rules.FirstMaterials &&
+                    loot.Items.Any(line => line.Reward.Template.StartsWith("novice_")) &&
+                    loot.Items.Any(line => line.Reward.ItemId == "forging_stone" && line.Reward.Count == rules.ItemCount),
+                    "窝点首通未免费结算同配表奖励，或串到了古窟");
+                won = true;
+                var survivors = state.Aftermath.Prisoners.Where(person => person.BattleId == id && person.Status == "held").ToArray();
+                if (survivors.Length == 0) continue;
+                Need(survivors.All(person => person.Kind != SoldierKind.Hero), "窝点的幸存者中出现了队长");
+                int beforeCount = state.Workers.Sum(worker => worker.Count), beforeCoins = state.Inventory.Coins;
+                Need(BaseBattleLoot.RecruitAll(state, id) == survivors.Length &&
+                    survivors.All(person => person.Status == "recruited") &&
+                    state.Workers.Sum(worker => worker.Count) == beforeCount + survivors.Length &&
+                    state.Inventory.Coins == beforeCoins && BaseBattleLoot.RecruitAll(state, id) == 0,
+                    "窝点幸存者未通过正常战果免费招募，或可被重复招募");
+                Need(BaseBattleLoot.CollectAll(state, id) == loot.Items.Count && BaseBattleLoot.Finish(state, id),
+                    "窝点首通奖励不能按正常掉落流程领取");
+                VerifySweepAndReward(state);
+                Debug.Log($"[VerifyBanditHideout] PASS victory settlement and recruited {survivors.Length} survivors, seed {seed}");
                 return;
             }
-            Need(false, "胜利结算复验未得到胜局");
+            Need(won, "胜利结算复验未得到胜局");
+            Need(false, "固定种子胜局未留下可招募幸存者");
+        }
+
+        private static void VerifySweepAndReward(BaseState state)
+        {
+            At(state, BaseBanditHideout.EntryId);
+            AddSoldiers(state, 4, 3, 3);
+            var player = state.Leaders.Single(leader => leader.Id == state.PlayerLeaderId);
+            player.Health = player.MaxHealth;
+            player.UnavailableDay = 0;
+            const string caveReward = "check-cave-pending";
+            state.Campaign.SettledIds.Add(caveReward);
+            state.Campaign.Reports.Add(new BaseCampaignReport { BattleId = caveReward, EventId = BaseDemoRuins.EventId,
+                Outcome = "SideAWin", Day = state.Day });
+            state.Demo.RuinsRewards.PendingBattleId = caveReward;
+            BaseEconomy.Validate(state);
+
+            var draft = new BaseBattlePreparation(state, BasePrepRoute.Hideout, 73101, 1) { SupplyGrade = 1 };
+            var soldiers = draft.Units.Where(unit => unit.Kind != SoldierKind.Hero).ToArray();
+            var selected = soldiers.OrderByDescending(unit => unit.Health).Take(10).ToHashSet();
+            foreach (var soldier in soldiers)
+            {
+                soldier.Selected = selected.Contains(soldier);
+                soldier.TeamId = soldier.Selected ? draft.PlayerId : null;
+            }
+            Need(draft.RequiredSupply(false) == 10 && draft.Problem(state, false) == "", "扫荡验收必须恰好选中十名可配给的士兵");
+            string before = JsonUtility.ToJson(state);
+            var preview = draft.PreviewSweep(state);
+            Need(preview.Problem == "" && preview.EnemyPower > 0 && preview.AllyPower / preview.EnemyPower > 1.5 &&
+                preview.Exposure == 0 && JsonUtility.ToJson(state) == before, "窝点扫荡预览异常、串入侵蚀或修改了存档：" + preview.Problem);
+            Need(BaseAutoResolve.Problem(state, BaseBanditHideout.EventId,
+                new BaseEngagement { AllyPower = 15, EnemyPower = 10 }, BaseAutoResolve.SweepAdvantage) != "",
+                "窝点扫荡放行了恰好 1.5 倍战力");
+
+            var result = draft.Sweep(state);
+            string id = BaseRuinsRewards.PendingBattle(state, BasePrepRoute.Hideout);
+            var report = state.Campaign.Reports.Single(entry => entry.BattleId == id);
+            Need(result.BattleId == id && report.EventId == BaseBanditHideout.EventId && report.Passive &&
+                result.EnemyPower == preview.EnemyPower && result.AllyPower == preview.AllyPower &&
+                BaseSceneRules.Entrance(state) && !state.Campaign.HasActiveBattle && state.Supply.Quotas.Count == 0 &&
+                BaseRuinsRewards.PendingBattle(state) == caveReward && BaseRuinsRewards.Energy(state) == 0,
+                "扫荡未沿用备战阵容、落地结算或待领状态串到了古窟");
+            Need(!BaseRuinsRewards.Claim(state, BasePrepRoute.Hideout) && BaseRuinsRewards.PendingBattle(state, BasePrepRoute.Hideout) == id,
+                "体力不足时扫荡奖励可领取或丢失");
+            var copy = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            copy.Campaign.Reports.RemoveAll(entry => entry.EventId == BaseBanditHideout.EventId);
+            BaseEconomy.Validate(copy);
+            Need(BaseRuinsRewards.Cleared(copy, BasePrepRoute.Hideout) &&
+                BaseRuinsRewards.PendingBattle(copy, BasePrepRoute.Hideout) == id &&
+                BaseRuinsRewards.Skip(copy, BasePrepRoute.Hideout) && BaseRuinsRewards.PendingBattle(copy) == caveReward &&
+                BaseRuinsRewards.Energy(copy) == 0, "读档后放弃窝点奖励扣了体力或清除了古窟奖励");
+
+            int coins = state.Inventory.Coins, cost = BaseRuinsRewards.Cost(state);
+            Need(BaseRuinsRewards.AddEnergy(state, cost) && BaseRuinsRewards.Claim(state, BasePrepRoute.Hideout) &&
+                !BaseRuinsRewards.Claim(state, BasePrepRoute.Hideout) &&
+                state.Inventory.Coins == coins + state.Demo.RuinsRewards.Coins && BaseRuinsRewards.Energy(state) == 0 &&
+                BaseRuinsRewards.PendingBattle(state) == caveReward &&
+                state.Aftermath.Loot.Single(item => item.BattleId == id).Items.Any(line => line.Reward.ItemId == "forging_stone"),
+                "窝点重复领奖未按一次体力扣除并发放通用奖励");
+            BaseEconomy.Validate(state);
         }
 
         private static void Need(bool condition, string message)

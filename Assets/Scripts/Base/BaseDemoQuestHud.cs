@@ -9,8 +9,7 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        // P34：任务列表只做展示与选择追踪；任务内容来自 BaseQuestLog，列表页与常驻栏同源。
-        // 版式照原型 `case 'quests'`：面板头两个页签「任务／成就」，任务按主线／支线分组，每条一行。
+        // 主菜单任务页按主线和支线列出任务日志。
         private string questTab = "tasks";
 
         private void OpenDemoQuestPanel()
@@ -23,8 +22,8 @@ namespace BaseConquest.Base
             row += 48;
             if (questTab == "achievement") { AchievementBody(s); EndPanel(); return; }
             var entries = BaseQuestLog.Entries(s);
-            QuestSection(s, "主线", entries.Where(entry => entry.Main).ToList());
-            QuestSection(s, "支线", entries.Where(entry => !entry.Main).ToList());
+            QuestSection("主线", entries.Where(entry => entry.Main).ToList());
+            QuestSection("支线", entries.Where(entry => !entry.Main).ToList());
             EndPanel();
         }
 
@@ -39,7 +38,7 @@ namespace BaseConquest.Base
         }
 
         // 一个分组：小标题 + 若干任务行；空分组给一句说明，不留空档。
-        private void QuestSection(BaseState s, string title, List<BaseQuestEntry> entries)
+        private void QuestSection(string title, List<BaseQuestEntry> entries)
         {
             var head = Label(content, title, new Vector2(0, -row - 9), new Vector2(850, 18), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
             head.color = DemoUiTheme.Current.Muted;
@@ -51,36 +50,24 @@ namespace BaseConquest.Base
                 row += 28;
                 return;
             }
-            foreach (var entry in entries) QuestRow(s, entry);
+            foreach (var entry in entries) QuestRow(entry);
             row += 8;
         }
 
-        // 一条任务：左侧标题＋目标，右侧追踪态；整行可点，已完成的行不再可点。
-        private void QuestRow(BaseState s, BaseQuestEntry entry)
+        private void QuestRow(BaseQuestEntry entry)
         {
-            bool tracked = BaseQuestLog.TrackedId(s) == entry.Id;
-            bool clickable = entry.Trackable;
             var theme = DemoUiTheme.Current;
-            var bar = Solid("QuestRow", content, new Vector2(.5f, 1), new Vector2(0, -row - 29), new Vector2(850, 58), tracked ? Color.Lerp(theme.Panel, theme.Gold, .36f) : theme.Inset);
+            var bar = Solid("QuestRow", content, new Vector2(.5f, 1), new Vector2(0, -row - 29), new Vector2(850, 58), theme.Inset);
             var outline = bar.gameObject.GetOrAdd<Outline>();
-            outline.effectColor = tracked ? theme.Copper : theme.Line;
+            outline.effectColor = theme.Line;
             outline.effectDistance = new Vector2(1, -1);
-            if (clickable)
-            {
-                var button = bar.gameObject.GetOrAdd<Button>(); button.targetGraphic = bar.GetComponent<Image>(); button.transition = Selectable.Transition.None;
-                button.onClick.AddListener(() =>
-                {
-                    if (!owner.Change(next => { if (!BaseQuestLog.ToggleTrack(next, entry.Id)) throw new InvalidOperationException("任务状态已变化"); }, tracked ? "已取消追踪" : "已显示在常驻任务栏")) return;
-                    OpenDemoQuestPanel();
-                });
-            }
-            var name = Label(bar, entry.Title, new Vector2(312, -8), new Vector2(600, 20), DemoUiMetrics.FontBody, TextAnchor.MiddleLeft, new Vector2(0, 1));
-            name.color = clickable ? DemoUiTheme.Current.Ink : DemoUiTheme.Current.Muted;
+            var name = Label(bar, entry.Title, new Vector2(292, -8), new Vector2(560, 20), DemoUiMetrics.FontBody, TextAnchor.MiddleLeft, new Vector2(0, 1));
+            name.color = entry.Done ? theme.Muted : theme.Ink;
             name.fontStyle = FontStyle.Bold;
-            var goal = Label(bar, entry.Goal, new Vector2(322, -30), new Vector2(620, 18), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(0, 1));
-            goal.color = DemoUiTheme.Current.Muted;
-            var state = Label(bar, tracked ? "取消追踪" : entry.Done ? "已完成" : "追踪", new Vector2(-72, -20), new Vector2(120, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleRight, new Vector2(1, 1));
-            state.color = tracked ? theme.Ink : entry.Done ? theme.Muted : theme.Copper;
+            var goal = Label(bar, entry.Goal, new Vector2(292, -30), new Vector2(560, 18), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(0, 1));
+            goal.color = theme.Muted;
+            var state = Label(bar, entry.Status, new Vector2(-132, -20), new Vector2(240, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleRight, new Vector2(1, 1));
+            state.color = entry.Done ? theme.Muted : theme.Copper;
             row += 66;
         }
 
@@ -93,9 +80,8 @@ namespace BaseConquest.Base
             trackedQuest.transform.parent.gameObject.SetActive(entry != null);
             if (entry == null) return;
             bool collapsed = BaseQuestLog.Collapsed(s);
-            string prefix = trackedQuestArrow != null ? "任务 · " : collapsed ? "任务 ▸ " : "任务 ▾ ";
+            string prefix = collapsed ? "任务 ▸ " : "任务 ▾ ";
             trackedQuest.text = prefix + entry.Title + (collapsed ? "" : "\n" + entry.Goal);
-            if (trackedQuestArrow != null) trackedQuestArrow.text = collapsed ? "＋" : "−";
         }
         private void ToggleTrackedQuestBar()
         {

@@ -41,7 +41,9 @@ namespace BaseConquest.RealtimePrototype
                 if(unit==null||unit.Id<0||unit.Squad<0||unit.Squad>2||!Enum.IsDefined(typeof(PrototypeRole),unit.Role)||!Enum.IsDefined(typeof(PrototypeSide),unit.Side)||!Enum.IsDefined(typeof(PrototypeOrder),unit.Order)||
                     !new[]{unit.Health,unit.MaxHealth,unit.Speed,unit.AttackDamage,unit.AttackRange,unit.AttackInterval,unit.ReadyAt,unit.HitAt,unit.SwingUntil,unit.FlashUntil,unit.Progress,unit.BlockedFor,unit.NextThinkAt,unit.DistanceTravelled,unit.CarrySeconds,unit.WindupStarted,unit.ReleasedAt,unit.ObjectWindupAt,unit.JumpDuration,unit.EngagedUntil,unit.TurnReadyAt}.All(Finite)||unit.TurnReadyAt<0||!Point(unit.TurnTarget)||
                     unit.JumpDuration<0||unit.JumpDuration>1||unit.Health<0||unit.Health>unit.MaxHealth||unit.KnockedDown&&unit.Health!=1||unit.MaxHealth<=0||unit.Speed<=0||unit.Speed>12||unit.AttackDamage< -1||unit.AttackDamage>attackDamageLimit||unit.AttackRange< -1||unit.AttackRange>12||unit.AttackInterval< -1||unit.Progress<0||unit.Progress>=1||
-                    !Point(unit.Position)||!Point(unit.Goal)||!Point(unit.Anchor)||!Point(unit.Facing)||!Point(unit.AttackFacing)||unit.Cell<0||unit.Cell>=Arena.FineColumns*Arena.FineRows||unit.Alive&&!Arena.FineWalkable(unit.Cell)||unit.Moving&&!(unit.Alive?(unit.JumpDuration>0?Arena.FineWalkable(unit.NextCell):Arena.CanStep(unit.Cell,unit.NextCell)):unit.NextCell>=0&&unit.NextCell<Arena.FineColumns*Arena.FineRows))throw new ArgumentException("即时单位检查点非法");
+                    !Point(unit.Position)||!Point(unit.Goal)||!Point(unit.Anchor)||!Point(unit.Facing)||!Point(unit.AttackFacing)||!Point(unit.GroupArrivalAxis)||
+                    unit.GroupArrivalAxis.Length>0&&(unit.FootprintLength!=2||!unit.GroupArrivalAxis.Equals(PrototypeUnit.Axis(unit.GroupArrivalAxis)))||
+                    unit.Cell<0||unit.Cell>=Arena.FineColumns*Arena.FineRows||unit.Alive&&!Arena.FineWalkable(unit.Cell)||unit.Moving&&!(unit.Alive?(unit.JumpDuration>0?Arena.FineWalkable(unit.NextCell):Arena.CanStep(unit.Cell,unit.NextCell)):unit.NextCell>=0&&unit.NextCell<Arena.FineColumns*Arena.FineRows))throw new ArgumentException("即时单位检查点非法");
                 var expected=Arena.Center(unit.Cell);if(unit.Moving)expected+=(Arena.Center(unit.NextCell)-expected)*unit.Progress;
                 if((unit.Position-expected).Length>1e-6||!unit.Moving&&unit.Progress!=0)throw new ArgumentException("即时插值与预约不一致");
                 if(unit.NextCell< -1||unit.MoveGoal< -1||unit.MoveGoal>=0&&(unit.Alive?!Arena.FineWalkable(unit.MoveGoal):unit.MoveGoal>=Arena.FineColumns*Arena.FineRows)||unit.AttackSlot< -1||unit.AttackSlot>=0&&(unit.Alive?!Arena.FineWalkable(unit.AttackSlot):unit.AttackSlot>=Arena.FineColumns*Arena.FineRows)||(unit.Alive?!Arena.CanStand(unit.Goal)||!Arena.CanStand(unit.Anchor):Arena.CellAt(unit.Goal)<0||Arena.CellAt(unit.Anchor)<0))throw new ArgumentException("即时检查点落点／路径目标非法");
@@ -58,7 +60,7 @@ namespace BaseConquest.RealtimePrototype
             foreach(var unit in state.Units.Where(unit=>unit.Alive))foreach(var other in state.Units.Where(other=>other.Alive&&other.Id>unit.Id))
                 if(BodiesCross(unit,unit.Moving?Arena.Center(unit.NextCell):unit.Position,other,other.Moving?Arena.Center(other.NextCell):other.Position))throw new ArgumentException("即时检查点含穿体或交叉预约");
             if(state.Arrows.Any(arrow=>arrow==null||arrow.Id<1||!state.Units.Any(unit=>unit.Id==arrow.SourceId&&unit.Side==arrow.Side)||!Point(arrow.Position)||!Point(arrow.Direction)||Math.Abs(arrow.Direction.Length-1)>1e-6||!Finite(arrow.Damage)||arrow.Damage<0||!Finite(arrow.Remaining)||arrow.Remaining<=0||arrow.Remaining>13)||state.Arrows.Select(arrow=>arrow.Id).Distinct().Count()!=state.Arrows.Count)throw new ArgumentException("即时弹道检查点非法");
-            Units.Clear();Units.AddRange(state.Units.Select(unit=>unit.Copy()));Arrows.Clear();Arrows.AddRange(state.Arrows.Select(arrow=>arrow.Copy()));
+            Units.Clear();Units.AddRange(state.Units.Select(unit=>unit.Copy()));Arrows.Clear();Arrows.AddRange(state.Arrows.Select(arrow=>arrow.Copy()));bodyRoutes.Clear();
             Elapsed=state.Seconds;remainder=state.Remainder;nextUnitId=state.NextUnit;nextArrowId=state.NextArrow;simulationStep=state.Step;
             Hits=state.Hits;Shots=state.Shots;CompletedSteps=state.CompletedSteps;YieldMoves=state.YieldMoves;ShoveMoves=state.ShoveMoves;Paused=true;RebuildReservations();
         }
@@ -88,7 +90,6 @@ namespace BaseConquest.Battle
         private int hitSerial;
         private readonly HashSet<int> visionActive=new HashSet<int>();
         public Action<int> TutorialAction;
-        public Func<string> TutorialProgress;
         public BattleSimulation Battle=>Session.Battle;
         public static double SpeedCells(BaseCampaignSession session,BattleSoldier soldier)=>session.Opening.Rpg!=null?session.Opening.Rpg.Speed[BaseRpg.Profession(soldier.ProfessionKind)]:session.Opening.RealtimeRulesVersion==0 ? soldier.Stats.MoveDistance*PrototypeArena.Subdivision : RealtimeCombatRules.Speed(soldier.ProfessionKind);
         public static double RangeCells(BaseCampaignSession session,BattleSoldier soldier)
@@ -241,12 +242,12 @@ namespace BaseConquest.Battle
             var commanders=commanderIds.Select(Battle.Soldier).Where(unit=>unit?.IsActive==true&&unit.Side==BattleSide.A&&unit.Kind==SoldierKind.Hero).ToArray();
             var targetUnit=Battle.Soldier(target);
             if(commanders.Length==0||order==PrototypeOrder.Focus&&(targetUnit?.IsActive!=true||targetUnit.Side!=BattleSide.B||!Battle.PlayerCanSee(BattleSide.A,targetUnit)))return false;
-            Tactics.Cancel(commanders.Select(l=>l.OriginCommanderSlot));
             var slots=commanders.Select(leader=>leader.OriginCommanderSlot).Distinct().ToArray();
             var anchors=Model.Units.Where(u=>u.Role==PrototypeRole.Leader&&u.Side==PrototypeSide.Ally&&slots.Contains(u.Squad)).ToDictionary(u=>u.Id,u=>u.Anchor);
             bool accepted=Model.IssueOrder(-1,-1,order,point,target<0 ? -1 : target+1,slots,true);
             if(accepted)
             {
+                Tactics.Cancel(slots);
                 foreach(var u in Model.Units.Where(u=>anchors.ContainsKey(u.Id)))if(order==PrototypeOrder.Focus)u.Anchor=anchors[u.Id];
                 Model.MarkDirectOrder(slots,order,target<0?-1:target+1,squadFocus);
             }

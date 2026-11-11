@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BaseConquest.Battle;
 using BaseConquest.Presentation;
+using BaseConquest.Story;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,6 +14,18 @@ namespace BaseConquest.Base
         private int introFarmDraft=-1;
         internal void OpenPracticeInstruction(string text,Action start)
         {root.GetComponent<Canvas>().sortingOrder=300;NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(owner.State),text)},new[]{new NpcReply("明白，开始练习",start)});}
+        internal void OpenPracticeResult(bool completed)
+        {
+            string text=completed
+                ?StoryText.Get("story.scene.prologue.practice_won","练得不错。你听，村头有人跑过来了。")
+                :StoryText.Get("story.scene.prologue.practice_retry","先歇一歇。想再练，随时来找我。");
+            NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(owner.State),text)},Array.Empty<NpcReply>(),onCompleted:ClosePanel);
+        }
+        internal void OpenPursuitRetry()
+        {
+            NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.scene.prologue.pursuit_retry",
+                "还不能倒在这儿。先带乡亲们往东走。"),true)},Array.Empty<NpcReply>(),onCompleted:ClosePanel);
+        }
         internal void OpenPursuitArrival(Action begin)
         {
             NpcDialogue(new[]{new NpcLine("旁白","","【低沉的古裔骨号声穿透浓雾，西侧村头传来兵刃交击声】"),
@@ -68,7 +81,7 @@ namespace BaseConquest.Base
             var s=owner.State;if(!BaseDemoIntro.Active(s)||!BaseDemoPrologue.Village(s))return false;
             var i=s.Demo.Intro;if(i.Step==0){OpenHeroChoice();return true;}
             if(id==BaseDemoIntro.DummyId){if(i.Step==4)owner.BeginDemoPractice();else NpcDialogue(new[]{new NpcLine("练习木桩","","村里的练习木桩，搭档常在这里练剑。")},new[]{new NpcReply("看看别处",ClosePanel)});return true;}
-            if(id=="demo_captain"&&i.Step==1&&!BaseDemoIntro.At(s,id)){owner.ReportMessage(BaseDemoIntro.Objective(s));ClosePanel();return true;}
+            if(id=="demo_captain"&&i.Step==1&&!BaseDemoIntro.At(s,id)){ClosePanel();return true;}
             if(id=="intro_farm"||id=="intro_smith")
             {
                 if(activeObject!="intro-farm"||!PanelOpen)introFarmDraft=i.FarmWorkers;
@@ -84,14 +97,14 @@ namespace BaseConquest.Base
                         if(workers!=before)owner.EnqueueWorkerTransfer(BaseTroopKind.Melee,workers>before?"intro_smith":"intro_farm",workers>before?"intro_farm":"intro_smith",Math.Abs(workers-before));OpenIntroInteraction(id);
                     }
                 });row+=60;
-                RowButton("安排完成，去找搭档",0,820,()=>owner.AdvanceDemoIntro(BaseDemoIntro.FinishFarm,"粮田已有四人，去与搭档交谈"),i.Step==9&&i.FarmWorkers==4);row+=60;EndPanel();return true;
+                RowButton("安排完成，去找搭档",0,820,()=>owner.AdvanceDemoIntro(BaseDemoIntro.FinishFarm),i.Step==9&&i.FarmWorkers==4);row+=60;EndPanel();return true;
             }
             if(id=="intro_villager"&&i.Step==2)
             {
                 NpcDialogue(new[]{new NpcLine("阿禾","ahe","你们可算来了！今早露水重，这批晚麦得趁晌午前抢播下去。"),
                     new NpcLine("你","","田里现在只有两名弟兄，忙不过来？",true),new NpcLine("阿禾","ahe","是啊！铁匠铺农具昨晚都修齐了，能不能把那两位弟兄调来麦田？"),
                     new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"派工一向归你拍板，去粮田把人手调成四个并按【确认】吧。")},
-                    new[]{new NpcReply("我们去粮田安排",()=>owner.AdvanceDemoIntro(BaseDemoIntro.Patrol,"阿禾委托：将铁匠铺两名剑士调往粮田"))});return true;
+                    new[]{new NpcReply("我们去粮田安排",()=>owner.AdvanceDemoIntro(BaseDemoIntro.Patrol))});return true;
             }
             if(id=="demo_captain")
             {
@@ -103,11 +116,11 @@ namespace BaseConquest.Base
                         new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"官印我那年就扔了，跟着你进的山。往后别再提这事。"),
                         new NpcLine("你","","粮仓那差事辞了也好，至少不用天天防着背后的冷箭。",true),
                         new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"走吧，阿禾天刚亮就在麦田张望，八成是秋播缺人手了。")},
-                        new[]{new NpcReply("一起去，先向阿禾打个招呼",()=>owner.AdvanceDemoIntro(BaseDemoIntro.Meet,"搭档加入队伍：移动角色、调整视野，向阿禾打招呼"))});return true;
+                        new[]{new NpcReply("一起去，先向阿禾打个招呼",()=>owner.AdvanceDemoIntro(BaseDemoIntro.Meet))});return true;
                 }
                 if(i.Step==10)
                 {
-                    NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"给，昨晚趁油灯没灭，替你把松掉的剑柄青绳结重编了一遍。"),new NpcLine("你","","是以前禁卫营的盘结手法……可惜剑刃有些卷口了。",true),new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"等秋麦入仓，咱们一起去灰岩镇，找那位老铁匠用好钢重淬一遍。"),new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"先打开【背包】把剑挂上腰，让我看看你的剑法生疏了没有！")},new[]{new NpcReply("接过短剑，准备演练",()=>owner.AdvanceDemoIntro(BaseDemoIntro.ReceiveSword,"搭档退出随行，训练短剑已放入背包"))});return true;
+                    NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"给，昨晚趁油灯没灭，替你把松掉的剑柄青绳结重编了一遍。"),new NpcLine("你","","是以前禁卫营的盘结手法……可惜剑刃有些卷口了。",true),new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"等秋麦入仓，咱们一起去灰岩镇，找那位老铁匠用好钢重淬一遍。"),new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"先打开【背包】把剑挂上腰，让我看看你的剑法生疏了没有！")},new[]{new NpcReply("接过短剑，准备演练",()=>owner.AdvanceDemoIntro(BaseDemoIntro.ReceiveSword))});return true;
                 }
                 if(i.Step==4)
                 {
@@ -140,7 +153,7 @@ namespace BaseConquest.Base
             var s=owner.State;if(!BaseDemoIntro.Active(s)||!BaseDemoPrologue.Village(s))return false;
             if(s.Demo.Intro.Step==0){OpenHeroChoice();return true;}
             if(s.Demo.Intro.Step==1)return OpenIntroInteraction("demo_captain");
-            if(BaseDemoIntro.Daily(s)||s.Demo.Intro.Step==7){owner.ReportMessage(BaseDemoIntro.Objective(s));ClosePanel();return true;}
+            if(BaseDemoIntro.Daily(s)||s.Demo.Intro.Step==7){ClosePanel();return true;}
             if(s.Demo.Intro.Step==6)
             {
                 if(!s.Demo.Intro.ReporterArrived){IntroReminder("报信的乡亲正从村头跑来，等他到搭档身边再问问情况。");return true;}
@@ -156,7 +169,7 @@ namespace BaseConquest.Base
                     new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"别忘了还约好去灰岩镇找老铁匠淬剑呢。我拆了木桥就追上来！"),
                     new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"护村队的弟兄，跟我去西桥头迎敌！——快带乡亲往东走，别回头！"),
                     new NpcLine("阿禾","ahe","［咬紧牙关］走吧！往东村口撤，绝不能白费"+partner+"拿命争来的时间！")},
-                    new[]{new NpcReply("我会把大家带出去。你一定跟上",()=>owner.AdvanceDemoIntro(BaseDemoIntro.Depart,"搭档前往村头，乡亲们正等着撤离"))});return true;
+                    new[]{new NpcReply("我会把大家带出去。你一定跟上",()=>owner.AdvanceDemoIntro(BaseDemoIntro.Depart))});return true;
             }
             return false;
         }

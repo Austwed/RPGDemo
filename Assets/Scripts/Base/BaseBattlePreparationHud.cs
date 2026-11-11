@@ -135,11 +135,12 @@ namespace BaseConquest.Base
             priority.gameObject.SetActive(travel);
             if (travel) PrepButton(view, "Priority", prepProduction ? "生产优先" : "作战优先", () =>
             { prepProduction = !prepProduction; RerenderPreparation(); });
-            bool ruins = battleDraft.Route == BasePrepRoute.Ruins;
-            Ui<Button>(view, "Sweep").gameObject.SetActive(ruins && state.Demo.RuinsDay > 0);
-            Ui<Button>(view, "Reward").gameObject.SetActive(ruins && !string.IsNullOrEmpty(state.Demo.RuinsRewards?.PendingBattleId));
+            var route = battleDraft.Route;
+            bool dungeon = BaseRuinsRewards.IsDungeon(route);
+            Ui<Button>(view, "Sweep").gameObject.SetActive(dungeon && BaseRuinsRewards.Cleared(state, route));
+            Ui<Button>(view, "Reward").gameObject.SetActive(dungeon && BaseRuinsRewards.PendingBattle(state, route) != "");
             PrepButton(view, "Sweep", null, ShowPreparedSweep);
-            PrepButton(view, "Reward", null, () => { ClearBattlePreparation(); OpenRuinsReward(); });
+            PrepButton(view, "Reward", null, () => { ClearBattlePreparation(); OpenRuinsReward(route); });
             var supply = view.Find("Supply");
             supply.gameObject.SetActive(!travel);
             if (!travel)
@@ -412,11 +413,10 @@ namespace BaseConquest.Base
             {
                 context = battleDraft.Route switch
                 {
-                    BasePrepRoute.Ruins => $"侵蚀 {BaseRuinsRewards.Exposure(state):P0} / 秒 · 体力 {BaseRuinsRewards.Energy(state)} / {BaseRuinsRewards.Maximum(state)}" +
-                        (state.Demo.RuinsDay == 0 ? " · 首通领奖免费" : " · 复打领奖消耗 " + BaseRuinsRewards.Cost(state)),
+                    BasePrepRoute.Ruins => $"侵蚀 {BaseRuinsRewards.Exposure(state):P0} / 秒 · " + DungeonEnergy(state, battleDraft.Route),
                     BasePrepRoute.Defense => PrepText("first_objective", "坚守到敌军撤离，或击败全部来敌。"),
                     BasePrepRoute.Second => PrepText("second_objective", "击败全部来敌。开战后无法撤退。"),
-                    BasePrepRoute.Hideout => BaseBanditHideout.Objective,
+                    BasePrepRoute.Hideout => DungeonEnergy(state, battleDraft.Route),
                     _ => PrepText("attack_objective", "使用已抵达的队伍攻占黑鸦寨。")
                 };
                 RefreshPrepSupply(state);
@@ -440,6 +440,16 @@ namespace BaseConquest.Base
             var feedback = Ui<Text>(panel, "Feedback");
             feedback.text = problem != "" ? problem : !string.IsNullOrEmpty(prepFeedback) ? prepFeedback : warning > 0 ? $"生命预警 · {warning} 名所选士兵低于 {BaseDevelopment.WarningThreshold(state):P0}" : "";
             if (feedback.text != "") feedback.color = PrepInvalid;
+        }
+
+        private static string DungeonEnergy(BaseState state, BasePrepRoute route)
+        {
+            string energy = string.Format(PrepText("dungeon_energy", "体力 {0} / {1}"),
+                BaseRuinsRewards.Energy(state), BaseRuinsRewards.Maximum(state));
+            string reward = BaseRuinsRewards.Cleared(state, route)
+                ? string.Format(PrepText("dungeon_repeat_reward", "复打领奖消耗 {0}"), BaseRuinsRewards.Cost(state))
+                : PrepText("dungeon_first_reward", "首通领奖免费");
+            return energy + " · " + reward;
         }
 
         private void ContinueBattlePreparation()
@@ -508,7 +518,7 @@ namespace BaseConquest.Base
             try { preview = battleDraft.PreviewSweep(state); }
             catch (ArgumentException error) { prepFeedback = error.Message; RefreshPreparationFields(); return; }
             catch (InvalidOperationException error) { prepFeedback = error.Message; RefreshPreparationFields(); return; }
-            BeginPanel(BaseScriptNames.Ruins + " · 扫荡确认", SweepView);
+            BeginPanel(BaseRuinsRewards.DungeonName(battleDraft.Route) + " · 扫荡确认", SweepView);
             string ratio = preview.EnemyPower > 0 ? (preview.AllyPower / preview.EnemyPower).ToString("0.00") : "—";
             Line($"我方战力 {preview.AllyPower:0.00} / 敌方 {preview.EnemyPower:0.00} ≈ {ratio} 倍 · 需严格超过 1.5 倍", 64, 21);
             Line($"体力 {BaseRuinsRewards.Energy(state)} / {BaseRuinsRewards.Maximum(state)} · 领奖消耗 {BaseRuinsRewards.Cost(state)}", 52, 18);

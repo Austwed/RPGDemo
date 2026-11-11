@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BaseConquest.Story;
 
 namespace BaseConquest.Base
 {
@@ -40,36 +41,42 @@ namespace BaseConquest.Base
                 NpcDialogue(new[]{new NpcLine("获救百姓乙","villager","总算呼吸到外头的活气了！要不是你剑下留情，我们哥俩就交代在里头了。"),new NpcLine("获救百姓甲","villager","我们这就回灰岩镇面见霍恩爵士，一定在老爷面前替你好好美言几句！")},new[]{new NpcReply("路上小心，我们城里见",owner.ReturnRescuedVillagers),new NpcReply("稍后再谈",ClosePanel)});return;
             }
             bool first=id=="demo_rescued_1";
-            NpcDialogue(new[]{new NpcLine(first?"获救百姓甲":"获救百姓乙","villager",first?"啊……我这是在哪儿？刚才脑子里一片空白，多谢壮士救命！":"你若想重建营地，就去找领主吧。我们会替你说好话；这份恩情不会忘。")},new[]{new NpcReply("查看"+BaseScriptNames.Ruins+"副本奖励",OpenRuinsReward,!string.IsNullOrEmpty(owner.State.Demo.RuinsRewards?.PendingBattleId)),new NpcReply("保重，尽快离开"+BaseScriptNames.Ruins,ClosePanel)});
+            NpcDialogue(new[]{new NpcLine(first?"获救百姓甲":"获救百姓乙","villager",first?"啊……我这是在哪儿？刚才脑子里一片空白，多谢壮士救命！":"你若想重建营地，就去找领主吧。我们会替你说好话；这份恩情不会忘。")},new[]{new NpcReply("查看"+BaseScriptNames.Ruins+"副本奖励",OpenRuinsReward,unlocked:!string.IsNullOrEmpty(owner.State.Demo.RuinsRewards?.PendingBattleId)),new NpcReply("保重，尽快离开"+BaseScriptNames.Ruins,ClosePanel)});
         }
-        public void OpenRuinsReward()
+        public void OpenRuinsReward() => OpenRuinsReward(BasePrepRoute.Ruins);
+        internal void OpenRuinsReward(BasePrepRoute route)
         {
-            var s=owner.State;if(BaseBattleLoot.Pending(s)&&string.IsNullOrEmpty(s.Demo.RuinsRewards?.PendingBattleId)){OpenLoot();return;}BeginPanel(BaseScriptNames.Ruins+" · 奖励","ruins-reward");activeObject="ruins-reward";interactionObject="";
-            if(string.IsNullOrEmpty(s.Demo.RuinsRewards?.PendingBattleId))
+            var s=owner.State;
+            var rules=s.Demo.RuinsRewards;
+            string battle=BaseRuinsRewards.PendingBattle(s,route);
+            string eventId=BaseRuinsRewards.EventId(route);
+            if(battle=="")
             {
-                var reward=s.Demo.RuinsRewards;
-                Line("首次通关奖励包含钱币"+reward.FirstCoins+"、粮食"+reward.FirstFood+"、原料"+reward.FirstMaterials+"及道具，不耗体力。物品从奖励清单领取到背包；领主的委托在交付时结算。再次挑战后消耗体力领取奖励。",150,21);
-                RowButton("查看战果 · 道具与可招募队长",0,800,OpenLoot,BaseBattleLoot.Pending(s));row+=60;RowButton("关闭",0,800,ClosePanel);row+=60;EndPanel();return;
+                var reports=s.Campaign.Reports.Where(report=>report.EventId==eventId);
+                var loot=s.Aftermath.Loot.FirstOrDefault(item=>!item.Closed&&reports.Any(report=>report.BattleId==item.BattleId));
+                if(loot!=null){OpenLoot(loot.BattleId);return;}
             }
-            int pendingCost=BaseRuinsRewards.PendingCost(s);
-            Line("体力 "+BaseRuinsRewards.Energy(s)+" / "+BaseRuinsRewards.Maximum(s)+"；每日补满。"+(pendingCost==0?"本次领奖免费。":"领奖消耗 "+pendingCost+"。"),65,23);
-            Line("副本奖励：钱币 "+(s.Demo.RuinsRewards?.Coins??40)+"、个人装备 ×1、锻造石 ×"+(s.Demo.RuinsRewards?.ItemCount??1)+"。与领主任务首奖分开；先完成本场战斗，再选择是否消耗体力。",110,21);
-            string problem=BaseRuinsRewards.ClaimProblem(s);Line(problem==""?"本场已胜利，可以领取一次。":problem,75,21);
-            RowButton(pendingCost==0?"免费领取本次奖励":"消耗体力 · 领取本次奖励",0,800,owner.ClaimRuinsReward,problem=="");row+=60;
-            RowButton("放弃本次副本奖励",0,800,owner.SkipRuinsReward,!string.IsNullOrEmpty(s.Demo.RuinsRewards?.PendingBattleId));row+=60;
+            BeginPanel(BaseRuinsRewards.DungeonName(route)+" · 奖励","ruins-reward");activeObject="ruins-reward";interactionObject="";
+            if(battle=="")
+            {
+                Line(BaseRuinsRewards.ClaimProblem(s,route),75,21);
+                RowButton("关闭",0,800,ClosePanel);row+=60;EndPanel();return;
+            }
+            int pendingCost=BaseRuinsRewards.PendingCost(s,route);
+            Line("体力 "+BaseRuinsRewards.Energy(s)+" / "+BaseRuinsRewards.Maximum(s)+"。"+(pendingCost==0?"本次领奖免费。":"领奖消耗 "+pendingCost+"。"),65,23);
+            Line(string.Format(StoryText.Get("story.ui.dungeon.reward_items", "副本奖励 · 钱币 {0}、个人装备 ×1、锻造石 ×{1}，有机会获得基础兵书。"),rules.Coins,rules.ItemCount),110,21);
+            string problem=BaseRuinsRewards.ClaimProblem(s,route);Line(problem==""?"本场已胜利，可以领取一次。":problem,75,21);
+            RowButton(pendingCost==0?"免费领取本次奖励":"消耗体力 · 领取本次奖励",0,800,()=>owner.ClaimRuinsReward(route),problem=="");row+=60;
+            RowButton("放弃本次副本奖励",0,800,()=>owner.SkipRuinsReward(route));row+=60;
+            if(route==BasePrepRoute.Hideout&&s.Aftermath.Loot.Any(item=>item.BattleId==battle&&!item.Closed))
+            {RowButton("查看战果与俘虏",0,800,()=>OpenLoot(battle));row+=60;}
             RowButton("关闭",0,800,ClosePanel);row+=60;EndPanel();
         }
         private void OpenRuinsChallenge()
         {
             var state = owner.State;
             if (BaseDemoRuins.CanExplore(state)) { OpenBattlePreparation(BasePrepRoute.Ruins); return; }
-            activeObject = "demo-ruins";
-            interactionObject = "";
-            BeginPanel(BaseScriptNames.Ruins + " · 调查与整备");
-            Line(BaseDemo.Objective(state), 95, 22);
-            RowButton("关闭", 0, 800, ClosePanel);
-            row += 60;
-            EndPanel();
+            ClosePanel();
         }
         public void OpenRuinsSweep(string mode="full")
         {
@@ -82,11 +89,17 @@ namespace BaseConquest.Base
             RowButton("确认扫荡",-205,390,()=>owner.SweepDemoRuins(mode),p.Problem=="");RowButton("取消",205,390,OpenRuinsChallenge);row+=60;
             Line("不耗游戏日，军需照常磨损；体力不足不能领奖。扫荡不解锁“破咒不伤人”。",60,19);EndPanel();
         }
-        public void OpenSweepResult(BaseSweepPreview result)
+        public void OpenSweepResult(BaseSweepPreview result, BasePrepRoute route = BasePrepRoute.Ruins)
         {
-            BeginPanel(BaseScriptNames.Ruins+" · 扫荡完成","ruins-sweep-result");activeObject="ruins-sweep-result";interactionObject="";
-            Line("本场已胜利并保存战损；基础伤损 "+result.Injury.ToString("P1")+"，普通人额外侵蚀 "+result.Exposure.ToString("P0")+"（按最大生命）；普通兵阵亡 "+result.Deaths+"人。",75,23);SweepLossLines(result);
-            RowButton("查看奖励",0,800,OpenRuinsReward);row+=60;RowButton("查看战果与俘虏",0,800,OpenLoot);row+=60;RowButton("关闭",0,800,ClosePanel);row+=60;EndPanel();
+            BeginPanel(BaseRuinsRewards.DungeonName(route)+" · 扫荡完成","ruins-sweep-result");activeObject="ruins-sweep-result";interactionObject="";
+            string summary=route==BasePrepRoute.Hideout
+                ? string.Format(StoryText.Get("story.ui.hideout.sweep_result", "战损已结算 · 基础伤损 {0:P1} · 阵亡士兵 {1} 人"),result.Injury,result.Deaths)
+                : "本场已胜利并保存战损；基础伤损 "+result.Injury.ToString("P1")+"，普通人额外侵蚀 "+result.Exposure.ToString("P0")+"（按最大生命）；普通兵阵亡 "+result.Deaths+"人。";
+            Line(summary,75,23);SweepLossLines(result);
+            RowButton("查看奖励",0,800,()=>OpenRuinsReward(route));row+=60;
+            if(owner.State.Aftermath.Loot.Any(item=>item.BattleId==result.BattleId&&!item.Closed))
+            {RowButton("查看战果与俘虏",0,800,()=>OpenLoot(result.BattleId));row+=60;}
+            RowButton("关闭",0,800,ClosePanel);row+=60;EndPanel();
         }
         private void SweepLossLines(BaseSweepPreview result)
         {

@@ -108,14 +108,37 @@ namespace BaseConquest.Base
             });
         }
 
-        private void TradeCommit(Func<BaseState,bool> action,string message)
+        private void TradeCommit(Func<BaseState, bool> action, string message, bool recruitment = false)
         {
-            bool ok=owner.Change(next=>{
-                if(!action(next))throw new InvalidOperationException(
-                    StoryText.Get("story.ui.trade.changed","交易条件已变化，请重新确认"));
-            },message);
-            tradeFeedback=ok?message:owner.Message;
-            RenderTownTrade();
+            bool showHideoutClue = false;
+            bool ok = owner.Change(next =>
+            {
+                if (!action(next)) throw new InvalidOperationException(
+                    StoryText.Get("story.ui.trade.changed", "交易条件已变化，请重新确认"));
+                if (recruitment && BaseDemoFlow.Active(next) && BaseBanditHideout.Installed(next) && !next.Demo.Flow.HideoutRecruitClueSeen)
+                {
+                    next.Demo.Flow.HideoutRecruitClueSeen = true;
+                    showHideoutClue = true;
+                }
+            }, message);
+            tradeFeedback = ok ? message : owner.Message;
+            if (ok && showHideoutClue) OpenRecruiterHideoutClue();
+            else RenderTownTrade();
+        }
+
+        private void OpenRecruiterHideoutClue()
+        {
+            string name = BaseScriptNames.Recruiter;
+            string portrait = BaseScriptNames.Portrait("recruiter");
+            NpcDialogue(new[]
+            {
+                new NpcLine(name, portrait, StoryText.Get("story.ui.hideout.recruiter_clue_1",
+                    "野外那截破旧城墙背后，藏着个小土匪营地。那帮人隔三岔五就袭扰路过的百姓。")),
+                new NpcLine(name, portrait, StoryText.Get("story.ui.hideout.recruiter_clue_2",
+                    "你要是有心，就去跟他们碰一碰。营地里都是他们搜刮来的不义之财，你能帮我们处理掉他们，那些东西就算你的辛苦酬劳。")),
+                new NpcLine(name, portrait, StoryText.Get("story.ui.hideout.recruiter_clue_3",
+                    "要是能打服他们，也能把肯归顺的人招来做事。坏是坏了点，可有了正经差事，或许能帮你的营地早点站稳。"))
+            }, Array.Empty<NpcReply>(), onCompleted: () => RenderTownTrade(false));
         }
 
         private void RenderTownTrade(bool keepScroll=true)
@@ -309,7 +332,7 @@ namespace BaseConquest.Base
             TradeLine(details,BaseEconomy.TroopName(kind)+" · 生命 "+stats.Health.ToString("0.#")+" · 攻 "+stats.Damage.ToString("0.#")+" · 防 "+stats.Defense.ToString("0.#"));
             TradeLine(details,"今日可募 "+offer.Remaining+"/"+offer.DailyCount+" · 全军 "+BaseTown.TroopTotal(s)+"人");
             TradeButton(details,"招募 1 人 · "+price+"币",
-                ()=>TradeCommit(next=>BaseTown.Confirm(next,quote),"已招募 "+BaseEconomy.TroopName(kind)),quote!=null);
+                ()=>TradeCommit(next=>BaseTown.Confirm(next,quote),"已招募 "+BaseEconomy.TroopName(kind),recruitment:true),quote!=null);
             if(maximum==0)TradeLine(details,"当前无法招募");
             TradeButton(details,"规则 i",()=>TownRules(()=>RenderTownTrade(false)));
 

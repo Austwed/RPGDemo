@@ -251,7 +251,12 @@ namespace BaseConquest.Base
             {
                 Hud.TickDialogue(Time.unscaledDeltaTime);
                 RefreshSceneSight();
-                if (combatController?.CampaignMenuOpen != true) { TickPracticeGuide(); TickRuinsRetreatGuide(); TickDefenseIntel(); }
+                if (combatController?.CampaignMenuOpen != true)
+                {
+                    if (combatController?.ContinueFinishedSceneDialogue() == true || TickRuinsRetreatGuide()) return;
+                    TickPracticeGuide();
+                    TickDefenseIntel();
+                }
             }
             if (State == null || Busy || combatController != null) {ClearWorkerTravel();return;}
             TickWorkerTravel(Math.Min(Time.deltaTime,.05));

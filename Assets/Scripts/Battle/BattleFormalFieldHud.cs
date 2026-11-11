@@ -135,7 +135,7 @@ namespace BaseConquest.Battle
             bool shown = owner.FormalFieldHud && !owner.DrawerVisible;
             bool draft = owner.DeploymentDraftActive;
             formalBanner.gameObject.SetActive(shown);
-            objectivePanelRect.gameObject.SetActive(!owner.FormalFieldHud);
+            objectivePanelRect.gameObject.SetActive(!owner.FormalFieldHud && !owner.ContinuesThroughDialogue);
             formalSummaryToggle.gameObject.SetActive(shown);
             formalSummaryToggle.interactable = shown;
             formalSummary.gameObject.SetActive(shown && !formalSummaryFolded);

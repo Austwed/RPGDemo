@@ -5,9 +5,7 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        // 01C §8.5.1 带伤状态专属反应：主角当前生命 < 60% 时，点对应 NPC 先插播一句，
-        // 随后照旧进入常规对白／面板。文案逐字取自 01C，不在代码里另写。
-        // 判定不覆盖「倒地／死亡」：Fate 非 active 的角色不参与带伤应答。
+        // 主角生命低于 60% 时，每位 NPC 每日可先说一句带伤应答。见 01C §8.5.1。
         public const double InjuredThreshold=.6;
         private sealed class InjuredLine
         {
@@ -16,9 +14,9 @@ namespace BaseConquest.Base
         private static readonly Dictionary<string,InjuredLine> InjuredLines=new Dictionary<string,InjuredLine>
         {
             {"INJ_TOWN_MAIGE",new InjuredLine{Speaker=BaseScriptNames.InnKeeper,Art=BaseScriptNames.Portrait("innkeeper"),Text="[倒吸凉气] 哎呀，这一身血。二楼那间空着，两枚钱币，热水管够。先把人保住再说。"}},
-            {"INJ_TOWN_GUARD",new InjuredLine{Speaker=BaseScriptNames.Guard,Art=BaseScriptNames.Portrait("guard"),Text="甲片裂成这样，仗打得够呛。人活着回来就成，锤子我这儿有，能替你敲回去。"}},
+            {"INJ_TOWN_GUARD",new InjuredLine{Speaker=BaseScriptNames.Guard,Art="villager",Text="甲片裂成这样，仗打得够呛。人活着回来就成，锤子我这儿有，能替你敲回去。"}},
             {"INJ_TOWN_MO",new InjuredLine{Speaker=BaseScriptNames.Peddler,Art=BaseScriptNames.Portrait("merchant"),Text="嘶，这脸色白得像张纸！钱币没了可以再赚，人要是倒了可就本利全空喽。"}},
-            {"INJ_TOWN_XIAOYUN",new InjuredLine{Speaker=BaseScriptNames.Girl,Art=BaseScriptNames.Portrait("girl"),Text="[惊呼捂嘴] 血……你袖子一直在滴血！你站着别动，我去叫人！"}},
+            {"INJ_TOWN_XIAOYUN",new InjuredLine{Speaker=BaseScriptNames.Girl,Art="villager",Text="[惊呼捂嘴] 血……你袖子一直在滴血！你站着别动，我去叫人！"}},
             {"INJ_TOWN_BALONG",new InjuredLine{Speaker=BaseScriptNames.Blacksmith,Art=BaseScriptNames.Portrait("blacksmith"),Text="人受了伤得睡觉，铁甲被砍豁了口子就得换！别拿自己的肉身去硬抗刀剑！"}},
             {"INJ_TOWN_LEIEN",new InjuredLine{Speaker=BaseScriptNames.Recruiter,Art=BaseScriptNames.Portrait("recruiter"),Text="挂彩了？胜败乃兵家常事，只要队长还没咽气，回营睡一觉、补几个新兵照样翻盘！"}},
             {"INJ_CAMP_ZHOU",new InjuredLine{Speaker=BaseScriptNames.LaoZhou,Art=BaseScriptNames.Portrait("laozhou"),Text="又是一身伤回来。你当我这把老骨头还能替你扛？进帐躺下，天塌了也等明早。"}},
@@ -38,20 +36,40 @@ namespace BaseConquest.Base
             if(!Wounded(s))return "";
             return InjuredLines.TryGetValue(id??"",out var line)?line.Text:"";
         }
-        // 对白入口用：带伤时把应答插到第一句；不带伤或没有对应文案时原样返回。
+        private static bool CanSpeakInjury(BaseState s,string id)
+        {
+            return InjuredText(s,id)!="" && (s.InjuryDialogueDay!=s.Day || s.InjuryDialogueIds?.Contains(id)!=true);
+        }
+        public static bool RecordInjuryDialogue(BaseState s,string id)
+        {
+            if(!CanSpeakInjury(s,id))return false;
+            if(s.InjuryDialogueDay!=s.Day)
+            {
+                s.InjuryDialogueDay=s.Day;
+                s.InjuryDialogueIds=new List<string>();
+            }
+            (s.InjuryDialogueIds??=new List<string>()).Add(id);
+            return true;
+        }
+        private bool SaveInjuryDialogue(BaseState s,string id)
+        {
+            if(!CanSpeakInjury(s,id))return false;
+            bool recorded=false;
+            return owner.Change(next=>recorded=RecordInjuryDialogue(next,id),owner.Message)&&recorded;
+        }
+
         private NpcLine[] WithInjury(BaseState s,string id,params NpcLine[] lines)
         {
-            if(!Wounded(s)||!InjuredLines.TryGetValue(id??"",out var line))return lines;
+            if(!SaveInjuryDialogue(s,id))return lines;
+            var line=InjuredLines[id];
             var all=new NpcLine[lines.Length+1];
             all[0]=new NpcLine(line.Speaker,line.Art,line.Text);
             Array.Copy(lines,0,all,1,lines.Length);
             return all;
         }
-        // 面板入口用：在面板顶部补一行，不改变原有行序与按钮。
         private void InjuryLine(BaseState s,string id)
         {
-            string text=InjuredText(s,id);
-            if(text!="")Line(text,72,18);
+            if(SaveInjuryDialogue(s,id))Line(InjuredLines[id].Text,72,18);
         }
     }
 }

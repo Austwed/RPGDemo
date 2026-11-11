@@ -79,7 +79,7 @@ namespace BaseConquest.Battle
             {
                 autoRun = true;
                 realtime.Model.SetPaused(false);
-                feedback = "点击格子查看战况。点击头像或按 1–3 选择指挥队长。";
+                feedback = HasSelection ? "点击空地移动，双击空地驻守。" : "点击格子查看战况。点击头像或按 1–3 选择指挥队长。";
             }
             InitializeBattleDeveloperPanel();
             hud?.Refresh();

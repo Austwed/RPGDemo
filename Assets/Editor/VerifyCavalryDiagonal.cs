@@ -18,6 +18,7 @@ namespace BaseConquest.Editor
         }
         public static void Run()
         {
+            VerifyGroupDestinations();
             foreach(double degrees in new[]{44d,45d,46d})
             {
                 var axis=new PrototypePoint(1,0);int changes=0;
@@ -84,6 +85,64 @@ namespace BaseConquest.Editor
             Need(shoveModel.ShoveMoves==1&&blocker.Cell!=wanted&&!RealtimeBattlePrototype.BodiesCross(shover,shoveModel.Arena.Center(wanted),blocker,blocker.Position),"斜向挤开后仍有穿体");
             Directory.CreateDirectory("Logs");File.WriteAllText("Logs/cavalry-diagonal-verification.txt",$"before horse→foot={beforeA:F6} foot→horse={beforeB:F6}\nafter horse→foot={afterA:F6} foot→horse={afterB:F6}\n");
             Debug.Log("[VerifyCavalryDiagonal] PASS");
+        }
+
+        private static void VerifyGroupDestinations()
+        {
+            var model = new RealtimeBattlePrototype(new PrototypeArena(PrototypeLayout.Open)) { CommanderDoctrine = true };
+            var cavalry = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Leader, new PrototypePoint(3.25, 3.25), 2);
+            var first = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Leader, new PrototypePoint(3.25, 5.25), 0);
+            var second = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Leader, new PrototypePoint(3.25, 7.25), 1);
+            model.AddUnit(PrototypeSide.Enemy, PrototypeRole.Melee, new PrototypePoint(21.25, 12.25));
+            var commanders = new[] { first, second, cavalry };
+            var squads = new[] { 2, 0, 1 };
+            Need(model.SetFootprint(cavalry, 2), "多队长夹具骑兵占格不合法");
+            foreach (var commander in commanders) commander.Strategy = PrototypeStrategy.Obey;
+            var goal = new PrototypePoint(8.25, 5.25);
+            Need(model.IssueOrder(-1, -1, PrototypeOrder.Move, goal, squads: squads, leadersOnly: true) &&
+                first.Goal.Equals(goal) && commanders.Select(u => model.Arena.CellAt(u.Goal)).Distinct().Count() == 3,
+                "多人移动未按 A/B/C 分开落点");
+            var previous = commanders.Select(u => (u.Order, u.Goal, u.Anchor)).ToArray();
+            model.UnitCellAllowed = (unit, cell) => unit != second || cell == model.Arena.CellAt(goal);
+            Need(!model.IssueOrder(-1, -1, PrototypeOrder.Guard, goal, squads: squads, leadersOnly: true) &&
+                commanders.Select(u => (u.Order, u.Goal, u.Anchor)).SequenceEqual(previous), "落点不足时改写了原有指令");
+            model.UnitCellAllowed = null;
+            Need(model.IssueOrder(-1, -1, PrototypeOrder.Guard, goal, squads: squads, leadersOnly: true) &&
+                commanders.All(u => u.Anchor.Equals(u.Goal)) && commanders.Select(u => u.Anchor).Distinct().Count() == 3,
+                "多人驻守没有沿用各自落点作为锚点");
+            model.MarkDirectOrder(squads, PrototypeOrder.Guard, -1, false);
+            model.SetPaused(false);
+            for (int step = 0; step < 1000 && commanders.Any(u => model.Arena.CellAt(u.Goal) != u.Cell); step++) model.Tick(.02);
+            Need(commanders.All(u => model.Arena.CellAt(u.Goal) == u.Cell) &&
+                commanders.SelectMany(u => model.Footprint(u, u.Cell, u.BodyAxis)).Distinct().Count() == 4,
+                "多人驻守未分别到达含骑兵头尾的四个占格");
+            VerifyGroupCavalryArrival();
+            Debug.Log("[VerifyCavalryDiagonal] PASS group move, group guard, cavalry footprint and atomic refusal");
+        }
+
+        private static void VerifyGroupCavalryArrival()
+        {
+            var model = new RealtimeBattlePrototype(new PrototypeArena(PrototypeLayout.Open)) { CommanderDoctrine = true };
+            var cavalry = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Leader, new PrototypePoint(4.25, 5.25), 0);
+            var second = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Leader, new PrototypePoint(4.25, 9.25), 1);
+            var blocker = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Leader, new PrototypePoint(7.75, 5.25), 2);
+            var enemy = model.AddUnit(PrototypeSide.Enemy, PrototypeRole.Melee, new PrototypePoint(21.25, 12.25));
+            foreach (var leader in new[] { cavalry, second, blocker }) leader.Strategy = PrototypeStrategy.Obey;
+            model.CanMove = unit => unit.Id != blocker.Id && unit.Id != enemy.Id;
+            var squads = new[] { 0, 1 };
+            var goal = new PrototypePoint(8.25, 5.25);
+            Need(model.SetFootprint(cavalry, 2) && model.IssueOrder(-1, -1, PrototypeOrder.Move, goal, squads: squads, leadersOnly: true) &&
+                cavalry.Goal.Equals(goal) && !cavalry.GroupArrivalAxis.Equals(new PrototypePoint(1, 0)), "规划未绕开点击格后方已占用的尾格");
+            model.MarkDirectOrder(squads, PrototypeOrder.Move, -1, false);
+            var checkpoint = JsonUtility.FromJson<RealtimeBattleState>(JsonUtility.ToJson(model.Capture()));
+            model.Restore(checkpoint);
+            cavalry = model.Units.Single(unit => unit.Squad == 0 && unit.Side == PrototypeSide.Ally);
+            model.SetPaused(false);
+            int destination = model.Arena.CellAt(goal);
+            for (int step = 0; step < 1500 && cavalry.Cell != destination; step++) model.Tick(.02);
+            Need(cavalry.Cell == destination && cavalry.BodyAxis.Equals(cavalry.GroupArrivalAxis) &&
+                !model.Footprint(cavalry, cavalry.Cell, cavalry.BodyAxis).Contains(blocker.Cell),
+                "读档后的多人骑兵未按已校验的朝向进入落点");
         }
         public static void Baseline()
         {

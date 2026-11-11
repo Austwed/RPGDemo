@@ -34,7 +34,7 @@ namespace BaseConquest.Base
         {
             if(Hud.PanelOpen||ConstructionMode||BaseBattleGateway.MainMenu||developerPanel?.BlocksGameInput==true)return;
             if(!BaseDemoNpcs.CanInviteAzhu(State))return;
-            if(Change(s=>{if(!BaseDemoNpcs.InviteAzhu(s))throw new InvalidOperationException("阿铸邀约条件已变化");},"阿铸向你发出切磋邀请"))Hud.OpenAzhuInvitation();
+            if(Change(s=>{if(!BaseDemoNpcs.InviteAzhu(s))throw new InvalidOperationException("阿铸邀约条件已变化");},""))Hud.OpenAzhuInvitation();
         }
         private void TickDefenseIntel()
         {
@@ -47,23 +47,14 @@ namespace BaseConquest.Base
             Hud.OpenDefenseIntel(()=>{State.Demo.Defense.BattleIntelSeen=true;run.SaveCheckpoint(State);SaveStore.Save(State);Hud.ClosePanel();Hud.SetVisible(false);if(combatController!=null){combatController.ExternalDialogue=false;combatController.ResumeAfterDialogue(running);}});
         }
         private string ruinsRetreatGuideId;
-        private void TickRuinsRetreatGuide()
+        private bool TickRuinsRetreatGuide()
         {
-            if(combatController?.IsDemoRuins!=true)return;
-            if(combatController.ExternalDialogue)
-            {
-                var keyboard=UnityEngine.InputSystem.Keyboard.current;
-                if(keyboard!=null&&(keyboard.eKey.wasPressedThisFrame||keyboard.spaceKey.wasPressedThisFrame))Hud.ContinueDialogue();
-                return;
-            }
+            if(combatController?.IsDemoRuins!=true || combatController.ExternalDialogue)return false;
             var run=combatController.Realtime;
-            if(Hud.PanelOpen||run==null||ruinsRetreatGuideId==run.Session.Opening.Id||!BaseDemoRuins.SoloRetreatGuide(run))return;
-            ruinsRetreatGuideId=run.Session.Opening.Id;combatController.PauseForDialogue();combatController.ExternalDialogue=true;Hud.SetVisible(true);
-            Hud.OpenRuinsRetreatGuide(()=>
-            {
-                Hud.ClosePanel();Hud.SetVisible(false);
-                if(combatController!=null){combatController.ExternalDialogue=false;combatController.WithdrawSceneEncounter();}
-            });
+            if(Hud.PanelOpen||run==null||ruinsRetreatGuideId==run.Session.Opening.Id||!BaseDemoRuins.SoloRetreatGuide(run))return false;
+            ruinsRetreatGuideId=run.Session.Opening.Id;
+            combatController.PauseForDialogue();
+            return combatController.WithdrawSceneEncounter();
         }
         public void BeginAzhuDuel()=>BeginAzhuDuelAt(false);
         public void BeginAzhuFieldDuel()=>BeginAzhuDuelAt(true);
@@ -93,7 +84,8 @@ namespace BaseConquest.Base
         public bool SceneObjectVisible(BaseMapObject o)
         {
             var sight=combatController?.Realtime?.Battle.Vision??explorationSight;
-            return o!=null&&(sight==null||sight.Visible(BattleSide.A,new GridPosition((int)o.X,(int)o.Y)));
+            return o!=null&&(o.Id!=BaseBanditHideout.EntryId||BaseBanditHideout.VisibleFromPlayer(State,o,sight))
+                &&(sight==null||sight.Visible(BattleSide.A,new GridPosition((int)o.X,(int)o.Y)));
         }
         private void RefreshSceneSight(bool force=false)
         {
@@ -112,7 +104,8 @@ namespace BaseConquest.Base
             if(scenery!=null)foreach(Transform node in scenery)
             {
                 var obj=objects.FirstOrDefault(o=>node.name==o.Id||node.name.StartsWith(o.Id+" ·"));
-                if(obj!=null)node.gameObject.SetActive(sight.TerrainVisible(BattleSide.A,new GridPosition((int)obj.X,(int)obj.Y)));
+                if(obj!=null)node.gameObject.SetActive(obj.Id==BaseBanditHideout.EntryId ? SceneObjectVisible(obj)
+                    : sight.TerrainVisible(BattleSide.A,new GridPosition((int)obj.X,(int)obj.Y)));
             }
             string opponent=combatController?.IsDemoPractice==true?"demo_captain":combatController?.IsAzhuDuel==true?"demo_azhu":"";
             foreach(var npc in npcViews)

@@ -16,7 +16,7 @@ namespace BaseConquest.Base
         private readonly Font font;
         private readonly RectTransform root, modal, inspection, mapLabels, controls;
         private readonly Text summary, hint, feedback, regionStatus;
-        private Text trackedQuest, trackedQuestArrow;
+        private Text trackedQuest;
         private readonly Text inspectionTitle, inspectionDetails;
         private Text panelFeedback;
         private readonly Button interact;
@@ -79,16 +79,15 @@ namespace BaseConquest.Base
                 DemoUiIcons.Attach(MakeButton(header, "任务", new Vector2(-364, -36), new Vector2(86, 44), ToggleQuests, new Vector2(1, 1)), "quest");
                 reserveRules = MakeButton(header, "i", new Vector2(-194, -36), new Vector2(44, 44), () => OpenResourceInfo(ClosePanel), new Vector2(1, 1));
             }
-            var questBar = Box("TrackedQuest", root, new Vector2(0, 1), new Vector2(168, -118), new Vector2(320, 74), new Color(.08f, .14f, .15f, .86f));
-            trackedQuest = Label(questBar, "", Vector2.zero, new Vector2(300, 66), 17, TextAnchor.UpperLeft);
-            var questLink = questBar.gameObject.GetOrAdd<Button>(); questLink.targetGraphic = questBar.GetComponent<Image>();
-            if (authoredResources)
+            if (!BaseBattleGateway.DemoMode)
             {
-                questLink.onClick.AddListener(ToggleQuests);
-                trackedQuestArrow = MakeButton(questBar, "折叠", new Vector2(-20, -19), new Vector2(30, 30), ToggleTrackedQuestBar, new Vector2(1, 1)).GetComponentInChildren<Text>();
+                var questBar = Box("TrackedQuest", root, new Vector2(0, 1), new Vector2(168, -118), new Vector2(320, 74), new Color(.08f, .14f, .15f, .86f));
+                trackedQuest = Label(questBar, "", Vector2.zero, new Vector2(300, 66), 17, TextAnchor.UpperLeft);
+                var questLink = questBar.gameObject.GetOrAdd<Button>();
+                questLink.targetGraphic = questBar.GetComponent<Image>();
+                questLink.onClick.AddListener(ToggleTrackedQuestBar);
+                questBar.gameObject.SetActive(false);
             }
-            else questLink.onClick.AddListener(ToggleTrackedQuestBar);
-            questBar.gameObject.SetActive(false);
             regionStatus = Label(header, "", new Vector2(220, 17), new Vector2(404, 28), 17, TextAnchor.MiddleLeft, new Vector2(0, 0));
             regionStatus.raycastTarget=true;var threatLink=regionStatus.gameObject.GetOrAdd<Button>();threatLink.targetGraphic=regionStatus;threatLink.onClick.AddListener(()=>{if(owner.State!=null&&!owner.Busy)OpenThreatOverview();});
             feedback = Label(header, "", Vector2.zero, Vector2.zero, 17);
@@ -443,7 +442,7 @@ namespace BaseConquest.Base
             else if (id == "office") { activeObject = "government"; activePage = "development"; OpenGovernment(); }
             else if (id == "caravan") OpenCaravan();
             else if (id == "farm" || id == "workshop") { activePage = "workers"; OpenFacility(); }
-            else if (id == "barracks") { activePage = "armyinfo"; OpenBarracks(); }
+            else if (id == "barracks") { activePage = "armyinfo"; facilityPersonnelDetail = null; OpenBarracks(); }
         }
         public void OpenMenu()
         {
@@ -541,6 +540,7 @@ namespace BaseConquest.Base
         {
             if(!BaseInteraction.At(owner.State,"base","home")){owner.ReportMessage("请在家边缘一格以内、与地基同层交互");return;}
             if(BaseDemo.Active(owner.State)&&owner.State.Demo.Stage==BaseDemoStage.Waking){OpenDemoStory();return;}
+            if (UseFacilityPanel) { OpenHomeFacility(); return; }
             activeObject=interactionObject="home";
             var s = owner.State; var p = BaseEconomy.Preview(s); int day = s.Day;
             BeginPanel(BaseDemo.Active(s)?"营帐 · 休息与管理":"家 · 休息一天");
@@ -552,7 +552,6 @@ namespace BaseConquest.Base
                 // 请离基地只在营帐办理（2026-11-06 裁决）：兵营名册不再提供这个入口。
                 if(s.Leaders.Any(l=>l.Id!=s.PlayerLeaderId&&l.Rpg!=null&&!l.Rpg.Story)){RowButton("请离基地 · 请人永久离开",0,800,OpenDismiss);row+=60;}
                 if(BaseRpg.Active(s)){var rules=s.Demo.Rpg;Line("营帐 "+rules.CampLevel+"级 · 队长名额 "+BaseRpg.Population(s)+" / "+BaseRpg.Capacity(s)+"（含主角、伙伴与外出队长）",60,20);if(rules.CampLevel<3){Line("升级：原料 "+rules.CampMaterials[rules.CampLevel-1]+"、钱币 "+rules.CampCoins[rules.CampLevel-1]+"；容量 "+rules.Capacity[rules.CampLevel],48,19);RowButton("升级营帐",0,800,()=>{owner.Change(next=>{if(!BaseRpg.UpgradeCamp(next))throw new InvalidOperationException(BaseRpg.CampUpgradeProblem(next));},"营帐已升级");OpenHome();},BaseRpg.CampUpgradeProblem(s)=="");row+=60;}}
-                Line(BaseDemoDefense.Delivered(s)?BaseDemoDefense.Objective(s):"可在营帐管理岗位和库存；工坊与兵营需遗迹调查许可后修复。",90,20);
             }
             else
             {
@@ -620,6 +619,7 @@ namespace BaseConquest.Base
         private void OpenFacility()
         {
             if (owner.State == null || activeObject != "farm" && activeObject != "workshop") return;
+            if (UseFacilityPanel) { OpenProductionFacility(); return; }
             string facility = activeObject;
             BeginPanel(BaseEconomy.FacilityName(facility), facility + ":" + activePage); ManagementTabs(OpenFacility);
             RowButton("规则 i",0,800,()=>FacilityRules(OpenFacility));row+=60;
@@ -691,14 +691,11 @@ namespace BaseConquest.Base
         }
         private void Workers(string[] facilities, Action refresh)
         {
-            if(workerDraft==null){workerDraft=owner.State.Copy();workerDraftStamp=BaseMuster.Snapshot(owner.State);LockCurrentPosts(workerDraft);workerMoves.Clear();}
+            EnsureWorkerDraft();
             var s = workerDraft;
             Line("安排方案：确认后实际调动并固定工人岗位；解锁岗位可恢复自动安排。", 58, 22);
-            RowButton("确认方案",-210,400,()=>{
-                var moves=workerMoves.ToArray();
-                if(owner.Change(next=>{if(BaseMuster.Snapshot(next)!=workerDraftStamp)throw new InvalidOperationException("人员已变化，请重新安排");LockCurrentPosts(next);foreach(var m in moves){if(!BaseEconomy.MoveWorkers(next,m.kind,m.from,m.to,1,m.bucket))throw new InvalidOperationException("方案已失效，请重新安排");if(m.to=="farm"&&BaseDemoFlow.Active(next)&&!next.Demo.Flow.FarmOfferShown){next.Demo.Flow.FarmOfferPending=true;next.Demo.Flow.FarmX=next.PlayerX;next.Demo.Flow.FarmY=next.PlayerY;}}},"已确认工人安排"))foreach(var m in moves)owner.EnqueueWorkerTransfer(m.kind,m.from,m.to,1);
-                workerDraft=null;workerMoves.Clear();refresh();
-            },workerMoves.Count>0);RowButton("取消方案",210,400,()=>{workerDraft=null;workerMoves.Clear();refresh();});row+=60;
+            RowButton("确认方案",-210,400,()=>CommitWorkerDraft(refresh),workerMoves.Count>0);
+            RowButton("取消方案",210,400,()=>{ResetWorkerDraft();refresh();});row+=60;
             foreach (string facility in facilities)
             {
                 Line(BaseEconomy.FacilityName(facility) + "：今日生产人数 " + BaseEconomy.EligibleWorkers(s, facility) + "/" + s.Muster.Facilities.Single(f => f.FacilityId == facility).Capacity, 42);
@@ -777,7 +774,9 @@ namespace BaseConquest.Base
         {
             var s = owner.State; var p = BaseEconomy.Preview(s);
             RowButton("一级军需",-210,400,()=>{owner.Change(next=>{if(!BaseConstruction.SelectLevel(next,1))throw new InvalidOperationException("当前不能改配方");},"已选一级生产");OpenFacility();});
-            RowButton("二级军需",210,400,()=>{owner.Change(next=>{if(!BaseConstruction.SelectLevel(next,2))throw new InvalidOperationException("工坊未解锁二级生产");},"已选二级生产");OpenFacility();},s.Muster.Facilities.Single(f=>f.FacilityId=="workshop").MaxProductLevel>=2);row+=62;
+            if (s.Muster.Facilities.Single(f=>f.FacilityId=="workshop").MaxProductLevel>=2)
+                RowButton("二级军需",210,400,()=>{owner.Change(next=>{if(!BaseConstruction.SelectLevel(next,2))throw new InvalidOperationException("工坊未解锁二级生产");},"已选二级生产");OpenFacility();});
+            row+=62;
             Line("今日产品："+p.ProductLevel+"级" + BaseEconomy.ProductName(s.WorkshopProduct) + "。选择不会立即发放产物。", 62);
             foreach (string product in BaseEconomy.ProductsFor(s))
             {

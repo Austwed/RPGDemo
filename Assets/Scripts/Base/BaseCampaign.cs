@@ -418,7 +418,7 @@ namespace BaseConquest.Base
             BaseAftermath.Capture(s, session, win);
             if(s.PersonalEquipment.Warehouse.Count>personalBeforeCapture)r.RecoveryNote="俘虏穿戴装备已缴入仓库："+(s.PersonalEquipment.Warehouse.Count-personalBeforeCapture)+"件";
             BaseItemRecovery.Record(s,session,e,r,win);
-            if(win&&!s.Aftermath.GameOver){r.DropMaterials=Math.Min(battle.Soldiers.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned&&!u.Escaped&&!u.IsAlive&&BattleSimulation.StableRoll(battle.Scenario.RandomSeed,u.Id,29)<a.Difficulty.DropRate),100000000-s.Inventory.Materials);s.Inventory.Materials+=r.DropMaterials;}
+            if(win&&!s.Aftermath.GameOver&&a.EventId!=BaseBanditHideout.EventId){r.DropMaterials=Math.Min(battle.Soldiers.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned&&!u.Escaped&&!u.IsAlive&&BattleSimulation.StableRoll(battle.Scenario.RandomSeed,u.Id,29)<a.Difficulty.DropRate),100000000-s.Inventory.Materials);s.Inventory.Materials+=r.DropMaterials;}
             ApplyEventInventory(s, e, win && !s.Aftermath.GameOver, r,a.Difficulty.RewardFactor); e.Status = win && !s.Aftermath.GameOver || e.Kind == "defense" ? "resolved" : "pending";
             BaseThreats.Settle(s,e,session,r,win&&!s.Aftermath.GameOver);
             // 掠夺等战果回写之后再结算：此时 EnemyDeployed 才是本场实际参战人头。

@@ -10,6 +10,7 @@ namespace BaseConquest.RealtimePrototype
         public int FootprintLength=1;
         public double TurnReadyAt;
         public PrototypePoint TurnTarget;
+        public PrototypePoint GroupArrivalAxis;
         private const double AxisHysteresis=.2;
         [NonSerialized] private PrototypePoint bodyAxis;
         public static PrototypePoint MajorAxis(PrototypePoint facing,PrototypePoint previous)

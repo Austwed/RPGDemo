@@ -33,7 +33,6 @@ namespace BaseConquest.Base
             if(BaseDemoDefense.Won(state)&&state.Demo.Defense.BatuStoryDay==0){OpenDemoDefenseAftermath();return;}
             activeObject="demo-story";interactionObject="";
             if(BaseDemoPrologue.Village(state)){OpenPrologueStory();return;}
-            BeginPanel(state.Demo.Stage==BaseDemoStage.Waking ? "新营地 · 醒来" : state.Demo.Stage==BaseDemoStage.Finished?"Demo结束 · 带着断剑继续追查":BaseDemoDefense.Won(state)?"当前目标 · 攻营与返乡":BaseDemoDefense.Delivered(state)?"当前目标 · 营地整备与防守":"当前目标 · "+BaseScriptNames.Ruins+"调查");
             if(state.Demo.Stage==BaseDemoStage.Waking)
             {
                 NpcDialogue(new[]{
@@ -46,18 +45,15 @@ namespace BaseConquest.Base
                     new NpcLine("你","","［眼神微凛］王都禁卫的秘银剑……古裔背后果然有人指使。",true),
                     new NpcLine(BaseScriptNames.ChunShen,BaseScriptNames.Portrait("chunshen"),"你伤刚好，别急着动气。阿禾就在外头麦田里忙活呢。"),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"想在这片荒滩立寨找人，得先去北边灰岩镇求见领主霍恩爵士。")
-                },new[]{new NpcReply("起身，拜访领主",()=>{if(owner.Change(next=>{if(!BaseDemo.AcknowledgeWaking(next))throw new InvalidOperationException("醒来流程未完成，请重试");},"当前目标：从东侧出口拜访领主"))ClosePanel();})});return;
+                },new[]{new NpcReply("起身，拜访领主",()=>{if(owner.Change(next=>{if(!BaseDemo.AcknowledgeWaking(next))throw new InvalidOperationException("醒来流程未完成，请重试");},""))ClosePanel();})});return;
             }
-            else
+            if(state.Demo.Stage==BaseDemoStage.Finished)
             {
-                Line(BaseDemo.Objective(state),95,23);
-                if(state.Demo.Stage==BaseDemoStage.RuinsAssigned)Line(BaseDemoRuins.Enabled(state)?"阿禾在营地，阿铸在"+BaseScriptNames.Town+"；可邀请，也可暂不邀请。从"+BaseScriptNames.Town+"东侧进入"+BaseScriptNames.Ruins+"，靠近异常者确认救助战。受控村民可制服，不会误杀；击败控制来源后带证据交差。":"此旧Demo未保存"+BaseScriptNames.Ruins+"与伙伴属性快照。继续原阶段，重新开始Demo可体验新增流程，旧档不自动换数值。",130,21);
-                if(state.Demo.Stage==BaseDemoStage.RuinsCleared)Line("控制来源消失后，失踪村民恢复神志并获救。你已取得调查证据；己方伤亡与军需已按普通战争处理，不会自动补满。经"+BaseScriptNames.Ruins+"西侧出口回"+BaseScriptNames.Town+"，向领主交差。",130,21);
-                if(BaseDemoDefense.Delivered(state))Line(BaseDemoDefense.Enabled(state)?BaseDemoDefense.Won(state)?BaseDemoFinale.Enabled(state)?state.Demo.Stage==BaseDemoStage.Finished?"你带着队长断剑与幸存者证词，准备继续追查。Demo到此结束；完整故事留待后续。可以关闭查看当前进度，或从菜单重开，不会免费恢复战损。":BaseDemoFinale.Rebuilding(state)?"返乡重建进行中，请返回村庄放置小粮田、营帐和仓库。":"首防后先补损，从营地南侧世界出口出征。攻营并处理完战果后，沿路返乡调查断剑；两段道路各1天，规划不耗日。":"此旧Demo没有攻营／结尾快照；重新开始才能体验新增内容。":"工坊与兵营的修复点在建筑前方，每座原料"+BaseDemoDefense.RepairMaterialCost(state)+"／钱币"+BaseDemoDefense.RepairCoinCost(state)+"。安排工坊生产军需；袭击到达后从营地左侧进入迎敌战场。":"此旧Demo未保存修复／防守快照。继续原阶段，重新开始Demo才能体验新增内容。",145,21);
-                RowButton("关闭",0,800,ClosePanel);row+=60;
+                NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.scene.home_rebuild.finished", "断剑和证词都在手上。这件事还没完。"),true)},
+                    Array.Empty<NpcReply>(),onCompleted:ClosePanel);
+                return;
             }
-            Line("新局读取Demo数值快照，已有存档保留原值。\n快照标识："+(string.IsNullOrEmpty(state.Demo.ConfigHash)?state.Demo.BalanceHash:state.Demo.ConfigHash).Substring(0,12),85,18);
-            EndPanel();
+            ClosePanel();
         }
         private void OpenPrologueStory()
         {
@@ -81,13 +77,7 @@ namespace BaseConquest.Base
                     new NpcLine("古裔喽啰","archer","啧，两个斥候全折了，这人类也穿了心窝子……同归于尽了，快去搬粮！")
                 },new[]{new NpcReply("获救后 · 在新营地醒来",owner.RecoverDemoPrologue)});return;
             }
-            else
-            {
-                BeginPanel("序章 · 撤离");Line(BaseDemo.Objective(state),75,23);
-                Line(state.Demo.PrologueAttempts>0?"［以剑撑地］还不能倒在这儿……我答应过要去"+BaseScriptNames.Town+"汇合的！（再次向东进入撤离区域即可重战）":"带村民向东走。达到撤离区域后，两名被队长打伤的精英追兵将从村头方向出现。",115,21);
-                RowButton("继续",0,800,ClosePanel);row+=60;
-            }
-            EndPanel();
+            ClosePanel();
         }
         // TOWN_04_NPC_GUARD／MERCHANT／GIRL：镇上三个闲聊路人，只给世界观与线索，不推进流程。
         public void OpenTownChat(string id)
@@ -150,7 +140,7 @@ namespace BaseConquest.Base
                 if (gift) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"营地守住了，我再给你一份建设许可：回营地放一座办公设施，粮田与工坊的安排就能交给它统一调度；商队也可以一并建起来。"));
                 var replies = new List<NpcReply>();
                 if (gift) replies.Add(new NpcReply("领取建设许可", () => { if (owner.Change(next => { next.Layout.OfficeGift = true; }, "已领取建设许可 · 回营地放置办公设施与商队")) ClosePanel(); }));
-                replies.Add(new NpcReply(deliver ? "交付证据并领取许可" : "已领取", owner.DeliverDemoRuins, deliver));
+                if (deliver) replies.Add(new NpcReply("交付证据并领取许可", owner.DeliverDemoRuins));
                 replies.Add(new NpcReply("告辞", ClosePanel));
                 NpcDialogue(questLines.ToArray(), replies.ToArray()); return;
             }
@@ -162,16 +152,17 @@ namespace BaseConquest.Base
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"［捻须沉吟］准你们立寨倒也不难，但灰岩镇的军饷与地契，从不白送外人。"),
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"镇西那座【沉眠古窟】近日黑雾翻涌，两名采石镇民误入其中，至今下落不明。"),
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"听说你是燃脉者，不惧古窟瘴气。只要你能查明异动、救回活口，手令与赏金双手奉上。")});
-            NpcDialogue(lordLines.ToArray(),new[]{new NpcReply(available?"接受"+BaseScriptNames.Ruins+"调查":"已接取",()=>{if(owner.Change(next=>{if(!BaseDemo.AcceptLordQuest(next))throw new InvalidOperationException("请先了解营地现状，并在领主同层一格以内接取");},BaseScriptNames.Ruins+"调查已接取并保存节点"))ClosePanel();},available),new NpcReply("暂且告辞",ClosePanel)},lockExitUntilFinished:available);
+            NpcDialogue(lordLines.ToArray(),new[]{new NpcReply("接受"+BaseScriptNames.Ruins+"调查",()=>{if(owner.Change(next=>{if(!BaseDemo.AcceptLordQuest(next))throw new InvalidOperationException("请先了解营地现状，并在领主同层一格以内接取");},BaseScriptNames.Ruins+"调查已接取并保存节点"))ClosePanel();},unlocked:available),new NpcReply("暂且告辞",ClosePanel)},lockExitUntilFinished:available);
         }
         public void OpenAzhuInvitation()
         {
             activeObject="demo-partner";interactionObject="";
             NpcDialogue(new[]{new NpcLine("阿铸","azhu","站住！看你走路下盘稳如磐石，虎口全是剑茧，绝不是普通垦民！"),new NpcLine("阿铸","azhu","我叫阿铸，天生燃脉！手痒好些天了，敢不敢就在这儿跟我过两招？点到为止！")},new[]{new NpcReply("好，请赐教",owner.BeginAzhuDuel),new NpcReply("眼下有要事，改日再比",ClosePanel)});
         }
-        public void OpenRuinsRetreatGuide(Action leave)
+        public void OpenRuinsRetreatMonologue()
         {
-            NpcDialogue(new[]{new NpcLine("你","","敌众我寡，独自硬拼太吃亏了。先撤出去，找个帮手再来。"+BaseScriptNames.Town+"里那位阿铸身手不错，或许愿意同行。",true)},new[]{new NpcReply("撤出"+BaseScriptNames.Ruins+"，寻找帮手",leave)});
+            NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.scene.ruins.solo_retreat", "那个骑马的家伙或许可以帮忙。"),true)},
+                Array.Empty<NpcReply>(), onCompleted: ClosePanel, quietAdvance: true);
         }
         public void OpenDemoPartner(string id)
         {
@@ -186,7 +177,7 @@ namespace BaseConquest.Base
                 new NpcLine("你","","这把短剑做得不错。你也是这里的铁匠？",true),
                 new NpcLine("阿铸","azhu","我是铁匠的儿子阿铸。看你像是练家子，来过几招？点到为止。")
             };
-            NpcDialogue(WithInjury(state,met?(ahe?"INJ_CAMP_AHE":"INJ_CAMP_AZHU"):"",baseLines),new[]{new NpcReply(met?(ahe?"好，一起走":"邀请加入小队"):ahe?"交谈，了解阿禾":"询问短剑并原地切磋",()=>{if(met)owner.JoinDemoPartner(id);else if(!ahe&&BaseSceneRules.Active(state))owner.BeginAzhuDuel();else owner.MeetDemoPartner(id);}),new NpcReply("再次比武",owner.BeginAzhuDuel,!ahe&&BaseSceneRules.Active(state)&&met),new NpcReply("去迎敌战场演练",owner.BeginAzhuFieldDuel,!ahe&&BaseSceneRules.Active(state)&&BaseDemoDefense.Won(state)),new NpcReply(ahe?"先在营地照看父母":"暂不邀请",ClosePanel)});
+            NpcDialogue(WithInjury(state,met?(ahe?"INJ_CAMP_AHE":"INJ_CAMP_AZHU"):"",baseLines),new[]{new NpcReply(met?(ahe?"好，一起走":"邀请加入小队"):ahe?"交谈，了解阿禾":"询问短剑并原地切磋",()=>{if(met)owner.JoinDemoPartner(id);else if(!ahe&&BaseSceneRules.Active(state))owner.BeginAzhuDuel();else owner.MeetDemoPartner(id);}),new NpcReply("再次比武",owner.BeginAzhuDuel,unlocked:!ahe&&BaseSceneRules.Active(state)&&met),new NpcReply("去迎敌战场演练",owner.BeginAzhuFieldDuel,unlocked:!ahe&&BaseSceneRules.Active(state)&&BaseDemoDefense.Won(state)),new NpcReply(ahe?"先在营地照看父母":"暂不邀请",ClosePanel)});
         }
         private bool OpenDemoInteraction(string id)
         {

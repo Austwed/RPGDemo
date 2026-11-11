@@ -14,6 +14,7 @@ namespace BaseConquest.Base
         public const int EnemyCountCap = 12;
         internal const string Region = "hideout";
         private const string EntranceMapId = "demo_ruins";
+        private static readonly int[] BrokenWallRows = { 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 18, 19 };
         private static readonly GridPosition[] Neighbors = {
             new GridPosition(1, 0), new GridPosition(-1, 0), new GridPosition(0, 1), new GridPosition(0, -1)
         };
@@ -39,15 +40,30 @@ namespace BaseConquest.Base
         internal static bool OwnsBattlefield(BaseCampaignBattle battle) => battle?.EventId == EventId
             && (battle.MapRegion == Region || battle.MapRegion == "custom" && battle.MapId == MapId);
 
-        internal static bool CanEnter(BaseState state) => BaseSceneRules.Entrance(state)
-            && BaseInteraction.At(state, state.Campaign.Location, EntryId);
+        private static int WallColumn(BattleBoard board) => Math.Min(15, board.Width - 4);
+
+        public static bool VisibleFromPlayer(BaseState state, BaseMapObject entrance, BattleVision sight = null)
+        {
+            if (entrance?.Id != EntryId || !BaseSceneRules.Entrance(state)) return false;
+            var player = new GridPosition((int)state.PlayerX, (int)state.PlayerY);
+            if (player.X <= WallColumn(BaseBattlefield.Board(state))) return false;
+            var target = new GridPosition((int)entrance.X, (int)entrance.Y);
+            return sight == null ? BattleHeightSight.Clear(BaseSceneCombat.Project(state), player, target)
+                : sight.HasSightFrom(player, target);
+        }
+
+        internal static bool CanEnter(BaseState state)
+        {
+            if (!BaseSceneRules.Entrance(state)) return false;
+            var entrance = BaseSpatial.Objects(state).SingleOrDefault(item => item.Id == EntryId);
+            return BaseInteraction.CanReach(state, entrance) && VisibleFromPlayer(state, entrance);
+        }
 
         public static void Install(BaseState state)
         {
             if (!BaseSceneRules.Active(state) || !BaseRpg.Active(state) || !BaseDemoRuins.Enabled(state)) return;
             var campaign = state.Campaign;
-            if (campaign.Layouts == null || campaign.RegionMaps == null || campaign.Events == null
-                || Installed(state)) return;
+            if (campaign.Layouts == null || campaign.RegionMaps == null || campaign.Events == null) return;
             bool instances = BaseSceneInstances.Active(state);
             var entrance = campaign.Layouts.SingleOrDefault(map => map != null
                 && (instances ? map.SourceMapId == EntranceMapId : map.Region == "outpost"));
@@ -56,10 +72,14 @@ namespace BaseConquest.Base
             var dungeonBoard = campaign.RegionMaps.SingleOrDefault(map => map?.Id == (instances ? BaseSceneRules.DungeonId : "dungeon"))?.Board;
             var ruins = entrance?.Objects?.SingleOrDefault(o => o?.Id == "demo_ruins_investigate");
             if (ruins == null || dungeon == null || entranceBoard == null || dungeonBoard == null) return;
-            var spot = FindEntrance(entrance, entranceBoard, ruins);
-            if (spot == null) throw new InvalidOperationException("遗迹南侧没有可达的同层副本入口位置");
-            entrance.Objects.Add(new BaseMapPlacement { Id = EntryId, Name = Title, X = spot.Value.X, Y = spot.Value.Y,
-                SourceObjectId = "demo:portal:bandit-hideout", AssetId = "dungeon-entrance", Kind = "demo-prop" });
+            InstallOutdoorEntrance(entrance, entranceBoard, ruins);
+            var mission = campaign.Events.SingleOrDefault(e => e?.Id == EventId);
+            if (mission != null)
+            {
+                mission.FoodReward = mission.MaterialReward = mission.CoinReward = 0;
+                mission.ItemRewards.Clear();
+            }
+            if (Installed(state)) return;
 
             var map = dungeon.Copy();
             map.Region = instances ? "custom" : Region;
@@ -77,16 +97,49 @@ namespace BaseConquest.Base
             campaign.RegionMaps.RemoveAll(regionMap => regionMap.Id == boardId);
             campaign.RegionMaps.Add(new BaseRegionMap { Id = boardId, Board = dungeonBoard.Clone() });
             if (instances) campaign.WorldJourney?.Nodes?.FirstOrDefault(n => n.Id == "camp")?.MapIds.Add(MapId);
-            if (!campaign.Events.Any(e => e?.Id == EventId))
+            if (mission == null)
                 campaign.Events.Add(new BaseCampaignEvent { Id = EventId, Title = Title, Kind = "attack",
-                    ScenarioFile = "24_据点进攻.json", FoodRaid = 0, MaterialRaid = 0, CoinRaid = 0 });
+                    ScenarioFile = "24_据点进攻.json", FoodRaid = 0, MaterialRaid = 0, CoinRaid = 0,
+                    FoodReward = 0, MaterialReward = 0, CoinReward = 0, ItemRewards = new List<BaseLootReward>() });
         }
 
-        private static BasePoint? FindEntrance(BaseMapLayout map, BattleBoard board, BaseMapPlacement portal)
+        private static void InstallOutdoorEntrance(BaseMapLayout map, BattleBoard board, BaseMapPlacement ruins)
         {
-            var objects = map.Objects.Select(o => o.Object).ToArray();
+            int wall = WallColumn(board);
+            var entrance = map.Objects.SingleOrDefault(item => item.Id == EntryId);
+            if (entrance != null && entrance.X >= wall + 1) return;
+
+            // 发布地图已有断壁，缺少断壁的剧情地图沿用同样的缺口。
+            var wallCells = BrokenWallRows.Where(row => row < board.Height - 1).Select(row => new GridPosition(wall, row)).ToArray();
+            if (!wallCells.Any(position => board.Cell(position).Terrain == TerrainKind.Wall))
+            {
+                foreach (var position in wallCells)
+                {
+                    var cell = board.Cell(position);
+                    if (cell.Terrain != TerrainKind.Ground || cell.Ramp != RampAxis.None ||
+                        map.Objects.Any(item => item.Object.Contains(position.X + .5, position.Z + .5))) continue;
+                    cell.Terrain = TerrainKind.Wall;
+                    cell.Zone = DeploymentZone.None;
+                }
+            }
+
+            var spot = FindEntrance(map, board, ruins, wall);
+            if (spot == null) throw new InvalidOperationException("断壁后没有可达的同层副本入口位置");
+            if (entrance == null)
+            {
+                entrance = new BaseMapPlacement { Id = EntryId, Name = Title, SourceObjectId = "demo:portal:bandit-hideout",
+                    AssetId = "dungeon-entrance", Kind = "demo-prop" };
+                map.Objects.Add(entrance);
+            }
+            entrance.X = spot.Value.X;
+            entrance.Y = spot.Value.Y;
+        }
+
+        private static BasePoint? FindEntrance(BaseMapLayout map, BattleBoard board, BaseMapPlacement portal, int wall)
+        {
+            var objects = map.Objects.Where(o => o.Id != EntryId).Select(o => o.Object).ToArray();
             var origin = new GridPosition((int)map.SpawnX, (int)map.SpawnY);
-            var target = new BasePoint(portal.X, portal.Y - 3);
+            var target = new BasePoint(wall + 3.5, Math.Min(12.5, board.Height - 1.5));
             var level = board.SurfaceLevel(portal.X, portal.Y);
             var reached = new HashSet<GridPosition> { origin };
             var open = new Queue<GridPosition>();
@@ -105,7 +158,7 @@ namespace BaseConquest.Base
                     open.Enqueue(next);
                 }
             }
-            bool Available(BasePoint point) => point.Y < portal.Y && Walkable(point.X, point.Y)
+            bool Available(BasePoint point) => point.X >= wall + 1 && Walkable(point.X, point.Y)
                 && Math.Abs(board.SurfaceLevel(point.X, point.Y) - level) < .000001
                 && objects.All(o => Math.Abs(o.X - point.X) >= (o.BoundsWidth + 1) / 2
                     || Math.Abs(o.Y - point.Y) >= (o.BoundsHeight + 1) / 2);
@@ -167,6 +220,7 @@ namespace BaseConquest.Base
             IReadOnlyList<BaseEnemyMember> enemies, int seed)
         {
             Enter(state);
+            BaseRuinsRewards.Skip(state, BasePrepRoute.Hideout);
             var mission = state.Campaign.Events.Single(e => e.Id == EventId);
             mission.Status = "pending";
             mission.EnemyRecoveryDay = 0;
@@ -181,6 +235,7 @@ namespace BaseConquest.Base
             } };
             var opening = BaseCampaign.Begin(state, EventId, document, "none", plan, true, roster);
             var session = new BaseCampaignSession(opening);
+            if (!opening.ManualDeployment) session.Battle.AutoDeploy(BattleSide.A);
             if (session.Battle.Soldiers.Count(u => u.Side == BattleSide.A) != roster.Units.Length
                 || session.Battle.Soldiers.Count(u => u.Side == BattleSide.B) != enemies.Count)
                 throw new InvalidOperationException("无法部署全部参战单位");
@@ -193,7 +248,8 @@ namespace BaseConquest.Base
         {
             if (run == null || !OwnsBattlefield(run.Session.Opening) || !InHideout(state)
                 || state.Campaign.ActiveBattle?.Id != run.Session.Opening.Id) return false;
-            if (run.Battle.Report?.Outcome == BattleOutcome.SideAWin)
+            bool victory = run.Battle.Report?.Outcome == BattleOutcome.SideAWin;
+            if (victory)
             {
                 run.SaveCheckpoint(state);
                 if (!BaseCampaign.Settle(state, run.Session)) return false;
@@ -203,6 +259,14 @@ namespace BaseConquest.Base
             mission.EnemyArmy.Clear();
             mission.EnemyRecoveryDay = 0;
             Leave(state);
+            if (victory)
+            {
+                string battleId = run.Session.Opening.Id;
+                BaseRuinsRewards.RecordVictory(state, battleId, BasePrepRoute.Hideout);
+                var loot = state.Aftermath.Loot.Single(item => item.BattleId == battleId);
+                if (loot.Items.Count == 0 && !state.Aftermath.Prisoners.Any(p => p.BattleId == battleId && p.Status == "held"))
+                    BaseBattleLoot.Finish(state, battleId);
+            }
             return true;
         }
     }
@@ -248,7 +312,11 @@ namespace BaseConquest.Base
             BaseEconomy.Validate(next);
             SaveStore.Save(next);
             State = next;
-            FinishLocalScene(mainMenu, () => { if (BaseBattleLoot.Pending(State)) Hud.OpenLoot(); });
+            FinishLocalScene(mainMenu, () =>
+            {
+                if (BaseRuinsRewards.PendingBattle(State, BasePrepRoute.Hideout) != "") Hud.OpenRuinsReward(BasePrepRoute.Hideout);
+                else if (BaseBattleLoot.Pending(State)) Hud.OpenLoot(run.Session.Opening.Id);
+            });
             return true;
         }
     }

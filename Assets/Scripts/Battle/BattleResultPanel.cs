@@ -48,7 +48,8 @@ namespace BaseConquest.Battle
         {
             var report=battle.Report;
             if (report!=previousReport) {previousReport=report;dismissed=false;scroll.verticalNormalizedPosition=1;}
-            bool visible=battle.Phase==BattlePhase.Finished && report!=null && !animating && !skipping && !dismissed;
+            bool visible=battle.Phase==BattlePhase.Finished && report!=null && !animating && !skipping && !dismissed
+                && campaignOwner?.ContinuesThroughDialogue!=true;
             backdrop.gameObject.SetActive(visible);
             if (!visible) return;
             bool campaign = campaignOwner != null && campaignOwner.IsCampaignBattle;
