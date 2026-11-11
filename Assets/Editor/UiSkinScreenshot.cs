@@ -135,7 +135,7 @@ namespace BaseConquest.Editor
                     break;
                 case "backpack-shot":
                     if (Time.frameCount < frameDeadline) return;
-                    RequirePanel("PartyInventory");
+                    VerifyPartyCardLayout(1);
                     CaptureViewports("ui-skin-backpack");
                     VerifyAuthoredLayout();
                     // 选中一件物品，验证说明区已改为点选后才出现的小弹框。
@@ -153,12 +153,12 @@ namespace BaseConquest.Editor
                 case "backpack-menu-shot":
                     if (Time.frameCount < frameDeadline) return;
                     Capture("ui-skin-backpack-menu");
+                    VerifyBackpackEquip();
                     OpenWarehouseShot();
                     break;
                 case "warehouse-shot":
                     if (Time.frameCount < frameDeadline) return;
-                    RequirePanel("PartyWarehouse");
-                    Capture("ui-skin-warehouse");
+                    VerifyWarehouseUi();
                     H.ClosePanel();
                     BaseBattleGateway.MainMenu = true;
                     try { H.OpenMenu(); } finally { BaseBattleGateway.MainMenu = false; }
@@ -232,6 +232,7 @@ namespace BaseConquest.Editor
                     break;
                 case "trade-shot":
                     if (Time.frameCount < frameDeadline) return;
+                    VerifyTradeCardLayout(RequirePanel("TownTrade"));
                     CaptureViewports("ui-skin-trade");
                     H.ClosePanel();
                     Approach("town_quest");
@@ -287,7 +288,18 @@ namespace BaseConquest.Editor
                     break;
                 case "defense-inventory-shot":
                     if (Time.frameCount < frameDeadline) return;
+                    VerifyPartyCardLayout(3);
                     CaptureViewports("ui-skin-backpack-three");
+                    VerifyBackpackTransfer();
+                    VerifyFacilityRosters();
+                    VerifyRecruitRoster();
+                    controller.LoadDemoStage("defense", "female");
+                    stage = "defense-rosters-done"; frameDeadline = Time.frameCount + 15;
+                    break;
+                case "defense-rosters-done":
+                    controller = C;
+                    if (Time.frameCount < frameDeadline || controller?.State?.Campaign.Location != "perimeter" ||
+                        Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
                     H.ClosePanel();
                     Approach("demo_defense_start");
                     H.OpenObject("demo_defense_start");
@@ -317,6 +329,7 @@ namespace BaseConquest.Editor
                     Press(preparation, "Candidates/SortHealth");
                     preparation = RequirePanel("BattlePreparation");
                     var roster = preparation.Find("Candidates/List").GetComponent<ScrollRect>();
+                    VerifyRosterRow(roster.content.GetChild(0), true);
                     Press(roster.content.GetChild(0), "Info");
                     preparation = RequirePanel("BattlePreparation");
                     if (!preparation.Find("Candidates/Detail").gameObject.activeInHierarchy ||
@@ -374,6 +387,9 @@ namespace BaseConquest.Editor
                         cards[0].anchoredPosition.y <= cards[1].anchoredPosition.y + cards[1].rect.height ||
                         cards[1].anchoredPosition.y <= cards[2].anchoredPosition.y + cards[2].rect.height)
                         throw new InvalidOperationException("兵种卡未按头像全宽竖向排列");
+                    if (cards.Where((card, index) => card.GetComponentsInChildren<BattleAvatarGraphic>().Length > 0 ||
+                        !card.GetComponentInChildren<Text>().text.StartsWith(BattleSimulation.KindName(BattleSimulation.TroopKinds[index]) + "  ")).Any())
+                        throw new InvalidOperationException("兵种卡未用文字显示兵种和余量");
                     Press(draftArea, "CommanderSlot0/TroopToggle");
                     if (firstTroopRow.gameObject.activeInHierarchy || !secondTroopRow.gameObject.activeInHierarchy)
                         throw new InvalidOperationException("兵种卡未按队独立收起");
@@ -566,6 +582,263 @@ namespace BaseConquest.Editor
                 Log.Add("[PASS] 场景编辑的背包格位置与配色在重新打开时生效");
             }
             finally { source.anchoredPosition = originalPosition; image.color = originalColor; }
+        }
+
+        private static Rect SceneRect(Transform node, Transform relativeTo)
+        {
+            var corners = new Vector3[4];
+            ((RectTransform)node).GetWorldCorners(corners);
+            var min = relativeTo.InverseTransformPoint(corners[0]);
+            var max = relativeTo.InverseTransformPoint(corners[2]);
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        private static void VerifyPartyCardLayout(int count)
+        {
+            var view = (RectTransform)RequirePanel("PartyInventory");
+            var source = controller.transform.Find("UI 布局源");
+            var authoredView = (RectTransform)source.Find("PartyInventory");
+            var authoredCard = (RectTransform)source.Find("PartyMemberCard");
+            var group = (RectTransform)view.Find("Cards");
+            Canvas.ForceUpdateCanvases();
+            var cards = group.Cast<RectTransform>().Select(card => SceneRect(card, view)).ToArray();
+            if (view.rect.size != authoredView.rect.size || cards.Length != count ||
+                cards.Any(card => Vector2.Distance(card.size, authoredCard.rect.size) > .1f) ||
+                Mathf.Abs(cards.Average(card => card.center.x) - SceneRect(group, view).center.x) > .1f ||
+                cards.Any(card => Mathf.Abs(card.center.y - cards[0].center.y) > .1f) ||
+                cards.Zip(cards.Skip(1), (left, right) => left.xMax > right.xMin).Any(overlaps => overlaps))
+                throw new InvalidOperationException("独立背包没有沿用固定外窗和等宽居中角色卡：" + count);
+            Log.Add("[PASS] 背包 " + count + " 人，外窗与角色卡尺寸从场景读取，卡组居中");
+        }
+
+        private static PartyInventoryCell InventoryCell(Transform view, string id) =>
+            view.GetComponentsInChildren<PartyInventoryCell>().Single(cell => cell.ItemId == id);
+
+        private static void VerifyBackpackEquip()
+        {
+            var view = RequirePanel("PartyInventory");
+            var gear = BasePartyInventory.Entries(controller.State).First(entry =>
+                entry.Holder == controller.State.PlayerLeaderId && entry.Slot == "weapon");
+            ClickHudButton(InventoryCell(view, gear.Id).transform);
+            view = RequirePanel("PartyInventory");
+            Capture("ui-skin-backpack-equipment-popup");
+            Press(view.Find("InventoryItemMenu"), "Primary");
+            if (BasePartyInventory.Find(controller.State, gear.Id).Worn) throw new InvalidOperationException("背包贴格小窗无法卸下装备");
+            view = RequirePanel("PartyInventory");
+            Press(view.Find("InventoryItemMenu"), "Primary");
+            if (!BasePartyInventory.Find(controller.State, gear.Id).Worn) throw new InvalidOperationException("背包贴格小窗无法穿戴装备");
+            view = RequirePanel("PartyInventory");
+            var card = view.Find("Cards").GetChild(0);
+            Press(card, "Sort");
+            if (!BasePartyInventory.Find(controller.State, gear.Id).Worn) throw new InvalidOperationException("整理背包改变了已装备物品");
+            Log.Add("[PASS] 独立背包的贴格装备详情、卸下、穿戴及整理");
+        }
+
+        private static void VerifyBackpackTransfer()
+        {
+            string player = controller.State.PlayerLeaderId;
+            var person = BasePartyInventory.People(controller.State, false).First(member =>
+                member.Id != player && BasePartyInventory.FreeCell(controller.State, member.Id) >= 0);
+            string item = "";
+            if (!controller.Change(state =>
+            {
+                item = "bag:" + state.Backpack.NextId++;
+                state.Backpack.Items.Add(new BaseBagItem { Id = item, ItemId = BaseEquipmentCrafting.Stone,
+                    Count = 1, Holder = player, Cell = BasePartyInventory.FreeCell(state, player) });
+                state.Backpack.Revision++;
+            }, "界面检查")) throw new InvalidOperationException(controller.Message);
+            H.OpenBackpack();
+            var view = RequirePanel("PartyInventory");
+            var card = view.Find("Cards/人物与背包_" + person.Id);
+            var locked = card.Find("EquipmentSlot_5").GetComponent<Button>();
+            if (BasePersonalEquipment.SlotsFor(person).Count() < 6 && locked.interactable)
+                throw new InvalidOperationException("未解锁的装备槽仍可点击");
+            ClickHudButton(InventoryCell(view, item).transform);
+            Press(RequirePanel("PartyInventory").Find("InventoryItemMenu"), "Transfer");
+            Click("转交给 " + person.Name);
+            if (BasePartyInventory.Find(controller.State, item).Holder != person.Id)
+                throw new InvalidOperationException("独立背包转交未进入指定队友的背包");
+            Log.Add("[PASS] 三人背包的锁定装备槽及贴格跨人转交");
+        }
+
+        private static Transform RequireInventoryPopup(Transform view, Transform cell, bool onLeft)
+        {
+            var popup = view.Find("InventoryItemMenu");
+            if (popup == null) throw new InvalidOperationException("点选物品后未打开共用贴格小窗");
+            var bounds = ((RectTransform)view).rect;
+            var anchor = SceneRect(cell, view);
+            var box = SceneRect(popup, view);
+            if ((onLeft ? Mathf.Abs(anchor.xMin - box.xMax - 8) : Mathf.Abs(box.xMin - anchor.xMax - 8)) > .1f ||
+                box.xMin < bounds.xMin - .1f || box.xMax > bounds.xMax + .1f ||
+                box.yMin < bounds.yMin - .1f || box.yMax > bounds.yMax + .1f)
+                throw new InvalidOperationException("物品详情越过面板边缘或与选中的物品格分离");
+            return popup;
+        }
+
+        private static void VerifyWarehouseUi()
+        {
+            if (!controller.Change(state =>
+            {
+                if (!BaseBackpack.Add(state, BaseEquipmentCrafting.Stone, 3)) throw new InvalidOperationException("检查用锻造石发放失败");
+            }, "界面检查")) throw new InvalidOperationException(controller.Message);
+            H.OpenWarehouse();
+            var view = RequirePanel("PartyWarehouse");
+            Canvas.ForceUpdateCanvases();
+            var grid = (RectTransform)view.Find("Grid");
+            var card = view.Find("Card").GetChild(0);
+            var gridBounds = SceneRect(grid, view);
+            var cardBounds = SceneRect(card, view);
+            if (view.Find("Details") != null || grid.childCount != 24 ||
+                gridBounds.xMax >= cardBounds.xMin || gridBounds.height < cardBounds.height * .9f ||
+                gridBounds.width < ((RectTransform)view).rect.width * .65f ||
+                card.GetComponentsInChildren<PartyInventoryCell>().Count(cell => cell.Cell >= 0) != BasePartyInventory.Capacity)
+                throw new InvalidOperationException("仓库左格右包布局或格子容量错误");
+            CaptureViewports("ui-skin-warehouse");
+
+            var stored = BasePartyInventory.Entries(controller.State).First(entry =>
+                entry.Holder == "" && entry.Stack?.ItemId == BaseEquipmentCrafting.Stone && entry.Count >= 3);
+            string player = controller.State.PlayerLeaderId;
+            var before = BasePartyInventory.Entries(controller.State).Select(entry => entry.Id).ToHashSet();
+            ClickHudButton(InventoryCell(view, stored.Id).transform);
+            view = RequirePanel("PartyWarehouse");
+            var popup = RequireInventoryPopup(view, InventoryCell(view, stored.Id).transform, false);
+            CaptureViewports("ui-skin-warehouse-take-popup");
+            Press(popup, "QuantityDown");
+            view = RequirePanel("PartyWarehouse");
+            popup = RequireInventoryPopup(view, InventoryCell(view, stored.Id).transform, false);
+            Press(popup, "Store");
+            var withdrawn = BasePartyInventory.Entries(controller.State).Single(entry =>
+                !before.Contains(entry.Id) && entry.Holder == player && entry.Stack?.ItemId == BaseEquipmentCrafting.Stone);
+            if (withdrawn.Count != stored.Count - 1 || BasePartyInventory.Find(controller.State, stored.Id).Count != 1)
+                throw new InvalidOperationException("仓库贴格取出没有应用选择的数量");
+
+            view = RequirePanel("PartyWarehouse");
+            ClickHudButton(InventoryCell(view, withdrawn.Id).transform);
+            view = RequirePanel("PartyWarehouse");
+            popup = RequireInventoryPopup(view, InventoryCell(view, withdrawn.Id).transform, true);
+            Capture("ui-skin-warehouse-store-popup");
+            Press(popup, "Close");
+            view = RequirePanel("PartyWarehouse");
+            if (view.Find("InventoryItemMenu") != null) throw new InvalidOperationException("关闭物品小窗没有回到仓库");
+            ClickHudButton(InventoryCell(view, withdrawn.Id).transform);
+            ClickHudButton(InventoryCell(RequirePanel("PartyWarehouse"), withdrawn.Id).transform);
+            if (BasePartyInventory.Find(controller.State, withdrawn.Id).Holder != "")
+                throw new InvalidOperationException("仓库双击快速存入失败");
+
+            view = RequirePanel("PartyWarehouse");
+            var source = InventoryCell(view, withdrawn.Id);
+            var destination = view.Find("Card").GetComponentsInChildren<PartyInventoryCell>()
+                .First(cell => cell.Cell >= 0 && string.IsNullOrEmpty(cell.ItemId));
+            var pointer = new PointerEventData(EventSystem.current) { position = RectTransformUtility.WorldToScreenPoint(null, source.transform.position) };
+            source.OnBeginDrag(pointer);
+            destination.OnDrop(pointer);
+            source.OnEndDrag(pointer);
+            if (BasePartyInventory.Find(controller.State, withdrawn.Id).Holder != player)
+                throw new InvalidOperationException("从仓库拖到角色背包失败");
+            view = RequirePanel("PartyWarehouse");
+            if (view.Find("InventoryItemMenu") == null) ClickHudButton(InventoryCell(view, withdrawn.Id).transform);
+            view = RequirePanel("PartyWarehouse");
+            Press(RequireInventoryPopup(view, InventoryCell(view, withdrawn.Id).transform, true), "Store");
+            if (BasePartyInventory.Find(controller.State, withdrawn.Id).Holder != "")
+                throw new InvalidOperationException("仓库贴格存入失败");
+            H.ClosePanel();
+            H.OpenWarehouse();
+            if (RequirePanel("PartyWarehouse").Find("InventoryItemMenu") != null)
+                throw new InvalidOperationException("重新打开仓库时残留物品详情");
+            Log.Add("[PASS] 仓库 24 格铺满左侧、右侧共用背包，贴格双向避让、数量、存取、快取、拖放和重开");
+        }
+
+        private static void VerifyRosterRow(Transform row, bool infoVisible)
+        {
+            var source = (RectTransform)controller.transform.Find("UI 布局源/PersonnelRosterRow");
+            var label = row.Find("Label")?.GetComponent<Text>();
+            if (row.name != source.name || Mathf.Abs(((RectTransform)row).rect.height - source.rect.height) > .1f ||
+                label == null || label.resizeTextForBestFit || !label.text.Contains("生命") ||
+                row.Find("Info").gameObject.activeSelf != infoVisible)
+                throw new InvalidOperationException("名册入口未正确使用场景共用士兵行：" + row.parent.name);
+        }
+
+        private static void VerifyTradeCardLayout(Transform view)
+        {
+            Canvas.ForceUpdateCanvases();
+            var source = (RectTransform)controller.transform.Find("UI 布局源/PartyMemberCard");
+            var right = view.Find("RightBody").GetComponent<ScrollRect>();
+            var card = (RectTransform)right.content.GetChild(0);
+            if (Vector2.Distance(card.rect.size, source.rect.size) > .1f ||
+                card.GetComponentsInChildren<PartyInventoryCell>().Count(cell => cell.Cell >= 0) != BasePartyInventory.Capacity)
+                throw new InvalidOperationException("交易右栏未保留共用背包卡的尺寸和格数");
+            Log.Add("[PASS] 交易右栏使用与独立背包一致的角色卡尺寸与格数");
+        }
+
+        private static void VerifyFacilityRosters()
+        {
+            H.ClosePanel();
+            Approach("demo_defense_return");
+            controller.TravelDemo("base");
+            if (controller.State.Campaign.Location != "base") throw new InvalidOperationException(controller.Message);
+            Approach("farm");
+            H.OpenObject("farm");
+            Click(BaseConquest.Story.StoryText.Get("story.ui.roster.open", "点名调配"));
+            var view = (RectTransform)Field(H, "panel");
+            var rows = view.GetComponentsInChildren<RectTransform>().Where(node => node.name == "PersonnelRosterRow").ToArray();
+            if (rows.Length == 0) throw new InvalidOperationException("粮田点名名册没有显示可调士兵");
+            foreach (var row in rows) VerifyRosterRow(row, false);
+            Capture("ui-skin-facility-roster");
+            int assigned = BaseEconomy.WorkersAt(controller.State, "farm");
+            ClickHudButton(rows.First(row => row.GetComponent<Button>().interactable));
+            if (BaseEconomy.WorkersAt(controller.State, "farm") != assigned)
+                throw new InvalidOperationException("点名调配未确认就写入了岗位");
+            var draft = (BaseState)Field(H, "workerDraft");
+            if (BaseEconomy.WorkersAt(draft, "farm") == assigned)
+                throw new InvalidOperationException("点名没有更新设施草案");
+            H.ClosePanel();
+            Approach("barracks");
+            H.OpenObject("barracks");
+            Click(BaseFacilityPages.PageName("roster"));
+            Click(BattleSimulation.KindName(SoldierKind.Melee));
+            view = (RectTransform)Field(H, "panel");
+            var soldier = view.GetComponentsInChildren<RectTransform>().First(node => node.name == "PersonnelRosterRow");
+            VerifyRosterRow(soldier, false);
+            var list = (ScrollRect)Field(H, "panelScroll");
+            list.verticalNormalizedPosition = 0;
+            Capture("ui-skin-barracks-roster");
+            ClickHudButton(soldier);
+            if (!((string)Field(H, "panelViewKey")).StartsWith("personnel:"))
+                throw new InvalidOperationException("兵营名册无法打开对应士兵详情");
+            Log.Add("[PASS] 粮田点名使用共用名册、只更新未确认草案，兵营士兵可打开详情");
+        }
+
+        private static void VerifyRecruitRoster()
+        {
+            H.ClosePanel();
+            Approach("exit_east");
+            controller.TravelDemo("town");
+            if (controller.State.Campaign.Location != "town") throw new InvalidOperationException(controller.Message);
+            Approach("town_recruit");
+            H.OpenObject("town_recruit");
+            if (H.DialogueOpen) { FinishDialogue(); Click("开始招募"); }
+            var trade = RequirePanel("TownTrade");
+            var rows = trade.Find("RightBody").GetComponentsInChildren<RectTransform>().Where(node => node.name == "PersonnelRosterRow").ToArray();
+            if (rows.Length == 0) throw new InvalidOperationException("军官处没有显示现役士兵名册");
+            foreach (var row in rows)
+            {
+                VerifyRosterRow(row, false);
+                if (row.GetComponent<Button>().interactable) throw new InvalidOperationException("军官右侧现役名册不是只读");
+            }
+            Capture("ui-skin-recruit-roster");
+            var state = controller.State;
+            var kind = state.Town.Recruits.First(offer => BaseTown.MaxHire(state, offer.Kind) > 0).Kind;
+            var offerButton = trade.Find("OfferList").GetComponentsInChildren<Button>().Single(button =>
+                button.GetComponentInChildren<Text>().text.TrimStart('●', ' ').StartsWith(BaseEconomy.TroopName(kind) + " · 今日余 "));
+            ClickHudButton(offerButton.transform);
+            var quote = BaseTown.QuoteHire(state, kind, 1);
+            Click("招募 1 人 · " + quote.Total + "币");
+            if (BaseTown.TroopTotal(controller.State) != BaseTown.TroopTotal(state) + 1 ||
+                controller.State.Inventory.Coins != state.Inventory.Coins - quote.Total ||
+                !RequirePanel("TownTrade").Find("Details").GetComponentsInChildren<Text>().Any(text =>
+                    text.text == "招募 1 人 · " + BaseTown.HirePrice(controller.State, kind) + "币"))
+                throw new InvalidOperationException("逐人招募未结算、更新名册或重新报价");
+            Log.Add("[PASS] 军官共用只读名册，逐人招募及招后重报价");
         }
 
         private static void OpenWarehouseShot()

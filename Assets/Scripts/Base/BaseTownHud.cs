@@ -91,9 +91,11 @@ namespace BaseConquest.Base
             }
         }
 
-        private void TradeLine(Transform parent,string text)
+        private RectTransform TradeLine(Transform parent,string text)
         {
-            CloneSceneUi("TradeText",parent).GetComponent<Text>().text=text;
+            var line = CloneSceneUi("TradeText", parent);
+            line.GetComponent<Text>().text = text;
+            return line;
         }
 
         private void TradeOffer(Transform list,string id,string title)
@@ -160,20 +162,18 @@ namespace BaseConquest.Base
                 }
                 else
                 {
-                    foreach(var member in people)
-                    {
-                        TradeButton(rightTabs,member.Name,()=>{
-                            tradePerson=member.Id;
-                            tradeSale="";
-                            if(tradeShelf==TradeShelf.Reforge)tradeSelection="";
-                            RenderTownTrade(false);
-                        },member.Id!=tradePerson,"TradeTab",member.Id==tradePerson);
-                    }
+                    BuildInventoryPersonTabs(rightTabs,people,tradePerson,member=>{
+                        tradePerson=member.Id;
+                        tradeSale="";
+                        if(tradeShelf==TradeShelf.Reforge)tradeSelection="";
+                        RenderTownTrade(false);
+                    });
                     if(person!=null)
                     {
                         var card=BuildTradeInventoryCard(right.content,person,
                             tradeShelf==TradeShelf.Reforge?tradeSelection:tradeSale,SelectTradeBagItem);
                         var layout=card.gameObject.GetComponent<LayoutElement>()??card.gameObject.AddComponent<LayoutElement>();
+                        layout.minWidth=layout.preferredWidth=card.rect.width;
                         layout.preferredHeight=card.rect.height;
                     }
                 }
@@ -320,7 +320,7 @@ namespace BaseConquest.Base
             TradeButton(rosterTabs,(tradeRosterPage+1)+"/"+pages+" 下一页",()=>{tradeRosterPage++;RenderTownTrade(false);},tradeRosterPage+1<pages,"TradeTab");
             foreach(var unit in BasePersonnel.Units(s).Where(u=>!u.IsLeader).Skip(tradeRosterPage*pageSize).Take(pageSize))
                 AddPersonnelRow(roster,unit,unit.State,null,available:false,useCurrentStats:true);
-            if(count==0)TradeLine(roster,"暂无士兵");
+            if(count==0)Ui<LayoutElement>(TradeLine(roster,"暂无士兵"),"").flexibleWidth=1;
         }
 
     }

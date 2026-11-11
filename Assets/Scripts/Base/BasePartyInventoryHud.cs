@@ -49,11 +49,17 @@ namespace BaseConquest.Base
                 .Where(person => person.PersonalEquipment?.Version == 1).ToArray();
             if (people.Length == 0) return;
             if (!people.Any(person => person.Id == inventoryPerson)) inventoryPerson = people[0].Id;
-            if (inventoryWarehouse != warehouse || !PanelOpen) inventoryClicks.Reset();
+            string viewKey = warehouse ? "party-warehouse" : "party-inventory";
+            if (!PanelOpen || panelViewKey != viewKey)
+            {
+                inventoryClicks.Reset();
+                inventorySelected = "";
+                inventoryQuantity = 1;
+            }
             inventoryWarehouse = warehouse;
             inventorySelectedCell = null;
             inventoryChoice = null;
-            OpenScenePanel(warehouse ? "PartyWarehouse" : "PartyInventory", warehouse ? "party-warehouse" : "party-inventory");
+            OpenScenePanel(warehouse ? "PartyWarehouse" : "PartyInventory", viewKey);
             activeObject = warehouse ? "warehouse" : "backpack";
             interactionObject = warehouse ? BasePartyInventory.WarehouseObject(state).Id : "";
             root.GetComponent<Canvas>().sortingOrder = 100;
@@ -64,15 +70,10 @@ namespace BaseConquest.Base
             else
             {
                 var cards = Ui<RectTransform>(panel, "Cards");
-                var cardSize = ((RectTransform)owner.SceneUiTemplate("PartyMemberCard").transform).rect.width;
-                var spacing = Ui<HorizontalLayoutGroup>(panel, "Cards").spacing;
-                float margin = Mathf.Max(24, panel.rect.width - cardSize * 3 - spacing * 2);
-                panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,
-                    margin + cardSize * people.Length + spacing * (people.Length - 1));
                 foreach (var person in people)
                     BuildInventoryCard(cards, person, entries, inventorySelected, true, null);
-                if (inventorySelectedCell != null) ShowInventoryItemMenu();
             }
+            if (inventorySelectedCell != null) ShowInventoryItemMenu();
             if (BaseDemoIntro.Daily(state)) state.Demo.Intro.BackpackOpened = true;
             RefreshSummary();
         }
@@ -80,12 +81,13 @@ namespace BaseConquest.Base
         private void BuildWarehouseInventory(BaseLeader[] people, BaseInventoryEntry[] entries)
         {
             var tabs = Ui<RectTransform>(panel, "Tabs");
-            foreach (var person in people)
+            BuildInventoryPersonTabs(tabs, people, inventoryPerson, person =>
             {
-                var option = CloneSceneUi("InventoryOption", tabs);
-                InventoryButton(option, "", (person.Id == inventoryPerson ? "● " : "") + person.Name,
-                    () => { inventoryClicks.Reset(); inventoryPerson = person.Id; inventorySelected = ""; OpenInventory(true); });
-            }
+                inventoryClicks.Reset();
+                inventoryPerson = person.Id;
+                inventorySelected = "";
+                OpenInventory(true);
+            });
             var recipient = people.Single(person => person.Id == inventoryPerson);
             BuildInventoryCard(Ui<RectTransform>(panel, "Card"), recipient, entries, inventorySelected, true, null);
 
@@ -104,7 +106,17 @@ namespace BaseConquest.Base
             InventoryButton(panel, "Prev", null, () => { inventoryClicks.Reset(); warehousePage--; OpenInventory(true); }, warehousePage > 0);
             InventoryButton(panel, "Next", null, () => { inventoryClicks.Reset(); warehousePage++; OpenInventory(true); }, warehousePage + 1 < pages);
             Ui<Text>(panel, "Page").text = (warehousePage + 1) + " / " + pages;
-            BindInventoryDetails(Ui<RectTransform>(panel, "Details"), entries.SingleOrDefault(entry => entry.Id == inventorySelected), recipient, true);
+        }
+
+        private void BuildInventoryPersonTabs(RectTransform parent, IEnumerable<BaseLeader> people, string selectedId,
+            Action<BaseLeader> select)
+        {
+            foreach (var person in people)
+            {
+                var option = CloneSceneUi("InventoryOption", parent);
+                InventoryButton(option, "", (person.Id == selectedId ? "● " : "") + person.Name,
+                    () => { if (!owner.Busy) select(person); }, person.Id != selectedId);
+            }
         }
 
         private RectTransform BuildTradeInventoryCard(RectTransform parent, BaseLeader person, string selectedItemId,
@@ -292,19 +304,47 @@ namespace BaseConquest.Base
             var entry = BasePartyInventory.Find(owner.State, inventorySelected);
             if (entry == null) return;
             var popup = CloneSceneUi("InventoryItemMenu", panel);
-            InventoryButton(popup, "Close", null, () => { inventorySelected = ""; OpenInventory(false); });
-            BindInventoryDetails(popup, entry, owner.State.Leaders.Single(person => person.Id == inventoryPerson), false);
+            InventoryButton(popup, "Close", null, () => CloseInventoryItemMenu());
+            BindInventoryDetails(popup, entry, owner.State.Leaders.Single(person => person.Id == inventoryPerson), inventoryWarehouse);
             Canvas.ForceUpdateCanvases();
 
             var selected = inventorySelectedCell;
-            var center = (Vector2)panel.InverseTransformPoint(selected.TransformPoint(selected.rect.center));
+            var corners = new Vector3[4];
+            selected.GetWorldCorners(corners);
+            var bottomLeft = (Vector2)panel.InverseTransformPoint(corners[0]);
+            var topRight = (Vector2)panel.InverseTransformPoint(corners[2]);
+            var cell = UnityEngine.Rect.MinMaxRect(bottomLeft.x, bottomLeft.y, topRight.x, topRight.y);
             var offset = popup.anchoredPosition;
-            float distance = selected.rect.width / 2 + popup.rect.width / 2 + 8;
-            float x = center.x + distance + offset.x;
-            if (x + popup.rect.width / 2 > panel.rect.xMax) x = center.x - distance + offset.x;
-            popup.anchoredPosition = new Vector2(
-                Mathf.Clamp(x, panel.rect.xMin + popup.rect.width / 2, panel.rect.xMax - popup.rect.width / 2),
-                Mathf.Clamp(center.y + offset.y, panel.rect.yMin + popup.rect.height / 2, panel.rect.yMax - popup.rect.height / 2));
+            float minX = panel.rect.xMin - popup.rect.xMin;
+            float maxX = panel.rect.xMax - popup.rect.xMax;
+            float minY = panel.rect.yMin - popup.rect.yMin;
+            float maxY = panel.rect.yMax - popup.rect.yMax;
+            float x = cell.xMax - popup.rect.xMin + 8 + offset.x;
+            float y = cell.center.y - popup.rect.center.y + offset.y;
+            if (x > maxX)
+            {
+                x = cell.xMin - popup.rect.xMax - 8 + offset.x;
+                if (x < minX)
+                {
+                    x = cell.center.x - popup.rect.center.x + offset.x;
+                    y = cell.yMax - popup.rect.yMin + 8 + offset.y;
+                    if (y > maxY) y = cell.yMin - popup.rect.yMax - 8 + offset.y;
+                }
+            }
+            popup.localPosition = new Vector3(Mathf.Clamp(x, minX, maxX), Mathf.Clamp(y, minY, maxY), popup.localPosition.z);
+        }
+
+        internal bool CloseInventoryItemMenu()
+        {
+            if (!PanelOpen || (panelViewKey != "party-inventory" && panelViewKey != "party-warehouse")
+                || panel.Find("InventoryItemMenu") == null) return false;
+            if (inventoryChoice == null)
+            {
+                inventoryClicks.Reset();
+                inventorySelected = "";
+            }
+            OpenInventory(inventoryWarehouse);
+            return true;
         }
 
         private void BindInventoryDetails(RectTransform details, BaseInventoryEntry entry, BaseLeader recipient, bool warehouse)
@@ -343,19 +383,22 @@ namespace BaseConquest.Base
             }
 
             InventoryButton(details, "Primary", primary, act, allowed).gameObject.SetActive(act != null);
-            InventoryButton(details, "Destroy", null, () => InventoryDestroyConfirm(entry), !entry.Worn && !entry.Protected);
+            InventoryButton(details, "Destroy", null, () => InventoryDestroyConfirm(entry))
+                .gameObject.SetActive(!entry.Worn && !entry.Protected);
             InventoryButton(details, "QuantityDown", null, () => { inventoryQuantity--; OpenInventory(inventoryWarehouse); },
                 inventoryQuantity > 1).gameObject.SetActive(entry.Count > 1);
             InventoryButton(details, "QuantityUp", null,
                 () => { inventoryQuantity++; OpenInventory(inventoryWarehouse); }, inventoryQuantity < entry.Count)
                 .gameObject.SetActive(entry.Count > 1);
-            if (warehouse)
-            {
-                InventoryButton(details, "Store", entry.Holder == "" ? "取出给" + recipient.Name : "存入仓库", () =>
-                    InventoryChange(next => BasePartyInventory.Move(next, entry.Id, entry.Holder == "" ? inventoryPerson : "",
-                        entry.Holder == "" ? BasePartyInventory.FreeCell(next, inventoryPerson) : -1, "", inventoryQuantity), "已完成仓库存取"), !entry.Worn);
-                InventoryButton(details, "Transfer", null, () => InventoryTransferMenu(entry), !entry.Worn && string.IsNullOrEmpty(entry.Bound));
-            }
+            InventoryButton(details, "Store", entry.Holder == "" ? "取出给" + recipient.Name : "存入仓库", () =>
+                InventoryChange(next => BasePartyInventory.Move(next, entry.Id, entry.Holder == "" ? inventoryPerson : "",
+                    entry.Holder == "" ? BasePartyInventory.FreeCell(next, inventoryPerson) : -1, "", inventoryQuantity), "已完成仓库存取"))
+                .gameObject.SetActive(warehouse && !entry.Worn);
+            bool transferable = !entry.Worn && string.IsNullOrEmpty(entry.Bound)
+                && BasePartyInventory.People(owner.State, warehouse).Any(person =>
+                    person.Id != (entry.Holder == "" ? inventoryPerson : entry.Holder));
+            InventoryButton(details, "Transfer", null, () => InventoryTransferMenu(entry))
+                .gameObject.SetActive(transferable);
         }
 
         private void EquipInventoryEntry(BaseInventoryEntry entry, string itemSlot)
@@ -429,10 +472,10 @@ namespace BaseConquest.Base
         private void InventoryTransferMenu(BaseInventoryEntry entry)
         {
             var actions = OpenInventoryChoice("转交物品");
-            foreach (var person in BasePartyInventory.People(owner.State, true).Where(candidate => candidate.Id != entry.Holder))
+            foreach (var person in BasePartyInventory.People(owner.State, inventoryWarehouse).Where(candidate => candidate.Id != entry.Holder))
                 AddInventoryChoice(actions, "转交给 " + person.Name, () => InventoryChange(state =>
                     BasePartyInventory.Move(state, entry.Id, person.Id, BasePartyInventory.FreeCell(state, person.Id), "", inventoryQuantity), "已转交物品"));
-            AddInventoryChoice(actions, "取消", () => OpenInventory(true));
+            AddInventoryChoice(actions, "取消", () => OpenInventory(inventoryWarehouse));
         }
 
         private void InventoryDestroyConfirm(BaseInventoryEntry entry)

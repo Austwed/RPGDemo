@@ -266,6 +266,7 @@ namespace BaseConquest.Base
             if(Hud.DialogueOpen&&keyboard!=null&&(keyboard.eKey.wasPressedThisFrame||keyboard.spaceKey.wasPressedThisFrame)){Hud.ContinueDialogue();return;}
             if(Hud.DialogueExitLocked&&escape)return;
             if (Hud.ResourcePopoverOpen && escape) { Hud.CloseResourcePopover(); escape = false; }
+            if (escape && Hud.CloseInventoryItemMenu()) return;
             if(keyboard!=null&&HandlePanelShortcuts(keyboard.bKey.wasPressedThisFrame,keyboard.nKey.wasPressedThisFrame,keyboard.mKey.wasPressedThisFrame))return;
             if(ConstructionMode&&escape){StopConstruction();if(Hud.PanelOpen)Hud.ClosePanel();Message="已退出营造";Hud.RefreshSummary();return;}
             if (escape) { if (Hud.PanelOpen) Hud.ClosePanel(); else if (SelectedCell != null) ClearSelection(); else Hud.OpenMenu(); return; }

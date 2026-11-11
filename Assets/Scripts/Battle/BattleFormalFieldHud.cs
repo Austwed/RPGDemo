@@ -105,15 +105,9 @@ namespace BaseConquest.Battle
                 var button = Button("Deploy_" + kind, row, Vector2.zero, new Vector2(0, (2 - i) * 50), new Vector2(92, 46),
                     () => owner.SelectDraftTroop(slot, kind));
                 var count = button.GetComponentInChildren<Text>();
-                count.alignment = TextAnchor.MiddleRight;
-                count.rectTransform.offsetMin = new Vector2(42, 0);
-                count.rectTransform.offsetMax = new Vector2(-12, 0);
-                var icon = Rect("TroopIcon", button.transform, new Vector2(0, .5f), new Vector2(8, 0), new Vector2(28, 28));
-                icon.gameObject.SetActive(true);
-                var art = icon.gameObject.GetOrAdd<BattleAvatarGraphic>();
-                art.Kind = kind;
-                art.raycastTarget = false;
-                art.AppearanceId = kind == SoldierKind.Melee ? "saber" : kind == SoldierKind.Ranged ? "archer" : "rider";
+                count.alignment = TextAnchor.MiddleCenter;
+                count.rectTransform.offsetMin = new Vector2(4, 0);
+                count.rectTransform.offsetMax = new Vector2(-4, 0);
                 formalTroops[slot, i] = button;
                 formalTroopCounts[slot, i] = count;
             }
@@ -145,7 +139,7 @@ namespace BaseConquest.Battle
                         u.Side == BattleSide.A && u.OriginCommanderSlot == slot && u.Kind == kind && u.IsActive);
                     var button = formalTroops[slot, index];
                     button.gameObject.SetActive(true);
-                    formalTroopCounts[slot, index].text = count.ToString();
+                    formalTroopCounts[slot, index].text = $"{BattleSimulation.KindName(kind)}  {count}";
                     button.interactable = draft && owner.DraftCanChooseTroop(slot, kind);
                     SetHighlighted(button, draft && owner.DraftTeamSlot == slot && owner.DraftArmedKind == kind);
                 }

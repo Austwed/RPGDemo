@@ -12,28 +12,32 @@ namespace BaseConquest.Base
         private int personnelFilter,personnelPage;
         private static string RosterText(string key, string fallback) => StoryText.Get("story.ui.roster." + key, fallback);
         private void AddPersonnelRow(Transform list, BasePersonnelUnit unit, string status, Action select,
-            bool available = true, bool selected = false, bool warning = false, bool useCurrentStats = false)
+            bool available = true, bool selected = false, bool warning = false, bool useCurrentStats = false,
+            Action details = null, bool showStats = true)
         {
             var card = CloneSceneUi("PersonnelRosterRow", list);
+            Ui<LayoutElement>(card, "").preferredHeight = card.rect.height;
             var button = Ui<Button>(card, "");
             var label = Ui<Text>(card, "Label");
             var stats = useCurrentStats ? unit.Current : unit.Basic;
-            label.text = $"{unit.Name} · 生命 {unit.Health:0.#}/{unit.MaxHealth:0.#} · 攻 {stats.Damage:0.#} 防 {stats.Defense:0.#}\n{unit.Facility} · {status}";
-            label.alignment = TextAnchor.MiddleLeft;
+            string combat = showStats ? $" · 攻 {stats.Damage:0.#} 防 {stats.Defense:0.#}" : "";
+            label.text = $"{unit.Name} · 生命 {unit.Health:0.#}/{unit.MaxHealth:0.#}{combat}\n{unit.Facility} · {status}";
             button.interactable = available && select != null;
             if (select != null) button.onClick.AddListener(() => { if (!owner.Busy) select(); });
-            else
+            else button.transition = Selectable.Transition.None;
+            var info = Ui<Button>(card, "Info");
+            info.gameObject.SetActive(details != null);
+            if (details != null) info.onClick.AddListener(() => { if (!owner.Busy) details(); });
+            if (selected)
             {
-                button.transition = Selectable.Transition.None;
-                Ui<Image>(card, "").color = DemoUiTheme.Current.Inset;
+                var background = Ui<Image>(card, "");
+                background.color = Color.Lerp(background.color, DemoUiTheme.Current.Gold, .38f);
             }
-            if (selected) Ui<Image>(card, "").color = new Color32(217, 219, 174, 255);
             if (warning) label.color = new Color32(150, 35, 28, 255);
             if (list != content) return;
             card.anchorMin = card.anchorMax = new Vector2(.5f, 1);
             card.pivot = new Vector2(.5f, 1);
             card.anchoredPosition = new Vector2(0, -row);
-            card.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 800);
             row += Mathf.CeilToInt(card.rect.height) + 8;
         }
         private void PersonnelRoster()

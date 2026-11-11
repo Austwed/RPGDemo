@@ -342,18 +342,19 @@ namespace BaseConquest.Base
             foreach (var soldier in prepDescending ? sorted.Reverse() : sorted)
             {
                 var unit = roster[soldier.Id];
-                var card = CloneSceneUi("BattlePreparationRosterRow", prepRoster.content);
                 string assigned = soldier.Selected ? PrepLeaders.FirstOrDefault(team => team.Id == soldier.TeamId)?.Name ?? "" : PrepText("unselected", "待选");
-                string label = $"{unit.Name} · {Number(unit.Health)} / {Number(unit.MaxHealth)}\n" +
-                    $"{(soldier.Selected ? "● " : "○ ")}{assigned} · {unit.Facility} · {unit.State}";
-                PrepButton(card, "", label, () => SelectPrepSoldier(soldier), prepTeam != null);
-                PrepButton(card, "Info", null, () => { RememberPreparationScroll(); prepDetail = soldier.Id; ShowBattlePreparation(); });
-                if (soldier.Selected)
-                {
-                    var background = Ui<Image>(card, "");
-                    background.color = Color.Lerp(background.color, DemoUiTheme.Current.Gold, .38f);
-                }
-                if (soldier.Selected && PrepLowHealth(state, soldier)) Ui<Text>(card, "Label").color = PrepInvalid;
+                string status = $"{(soldier.Selected ? "● " : "○ ")}{assigned} · {unit.State}";
+                AddPersonnelRow(prepRoster.content, unit, status,
+                    () => { if (!PreparationHelpOpen) SelectPrepSoldier(soldier); },
+                    available: prepTeam != null, selected: soldier.Selected,
+                    warning: soldier.Selected && PrepLowHealth(state, soldier),
+                    details: () =>
+                    {
+                        if (PreparationHelpOpen) return;
+                        RememberPreparationScroll();
+                        prepDetail = soldier.Id;
+                        ShowBattlePreparation();
+                    }, showStats: false);
             }
         }
 
