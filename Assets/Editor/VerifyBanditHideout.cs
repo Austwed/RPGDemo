@@ -227,6 +227,8 @@ namespace BaseConquest.Editor
             var oldEntrance = BaseSpatial.Layout(legacy).Objects.Single(item => item.Id == BaseBanditHideout.EntryId);
             oldEntrance.X = 12.5;
             oldEntrance.Y = 4.5;
+            var gaps = new[] { 8, 9, 16, 17 }.Select(row => new GridPosition(15, row)).ToArray();
+            foreach (var gap in gaps) BaseBattlefield.Board(legacy).Cell(gap).Terrain = TerrainKind.Ground;
             var state = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(legacy));
             var map = state.Campaign.Layouts.Single(item => item.SourceMapId == BaseBanditHideout.MapId);
             var mission = state.Campaign.Events.Single(item => item.Id == BaseBanditHideout.EventId);
@@ -234,22 +236,30 @@ namespace BaseConquest.Editor
             var entrance = BaseSpatial.Objects(state).Single(item => item.Id == BaseBanditHideout.EntryId);
             var board = BaseBattlefield.Board(state);
             Need(entrance.X == 18.5 && entrance.Y == 12.5 &&
-                board.Cell(new GridPosition(15, 12)).Terrain == TerrainKind.Wall &&
-                board.Cell(new GridPosition(15, 8)).Terrain == TerrainKind.Ground &&
+                Enumerable.Range(4, 16).All(row => board.Cell(new GridPosition(15, row)).Terrain == TerrainKind.Wall) &&
                 state.Campaign.Layouts.Single(item => item.SourceMapId == BaseBanditHideout.MapId) == map &&
                 state.Campaign.Events.Single(item => item.Id == BaseBanditHideout.EventId) == mission,
                 "旧档未将同一入口迁到断壁后，或副本地图与事件被重建");
-            state.PlayerX = 14.5;
-            state.PlayerY = 8.5;
-            Need(!BaseBanditHideout.VisibleFromPlayer(state, entrance), "穿过断壁前已显示窝点");
-            state.PlayerX = 16.5;
-            state.PlayerY = 12.5;
-            Need(BaseBanditHideout.VisibleFromPlayer(state, entrance), "穿过断壁后未显示窝点");
-            var between = board.Cell(new GridPosition(17, 12));
-            var terrain = between.Terrain;
-            between.Terrain = TerrainKind.Wall;
-            Need(!BaseBanditHideout.VisibleFromPlayer(state, entrance), "墙后的遮挡未隐藏窝点");
-            between.Terrain = terrain;
+            // Already-relocated saves also need the wall patch and a valid position if saved in the gap.
+            board.Cell(gaps[0]).Terrain = TerrainKind.Ground;
+            state.PlayerX = 15.5; state.PlayerY = 8.5;
+            BaseEconomy.Validate(state);
+            Need(board.Cell(gaps[0]).Terrain == TerrainKind.Wall && (int)state.PlayerX != 15,
+                "已迁移窝点的旧档没有封墙或将主角移出旧缺口");
+            var west = new GridPosition(14, 12);
+            var east = new GridPosition(16, 12);
+            var target = new GridPosition((int)entrance.X, (int)entrance.Y);
+            var route = BaseStageWalk.Route(state, new BasePoint(14.5, 12.5), new BasePoint(entrance.X, entrance.Y));
+            Need(route.Count > 0 && route.Any(point => point.Y < 4 || point.Y >= 20), "封墙后无法从端部绕行至窝点");
+            var vision = new BattleVision(BaseSceneCombat.Project(state));
+            vision.RefreshExploration(new[] { west });
+            Need(!vision.TerrainVisible(BattleSide.A, target), "首次绕墙前浓雾中已显示窝点");
+            vision.RefreshExploration(new[] { east });
+            Need(vision.Visible(BattleSide.A, target), "绕到墙后未显示窝点");
+            var restored = new BattleVision(BaseSceneCombat.Project(state));
+            restored.RememberTerrain(BattleSide.A, vision.KnownTerrain(BattleSide.A));
+            restored.RefreshExploration(new[] { west });
+            Need(!restored.Visible(BattleSide.A, target) && restored.TerrainVisible(BattleSide.A, target), "已发现窝点没有在薄雾中保留");
             At(state, BaseBanditHideout.EntryId);
             return state;
         }

@@ -83,9 +83,11 @@ namespace BaseConquest.Base
         public bool SceneCellKnown(GridPosition p)=>(combatController?.Realtime?.Battle.Vision??explorationSight)?.TerrainVisible(BattleSide.A,p)??true;
         public bool SceneObjectVisible(BaseMapObject o)
         {
+            if(o==null)return false;
+            var cell=new GridPosition((int)o.X,(int)o.Y);
+            if(o.Id==BaseBanditHideout.EntryId)return SceneCellKnown(cell);
             var sight=combatController?.Realtime?.Battle.Vision??explorationSight;
-            return o!=null&&(o.Id!=BaseBanditHideout.EntryId||BaseBanditHideout.VisibleFromPlayer(State,o,sight))
-                &&(sight==null||sight.Visible(BattleSide.A,new GridPosition((int)o.X,(int)o.Y)));
+            return sight==null||sight.Visible(BattleSide.A,cell);
         }
         private void RefreshSceneSight(bool force=false)
         {
@@ -104,8 +106,7 @@ namespace BaseConquest.Base
             if(scenery!=null)foreach(Transform node in scenery)
             {
                 var obj=objects.FirstOrDefault(o=>node.name==o.Id||node.name.StartsWith(o.Id+" ·"));
-                if(obj!=null)node.gameObject.SetActive(obj.Id==BaseBanditHideout.EntryId ? SceneObjectVisible(obj)
-                    : sight.TerrainVisible(BattleSide.A,new GridPosition((int)obj.X,(int)obj.Y)));
+                if(obj!=null)node.gameObject.SetActive(sight.TerrainVisible(BattleSide.A,new GridPosition((int)obj.X,(int)obj.Y)));
             }
             string opponent=combatController?.IsDemoPractice==true?"demo_captain":combatController?.IsAzhuDuel==true?"demo_azhu":"";
             foreach(var npc in npcViews)

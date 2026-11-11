@@ -28,7 +28,6 @@ namespace BaseConquest.Battle
         public bool FullVision(BattleSide side) => battle==null?explorationFullVision:!battle.Scenario.FogEnabled || battle.Scenario.DefenderVisionEnabled && battle.Scenario.DefenderSide == (int)side;
         public bool DeploymentKnown(BattleSide side, GridPosition p) => battle!=null&&!HeightMode&&map.Cell(p)?.Zone == (side == BattleSide.A ? DeploymentZone.A : DeploymentZone.B);
         public bool Visible(BattleSide side, GridPosition p) => map.Contains(p) && (FullVision(side) || visible[(int)side][Index(p)]);
-        internal bool HasSightFrom(GridPosition observer, GridPosition target) => BattleHeightSight.Clear(map, observer, target);
         public bool Explored(BattleSide side, GridPosition p) => map.Contains(p) && (FullVision(side) || explored[(int)side][Index(p)]);
         public bool TerrainVisible(BattleSide side,GridPosition p)=>map.Contains(p)&&(FullVision(side)||(HeightMode?terrain[(int)side][Index(p)]||explored[(int)side][Index(p)]:Explored(side,p)));
         public void RefreshExploration(IEnumerable<GridPosition> observers,bool fogEnabled=true){explorationFullVision=!fogEnabled;BattleHeightSight.Compute(map,fogEnabled?observers:Enumerable.Empty<GridPosition>(),visible[0],terrain[0]);for(int n=0;n<visible[0].Length;n++)explored[0][n]|=terrain[0][n]||visible[0][n];Revision++;}

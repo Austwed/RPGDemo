@@ -14,7 +14,6 @@ namespace BaseConquest.Base
         public const int EnemyCountCap = 12;
         internal const string Region = "hideout";
         private const string EntranceMapId = "demo_ruins";
-        private static readonly int[] BrokenWallRows = { 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 18, 19 };
         private static readonly GridPosition[] Neighbors = {
             new GridPosition(1, 0), new GridPosition(-1, 0), new GridPosition(0, 1), new GridPosition(0, -1)
         };
@@ -42,21 +41,11 @@ namespace BaseConquest.Base
 
         private static int WallColumn(BattleBoard board) => Math.Min(15, board.Width - 4);
 
-        public static bool VisibleFromPlayer(BaseState state, BaseMapObject entrance, BattleVision sight = null)
-        {
-            if (entrance?.Id != EntryId || !BaseSceneRules.Entrance(state)) return false;
-            var player = new GridPosition((int)state.PlayerX, (int)state.PlayerY);
-            if (player.X <= WallColumn(BaseBattlefield.Board(state))) return false;
-            var target = new GridPosition((int)entrance.X, (int)entrance.Y);
-            return sight == null ? BattleHeightSight.Clear(BaseSceneCombat.Project(state), player, target)
-                : sight.HasSightFrom(player, target);
-        }
-
         internal static bool CanEnter(BaseState state)
         {
             if (!BaseSceneRules.Entrance(state)) return false;
             var entrance = BaseSpatial.Objects(state).SingleOrDefault(item => item.Id == EntryId);
-            return BaseInteraction.CanReach(state, entrance) && VisibleFromPlayer(state, entrance);
+            return BaseInteraction.CanReach(state, entrance);
         }
 
         public static void Install(BaseState state)
@@ -106,23 +95,18 @@ namespace BaseConquest.Base
         private static void InstallOutdoorEntrance(BaseMapLayout map, BattleBoard board, BaseMapPlacement ruins)
         {
             int wall = WallColumn(board);
-            var entrance = map.Objects.SingleOrDefault(item => item.Id == EntryId);
-            if (entrance != null && entrance.X >= wall + 1) return;
-
-            // 发布地图已有断壁，缺少断壁的剧情地图沿用同样的缺口。
-            var wallCells = BrokenWallRows.Where(row => row < board.Height - 1).Select(row => new GridPosition(wall, row)).ToArray();
-            if (!wallCells.Any(position => board.Cell(position).Terrain == TerrainKind.Wall))
+            // 封住墙内缺口，保留两端绕行。
+            for (int row = 4; row <= 19 && row < board.Height - 1; row++)
             {
-                foreach (var position in wallCells)
-                {
-                    var cell = board.Cell(position);
-                    if (cell.Terrain != TerrainKind.Ground || cell.Ramp != RampAxis.None ||
-                        map.Objects.Any(item => item.Object.Contains(position.X + .5, position.Z + .5))) continue;
-                    cell.Terrain = TerrainKind.Wall;
-                    cell.Zone = DeploymentZone.None;
-                }
+                var cell = board.Cell(new GridPosition(wall, row));
+                if (cell.Terrain != TerrainKind.Ground || cell.Ramp != RampAxis.None ||
+                    map.Objects.Any(item => item.Object.Contains(wall + .5, row + .5))) continue;
+                cell.Terrain = TerrainKind.Wall;
+                cell.Zone = DeploymentZone.None;
             }
 
+            var entrance = map.Objects.SingleOrDefault(item => item.Id == EntryId);
+            if (entrance != null && entrance.X >= wall + 1) return;
             var spot = FindEntrance(map, board, ruins, wall);
             if (spot == null) throw new InvalidOperationException("断壁后没有可达的同层副本入口位置");
             if (entrance == null)

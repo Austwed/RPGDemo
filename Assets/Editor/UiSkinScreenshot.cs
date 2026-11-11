@@ -630,23 +630,38 @@ namespace BaseConquest.Editor
 
         private static void VerifyHideoutUi()
         {
-            if (!controller.Change(s =>
+            void StandWest()
             {
-                var west = BaseSpatial.Nearest(s, new BasePoint(14.5, 12.5));
-                s.PlayerX = west.X; s.PlayerY = west.Y;
-                BaseAdventure.Arrive(s);
-            }, "界面检查")) throw new InvalidOperationException(controller.Message);
+                if (!controller.Change(s =>
+                {
+                    var west = BaseSpatial.Nearest(s, new BasePoint(14.5, 12.5));
+                    s.PlayerX = west.X; s.PlayerY = west.Y;
+                    BaseAdventure.Arrive(s);
+                }, "界面检查")) throw new InvalidOperationException(controller.Message);
+            }
+            StandWest();
             var refreshSight = controller.GetType().GetMethod("RefreshSceneSight", BindingFlags.Instance | BindingFlags.NonPublic);
-            refreshSight.Invoke(controller, new object[] { true });
+            void RefreshSight() => refreshSight.Invoke(controller, new object[] { true });
+            RefreshSight();
             var entrance = BaseSpatial.Objects(controller.State).Single(o => o.Id == BaseBanditHideout.EntryId);
-            if (BaseBanditHideout.VisibleFromPlayer(controller.State, entrance) || controller.PresentedObject(entrance.Id) != null)
-                throw new InvalidOperationException("墙前看见了土匪窝点");
+            var cell = new GridPosition((int)entrance.X, (int)entrance.Y);
+            var landmarks = ((BattleBoardView)Field(controller, "regionView")).Root.transform.Find("RegionLandmarks");
+            var landmark = landmarks.Cast<Transform>().Single(view => view.name.StartsWith(entrance.Id + " · "));
+            bool Presented() => controller.PresentedObject(entrance.Id) != null && landmark.gameObject.activeInHierarchy;
+            if (controller.SceneCellKnown(cell) || controller.PresentedObject(entrance.Id) != null || landmark.gameObject.activeInHierarchy)
+                throw new InvalidOperationException("浓雾未遮住窝点贴图及名称");
             Capture("ui-bandit-hideout-before-wall");
             Approach(BaseBanditHideout.EntryId);
-            refreshSight.Invoke(controller, new object[] { true });
-            if (!BaseBanditHideout.VisibleFromPlayer(controller.State, entrance) || controller.PresentedObject(entrance.Id) == null)
-                throw new InvalidOperationException("绕到墙后仍不能发现窝点");
+            RefreshSight();
+            if (!Presented()) throw new InvalidOperationException("绕到墙后仍不能发现窝点");
             CaptureViewports("ui-bandit-hideout-entrance");
+            StandWest();
+            RefreshSight();
+            if (((BattleVision)Field(controller, "explorationSight")).Visible(BattleSide.A, cell) || !Presented())
+                throw new InvalidOperationException("回到墙前后窝点未在薄雾下保留贴图及名称");
+            Capture("ui-bandit-hideout-thin-fog");
+            Approach(BaseBanditHideout.EntryId);
+            RefreshSight();
             H.OpenObject(BaseBanditHideout.EntryId);
             var preparation = RequirePanel("BattlePreparation");
             var draft = (BaseBattlePreparation)Field(H, "battleDraft");
@@ -689,7 +704,7 @@ namespace BaseConquest.Editor
             VerifyBattleMenu(battle, null);
             if (!battle.WithdrawSceneEncounter() || !BaseSceneRules.Entrance(controller.State))
                 throw new InvalidOperationException("窝点撤退没有回到入口");
-            Log.Add("[PASS] 断壁前隐藏、绕墙后发现窝点，预览阵容与实战一致，部署返回、无队长与侵蚀、撤退回入口");
+            Log.Add("[PASS] 浓雾隐藏窝点，绕墙后发现，薄雾保留贴图与名称；预览阵容与实战一致，撤退回入口");
         }
 
         private static void VerifyRuinsSoloRetreat()
