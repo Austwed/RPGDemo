@@ -658,6 +658,7 @@ namespace BaseConquest.Editor
             var battle = RequireBattleDraft();
             Press(BattleSafeArea(battle), "DraftPreparationControls/Auto");
             CaptureViewports("ui-bandit-hideout-deployment");
+            Capture("ui-bandit-hideout-deployment-wide", 1680, 720);
             VerifyBattleMenu(battle, draft);
             if (controller.State.Campaign.HasActiveBattle || !BaseSceneRules.Entrance(controller.State))
                 throw new InvalidOperationException("窝点部署提前切图或写入战斗");
@@ -1211,25 +1212,15 @@ namespace BaseConquest.Editor
             var fit = GameFrameLayout.Fit(w, h, 0, 0, w, h);
             var area = new Rect((float)fit.X, (float)fit.Y, (float)fit.Width, (float)fit.Height);
             foreach (var frame in Object.FindObjectsByType<GameFrameCanvas>()) frame.ApplyLayout(area, w, h);
-            var rects = cams.ToDictionary(c => c, c => c.rect);
-            var aspects = cams.ToDictionary(c => c, c => c.aspect);
-            var targets = cams.ToDictionary(c => c, c => c.targetTexture);
-            var rt = new RenderTexture(w, h, 24); rt.Create();
-            var uiRt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32); uiRt.Create();
             var prev = RenderTexture.active;
-            foreach (var camera in cams)
-            {
-                camera.rect = new Rect(0, 0, 1, 1);
-                camera.targetTexture = rt;
-                camera.aspect = w / (float)h;
-                camera.Render();
-            }
-            var tex = Read(rt, w, h);
+            var tex = CaptureWorld(cams, area, w, h);
             var top = cams.LastOrDefault();
             var canvases = Object.FindObjectsByType<Canvas>().Where(c => c.isRootCanvas && c.isActiveAndEnabled && c.renderMode == RenderMode.ScreenSpaceOverlay).OrderBy(c => c.sortingOrder).ToArray();
             var layers = new Dictionary<GameObject, int>();
             if (top != null && canvases.Length > 0)
             {
+                var uiRt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32);
+                var rect = top.rect; float aspect = top.aspect; var target = top.targetTexture;
                 int mask = top.cullingMask; var clear = top.clearFlags; var bg = top.backgroundColor;
                 foreach (var canvas in canvases)
                 {
@@ -1237,7 +1228,7 @@ namespace BaseConquest.Editor
                     canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = top; canvas.planeDistance = Mathf.Min(top.farClipPlane * .5f, top.nearClipPlane + 1f);
                 }
                 Canvas.ForceUpdateCanvases();
-                top.targetTexture = uiRt; top.aspect = w / (float)h; top.cullingMask = 1 << 31; top.clearFlags = CameraClearFlags.SolidColor; top.backgroundColor = new Color(0, 0, 0, 0); top.Render();
+                top.targetTexture = uiRt; top.rect = new Rect(0, 0, 1, 1); top.aspect = w / (float)h; top.cullingMask = 1 << 31; top.clearFlags = CameraClearFlags.SolidColor; top.backgroundColor = new Color(0, 0, 0, 0); top.Render();
                 top.cullingMask = mask; top.clearFlags = clear; top.backgroundColor = bg;
                 foreach (var canvas in canvases) { canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.worldCamera = null; }
                 foreach (var pair in layers) if (pair.Key != null) pair.Key.layer = pair.Value;
@@ -1249,15 +1240,70 @@ namespace BaseConquest.Editor
                     a[i] = new Color32((byte)Mathf.Min(255, b[i].r + a[i].r * (255 - al) / 255), (byte)Mathf.Min(255, b[i].g + a[i].g * (255 - al) / 255), (byte)Mathf.Min(255, b[i].b + a[i].b * (255 - al) / 255), 255);
                 }
                 tex.SetPixels32(a); tex.Apply(); Object.DestroyImmediate(ui);
+                top.targetTexture = target; top.rect = rect; top.aspect = aspect;
+                RenderTexture.active = prev;
+                RenderTexture.ReleaseTemporary(uiRt);
             }
-            foreach (var cam in cams) { cam.targetTexture = targets[cam]; cam.rect = rects[cam]; cam.aspect = aspects[cam]; }
             foreach (var frame in Object.FindObjectsByType<GameFrameCanvas>()) frame.Apply();
-            RenderTexture.active = prev; rt.Release(); uiRt.Release();
+            RenderTexture.active = prev;
             File.WriteAllBytes(Path.Combine(OutDir, name + ".png"), tex.EncodeToPNG());
             Object.DestroyImmediate(tex);
             Log.Add("## " + name + " ｜ 地点：" + controller?.State?.Campaign.Location + " ｜ 阶段：" + controller?.State?.Demo?.Stage
                 + " ｜ 页面：" + (H != null && H.PanelOpen ? "有模态页" : "无模态页") + " ｜ Canvas=" + canvases.Length);
             Debug.Log("[UiSkin] 截图 " + name);
+        }
+
+        private static Texture2D CaptureWorld(IEnumerable<Camera> cameras, Rect gameArea, int width, int height)
+        {
+            var liveArea = GameFrameCanvas.Area;
+            var liveScreen = new Rect(0, 0, Screen.width, Screen.height);
+            var screen = new Rect(0, 0, width, height);
+            var pixels = new Color32[width * height];
+            foreach (var camera in cameras)
+            {
+                bool background = camera.cullingMask == 0;
+                var source = background ? liveScreen : liveArea;
+                var destination = background ? screen : gameArea;
+                var viewport = camera.pixelRect;
+                var scale = new Vector2(destination.width / source.width, destination.height / source.height);
+                var min = Vector2.Max(destination.min, destination.min + Vector2.Scale(viewport.min - source.min, scale));
+                var max = Vector2.Min(destination.max, destination.min + Vector2.Scale(viewport.max - source.min, scale));
+                int left = Mathf.RoundToInt(min.x), right = Mathf.RoundToInt(max.x);
+                int bottom = Mathf.RoundToInt(min.y), top = Mathf.RoundToInt(max.y);
+                if (left >= right || bottom >= top) continue;
+
+                int cameraWidth = right - left, cameraHeight = top - bottom;
+                var target = RenderTexture.GetTemporary(cameraWidth, cameraHeight, 24);
+                var active = RenderTexture.active;
+                var savedTarget = camera.targetTexture;
+                var savedRect = camera.rect;
+                float savedAspect = camera.aspect;
+                try
+                {
+                    // A camera renders across its entire target texture. Compose that image at the live viewport's position.
+                    camera.targetTexture = target;
+                    camera.rect = new Rect(0, 0, 1, 1);
+                    camera.aspect = cameraWidth / (float)cameraHeight;
+                    camera.Render();
+                    var image = Read(target, cameraWidth, cameraHeight);
+                    var cameraPixels = image.GetPixels32();
+                    Object.DestroyImmediate(image);
+                    for (int row = 0; row < cameraHeight; row++)
+                        Array.Copy(cameraPixels, row * cameraWidth, pixels, (bottom + row) * width + left, cameraWidth);
+                }
+                finally
+                {
+                    camera.targetTexture = savedTarget;
+                    camera.rect = savedRect;
+                    camera.aspect = savedAspect;
+                    RenderTexture.active = active;
+                    RenderTexture.ReleaseTemporary(target);
+                }
+            }
+            var result = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            result.SetPixels32(pixels);
+            result.Apply();
+            return result;
         }
 
         private static Texture2D Read(RenderTexture rt, int w, int h)
