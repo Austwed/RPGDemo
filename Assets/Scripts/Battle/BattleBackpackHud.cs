@@ -13,14 +13,14 @@ namespace BaseConquest.Battle
         private bool preparationInventoryOpen;
         public void OpenBattleQuests()
         {
-            if(IsSceneEncounter){ManualPause();feedback=SceneEncounterObjective+(IsDemoAttack?"：击败驻军，处理完战果后开放"+BaseScriptNames.Village+"道路；队长倒地不立即判负，撤退保留双方战损。":IsDemoDefense?(IsSecondDefense?"：击败全部来敌才算守住。":"：守住时限后敌军撤退，可继续追击；失败扣经济损失后残军次日再袭。"):IsDemoRuins?"：击败控制来源，受控村民可制服，不会误杀。":"：先掩护村民离开，击倒一名追兵并重创另一名。");return;}
+            if(IsSceneEncounter){ManualPause();feedback=IsBanditHideout?BaseBanditHideout.ReportText:SceneEncounterObjective+(IsDemoAttack?"：击败驻军，处理完战果后开放"+BaseScriptNames.Village+"道路；队长倒地不立即判负，撤退保留双方战损。":IsDemoDefense?(IsSecondDefense?"：击败全部来敌才算守住。":"：守住时限后敌军撤退，可继续追击；失败扣经济损失后残军次日再袭。"):IsDemoRuins?"：击败控制来源，受控村民可制服，不会误杀。":"：先掩护村民离开，击倒一名追兵并重创另一名。");return;}
             if(!IsCampaignBattle||CampaignGameOver)return;autoRun=false;skipping=false;CancelGesture();PersistCampaignCheckpoint(true);
             try{BuildBattleBackpack(BaseBattleGateway.Store().Load(),"quests",null);}catch(Exception e){feedback="任务读取失败："+e.Message;}
         }
         private void CloseBattleBackpack(){battleBagOpen=false;if(campaignMenu!=null){campaignMenu.SetActive(false);Destroy(campaignMenu);}}
         public void OpenBattleBackpack(string category="all",string itemId=null)
         {
-            if(IsSceneEncounter){ManualPause();feedback=IsDemoRuins||IsDemoDefense||IsDemoAttack?"交战中不使用和平背包，军需与装备已按战前状态锁定":"教学遭遇使用临时作战数据，不访问营地背包";return;}
+            if(IsSceneEncounter){ManualPause();feedback=IsDemoRuins||IsDemoDefense||IsDemoAttack||IsBanditHideout?"交战中不使用和平背包，军需与装备已按战前状态锁定":"教学遭遇使用临时作战数据，不访问营地背包";return;}
             if(!IsCampaignBattle||CampaignGameOver)return;
             if(battle.Phase!=BattlePhase.Deployment){feedback="战斗中不能打开背包";return;}
             var owner=GetComponentInParent<BaseSceneController>();if(owner==null){feedback="此独立战场无冒险小队背包";return;}

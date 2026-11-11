@@ -52,7 +52,11 @@ namespace BaseConquest.Battle
                 foreach (BattleSide side in Enum.GetValues(typeof(BattleSide)))
                 {
                     NormalizeFormation(side);
-                    for (int slot = 0; slot < 3; slot++) Squads.Add(new BattleSquad { Id = Squads.Count, Side = side, Kind = SoldierKind.Hero, CommanderSlot = slot, Name = SideName(side) + "小队" + (slot + 1) });
+                    for (int slot = 0; slot < 3; slot++)
+                    {
+                        bool independent = Scenario.Leaderless(side) && slot == 0;
+                        Squads.Add(new BattleSquad { Id = Squads.Count, Side = side, Kind = independent ? SoldierKind.Melee : SoldierKind.Hero, CommanderSlot = independent ? -1 : slot, Name = independent ? SideName(side) + "士兵" : SideName(side) + "小队" + (slot + 1) });
+                    }
                 }
             }
             else
@@ -67,7 +71,8 @@ namespace BaseConquest.Battle
                 foreach (BattleSide side in Enum.GetValues(typeof(BattleSide)))
                 {
                     captainSlots[(int)side] = Scenario.Army(side).CaptainSlot;
-                    foreach (var q in Squads.Where(q => q.Side == side)) q.SupplySlots.Add(q.CommanderSlot);
+                    if (!Scenario.Leaderless(side))
+                        foreach (var q in Squads.Where(q => q.Side == side)) q.SupplySlots.Add(q.CommanderSlot);
                 }
             UnitPlacement[] initial = Scenario.Placements.ToArray();
             Scenario.Placements.Clear();
@@ -76,7 +81,7 @@ namespace BaseConquest.Battle
             Vision.Refresh();
         }
 
-        public int Remaining(BattleSide side, SoldierKind kind) => Scenario.CommanderControl ? FormationStock(side, kind) : Math.Max(0, Scenario.Army(side).Count(kind) - Soldiers.Count(s => s.Side == side && s.Kind == kind && !s.DeveloperSpawned));
+        public int Remaining(BattleSide side, SoldierKind kind) => Scenario.CommanderControl && !Scenario.Leaderless(side) ? FormationStock(side, kind) : Math.Max(0, Scenario.Army(side).Count(kind) - Soldiers.Count(s => s.Side == side && s.Kind == kind && !s.DeveloperSpawned));
         public BattleSoldier Soldier(int id) => Soldiers.Find(s => s.Id == id);
         public BattleSoldier At(GridPosition cell) => Soldiers.Find(s => s.IsActive && s.Cell == cell);
         public List<BattleSoldier> UnitsAt(GridPosition cell) => Soldiers.Where(s => s.IsActive && s.Cell == cell).OrderBy(s => s.IsTransit).ThenBy(s => s.Id).ToList();
@@ -90,7 +95,7 @@ namespace BaseConquest.Battle
             commanderSlot = DeploymentSlot(side, kind, commanderSlot);
             if (!CanDeploy(side, kind, cell, commanderSlot)) return false;
             SoldierStats stats = (kind==SoldierKind.Hero ? Scenario.Army(side).CommanderProfile(commanderSlot) : Scenario.Army(side).Stats(kind)).Clone();
-            var s = new BattleSoldier { Id = nextId++, Side = side, Kind = kind, SquadId = Scenario.CommanderControl ? CommanderSquadId(side, commanderSlot) : SquadId(side, kind), Cell = cell, PreviousCell = cell, MoveGoal = cell, Stats = stats, Health = stats.Health };
+            var s = new BattleSoldier { Id = nextId++, Side = side, Kind = kind, SquadId = Scenario.CommanderControl && !Scenario.Leaderless(side) ? CommanderSquadId(side, commanderSlot) : SquadId(side, kind), Cell = cell, PreviousCell = cell, MoveGoal = cell, Stats = stats, Health = stats.Health };
             s.OriginCommanderSlot = commanderSlot;
             if(kind==SoldierKind.Hero)s.AppearanceId=CommanderAppearance(side,commanderSlot);
             Soldiers.Add(s); Squads[s.SquadId].Soldiers.Add(s);
@@ -109,7 +114,11 @@ namespace BaseConquest.Battle
         }
         public bool CanDeploy(BattleSide side, SoldierKind kind, GridPosition cell, int commanderSlot = -1)
         {
-            if (Scenario.CommanderControl)
+            if (Scenario.Leaderless(side))
+            {
+                if (Phase != BattlePhase.Deployment || commanderSlot != -1 || !TroopKinds.Contains(kind)) return false;
+            }
+            else if (Scenario.CommanderControl)
             {
                 commanderSlot = DeploymentSlot(side, kind, commanderSlot);
                 if (CommanderSquad(side, commanderSlot) == null || CommanderRemaining(side, commanderSlot, kind) == 0 || (kind != SoldierKind.Hero && Commander(side, commanderSlot)?.IsActive != true)) return false;
@@ -146,7 +155,7 @@ namespace BaseConquest.Battle
 
         public void ApplyArmy(BattleSide side, ArmyDefinition definition)
         {
-            if (Phase != BattlePhase.Deployment) return;
+            if (Phase != BattlePhase.Deployment || Scenario.Leaderless(side)) return;
             if (side == BattleSide.A) Scenario.A = definition.Clone(); else Scenario.B = definition.Clone();
             foreach (SoldierKind kind in Enum.GetValues(typeof(SoldierKind)))
             {
@@ -198,7 +207,9 @@ namespace BaseConquest.Battle
         {
             if (Phase != BattlePhase.Deployment) { message = "当前已开战"; return false; }
             if (!Soldiers.Exists(s => s.Side == BattleSide.A) || !Soldiers.Exists(s => s.Side == BattleSide.B)) { message = "甲方和乙方都至少需要投放一名单位"; return false; }
-            if (Scenario.CommanderControl && (!Soldiers.Any(s => s.Side == BattleSide.A && s.Kind == SoldierKind.Hero) || !Soldiers.Any(s => s.Side == BattleSide.B && s.Kind == SoldierKind.Hero))) { message = "双方至少各部署一名小队长"; return false; }
+            if (Scenario.CommanderControl && (!Soldiers.Any(s => s.Side == BattleSide.A && s.Kind == SoldierKind.Hero) || !Scenario.BanditHideout && !Soldiers.Any(s => s.Side == BattleSide.B && s.Kind == SoldierKind.Hero)))
+            { message = Scenario.BanditHideout ? "请先部署我方队长" : "双方至少各部署一名小队长"; return false; }
+            if (Scenario.BanditHideout && TroopKinds.Any(kind => Remaining(BattleSide.B, kind) > 0)) { message = "敌军部署未完成"; return false; }
             foreach (BattleSoldier s in Soldiers) s.BattlePower = s.Stats.BaseBattlePower;
             InvalidateUndo(); Phase = BattlePhase.Fighting; InitializeCommanderSkills(); RefreshRoles(); Vision.Refresh(); message = "已开战，等待推进第一轮。库存可在轮次之间继续部署。"; return true;
         }

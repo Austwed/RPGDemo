@@ -70,6 +70,8 @@ namespace BaseConquest.Base
             else
             {
                 var cards = Ui<RectTransform>(panel, "Cards");
+                var frame = Ui<RectTransform>(panel, "FrameWidths/" + Mathf.Clamp(people.Length, 1, 3));
+                panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, frame.rect.width);
                 foreach (var person in people)
                     BuildInventoryCard(cards, person, entries, inventorySelected, true, null);
             }

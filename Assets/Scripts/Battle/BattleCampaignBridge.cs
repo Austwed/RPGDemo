@@ -84,22 +84,38 @@ namespace BaseConquest.Battle
             catch (Exception e) { feedback = "尚未返回，原进度保留：" + e.Message; Debug.LogError(feedback);hud?.Refresh(); }
         }
         public void ReturnCampaignPrisoners(){if(!CanReturnCampaign)return;BaseBattleGateway.ShowPrisoners=true;ReturnCampaign();}
-        private void PersistCampaignCheckpoint(bool force=false,bool clearBaseEffects=false)
+        private bool PersistCampaignCheckpoint(bool force=false,bool clearBaseEffects=false)
         {
-            if(IsRealtimeCampaign)return;
-            if(!Application.isPlaying)return;
-            if(campaignSession==null||campaignSaved||!force&&(battle.Phase==BattlePhase.Finished||animating||skipping||Time.unscaledTime<campaignCheckpointAt))return;
+            if(IsRealtimeCampaign||!Application.isPlaying)return true;
+            if(campaignSession==null||campaignSaved||!force&&(battle.Phase==BattlePhase.Finished||animating||skipping||Time.unscaledTime<campaignCheckpointAt))return true;
             campaignCheckpointAt=Time.unscaledTime+1;
-            try { campaignSession.Bind();var data=battle.Capture();string json=JsonUtility.ToJson(data)+(realtime!=null?JsonUtility.ToJson(realtime.Model.Capture()):"");if(!force&&json==checkpointJson)return;var store=BaseBattleGateway.Store();var state=store.Load();if(clearBaseEffects||!RuntimeDeveloperOptions.Enabled)BaseDeveloperTools.ClearEffects(state);if(realtime!=null)realtime.SaveCheckpoint(state);else campaignSession.SaveCheckpoint(state);store.Save(state);checkpointJson=json; }
-            catch(Exception e){feedback="战斗存档尚未保存："+e.Message;}
+            try { campaignSession.Bind();var data=battle.Capture();string json=JsonUtility.ToJson(data)+(realtime!=null?JsonUtility.ToJson(realtime.Model.Capture()):"");if(!force&&json==checkpointJson)return true;var store=BaseBattleGateway.Store();var state=store.Load();if(clearBaseEffects||!RuntimeDeveloperOptions.Enabled)BaseDeveloperTools.ClearEffects(state);if(realtime!=null)realtime.SaveCheckpoint(state);else campaignSession.SaveCheckpoint(state);store.Save(state);checkpointJson=json;return true; }
+            catch(Exception e){feedback="战斗存档尚未保存："+e.Message;return false;}
         }
-        public void AbandonRealtimeBattle(bool mainMenu=false)
+        public void AbandonRealtimeBattle(bool mainMenu=false) => LeaveRealtimeBattle(mainMenu);
+
+        private bool LeaveRealtimeBattle(bool mainMenu, bool loadScene = true)
         {
-            if(IsSceneEncounter){FinishSceneEncounter(true,mainMenu);return;}
-            try {if(!campaignSaved)BaseBattleGateway.Session().AbandonBattle();BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;campaignBattleId="";SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
-            catch(Exception error){feedback="未放弃战斗："+error.Message;hud?.Refresh();}
+            if(IsSceneEncounter)return FinishSceneEncounter(true,mainMenu);
+            try
+            {
+                if(!campaignSaved)BaseBattleGateway.Session().AbandonBattle();
+                BaseBattleGateway.MainMenu=mainMenu;
+                BaseBattleGateway.RequestedId=null;
+                campaignBattleId="";
+                if(loadScene)SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+                return true;
+            }
+            catch(Exception error){feedback="未放弃战斗："+error.Message;hud?.Refresh();return false;}
         }
-        public void CampaignMainMenu() {if(IsRealtimeCampaign){AbandonRealtimeBattle(true);return;}PersistCampaignCheckpoint(true);BaseBattleGateway.MainMenu=true;BaseBattleGateway.RequestedId=null;campaignBattleId="";SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
+        public void CampaignMainMenu() {if(IsRealtimeCampaign){AbandonRealtimeBattle(true);return;}PersistCampaignCheckpoint(true);LoadCampaignMainMenu();}
+        private void LoadCampaignMainMenu()
+        {
+            BaseBattleGateway.MainMenu=true;
+            BaseBattleGateway.RequestedId=null;
+            campaignBattleId="";
+            SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+        }
         private void OnApplicationPause(bool paused){if(paused){ManualPause();PersistCampaignCheckpoint(true);}}
         private void OnApplicationQuit()=>PersistCampaignCheckpoint(true);
     }

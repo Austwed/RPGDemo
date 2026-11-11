@@ -20,34 +20,33 @@ namespace BaseConquest.Battle
 
         public bool DeploymentDraftActive => deploymentDraft != null;
         public bool DraftPlacementActive { get; private set; }
+        private bool DraftInputBlocked => ExternalDialogue || campaignMenu != null;
         internal bool FormalFieldHud => DeploymentDraftActive || manualFieldEncounter;
         internal IReadOnlyList<BasePrepUnit> DraftTeams => draftTeams;
         internal int DraftTeamSlot { get; private set; }
         internal SoldierKind? DraftArmedKind => draftArmedUnit?.Kind;
-        internal bool DraftCanConfirm => deploymentDraft.Positions.ContainsKey(deploymentDraft.PlayerId) &&
+        internal bool DraftCanConfirm => DeploymentDraftActive && !DraftInputBlocked && deploymentDraft.Positions.ContainsKey(deploymentDraft.PlayerId) &&
             deploymentDraft.Problem(deploymentState(), true) == "";
         internal bool DraftTeamPlaced(int slot) => deploymentDraft.Positions.ContainsKey(draftTeams[slot].Id);
         internal int DraftRemaining(int slot, SoldierKind kind) => deploymentDraft.Units.Count(u => u.Selected &&
             u.TeamId == draftTeams[slot].Id && u.Kind == kind && !deploymentDraft.Positions.ContainsKey(u.Id));
-        internal string FieldMapName => DeploymentDraftActive && deploymentDraft.Route == BasePrepRoute.Ruins ? BaseScriptNames.Ruins :
+        internal string FieldMapName => DeploymentDraftActive && deploymentDraft.Route == BasePrepRoute.Hideout ? BaseBanditHideout.Title :
+            DeploymentDraftActive && deploymentDraft.Route == BasePrepRoute.Ruins ? BaseScriptNames.Ruins :
             GetComponentInParent<BaseSceneController>()?.State is BaseState state ? BaseCampaign.LocationName(state) : "战场";
         internal string FieldDraftGoal => deploymentDraft.Route switch
         {
             BasePrepRoute.Defense => StoryText.Get("story.ui.prep.first_objective", "坚守到敌军撤离，或击败全部来敌。"),
             BasePrepRoute.Second => StoryText.Get("story.ui.prep.second_objective", "击败全部来敌。开战后无法撤退。"),
             BasePrepRoute.BlackCrow => StoryText.Get("story.ui.prep.attack_objective", "使用已抵达的队伍攻占黑鸦寨。"),
+            BasePrepRoute.Hideout => BaseBanditHideout.Objective,
             _ => "击败控制来源，救出失踪者。"
         };
-        internal (string Ally, string Enemy, string Supply) FieldDraftSummary()
+        internal (string Ally, string Enemy) FieldDraftSummary()
         {
             var placed = deploymentDraft.Units.Where(u => u.Selected && deploymentDraft.Positions.ContainsKey(u.Id)).ToArray();
             var enemy = deploymentDraft.KnownEnemyCount();
-            int grade = deploymentDraft.SupplyGrade;
-            int required = deploymentDraft.RequiredSupply(true);
-            string supply = grade == 0 ? $"所需 {required} 件 · 未选等级" : $"{grade} 级 · 已部署需 {required} 件";
             return ($"我方已部署  队长 {placed.Count(u => u.Kind == SoldierKind.Hero)} · 剑 {placed.Count(u => u.Kind == SoldierKind.Melee)} · 弓 {placed.Count(u => u.Kind == SoldierKind.Ranged)} · 骑 {placed.Count(u => u.Kind == SoldierKind.Cavalry)}",
-                "敌方  " + (enemy.HasValue ? $"队长 {deploymentDraft.KnownEnemyCount(SoldierKind.Hero)} · 剑 {deploymentDraft.KnownEnemyCount(SoldierKind.Melee)} · 弓 {deploymentDraft.KnownEnemyCount(SoldierKind.Ranged)} · 骑 {deploymentDraft.KnownEnemyCount(SoldierKind.Cavalry)}" : "暂无已知情报"),
-                "军需  " + supply);
+                "敌方  " + (enemy.HasValue ? $"队长 {deploymentDraft.KnownEnemyCount(SoldierKind.Hero)} · 剑 {deploymentDraft.KnownEnemyCount(SoldierKind.Melee)} · 弓 {deploymentDraft.KnownEnemyCount(SoldierKind.Ranged)} · 骑 {deploymentDraft.KnownEnemyCount(SoldierKind.Cavalry)}" : "暂无已知情报"));
         }
 
         public void ConfigureDeploymentDraft(BaseBattlePreparation draft, Func<BaseState> state, Action back, Action exit, Action confirm)
@@ -167,7 +166,7 @@ namespace BaseConquest.Battle
 
         public void ToggleDraftDeployment()
         {
-            if (!DeploymentDraftActive || ExternalDialogue) return;
+            if (!DeploymentDraftActive || DraftInputBlocked) return;
             string problem = deploymentDraft.Problem(deploymentState(), true);
             if (!string.IsNullOrEmpty(problem)) { RefreshDeploymentDraft(problem); return; }
             deploymentConfirm?.Invoke();
@@ -175,7 +174,7 @@ namespace BaseConquest.Battle
 
         internal void ClearDraftDeployment()
         {
-            if (!DraftPlacementActive || ExternalDialogue) return;
+            if (!DraftPlacementActive || DraftInputBlocked) return;
             CancelGesture();
             deploymentDraft.Positions.Clear();
             ArmDraftTeam(0);
@@ -185,7 +184,7 @@ namespace BaseConquest.Battle
 
         internal void AutoPlaceDraftDeployment()
         {
-            if (!DraftPlacementActive || ExternalDialogue) return;
+            if (!DraftPlacementActive || DraftInputBlocked) return;
             int added = deploymentDraft.AutoPlace();
             if (DraftTeamSlot >= 0) AdvanceDraftQueue();
             feedback = added > 0 ? $"已部署 {added} 人。确认开战前可调整位置。" : "没有可继续部署的单位。";
@@ -194,7 +193,7 @@ namespace BaseConquest.Battle
 
         internal void ReturnFromDeploymentDraft()
         {
-            if (!DeploymentDraftActive || ExternalDialogue) return;
+            if (!DeploymentDraftActive || DraftInputBlocked) return;
             deploymentBack?.Invoke();
         }
 
@@ -252,7 +251,7 @@ namespace BaseConquest.Battle
 
         internal void SelectDraftCommander(int slot)
         {
-            if (!DraftPlacementActive || ExternalDialogue || slot < 0 || slot >= draftTeams.Length) return;
+            if (!DraftPlacementActive || DraftInputBlocked || slot < 0 || slot >= draftTeams.Length) return;
             ArmDraftTeam(DraftTeamSlot == slot ? -1 : slot);
             RefreshDeploymentDraft(DraftTeamSlot < 0 ? "已取消选择。" : "已选择" + draftTeams[slot].Name + "。点己方部署格落位。");
         }
@@ -261,7 +260,7 @@ namespace BaseConquest.Battle
         internal void SelectDraftTroop(SoldierKind kind) => SelectDraftTroop(DraftTeamSlot, kind);
         internal void SelectDraftTroop(int slot, SoldierKind kind)
         {
-            if (!DraftPlacementActive || ExternalDialogue) return;
+            if (!DraftPlacementActive || DraftInputBlocked) return;
             var unit = DraftNextUnit(slot, kind);
             if (unit == null) return;
             if (DraftTeamSlot == slot && draftArmedUnit?.Kind == kind)
@@ -281,7 +280,7 @@ namespace BaseConquest.Battle
 
         public bool TryDraftDeploymentCell(GridPosition cell, bool recall = false)
         {
-            if (!DraftPlacementActive || ExternalDialogue) return false;
+            if (!DraftPlacementActive || DraftInputBlocked) return false;
             var placed = DraftUnitAt(cell);
             if (recall)
             {
@@ -339,7 +338,7 @@ namespace BaseConquest.Battle
 
         private void DraftPointerDown(int id, Vector2 point)
         {
-            if (!DraftPlacementActive || IsUiPoint(point) || !ResolvePointer(point, out var cell)) return;
+            if (!DraftPlacementActive || DraftInputBlocked || IsUiPoint(point) || !ResolvePointer(point, out var cell)) return;
             gestureActive = true;
             gestureLong = gestureDragging = false;
             gestureStartedOnUnit = DraftUnitAt(cell) != null;

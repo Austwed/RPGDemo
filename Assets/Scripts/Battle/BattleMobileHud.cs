@@ -22,11 +22,11 @@ namespace BaseConquest.Battle
         private readonly RectTransform realtimeMinimap;
         private readonly List<RectTransform> hits = new List<RectTransform>();
         private readonly Button step, automatic, fast, skip, cancel, switchSide, drawer;
-        private readonly Button deployment, preparationClear, preparationStart;
+        private readonly Button draftStart;
         private readonly Button undo, withdraw, preparationUndo, pursue, settlement, failureRestart, testRestart, reportButton;
         private readonly Button realtimeGuard,realtimeRetreat;
         private readonly BattleResultPanel battleResult;
-        private readonly RectTransform preparationPanel, fightingPanel, resultPanel;
+        private readonly RectTransform draftControls, preparationPanel, fightingPanel, resultPanel;
         private readonly Text[] troopStatus = new Text[3];
         private readonly RectTransform cellMenu, cellMenuContent;
         private readonly Text cellMenuTitle;
@@ -70,7 +70,8 @@ namespace BaseConquest.Battle
         public BattleMobileHud(BattleSceneController owner, Transform parent, Font font)
         {
             this.owner = owner; this.font = font;
-            var sceneShell = parent.GetComponentInParent<BaseSceneController>()?.SceneUiTemplate("BattleShell");
+            var sceneOwner = parent.GetComponentInParent<BaseSceneController>();
+            var sceneShell = sceneOwner?.SceneUiTemplate("BattleShell");
             Root = UiPrefabBinding.Create("BattleShell", "BattleHud", parent, true, sceneShell, sceneShell != null);
             Canvas = Root.GetComponent<Canvas>(); Canvas.renderMode = RenderMode.ScreenSpaceOverlay; Canvas.sortingOrder = 50;
             Root.GetComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
@@ -91,9 +92,13 @@ namespace BaseConquest.Battle
             automatic = Button("自动", safe, new Vector2(1, 1), new Vector2(-124, -10), new Vector2(50, 44), owner.ToggleAutomatic);
             fast = Button("3倍", safe, new Vector2(1, 1), new Vector2(-68, -10), new Vector2(50, 44), owner.ToggleFast);
             skip = Button("跳过", safe, new Vector2(1, 1), new Vector2(-12, -10), new Vector2(50, 44), owner.SkipBattle);
-            deployment = Button("Deployment", safe, new Vector2(1, 1), new Vector2(-12, -10), new Vector2(110, 44), owner.ToggleDraftDeployment);
             var army = Box("ControlledArmy", safe, new Vector2(0, 1), new Vector2(10, -76), new Vector2(118, 210)); armyPanel = army; heading = Label("", army, 12); heading.rectTransform.anchorMin = new Vector2(0, 0.85f);
             preparationPanel = Box("PreparationControls", safe, new Vector2(1, 0), new Vector2(-12, 44), new Vector2(296, 112));
+            draftControls = Rect("DraftPreparationControls", safe, new Vector2(1, 0), new Vector2(-14, 44), new Vector2(438, 44));
+            DraftButton("Back", StoryText.Get("story.ui.prep.deployment_back", "返回备战"), 0, owner.ReturnFromDeploymentDraft);
+            DraftButton("Auto", StoryText.Get("story.ui.prep.deployment_auto", "一键布置"), 111, owner.AutoPlaceDraftDeployment);
+            DraftButton("Clear", StoryText.Get("story.ui.prep.deployment_clear", "一键撤销"), 222, owner.ClearDraftDeployment);
+            draftStart = DraftButton("Start", StoryText.Get("story.ui.prep.deployment_confirm", "开战"), 333, owner.ToggleDraftDeployment);
             fightingPanel = Box("FightingControls", safe, new Vector2(1, 0), new Vector2(-12, 44), new Vector2(296, 122));
             resultPanel = Box("ResultControls", safe, new Vector2(1, 0), new Vector2(-12, 44), new Vector2(296, 62));
             var kinds = BattleSimulation.TroopKinds;
@@ -103,10 +108,10 @@ namespace BaseConquest.Battle
                 troopStatus[i] = cards[i].GetComponentInChildren<Text>(); troopStatus[i].fontSize = 12;
             }
             Button("一键布兵", preparationPanel, Vector2.zero, new Vector2(8, 58), new Vector2(88, 44), owner.AutoDeployControlled);
-            preparationClear = Button("一键清场", preparationPanel, Vector2.zero, new Vector2(8, 8), new Vector2(88, 44), owner.StartManualDeployment);
+            Button("一键清场", preparationPanel, Vector2.zero, new Vector2(8, 8), new Vector2(88, 44), owner.StartManualDeployment);
             withdraw = Button("撤回所选单位", preparationPanel, Vector2.zero, new Vector2(104, 58), new Vector2(88, 44), owner.WithdrawSelected);
             preparationUndo = Button("撤回上一操作", preparationPanel, Vector2.zero, new Vector2(104, 8), new Vector2(88, 44), owner.UndoOneAction);
-            preparationStart = Button("开战", preparationPanel, Vector2.zero, new Vector2(200, 58), new Vector2(88, 44), owner.StartBattle);
+            Button("开战", preparationPanel, Vector2.zero, new Vector2(200, 58), new Vector2(88, 44), owner.StartBattle);
             step = Button("下一轮", fightingPanel, Vector2.zero, new Vector2(8, 54), new Vector2(280, 60), owner.AdvanceOne);
             step.GetComponentInChildren<Text>().fontSize = 18;
             realtimeGuard=Button("驻守",fightingPanel,Vector2.zero,new Vector2(8,116),new Vector2(136,44),owner.RealtimeGuardSelection);
@@ -184,6 +189,7 @@ namespace BaseConquest.Battle
             reportButton = Button("查看战报", resultPanel, Vector2.zero, new Vector2(8, 8), new Vector2(136,44), () => { battleResult.Open(); Refresh(); });
             UiPrefabBinding.Complete(Root);
             if (owner.FormalFieldHud) ApplyFormalLayout(sceneShell != null && sceneShell.transform.Find("SafeArea/FormalBanner") != null);
+            if (owner.UsesCampaignSystemMenu) ApplySystemMenuLayout(sceneOwner?.SceneUiTemplate("BaseShell")?.transform.Find("Header/菜单") as RectTransform);
             drawerPosition = ((RectTransform)drawer.transform).anchoredPosition;
             detailsSize = details.sizeDelta;
             effectsSize = detailEffectsPanel.sizeDelta;
@@ -222,6 +228,13 @@ namespace BaseConquest.Battle
         private Button Button(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size, Action action)
         {
             var r = Box(name, parent, anchor, pos, size); var b = r.gameObject.GetOrAdd<Button>(); b.targetGraphic = r.GetComponent<Image>(); DemoUiTheme.Current.StyleButton(b); Label(name, r, 13); if (action != null) b.onClick.AddListener(() => action()); return b;
+        }
+
+        private Button DraftButton(string name, string text, float x, Action action)
+        {
+            var button = Button(name, draftControls, Vector2.zero, new Vector2(x, 2), new Vector2(104, 40), action);
+            button.GetComponentInChildren<Text>(true).text = text;
+            return button;
         }
 
         private void SetHighlighted(Button button, bool marked)
@@ -305,16 +318,9 @@ namespace BaseConquest.Battle
         public void Refresh()
         {
             var b = owner.PreviewSimulation; Root.GetComponent<CanvasScaler>().scaleFactor = owner.HudScale;
-            deployment.gameObject.SetActive(owner.DeploymentDraftActive);
             if (owner.DeploymentDraftActive) { RefreshDraft(b); return; }
-            if (showedDraft)
-            {
-                showedDraft = false;
-                preparationPanel.GetComponent<Image>().enabled = true;
-                hits.Add(preparationPanel);
-                foreach (var action in new[] { preparationClear, withdraw, preparationUndo, preparationStart }) action.gameObject.SetActive(true);
-                preparationClear.GetComponentInChildren<Text>().text = "一键清场";
-            }
+            showedDraft = false;
+            draftControls.gameObject.SetActive(false);
             armyPanel.gameObject.SetActive(!owner.DrawerVisible && !owner.FormalFieldHud);
             ((RectTransform)drawer.transform).anchoredPosition = drawerPosition + (owner.DrawerVisible ? Vector2.right * 278 : Vector2.zero);
             foreach (var element in testHidden) element.SetActive(!owner.DrawerVisible);
@@ -453,9 +459,8 @@ namespace BaseConquest.Battle
             if (!showedDraft)
             {
                 showedDraft = true;
-                preparationPanel.GetComponent<Image>().enabled = false;
-                hits.Remove(preparationPanel);
-                foreach (var control in new[] { withdraw, preparationUndo, preparationStart, automatic, fast, skip, switchSide, testRestart })
+                preparationPanel.gameObject.SetActive(false);
+                foreach (var control in new[] { automatic, fast, skip, switchSide, testRestart })
                     control.gameObject.SetActive(false);
                 foreach (var panel in new[] { realtimeMinimap, fightingPanel, resultPanel, infoPanel, logPanel, details, detailBackdrop })
                     panel.gameObject.SetActive(false);
@@ -463,11 +468,9 @@ namespace BaseConquest.Battle
 
             bool placing = owner.DraftPlacementActive;
             var teams = owner.DraftTeams;
-            drawer.GetComponentInChildren<Text>().text = "返回备战";
-            deployment.GetComponentInChildren<Text>().text = StoryText.Get("story.ui.prep.deployment_confirm", "开战");
-            deployment.interactable = owner.DraftCanConfirm;
-            preparationClear.GetComponentInChildren<Text>().text = StoryText.Get("story.ui.prep.deployment_clear", "一键撤销");
-            preparationPanel.gameObject.SetActive(placing);
+            drawer.GetComponentInChildren<Text>().text = "菜单";
+            draftStart.interactable = owner.DraftCanConfirm;
+            draftControls.gameObject.SetActive(placing);
             armyPanel.gameObject.SetActive(false);
             status.text = owner.Feedback;
             for (int i = 0; i < portraits.Length; i++)
@@ -520,7 +523,7 @@ namespace BaseConquest.Battle
             if(owner.IsSceneEncounter)
             {
                 objectiveTitle.text=owner.SceneEncounterObjective;
-                objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsDemoPractice?(owner.Realtime?.TutorialProgress?.Invoke()??"完成六项指挥练习"):owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsSecondDefense?"击败全部来敌":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0.0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 可提前击退":owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":"村民先离开 · 击倒一人，重创另一人";
+                objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsBanditHideout?owner.SceneEncounterObjective:owner.IsDemoPractice?(owner.Realtime?.TutorialProgress?.Invoke()??"完成六项指挥练习"):owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsSecondDefense?"击败全部来敌":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0.0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 可提前击退":owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":"村民先离开 · 击倒一人，重创另一人";
                 status.text=(battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.RealtimeStatus)+"\n"+owner.Feedback;
             }
             if(owner.DetailsVisible)

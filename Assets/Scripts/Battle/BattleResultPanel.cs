@@ -1,3 +1,4 @@
+using BaseConquest.Base;
 using BaseConquest.Presentation;
 using UnityEngine;
 using UnityEngine.UI;
@@ -59,7 +60,7 @@ namespace BaseConquest.Battle
             panel.sizeDelta=new Vector2(Mathf.Min(680,Mathf.Max(280,available.x-32)),Mathf.Min(520,Mathf.Max(220,available.y-32)));
             title.text=ended ? "游戏结束" : "战后报告 · "+BattleSceneController.OutcomeName(report.Outcome);
             if(campaignOwner?.IsSceneEncounter==true)
-            {title.text=campaignOwner.SceneEncounterResult;returnBase.GetComponentInChildren<Text>().text=report.Outcome==BattleOutcome.SideAWin?(campaignOwner.IsDemoAttack?"结算并留在当地":campaignOwner.IsDemoDefense?"结算并返回营地":"继续剧情"):campaignOwner.IsDemoDefense||campaignOwner.IsDemoAttack||campaignOwner.IsDemoRuins?"结算实际战损并撤出":"无损重试";}
+            {title.text=campaignOwner.SceneEncounterResult;returnBase.GetComponentInChildren<Text>().text=campaignOwner.IsBanditHideout?BaseBanditHideout.ReturnText:report.Outcome==BattleOutcome.SideAWin?(campaignOwner.IsDemoAttack?"结算并留在当地":campaignOwner.IsDemoDefense?"结算并返回营地":"继续剧情"):campaignOwner.IsDemoDefense||campaignOwner.IsDemoAttack||campaignOwner.IsDemoRuins?"结算实际战损并撤出":"无损重试";}
             bool refreshText=renderedReport!=report || previousObserver!=observer || campaign && renderedCampaignFeedback != campaignOwner.Feedback;
             if(refreshText) {string summary=BattleReportFormatting.Format(report,observer);if(campaignOwner?.IsRealtimeCampaign==true)summary=summary.Replace("回合 "+report.Rounds,"作战 "+(campaignOwner.Realtime?.Model.Elapsed??0).ToString("0.0")+"秒").Replace("技能 "+report.AbilitiesUsed,"技能待接入");body.text=summary + (campaign ? "\n经营回写：" + campaignOwner.Feedback : ""); previousObserver=observer;renderedReport=report;renderedCampaignFeedback=campaign ? campaignOwner.Feedback : null;}
             if(campaignOwner?.IsSceneEncounter==true)body.text=campaignOwner.SceneEncounterResult+"\n\n"+campaignOwner.SceneEncounterReport+"\n\n"+campaignOwner.Feedback;

@@ -79,6 +79,7 @@ namespace BaseConquest.Base
             BasePrepRoute.Defense => PrepText("first_defense", "首次防守"),
             BasePrepRoute.Second => PrepText("second_defense", "第二波防守"),
             BasePrepRoute.BlackCrow => BaseScriptNames.Bandit,
+            BasePrepRoute.Hideout => BaseBanditHideout.Title,
             _ => PrepText("travel", "出征编队")
         };
 
@@ -415,6 +416,7 @@ namespace BaseConquest.Base
                         (state.Demo.RuinsDay == 0 ? " · 首通领奖免费" : " · 复打领奖消耗 " + BaseRuinsRewards.Cost(state)),
                     BasePrepRoute.Defense => PrepText("first_objective", "坚守到敌军撤离，或击败全部来敌。"),
                     BasePrepRoute.Second => PrepText("second_objective", "击败全部来敌。开战后无法撤退。"),
+                    BasePrepRoute.Hideout => BaseBanditHideout.Objective,
                     _ => PrepText("attack_objective", "使用已抵达的队伍攻占黑鸦寨。")
                 };
                 RefreshPrepSupply(state);
@@ -425,7 +427,10 @@ namespace BaseConquest.Base
             PrepMeter(panel, "Ally/Meter/Fill", ally / maxPower);
             Ui<RectTransform>(panel, "Enemy/Meter").gameObject.SetActive(enemy.HasValue && !travel);
             Ui<Text>(panel, "Enemy/Value").text = travel ? PrepText("enemy_arrival", "敌方 · 抵达战场后查看") : enemy.HasValue
-                ? "敌方参考战力 " + Number(enemy.Value) + "\n" + PrepCounts(battleDraft.KnownEnemyCount)
+                ? "敌方参考战力 " + Number(enemy.Value) + "\n" + (battleDraft.Route == BasePrepRoute.Hideout
+                    ? BaseBanditHideout.CountText(battleDraft.KnownEnemyCount() ?? 0, battleDraft.KnownEnemyCount(SoldierKind.Melee),
+                        battleDraft.KnownEnemyCount(SoldierKind.Ranged), battleDraft.KnownEnemyCount(SoldierKind.Cavalry))
+                    : PrepCounts(battleDraft.KnownEnemyCount))
                 : PrepText("enemy_unknown", "敌方 · 暂无已知情报");
             if (enemy.HasValue) PrepMeter(panel, "Enemy/Meter/Fill", enemy.Value / maxPower);
             Ui<Text>(panel, "Context").text = context;

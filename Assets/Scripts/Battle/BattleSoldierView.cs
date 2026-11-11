@@ -63,7 +63,7 @@ namespace BaseConquest.Battle
             body.localScale = new Vector3(0.6f, upright ? (Soldier.Kind == SoldierKind.Melee ? 0.85f : Soldier.Kind == SoldierKind.Hero ? 0.55f : 0.4f) : 0.1f, 0.6f);
             if (Soldier.Kind == SoldierKind.Cavalry) { body.localPosition = new Vector3(0, upright ? 0.35f : 0.08f, 0); body.localScale = new Vector3(0.46f, upright ? 0.5f : 0.1f, 0.88f); }
             bool shared = battle.UnitsAt(Soldier.Cell).Count > 1;
-            squadStripe.enabled = battle.Scenario.CommanderControl && Soldier.IsActive;
+            squadStripe.enabled = battle.Scenario.CommanderControl && Soldier.IsActive && !battle.Scenario.Leaderless(Soldier.Side);
             if (squadStripe.enabled)
             {
                 int slot = battle.Squads[Soldier.SquadId].CommanderSlot;

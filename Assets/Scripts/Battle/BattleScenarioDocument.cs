@@ -49,7 +49,13 @@ namespace BaseConquest.Battle
                 // 随机敌营已作废（2026-11-02），wilderness 仅供旧数据读取。
                 if(a?.CommanderAppearances!=null&&(a.CommanderAppearances.Count>3||a.CommanderAppearances.Any(n=>n!=null&&n!=""&&n!="wilderness"&&!BaseConquest.Presentation.PixelDemoArt.IsCast(n))))throw new ArgumentException("未知队长形象");
                 if(a?.CommanderNames!=null&&(a.CommanderNames.Count>3||a.CommanderNames.Any(n=>string.IsNullOrWhiteSpace(n)||n.Length>40||n.Any(char.IsControl))))throw new ArgumentException("队长姓名须为1至40字，最多三名");
-                if (a == null || a.HeroCount < 1 || a.HeroCount > 3 || a.CaptainSlot < 0 || a.CaptainSlot >= a.HeroCount || a.Capacity < 1 || a.Capacity > 90 || a.Commanders == null || a.Commanders.Count < a.HeroCount || a.Commanders.Count > 3) throw new ArgumentException("指挥者人数、职位或编制不正确");
+                if (a == null || a.Capacity < 1 || a.Capacity > 90 || a.Commanders == null) throw new ArgumentException("指挥者人数、职位或编制不正确");
+                if (s.Leaderless(side))
+                {
+                    if (s.Objective.Kind != ObjectiveKinds.Annihilation || a.HeroCount != 0 || a.CaptainSlot != -1 || a.Commanders.Count != 0 || a.CommanderNames?.Count > 0 || a.CommanderRecruited?.Count > 0 || a.CommanderAppearances?.Count > 0 || !BattleSimulation.TroopKinds.Any(kind => a.Count(kind) > 0))
+                        throw new ArgumentException("窝点敌军须由至少一名无归属的普通士兵组成");
+                }
+                else if (a.HeroCount < 1 || a.HeroCount > 3 || a.CaptainSlot < 0 || a.CaptainSlot >= a.HeroCount || a.Commanders.Count < a.HeroCount || a.Commanders.Count > 3) throw new ArgumentException("指挥者人数、职位或编制不正确");
                 foreach (var kind in Enum.GetValues(typeof(SoldierKind)).Cast<SoldierKind>())
                 {
                     var stats = a.Stats(kind);
@@ -61,7 +67,11 @@ namespace BaseConquest.Battle
             var occupied = new HashSet<GridPosition>();
             foreach (var placement in s.Placements ?? new List<UnitPlacement>())
             {
-                if (!Enum.IsDefined(typeof(BattleSide), placement.Side) || !Enum.IsDefined(typeof(SoldierKind), placement.Kind) || placement.CommanderSlot < 0 || placement.CommanderSlot >= s.Army(placement.Side).HeroCount || !b.Walkable(placement.Cell) || b.Cell(placement.Cell).Zone != (placement.Side == BattleSide.A ? DeploymentZone.A : DeploymentZone.B) || !occupied.Add(placement.Cell)) throw new ArgumentException("初始站位越界、重复、缺归属或不在本方部署区");
+                if (placement == null || !Enum.IsDefined(typeof(BattleSide), placement.Side) || !Enum.IsDefined(typeof(SoldierKind), placement.Kind) || !b.Walkable(placement.Cell) || b.Cell(placement.Cell).Zone != (placement.Side == BattleSide.A ? DeploymentZone.A : DeploymentZone.B) || !occupied.Add(placement.Cell)) throw new ArgumentException("初始站位越界、重复或不在本方部署区");
+                bool validSlot = s.Leaderless(placement.Side)
+                    ? placement.CommanderSlot == -1 && placement.Kind != SoldierKind.Hero
+                    : placement.CommanderSlot >= 0 && placement.CommanderSlot < s.Army(placement.Side).HeroCount;
+                if (!validSlot) throw new ArgumentException("初始站位的部队归属非法");
             }
             var copy = s.Clone(); copy.Placements = copy.Placements.OrderBy(x => x.Kind == SoldierKind.Hero ? 0 : 1).ToList();
             var simulation = new BattleSimulation(copy);

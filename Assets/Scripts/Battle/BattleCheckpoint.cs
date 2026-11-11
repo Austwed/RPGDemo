@@ -73,6 +73,16 @@ namespace BaseConquest.Battle
             if(c.Units.Any(u=>u!=null&&(float.IsNaN(u.DrinkMultiplier)||float.IsInfinity(u.DrinkMultiplier)||(configuredWine?u.DrinkMultiplier<1||u.DrinkMultiplier>2.00001f:u.DrinkMultiplier!=1&&u.DrinkMultiplier!=1.05f&&u.DrinkMultiplier!=1.10f))))throw new ArgumentException("战斗酒类倍率非法");
             var b=new BattleSimulation(c.Scenario);
             if(c.Units.Any(u=>u==null||u.Stats==null||!u.Stats.EquipmentStatsValid||u.Id<0||u.DeveloperSpawned&&u.Kind==SoldierKind.Hero||!b.Board.Contains(u.Cell)||float.IsNaN(u.Health)||u.Health<0||u.Health>u.Stats.Health||u.KnockedDown&&(u.Health!=1||u.InstantDead||!u.DeathResolved)||!Enum.IsDefined(typeof(SoldierKind),u.Kind)||!Enum.IsDefined(typeof(BattleSide),u.Side)||u.HasProvisionEffects&&(new[]{u.ProvisionAttackFactor,u.ProvisionWeaponBonus,u.ProvisionArmorBonus}.Any(x=>float.IsNaN(x)||float.IsInfinity(x)||x<0)||u.ProvisionAttackFactor>1))||c.Units.Select(u=>u.Id).Distinct().Count()!=c.Units.Count||c.Squads.Any(q=>q?.Scalar==null||q.Threats==null||q.Targets==null||q.Supply==null||q.Cells==null)||c.Squads.Select(q=>q.Scalar.Id).Distinct().Count()!=6||c.NextId<=c.Units.Select(u=>u.Id).DefaultIfEmpty(-1).Max())throw new ArgumentException("战斗检查点单位非法");
+            if(b.Scenario.BanditHideout)
+            {
+                int squadId=b.SquadId(BattleSide.B,SoldierKind.Melee);
+                var enemySquad=c.Squads[squadId].Scalar;
+                if(c.Captains[(int)BattleSide.B]!=-1||enemySquad.Id!=squadId||enemySquad.Side!=BattleSide.B||enemySquad.CommanderSlot!=-1||
+                    c.Squads.Any(q=>q.Scalar.Side==BattleSide.B&&(q.Scalar.CommanderId!=-1||q.Supply.Count!=0))||
+                    c.Units.Any(u=>u.Side==BattleSide.B&&(u.Kind==SoldierKind.Hero||u.OriginCommanderSlot!=-1||u.SquadId!=squadId))||
+                    c.Phase!=BattlePhase.Deployment&&TroopKinds.Any(kind=>c.Units.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned&&u.Kind==kind)!=b.Scenario.B.Count(kind)))
+                    throw new ArgumentException("窝点敌军检查点与独立士兵编队不一致");
+            }
             b.Soldiers.Clear();b.Soldiers.AddRange(c.Units.Select(u=>u.Copy()));b.Squads.Clear();b.Squads.AddRange(c.Squads.Select(q=>q.Restore()));
             foreach(var unit in b.Soldiers){var q=b.Squads.SingleOrDefault(q=>q.Id==unit.SquadId);if(q==null)throw new ArgumentException("单位队伍引用不存在");q.Soldiers.Add(unit);}
             b.RoundNumber=c.Round;b.CommandsIssued=c.Commands;b.AbilitiesUsed=c.Abilities;b.nextId=c.NextId;b.idleRounds=c.IdleRounds;b.Phase=c.Phase;b.VictoryDeclared=c.Victory;

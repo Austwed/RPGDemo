@@ -104,7 +104,7 @@ namespace BaseConquest.Base
     }
     public static class BaseCampaign
     {
-        public static readonly string[] Locations = { "base", "perimeter", "town", "world", "outpost", "dungeon" };
+        public static readonly string[] Locations = { "base", "perimeter", "town", "world", "outpost", "dungeon", BaseBanditHideout.Region };
         public static string LocationName(string id) => id == "base" ? "基地" : id == "perimeter" ? "迎敌战场" : id == "town" ? "城镇" : id=="outpost" ? "荒野据点区域" : "世界地图";
         public static string LocationName(BaseState state)=>BaseSceneInstances.Active(state)||BaseDemo.Active(state)?BaseSpatial.Layout(state).Title:LocationName(state.Campaign.Location);
         public static string OutcomeName(string id) => id == "SideAWin" ? "胜利" : id == "SideBWin" ? "战败" : id == "Draw" ? "双方失能" : id == "Retreat" ? "撤离" : id == "Stalemate" ? "僵持退兵" : id == "RoundLimit" ? "到达上限退兵" : id=="Occupied" ? "接管据点" : "无守军失守";
@@ -145,7 +145,7 @@ namespace BaseConquest.Base
             BaseThreats.Validate(s);
             c.RegionMaps??=new List<BaseRegionMap>();
             bool story=s.Demo?.StoryScene?.Valid==true;
-            if(c.RegionMaps.Count>(BaseSceneInstances.Active(s)?31:BaseSceneRules.Active(s)?5:4) || c.RegionMaps.Any(m=>m==null||m.Id=="perimeter"||!(BaseSceneInstances.Active(s)?c.Layouts.Any(layout=>layout.SourceMapId==m.Id&&layout.Region!="perimeter"):Locations.Contains(m.Id))||m.Board==null||m.Board.Width<6||m.Board.Width>(story?64:32)||m.Board.Height<6||m.Board.Height>(story?64:24)||!story&&m.Id=="base"&&(m.Board.Width!=24||m.Board.Height!=14)||m.Board.Cells?.Length!=m.Board.Width*m.Board.Height||m.Board.Cells.Any(cell=>cell==null||!cell.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),cell.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),cell.Zone)))||c.RegionMaps.Select(m=>m.Id).Distinct().Count()!=c.RegionMaps.Count) throw new ArgumentException("区域地图数据非法");
+            if(c.RegionMaps.Count>(BaseSceneInstances.Active(s)?31:BaseSceneRules.Active(s)?6:4) || c.RegionMaps.Any(m=>m==null||m.Id=="perimeter"||!(BaseSceneInstances.Active(s)?c.Layouts.Any(layout=>layout.SourceMapId==m.Id&&layout.Region!="perimeter"):Locations.Contains(m.Id))||m.Board==null||m.Board.Width<6||m.Board.Width>(story?64:32)||m.Board.Height<6||m.Board.Height>(story?64:24)||!story&&m.Id=="base"&&(m.Board.Width!=24||m.Board.Height!=14)||m.Board.Cells?.Length!=m.Board.Width*m.Board.Height||m.Board.Cells.Any(cell=>cell==null||!cell.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),cell.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),cell.Zone)))||c.RegionMaps.Select(m=>m.Id).Distinct().Count()!=c.RegionMaps.Count) throw new ArgumentException("区域地图数据非法");
             foreach(var location in new[] {"base","world","town"}) BaseBattlefield.Board(s,location);
             BaseDesignRoutes.Validate(s);
             if(BaseBattlefield.Board(s,"world").Cells.Any(cell=>cell.Terrain!=TerrainKind.Ground||cell.Zone!=DeploymentZone.None||cell.Elevation!=0||cell.Ramp!=RampAxis.None))throw new ArgumentException("世界地图仅作区域导航，不包含战术地形或部署区");
@@ -226,7 +226,10 @@ namespace BaseConquest.Base
             BaseEconomy.Validate(s); BattleScenarioDocument.Validate(document);
             if (document.StartInCombat || document.InitialHealth?.Count > 0 || document.InitialEffects?.Count > 0) throw new ArgumentException("战役模板需从准备阶段开始，不能使用独立倒地／临效预置");
             var e = s.Campaign.Events.Single(x => x.Id == eventId);
-            if(BaseSceneInstances.Active(s)&&e.Kind=="attack"&&e.Id!=BaseDemoRuins.EventId&&(s.Campaign.Location!="outpost"||e.SourceSiteId!=s.Campaign.CurrentMapId))throw new InvalidOperationException("请到对应敌营实例开战，不能遥控其他据点");
+            bool hideout = e.Id == BaseBanditHideout.EventId;
+            if (hideout != document.Scenario.BanditHideout || hideout && (!BaseBanditHideout.InHideout(s) || roster == null || e.EnemyArmy.Count == 0))
+                throw new InvalidOperationException(BaseBanditHideout.ApproachText);
+            if(BaseSceneInstances.Active(s)&&e.Kind=="attack"&&!hideout&&e.Id!=BaseDemoRuins.EventId&&(s.Campaign.Location!="outpost"||e.SourceSiteId!=s.Campaign.CurrentMapId))throw new InvalidOperationException("请到对应敌营实例开战，不能遥控其他据点");
             if (BaseSceneCombat.Active(s) || s.Muster.Parties.Any(p => p.InCombat) || e.Status != "pending" || e.AvailableDay > s.Day) throw new InvalidOperationException("事件未到达、已处理或已有战斗");
             if(e.Kind=="defense"&&!string.IsNullOrEmpty(e.SourceSiteId)&&e.EnemyArmy.Count==0)
             {
@@ -234,7 +237,7 @@ namespace BaseConquest.Base
                 BaseItemRecovery.Normalize(s);
             }
             // Demo 里的防守战一律走即时规则：首防、第二波和主线后的随机入侵共用同一条即时战斗链。
-            bool demoCombat=realtime && BaseDemo.Active(s) && (e.Kind=="defense" || new[]{BaseDemoRuins.EventId,BaseDemoDefense.EventId,BaseDemoDefense.SecondEventId,BaseThreats.Site(s,BaseDemoFinale.Camp)?.AttackEventId}.Contains(e.Id));
+            bool demoCombat=realtime && BaseDemo.Active(s) && (e.Kind=="defense" || hideout || new[]{BaseDemoRuins.EventId,BaseDemoDefense.EventId,BaseDemoDefense.SecondEventId,BaseThreats.Site(s,BaseDemoFinale.Camp)?.AttackEventId}.Contains(e.Id));
             if(demoCombat && string.IsNullOrEmpty(e.SourceSiteId) && e.EnemyArmy.Count==0)e.EnemyArmy=BaseDemoCombat.CreateEnemies(e.Id,document.Scenario.B,BaseDemoEncounterConfig.Preset(s,e.Id));
             if(demoCombat){BaseRpg.PrepareEnemies(s,e.EnemyArmy,e.Id);BaseItemRecovery.Normalize(s);}
             var enemies=BaseThreats.EnemySnapshot(s,e,document.Scenario.B);
@@ -264,7 +267,7 @@ namespace BaseConquest.Base
                 if (!BaseSupply.Reserve(s, supply)) throw new InvalidOperationException("军需预览已过期"); quota = s.Supply.Quotas.Single(q => q.BattleId == supply.Quota.BattleId);
             }
             if (!BaseSupply.StartBattle(s, quota.BattleId)) throw new InvalidOperationException("军需准备不可开战");
-            if(e.Kind=="attack"&&!(BaseDemoRuins.Enabled(s)&&e.Id==BaseDemoRuins.EventId))
+            if(e.Kind=="attack"&&!hideout&&!(BaseDemoRuins.Enabled(s)&&e.Id==BaseDemoRuins.EventId))
             {
                 BaseWorldMap.PrepareAttackRegion(s,document);
                 if(s.Campaign.Location=="world"){s.Campaign.WorldX=s.PlayerX;s.Campaign.WorldY=s.PlayerY;}
@@ -279,8 +282,14 @@ namespace BaseConquest.Base
             raw.Board = realtime&&BaseSceneRules.Active(s)?BaseSceneCombat.Project(s,location):BaseBattlefield.Board(s, location).Clone(); raw.CustomExits = true;
             if(realtime)RealtimeCampaignBattle.ValidateBoard(raw.Board);
             raw.ExitA = e.Kind == "defense" ? new GridPosition(raw.Board.Width-1,6) : new GridPosition(0,raw.Board.Height-1); raw.ExitB = e.Kind=="defense" ? new GridPosition(0,6) : new GridPosition(raw.Board.Width-1,0);
+            if (hideout)
+            {
+                // 洞窟外圈是墙。两端的内侧通道可以实际走到，也容得下转向后的骑兵。
+                raw.ExitA = new GridPosition(1, 7);
+                raw.ExitB = new GridPosition(raw.Board.Width - 2, 7);
+            }
             if (e.Kind == "defense") { raw.Objective.Kind = ObjectiveKinds.Hold; raw.Objective.HoldRounds = Math.Min(raw.MaxRounds, e.HoldRounds > 0 ? e.HoldRounds : 30); }
-            raw.Objective.Title = e.Kind == "defense" ? "坚守迎敌战场" : "攻克敌点";
+            raw.Objective.Title = hideout ? BaseBanditHideout.Objective : e.Kind == "defense" ? "坚守迎敌战场" : "攻克敌点";
             BaseRpg.PrepareEnemies(s,enemies,e.Id);
             BaseThreats.ConfigureEnemy(raw,enemies);
             if(BaseDemoEncounterConfig.Preset(s,e.Id)!=null||e.Kind=="attack"&&BaseSpatial.Layout(s)?.Enemy?.Version==2)BaseThreats.ConfigureDeployment(raw,enemies);
@@ -297,6 +306,8 @@ namespace BaseConquest.Base
             // 中立场景按「战场所在区域」判，不能拿玩家当前站着的城镇来判断（副手防守时玩家可能留在营地）。
             bool neutral=BaseSceneRules.Neutral(s,e.Kind=="defense"?location:s.Campaign.Location);
             BaseSceneRules.Configure(s,raw,sceneLeaders,e.Kind=="defense"?location:null);
+            if (hideout)
+                foreach (var commander in raw.A.Commanders) commander.Strategy = SquadStrategy.Attack;
             if (roster?.Positions != null)
                 foreach (var unit in roster.Units)
                     raw.Placements.Add(new UnitPlacement { Side = BattleSide.A, Kind = unit.Kind,
@@ -331,7 +342,7 @@ namespace BaseConquest.Base
         }
         private static void ToBaseLocation(BaseState s)
         {
-            if(BaseWorldJourney.Active(s)||BaseDemoRuins.Enabled(s)&&(s.Campaign.Location=="outpost"||BaseSceneRules.Dungeon(s))){BaseSpatial.RepairGridPositions(s);BaseAdventure.Arrive(s);return;}
+            if(BaseWorldJourney.Active(s)||BaseBanditHideout.InHideout(s)||BaseDemoRuins.Enabled(s)&&(s.Campaign.Location=="outpost"||BaseSceneRules.Dungeon(s))){BaseSpatial.RepairGridPositions(s);BaseAdventure.Arrive(s);return;}
             if(BaseSceneInstances.Active(s))s.Campaign.CurrentMapId=BaseSceneInstances.Layout(s,"base").SourceMapId;
             s.Campaign.Location = "base"; s.PlayerX = s.Campaign.BaseX; s.PlayerY = s.Campaign.BaseY;
             BaseSpatial.RepairGridPositions(s);
@@ -397,7 +408,8 @@ namespace BaseConquest.Base
             s.Campaign.HasActiveBattle = false; s.Campaign.ActiveBattle = new BaseCampaignBattle();
             BaseWine.Finish(s,session);
             // 先清除外出状态再置重伤闲置标记，避免“外出且休养”的中间状态被军需验证拒绝，导致战报无法返营。
-            bool keepExpedition=BaseWorldJourney.Active(s)&&returning.Purpose=="expedition"&&a.EventId!=BaseDemoRuins.EventId;
+            bool keepExpedition=BaseWorldJourney.Active(s)&&returning.Purpose=="expedition"&&a.EventId!=BaseDemoRuins.EventId
+                && (a.EventId != BaseBanditHideout.EventId || a.SupplySnapshot?.PartySubset == true);
             if (!BaseSupply.Finish(s, a.Id, outcome) || !keepExpedition&&!BaseMuster.Return(s, a.PartyId, w=> {if(forcedRest.Contains(w))w.Resting=true;})) throw new InvalidOperationException("未能回写真实军需／返营");
             r.GearLost = gear - s.Inventory.Equipment.Sum(x => x.Count);
             foreach (var id in down) { var l = s.Leaders.Single(x => x.Id == id); l.Resting = false; l.UnavailableDay = s.Day; }
@@ -416,7 +428,8 @@ namespace BaseConquest.Base
             BaseRaidLoot.Apply(s, e, r, win, passive, enemyLeft, holdLeft);
             s.Campaign.SettledIds.Add(a.Id); s.Campaign.Reports.Add(r); BaseQuests.RecordVictory(s,r); if(!passive&&!a.Deputy)ToBaseLocation(s);
             BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>());
-            BaseSceneRules.RememberStrategy(s,session); BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
+            if (a.EventId != BaseBanditHideout.EventId) BaseSceneRules.RememberStrategy(s,session);
+            BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
         }
         private static void ApplyEventInventory(BaseState s, BaseCampaignEvent e, bool win, BaseCampaignReport r, double? rewardFactor=null)
         {

@@ -260,20 +260,26 @@ namespace BaseConquest.Editor
                         throw new InvalidOperationException("从遗迹入口预览地牢时写入了进度或未显示实际地牢");
                     VerifyDeploymentPointer(ruinsPlacement);
                     Capture("ui-skin-ruins-deployment");
-                    Press(BattleSafeArea(ruinsPlacement), "测试");
+                    Press(BattleSafeArea(ruinsPlacement), "DraftPreparationControls/Back");
                     if (controller.State.Campaign.CurrentMapId != ruinsEntranceMap || !BaseSceneRules.Entrance(controller.State) ||
                         Object.FindObjectsByType<BattleSceneController>().Any(b => b.DeploymentDraftActive) ||
                         !Object.FindObjectsByType<Renderer>().Any(r => r.name == "PixelDemo_dungeon-entrance"))
                         throw new InvalidOperationException("返回备战没有恢复遗迹入口");
                     Press(RequirePanel("BattlePreparation"), "Continue");
                     var cancelRuins = BattleSafeArea(RequireBattleDraft());
-                    Press(cancelRuins, "Deployment");
+                    Press(cancelRuins, "DraftPreparationControls/Start");
                     FinishDialogue();
-                    Click("暂不进入，先调整随行");
+                    Click("暂不交战");
+                    if (BaseAchievements.Record(controller.State, BaseAchievements.Caution) != null)
+                        throw new InvalidOperationException("免疫队伍误触发了古窟危险警告");
+                    if (!controller.Change(state => VerifyBanditHideout.AddSoldiers(state, 1, 0, 0), "界面检查"))
+                        throw new InvalidOperationException(controller.Message);
+                    VerifyRuinsWarning();
                     if (H.PanelOpen || controller.State.Campaign.CurrentMapId != ruinsEntranceMap ||
                         controller.State.Campaign.HasActiveBattle || Object.FindObjectsByType<BattleSceneController>().Any(b => b.DeploymentDraftActive))
                         throw new InvalidOperationException("取消遗迹交战没有恢复入口或清空草案");
-                    Log.Add("[PASS] 遗迹返回备战及对白拒绝均恢复入口，未提交战斗");
+                    Log.Add("[PASS] 古窟免疫队伍跳过警告、落位普通士兵弹出确认，接受进入首次对峙，拒绝恢复入口");
+                    VerifyHideoutUi();
                     controller.LoadDemoStage("defense", "female");
                     stage = "defense-ready"; stageAt = EditorApplication.timeSinceStartup;
                     break;
@@ -290,6 +296,7 @@ namespace BaseConquest.Editor
                     if (Time.frameCount < frameDeadline) return;
                     VerifyPartyCardLayout(3);
                     CaptureViewports("ui-skin-backpack-three");
+                    VerifyTwoMemberBackpack();
                     VerifyBackpackTransfer();
                     VerifyFacilityRosters();
                     VerifyRecruitRoster();
@@ -398,7 +405,7 @@ namespace BaseConquest.Editor
                         throw new InvalidOperationException("兵种卡未重新展开");
                     Log.Add("[PASS] 战况统一进横幅，三张全宽兵种卡竖排且可按队独立折叠");
                     VerifyContinuousDeployment(deploy);
-                    Press(draftArea, "PreparationControls/一键清场");
+                    Press(draftArea, "DraftPreparationControls/Clear");
                     if (deploy.PreviewSimulation.Soldiers.Any(s => s.Side == BattleSide.A))
                         throw new InvalidOperationException("一键撤销未清空全部落点");
                     VerifyDeploymentPointer(deploy);
@@ -406,7 +413,7 @@ namespace BaseConquest.Editor
                     var firstSoldier = resetDraft.Units.First(u => u.TeamId == resetDraft.PlayerId &&
                         u.Selected && u.Kind != SoldierKind.Hero);
                     PlaceByPointer(deploy, resetDraft, firstSoldier.Id);
-                    Press(BattleSafeArea(deploy), "测试");
+                    Press(BattleSafeArea(deploy), "DraftPreparationControls/Back");
                     Press(RequirePanel("BattlePreparation"), "Continue");
                     defenseBattle = RequireBattleDraft();
                     defenseHud = defenseBattle.PreviewHud.Root;
@@ -597,7 +604,7 @@ namespace BaseConquest.Editor
         {
             var view = (RectTransform)RequirePanel("PartyInventory");
             var source = controller.transform.Find("UI 布局源");
-            var authoredView = (RectTransform)source.Find("PartyInventory");
+            var authoredView = (RectTransform)source.Find("PartyInventory/FrameWidths/" + count);
             var authoredCard = (RectTransform)source.Find("PartyMemberCard");
             var group = (RectTransform)view.Find("Cards");
             Canvas.ForceUpdateCanvases();
@@ -609,6 +616,96 @@ namespace BaseConquest.Editor
                 cards.Zip(cards.Skip(1), (left, right) => left.xMax > right.xMin).Any(overlaps => overlaps))
                 throw new InvalidOperationException("独立背包没有沿用固定外窗和等宽居中角色卡：" + count);
             Log.Add("[PASS] 背包 " + count + " 人，外窗与角色卡尺寸从场景读取，卡组居中");
+        }
+
+        private static void VerifyTwoMemberBackpack()
+        {
+            H.ClosePanel();
+            string member = controller.State.Adventure.Members.Last();
+            if (!controller.Change(state => state.Adventure.Members.Remove(member), "界面检查"))
+                throw new InvalidOperationException(controller.Message);
+            H.OpenBackpack();
+            VerifyPartyCardLayout(2);
+            CaptureViewports("ui-skin-backpack-two");
+            H.ClosePanel();
+            if (!controller.Change(state => state.Adventure.Members.Add(member), "界面检查"))
+                throw new InvalidOperationException(controller.Message);
+            H.OpenBackpack();
+        }
+
+        private static void VerifyHideoutUi()
+        {
+            Approach(BaseBanditHideout.EntryId);
+            CaptureViewports("ui-bandit-hideout-entrance");
+            H.OpenObject(BaseBanditHideout.EntryId);
+            var preparation = RequirePanel("BattlePreparation");
+            var draft = (BaseBattlePreparation)Field(H, "battleDraft");
+            if (draft.Route != BasePrepRoute.Hideout || draft.KnownEnemyCount() <= 0 ||
+                !preparation.Find("Enemy/Value").GetComponent<Text>().text.Contains("敌方"))
+                throw new InvalidOperationException("窝点没有进入备战并公开敌方阵容");
+            if (draft.RequiredSupply(false) == 0)
+            {
+                Press(preparation.Find("Teams").GetChild(0), "Melee/Plus");
+                preparation = RequirePanel("BattlePreparation");
+            }
+            var supply = preparation.Find("Supply");
+            if (new[] { "Grade1", "Grade2", "Stock1", "Stock2" }.Any(path => ((RectTransform)supply.Find(path)).rect.width != 144))
+                throw new InvalidOperationException("军需档位按钮或库存标签没有按三列尺寸排布");
+            Press(preparation, "Supply/Grade1");
+            preparation = RequirePanel("BattlePreparation");
+            CaptureViewports("ui-bandit-hideout-preparation");
+            Press(preparation, "Continue");
+            var battle = RequireBattleDraft();
+            Press(BattleSafeArea(battle), "DraftPreparationControls/Auto");
+            CaptureViewports("ui-bandit-hideout-deployment");
+            VerifyBattleMenu(battle, draft);
+            if (controller.State.Campaign.HasActiveBattle || !BaseSceneRules.Entrance(controller.State))
+                throw new InvalidOperationException("窝点部署提前切图或写入战斗");
+            Press(BattleSafeArea(battle), "DraftPreparationControls/Back");
+            if (!ReferenceEquals(draft, Field(H, "battleDraft"))) throw new InvalidOperationException("返回备战重抽了窝点");
+            Press(RequirePanel("BattlePreparation"), "Continue");
+            battle = RequireBattleDraft();
+            Press(BattleSafeArea(battle), "DraftPreparationControls/Start");
+            if (H.DialogueOpen || battle.Realtime == null || !BaseBanditHideout.InHideout(controller.State) ||
+                battle.Realtime.Session.Opening.Enemies.Count != draft.KnownEnemyCount() ||
+                battle.Realtime.Battle.Soldiers.Any(unit => unit.Side == BattleSide.B && unit.Kind == SoldierKind.Hero) ||
+                battle.Realtime.RuinsExposureFraction != 0)
+                throw new InvalidOperationException("窝点开战存在剧情、侵蚀或阵容偏差");
+            CaptureViewports("ui-bandit-hideout-battle");
+            VerifyBattleMenu(battle, null);
+            if (!battle.WithdrawSceneEncounter() || !BaseSceneRules.Entrance(controller.State))
+                throw new InvalidOperationException("窝点撤退没有回到入口");
+            Log.Add("[PASS] 窝点入口、实际备战阵容、部署返回、无队长与侵蚀、撤退返回入口");
+        }
+
+        private static void VerifyRuinsWarning()
+        {
+            foreach (bool accept in new[] { true, false })
+            {
+                Approach("demo_ruins_investigate");
+                H.OpenObject("demo_ruins_investigate");
+                var preparation = RequirePanel("BattlePreparation");
+                var draft = (BaseBattlePreparation)Field(H, "battleDraft");
+                if (draft.RequiredSupply(false) == 0)
+                {
+                    Press(preparation.Find("Teams").GetChild(0), "Melee/Plus");
+                    preparation = RequirePanel("BattlePreparation");
+                }
+                Press(preparation, "Supply/Grade1");
+                Press(RequirePanel("BattlePreparation"), "Continue");
+                var field = BattleSafeArea(RequireBattleDraft());
+                Press(field, "DraftPreparationControls/Auto");
+                Press(field, "DraftPreparationControls/Start");
+                FinishDialogue();
+                if (accept)
+                {
+                    Capture("ui-skin-ruins-vulnerable-warning");
+                    Click("知晓危险，仍让当前队伍进入");
+                    FinishDialogue();
+                    Click("暂不交战");
+                }
+                else Click("暂不进入，先调整随行");
+            }
         }
 
         private static PartyInventoryCell InventoryCell(Transform view, string id) =>
@@ -920,8 +1017,9 @@ namespace BaseConquest.Editor
                 BaseInteraction.Walk(new BasePoint(0, 1));
                 BaseAdventure.Arrive(s);
             }, "检查遗迹遮挡")) throw new InvalidOperationException(controller.Message);
-            var portal = Object.FindObjectsByType<Renderer>().Single(r => r.name == "PixelDemo_dungeon-entrance");
             var avatar = (Transform)Field(controller, "player");
+            var portal = Object.FindObjectsByType<Renderer>().Where(r => r.name == "PixelDemo_dungeon-entrance")
+                .OrderBy(r => (r.transform.position - avatar.position).sqrMagnitude).First();
             var sprite = avatar.GetComponentsInChildren<MeshRenderer>().Single(r => r.name == "PixelDemoCharacter");
             var walk = typeof(BaseSceneController).GetMethod("MoveExploration", BindingFlags.Instance | BindingFlags.NonPublic);
             foreach (double offset in new[] { .10, .18 })
@@ -950,7 +1048,7 @@ namespace BaseConquest.Editor
             if (battle.PreviewBoard.Camera != controller.WorldCamera || !battle.PreviewHud.Root.activeInHierarchy ||
                 battle.PreviewSimulation.Phase != BattlePhase.Deployment || controller.State.Campaign.HasActiveBattle ||
                 !battle.DraftPlacementActive ||
-                BattleSafeArea(battle).Find("Deployment")?.GetComponentInChildren<Text>()?.text != "开战" ||
+                BattleSafeArea(battle).Find("DraftPreparationControls/Start")?.GetComponentInChildren<Text>()?.text != "开战" ||
                 Object.FindObjectsByType<RectTransform>().Any(t => t.name == "ResourceStrip" || t.name == "BattleDeployment"))
                 throw new InvalidOperationException("部署应由正常战场和战斗 HUD 承载，且尚未提交开战");
             return battle;
@@ -959,12 +1057,51 @@ namespace BaseConquest.Editor
         private static RectTransform BattleSafeArea(BattleSceneController battle) =>
             battle.PreviewHud.Root.GetComponentsInChildren<RectTransform>(true).Single(t => t.name == "SafeArea");
 
+        private static void VerifyBattleMenu(BattleSceneController battle, BaseBattlePreparation draft)
+        {
+            var menu = (RectTransform)BattleSafeArea(battle).Find("测试");
+            var source = (RectTransform)controller.transform.Find("UI 布局源/BaseShell/Header/菜单");
+            if (menu.anchorMax != source.anchorMax || menu.anchoredPosition != source.anchoredPosition || menu.sizeDelta != source.sizeDelta)
+                throw new InvalidOperationException("战场菜单没有沿用探索菜单的位置和尺寸");
+
+            Transform Overlay() => ((GameObject)Field(battle, "campaignMenu")).GetComponentsInChildren<RectTransform>(true)
+                .Single(rect => rect.name == "选项面板");
+            Press(menu.parent, menu.name);
+            var positions = draft?.Positions.ToDictionary(p => p.Key, p => p.Value);
+            if (draft != null)
+            {
+                var cell = positions[draft.PlayerId];
+                var screen = BattleScreen(battle, draft.Board, cell);
+                battle.PointerDown(-1, screen);
+                battle.PointerUp(-1, screen);
+                if (battle.TryDraftDeploymentCell(cell, true) || !draft.Positions.ContainsKey(draft.PlayerId))
+                    throw new InvalidOperationException("菜单打开时还能撤回地图上的单位");
+                battle.SpaceAction();
+                if (controller.State.Campaign.HasActiveBattle || !battle.DeploymentDraftActive)
+                    throw new InvalidOperationException("菜单打开时空格还能提交开战");
+            }
+            else
+            {
+                if (!battle.Realtime.Model.Paused) throw new InvalidOperationException("打开菜单没有立即暂停战斗");
+                battle.SpaceAction();
+                if (!battle.Realtime.Model.Paused) throw new InvalidOperationException("菜单打开时空格恢复了战斗");
+            }
+            CaptureViewports(draft != null ? "ui-bandit-hideout-deployment-menu" : "ui-bandit-hideout-battle-menu");
+            Press(Overlay(), "Quit");
+            Press(Overlay(), "Cancel");
+            Press(Overlay(), "Continue");
+            if (Field(battle, "campaignMenu") != null || (draft != null && !positions.OrderBy(p => p.Key)
+                    .SequenceEqual(draft.Positions.OrderBy(p => p.Key))) || (draft == null && !battle.Realtime.Model.Paused))
+                throw new InvalidOperationException("取消退出没有保留部署或战斗暂停状态");
+            Log.Add(draft != null ? "[PASS] 部署菜单位置、地图和空格拦截、取消退出保留落点" : "[PASS] 战斗菜单位置、取消退出及手动继续前保持暂停");
+        }
+
         private static void VerifyDeploymentPointer(BattleSceneController battle)
         {
             var root = BattleSafeArea(battle);
             var draft = (BaseBattlePreparation)Field(H, "battleDraft");
             Canvas.ForceUpdateCanvases();
-            if (root.Find("Deployment").GetComponent<Button>().interactable)
+            if (root.Find("DraftPreparationControls/Start").GetComponent<Button>().interactable)
                 throw new InvalidOperationException("主角未布置便可开战");
             PlaceByPointer(battle, draft, draft.PlayerId);
             Log.Add("[PASS] 进场直接点选落位，开战前未写进度");

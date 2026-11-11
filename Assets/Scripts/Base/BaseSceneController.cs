@@ -247,7 +247,12 @@ namespace BaseConquest.Base
             if (DeploymentWorldActive) { UpdateDeploymentWorld(); return; }
             if(combatController==null) regionView?.UpdateCamera(ConstructionMode ? 190f/1280 : 0,0);
             if(State!=null&&!Busy&&runtimeRoot!=null&&runtimeRoot.gameObject.activeInHierarchy)Hud.RefreshAchievementNotice(Time.unscaledDeltaTime);
-            if(State!=null&&!Busy){Hud.TickDialogue(Time.unscaledDeltaTime);RefreshSceneSight();TickPracticeGuide();TickRuinsRetreatGuide();TickDefenseIntel();}
+            if(State!=null&&!Busy)
+            {
+                Hud.TickDialogue(Time.unscaledDeltaTime);
+                RefreshSceneSight();
+                if (combatController?.CampaignMenuOpen != true) { TickPracticeGuide(); TickRuinsRetreatGuide(); TickDefenseIntel(); }
+            }
             if (State == null || Busy || combatController != null) {ClearWorkerTravel();return;}
             TickWorkerTravel(Math.Min(Time.deltaTime,.05));
             TickDemoIntro(Math.Min(Time.deltaTime,.05));if(!Hud.PanelOpen)TickRescueJourney(Math.Min(Time.deltaTime,.05));

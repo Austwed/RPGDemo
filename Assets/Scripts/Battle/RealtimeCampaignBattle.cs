@@ -102,9 +102,11 @@ namespace BaseConquest.Battle
             return RealtimeCombatRules.Range(soldier.CombatKind,weapon?.Quality??2);
         }
         public BattleTacticalRuntime Tactics {get;private set;}
+        private readonly string hideoutDifficulty;
         public RealtimeCampaignBattle(BaseCampaignSession session)
         {
             Session=session??throw new ArgumentNullException(nameof(session));
+            if (Battle.Scenario.BanditHideout) hideoutDifficulty = session.Opening.Difficulty.Preset;
             if(session.Opening.RealtimeRulesVersion<0||session.Opening.RealtimeRulesVersion>1)throw new ArgumentException("未知即时战斗数值版本");
             if(!session.Opening.RealtimeRules||Battle.Phase==BattlePhase.Deployment)throw new InvalidOperationException("即时战斗需已确认开战的真实队伍");
             ValidateBoard(Battle.Board);session.Bind();
@@ -119,7 +121,18 @@ namespace BaseConquest.Battle
             }
             var arena=new PrototypeArena(board.Cells.Select(cell=>!cell.Walkable).ToArray(),board.Cells.Select(cell=>cell.BlocksShots).ToArray(),Cross,board.Width,board.Height);
             arena.TravelCost=cell=>board.Cell(Coarse(cell)).FootworkCost;
-            Model=new RealtimeBattlePrototype(arena) {AutonomousOutcome=false,DamageResolver=Damage};
+            Model=new RealtimeBattlePrototype(arena) {AutonomousOutcome=false,DamageResolver=Damage,LeaderlessEnemyAssault=Battle.Scenario.BanditHideout};
+            int[] banditApproach=Array.Empty<int>();
+            if(Battle.Scenario.BanditHideout)
+            {
+                var zone=board.Positions().Where(cell=>board.Walkable(cell)&&board.Cell(cell).Zone==DeploymentZone.A).ToArray();
+                if(zone.Length>0)
+                {
+                    double centerX=zone.Average(cell=>cell.X),centerZ=zone.Average(cell=>cell.Z);
+                    banditApproach=zone.OrderBy(cell=>Math.Abs(cell.X-centerX)+Math.Abs(cell.Z-centerZ))
+                        .Select(cell=>arena.CellAt(new PrototypePoint(cell.X+.25,cell.Z+.25))).ToArray();
+                }
+            }
             Model.CellEntered=(actor,cellIndex)=>
             {
                 var cell=board.Cell(Coarse(cellIndex));
@@ -135,7 +148,14 @@ namespace BaseConquest.Battle
             Model.CanMove=actor=>!Battle.Soldier(actor.Id-1).DeveloperImmobile;
             Model.DefaultDestination=source=>
             {
-                var side=source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B;if((int)side==Battle.Scenario.DefenderSide)return -1;
+                var side=source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B;
+                if(Battle.Scenario.Leaderless(side))
+                {
+                    foreach(int cell in banditApproach)
+                        if(!double.IsPositiveInfinity(arena.Distances(cell)[source.Cell]))return cell;
+                    return -1;
+                }
+                if((int)side==Battle.Scenario.DefenderSide)return -1;
                 var exit=Battle.ExitCell(side==BattleSide.A?BattleSide.B:BattleSide.A);return arena.CellAt(new PrototypePoint(exit.X+.25,exit.Z+.25));
             };
             if(session.Opening.HasRealtimeState)
@@ -168,8 +188,10 @@ namespace BaseConquest.Battle
             Model.CommanderDoctrine=true;
             foreach(var actor in Model.Units.Where(u=>u.DoctrineVersion==0))
             {
+                actor.DoctrineVersion=1;
+                if(Model.LeaderlessEnemyAssault&&actor.Side==PrototypeSide.Enemy)continue;
                 var config=Battle.Scenario.Army(actor.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B).Commanders[actor.Squad];
-                actor.DoctrineVersion=1;actor.Strategy=(PrototypeStrategy)(int)config.Strategy;actor.GuardRadius=config.GuardRange;actor.ThreatRadius=config.AlertRange;actor.CommandRadius=config.AttackRange;
+                actor.Strategy=(PrototypeStrategy)(int)config.Strategy;actor.GuardRadius=config.GuardRange;actor.ThreatRadius=config.AlertRange;actor.CommandRadius=config.AttackRange;
             }
             foreach(var actor in Model.Units.Where(u=>u.Role==PrototypeRole.Leader))Battle.Scenario.Army(actor.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B).Commanders[actor.Squad].Strategy=(SquadStrategy)(int)actor.Strategy;
             Model.ExploredCell=(actor,cell)=>Battle.Vision.Explored(actor.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B,Coarse(cell));

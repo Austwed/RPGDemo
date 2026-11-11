@@ -779,6 +779,15 @@ namespace BaseConquest.Editor
                     if(Need(config,formula,"D"+row)!=item.unit)throw new InvalidOperationException(formula+"!D"+row+"：参数单位应为"+item.unit);
                     item.apply(Number(config,formula,"C"+row,item.min,item.max));
                 }
+                var hideout = BattleBalanceImporter.Section(archive, formula, 135, 135, "ACD");
+                if (hideout.ContainsKey("A135"))
+                {
+                    if (Need(hideout, formula, "A135") != "bandit_hideout_enemy_count" || Need(hideout, formula, "D135") != "人")
+                        throw new InvalidOperationException(formula + "!A135:D135：土匪窝点参数或单位非法");
+                    double count = Number(hideout, formula, "C135", 1, Math.Min(BaseBanditHideout.EnemyCountCap, rules.TroopBaseline.Sum()));
+                    if (count != Math.Truncate(count)) throw new InvalidOperationException(formula + "!C135：土匪窝点人数须为整数");
+                    rules.HideoutEnemyCount = (int)count;
+                }
                 if(rules.BaseInterval<rules.MinimumInterval)throw new InvalidOperationException(formula+"：基础前摇不能低于最小间隔");
                 double maxAttackSpeed=rules.Traits.Single(t=>t.Id=="frenzy").Max/100+rules.Skills.Single(s=>s.Id=="rapid_fire").Amount;
                 if(rules.BaseInterval/(1+maxAttackSpeed)<rules.MinimumInterval)throw new InvalidOperationException("10c 效果定义与明细 / 11b 特性数值与互斥 / 02a 全局参数与试算：连射与乱武的最大组合使攻击间隔低于下限");

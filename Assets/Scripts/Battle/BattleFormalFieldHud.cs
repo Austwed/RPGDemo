@@ -9,7 +9,7 @@ namespace BaseConquest.Battle
     {
         private RectTransform formalBanner, formalHeading, formalSummary;
         private Text formalMap, formalGoal, formalStatus, formalAlly, formalEnemy, formalSupply;
-        private RectTransform formalBackAnchor, formalStartAnchor, formalPauseAnchor, formalSpeedAnchor;
+        private RectTransform formalPauseAnchor, formalSpeedAnchor;
         private float formalExpandedHeight;
         private Button formalSummaryToggle;
         private bool formalSummaryFolded;
@@ -31,9 +31,9 @@ namespace BaseConquest.Battle
             formalMap = BannerLabel("MapName", formalHeading, 18, 0, 0, 16, 210);
             formalMap.fontStyle = FontStyle.Bold;
             formalGoal = BannerLabel("BattleGoal", formalHeading, 14, 0, 1, 222, -368);
-            formalStatus = BannerLabel("BattleStatus", formalHeading, 14, 1, 1, -366, -280);
+            formalStatus = BannerLabel("BattleStatus", formalHeading, 14, 1, 1, -375, -290);
             formalStatus.alignment = TextAnchor.MiddleRight;
-            formalSummaryToggle = Button("DraftSummaryToggle", formalBanner, Vector2.one, new Vector2(-12, -5), new Vector2(28, 32), () =>
+            formalSummaryToggle = Button("DraftSummaryToggle", formalBanner, Vector2.one, new Vector2(-126, -9), new Vector2(28, 33), () =>
             {
                 formalSummaryFolded = !formalSummaryFolded;
                 Refresh();
@@ -44,10 +44,8 @@ namespace BaseConquest.Battle
             formalAlly = BannerLabel("AllyCounts", formalSummary, 14, 0, .34f, 16, -8);
             formalEnemy = BannerLabel("EnemyCounts", formalSummary, 14, .34f, .68f, 8, -8);
             formalSupply = BannerLabel("SupplyCounts", formalSummary, 14, .68f, 1, 8, -16);
-            formalBackAnchor = Rect("BackAnchor", formalBanner, Vector2.one, new Vector2(-48, -5), new Vector2(84, 32));
-            formalStartAnchor = Rect("StartAnchor", formalBanner, Vector2.one, new Vector2(-140, -5), new Vector2(84, 32));
-            formalPauseAnchor = Rect("PauseAnchor", formalBanner, Vector2.one, new Vector2(-200, -5), new Vector2(68, 32));
-            formalSpeedAnchor = Rect("SpeedAnchor", formalBanner, Vector2.one, new Vector2(-140, -5), new Vector2(52, 32));
+            formalPauseAnchor = Rect("PauseAnchor", formalBanner, Vector2.one, new Vector2(-212, -9), new Vector2(70, 33));
+            formalSpeedAnchor = Rect("SpeedAnchor", formalBanner, Vector2.one, new Vector2(-162, -9), new Vector2(42, 33));
             formalBanner.gameObject.SetActive(false);
         }
 
@@ -68,8 +66,6 @@ namespace BaseConquest.Battle
         {
             formalBanner.SetAsFirstSibling();
             formalExpandedHeight = formalBanner.rect.height;
-            MoveTopControl(drawer, formalBackAnchor);
-            MoveTopControl(deployment, formalStartAnchor);
             MoveTopControl(automatic, formalPauseAnchor);
             MoveTopControl(fast, formalSpeedAnchor);
             if (!authored)
@@ -77,6 +73,27 @@ namespace BaseConquest.Battle
                 formalBanner.GetComponent<Image>().color = DemoUiTheme.Current.Wood;
                 foreach (var label in new[] { formalMap, formalGoal, formalStatus, formalAlly, formalEnemy, formalSupply })
                     label.color = DemoUiTheme.Current.Panel;
+            }
+        }
+
+        private void ApplySystemMenuLayout(RectTransform source)
+        {
+            var menu = (RectTransform)drawer.transform;
+            if (source != null) MoveTopControl(drawer, source);
+            else
+            {
+                menu.anchorMin = menu.anchorMax = menu.pivot = Vector2.one;
+                menu.anchoredPosition = new Vector2(-14, -9);
+                menu.sizeDelta = new Vector2(106, 33);
+            }
+            if (owner.FormalFieldHud) return;
+            float x = menu.anchoredPosition.x - menu.rect.width - 6;
+            foreach (var control in new[] { skip, fast, automatic })
+            {
+                var rect = (RectTransform)control.transform;
+                rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.one;
+                rect.anchoredPosition = new Vector2(x, menu.anchoredPosition.y);
+                x -= rect.rect.width + 6;
             }
         }
 
@@ -123,6 +140,8 @@ namespace BaseConquest.Battle
             formalSummaryToggle.interactable = shown;
             formalSummary.gameObject.SetActive(shown && !formalSummaryFolded);
             formalGoal.gameObject.SetActive(shown && !formalSummaryFolded);
+            formalStatus.gameObject.SetActive(shown && !draft);
+            formalSupply.gameObject.SetActive(shown && !draft);
             for (int slot = 0; slot < formalTroopRows.Length; slot++)
             {
                 bool exists = shown && slot < battle.Scenario.Army(BattleSide.A).HeroCount;
@@ -149,14 +168,12 @@ namespace BaseConquest.Battle
             formalBanner.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, formalSummaryFolded ? formalHeading.rect.height : formalExpandedHeight);
             formalMap.text = owner.FieldMapName;
             formalGoal.text = "目标  " + (draft ? owner.FieldDraftGoal : objectiveProgress.text);
-            formalStatus.text = draft ? "部署中" : battle.Phase == BattlePhase.Finished ? "战斗结束" : owner.Automatic ? "战斗中" : "已暂停";
+            if (!draft) formalStatus.text = battle.Phase == BattlePhase.Finished ? "战斗结束" : owner.Automatic ? "战斗中" : "已暂停";
             formalSummaryToggle.GetComponentInChildren<Text>().text = formalSummaryFolded ? "＋" : "−";
             if (!formalSummaryFolded)
             {
-                var (ally, enemy, supply) = draft ? owner.FieldDraftSummary() : FieldLiveSummary(battle);
-                formalAlly.text = ally;
-                formalEnemy.text = enemy;
-                formalSupply.text = supply;
+                if (draft) (formalAlly.text, formalEnemy.text) = owner.FieldDraftSummary();
+                else (formalAlly.text, formalEnemy.text, formalSupply.text) = FieldLiveSummary(battle);
             }
             if (!draft)
             {

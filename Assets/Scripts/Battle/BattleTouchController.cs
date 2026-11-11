@@ -77,6 +77,7 @@ namespace BaseConquest.Battle
         public void ToggleQuickSelection() { if (battle.ModernRules) return; quickSelection = !quickSelection; feedback = quickSelection ? "快速选择开启：连续点选加入／移出" : "快速选择关闭：单击只选当前单位"; hud?.Refresh(); }
         public void SpaceAction()
         {
+            if (campaignMenu != null || ExternalDialogue) return;
             if (DeploymentDraftActive) { ToggleDraftDeployment(); return; }
             if(IsRealtimeCampaign){ToggleRealtimePause();return;}
             if (battle.Phase != BattlePhase.Fighting || skipping) return;
@@ -141,7 +142,7 @@ namespace BaseConquest.Battle
             if (placed && battle.ModernRules && selectedKind != SoldierKind.Hero && !CanChooseDeployment(selectedKind)) deployArmed = false;
             RefreshUnits(); SyncViews(); hud?.Refresh();
         }
-        public void ToggleDrawer() { if (DeploymentDraftActive) { ReturnFromDeploymentDraft(); return; } if (IsCampaignBattle) { OpenCampaignMenu(); return; } ManualPause(); CancelGesture(); CloseContext(); formationOpen = false; drawerOpen = !drawerOpen; if (drawerOpen && battle.ModernRules) RefreshScenarioFiles(); hud?.Refresh(); }
+        public void ToggleDrawer() { if (DeploymentDraftActive || IsCampaignBattle) { OpenCampaignMenu(); return; } ManualPause(); CancelGesture(); CloseContext(); formationOpen = false; drawerOpen = !drawerOpen; if (drawerOpen && battle.ModernRules) RefreshScenarioFiles(); hud?.Refresh(); }
         public void CancelAllOrders() { if(realtime!=null){RealtimeOrder(BaseConquest.RealtimePrototype.PrototypeOrder.Auto,new BaseConquest.RealtimePrototype.PrototypePoint(12,7));return;} if (animating || skipping) return; ManualPause(); CloseContext(); UserOrder(() => { if (battle.Phase != BattlePhase.Fighting) return false; battle.CancelOrders(selectedSide); return true; }); feedback = "己方手动命令与未执行技能已取消，撤退保持"; orderOverlay.Invalidate(); SyncViews(); hud?.Refresh(); }
         public void SkipBattle()
         {

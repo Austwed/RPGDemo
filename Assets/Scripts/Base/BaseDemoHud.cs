@@ -192,6 +192,12 @@ namespace BaseConquest.Base
         {
             if(id=="town_smith"||id=="town_blacksmith"){OpenSmithFather();return true;}
             if(!BaseDemoRuins.Enabled(owner.State)||BaseDemoPrologue.Village(owner.State))return false;
+            if (id == BaseBanditHideout.EntryId)
+            {
+                if (BaseBanditHideout.CanEnter(owner.State)) OpenBattlePreparation(BasePrepRoute.Hideout);
+                else owner.ReportMessage(BaseBanditHideout.ApproachText);
+                return true;
+            }
             if(OpenDemoFinaleInteraction(id))return true;
             if(id=="demo_ahe"||id=="demo_azhu"){OpenDemoPartner(id=="demo_ahe"?"partner_farm":"partner_craft");return true;}
             if(id=="demo_rescued_1"||id=="demo_rescued_2"){OpenRescuedCivilian(id);return true;}

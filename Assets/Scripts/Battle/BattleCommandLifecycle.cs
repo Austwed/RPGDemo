@@ -65,6 +65,7 @@ namespace BaseConquest.Battle
             if (!ModernRules) return;
             foreach (BattleSide side in Enum.GetValues(typeof(BattleSide)))
             {
+                if (Scenario.Leaderless(side)) continue;
                 int old = captainSlots[(int)side];
                 if (Commander(side, old)?.IsActive != true)
                 {
@@ -136,7 +137,7 @@ namespace BaseConquest.Battle
         private int AutoDeployFormation(BattleSide side, IEnumerable<int> onlySlots = null)
         {
             if (Phase == BattlePhase.Finished) return 0;
-            var slots = (onlySlots ?? Enumerable.Range(0, Scenario.Army(side).HeroCount)).Distinct().OrderBy(i => i).ToList();
+            var slots = (onlySlots ?? (Scenario.Leaderless(side) ? new[] { -1 } : Enumerable.Range(0, Scenario.Army(side).HeroCount))).Distinct().OrderBy(i => i).ToList();
             var cells = Board.Positions().Where(p => Board.Walkable(p) && Board.Cell(p).Zone == (side == BattleSide.A ? DeploymentZone.A : DeploymentZone.B)).ToList();
             if (cells.Count == 0) return 0;
             // 指挥者成组位于中部，小兵按近战前排、弓手后排、骑兵侧翼分配。

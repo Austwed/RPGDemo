@@ -26,7 +26,7 @@ namespace BaseConquest.Battle
             var slots = DeploymentSlots(side, commanderIds);
             var units = slots.Count == 0 ? Soldiers.Where(s => s.Side == side) : slots.SelectMany(slot => CommanderSquad(side, slot).Soldiers);
             var scope = slots.Count == 0 ? Enumerable.Range(0, Scenario.Army(side).HeroCount) : slots;
-            return new BattleArmyStatus { InField = units.Count(s => s.Kind == kind && s.IsActive), Lost = units.Count(s => s.Kind == kind && !s.IsAlive), Stock = scope.Sum(slot => CommanderRemaining(side, slot, kind)) };
+            return new BattleArmyStatus { InField = units.Count(s => s.Kind == kind && s.IsActive), Lost = units.Count(s => s.Kind == kind && !s.IsAlive), Stock = Scenario.Leaderless(side) ? Remaining(side, kind) : scope.Sum(slot => CommanderRemaining(side, slot, kind)) };
         }
         public int DeploymentSource(BattleSide side, SoldierKind kind, IEnumerable<int> commanderIds, GridPosition? cell = null)
         {

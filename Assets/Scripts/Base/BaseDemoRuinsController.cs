@@ -47,13 +47,14 @@ namespace BaseConquest.Base
                 case BasePrepRoute.Defense:
                 case BasePrepRoute.Second: BeginDemoDefense("none", prepared: prepared); break;
                 case BasePrepRoute.BlackCrow: BeginDemoAttack("none", prepared: prepared); break;
+                case BasePrepRoute.Hideout: BeginBanditHideout(prepared); break;
             }
         }
 
         public void BeginDemoRuins(string mode,bool confirmed=false,bool confrontationConfirmed=false,BaseBattlePreparation prepared=null)
         {
-            if(!confirmed)
-            {if(prepared!=null)ShowDeploymentBriefing();Hud.OpenRuinsWarning(()=>BeginDemoRuins(mode,true,prepared:prepared),prepared);return;}
+            if(!confirmed && BaseRuinsRewards.RequiresWarning(State, prepared))
+            {if(prepared!=null)ShowDeploymentBriefing();Hud.OpenRuinsWarning(()=>BeginDemoRuins(mode,true,prepared:prepared));return;}
             if(State.Demo.RuinsDay==0&&!confrontationConfirmed)
             {if(prepared!=null)ShowDeploymentBriefing();Hud.OpenRuinsConfrontation(()=>BeginDemoRuins(mode,true,true,prepared));return;}
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;

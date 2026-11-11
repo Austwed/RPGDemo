@@ -65,7 +65,7 @@ namespace BaseConquest.Base
         // 同一领地：世界旅程开启后只看当前节点登记的场景，否则就是整套 Demo 领地。
         private static IEnumerable<BaseMapLayout> Domain(BaseState s)
         {
-            var maps = s.Campaign.Layouts.Where(map => map != null);
+            var maps = s.Campaign.Layouts.Where(map => map != null && map.SourceMapId != BaseBanditHideout.MapId);
             if (BaseWorldJourney.Active(s) && s.Campaign.WorldJourney?.Nodes != null)
             {
                 var node = s.Campaign.WorldJourney.Nodes.FirstOrDefault(item => item.Id == s.Campaign.WorldJourney.NodeId);
@@ -128,6 +128,7 @@ namespace BaseConquest.Base
             if (key == CurrentKey(s)) return SamePlace;
             var map = Scene(s, key);
             if (map == null) return "领地内没有这个场景";
+            if (map.SourceMapId == BaseBanditHideout.MapId) return BaseBanditHideout.ApproachText;
             if (map.Region == "custom" || !string.IsNullOrEmpty(map.ParentMapId))
                 return map.Region == "custom" && !BaseSceneInstances.Active(s) ? "附属场景只在场景实例组合里开放" : "";
             switch (map.Region)

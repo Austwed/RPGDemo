@@ -488,6 +488,18 @@
       "notes": "功能占位，待回稿。"
     },
     {
+      "key": "story.ui.prep.deployment_back",
+      "group": "界面／战前准备",
+      "text": "返回备战",
+      "notes": "部署底部按钮，建议 8 字以内。"
+    },
+    {
+      "key": "story.ui.prep.deployment_auto",
+      "group": "界面／战前准备",
+      "text": "一键布置",
+      "notes": "部署底部按钮，建议 8 字以内。"
+    },
+    {
       "key": "story.ui.prep.deployment_confirm",
       "group": "界面／战前准备",
       "text": "开战",
@@ -612,6 +624,90 @@
       "group": "界面／菜单",
       "text": "任务 · N",
       "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.battle.menu.return_deployment",
+      "group": "界面／战场系统菜单",
+      "text": "返回部署",
+      "notes": "保留本次草案，建议 8 字以内。"
+    },
+    {
+      "key": "story.ui.battle.menu.quit",
+      "group": "界面／战场系统菜单",
+      "text": "退出游戏",
+      "notes": "打开退出确认，建议 8 字以内。"
+    },
+    {
+      "key": "story.ui.battle.menu.confirm_title",
+      "group": "界面／战场系统菜单",
+      "text": "确认回主菜单",
+      "notes": "回主菜单的确认按钮，建议 12 字以内。"
+    },
+    {
+      "key": "story.ui.battle.menu.confirm_quit",
+      "group": "界面／战场系统菜单",
+      "text": "确认退出游戏",
+      "notes": "退出游戏的确认按钮，建议 12 字以内。"
+    },
+    {
+      "key": "story.ui.battle.menu.exit_draft",
+      "group": "界面／战场系统菜单",
+      "text": "当前部署将被放弃。",
+      "notes": "未提交部署时的确认正文，建议 30 字以内。"
+    },
+    {
+      "key": "story.ui.battle.menu.exit_battle",
+      "group": "界面／战场系统菜单",
+      "text": "按当前战斗规则结算后离开。",
+      "notes": "正式开战后的确认正文，建议 30 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.title",
+      "group": "界面／土匪窝点",
+      "text": "土匪窝点",
+      "notes": "入口、地图、备战和战果通用名称，建议 8 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.objective",
+      "group": "界面／土匪窝点",
+      "text": "击败全部土匪",
+      "notes": "备战与战场目标，建议 20 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.approach",
+      "group": "界面／土匪窝点",
+      "text": "请到土匪窝点入口备战",
+      "notes": "入口交互条件不满足时的提示，建议 20 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.enemy_counts",
+      "group": "界面／土匪窝点",
+      "text": "士兵 {0} 人 · 剑 {1} · 弓 {2} · 骑 {3}",
+      "notes": "{0} 为人数合计，{1}、{2}、{3} 为剑士、弓兵、骑兵数。保留全部变量，显示一行。"
+    },
+    {
+      "key": "story.ui.hideout.victory",
+      "group": "界面／土匪窝点",
+      "text": "土匪已被击退",
+      "notes": "胜利战果标题，建议 12 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.defeat",
+      "group": "界面／土匪窝点",
+      "text": "未能击退土匪",
+      "notes": "败退或到达时限的战果标题，建议 12 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.report",
+      "group": "界面／土匪窝点",
+      "text": "按实际参战结算军需和战损，结算后返回窝点入口。",
+      "notes": "战斗说明，建议 40 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.return",
+      "group": "界面／土匪窝点",
+      "text": "结算并返回入口",
+      "notes": "战果离场按钮，建议 10 字以内。"
     },
     {
       "key": "story.ui.prep.validation.supply",

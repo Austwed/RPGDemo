@@ -6,15 +6,13 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        public void OpenRuinsWarning(Action proceed, BaseBattlePreparation prepared = null)
+        public void OpenRuinsWarning(Action proceed)
         {
             var s=owner.State;var lines=new List<NpcLine>();
             if(BaseAdventure.Following(s,"partner_farm"))lines.Add(new NpcLine("阿禾","ahe","［打了个寒颤］洞口吹出来的黑风好邪门，吸一口胸口就像塞了团火炭……"));
             if(BaseAdventure.Following(s,"partner_craft"))lines.Add(new NpcLine("阿铸","azhu","里头瘴气太毒！咱们燃脉者扛得住，普通弟兄进去怕是撑不了几息！"));
-            bool danger=prepared == null ? BaseRuinsRewards.VulnerableParty(s) : prepared.Units.Any(unit =>
-                prepared.Positions.ContainsKey(unit.Id) && (unit.Leader == null || !BaseRuinsRewards.Immune(s, unit.Leader)));
-            lines.Add(new NpcLine(BaseScriptNames.Ruins+"警告","",(danger?"严重警告：当前随行队伍有普通人。":BaseScriptNames.Ruins+"副本存在侵蚀。")+"仅副本内，非异族、非异能者每秒损失最大生命的"+(BaseRuinsRewards.Exposure(s)*100).ToString("0.##")+"%；异族和异能者免受侵蚀伤害；"+BaseScriptNames.Ruins+"中受迦兰魂丝保护的村民暂免侵蚀。入口野外没有侵蚀，暂离成员不会进入副本。战斗中存在真实战损，请谨慎决定。"));
-            NpcDialogue(lines.ToArray(),new[]{new NpcReply(danger?"知晓危险，仍让当前队伍进入":"继续进入",proceed),new NpcReply("暂不进入，先调整随行",owner.CancelRuinsEntry)});
+            lines.Add(new NpcLine(BaseScriptNames.Ruins+"警告","","严重警告：当前出战队伍有普通人。仅副本内，非异族、非异能者每秒损失最大生命的"+(BaseRuinsRewards.Exposure(s)*100).ToString("0.##")+"%；异族和异能者免受侵蚀伤害；"+BaseScriptNames.Ruins+"中受迦兰魂丝保护的村民暂免侵蚀。入口野外没有侵蚀，暂离成员不会进入副本。战斗中存在真实战损，请谨慎决定。"));
+            NpcDialogue(lines.ToArray(),new[]{new NpcReply("知晓危险，仍让当前队伍进入",proceed),new NpcReply("暂不进入，先调整随行",owner.CancelRuinsEntry)});
         }
         public void OpenRuinsConfrontation(Action proceed)
         {

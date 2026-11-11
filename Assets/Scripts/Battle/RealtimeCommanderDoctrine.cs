@@ -19,6 +19,7 @@ namespace BaseConquest.RealtimePrototype
     public sealed partial class RealtimeBattlePrototype
     {
         public bool CommanderDoctrine;
+        public bool LeaderlessEnemyAssault;
         public Func<PrototypeUnit,PrototypeUnit,PrototypePoint,double> HeightRangeBonus;
         public Func<PrototypePoint,PrototypePoint,bool> HeightShotClear;
         public double ReachFor(PrototypeUnit actor,PrototypeUnit target,PrototypePoint? origin=null)=>actor.Reach+(HeightRangeBonus?.Invoke(actor,target,origin??actor.Position)??0);
@@ -109,6 +110,18 @@ namespace BaseConquest.RealtimePrototype
                     .Where(c=>!double.IsPositiveInfinity(d[c])&&Fits(u,c,(Arena.Center(c)-u.Position).Normalized)&&Footprint(u,c,(Arena.Center(c)-u.Position).Normalized).All(AtExit))
                     .OrderBy(c=>d[c]).DefaultIfEmpty(Arena.CellAt(u.Goal)).First();
                 u.Goal=Arena.Center(goal);u.MoveGoal=goal;return;
+            }
+            if(LeaderlessEnemyAssault&&u.Side==PrototypeSide.Enemy)
+            {
+                var assaultTarget=Target(u);
+                if(assaultTarget!=null)DoctrinePursue(u,assaultTarget);
+                else
+                {
+                    u.AttackSlot=-1;
+                    u.MoveGoal=DefaultDestination?.Invoke(u)??-1;
+                    if(u.MoveGoal==u.Cell)u.MoveGoal=-1;
+                }
+                return;
             }
             var l=Owner(u)??u;bool captain=u.Role==PrototypeRole.Leader;
             if(captain&&u.Steering){if(u.Cell!=Arena.CellAt(u.Goal))u.MoveGoal=Arena.CellAt(u.Goal);return;}

@@ -19,7 +19,8 @@ namespace BaseConquest.Battle
         private readonly List<RpgAttackPacket> rpgAttacks=new List<RpgAttackPacket>();
         private int rpgAttackSerial;
         private RpgRules Rpg=>Session.Opening.Rpg;
-        private double DifficultyIncoming(BattleSide side)=>!Session.Opening.DemoCombat||side!=BattleSide.A?1:Session.Opening.Difficulty.Preset=="easy"?.5:Session.Opening.Difficulty.Preset=="hard"?2:1;
+        private string CombatDifficulty => hideoutDifficulty ?? Session.Opening.Difficulty.Preset;
+        private double DifficultyIncoming(BattleSide side)=>!Session.Opening.DemoCombat||side!=BattleSide.A?1:CombatDifficulty=="easy"?.5:CombatDifficulty=="hard"?2:1;
         private RpgCharacter Profile(PrototypeUnit actor)=>Battle.Soldier(actor.Id-1).Rpg?.Version==1?Battle.Soldier(actor.Id-1).Rpg:null;
         private void InitializeRpgCombat()
         {
@@ -79,7 +80,7 @@ namespace BaseConquest.Battle
             double damage=RpgCombatRules.Damage(raw,defender.Stats.Defense,Rpg.ArmorK*level,Rpg.ArmorCap,critical,received);
             if(Session.Opening.DemoCombat)
             {
-                string preset=Session.Opening.Difficulty.Preset;
+                string preset=CombatDifficulty;
                 if(preset=="easy")damage*=attacker.Side==BattleSide.A?2:1;
                 damage*=DifficultyIncoming(defender.Side);
             }

@@ -130,10 +130,18 @@ namespace BaseConquest.Base
         }
         public static void ConfigureEnemy(BattleScenario scenario,List<BaseEnemyMember> roster)
         {
-            if(roster.Count==0)return;
+            if(roster.Count==0)
+            {
+                if(scenario.BanditHideout)throw new InvalidOperationException("窝点没有有效的敌军名单");
+                return;
+            }
             var leaders=roster.Where(u=>u.Kind==SoldierKind.Hero).ToArray();
-            if(leaders.Length<1||leaders.Length>3)throw new InvalidOperationException("敌军须有1至3名实际指挥者");
-            var old=scenario.B;var army=old.Clone();army.Commanders.Clear();army.CommanderNames=leaders.Select(u=>u.Name).ToList();army.CommanderRecruited=leaders.Select(_=>false).ToList();army.CaptainSlot=0;army.Capacity=90;
+            if(scenario.BanditHideout)
+            {
+                if(leaders.Length!=0||roster.Any(u=>!BattleSimulation.TroopKinds.Contains(u.Kind)))throw new InvalidOperationException("窝点敌军只能由普通士兵组成");
+            }
+            else if(leaders.Length<1||leaders.Length>3)throw new InvalidOperationException("敌军须有1至3名实际指挥者");
+            var old=scenario.B;var army=old.Clone();army.Commanders.Clear();army.CommanderNames=leaders.Select(u=>u.Name).ToList();army.CommanderRecruited=leaders.Select(_=>false).ToList();army.CaptainSlot=scenario.BanditHideout?-1:0;army.Capacity=90;
             army.CommanderStats=leaders.Select(unit=>unit.Stats.Clone()).ToList();
             // 立绘跟着名单走：随机入侵复用已有队长形象（chief/batu/huoya 等），普通战斗为空串。
             army.CommanderAppearances=leaders.Select(unit=>unit.Appearance??"").ToList();
@@ -143,6 +151,7 @@ namespace BaseConquest.Base
                 army.SetCount(kind,roster.Count(u=>u.Kind==kind));int n=0;
                 foreach(var unit in roster.Where(u=>u.Kind==kind&&kind!=SoldierKind.Hero))
                 {
+                    if(scenario.BanditHideout){unit.CommanderSlot=-1;continue;}
                     int assigned=!unit.HasDeployment?-1:Array.FindIndex(leaders,leader=>leader.PresetSlot==unit.Deployment.CommanderSlot);
                     unit.CommanderSlot=!unit.HasDeployment?n++%leaders.Length:Math.Max(0,assigned);
                     var command=army.Commanders[unit.CommanderSlot];command.Set(kind,command.Count(kind)+1);
@@ -211,6 +220,12 @@ namespace BaseConquest.Base
         public static void Validate(BaseState s)
         {
             var c=s.Campaign;
+            if(c.HasActiveBattle&&c.ActiveBattle is BaseCampaignBattle opening)
+            {
+                bool hideout=opening.EventId==BaseBanditHideout.EventId;
+                if(hideout!=(opening.Scenario?.BanditHideout==true)||opening.HasCheckpoint&&hideout!=(opening.Checkpoint?.Scenario?.BanditHideout==true))throw new ArgumentException("窝点规则与活动遭遇不一致");
+                if(hideout&&(opening.Enemies==null||opening.Enemies.Count==0||opening.Enemies.Any(unit=>unit==null||unit.Kind==SoldierKind.Hero||unit.CommanderSlot!=-1)))throw new ArgumentException("窝点敌军快照须为无归属的普通士兵");
+            }
             if(BaseDemo.Active(s))foreach(var mission in c.Events.Where(mission=>string.IsNullOrEmpty(mission.SourceSiteId))){ValidateMembers(mission.EnemyArmy);BaseDemoEncounterConfig.ValidateRoster(s,mission);if(mission.EnemyRecoveryDay<0||mission.EnemyRecoveryDay>s.Day)throw new ArgumentException("残军恢复日期非法");}
             if(c.ThreatVersion==0){if(c.EnemySites?.Count>0||c.Events.Any(e=>!string.IsNullOrEmpty(e.SourceSiteId)))throw new ArgumentException("敌情缺版本，拒绝丢弃据点");c.EnemySites??=new List<BaseEnemySite>();return;}
             if(c.ThreatVersion!=1||c.ThreatDay!=s.Day||c.EnemySites==null||c.EnemySites.Count!=(BaseSceneInstances.Active(s)?c.Layouts.Count(map=>map.Region=="outpost"):1)||c.EnemySites.Select(site=>site.Id).Distinct().Count()!=c.EnemySites.Count)throw new ArgumentException("持续敌情版本／日期／据点非法");
@@ -249,7 +264,7 @@ namespace BaseConquest.Base
             if(a.Enemies.Count==0){if(c.Events.Any(e=>e.Id==a.EventId&&!string.IsNullOrEmpty(e.SourceSiteId)))throw new ArgumentException("活动敌情缺少真实敌军快照");return;}
             if(a.Scenario?.B==null)return;
             var active=c.Events.Single(e=>e.Id==a.EventId);var expected=active.Kind=="attack" && !string.IsNullOrEmpty(active.SourceSiteId) ? Site(s,active.SourceSiteId)?.Garrison : active.EnemyArmy;
-            if(!a.DemoCombat&&string.IsNullOrEmpty(active.SourceSiteId)||expected==null||expected.Count!=a.Enemies.Count||a.Enemies.Any(u=>!expected.Any(x=>x.Id==u.Id&&x.Kind==u.Kind&&x.Name==u.Name&&x.Health==u.Health&&x.Stats.Level==u.Stats.Level&&x.Stats.Health==u.Stats.Health&&x.Stats.Damage==u.Stats.Damage&&x.Stats.Defense==u.Stats.Defense&&x.Stats.Range==u.Stats.Range&&x.Stats.MoveDistance==u.Stats.MoveDistance&&x.Stats.CritChance==u.Stats.CritChance&&x.Stats.CritMultiplier==u.Stats.CritMultiplier&&x.Stats.Penetration==u.Stats.Penetration&&x.Stats.Resistance==u.Stats.Resistance&&x.Stats.HasCombatKind==u.Stats.HasCombatKind&&x.Stats.CombatKind==u.Stats.CombatKind&&x.Stats.HasProfessionKind==u.Stats.HasProfessionKind&&x.Stats.ProfessionKind==u.Stats.ProfessionKind))||new[]{SoldierKind.Hero,SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry}.Any(k=>a.Scenario.B.Count(k)!=a.Enemies.Count(u=>u.Kind==k))||a.Enemies.Any(u=>u.CommanderSlot<0||u.CommanderSlot>=a.Scenario.B.HeroCount))throw new ArgumentException("活动敌军快照与编制不一致");
+            if(!a.DemoCombat&&string.IsNullOrEmpty(active.SourceSiteId)&&!a.Scenario.BanditHideout||expected==null||expected.Count!=a.Enemies.Count||a.Enemies.Any(u=>!expected.Any(x=>x.Id==u.Id&&x.Kind==u.Kind&&x.Name==u.Name&&x.Health==u.Health&&x.Stats.Level==u.Stats.Level&&x.Stats.Health==u.Stats.Health&&x.Stats.Damage==u.Stats.Damage&&x.Stats.Defense==u.Stats.Defense&&x.Stats.Range==u.Stats.Range&&x.Stats.MoveDistance==u.Stats.MoveDistance&&x.Stats.CritChance==u.Stats.CritChance&&x.Stats.CritMultiplier==u.Stats.CritMultiplier&&x.Stats.Penetration==u.Stats.Penetration&&x.Stats.Resistance==u.Stats.Resistance&&x.Stats.HasCombatKind==u.Stats.HasCombatKind&&x.Stats.CombatKind==u.Stats.CombatKind&&x.Stats.HasProfessionKind==u.Stats.HasProfessionKind&&x.Stats.ProfessionKind==u.Stats.ProfessionKind))||new[]{SoldierKind.Hero,SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry}.Any(k=>a.Scenario.B.Count(k)!=a.Enemies.Count(u=>u.Kind==k))||!a.Scenario.BanditHideout&&a.Enemies.Any(u=>u.CommanderSlot<0||u.CommanderSlot>=a.Scenario.B.HeroCount))throw new ArgumentException("活动敌军快照与编制不一致");
             if(a.HasCheckpoint)
             {
                 var battle=BattleSimulation.Restore(a.Checkpoint,a.Rpg!=null);

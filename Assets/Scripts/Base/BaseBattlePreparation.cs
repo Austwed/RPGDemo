@@ -7,7 +7,7 @@ using BaseConquest.Story;
 
 namespace BaseConquest.Base
 {
-    public enum BasePrepRoute { Ruins, Defense, Second, BlackCrow, Travel }
+    public enum BasePrepRoute { Ruins, Defense, Second, BlackCrow, Travel, Hideout }
 
     public sealed class BasePrepUnit
     {
@@ -29,6 +29,8 @@ namespace BaseConquest.Base
         private readonly RealtimeBattlePrototype geometry;
         private readonly BasePrepUnit[] units;
         private readonly BattleSoldier[] enemyReference;
+        private readonly int hideoutSeed;
+        private readonly List<BaseEnemyMember> hideoutEnemies;
         private static readonly PrototypePoint East = new PrototypePoint(1, 0);
         public BasePrepRoute Route { get; }
         public BattleBoard Board { get; }
@@ -37,14 +39,15 @@ namespace BaseConquest.Base
         public Dictionary<string, GridPosition> Positions { get; } = new Dictionary<string, GridPosition>();
         public int SupplyGrade { get; set; }
 
-        public BaseBattlePreparation(BaseState state, BasePrepRoute route)
+        public BaseBattlePreparation(BaseState state, BasePrepRoute route, int? hideoutSeed = null, int? hideoutEnemyCount = null)
         {
             Route = route;
             PlayerId = state.PlayerLeaderId;
             purpose = route == BasePrepRoute.Defense || route == BasePrepRoute.Second ? "defense" : "expedition";
             stamp = BaseMuster.Snapshot(state);
             mapKey = state.Campaign.CurrentMapId ?? state.Campaign.Location;
-            var party = route == BasePrepRoute.BlackCrow ? state.Muster.Parties.FirstOrDefault(p => p.Purpose == purpose) : null;
+            var party = route is BasePrepRoute.BlackCrow or BasePrepRoute.Hideout
+                ? state.Muster.Parties.FirstOrDefault(p => p.Purpose == purpose) : null;
             if (route == BasePrepRoute.BlackCrow && party == null) throw new InvalidOperationException("请率出征队到黑鸦寨");
             arrivedPartyId = party?.Id;
             var selected = party == null
@@ -94,7 +97,14 @@ namespace BaseConquest.Base
                 geometry = new RealtimeBattlePrototype(new PrototypeArena(Board.Cells.Select(c => !c.Walkable).ToArray(),
                     Board.Cells.Select(c => c.BlocksShots).ToArray(), null, Board.Width, Board.Height));
             }
-            if (route == BasePrepRoute.Ruins && BaseRuinsSweep.Problem(state) == "")
+            if (route == BasePrepRoute.Hideout)
+            {
+                this.hideoutSeed = hideoutSeed ?? Guid.NewGuid().GetHashCode();
+                hideoutEnemies = BaseBanditHideout.DrawEnemies(state, this.hideoutSeed, hideoutEnemyCount);
+                enemyReference = hideoutEnemies.Select(e => new BattleSoldier { Kind = e.Kind, Health = e.Health,
+                    Stats = e.Stats, Rpg = e.Rpg }).ToArray();
+            }
+            else if (route == BasePrepRoute.Ruins && BaseRuinsSweep.Problem(state) == "")
             {
                 try
                 {
@@ -107,6 +117,11 @@ namespace BaseConquest.Base
 
         private BattleBoard Project(BaseState state)
         {
+            if (Route == BasePrepRoute.Hideout)
+            {
+                state = state.Copy();
+                BaseBanditHideout.Enter(state);
+            }
             if (Route == BasePrepRoute.Ruins && BaseSceneRules.Entrance(state))
             {
                 state = state.Copy();
@@ -137,6 +152,7 @@ namespace BaseConquest.Base
             if (BaseSceneCombat.Active(state) || state.Aftermath.GameOver || stamp != BaseMuster.Snapshot(state) ||
                 mapKey != (state.Campaign.CurrentMapId ?? state.Campaign.Location))
                 return StoryText.Get("story.ui.prep.validation.changed", "现场已变化，请重新备战");
+            if (Route == BasePrepRoute.Hideout && !BaseBanditHideout.CanEnter(state)) return BaseBanditHideout.ApproachText;
             if (!units.Any(u => u.Id == PlayerId && u.Selected)) return "主角必须出战";
             var leaders = Taking(deployed).Where(u => u.Kind == SoldierKind.Hero).Select(u => u.Id).ToHashSet();
             if (!leaders.Contains(PlayerId)) return StoryText.Get("story.ui.prep.validation.player", "请先部署主角");
@@ -288,6 +304,7 @@ namespace BaseConquest.Base
             var roster = Roster(state, true);
             var plan = arrivedPartyId == null ? Plan(state, true) : null;
             var session = Route == BasePrepRoute.Ruins ? BaseDemoRuins.Begin(state, "none", plan, roster)
+                : Route == BasePrepRoute.Hideout ? BaseBanditHideout.Begin(state, plan, roster, hideoutEnemies, hideoutSeed)
                 : Route == BasePrepRoute.BlackCrow ? BaseDemoFinale.Begin(state, "none", roster)
                 : BaseDemoDefense.Begin(state, "none", plan, roster, Route == BasePrepRoute.Second);
             BattleScenePlacement.Start(state, session);

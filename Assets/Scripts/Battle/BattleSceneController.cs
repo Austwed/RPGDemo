@@ -222,6 +222,12 @@ namespace BaseConquest.Battle
         {
             if(ExternalDialogue)return;
             if (battle == null) return;
+            if (CampaignMenuOpen)
+            {
+                if (Keyboard.current?.escapeKey.wasPressedThisFrame == true) CloseCampaignMenu();
+                if (!DeploymentDraftActive) PersistCampaignResult();
+                return;
+            }
             if (DeploymentDraftActive) { UpdateDraftDeployment(); return; }
             if(IsRealtimeCampaign&&realtime!=null){UpdateRealtime();return;}
             if(preparationInventoryOpen){if(Keyboard.current!=null&&(Keyboard.current.bKey.wasPressedThisFrame||Keyboard.current.escapeKey.wasPressedThisFrame))GetComponentInParent<BaseConquest.Base.BaseSceneController>()?.Hud.ClosePanel();return;}

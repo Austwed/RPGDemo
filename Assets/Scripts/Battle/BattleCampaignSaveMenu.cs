@@ -2,6 +2,7 @@ using BaseConquest.Presentation;
 using System;
 using System.Linq;
 using BaseConquest.Base;
+using BaseConquest.Story;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -11,6 +12,9 @@ namespace BaseConquest.Battle
     {
         private GameObject campaignMenu;
         private Font saveMenuFont;
+        private enum CampaignMenuPage { Main, Options, ConfirmMainMenu, ConfirmQuit }
+        internal bool UsesCampaignSystemMenu => DeploymentDraftActive || IsCampaignBattle && !IsStandaloneTest;
+        internal bool CampaignMenuOpen => campaignMenu != null && !battleBagOpen;
         public void OpenCampaignSaves(bool loading=false)
         {
             if(IsRealtimeCampaign)loading=true;
@@ -42,39 +46,163 @@ namespace BaseConquest.Battle
             if(!loading)Button("取消战场准备并返营",0,-190,500,ReturnCampaign,battle.Phase==BattlePhase.Deployment&&!CampaignGameOver);
             UiPrefabBinding.Complete(campaignMenu);
         }
-        public void OpenCampaignMenu()=>BuildCampaignMenu(true);
-        public void OpenCampaignOptions()=>BuildCampaignMenu(false);
-        private void BuildCampaignMenu(bool menu)
+        public void OpenCampaignMenu() => BuildCampaignMenu(CampaignMenuPage.Main);
+        public void OpenCampaignOptions() => BuildCampaignMenu(CampaignMenuPage.Options);
+
+        private void CloseCampaignMenu()
         {
-            autoRun=false;
-            if(saveMenuFont==null)saveMenuFont=Font.CreateDynamicFontFromOSFont(new[]{"Microsoft YaHei","Arial"},18);
-            if(campaignMenu!=null){campaignMenu.SetActive(false);UiPrefabBinding.DestroyView(campaignMenu);}
-            campaignMenu=UiPrefabBinding.Create("BattleOptions","战斗选项",transform,true);campaignMenu.GetComponent<Canvas>().renderMode=RenderMode.ScreenSpaceOverlay;campaignMenu.GetComponent<Canvas>().sortingOrder=3000;
-            var scaler=campaignMenu.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1280,720);
-            var shade=UiPrefabBinding.Rect("选项面板",campaignMenu.transform).gameObject;shade.GetOrAdd<Image>();var panel=shade.GetComponent<RectTransform>();panel.anchorMin=panel.anchorMax=new Vector2(.5f,.5f);panel.sizeDelta=new Vector2(900,480);shade.GetComponent<Image>().color=new Color(.08f,.14f,.18f,.98f);
-            void Option(string title,float y,Action action,bool enabled=true)
+            if (campaignMenu == null) return;
+            campaignMenu.SetActive(false);
+            UiPrefabBinding.DestroyView(campaignMenu);
+            campaignMenu = null;
+            lastSpaceInputFrame = Time.frameCount;
+            hud?.Refresh();
+        }
+
+        private static string CampaignMenuText(string key, string fallback) => StoryText.Get("story.ui.battle.menu." + key, fallback);
+
+        private void BuildCampaignMenu(CampaignMenuPage page, string exitFailure = null)
+        {
+            if (ExternalDialogue) return;
+            ManualPause();
+            skipping = false;
+            CancelGesture();
+            CloseContext();
+            formationOpen = false;
+            battleBagOpen = false;
+            CloseCampaignMenu();
+            if (saveMenuFont == null) saveMenuFont = Font.CreateDynamicFontFromOSFont(new[] { "Microsoft YaHei", "Arial" }, 18);
+            campaignMenu = UiPrefabBinding.Create("BattleOptions", "战斗选项", transform, true);
+            var canvas = campaignMenu.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 3000;
+            var scaler = campaignMenu.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1280, 720);
+
+            var shade = UiPrefabBinding.Rect("Backdrop", campaignMenu.transform);
+            shade.SetAsFirstSibling();
+            shade.anchorMin = Vector2.zero;
+            shade.anchorMax = Vector2.one;
+            shade.offsetMin = shade.offsetMax = Vector2.zero;
+            shade.gameObject.GetOrAdd<Image>().color = DemoUiTheme.Current.Shade;
+            var panel = UiPrefabBinding.Rect("选项面板", campaignMenu.transform);
+            panel.anchorMin = panel.anchorMax = new Vector2(.5f, .5f);
+            panel.pivot = new Vector2(.5f, .5f);
+            panel.anchoredPosition = Vector2.zero;
+            bool compact = UsesCampaignSystemMenu;
+            bool confirmation = page == CampaignMenuPage.ConfirmMainMenu || page == CampaignMenuPage.ConfirmQuit;
+            panel.sizeDelta = new Vector2(720, compact ? (confirmation ? 334 : 306) : 418);
+            panel.gameObject.GetOrAdd<Image>();
+            DemoUiTheme.Current.Frame(panel);
+
+            void Label(RectTransform parent, string title, int fontSize)
             {
-                var obj=UiPrefabBinding.Rect(title,panel).gameObject;obj.GetOrAdd<Image>();obj.GetOrAdd<Button>();var r=obj.GetComponent<RectTransform>();r.anchorMin=r.anchorMax=new Vector2(.5f,.5f);r.anchoredPosition=new Vector2(0,y);r.sizeDelta=new Vector2(800,64);obj.GetComponent<Image>().color=new Color(.2f,.32f,.37f);var button=obj.GetComponent<Button>();button.interactable=enabled;button.targetGraphic=obj.GetComponent<Image>();button.onClick.AddListener(()=>action());
-                var label=UiPrefabBinding.Rect("Label",r).gameObject;label.GetOrAdd<Text>();var tr=label.GetComponent<RectTransform>();tr.anchorMin=Vector2.zero;tr.anchorMax=Vector2.one;tr.offsetMin=tr.offsetMax=Vector2.zero;var text=label.GetComponent<Text>();text.font=saveMenuFont;text.fontSize=21;text.alignment=TextAnchor.MiddleCenter;text.color=Color.white;text.text=title;text.raycastTarget=false;
+                var rect = UiPrefabBinding.Rect("Label", parent);
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = new Vector2(10, 3);
+                rect.offsetMax = new Vector2(-10, -3);
+                var text = rect.gameObject.GetOrAdd<Text>();
+                text.font = saveMenuFont;
+                text.fontSize = fontSize;
+                text.alignment = TextAnchor.MiddleCenter;
+                text.color = DemoUiTheme.Current.Ink;
+                text.text = title;
+                text.raycastTarget = false;
             }
-            if(menu)
+
+            void Option(string id, string title, float y, Action action, bool enabled = true)
             {
-                if(IsStandaloneTest)Option("重置本预设（不保存剧情）",200,()=>RestartStandaloneTest?.Invoke());
-                Option("选项",110,OpenCampaignOptions,!CampaignGameOver);
-                Option("回主菜单",20,CampaignMainMenu);
-                if(IsStandaloneTest)Option("退出独立测试（不保存剧情）",-70,()=>AbandonRealtimeBattle());
-                else if(IsRealtimeCampaign&&!CampaignGameOver&&!campaignSaved&&!IsSecondDefense)Option(realtime?.Session.Opening.DemoCombat==true?"立即撤出，结算战损":"放弃本场，返回战前",-70,()=>AbandonRealtimeBattle());
-                else if(battle?.Phase==BattlePhase.Deployment)Option("取消战场准备并返营",-70,ReturnCampaign,CanReturnCampaign);
-                Option("返回战斗",-160,()=>UiPrefabBinding.DestroyView(campaignMenu),!CampaignGameOver);
+                var rect = UiPrefabBinding.Rect(id, panel);
+                rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+                rect.anchoredPosition = new Vector2(0, y);
+                rect.sizeDelta = new Vector2(620, 52);
+                var button = rect.gameObject.GetOrAdd<Button>();
+                button.targetGraphic = rect.gameObject.GetOrAdd<Image>();
+                DemoUiTheme.Current.StyleButton(button);
+                button.interactable = enabled;
+                button.onClick.AddListener(() => action());
+                Label(rect, title, 21);
+            }
+
+            string back = DeploymentDraftActive ? CampaignMenuText("return_deployment", "返回部署") : "返回战斗";
+            if (page == CampaignMenuPage.Main)
+            {
+                float y = compact ? 93 : 150;
+                Option("Continue", back, y, CloseCampaignMenu, !CampaignGameOver);
+                Option("Options", "选项", y -= 62, OpenCampaignOptions, !CampaignGameOver);
+                Option("MainMenu", "回主菜单", y -= 62, () =>
+                {
+                    if (UsesCampaignSystemMenu) BuildCampaignMenu(CampaignMenuPage.ConfirmMainMenu);
+                    else CampaignMainMenu();
+                });
+                if (UsesCampaignSystemMenu)
+                    Option("Quit", CampaignMenuText("quit", "退出游戏"), y -= 62, () => BuildCampaignMenu(CampaignMenuPage.ConfirmQuit));
+                if (IsStandaloneTest)
+                {
+                    Option("Restart", "重置本预设（不保存剧情）", y -= 62, () => RestartStandaloneTest?.Invoke());
+                    Option("LeaveTest", "退出独立测试（不保存剧情）", y -= 62, () => AbandonRealtimeBattle());
+                }
+                else if (!UsesCampaignSystemMenu && IsRealtimeCampaign && !CampaignGameOver && !campaignSaved && !IsSecondDefense)
+                    Option("Withdraw", realtime?.Session.Opening.DemoCombat == true ? "立即撤出，结算战损" : "放弃本场，返回战前", y -= 62, () => AbandonRealtimeBattle());
+                else if (!UsesCampaignSystemMenu && battle?.Phase == BattlePhase.Deployment)
+                    Option("CancelPreparation", "取消战场准备并返营", y -= 62, ReturnCampaign, CanReturnCampaign);
+            }
+            else if (page == CampaignMenuPage.Options)
+            {
+                float y = compact ? 93 : 102;
+                Option("Back", "返回菜单", y, OpenCampaignMenu);
+                Option("Grid", "战斗格子描边：" + (MapDisplayOptions.BattleGridOutlines ? "开启" : "关闭"), y -= 62, () =>
+                {
+                    MapDisplayOptions.BattleGridOutlines = !MapDisplayOptions.BattleGridOutlines;
+                    boardView.SetGridOutlines(MapDisplayOptions.BattleGridOutlines);
+                    OpenCampaignOptions();
+                });
+                Option("Developer", "开发者模式：" + (RuntimeDeveloperOptions.Enabled ? "开启" : "关闭"), y -= 62, () =>
+                {
+                    RuntimeDeveloperOptions.Enabled = !RuntimeDeveloperOptions.Enabled;
+                    OpenCampaignOptions();
+                });
+                Option("Continue", back, y - 62, CloseCampaignMenu);
             }
             else
             {
-                Option("返回菜单",110,OpenCampaignMenu);
-                Option("战斗格子描边："+(MapDisplayOptions.BattleGridOutlines ? "开启" : "关闭"),15,()=>{MapDisplayOptions.BattleGridOutlines=!MapDisplayOptions.BattleGridOutlines;boardView.SetGridOutlines(MapDisplayOptions.BattleGridOutlines);OpenCampaignOptions();});
-                Option("开发者模式："+(RuntimeDeveloperOptions.Enabled ? "开启" : "关闭"),-75,()=>{RuntimeDeveloperOptions.Enabled=!RuntimeDeveloperOptions.Enabled;OpenCampaignOptions();});
-                Option("返回战斗",-160,()=>UiPrefabBinding.DestroyView(campaignMenu));
+                bool quit = page == CampaignMenuPage.ConfirmQuit;
+                var message = UiPrefabBinding.Rect("ExitMessage", panel);
+                message.anchorMin = message.anchorMax = new Vector2(.5f, .5f);
+                message.anchoredPosition = new Vector2(0, 95);
+                message.sizeDelta = new Vector2(620, 124);
+                Label(message, exitFailure ?? (DeploymentDraftActive
+                    ? CampaignMenuText("exit_draft", "当前部署将被放弃。")
+                    : CampaignMenuText("exit_battle", "按当前战斗规则结算后离开。")), 20);
+                Option("Confirm", quit ? CampaignMenuText("confirm_quit", "确认退出游戏") : CampaignMenuText("confirm_title", "确认回主菜单"), -14, () => ConfirmCampaignExit(page));
+                Option("Cancel", "取消", -76, OpenCampaignMenu);
             }
             UiPrefabBinding.Complete(campaignMenu);
+            hud?.Refresh();
+        }
+
+        private void ConfirmCampaignExit(CampaignMenuPage page)
+        {
+            bool quit = page == CampaignMenuPage.ConfirmQuit;
+            if (DeploymentDraftActive)
+            {
+                var scene = GetComponentInParent<BaseSceneController>();
+                if (scene == null || deploymentExit == null) return;
+                deploymentExit.Invoke();
+                if (!quit) scene.ToMainMenu();
+            }
+            else if (IsSceneEncounter || IsRealtimeCampaign)
+            {
+                if (!LeaveRealtimeBattle(true, !quit)) { BuildCampaignMenu(page, feedback); return; }
+            }
+            else
+            {
+                if (!PersistCampaignCheckpoint(true)) { BuildCampaignMenu(page, feedback); return; }
+                if (!quit) LoadCampaignMainMenu();
+            }
+            if (quit) Application.Quit();
         }
     }
 }

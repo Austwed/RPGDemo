@@ -58,6 +58,7 @@ namespace BaseConquest.Base
     [Serializable] public sealed class RpgRules
     {
         public int GenerationSeed, SceneRulesVersion;
+        public int HideoutEnemyCount;
         public bool IntelPricingConfigured;
         public int ThreeDayIntelPrice,FiveDayIntelPrice;
         public int Version,CampLevel=1,InnDailyFee=2,LeaderFood=2,ArcherFood=1,SupplyMaterial=2,SupplyWorkValue=5,FacilityRepairMaterials=10,FacilityRepairCoins=20;
@@ -138,6 +139,8 @@ namespace BaseConquest.Base
         }
         public void Validate()
         {
+            if (HideoutEnemyCount < 0 || HideoutEnemyCount > BaseBanditHideout.EnemyCountCap)
+                throw new ArgumentException("土匪窝点兵力配置非法");
             if(OpeningSupplyWearVersion<0||OpeningSupplyWearVersion>1||OpeningSupplyWearVersion==1&&(!Finite(OpeningReturnedWear)||OpeningReturnedWear<0||OpeningReturnedWear>1||!Finite(OpeningLostWear)||OpeningLostWear<0||OpeningLostWear>1))throw new ArgumentException("Demo军需磨损比例非法");
             if(EquipmentQuality?.Length!=6||EquipmentQuality.Any(v=>!Finite(v)||v<=0||v>100))throw new ArgumentException("装备品质属性倍率非法");
             if(BowQualityRange?.Length!=6||BowQualityRange.Any(v=>v<0||v>24)||Range?.Length!=3||Range[1]+BowQualityRange.Max()>24)throw new ArgumentException("弓品质加值与职业射程超过24细格");

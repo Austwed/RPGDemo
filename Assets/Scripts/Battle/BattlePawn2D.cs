@@ -239,6 +239,12 @@ namespace BaseConquest.Battle
             float health = Mathf.Clamp01(soldier.Health / Mathf.Max(1, soldier.Stats.Health)); healthFill.localScale = new Vector3(health, 1, 1); healthFill.localPosition = new Vector3((health - 1) * 0.28f, healthFill.localPosition.y, healthFill.localPosition.z);
             bool healthVisible = soldier.IsActive || soldier.IsAlive && soldier.Escaped && soldier.LastAction == RoundAction.Move && progress < 1;
             healthRoot.gameObject.SetActive(healthVisible); healthFill.gameObject.SetActive(healthVisible);
+            if (battle.Scenario.Leaderless(soldier.Side) && squadStar != null)
+            {
+                squadStar.enabled = false;
+                foreach (var line in lines)
+                    if (line.name.StartsWith("SquadStar")) line.enabled = false;
+            }
             if (starInk != null) starInk.startColor = starInk.endColor = CrownColor(battle, soldier.Side, battle.CommanderFor(soldier)?.OriginCommanderSlot ?? soldier.OriginCommanderSlot);
             if (squadStar != null) { var commander = battle.CommanderFor(soldier); properties.SetColor("_BaseColor", CrownColor(battle, soldier.Side, commander?.OriginCommanderSlot ?? soldier.OriginCommanderSlot)); squadStar.SetPropertyBlock(properties); }
             if (crown != null) { properties.SetColor("_BaseColor", CrownColor(battle, soldier.Side, soldier.OriginCommanderSlot)); crown.SetPropertyBlock(properties); }

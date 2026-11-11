@@ -24,12 +24,13 @@ namespace BaseConquest.Base
             deploymentReturnZoom = WorldCamera.orthographicSize;
             try
             {
-                if (draft.Route == BasePrepRoute.Ruins && BaseSceneRules.Entrance(State))
+                if (draft.Route == BasePrepRoute.Hideout || draft.Route == BasePrepRoute.Ruins && BaseSceneRules.Entrance(State))
                 {
                     // Build the actual encounter map without publishing the pending portal transition.
                     var exploration = State;
                     var encounterMap = exploration.Copy();
-                    BaseSceneRules.EnterDungeon(encounterMap);
+                    if (draft.Route == BasePrepRoute.Hideout) BaseBanditHideout.Enter(encounterMap);
+                    else BaseSceneRules.EnterDungeon(encounterMap);
                     deploymentChangedMap = true;
                     try { State = encounterMap; RebuildRegion(); }
                     finally { State = exploration; }

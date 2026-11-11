@@ -29,6 +29,7 @@ namespace BaseConquest.Base
             BaseCampaign.Normalize(s);
             BaseFacilityLayout.Normalize(s);
             BaseRpg.Bind(s);
+            BaseBanditHideout.Install(s);
             BaseSceneRules.Validate(s);BaseInn.Validate(s);
             if (s.Campaign.Location == "base" && (s.Development == null || s.Development.Version == 0)) BaseMap.RelocateLegacyBarracks(ref s.PlayerX, ref s.PlayerY);
             BaseSceneRules.RepairEntrancePositions(s);

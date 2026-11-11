@@ -36,6 +36,7 @@ namespace BaseConquest.Battle
         }
         private void NormalizeFormation(BattleSide side)
         {
+            if (Scenario.Leaderless(side)) return;
             var army = Scenario.Army(side); bool fresh = army.Commanders == null || army.Commanders.Count == 0;
             army.Commanders ??= new List<CommanderLoadout>();
             while (army.Commanders.Count < 3) army.Commanders.Add(new CommanderLoadout());
@@ -79,6 +80,7 @@ namespace BaseConquest.Battle
         private int DeploymentSlot(BattleSide side, SoldierKind kind, int requested)
         {
             if (!Scenario.CommanderControl) return -1;
+            if (Scenario.Leaderless(side)) return requested;
             if (requested >= 0) return requested;
             for (int slot = 0; slot < Scenario.Army(side).HeroCount; slot++)
                 if (CommanderRemaining(side, slot, kind) > 0 && (kind == SoldierKind.Hero || Commander(side, slot)?.IsActive == true)) return slot;

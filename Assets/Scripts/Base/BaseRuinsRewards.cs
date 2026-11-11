@@ -29,6 +29,10 @@ namespace BaseConquest.Base
             return string.Join(",",plan.Leaders.Where(id=>!Immune(s,s.Leaders.Single(l=>l.Id==id))))+"|"+plan.Takes.Sum(t=>t.Count);
         }
         public static bool VulnerableParty(BaseState s)=>WarningRoster(s)!="|0";
+        public static bool RequiresWarning(BaseState s, BaseBattlePreparation draft) => draft == null
+            ? VulnerableParty(s)
+            : draft.Units.Any(unit => unit.Selected && draft.Positions.ContainsKey(unit.Id) &&
+                (unit.Leader == null || !Immune(s, unit.Leader)));
         public static void ValidateDefaults(BaseRuinsRewardState r)
         {
             if(r==null||r.Version!=1||r.MaximumEnergy<1||r.MaximumEnergy>10000||r.RewardCost<1||r.RewardCost>r.MaximumEnergy||r.Energy!=r.MaximumEnergy||r.EnergyDay!=1||r.Coins<0||r.Coins>1000000||r.ItemCount<1||r.ItemCount>99||new[]{r.FirstCoins,r.FirstFood,r.FirstMaterials}.Any(n=>n<0||n>1000000)||double.IsNaN(r.ExposureFraction)||double.IsInfinity(r.ExposureFraction)||r.ExposureFraction<=0||r.ExposureFraction>1||!string.IsNullOrEmpty(r.PendingBattleId)||r.PendingFirstClear||r.EnemyGeneration!=0)throw new ArgumentException("遗迹奖励默认配置非法");

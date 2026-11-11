@@ -190,7 +190,7 @@ namespace BaseConquest.Battle
             CommanderAppearances = new List<string>(CommanderAppearances??new List<string>()),
             CommanderRecruited = new List<bool>(CommanderRecruited??new List<bool>()),
             CommanderStats = CommanderStats==null ? new List<SoldierStats>() : CommanderStats.ConvertAll(p=>p?.Clone()),
-            CaptainSlot = Math.Max(0, Math.Min(Math.Max(0, HeroCount - 1), CaptainSlot)), Capacity = Math.Max(1, Math.Min(90, Capacity))
+            CaptainSlot = HeroCount == 0 && CaptainSlot == -1 ? -1 : Math.Max(0, Math.Min(Math.Max(0, HeroCount - 1), CaptainSlot)), Capacity = Math.Max(1, Math.Min(90, Capacity))
         };
     }
 
@@ -243,7 +243,7 @@ namespace BaseConquest.Battle
         public int RandomSeed = 12345;
         public bool FogEnabled = true;
         public int DefenderSide = -1;
-        public bool DefenderVisionEnabled, CampaignRules;
+        public bool DefenderVisionEnabled, CampaignRules, BanditHideout;
         public int PlayerLeaderSlot = -1;
         public bool PlayerHeroAppearance;
         public bool CustomExits, InstantDeathEnabled;
@@ -257,6 +257,7 @@ namespace BaseConquest.Battle
         public bool ShowEnemiesThroughFog = true;
         public bool TestAutoDeployment = true;
         public ArmyDefinition Army(BattleSide side) => side == BattleSide.A ? A : B;
+        internal bool Leaderless(BattleSide side) => BanditHideout && side == BattleSide.B;
         public BattleScenario Clone()
         {
             var copy = new BattleScenario { Effects = (Effects ?? new BattleEffectRules()).Clone(), Board = (Board ?? BattleBoard.CreateDefault()).Clone(), A = (A ?? new ArmyDefinition()).Clone(), B = (B ?? new ArmyDefinition()).Clone(), MaxRounds = Math.Max(1, MaxRounds), StalemateRounds = Math.Max(1, StalemateRounds), SkillRange = Math.Max(1, SkillRange), SkillRadius = Math.Max(0, SkillRadius), SkillDamage = Math.Max(0, SkillDamage), SkillCooldown = Math.Max(1, SkillCooldown), RandomSeed = RandomSeed, HeightVision=HeightVision, FogEnabled = FogEnabled, VisionRadius = Math.Max(1, Math.Min(32, VisionRadius)) };
@@ -265,6 +266,7 @@ namespace BaseConquest.Battle
             copy.PlayerLeaderSlot = PlayerLeaderSlot;
             copy.PlayerHeroAppearance = PlayerHeroAppearance;
             copy.DefenderVisionEnabled = DefenderVisionEnabled; copy.CampaignRules = CampaignRules;
+            copy.BanditHideout = BanditHideout;
             copy.InstantDeathEnabled = InstantDeathEnabled; copy.LeaderInstantDeath = LeaderInstantDeath; copy.TroopInstantDeath = TroopInstantDeath;
             copy.SupplyBattleId = SupplyBattleId ?? "";
             copy.MobileBattleRules = MobileBattleRules; copy.ShowEnemiesThroughFog = ShowEnemiesThroughFog; copy.TestAutoDeployment = TestAutoDeployment;

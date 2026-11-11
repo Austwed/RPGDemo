@@ -42,13 +42,14 @@ namespace BaseConquest.Base
         public static void OpenWorld(BaseState state)
         {
             if(!Enabled(state)||Opened(state)||state.Demo.Stage!=BaseDemoStage.DefenseWon||state.Demo.Defense.BatuStoryDay==0||BaseBattleLoot.Pending(state)||!BaseInteraction.At(state,"base","demo_march_exit")||state.Muster.Parties.Count>0)throw new InvalidOperationException("先处理首防战果并返营整备，到南侧世界出口确认");
-            var campaign=state.Campaign;var keys=new Dictionary<string,string>{{"base","demo_camp"},{"town","demo_town"},{"outpost","demo_ruins"},{"perimeter","demo_field"},{"dungeon",BaseSceneRules.DungeonId}};
+            var campaign=state.Campaign;var keys=new Dictionary<string,string>{{"base","demo_camp"},{"town","demo_town"},{"outpost","demo_ruins"},{"perimeter","demo_field"},{"dungeon",BaseSceneRules.DungeonId},{BaseBanditHideout.Region,BaseBanditHideout.MapId}};
             var boards=campaign.Layouts.Where(map=>map.Region!="perimeter").Select(map=>new BaseRegionMap {Id=keys[map.Region],Board=BaseBattlefield.Board(state,map.Region).Clone()}).ToList();
             foreach(var map in campaign.Layouts)
             {
                 map.SourceMapId=keys[map.Region];foreach(var obj in map.Objects)obj.SourceObjectId=map.SourceMapId+"_"+obj.Id;
                 if(map.Region=="dungeon"){map.Region="custom";map.ParentMapId="demo_town";}
-                else if(map.Region=="outpost"){map.Region="custom";map.ParentMapId="demo_town";foreach(var obj in map.Objects.Where(obj=>obj.Id!="demo_ruins_return"&&obj.Id!="demo_ruins_investigate"))obj.VisualOnly=true;}
+                else if(map.Region==BaseBanditHideout.Region){map.Region="custom";map.ParentMapId="demo_ruins";}
+                else if(map.Region=="outpost"){map.Region="custom";map.ParentMapId="demo_town";foreach(var obj in map.Objects.Where(obj=>obj.Id!="demo_ruins_return"&&obj.Id!="demo_ruins_investigate"&&obj.Id!=BaseBanditHideout.EntryId))obj.VisualOnly=true;}
             }
             var worldMap=new BaseMapLayout {Region="world",SourceMapId="demo_world",Title="返乡行军",SpawnX=12,SpawnY=6.5};campaign.Layouts.Add(worldMap);
             var campLayout=state.Demo.StoryScene?.Valid==true?state.Demo.StoryScene.Map("bandit").Layout.Copy():BaseDemoRelease.Enabled(state)?state.Demo.ReleaseMaps.Single(m=>m.Role=="bandit").Layout.Copy():CreateCampLayout();campaign.Layouts.Add(campLayout);
@@ -75,8 +76,8 @@ namespace BaseConquest.Base
             foreach(var mission in campaign.Events.Where(mission=>mission.SourceSiteId==oldSite))mission.SourceSiteId=Camp;
             foreach(var loss in state.Aftermath.LostItems.Where(loss=>loss.SourceSiteId==oldSite))loss.SourceSiteId=Camp;
             campaign.Events.Single(mission=>mission.Id==site.AttackEventId).Title="攻占"+BaseScriptNames.Bandit;
-            foreach(var leader in state.Leaders.Where(leader=>leader.HasMapPosition)){leader.MapId=keys[BaseAdventure.Region(leader)];if(leader.MapRegion=="outpost"||leader.MapRegion=="dungeon")leader.MapRegion="custom";}
-            foreach(var paused in state.Adventure.Pauses){paused.MapId=keys[paused.Region];if(paused.Region=="outpost"||paused.Region=="dungeon")paused.Region="custom";paused.AreaId="camp";}
+            foreach(var leader in state.Leaders.Where(leader=>leader.HasMapPosition)){leader.MapId=keys[BaseAdventure.Region(leader)];if(leader.MapRegion=="outpost"||leader.MapRegion=="dungeon"||leader.MapRegion==BaseBanditHideout.Region)leader.MapRegion="custom";}
+            foreach(var paused in state.Adventure.Pauses){paused.MapId=keys[paused.Region];if(paused.Region=="outpost"||paused.Region=="dungeon"||paused.Region==BaseBanditHideout.Region)paused.Region="custom";paused.AreaId="camp";}
             foreach(var guest in state.Inn.Guests)if(guest.AreaId=="demo-local")guest.AreaId="camp";
             if(state.Demo.TerrainMemories!=null)foreach(var memory in state.Demo.TerrainMemories)if(keys.ContainsKey(memory.MapId))memory.MapId=keys[memory.MapId];
             campaign.InstanceVersion=1;campaign.DesignId=state.Demo.BalanceHash;campaign.CurrentMapId="demo_camp";
@@ -88,6 +89,7 @@ namespace BaseConquest.Base
             var world=new BaseWorldJourneyState {Version=1,NodeId="camp"};campaign.WorldJourney=world;
             world.Nodes.Add(new BaseWorldNode {Id="camp",Title="新领地营地",X=.18,Y=.38,MapIds=new List<string>{"demo_camp","demo_town","demo_field","demo_ruins"}});
             if(BaseSceneRules.Active(state))world.Nodes.Single(n=>n.Id=="camp").MapIds.Add(BaseSceneRules.DungeonId);
+            if(BaseBanditHideout.Installed(state))world.Nodes.Single(n=>n.Id=="camp").MapIds.Add(BaseBanditHideout.MapId);
             world.Nodes.Add(new BaseWorldNode {Id="bandit",AreaId="home",Title=BaseScriptNames.Village+"领地 · 敌营",X=.5,Y=.58,MapIds=new List<string>{Camp}});
             world.Nodes.Add(new BaseWorldNode {Id="home",AreaId="home",Title=BaseScriptNames.Village+"领地 · 村庄",X=.82,Y=.4,MapIds=new List<string>{Home}});
             world.Roads.Add(new BaseWorldRoad {Id="camp_bandit",From="camp",To="bandit",Days=1});world.Roads.Add(new BaseWorldRoad {Id="bandit_home",From="bandit",To="home",Days=1,EnemyMapId=Camp});
@@ -188,7 +190,7 @@ namespace BaseConquest.Base
             bool storyCamp=state.Demo?.StoryScene?.Valid==true;
             if(progress.Version!=1||progress.CampBoard==null||(storyCamp?(progress.CampBoard.Width<10||progress.CampBoard.Width>64||progress.CampBoard.Height<10||progress.CampBoard.Height>64):(progress.CampBoard.Width!=(BaseDemoRelease.Enabled(state)?32:24)||progress.CampBoard.Height!=(BaseDemoRelease.Enabled(state)?24:14)))||progress.CampBoard.Cells?.Length!=progress.CampBoard.Width*progress.CampBoard.Height||progress.CampBoard.Cells.Any(cell=>cell==null||!cell.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),cell.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),cell.Zone))||progress.Village==null||progress.Village.Objects==null||!progress.Village.Objects.Any(obj=>obj.Id=="village_house"&&obj.Blocks)||!progress.Village.Objects.Any(obj=>(obj.Id=="intro_farm"||obj.Id=="village_field")&&obj.Blocks))throw new ArgumentException("Demo攻营／"+BaseScriptNames.Village+"快照非法");
             if(!progress.WorldOpened){if(progress.AttackDay!=0||progress.EndDay!=0||progress.ReconstructionVersion!=0||progress.RebuildDay!=0||progress.RebuildMask!=0||progress.VillageRebuilt||Later(state))throw new ArgumentException("未开启行军不能提交结尾");return;}
-            if(!BaseDemoDefense.Won(state)||state.Campaign.InstanceVersion!=1||state.Campaign.DesignId!=state.Demo.BalanceHash||!BaseWorldJourney.Active(state)||state.Campaign.Layouts.Count!=(BaseSceneRules.Active(state)?8:7)||state.Campaign.WorldJourney.Nodes.Count!=3||state.Campaign.WorldJourney.Roads.Count!=2||state.Campaign.WorldJourney.Roads.Any(road=>road.Days!=1))throw new ArgumentException("Demo世界身份、路线或阶段非法");
+            if(!BaseDemoDefense.Won(state)||state.Campaign.InstanceVersion!=1||state.Campaign.DesignId!=state.Demo.BalanceHash||!BaseWorldJourney.Active(state)||state.Campaign.Layouts.Count!=(BaseSceneRules.Active(state)?8:7)+(BaseBanditHideout.Installed(state)?1:0)||state.Campaign.WorldJourney.Nodes.Count!=3||state.Campaign.WorldJourney.Roads.Count!=2||state.Campaign.WorldJourney.Roads.Any(road=>road.Days!=1))throw new ArgumentException("Demo世界身份、路线或阶段非法");
             var site=BaseThreats.Site(state,Camp);if(site==null||state.Campaign.Layouts.Single(map=>map.SourceMapId==Home).Region!="custom")throw new ArgumentException("Demo敌营／"+BaseScriptNames.Village+"缺失");
             if(Later(state)?progress.AttackDay<state.Demo.Defense.VictoryDay||progress.AttackDay>state.Day||site.Owner!="player"||!state.Campaign.Reports.Any(report=>report.EventId==site.AttackEventId&&report.Outcome=="SideAWin"&&!report.Passive):progress.AttackDay!=0)throw new ArgumentException("攻营阶段缺少真实主动胜利");
             if(state.Demo.Stage==BaseDemoStage.Finished?progress.EndDay<progress.AttackDay||progress.EndDay>state.Day:progress.EndDay!=0)throw new ArgumentException("断剑记录日期非法");
