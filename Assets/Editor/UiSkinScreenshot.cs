@@ -19,8 +19,7 @@ namespace BaseConquest.Editor
     //   Unity.exe -batchmode -projectPath RPGDemo -executeMethod BaseConquest.Editor.UiSkinScreenshot.Run
     // 不加 -nographics、不加 -quit。使用本次检查专用进度验证正式 Demo 流程。
     // 产物：Logs/wood-ui/。
-    // 世界地图不在此脚本内：Demo 阶段档的 WorldJourney.Nodes／Entries 为空且全流程走领地内直达，
-    // 游戏内没有可进入的世界地图画面，见 LOG 记录；C6 以 VerifyWorldArt 的静态断言为准。
+    // RunPlayerRouteViews 通过连续路线的存档补拍首防后对白、世界地图与返乡重建。
     // 截图沿用 UiInventoryCapture 的双遍合成：世界相机渲一张，屏幕空间 Overlay 的 Canvas 再单独渲到透明底按 alpha 叠回。
     public static class UiSkinScreenshot
     {
@@ -54,6 +53,12 @@ namespace BaseConquest.Editor
             EditorApplication.EnterPlaymode();
         }
 
+        public static void RunPlayerRouteViews()
+        {
+            stage = "route-boot";
+            Run();
+        }
+
         private static void Tick()
         {
             try { TickStage(); }
@@ -66,6 +71,68 @@ namespace BaseConquest.Editor
             if (!EditorApplication.isPlaying) { Note("等待进入 playmode"); return; }
             switch (stage)
             {
+                case "route-boot":
+                    controller = C;
+                    if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    LoadRouteView("merchant");
+                    break;
+                case "route-merchant":
+                    if (!RouteViewReady(state => state.Campaign.Location == "base" && BaseDemoDefense.Won(state))) return;
+                    H.ClosePanel();
+                    H.OpenDemoMerchant();
+                    var merchantLine = RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>();
+                    if (!H.ContinueDialogue() || !H.ContinueDialogue() || !H.ContinueDialogue() ||
+                        string.IsNullOrWhiteSpace(merchantLine.text))
+                        throw new InvalidOperationException("首防后老莫对白未播放到第二句");
+                    CaptureViewports("ui-player-route-merchant-after-defense");
+                    Log.Add("[观察] 首防后老莫对白第二句：" + merchantLine.text);
+                    H.ClosePanel();
+                    LoadRouteView("world");
+                    break;
+                case "route-world":
+                    if (!RouteViewReady(BaseWorldJourney.OnWorld)) return;
+                    var journey = Object.FindAnyObjectByType<BaseWorldJourneyHud>();
+                    var map = journey?.transform.Find("WorldMap");
+                    if (map == null || !map.gameObject.activeInHierarchy)
+                    {
+                        if (EditorApplication.timeSinceStartup - stageAt > 30)
+                            throw new InvalidOperationException("存档已进入世界，但行军地图仍未显示");
+                        return;
+                    }
+                    if (!BaseWorldJourney.Marching(controller.State))
+                        ClickHudButton(map.Find("Node_bandit"));
+                    stage = "route-world-shot"; frameDeadline = Time.frameCount + 20;
+                    break;
+                case "route-world-shot":
+                    if (!RouteViewReady(BaseWorldJourney.OnWorld)) return;
+                    var journeyPanel = Object.FindAnyObjectByType<BaseWorldJourneyHud>()?.transform.Find("JourneyPanel");
+                    string marchLabel = BaseWorldJourney.Marching(controller.State) ? "继续行军" : "确认行军";
+                    var confirm = journeyPanel?.GetComponentsInChildren<Button>().SingleOrDefault(button =>
+                        button.interactable && button.GetComponentInChildren<Text>()?.text == marchLabel);
+                    if (confirm == null)
+                        throw new InvalidOperationException("选择黑鸦寨后未出现可用的行军确认按钮");
+                    var bounds = new Vector3[4];
+                    ((RectTransform)confirm.transform).GetWorldCorners(bounds);
+                    if (bounds.Any(point => !new Rect(0, 0, Screen.width, Screen.height)
+                        .Contains(RectTransformUtility.WorldToScreenPoint(null, point))))
+                        Log.Add("[观察] 行军确认按钮至少一角超出当前 Game 视口");
+                    CaptureViewports("ui-player-route-world");
+                    Log.Add("[PASS] 连续路线存档载入世界地图，显示路线与行军面板");
+                    LoadRouteView("rebuild");
+                    break;
+                case "route-rebuild":
+                    if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Home && BaseDemoFinale.Rebuilding(state))) return;
+                    H.OpenRebuild();
+                    if (!H.PanelOpen || (string)Field(H, "panelViewKey") != "hometown-rebuild")
+                        throw new InvalidOperationException("返乡重建界面未打开");
+                    var rebuildLabels = RequirePanel("CommonPanel").GetComponentsInChildren<Text>().Select(label => label.text).ToArray();
+                    if (!new[] { "横向格", "纵向格", "小粮田", "营帐", "仓库" }.All(prefix =>
+                        rebuildLabels.Any(label => label.StartsWith(prefix, StringComparison.Ordinal))))
+                        throw new InvalidOperationException("返乡重建缺少格坐标或设施操作");
+                    CaptureViewports("ui-player-route-home-rebuild");
+                    Log.Add("[PASS] 连续路线存档载入返乡重建，显示格坐标和三项设施");
+                    Finish(0, "OK");
+                    break;
                 case "boot":
                     controller = C;
                     if (controller?.Message?.StartsWith("开局失败", StringComparison.Ordinal) == true)
@@ -229,6 +296,7 @@ namespace BaseConquest.Editor
                     stoneOffer.onClick.Invoke();
                     if (!RequirePanel("TownTrade").Find("Details").GetComponentsInChildren<Text>().Any(label => label.text.StartsWith("锻造石 · 单价 ")))
                         throw new InvalidOperationException("从货架选中锻造石后未显示数量与报价");
+                    BuySelectedForgeStone();
                     stage = "trade-shot"; frameDeadline = Time.frameCount + 30;
                     break;
                 case "trade-shot":
@@ -236,6 +304,7 @@ namespace BaseConquest.Editor
                     VerifyTradeCardLayout(RequirePanel("TownTrade"));
                     CaptureViewports("ui-skin-trade");
                     H.ClosePanel();
+                    VerifyTownReforge();
                     VerifyAzhuDuelDialogue();
                     Approach("town_quest");
                     if (!controller.Change(s =>
@@ -469,6 +538,39 @@ namespace BaseConquest.Editor
                     Finish(0, "OK");
                     break;
             }
+        }
+
+        private static void LoadRouteView(string fixture)
+        {
+            var path = Path.Combine("Logs", "demo-route-checkpoints", fixture + ".json");
+            var state = JsonUtility.FromJson<BaseState>(File.ReadAllText(path));
+            // The rules-only route did not advance presentation time between achievements.
+            while (BaseAchievements.AdvanceNotice(state, 3) != null) { }
+            BaseBattleGateway.MainMenu = false;
+            try { controller.SaveStore.RestoreSession(state); }
+            catch (ArgumentException error) when (fixture == "rebuild" &&
+                error.Message.StartsWith("目标出口身份或同层安全落点非法：", StringComparison.Ordinal))
+            {
+                Log.Add("[复现] 返乡存档恢复同样受全局朝向影响：" + error.Message + "。用中立朝向重试以继续查看重建界面。");
+                BaseInteraction.Facing = default;
+                controller.SaveStore.RestoreSession(state);
+            }
+            if (fixture == "merchant")
+                UnityEngine.SceneManagement.SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+            else controller.LoadSaved();
+            stage = "route-" + fixture;
+            frameDeadline = Time.frameCount + 20;
+            stageAt = EditorApplication.timeSinceStartup;
+        }
+
+        private static bool RouteViewReady(Func<BaseState, bool> matches)
+        {
+            controller = C;
+            bool ready = Time.frameCount >= frameDeadline && controller?.State != null && !controller.Busy &&
+                Object.FindAnyObjectByType<SceneLoadingCover>() == null && matches(controller.State);
+            if (!ready && EditorApplication.timeSinceStartup - stageAt > 30)
+                throw new InvalidOperationException("连续路线存档未进入预期界面：" + controller?.Message);
+            return ready;
         }
 
         private static void VerifyResourceHud()
@@ -736,9 +838,66 @@ namespace BaseConquest.Editor
             Log.Add("[PASS] 古窟单人半血真实撤退，只有主角独白，收起后回探索");
         }
 
+        private static void BuySelectedForgeStone()
+        {
+            var before = controller.State;
+            int price = BaseEquipmentCrafting.BuyPrice(before);
+            int available = BasePartyInventory.AvailableMaterial(before, BaseEquipmentCrafting.Stone);
+            Click("确认买入 · " + price + "币");
+            var after = controller.State;
+            if (after.Inventory.Coins != before.Inventory.Coins - price ||
+                after.PersonalEquipment.StonesRemaining != before.PersonalEquipment.StonesRemaining - 1 ||
+                BasePartyInventory.AvailableMaterial(after, BaseEquipmentCrafting.Stone) != available + 1)
+                throw new InvalidOperationException("老莫购买一颗锻造石未正确扣款、减库存并发货");
+            Log.Add("[PASS] 老莫货架购买一颗锻造石，扣款 " + price + " 币，随身锻造石 " + available + " → " + (available + 1));
+        }
+
+        private static void VerifyTownReforge()
+        {
+            Approach("town_blacksmith");
+            H.OpenObject("town_blacksmith");
+            FinishDialogue();
+            Click(BaseConquest.Story.StoryText.Get("story.ui.trade.reforge_entry", "重铸"));
+            var before = controller.State;
+            var weapon = BasePartyInventory.Entries(before).Single(item =>
+                item.Holder == before.PlayerLeaderId && item.Slot == "weapon" && BaseEquipmentCrafting.CanSelectReforge(before, item));
+            var quote = BaseEquipmentCrafting.Quote(before, weapon.Id, 1);
+            if (quote == null) throw new InvalidOperationException("巴隆无法为随行主角当前短剑报价");
+            Click(weapon.Name + " · 已穿戴");
+            var details = RequirePanel("TownTrade").Find("Details");
+            string probabilities = "升档 " + (quote.Up / 100f).ToString("0.##") + "% ／ 留级 " +
+                (quote.Stay / 100f).ToString("0.##") + "% ／ 降档 " + (quote.Down / 100f).ToString("0.##") + "%";
+            if (!details.GetComponentsInChildren<Text>().Any(label => label.text == probabilities))
+                throw new InvalidOperationException("巴隆重铸页显示的升档／留级／降档概率与报价不符");
+            Capture("ui-skin-town-reforge-odds");
+            int available = BasePartyInventory.AvailableMaterial(before, BaseEquipmentCrafting.Stone);
+            Click("确认重铸");
+            var after = controller.State;
+            var result = BasePartyInventory.Find(after, weapon.Id);
+            if (result == null || after.PersonalEquipment.ReforgeRolls != before.PersonalEquipment.ReforgeRolls + 1 ||
+                BasePartyInventory.AvailableMaterial(after, BaseEquipmentCrafting.Stone) != available - quote.Stones ||
+                Math.Abs(result.Quality - quote.Quality) > 1)
+                throw new InvalidOperationException("确认重铸后未正确扣除一颗锻造石并结算原武器品质");
+            string outcome = BasePersonalEquipment.Qualities[quote.Quality] + " → " + BasePersonalEquipment.Qualities[result.Quality];
+            if (!RequirePanel("TownTrade").GetComponentsInChildren<Text>().Any(label => label.text.Contains(outcome)))
+                throw new InvalidOperationException("重铸后未显示品质变化反馈");
+            Capture("ui-skin-town-reforge-result");
+            Log.Add("[PASS] 巴隆重铸 " + weapon.Name + "，" + probabilities + "，结果 " + outcome + "，消耗 " + quote.Stones + " 颗");
+            H.ClosePanel();
+        }
+
         private static void VerifyAzhuDuelDialogue()
         {
             Approach("demo_azhu");
+            var tickInvitation = controller.GetType().GetMethod("TickAzhuInvitation", BindingFlags.Instance | BindingFlags.NonPublic);
+            tickInvitation.Invoke(controller, null);
+            FinishDialogue();
+            Capture("ui-skin-azhu-invitation");
+            Click("眼下有要事，改日再比");
+            tickInvitation.Invoke(controller, null);
+            if (H.DialogueOpen || Field(controller, "combatController") != null || !controller.State.Demo.AzhuInvitationSeen)
+                throw new InvalidOperationException("拒绝阿铸叫停邀约后重复弹出对白或开启比武");
+            Log.Add("[PASS] 靠近阿铸触发一次性叫停对白，拒绝后可继续探索");
             H.OpenObject("demo_azhu");
             var replies = RequirePanel("NpcDialogue").Find("Replies");
             var buttons = replies.GetComponentsInChildren<Button>();
@@ -1491,7 +1650,8 @@ namespace BaseConquest.Editor
         {
             EditorApplication.update -= Tick;
             Log.Insert(0, "exit=" + code + " " + message + " ｜ " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
-            File.WriteAllText(Path.Combine(OutDir, "ui-skin-report.txt"), string.Join("\n", Log));
+            string report = stage.StartsWith("route-", StringComparison.Ordinal) ? "ui-player-route-views-report.txt" : "ui-skin-report.txt";
+            File.WriteAllText(Path.Combine(OutDir, report), string.Join("\n", Log));
             if (code == 0) Debug.Log("[UiSkin] " + message); else Debug.LogError("[UiSkin] " + message);
             failed = code != 0;
             EditorApplication.isPlaying = false;
