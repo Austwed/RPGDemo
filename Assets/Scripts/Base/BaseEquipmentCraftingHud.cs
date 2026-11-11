@@ -45,22 +45,34 @@ namespace BaseConquest.Base
             int available=BasePartyInventory.AvailableMaterial(s,BaseEquipmentCrafting.Stone);
             TradeLine(details,selected.Name);
             TradeLine(details,"可用锻造石 "+available+"颗");
-            TradeQuantity(details,Math.Min(10,available));
+            string blocked=BaseEquipmentCrafting.Blocked(s,selected.Id,1);
+            if(blocked.Length==0)TradeQuantity(details,Math.Min(10,available));
             int stones=tradeQuantity;
-            var quote=BaseEquipmentCrafting.Quote(s,selected.Id,stones);
-            if(available==0)TradeLine(details,"可用锻造石不足");
-            else if(quote==null)TradeLine(details,BaseEquipmentCrafting.Blocked(s,selected.Id,stones));
-            else TradeLine(details,"升档 "+(quote.Up/100f).ToString("0.##")+"% ／ 留级 "+(quote.Stay/100f).ToString("0.##")+"% ／ 降档 "+(quote.Down/100f).ToString("0.##")+"%");
+            var quote=blocked.Length==0?BaseEquipmentCrafting.Quote(s,selected.Id,stones):null;
+            if(quote==null)TradeLine(details,blocked);
+            else
+            {
+                TradeLine(details,"升档 "+(quote.Up/100f).ToString("0.##")+"% ／ 留级 "+(quote.Stay/100f).ToString("0.##")+"% ／ 降档 "+(quote.Down/100f).ToString("0.##")+"%");
+                string basis=selected.Worn?"角色属性":"装备属性";
+                string preview=StoryText.Get("story.ui.trade.reforge_preview","{0} · {1} {2}");
+                if(quote.Up>0)
+                    TradeLine(details,string.Format(preview,basis,"升档后",BaseEquipmentCrafting.StatChanges(s,selected,quote.Quality,quote.Quality+1)));
+                if(quote.Down>0)
+                    TradeLine(details,string.Format(preview,basis,"降档后",BaseEquipmentCrafting.StatChanges(s,selected,quote.Quality,quote.Quality-1)));
+            }
             TradeButton(details,"确认重铸",()=>{
-                int previousQuality=selected.Quality;
                 bool ok=owner.Change(next=>{
                     if(!BaseEquipmentCrafting.Confirm(next,quote))
                         throw new InvalidOperationException(StoryText.Get("story.ui.trade.changed","交易条件已变化，请重新确认"));
                 },"已完成重铸");
                 var result=ok?BasePartyInventory.Find(owner.State,selected.Id):null;
-                tradeFeedback=result==null?owner.Message:"重铸结果："+BasePersonalEquipment.Qualities[previousQuality]+" → "+BasePersonalEquipment.Qualities[result.Quality]+" · 消耗 "+stones+" 颗";
+                tradeFeedback=result==null?owner.Message:string.Format(
+                    StoryText.Get("story.ui.trade.reforge_result","重铸结果：{0} → {1} · 消耗 {2} 颗"),
+                    BasePersonalEquipment.Qualities[quote.Quality],BasePersonalEquipment.Qualities[result.Quality],quote.Stones)
+                    +"\n"+BaseEquipmentCrafting.StatChanges(owner.State,result,quote.Quality,result.Quality);
                 RenderTownTrade();
             },quote!=null);
+            if(tradeFeedback.Length>0)TradeLine(details,tradeFeedback);
             TradeLine(details,BaseRpg.Active(s)?BaseRpg.GearDescription(s,selected.Gear):selected.Description);
         }
     }

@@ -20,6 +20,7 @@ namespace BaseConquest.Editor
 
             VerifySecondRaidBranch(state.Copy());
             TryHideoutRoute(state);
+            Rest(state);
             BuyMarchSupply(state);
             At(state, "demo_march_exit");
             BaseDemoFinale.OpenWorld(state);
@@ -39,18 +40,12 @@ namespace BaseConquest.Editor
             At(state, "demo_camp_attack");
             Note($"第 {departureDay} 天从南侧出口选出征队，经世界地图走一天，第 {state.Day} 天抵达黑鸦寨。行军前返乡路受敌寨阻断。");
 
-            bool neutralValidation = CheckExitFacing(state);
+            VerifyExitFacings(state, "黑鸦寨战前");
             state = WinRouteBattle(state, BasePrepRoute.BlackCrow);
             ResolveLoot(state);
             Need(state.Demo.Defense.SecondOutcome == "camp_captured" || state.Demo.Defense.SecondOutcome == "intercepted",
                 "早出征攻寨后第二波仍待触发");
             At(state, "demo_direct_home");
-            if (neutralValidation)
-            {
-                var exit = BaseSpatial.Objects(state).Single(item => item.Id == "demo_direct_home");
-                Need(BaseInteraction.CanReach(state, exit), "朝向正确时仍无法使用返乡出口");
-                BaseInteraction.Facing = default;
-            }
             int day = state.Day;
             Need(BaseCampaign.Travel(state, "custom", "demo_direct_home") && state.Campaign.CurrentMapId == BaseDemoFinale.Home &&
                 state.Day == day, "攻寨后的白桦村直达出口未生效");
@@ -58,14 +53,13 @@ namespace BaseConquest.Editor
             Note(alien == null
                 ? "经寨内出口直达白桦村且未扣日程。本路线上没有异族伙伴随行，迦兰的返乡附加对白条件未满足。"
                 : $"经寨内出口直达白桦村且未扣日程。{alien}仍在随行，满足调查处的异族附加对白条件。");
+            At(state, "demo_survivor");
+            Need(BaseInteraction.At(state, "custom", "demo_survivor"), "不能在白桦村与幸存村民交谈");
+            SaveRouteCheckpoint(state, "home-arrival");
             At(state, "demo_broken_sword");
-            if (neutralValidation)
-            {
-                Need(BaseInteraction.At(state, "custom", "demo_broken_sword"), "主角未实际抵达断剑旁");
-                BaseInteraction.Facing = default;
-            }
             Need(BaseDemoFinale.Investigate(state) && state.Demo.Evidence.Contains(BaseDemoFinale.Sword) &&
                 BaseDemoFinale.Rebuilding(state), "断剑调查没有开启三项重建");
+            VerifyExitFacings(state, "返乡重建中");
             Need(!BaseDemoFinale.FinishRebuild(state), "未布置设施便能结束 Demo");
             SaveRouteCheckpoint(state, "rebuild");
             var board = BaseBattlefield.Board(state, BaseDemoFinale.Home);
@@ -86,22 +80,26 @@ namespace BaseConquest.Editor
             return state;
         }
 
-        private static bool CheckExitFacing(BaseState state)
+        private static void VerifyExitFacings(BaseState state, string checkpoint)
         {
+            var current = BaseInteraction.Facing;
             try
             {
-                BaseEconomy.Validate(state.Copy());
-                return false;
+                var store = BaseSaveStore.InMemory(checkpoint);
+                foreach (var facing in new[] { new BasePoint(1, 0), new BasePoint(-1, 0), new BasePoint(0, 1), new BasePoint(0, -1) })
+                {
+                    BaseInteraction.Facing = facing;
+                    store.RestoreSession(state.Copy());
+                    var restored = store.Load();
+                    Need(restored.Day == state.Day && restored.Campaign.CurrentMapId == state.Campaign.CurrentMapId,
+                        checkpoint + "读档改变了日期或场景");
+                }
             }
-            catch (ArgumentException error) when (error.Message.StartsWith("目标出口身份或同层安全落点非法：", StringComparison.Ordinal))
+            finally
             {
-                Need(BaseInteraction.At(state, "outpost", "demo_camp_attack"), "主角未实际抵达攻营点");
-                BaseInteraction.Facing = default;
-                BaseEconomy.Validate(state.Copy());
-                Note("正式攻寨开战被全局朝向误用于出口校验所阻断：" + error.Message +
-                    "。同一存档仅用中立朝向校验后继续检查末段，已核对主角实际走到了攻营点。");
-                return true;
+                BaseInteraction.Facing = current;
             }
+            Note(checkpoint + "存档按四个朝向分别恢复成功。");
         }
 
         private static void EnterDefenseField(BaseState state)
@@ -196,29 +194,56 @@ namespace BaseConquest.Editor
 
         private static BaseState WinRouteBattle(BaseState state, BasePrepRoute route)
         {
-            var before = state.Copy();
             var run = OpenRouteBattle(state, route);
             if (route == BasePrepRoute.Defense)
             {
                 Tick(run, run.Battle.Scenario.Objective.HoldRounds * 60 + 3);
                 if (run.DefensePursuitReady) Need(run.FinishDefensePursuit(), "首防结束追击未提交");
             }
-            else Tick(run, 60 * 90 + 3);
-            if (run.Battle.Report?.Outcome != BattleOutcome.SideAWin)
-            {
-                Note($"{route} 真实战斗 {run.Model.Elapsed:F1} 秒，结果 {run.Battle.Report?.Outcome.ToString() ?? "未决"}；另从本场战前检查点做结算注入，以下只验证后续事务。");
-                state = before;
-                run = OpenRouteBattle(state, route);
-                foreach (var enemy in run.Model.Units.Where(unit => unit.Side == PrototypeSide.Enemy)) enemy.Escaped = true;
-                Tick(run, 3);
-                Need(run.Battle.Report?.Outcome == BattleOutcome.SideAWin, route + "结算注入未产生胜利");
-            }
-            else Note($"{route}真实战斗胜利，耗时 {run.Model.Elapsed:F1} 秒。");
+            else FightBlackCrow(run);
+            Need(run.Battle.Report?.Outcome == BattleOutcome.SideAWin,
+                $"{route}真实战斗 {run.Model.Elapsed:F1} 秒，结果 {run.Battle.Report?.Outcome.ToString() ?? "未决"}");
+            Note($"{route}真实战斗胜利，耗时 {run.Model.Elapsed:F1} 秒。");
             if (route == BasePrepRoute.BlackCrow) Need(BaseDemoFinale.Complete(state, run), "黑鸦寨未正常提交战果");
             else Need(BaseDemoDefense.Complete(state, run), "首防未正常提交战果");
             var report = state.Campaign.Reports.Last();
             Note($"{route}战果结算实扣军需 {report.GearLost} 件。");
             return state;
+        }
+
+        private static void FightBlackCrow(RealtimeCampaignBattle run)
+        {
+            run.Model.SetPaused(false);
+            for (int frame = 0; frame < 60 * 90 + 3 && run.Battle.Phase == BattlePhase.Fighting; frame++)
+            {
+                if (frame >= 60 * 12 && frame % (60 * 3) == 0)
+                {
+                    var target = run.Battle.Soldiers.Where(unit => unit.Side == BattleSide.B &&
+                            unit.IsActive && run.Battle.PlayerCanSee(BattleSide.A, unit))
+                        .OrderByDescending(unit => unit.Kind == SoldierKind.Hero).ThenBy(unit => unit.Health).FirstOrDefault();
+                    var leaders = run.Model.Units.Where(unit => unit.Alive && unit.Side == PrototypeSide.Ally &&
+                        unit.Role == PrototypeRole.Leader).ToArray();
+                    if (target != null)
+                    {
+                        var actor = run.Model.Units.Single(unit => unit.Id == target.Id + 1);
+                        var waiting = leaders.Where(unit => !unit.ManualOrder || unit.TargetId != actor.Id)
+                            .Select(unit => unit.Id - 1).ToArray();
+                        if (waiting.Length > 0) run.Issue(waiting, PrototypeOrder.Focus, actor.Position, target.Id, squadFocus: true);
+                    }
+                    else if (leaders.Length > 0 && frame % (60 * 9) == 0)
+                    {
+                        var board = run.Battle.Board;
+                        int row = (frame / (60 * 9)) % 2 == 0 ? board.Height / 3 : 2 * board.Height / 3;
+                        var scout = board.Positions().Where(cell => board.Walkable(cell))
+                            .OrderBy(cell => Math.Abs(cell.X - 3 * board.Width / 4) + Math.Abs(cell.Z - row)).First();
+                        run.Issue(leaders.Select(unit => unit.Id - 1), PrototypeOrder.Move, new PrototypePoint(scout.X + .5, scout.Z + .5));
+                    }
+                }
+                run.Tick(1d / 60);
+            }
+            if (run.Battle.Report?.Outcome != BattleOutcome.SideAWin)
+                Note("黑鸦寨末段仍在场：" + string.Join("；", run.Model.Units.Where(unit => unit.Alive)
+                    .Select(unit => $"{unit.Side}/{unit.Role}#{unit.Id} ({unit.Position.X:F1},{unit.Position.Z:F1})")));
         }
     }
 }

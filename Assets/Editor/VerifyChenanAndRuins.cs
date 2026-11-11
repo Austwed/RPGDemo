@@ -296,9 +296,21 @@ namespace BaseConquest.Editor
             var schedule=s.Copy();schedule.Demo.Stage=BaseDemoStage.RuinsDelivered;schedule.Demo.DeliveredDay=schedule.Day;
             schedule.Campaign.Events.RemoveAll(e=>e.Id==BaseDemoDefense.EventId);
             BaseDemoDefense.ScheduleOnDelivery(schedule);
-            Need(schedule.Campaign.Events.Single(e=>e.Id==BaseDemoDefense.EventId).AvailableDay==Math.Max(6,schedule.Day+3),"首防须在交付日确定且保留三天准备");
+            var firstRaid=schedule.Campaign.Events.Single(e=>e.Id==BaseDemoDefense.EventId);
+            Need(firstRaid.AvailableDay==Math.Max(6,schedule.Day+3),"首防须在交付日确定且保留三天准备");
+            Need(!BaseRaidIntel.CanClaimFirst(schedule),"首次提示前不应出现免费领取入口");
             schedule.Demo.Flow.FirstIntelEligible=true;Need(BaseRaidIntel.OfferFirst(schedule)&&!BaseRaidIntel.OfferFirst(schedule),"免费消息引导只能提供一次");
-            Need(BaseRaidIntel.ClaimFirst(schedule)&&!BaseRaidIntel.ClaimFirst(schedule)&&schedule.Demo.Flow.FreeFirstRaidDay==6,"免费消息领取须记录首防日期且不能重复");
+            var dismissed=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(schedule));
+            Need(BaseRaidIntel.CanClaimFirst(dismissed)&&!BaseCalendar.Quarter(dismissed).Single(day=>day.Day==firstRaid.AvailableDay).Raids.Contains(firstRaid.Title),
+                "离开首防提示后存读档，须保留领取入口且继续隐藏日期");
+            var resolved=dismissed.Copy();resolved.Campaign.Events.Single(e=>e.Id==BaseDemoDefense.EventId).Status="resolved";
+            Need(!BaseRaidIntel.CanClaimFirst(resolved)&&!BaseRaidIntel.ClaimFirst(resolved),"首防已处理时不应再开放领取");
+            int freeIntelCoins=dismissed.Inventory.Coins;
+            Need(BaseRaidIntel.ClaimFirst(dismissed)&&!BaseRaidIntel.CanClaimFirst(dismissed)&&!BaseRaidIntel.ClaimFirst(dismissed)&&
+                dismissed.Demo.Flow.FreeFirstRaidDay==firstRaid.AvailableDay&&dismissed.Inventory.Coins==freeIntelCoins&&
+                BaseCalendar.Quarter(dismissed).Single(day=>day.Day==firstRaid.AvailableDay).Raids.Contains(firstRaid.Title),
+                "免费领取须记录实际首防日、同步日历、不扣钱且只能领一次");
+            schedule=dismissed;
             schedule.Day=3;BaseDemoDefense.ProductionFinished(schedule,new BaseDayReport{CompletedDay=2,Product=schedule.WorkshopProduct});
             Need(schedule.Campaign.Events.Count(e=>e.Id==BaseDemoDefense.EventId)==1&&schedule.Demo.Defense.ArrivalDay==6,"后续日结不得重复排期或改变首防日期");
             var late=s.Copy();late.Day=7;late.Demo.Stage=BaseDemoStage.RuinsDelivered;late.Demo.DeliveredDay=7;late.Campaign.Events.RemoveAll(e=>e.Id==BaseDemoDefense.EventId);BaseDemoDefense.ScheduleOnDelivery(late);

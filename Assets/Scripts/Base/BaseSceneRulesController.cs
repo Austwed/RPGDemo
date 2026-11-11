@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using BaseConquest.Battle;
+using BaseConquest.Story;
 using UnityEngine;
 
 namespace BaseConquest.Base
@@ -23,10 +24,20 @@ namespace BaseConquest.Base
             if(combatController.Realtime.Battle.Phase!=BattlePhase.Fighting||combatController.DetailsVisible)return;
             BaseDemoIntro.AdvanceTutorialDelay(State.Demo.Intro,Time.unscaledDeltaTime);
             int step=BaseDemoIntro.NextExercise(State.Demo.Intro);if(step==0||practiceShown==step)return;practiceShown=step;
-            string text=step==BaseDemoIntro.Select?"先稳住心神。点击你自己，也可以点左上角的头像，确认指挥权。":step==BaseDemoIntro.Pause?"统帅从不盲目乱冲——按下【暂停】，也就是空格键，在静止中审视战局。":step==BaseDemoIntro.Move?"处于【听令】时你不会擅自乱跑。单击前方空地，迈步过去！":step==BaseDemoIntro.Guard?"遇到窄路需死守阵脚时，双击脚下空地进入【驻守】，寸步不让。":step==BaseDemoIntro.Skill?"骨子里的火气还没灭吧？点击下方技能【鼓舞】，把气势提起来！":step==BaseDemoIntro.Inspect?"长按左上角你的头像，看清楚【鼓舞】的锋芒能维持多久。":"都掌握了。现在单击我，试着打中我一次。放心，我先不还手。";
-            if(step==BaseDemoIntro.DummyDemo)text="看好了，每次挥砍都有起手前摇，算准距离才能刀刀见肉！";
-            else if(step==BaseDemoIntro.AutoAttack)text="轮到你了。把左下角策略切换为【进攻】，连劈木桩三剑！";
-            else if(step==BaseDemoIntro.Attack)text="痛快！最后一式，直接点击我发起进攻——让我试试你的剑锋！";
+            string text = step switch
+            {
+                BaseDemoIntro.Select => StoryText.Get("story.scene.prologue.drill_select", "先点左下角的头像，也可以点你自己。"),
+                BaseDemoIntro.Pause => StoryText.Get("story.scene.prologue.drill_pause", "点右上角的【{toggle}】，也可以按空格，练习暂停和继续。")
+                    .Replace("{toggle}", combatController.Automatic ? "暂停" : "继续"),
+                BaseDemoIntro.Move => StoryText.Get("story.scene.prologue.drill_move", "【手动】时，你得自己下令。单击前方空地，暂停时按空格就会迈步。"),
+                BaseDemoIntro.Guard => StoryText.Get("story.scene.prologue.drill_guard", "双击身旁的空地，下令【驻守】。"),
+                BaseDemoIntro.Skill => StoryText.Get("story.scene.prologue.drill_skill", "点左下角头像下方的【{skill}】，把气势提起来！")
+                    .Replace("{skill}", combatController.Realtime.SkillName(BattleSide.A, 0)),
+                BaseDemoIntro.Inspect => StoryText.Get("story.scene.prologue.drill_inspect", "长按左下角的头像，在【状态效果】里看技能能维持多久。"),
+                BaseDemoIntro.DummyDemo => StoryText.Get("story.scene.prologue.drill_dummy", "看好了，每次挥砍都有起手空当，算准距离才能刀刀见肉！"),
+                BaseDemoIntro.AutoAttack => StoryText.Get("story.scene.prologue.drill_auto_attack", "长按左下角的头像，在详情里选【进攻】。关闭详情后按空格，连劈木桩三剑！"),
+                _ => StoryText.Get("story.scene.prologue.drill_attack", "最后一式，单击我发起进攻。暂停时记得按空格继续！")
+            };
             bool running=combatController.PauseForDialogue();combatController.ExternalDialogue=true;Hud.SetVisible(true);
             Hud.OpenPracticeInstruction(text,()=>{Hud.ClosePanel();Hud.SetVisible(false);if(combatController!=null){combatController.ExternalDialogue=false;if(step==BaseDemoIntro.DummyDemo)BaseDemoIntro.StartDummyDemo(combatController.Realtime,State.Demo.Intro);combatController.ResumeAfterDialogue(step==BaseDemoIntro.DummyDemo||step==BaseDemoIntro.AutoAttack?true:step==BaseDemoIntro.Inspect?false:running);}});
         }

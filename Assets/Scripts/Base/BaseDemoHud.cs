@@ -102,6 +102,8 @@ namespace BaseConquest.Base
                 replies.Insert(1,TradeEntry(TradeVendor.Merchant,TradeShelf.Equipment));
                 replies.Insert(2,TradeEntry(TradeVendor.Merchant,TradeShelf.Supplies));
                 if(BaseDemoFlow.Active(state))replies.Insert(3,TradeEntry(TradeVendor.Merchant,TradeShelf.Intel));
+                if(BaseRaidIntel.CanClaimFirst(state))
+                    replies.Insert(0,new NpcReply(StoryText.Get("story.ui.intel.first_reopen","免费首防消息"),OpenFirstRaidIntel));
             }
             string injury=id=="town_guard"?"INJ_TOWN_GUARD":id=="town_peddler"?"INJ_TOWN_MO":"INJ_TOWN_XIAOYUN";
             NpcDialogue(WithInjury(state,injury,new NpcLine(who,art,text)),replies.ToArray());

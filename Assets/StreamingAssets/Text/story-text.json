@@ -260,6 +260,30 @@
       "notes": "暖木界面功能占位，待改写。"
     },
     {
+      "key": "story.ui.trade.reforge_no_stat_change",
+      "group": "界面／交易",
+      "text": "这件装备的属性不随品质变化。新手短剑可从巴隆赠礼或古窟战利品获得。",
+      "notes": "选择所有品质属性相同的装备，确认禁用。建议两行。"
+    },
+    {
+      "key": "story.ui.trade.reforge_preview",
+      "group": "界面／交易",
+      "text": "{0} · {1} {2}",
+      "notes": "确认前展示有概率发生的升档或降档。{0} 是角色属性或装备属性，{1} 是升档后或降档后，{2} 是实际属性差值。"
+    },
+    {
+      "key": "story.ui.trade.reforge_stats_unchanged",
+      "group": "界面／交易",
+      "text": "属性未变",
+      "notes": "预览或实际结果的战斗属性保持原值。建议八字以内。"
+    },
+    {
+      "key": "story.ui.trade.reforge_result",
+      "group": "界面／交易",
+      "text": "重铸结果：{0} → {1} · 消耗 {2} 颗",
+      "notes": "确认重铸后显示在按钮下。{0} 和 {1} 是前后品质，{2} 是实际消耗的锻造石数量。"
+    },
+    {
       "key": "story.ui.trade.stone_description",
       "group": "界面／交易",
       "text": "在灰岩镇铁匠处重铸武器或护具。每次使用 1～10 颗。",
@@ -608,16 +632,58 @@
       "notes": "功能占位，待改写。保留{day}。"
     },
     {
+      "key": "story.ui.rest.workshop_shortage",
+      "group": "界面／营帐与旅店",
+      "text": "工坊缺 1 名工人。请先安排人手打制军需。",
+      "notes": "开局首次休息、工坊无人值守时的功能占位。"
+    },
+    {
+      "key": "story.ui.rest.food_shortage",
+      "group": "界面／营帐与旅店",
+      "text": "明日缺粮 {missing} 份。请增派粮田工人，或到灰岩镇买粮。",
+      "notes": "开局首次休息、次日口粮不足时的功能占位。保留 {missing}。"
+    },
+    {
+      "key": "story.ui.intel.first_reopen",
+      "group": "界面／行商老莫对白",
+      "text": "免费首防消息",
+      "notes": "已提示未领且首防待处理时重开领取对白。单行 8 字以内。"
+    },
+    {
+      "key": "story.scene.defense.merchant_bandit_lead",
+      "group": "剧情／首防后行商上门",
+      "text": "带人袭营的巴图是黑鸦寨的头目。他们吃了这场亏，多半还会再来。",
+      "notes": "老莫上门第二句，功能占位。适用于巴图两种结局，50 字以内。"
+    },
+    {
       "key": "story.ui.finale.rebuild_title",
       "group": "界面／返乡重建",
       "text": "返乡重建",
-      "notes": "功能占位，待改写。"
+      "notes": "地图左侧工具栏标题，8 字以内。"
     },
     {
-      "key": "story.ui.finale.rebuild_confirm",
-      "group": "剧情／返乡重建",
-      "text": "小粮田、营帐和仓库均已放置。确认后结束 Demo。",
-      "notes": "功能占位，待写。"
+      "key": "story.ui.finale.rebuild_select_project",
+      "group": "界面／返乡重建",
+      "text": "请先选择设施",
+      "notes": "工具栏未选中设施时显示，16 字以内。"
+    },
+    {
+      "key": "story.ui.finale.rebuild_select_cell",
+      "group": "界面／返乡重建",
+      "text": "点击地图选择空地",
+      "notes": "选中未放置设施、尚未点地图时显示，16 字以内。"
+    },
+    {
+      "key": "story.ui.finale.rebuild_available",
+      "group": "界面／返乡重建",
+      "text": "可放置 · 确认此处",
+      "notes": "选中的格子合法时显示，16 字以内。"
+    },
+    {
+      "key": "story.ui.finale.rebuild_ready",
+      "group": "界面／返乡重建",
+      "text": "三项设施已就位",
+      "notes": "三项重建均已保存，尚未查看全景时显示，16 字以内。"
     },
     {
       "key": "story.ui.menu.tasks",
@@ -806,6 +872,60 @@
       "notes": "演练未完成并返回村庄。功能占位，待回稿。"
     },
     {
+      "key": "story.scene.prologue.drill_select",
+      "group": "剧情／序章演练",
+      "text": "先点左下角的头像，也可以点你自己。",
+      "notes": "演练第 1 步，实际头像位置。"
+    },
+    {
+      "key": "story.scene.prologue.drill_pause",
+      "group": "剧情／序章演练",
+      "text": "点右上角的【{toggle}】，也可以按空格，练习暂停和继续。",
+      "notes": "演练第 2 步。{toggle} 为右上按钮当时的文字。"
+    },
+    {
+      "key": "story.scene.prologue.drill_move",
+      "group": "剧情／序章演练",
+      "text": "【手动】时，你得自己下令。单击前方空地，暂停时按空格就会迈步。",
+      "notes": "演练第 3 步，使用正式策略名称。"
+    },
+    {
+      "key": "story.scene.prologue.drill_guard",
+      "group": "剧情／序章演练",
+      "text": "双击身旁的空地，下令【驻守】。",
+      "notes": "演练第 4 步，使用战场驻守指令。"
+    },
+    {
+      "key": "story.scene.prologue.drill_skill",
+      "group": "剧情／序章演练",
+      "text": "点左下角头像下方的【{skill}】，把气势提起来！",
+      "notes": "演练第 5 步。{skill} 为当前战技按钮名称。"
+    },
+    {
+      "key": "story.scene.prologue.drill_inspect",
+      "group": "剧情／序章演练",
+      "text": "长按左下角的头像，在【状态效果】里看技能能维持多久。",
+      "notes": "演练第 6 步，查看长按打开的详情。"
+    },
+    {
+      "key": "story.scene.prologue.drill_dummy",
+      "group": "剧情／序章演练",
+      "text": "看好了，每次挥砍都有起手空当，算准距离才能刀刀见肉！",
+      "notes": "演练第 7 步，搭档示范。"
+    },
+    {
+      "key": "story.scene.prologue.drill_auto_attack",
+      "group": "剧情／序章演练",
+      "text": "长按左下角的头像，在详情里选【进攻】。关闭详情后按空格，连劈木桩三剑！",
+      "notes": "演练第 8 步，说明进攻策略入口和恢复战斗方式。"
+    },
+    {
+      "key": "story.scene.prologue.drill_attack",
+      "group": "剧情／序章演练",
+      "text": "最后一式，单击我发起进攻。暂停时记得按空格继续！",
+      "notes": "演练第 9 步，实战命中搭档。"
+    },
+    {
       "key": "story.scene.prologue.pursuit_retry",
       "group": "剧情／白桦村序章",
       "text": "还不能倒在这儿。先带乡亲们往东走。",
@@ -816,6 +936,12 @@
       "group": "剧情／沉眠古窟",
       "text": "那个骑马的家伙或许可以帮忙。",
       "notes": "首通前独战半血自动撤回入口后独白。用户原句。"
+    },
+    {
+      "key": "story.scene.home_rebuild.survivor",
+      "group": "剧情／返乡断剑",
+      "text": "去西桥头看看。",
+      "notes": "返乡后、调查断剑前与幸存村民交谈。对白结束后回到原地探索，保留西桥头指向，24 字以内。"
     },
     {
       "key": "story.scene.home_rebuild.finished",
@@ -846,6 +972,12 @@
       "group": "界面／战场",
       "text": "队长落点不足，原指令保留。",
       "notes": "同时选中多队长后点选空地，落点不足时回写。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.battle.strategy_help",
+      "group": "界面／战场",
+      "text": "队长的直接命令优先。手动时队长原地攻击、士兵护卫。也可改为进攻或驻守。单击敌方队长攻击，双击队伍集火。\n可暂停下令，退出菜单后按空格继续。",
+      "notes": "长按头像详情的操作说明，固定字号换行。"
     },
     {
       "key": "story.ui.facility.production",

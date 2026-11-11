@@ -17,6 +17,7 @@ namespace BaseConquest.Battle
         public readonly GameObject Root;
         public readonly Canvas Canvas;
         private readonly BattleSceneController owner;
+        private readonly BaseSceneController practiceScene;
         private readonly Font font;
         private readonly RectTransform safe, infoPanel, logPanel;
         private readonly RectTransform realtimeMinimap;
@@ -33,6 +34,8 @@ namespace BaseConquest.Battle
         private readonly ScrollRect cellMenuScroll;
         private readonly List<Button> cellMenuButtons = new List<Button>();
         private readonly RectTransform details, detailBackdrop;
+        private readonly Button closeDetails;
+        private DemoButtonTint practiceCue;
         private readonly Text detailsInfo, detailsEffects;
         private readonly RectTransform detailEffectsPanel;
         private readonly BattleAvatarGraphic detailsPortrait;
@@ -71,6 +74,7 @@ namespace BaseConquest.Battle
         {
             this.owner = owner; this.font = font;
             var sceneOwner = parent.GetComponentInParent<BaseSceneController>();
+            practiceScene = owner.IsDemoPractice ? sceneOwner : null;
             var sceneShell = sceneOwner?.SceneUiTemplate("BattleShell");
             Root = UiPrefabBinding.Create("BattleShell", "BattleHud", parent, true, sceneShell, sceneShell != null);
             Canvas = Root.GetComponent<Canvas>(); Canvas.renderMode = RenderMode.ScreenSpaceOverlay; Canvas.sortingOrder = 50;
@@ -180,7 +184,7 @@ namespace BaseConquest.Battle
             {
                 var strategy = TierStrategies[i]; strategyButtons[i] = Button(BattleSimulation.StrategyName(strategy), details, new Vector2(0, 1), new Vector2(16 + i * 158, -430), new Vector2(152, 42), () => owner.ChooseSquadStrategy(strategy)); strategyButtons[i].name = "Strategy_" + strategy;if(strategy==SquadStrategy.Attack)DemoUiIcons.Attach(strategyButtons[i],"attack");
             }
-            Button("关闭详情", details, new Vector2(0.5f, 0), new Vector2(0, 10), new Vector2(130, 38), owner.CloseCommanderDetails);
+            closeDetails = Button("关闭详情", details, new Vector2(0.5f, 0), new Vector2(0, 10), new Vector2(130, 38), owner.CloseCommanderDetails);
             if (Application.isPlaying && EventSystem.current == null)
             {
                 var es = new GameObject("BattleEventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule)); es.transform.SetParent(Root.transform, false); es.GetComponent<InputSystemUIInputModule>().AssignDefaultActions();
@@ -453,8 +457,35 @@ namespace BaseConquest.Battle
             }
             if(owner.IsRealtimeCampaign)RefreshRealtimeControls(b);
             RefreshFormalField(b);
+            RefreshPracticeControl(b);
             battleResult?.Refresh(b, owner.ControlledSide, owner.IsAnimating, owner.Skipping, new Vector2(area.width, area.height) / owner.HudScale);
         }
+
+        private void RefreshPracticeControl(BattleSimulation battle)
+        {
+            if (practiceScene == null) return;
+            var intro = practiceScene.State?.Demo?.Intro;
+            int step = intro != null && battle.Phase == BattlePhase.Fighting ? BaseDemoIntro.NextExercise(intro) : 0;
+            Button target = step switch
+            {
+                BaseDemoIntro.Select or BaseDemoIntro.Inspect when !owner.DetailsVisible => portraits[0],
+                BaseDemoIntro.Pause when !owner.DetailsVisible => automatic,
+                BaseDemoIntro.Skill when !owner.DetailsVisible => skills[0],
+                BaseDemoIntro.AutoAttack when owner.DetailsVisible && intro.DummyPhase == 3 => closeDetails,
+                BaseDemoIntro.AutoAttack when owner.DetailsVisible && owner.DetailsSlot == 0 =>
+                    strategyButtons[Array.IndexOf(TierStrategies, SquadStrategy.Attack)],
+                BaseDemoIntro.AutoAttack when !owner.DetailsVisible && intro.DummyPhase < 3 => portraits[0],
+                BaseDemoIntro.AutoAttack when !owner.Automatic && !owner.DetailsVisible => automatic,
+                _ => null
+            };
+            var cue = target != null && target.gameObject.activeInHierarchy && target.interactable
+                ? target.GetComponent<DemoButtonTint>() : null;
+            if (cue == practiceCue) return;
+            practiceCue?.SetGuide(false);
+            practiceCue = cue;
+            practiceCue?.SetGuide(true);
+        }
+
         private void RefreshDraft(BattleSimulation battle)
         {
             if (!showedDraft)
@@ -535,7 +566,8 @@ namespace BaseConquest.Battle
                 if(unit!=null)detailsInfo.text=battle.UnitName(unit)+"\n生命 "+unit.Health.ToString("0")+" / "+unit.Stats.Health.ToString("0")+
                     "\n攻击 "+unit.Stats.Damage.ToString("0.0")+" · 防御 "+unit.Stats.Defense.ToString("0.0")+"\n移速 "+owner.RealtimeSpeed(unit).ToString("0.#")+"细格／秒 · 射程 "+owner.RealtimeRange(unit).ToString("0.#")+"细格";
                 else detailsInfo.text=battle.CommanderDisplayName(owner.ControlledSide,owner.DetailsSlot)+"\n尚未部署，布兵后可查看本场实际属性\n当前战斗距离统一使用细格";
-                detailsEffects.text=(unit?.Rpg==null?"":BaseConquest.Base.BaseRpg.Describe(unit.Rpg)+"\n")+(owner.DetailsSlot>=0&&owner.Realtime!=null?owner.Realtime.SkillDescription(unit?.Side??owner.ControlledSide,unit?.OriginCommanderSlot??owner.DetailsSlot)+"\n":"")+"队长命令优先；听令队长原地攻击，士兵护卫；另可选进攻／守护／逃跑。单击敌人队长攻击，双击队伍集火。\n可暂停下令；退出菜单后仍需手动继续";
+                detailsEffects.text=(unit?.Rpg==null?"":BaseConquest.Base.BaseRpg.Describe(unit.Rpg)+"\n")+(owner.DetailsSlot>=0&&owner.Realtime!=null?owner.Realtime.SkillDescription(unit?.Side??owner.ControlledSide,unit?.OriginCommanderSlot??owner.DetailsSlot)+"\n":"")
+                    +StoryText.Get("story.ui.battle.strategy_help","队长的直接命令优先。手动时队长原地攻击、士兵护卫。也可改为进攻或驻守。单击敌方队长攻击，双击队伍集火。\n可暂停下令，退出菜单后按空格继续。");
             }
             log.text=log.text.Replace("轮","秒");
         }

@@ -161,7 +161,7 @@ namespace BaseConquest.Base
             var avatar=Ui<RectTransform>(view,"SellerPortrait").gameObject.GetOrAdd<BattleAvatarGraphic>();
             avatar.AppearanceId=BaseScriptNames.Portrait(portrait);
             avatar.raycastTarget=false;
-            Ui<Text>(view,"SellerSpeech").text=tradeFeedback==""?shelfTitle:tradeFeedback;
+            Ui<Text>(view,"SellerSpeech").text=tradeShelf==TradeShelf.Reforge||tradeFeedback==""?shelfTitle:tradeFeedback;
             BindTradeButton(Ui<Button>(view,"Return"),"返回对话",()=>{if(!owner.Busy)ReturnToTradeDialogue();});
             BindTradeButton(Ui<Button>(view,"Close"),"关闭",()=>{if(!owner.Busy)ClosePanel();});
 
@@ -188,7 +188,7 @@ namespace BaseConquest.Base
                     BuildInventoryPersonTabs(rightTabs,people,tradePerson,member=>{
                         tradePerson=member.Id;
                         tradeSale="";
-                        if(tradeShelf==TradeShelf.Reforge)tradeSelection="";
+                        if(tradeShelf==TradeShelf.Reforge)tradeSelection=tradeFeedback="";
                         RenderTownTrade(false);
                     });
                     if(person!=null)

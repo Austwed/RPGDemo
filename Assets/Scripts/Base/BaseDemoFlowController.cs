@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using BaseConquest.Presentation;
+using BaseConquest.Story;
 using UnityEngine;
 namespace BaseConquest.Base
 {
@@ -10,6 +11,7 @@ namespace BaseConquest.Base
         {
             if(!BaseDemoFlow.Active(State)||!State.Demo.Flow.FirstIntelEligible||State.Demo.Flow.FirstIntelOffered)return false;
             if(!Change(s=>{if(!BaseRaidIntel.OfferFirst(s))throw new InvalidOperationException("消息引导不可用");},"消息引导"))return false;
+            if(!BaseRaidIntel.CanClaimFirst(State))return false;
             Hud.OpenFirstRaidIntel();return true;
         }
         private void TickDemoFlow(double seconds=-1)
@@ -66,11 +68,11 @@ namespace BaseConquest.Base
     {
         public void OpenFirstRaidIntel()
         {
-            string offer = BaseConquest.Story.StoryText.Get("story.ui.intel.first_offer", "可领取一次免费首防消息。");
+            string offer = StoryText.Get("story.ui.intel.first_offer", "可领取一次免费首防消息。");
             NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),offer)},new[]{
                 new NpcReply("领取免费首防消息",()=>{
                     if(!owner.Change(next=>{if(!BaseRaidIntel.ClaimFirst(next))throw new InvalidOperationException("首防消息不可用");},"已记录首防日期"))return;
-                    string text=BaseConquest.Story.StoryText.Get("story.ui.intel.first_claimed","首防日期：第 {day} 天。查看日历，准备粮食与军需。")
+                    string text=StoryText.Get("story.ui.intel.first_claimed","首防日期：第 {day} 天。查看日历，准备粮食与军需。")
                         .Replace("{day}",owner.State.Demo.Flow.FreeFirstRaidDay.ToString());
                     NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),text)},new[]{new NpcReply("知道了",ClosePanel)});
                 }),new NpcReply("离开",ClosePanel)});
@@ -123,7 +125,8 @@ namespace BaseConquest.Base
 
         public void OpenDemoMerchant()
         {
-            string warning="待写";
+            string warning=StoryText.Get("story.scene.defense.merchant_bandit_lead",
+                "带人袭营的巴图是黑鸦寨的头目。他们吃了这场亏，多半还会再来。");
             NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"我常走这条路，听说营地遇袭，特意来送个消息。"),new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),warning),new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"他们的寨子就在通往"+BaseScriptNames.Village+"的路上。从营地南边上世界道路，走一天就到。")},
                 new[]{new NpcReply("记下敌营位置",()=>{if(owner.Change(next=>{next.Demo.Defense.MerchantDone=true;next.Campaign.Layouts.Single(map=>map.Region=="base").Objects.RemoveAll(obj=>obj.Id=="demo_merchant");},"已记录敌营位置与道路")){ClosePanel();owner.RefreshDemoRegion();}})});
         }

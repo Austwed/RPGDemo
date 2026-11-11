@@ -74,6 +74,16 @@ namespace BaseConquest.Editor
                 case "route-boot":
                     controller = C;
                     if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    LoadRouteView("drill");
+                    break;
+                case "route-drill":
+                    if (!RouteViewReady(state => BaseDemoPrologue.Village(state) && state.Demo.Intro.Step == 4)) return;
+                    VerifyOpeningDrillControls();
+                    LoadRouteView("first-intel");
+                    break;
+                case "route-first-intel":
+                    if (!RouteViewReady(state => state.Campaign.Location == "town" && BaseRaidIntel.CanClaimFirst(state))) return;
+                    VerifyFirstIntelReopened();
                     LoadRouteView("merchant");
                     break;
                 case "route-merchant":
@@ -82,55 +92,62 @@ namespace BaseConquest.Editor
                     H.OpenDemoMerchant();
                     var merchantLine = RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>();
                     if (!H.ContinueDialogue() || !H.ContinueDialogue() || !H.ContinueDialogue() ||
-                        string.IsNullOrWhiteSpace(merchantLine.text))
+                        !merchantLine.text.Contains("巴图") || !merchantLine.text.Contains("黑鸦寨") ||
+                        merchantLine.text.Contains("待写"))
                         throw new InvalidOperationException("首防后老莫对白未播放到第二句");
                     CaptureViewports("ui-player-route-merchant-after-defense");
-                    Log.Add("[观察] 首防后老莫对白第二句：" + merchantLine.text);
+                    Log.Add("[PASS] 首防后老莫在对白交代巴图、黑鸦寨与出征线索");
                     H.ClosePanel();
                     LoadRouteView("world");
                     break;
                 case "route-world":
                     if (!RouteViewReady(BaseWorldJourney.OnWorld)) return;
                     var journey = Object.FindAnyObjectByType<BaseWorldJourneyHud>();
-                    var map = journey?.transform.Find("WorldMap");
+                    var map = journey?.transform.Find("游戏显示区域 · 16比9/WorldMap");
                     if (map == null || !map.gameObject.activeInHierarchy)
                     {
                         if (EditorApplication.timeSinceStartup - stageAt > 30)
                             throw new InvalidOperationException("存档已进入世界，但行军地图仍未显示");
                         return;
                     }
+                    var journeyDetails = map.parent.Find("JourneyPanel");
+                    if (map.Find("Node_bandit").GetComponentInChildren<Text>().text != "黑鸦寨" ||
+                        map.Find("Node_home").GetComponentInChildren<Text>().text != "白桦村")
+                        throw new InvalidOperationException("世界地图节点未显示可区分的短名称");
                     if (!BaseWorldJourney.Marching(controller.State))
+                    {
+                        ClickHudButton(map.Find("Node_home"));
+                        if (!journeyDetails.GetComponentsInChildren<Text>().Any(label => label.text.Contains("被黑鸦寨封锁")))
+                            throw new InvalidOperationException("未攻寨时未显示返乡路的阻断原因");
                         ClickHudButton(map.Find("Node_bandit"));
+                    }
                     stage = "route-world-shot"; frameDeadline = Time.frameCount + 20;
                     break;
                 case "route-world-shot":
                     if (!RouteViewReady(BaseWorldJourney.OnWorld)) return;
-                    var journeyPanel = Object.FindAnyObjectByType<BaseWorldJourneyHud>()?.transform.Find("JourneyPanel");
+                    var journeyPanel = Object.FindAnyObjectByType<BaseWorldJourneyHud>()?.transform.Find("游戏显示区域 · 16比9/JourneyPanel");
                     string marchLabel = BaseWorldJourney.Marching(controller.State) ? "继续行军" : "确认行军";
                     var confirm = journeyPanel?.GetComponentsInChildren<Button>().SingleOrDefault(button =>
                         button.interactable && button.GetComponentInChildren<Text>()?.text == marchLabel);
                     if (confirm == null)
                         throw new InvalidOperationException("选择黑鸦寨后未出现可用的行军确认按钮");
-                    var bounds = new Vector3[4];
-                    ((RectTransform)confirm.transform).GetWorldCorners(bounds);
-                    if (bounds.Any(point => !new Rect(0, 0, Screen.width, Screen.height)
-                        .Contains(RectTransformUtility.WorldToScreenPoint(null, point))))
-                        Log.Add("[观察] 行军确认按钮至少一角超出当前 Game 视口");
+                    var actions = (RectTransform)confirm.transform.parent;
+                    var frame = (RectTransform)journeyPanel.parent;
+                    if (actions.anchorMin.y != 0 || actions.anchorMax.y != 0 ||
+                        !RectWithin((RectTransform)confirm.transform, frame))
+                        throw new InvalidOperationException("行军确认按钮未固定在游戏画面内的右栏底部");
                     CaptureViewports("ui-player-route-world");
                     Log.Add("[PASS] 连续路线存档载入世界地图，显示路线与行军面板");
+                    LoadRouteView("home-arrival");
+                    break;
+                case "route-home-arrival":
+                    if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Home && !BaseDemoFinale.Rebuilding(state))) return;
+                    CheckHomeArrival();
                     LoadRouteView("rebuild");
                     break;
                 case "route-rebuild":
                     if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Home && BaseDemoFinale.Rebuilding(state))) return;
-                    H.OpenRebuild();
-                    if (!H.PanelOpen || (string)Field(H, "panelViewKey") != "hometown-rebuild")
-                        throw new InvalidOperationException("返乡重建界面未打开");
-                    var rebuildLabels = RequirePanel("CommonPanel").GetComponentsInChildren<Text>().Select(label => label.text).ToArray();
-                    if (!new[] { "横向格", "纵向格", "小粮田", "营帐", "仓库" }.All(prefix =>
-                        rebuildLabels.Any(label => label.StartsWith(prefix, StringComparison.Ordinal))))
-                        throw new InvalidOperationException("返乡重建缺少格坐标或设施操作");
-                    CaptureViewports("ui-player-route-home-rebuild");
-                    Log.Add("[PASS] 连续路线存档载入返乡重建，显示格坐标和三项设施");
+                    CheckHomeRebuild();
                     Finish(0, "OK");
                     break;
                 case "boot":
@@ -540,6 +557,120 @@ namespace BaseConquest.Editor
             }
         }
 
+        private static void VerifyOpeningDrillControls()
+        {
+            H.ClosePanel();
+            controller.BeginDemoPractice();
+            var drill = controller.GetComponentsInChildren<BattleSceneController>().SingleOrDefault(battle => battle.IsDemoPractice);
+            if (drill?.Realtime == null) throw new InvalidOperationException("无法从序章快照进入演练：" + controller.Message);
+
+            var area = BattleSafeArea(drill);
+            var portrait = area.Find("CommanderSlot0/CommanderPortrait_0");
+            var pause = area.Find("自动");
+            var skill = area.Find("CommanderSlot0/战技");
+            var attack = area.Find("CommanderDetails/Strategy_Attack");
+            var close = area.Find("CommanderDetails/关闭详情");
+            var buttons = new[] { portrait, pause, skill, attack, close };
+            if (buttons.Any(button => button?.GetComponent<Outline>() == null))
+                throw new InvalidOperationException("演练缺少正式场景按钮或边框组件");
+            var intro = controller.State.Demo.Intro;
+            var tickGuide = typeof(BaseSceneController).GetMethod("TickPracticeGuide", BindingFlags.Instance | BindingFlags.NonPublic);
+            tickGuide.Invoke(controller, null);
+            drill.PreviewHud.Refresh();
+            var resting = buttons.ToDictionary(button => button, ReadOutline);
+
+            (Color Color, Vector2 Distance, bool Enabled) ReadOutline(Transform target)
+            {
+                var outline = target.GetComponent<Outline>();
+                return (outline.effectColor, outline.effectDistance, outline.enabled);
+            }
+
+            void ExpectCue(Transform target = null)
+            {
+                foreach (var button in buttons)
+                {
+                    var expected = button == target ? (DemoUiTheme.Current.Gold, new Vector2(4, -4), true) : resting[button];
+                    if (!ReadOutline(button).Equals(expected) || button == target && !button.gameObject.activeInHierarchy)
+                        throw new InvalidOperationException("演练提示边框状态不对：" + button.name);
+                }
+            }
+
+            void ShowStep(string expected)
+            {
+                BaseDemoIntro.AdvanceTutorialDelay(intro, 1);
+                tickGuide.Invoke(controller, null);
+                FinishDialogue();
+                if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains(expected))
+                    throw new InvalidOperationException("演练正文没有指向当前控件：" + expected);
+                Click("明白，开始练习");
+                drill.PreviewHud.Refresh();
+            }
+
+            void HoldPortrait()
+            {
+                var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+                ExecuteEvents.Execute(portrait.gameObject, pointer, ExecuteEvents.pointerDownHandler);
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(BattleSceneController).GetField("portraitPressTime", flags).SetValue(drill, Time.unscaledTime - .5f);
+                typeof(BattleSceneController).GetMethod("UpdatePortraitHold", flags).Invoke(drill, null);
+                ExecuteEvents.Execute(portrait.gameObject, pointer, ExecuteEvents.pointerUpHandler);
+                EventSystem.current.SetSelectedGameObject(null);
+                if (!drill.DetailsVisible || drill.DetailsSlot != 0)
+                    throw new InvalidOperationException("长按左下角头像没有打开主角详情");
+            }
+
+            ShowStep("左下角");
+            ExpectCue(portrait);
+            CaptureViewports("ui-player-route-drill-select");
+            ClickHudButton(portrait);
+            ExpectCue();
+            ShowStep(pause.GetComponentInChildren<Text>().text);
+            ExpectCue(pause);
+            ClickHudButton(pause);
+            ExpectCue();
+            if (!drill.Automatic || (intro.DrillFlags & BaseDemoIntro.Pause) == 0)
+                throw new InvalidOperationException("战斗时间按钮没有推进演练");
+
+            // The continuous route executes movement, holding and the dummy demonstration.
+            intro.DrillFlags |= BaseDemoIntro.Move | BaseDemoIntro.Guard;
+            ShowStep(drill.Realtime.SkillName(BattleSide.A, 0));
+            ExpectCue(skill);
+            ClickHudButton(skill);
+            ExpectCue();
+            ShowStep("状态效果");
+            ExpectCue(portrait);
+            HoldPortrait();
+            ExpectCue();
+            ClickHudButton(close);
+
+            intro.DummyPhase = 2;
+            ShowStep("长按");
+            ExpectCue(portrait);
+            HoldPortrait();
+            ExpectCue(attack);
+            Canvas.ForceUpdateCanvases();
+            var attackBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(attack.parent, attack);
+            foreach (var strategy in new[] { "Strategy_Obey", "Strategy_Protect" })
+            {
+                var other = attack.parent.Find(strategy);
+                if (other?.gameObject.activeInHierarchy != true ||
+                    attackBounds.Intersects(RectTransformUtility.CalculateRelativeRectTransformBounds(attack.parent, other)))
+                    throw new InvalidOperationException("进攻与其他策略按钮重叠");
+            }
+            if (!attack.GetComponent<Image>().raycastTarget)
+                throw new InvalidOperationException("进攻按钮未接收界面输入");
+            Capture("ui-player-route-drill-strategy");
+            ClickHudButton(attack);
+            ExpectCue(close);
+            ClickHudButton(close);
+            ExpectCue(pause);
+            ClickHudButton(pause);
+            ExpectCue();
+            if (intro.DummyPhase != 3 || !drill.Automatic || !drill.WithdrawSceneEncounter())
+                throw new InvalidOperationException("演练策略或返回村庄失败");
+            Log.Add("[PASS] 序章演练实测头像、暂停／继续、战技、长按详情和进攻策略高亮，操作后恢复原边框");
+        }
+
         private static void LoadRouteView(string fixture)
         {
             var path = Path.Combine("Logs", "demo-route-checkpoints", fixture + ".json");
@@ -547,20 +678,52 @@ namespace BaseConquest.Editor
             // The rules-only route did not advance presentation time between achievements.
             while (BaseAchievements.AdvanceNotice(state, 3) != null) { }
             BaseBattleGateway.MainMenu = false;
-            try { controller.SaveStore.RestoreSession(state); }
-            catch (ArgumentException error) when (fixture == "rebuild" &&
-                error.Message.StartsWith("目标出口身份或同层安全落点非法：", StringComparison.Ordinal))
-            {
-                Log.Add("[复现] 返乡存档恢复同样受全局朝向影响：" + error.Message + "。用中立朝向重试以继续查看重建界面。");
-                BaseInteraction.Facing = default;
-                controller.SaveStore.RestoreSession(state);
-            }
+            controller.SaveStore.RestoreSession(state);
             if (fixture == "merchant")
                 UnityEngine.SceneManagement.SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
             else controller.LoadSaved();
             stage = "route-" + fixture;
             frameDeadline = Time.frameCount + 20;
             stageAt = EditorApplication.timeSinceStartup;
+        }
+
+        private static void VerifyFirstIntelReopened()
+        {
+            H.ClosePanel();
+            H.OpenFirstRaidIntel();
+            FinishDialogue();
+            Click("离开");
+            Approach("town_peddler");
+            H.OpenObject("town_peddler");
+            FinishDialogue();
+            string reopen = BaseConquest.Story.StoryText.Get("story.ui.intel.first_reopen", "免费首防消息");
+            Click(reopen);
+            FinishDialogue();
+            Click("领取免费首防消息");
+            FinishDialogue();
+            int day = controller.State.Demo.Flow.FreeFirstRaidDay;
+            var raid = controller.State.Campaign.Events.Single(item => item.Id == BaseDemoDefense.EventId);
+            if (day != raid.AvailableDay || !BaseRaidIntel.Known(controller.State, raid) ||
+                !BaseCalendar.Quarter(controller.State, BaseCalendar.QuarterNumber(day)).Single(item => item.Day == day).Raids.Contains(raid.Title))
+                throw new InvalidOperationException("补领后首防消息和日历日期不一致");
+            Capture("ui-player-route-first-intel");
+            Click("知道了");
+            H.OpenObject("town_peddler");
+            FinishDialogue();
+            if (RequirePanel("NpcDialogue").Find("Replies").GetComponentsInChildren<Text>().Any(label => label.text == reopen))
+                throw new InvalidOperationException("补领后再次交谈仍显示首防消息");
+            Log.Add("[PASS] 免费首防消息离开后可从老莫补领，日历日期一致，领取后入口消失");
+        }
+
+        private static bool RectWithin(RectTransform child, RectTransform ancestor)
+        {
+            Canvas.ForceUpdateCanvases();
+            var bounds = new Vector3[4];
+            child.GetWorldCorners(bounds);
+            var area = ancestor.rect;
+            return bounds.Select(ancestor.InverseTransformPoint).All(point =>
+                point.x >= area.xMin - .1f && point.x <= area.xMax + .1f &&
+                point.y >= area.yMin - .1f && point.y <= area.yMax + .1f);
         }
 
         private static bool RouteViewReady(Func<BaseState, bool> matches)
@@ -571,6 +734,131 @@ namespace BaseConquest.Editor
             if (!ready && EditorApplication.timeSinceStartup - stageAt > 30)
                 throw new InvalidOperationException("连续路线存档未进入预期界面：" + controller?.Message);
             return ready;
+        }
+
+        private static void CheckHomeArrival()
+        {
+            H.ClosePanel();
+            Approach("demo_survivor");
+            var initialPosition = new BasePoint(controller.State.PlayerX, controller.State.PlayerY);
+            H.OpenObject("demo_survivor");
+            var dialogue = RequirePanel("NpcDialogue");
+            var speech = dialogue.Find("DialogueText").GetComponent<Text>();
+            bool bridgeMentioned = false;
+            for (int i = 0; i < 24 && H.DialogueOpen; i++)
+            {
+                H.ContinueDialogue();
+                if (speech.text.Contains("西桥头") && dialogue.Find("SpeakerName").GetComponent<Text>().text == "幸存村民")
+                {
+                    bridgeMentioned = true;
+                    CaptureViewports("ui-player-route-home-survivor");
+                    break;
+                }
+            }
+            if (!bridgeMentioned) throw new InvalidOperationException("幸存村民对白未指向西桥头");
+            FinishDialogue();
+            if (H.PanelOpen || BaseDemoFinale.Rebuilding(controller.State) ||
+                new BasePoint(controller.State.PlayerX, controller.State.PlayerY).Distance(initialPosition) > .01)
+                throw new InvalidOperationException("幸存者对话未退回原地探索");
+            Approach("demo_broken_sword");
+            H.OpenObject("demo_broken_sword");
+            FinishDialogue();
+            Click("记录断剑 · 开始重建");
+            if (!controller.RebuildPlacementMode || !BaseDemoFinale.Rebuilding(controller.State))
+                throw new InvalidOperationException("未从断剑调查进入地图重建");
+            Log.Add("[PASS] 与幸存村民交谈后继续探索，调查断剑进入返乡重建");
+        }
+
+        private static void CheckHomeRebuild()
+        {
+            var source = (RectTransform)controller.transform.Find("UI 布局源/BaseShell/Controls/HomeRebuildProjects");
+            if (source == null) throw new InvalidOperationException("返乡重建缺少场景布局源");
+            var rebuildHud = typeof(BaseSceneController).GetMethod("RebuildHud", BindingFlags.Instance | BindingFlags.NonPublic);
+            var sourceImage = source.GetComponent<Image>();
+            var authoredPosition = source.anchoredPosition;
+            var authoredColor = sourceImage.color;
+            try
+            {
+                source.anchoredPosition += new Vector2(8, 0);
+                sourceImage.color = new Color(.82f, .67f, .47f);
+                rebuildHud.Invoke(controller, null);
+                var moved = (RectTransform)Field(H, "rebuildPalette");
+                if (moved.anchoredPosition != source.anchoredPosition || moved.GetComponent<Image>().color != sourceImage.color)
+                    throw new InvalidOperationException("返乡工具栏未读取场景保存的位置和颜色");
+            }
+            finally
+            {
+                source.anchoredPosition = authoredPosition;
+                sourceImage.color = authoredColor;
+                rebuildHud.Invoke(controller, null);
+            }
+            ClickHudButton((Field(H, "rebuildResume") as Button)?.transform);
+            var palette = (RectTransform)Field(H, "rebuildPalette");
+            if (H.PanelOpen || !controller.RebuildPlacementMode || !palette.gameObject.activeInHierarchy ||
+                ((Button)Field(H, "interact")).gameObject.activeInHierarchy || ((Text)Field(H, "hint")).gameObject.activeInHierarchy)
+                throw new InvalidOperationException("返乡重建没有显示场景操作栏");
+            var state = controller.State;
+            var occupied = new GridPosition((int)state.PlayerX, (int)state.PlayerY);
+            var view = (BattleBoardView)Field(controller, "regionView");
+            var pick = typeof(BaseSceneController).GetMethod("SelectScreenPoint", BindingFlags.Instance | BindingFlags.NonPublic);
+            void PickCell(GridPosition cell)
+            {
+                var screen = (Vector2)controller.WorldCamera.WorldToScreenPoint(controller.WorldPoint(cell.X + .5, cell.Z + .5));
+                pick.Invoke(controller, new object[] { screen });
+                if (!((BattleBoardView)Field(controller, "regionView")).SelectedCell.Equals((GridPosition?)cell))
+                    throw new InvalidOperationException("点击地图后未预览目标格：" + cell);
+            }
+            PickCell(occupied);
+            if (palette.Find("放置").GetComponent<Button>().interactable || controller.ConfirmRebuildPlacement() || state.Demo.Finale.RebuildMask != 0)
+                throw new InvalidOperationException("占用格未阻止设施放置");
+            CaptureViewports("ui-player-route-home-rebuild-blocked");
+            var placedCells = new List<GridPosition>();
+            for (int item = 0; item < 3; item++)
+            {
+                view = (BattleBoardView)Field(controller, "regionView");
+                state = controller.State;
+                var cell = view.Board.Positions().Where(p => BaseDemoFinale.RebuildProblem(state, item, p.X, p.Z) == "" &&
+                    placedCells.All(other => Mathf.Abs(p.X - other.X) + Mathf.Abs(p.Z - other.Z) > 2))
+                    .OrderBy(p => Mathf.Abs(p.X - occupied.X) + Mathf.Abs(p.Z - occupied.Z))
+                    .First(p =>
+                    {
+                        var screen = controller.WorldCamera.WorldToScreenPoint(controller.WorldPoint(p.X + .5, p.Z + .5));
+                        return view.Pick(screen, out var hit) && hit.Equals(p);
+                    });
+                PickCell(cell);
+                if (item == 0) CaptureViewports("ui-player-route-home-rebuild");
+                if (state.Demo.Finale.RebuildMask != (1 << item) - 1)
+                    throw new InvalidOperationException("仅点击预览就提前提交了重建");
+                ClickHudButton(((RectTransform)Field(H, "rebuildPalette")).Find("放置"));
+                placedCells.Add(cell);
+                if (item == 0)
+                {
+                    controller.SelectRebuildProject(0);
+                    ClickHudButton(((RectTransform)Field(H, "rebuildPalette")).Find("撤回"));
+                    if (controller.State.Demo.Finale.RebuildMask != 0) throw new InvalidOperationException("重建设施未撤回");
+                    PickCell(cell);
+                    ClickHudButton(((RectTransform)Field(H, "rebuildPalette")).Find("放置"));
+                }
+            }
+            var saved = controller.SaveStore.Load();
+            if (saved.Demo.Finale.RebuildMask != 7 || saved.Demo.Stage == BaseDemoStage.Finished)
+                throw new InvalidOperationException("重建落位未保存，或提前结束 Demo");
+            var landmarks = ((BattleBoardView)Field(controller, "regionView")).Root.transform.Find("RegionLandmarks");
+            foreach (var facility in new[] { ("demo_rebuild_tent", "camp-tent-v1"), ("demo_rebuild_warehouse", "warehouse-v1") })
+            {
+                var landmark = landmarks.Cast<Transform>().SingleOrDefault(obj => obj.name.StartsWith(facility.Item1 + " · ", StringComparison.Ordinal));
+                var texture = landmark?.GetComponentInChildren<SpriteFacade>()?.Surface.sharedMaterial.GetTexture("_BaseMap");
+                if (texture == null || texture.name != facility.Item2) throw new InvalidOperationException("重建设施未加载正式贴图：" + facility.Item1);
+            }
+            ClickHudButton(((RectTransform)Field(H, "rebuildPalette")).Find("确认完成"));
+            if (!controller.HomeRebuildOverview || H.PanelOpen) throw new InvalidOperationException("完成前缺少村庄全景");
+            CaptureViewports("ui-player-route-home-rebuilt-village");
+            ClickHudButton(((RectTransform)Field(H, "rebuildOverview")).Find("结束 Demo"));
+            if (controller.State.Demo.Stage != BaseDemoStage.Finished || controller.HomeRebuildOverview || !H.DialogueOpen)
+                throw new InvalidOperationException("村庄全景未接完成状态和收尾对白");
+            H.ContinueDialogue();
+            CaptureViewports("ui-player-route-home-ending");
+            Log.Add("[PASS] 重建实际点格预览、占用格拒绝、撤回重放、保存三处设施并先展示全景再接收尾对白");
         }
 
         private static void VerifyResourceHud()
@@ -858,17 +1146,50 @@ namespace BaseConquest.Editor
             H.OpenObject("town_blacksmith");
             FinishDialogue();
             Click(BaseConquest.Story.StoryText.Get("story.ui.trade.reforge_entry", "重铸"));
+            var opening = controller.State;
+            var basic = BasePartyInventory.Entries(opening).Single(item => item.Holder == opening.PlayerLeaderId && item.Slot == "weapon");
+            int openingStones = BasePartyInventory.AvailableMaterial(opening, BaseEquipmentCrafting.Stone);
+            Click(basic.Name + " · 已穿戴");
+            var openingDetails = RequirePanel("TownTrade").Find("Details");
+            if (openingDetails.GetComponentsInChildren<Button>().Single(button => button.GetComponentInChildren<Text>().text == "确认重铸").interactable ||
+                !openingDetails.GetComponentsInChildren<Text>().Any(label => label.text.Contains("新手短剑")) ||
+                BasePartyInventory.AvailableMaterial(controller.State, BaseEquipmentCrafting.Stone) != openingStones)
+                throw new InvalidOperationException("开局短剑未显示重铸引导或仍允许消耗锻造石");
+            Capture("ui-skin-town-reforge-basic");
+            H.ClosePanel();
+            if (!controller.Change(next =>
+                {
+                    const string template = "novice_sword";
+                    string id = "personal:" + next.PersonalEquipment.NextId;
+                    bool stockUnlocked = next.Demo.Flow.NoviceShop;
+                    next.Demo.Flow.NoviceShop = true;
+                    if (!BasePersonalEquipment.Buy(next, template, next.PlayerLeaderId, BasePersonalEquipment.BuyPrice(next, template)) ||
+                        !BasePersonalEquipment.Equip(next, next.PlayerLeaderId, id, "weapon"))
+                        throw new InvalidOperationException("离屏重铸样本无法购买并穿戴新手短剑");
+                    next.Demo.Flow.NoviceShop = stockUnlocked;
+                }, "离屏重铸样本：穿戴新手短剑"))
+                throw new InvalidOperationException(controller.Message);
+            H.OpenObject("town_blacksmith");
+            FinishDialogue();
+            Click(BaseConquest.Story.StoryText.Get("story.ui.trade.reforge_entry", "重铸"));
             var before = controller.State;
             var weapon = BasePartyInventory.Entries(before).Single(item =>
                 item.Holder == before.PlayerLeaderId && item.Slot == "weapon" && BaseEquipmentCrafting.CanSelectReforge(before, item));
             var quote = BaseEquipmentCrafting.Quote(before, weapon.Id, 1);
-            if (quote == null) throw new InvalidOperationException("巴隆无法为随行主角当前短剑报价");
+            if (quote == null) throw new InvalidOperationException("巴隆无法为穿戴的新手短剑报价");
             Click(weapon.Name + " · 已穿戴");
             var details = RequirePanel("TownTrade").Find("Details");
             string probabilities = "升档 " + (quote.Up / 100f).ToString("0.##") + "% ／ 留级 " +
                 (quote.Stay / 100f).ToString("0.##") + "% ／ 降档 " + (quote.Down / 100f).ToString("0.##") + "%";
             if (!details.GetComponentsInChildren<Text>().Any(label => label.text == probabilities))
                 throw new InvalidOperationException("巴隆重铸页显示的升档／留级／降档概率与报价不符");
+            var upgraded = before.Copy();
+            BasePartyInventory.Find(upgraded, weapon.Id).Gear.Quality++;
+            float previousAttack = BasePersonalEquipment.Stats(before.Leaders.Single(person => person.Id == before.PlayerLeaderId)).Damage;
+            float upgradedAttack = BasePersonalEquipment.Stats(upgraded.Leaders.Single(person => person.Id == before.PlayerLeaderId)).Damage;
+            string preview = "攻击 " + previousAttack.ToString("0.####") + " → " + upgradedAttack.ToString("0.####");
+            if (upgradedAttack <= previousAttack || !details.GetComponentsInChildren<Text>().Any(label => label.text.Contains("升档后") && label.text.Contains(preview)))
+                throw new InvalidOperationException("重铸确认前未显示新手短剑的实际升档收益");
             Capture("ui-skin-town-reforge-odds");
             int available = BasePartyInventory.AvailableMaterial(before, BaseEquipmentCrafting.Stone);
             Click("确认重铸");
@@ -879,8 +1200,13 @@ namespace BaseConquest.Editor
                 Math.Abs(result.Quality - quote.Quality) > 1)
                 throw new InvalidOperationException("确认重铸后未正确扣除一颗锻造石并结算原武器品质");
             string outcome = BasePersonalEquipment.Qualities[quote.Quality] + " → " + BasePersonalEquipment.Qualities[result.Quality];
-            if (!RequirePanel("TownTrade").GetComponentsInChildren<Text>().Any(label => label.text.Contains(outcome)))
-                throw new InvalidOperationException("重铸后未显示品质变化反馈");
+            float actualAttack = BasePersonalEquipment.Stats(after.Leaders.Single(person => person.Id == after.PlayerLeaderId)).Damage;
+            string changes = previousAttack == actualAttack ? "属性未变" : "攻击 " + previousAttack.ToString("0.####") + " → " + actualAttack.ToString("0.####");
+            var trade = RequirePanel("TownTrade");
+            var confirm = trade.Find("Details").GetComponentsInChildren<Button>().Single(button => button.GetComponentInChildren<Text>().text == "确认重铸");
+            var feedback = confirm.transform.parent.GetChild(confirm.transform.GetSiblingIndex() + 1).GetComponent<Text>();
+            if (feedback == null || !feedback.text.Contains(outcome) || !feedback.text.Contains(changes) || trade.Find("SellerSpeech").GetComponent<Text>().text.Contains(outcome))
+                throw new InvalidOperationException("重铸结果与实际属性变化应在确认按钮下方显示");
             Capture("ui-skin-town-reforge-result");
             Log.Add("[PASS] 巴隆重铸 " + weapon.Name + "，" + probabilities + "，结果 " + outcome + "，消耗 " + quote.Stones + " 颗");
             H.ClosePanel();

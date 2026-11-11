@@ -102,7 +102,7 @@ namespace BaseConquest.Base
             construction = MakeButton(controls, "战前建造", new Vector2(-360, 118), new Vector2(180, 64), owner.ArmConstruction, new Vector2(1, 0));
             construction.gameObject.SetActive(false);
             hint = Label(controls, "", new Vector2(0, 30), new Vector2(730, 50), 18, TextAnchor.MiddleCenter, new Vector2(0.5f, 0));
-            labelObjects = owner.DisplayObjects.Where(o=>!BaseEnvironment.Decorative(o)).ToArray(); labels = new RectTransform[labelObjects.Length];npcMarkers=new Text[labels.Length];
+            labelObjects = owner.DisplayObjects.Where(o=>!BaseEnvironment.Decorative(o)&&o.Id!="demo_sword_prop").ToArray(); labels = new RectTransform[labelObjects.Length];npcMarkers=new Text[labels.Length];
             for (int i = 0; i < labels.Length; i++)
             {
                 labels[i] = Label(mapLabels, labelObjects[i].Name.Replace("伙伴 · ", ""), Vector2.zero, new Vector2(180, 36), 18, TextAnchor.MiddleCenter).rectTransform;
@@ -182,13 +182,13 @@ namespace BaseConquest.Base
         {
             var s = owner.State; feedback.text = owner.Message;feedback.gameObject.SetActive(owner.Message.Contains("失败")||owner.Message.Contains("未保存"));
             bool selectingHero = heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf;
-            summary.transform.parent.gameObject.SetActive(!selectingHero && (!PanelOpen || panelViewKey != "npc-dialogue"));
+            summary.transform.parent.gameObject.SetActive(!selectingHero && !owner.HomeRebuildOverview && (!PanelOpen || panelViewKey != "npc-dialogue"));
             if (reserveRules != null) reserveRules.interactable = s != null && !s.Aftermath.GameOver && !owner.Busy;
             if (panelFeedback != null) panelFeedback.text = owner.Message;
             owner.InvalidateObjects();
             if (resourceStrip != null) RefreshResourceStrip(s);
             if (s == null) { summary.text = owner.Busy ? "正在读取据点…" : "没有有效进度，请选择新开局或恢复备份"; regionStatus.text = ""; interact.interactable = false; construction.gameObject.SetActive(false); Joystick.gameObject.SetActive(false); mapLabels.gameObject.SetActive(false); return; }
-            mapLabels.gameObject.SetActive(!selectingHero && !PanelOpen); controls.gameObject.SetActive(!selectingHero && !PanelOpen);
+            mapLabels.gameObject.SetActive(!selectingHero && !PanelOpen && !owner.RebuildPlacementMode); controls.gameObject.SetActive(!selectingHero && !PanelOpen);
             if (resourceStrip == null)
             {
                 var delta=BaseDailyDelta.Read(s);summary.supportRichText=true;
@@ -220,7 +220,7 @@ namespace BaseConquest.Base
             bool canBuild=owner.State!=null&&BaseDemoFlow.Active(owner.State)&&owner.State.Campaign.Location=="perimeter"&&!owner.State.Campaign.HasActiveBattle&&!owner.State.Aftermath.GameOver&&!owner.Busy&&!PanelOpen&&!owner.ConstructionMode;
             construction.gameObject.SetActive(canBuild);
             construction.interactable=canBuild;
-            Joystick.gameObject.SetActive(Application.isMobilePlatform&&!PanelOpen&&!owner.Busy&&!owner.PlayerAway&&owner.State?.Campaign.HasActiveBattle!=true);
+            Joystick.gameObject.SetActive(Application.isMobilePlatform&&!PanelOpen&&!owner.HomeRebuildOverview&&!owner.Busy&&!owner.PlayerAway&&owner.State?.Campaign.HasActiveBattle!=true);
             interact.interactable = nearby != null && !PanelOpen && !owner.Busy;
             string id = nearby?.Id ?? "";
             if (nearbyId != id)

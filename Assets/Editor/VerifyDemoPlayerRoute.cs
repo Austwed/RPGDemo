@@ -59,7 +59,7 @@ namespace BaseConquest.Editor
             Need(BaseDemoNpcs.InviteAzhu(state) && !BaseDemoNpcs.CanInviteAzhu(state) &&
                 !state.Demo.MetCompanions.Contains("partner_craft"), "拒绝阿铸后未保持当前进度");
             Note("灰岩镇：接受领主委托。触发阿铸叫停后离开，没有进入比武或招募。");
-            BuyAndReforge(state);
+            BuyStones(state);
 
             Travel(state, "demo_ruins_exit", "outpost");
             At(state, "demo_ruins_investigate");
@@ -88,6 +88,7 @@ namespace BaseConquest.Editor
             Need(BaseDemoRuins.Meet(state, "partner_farm") && BaseDemoRuins.Join(state, "partner_farm"), "新营地无法邀请阿禾");
             Travel(state, "exit_east", "town");
             RecruitAzhu(state);
+            ReforgeGift(state);
             Travel(state, "demo_ruins_exit", "outpost");
             At(state, "demo_ruins_investigate");
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
@@ -115,8 +116,6 @@ namespace BaseConquest.Editor
                 At(state, "town_recruit");
                 foreach (var kind in new[] { BaseTroopKind.Melee, BaseTroopKind.Ranged, BaseTroopKind.Cavalry })
                 {
-                    // Avoid locking in all three troop types during the opening rest lesson.
-                    if (state.Day == 2 && kind == BaseTroopKind.Cavalry) continue;
                     int wanted = kind == BaseTroopKind.Cavalry ? 3 : 4;
                     while (state.Workers.Where(worker => worker.Kind == kind).Sum(worker => worker.Count) < wanted &&
                         BaseTown.MaxHire(state, kind) > 0)
@@ -126,13 +125,20 @@ namespace BaseConquest.Editor
                     }
                 }
                 if (state.Day == 2) CheckEarlyRestAfterBuyingFood(state.Copy());
-                At(state, "travel_base");
                 if (!intel && state.Demo.Flow.FirstIntelEligible)
                 {
-                    Need(BaseRaidIntel.OfferFirst(state) && BaseRaidIntel.ClaimFirst(state), "首防免费情报未触发");
+                    At(state, "town_peddler");
+                    Need(BaseRaidIntel.OfferFirst(state) && BaseRaidIntel.CanClaimFirst(state), "首防免费情报未触发");
+                    SaveRouteCheckpoint(state, "first-intel");
+                    var raid = state.Campaign.Events.Single(item => item.Id == BaseDemoDefense.EventId);
+                    Need(!BaseRaidIntel.OfferFirst(state) && BaseRaidIntel.CanClaimFirst(state.Copy()) &&
+                        BaseRaidIntel.ClaimFirst(state) && BaseRaidIntel.Known(state, raid) &&
+                        state.Demo.Flow.FreeFirstRaidDay == raid.AvailableDay && !BaseRaidIntel.CanClaimFirst(state),
+                        "首防免费情报在离开后丢失、重复发放或日期不一致");
                     intel = true;
-                    Note($"第{state.Day}天 首次购兵后从老莫领取免费消息，确认第{state.Demo.Flow.FreeFirstRaidDay}天来袭。");
+                    Note($"第{state.Day}天 老莫的免费消息先离开后补领，日历确认第{state.Demo.Flow.FreeFirstRaidDay}天来袭。");
                 }
+                At(state, "travel_base");
                 Need(BaseCampaign.Travel(state, "base"), "募兵后无法返营");
                 RepairAndAssign(state);
                 if (hired >= 11) break;
@@ -146,14 +152,23 @@ namespace BaseConquest.Editor
             Note($"第{state.Day}天 首防到达。已逐次购兵{hired}人，粮田{BaseEconomy.WorkersAt(state, "farm")}人，工坊{BaseEconomy.WorkersAt(state, "workshop")}人，一级军需{BaseSupply.Available(state, "supply", 1)}件。");
         }
 
-        private static void BuyAndReforge(BaseState state)
+        private static void BuyStones(BaseState state)
         {
             At(state, "town_market");
             int bought = BaseEquipmentCrafting.MaxBuy(state);
             Need(bought >= 10 && BaseEquipmentCrafting.Buy(state, 10, state.Backpack.Revision), "老莫处无法买十颗锻造石");
             At(state, "town_blacksmith");
-            var sword = BasePartyInventory.Entries(state).First(entry =>
-                entry.Holder == state.PlayerLeaderId && entry.Slot == "weapon" && BaseEquipmentCrafting.CanSelectReforge(state, entry));
+            var basic = BasePartyInventory.Entries(state).Single(entry => entry.Holder == state.PlayerLeaderId && entry.Slot == "weapon");
+            Need(basic.Gear.Template == "basic_sword" && BaseEquipmentCrafting.Quote(state, basic.Id, 1) == null &&
+                BasePartyInventory.AvailableMaterial(state, BaseEquipmentCrafting.Stone) >= 10, "初始无品质收益的短剑仍能报价");
+            Note("老莫处实付购入 10 颗锻造石。巴隆说明开局短剑无品质收益，保留全部石头。");
+        }
+
+        private static void ReforgeGift(BaseState state)
+        {
+            At(state, "town_blacksmith");
+            var sword = BasePartyInventory.Entries(state).Single(entry => entry.Gear?.Template == "novice_sword");
+            Need(BasePersonalEquipment.Equip(state, state.PlayerLeaderId, sword.Id, "weapon"), "无法装备巴隆赠送的新手短剑");
             string starting = BasePersonalEquipment.Qualities[sword.Quality];
             var qualities = new List<string> { starting };
             var leader = state.Leaders.Single(person => person.Id == state.PlayerLeaderId);
@@ -161,11 +176,13 @@ namespace BaseConquest.Editor
             foreach (int stones in new[] { 3, 1, 1, 5 })
             {
                 var quote = BaseEquipmentCrafting.Quote(state, sword.Id, stones);
-                Need(quote != null && BaseEquipmentCrafting.Confirm(state, quote), "巴隆处无法重铸短剑");
+                if (quote == null && BasePartyInventory.Find(state, sword.Id).Quality == 5) break;
+                Need(quote != null && BaseEquipmentCrafting.Confirm(state, quote), "巴隆处无法重铸新手短剑");
                 qualities.Add(BasePersonalEquipment.Qualities[BasePartyInventory.Find(state, sword.Id).Quality]);
             }
             var after = BasePersonalEquipment.Stats(leader);
-            Note($"老莫购入10颗锻造石。巴隆实际重铸{sword.Name}：{string.Join(" → ", qualities)}，耗石3／1／1／5；攻击{before.Damage}→{after.Damage}，防御{before.Defense}→{after.Defense}，生命{before.Health}→{after.Health}。");
+            Need(qualities.Count > 1, "没有实际确认重铸");
+            Note($"巴隆实际重铸{sword.Name}：{string.Join(" → ", qualities)}。攻击 {before.Damage}→{after.Damage}，暴击伤害 {before.CritMultiplier:P1}→{after.CritMultiplier:P1}。");
         }
 
         private static void RecruitAzhu(BaseState state)
@@ -252,26 +269,42 @@ namespace BaseConquest.Editor
 
         private static void CheckEarlyRestAfterBuyingFood(BaseState branch)
         {
-            while (branch.Workers.Where(person => person.Kind == BaseTroopKind.Cavalry).Sum(person => person.Count) < 3 &&
-                BaseTown.MaxHire(branch, BaseTroopKind.Cavalry) > 0)
-                Need(BaseTown.Confirm(branch, BaseTown.QuoteHire(branch, BaseTroopKind.Cavalry, 1)), "测试分支无法补骑兵");
-            At(branch, "town_market");
-            int amount = Math.Min(20, BaseTown.MaxTrade(branch, "food", true));
-            if (amount > 0) Need(BaseTown.Confirm(branch, BaseTown.QuoteTrade(branch, "food", true, amount)), "测试分支无法购粮");
             Travel(branch, "travel_base", "base");
             RepairAndAssign(branch);
+            Need(BaseDemoFlow.Recruited(branch), "第2天未买齐三种职业，休息规则尚未生效");
+            var unstaffed = branch.Copy();
+            At(unstaffed, "workshop");
+            foreach (var group in unstaffed.Workers.Where(person => person.FacilityId == "workshop").GroupBy(person => person.Kind).ToArray())
+                Need(BaseEconomy.MoveWorkers(unstaffed, group.Key, "workshop", "", group.Sum(person => person.Count)), "无法清空工坊岗位样本");
+            Need(BaseDemoFlow.RestProblem(unstaffed).Contains("工坊"), "未保留工坊值守门槛");
+            branch.Inventory.Food = 0;
+            At(branch, "farm");
+            while (BaseEconomy.Preview(branch).NextMissing == 0)
+            {
+                var worker = branch.Workers.FirstOrDefault(person => person.FacilityId == "farm" && BaseDevelopment.Effective(branch, person));
+                Need(worker != null && BaseEconomy.MoveWorkers(branch, worker.Kind, "farm", "", 1), "未构造出缺粮样本");
+            }
+            At(branch, "home");
+            int gap = BaseEconomy.Preview(branch).NextMissing;
+            int day = branch.Day;
+            string blocked = BaseDemoFlow.RestProblem(branch);
+            Need(blocked.Contains($"缺粮 {gap} 份"), "休息未显示准确缺口");
+            try
+            {
+                BaseEconomy.Rest(branch, day);
+                throw new InvalidOperationException("缺粮时没有拦住开局休息");
+            }
+            catch (InvalidOperationException error) when (error.Message == blocked) { }
+            Need(branch.Day == day, "被拒休息仍推进了日期");
+            Travel(branch, "exit_east", "town");
+            At(branch, "town_market");
+            Need(BaseTown.Confirm(branch, BaseTown.QuoteTrade(branch, "food", true, gap)), "缺粮测试无法买到恰好够用的粮");
+            Travel(branch, "travel_base", "base");
             At(branch, "home");
             var preview = BaseEconomy.Preview(branch);
-            string lesson = BaseDemoFlow.RestProblem(branch);
-            if (lesson != "")
-            {
-                try { BaseEconomy.Rest(branch, branch.Day); }
-                catch (InvalidOperationException error) when (error.Message == lesson)
-                {
-                    Note($"第2天旁支：当天买齐三职业、工坊已排人、又买{amount}份粮，库存{branch.Inventory.Food}。" +
-                        $"预计产粮{preview.FoodProduced}、口粮{preview.FoodRequired}，仍被休息教学拦下。主线延到第3天购骑兵。");
-                }
-            }
+            Need(preview.NextMissing == 0 && preview.NextFood == 0 && BaseDemoFlow.RestProblem(branch) == "" &&
+                BaseEconomy.Rest(branch, day) && branch.Day == day + 1, "买到恰好够用的粮后仍无法日结");
+            Note($"第{day}天旁支：工坊缺人时拦住，短缺 {gap} 份时显示精确缺口，实付补足后日结到第{branch.Day}天，结余为 0。");
         }
 
         private static void TryHideoutRoute(BaseState state)

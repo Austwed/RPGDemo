@@ -29,6 +29,7 @@ namespace BaseConquest.Base
         public const int Select=1, Pause=2, Move=4, Attack=8, Guard=16, Skill=32, Inspect=64, All=127;
         public const int DummyDemo=128, AutoAttack=256;
         public const string DummyId="intro:training-dummy";
+        private static readonly int[] DrillControls={Select,Pause,Move,Guard,Skill,Inspect};
         public static bool Active(BaseState s)=>BaseDemo.Active(s)&&s.Demo.Intro!=null;
         public static bool Daily(BaseState s)=>Active(s)&&BaseDemoPrologue.Village(s)&&!new[]{6,7,8}.Contains(s.Demo.Intro.Step);
         public static string PlayerArt(BaseState s)=>Active(s)&&s.Demo.Intro.Hero=="female"?"female":"player";
@@ -236,8 +237,9 @@ namespace BaseConquest.Base
         public static int NextExercise(BaseDemoIntroState intro)
         {
             if(intro.TutorialDelay>1e-8)return 0;
-            int preparation=new[]{Select,Pause,Move,Guard,Skill,Inspect}.FirstOrDefault(flag=>(intro.DrillFlags&flag)==0);
-            return preparation!=0?preparation:intro.DummyPhase<2?DummyDemo:intro.DummyPhase<4?AutoAttack:(intro.DrillFlags&Attack)==0?Attack:0;
+            foreach(int control in DrillControls)
+                if((intro.DrillFlags&control)==0)return control;
+            return intro.DummyPhase<2?DummyDemo:intro.DummyPhase<4?AutoAttack:(intro.DrillFlags&Attack)==0?Attack:0;
         }
         public static void StartDummyDemo(RealtimeCampaignBattle run,BaseDemoIntroState intro)
         {if(intro.DummyPhase!=0)return;intro.DummyPhase=1;foreach(var u in run.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))run.Model.SetStrategy(u,PrototypeStrategy.Attack);}

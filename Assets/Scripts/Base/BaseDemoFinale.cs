@@ -56,11 +56,11 @@ namespace BaseConquest.Base
             var village=state.Demo.StoryScene?.Valid==true?state.Demo.StoryScene.ReturnVillage():state.Demo.Finale.Village.Copy();village.SourceMapId=Home;village.Region="custom";village.ParentMapId=null;village.Title=BaseScriptNames.Village+" · 劫后余痕";village.SpawnX=21;village.SpawnY=7;
             village.Objects.RemoveAll(obj=>!obj.Blocks&&!BaseEnvironment.Decorative(obj.Object));foreach(var obj in village.Objects)obj.Name="受损的"+obj.Name;
             village.Objects.Add(new BaseMapPlacement {Id="demo_home_world",Name="返回世界道路",X=23.3,Y=7,Width=1,Height=2});
-            village.Objects.Add(new BaseMapPlacement {Id="demo_broken_sword",Name="幸存者与断剑 · 调查",X=10,Y=7,Width=1,Height=1});campaign.Layouts.Add(village);
+            village.Objects.Add(new BaseMapPlacement {Id="demo_broken_sword",Name="断剑 · 调查",X=10,Y=7,Width=1,Height=1});campaign.Layouts.Add(village);
             if(BaseDemoRelease.Enabled(state))
             {
                 village.Objects.Add(new BaseMapPlacement {Id="demo_sword_prop",Name="断裂的王室式长剑",X=10.5,Y=7.5,Width=1.4,Height=1.8,Kind="demo-prop",AssetId="demo-broken-sword",VisualOnly=true});
-                village.Objects.Add(new BaseMapPlacement {Id="demo_survivor",Name="幸存村民",X=8.8,Y=7.5,Width=.5,Height=.5,Kind="npc",AssetId="ahe",VisualOnly=true});
+                village.Objects.Add(new BaseMapPlacement {Id="demo_survivor",Name="幸存村民",X=8.8,Y=7.5,Width=.5,Height=.5,Kind="npc",AssetId="ahe"});
                 int debris=0;foreach(var building in village.Objects.Where(o=>o.Blocks&&!BaseEnvironment.Decorative(o.Object)).ToArray())village.Objects.Add(new BaseMapPlacement {Id="demo_damage_"+debris++,Name="烧毁的残片",X=building.X,Y=building.Y-building.Height/2+.5,Width=1.6,Height=1,Kind="demo-prop",AssetId="demo-debris",VisualOnly=true});
             }
             foreach(var map in campaign.Layouts)foreach(var obj in map.Objects)if(string.IsNullOrEmpty(obj.SourceObjectId))obj.SourceObjectId=map.SourceMapId+"_"+obj.Id;
@@ -143,10 +143,13 @@ namespace BaseConquest.Base
         }
         public static bool Investigate(BaseState state)
         {
-            if(!Opened(state)||state.Demo.Stage!=BaseDemoStage.AttackWon||state.Demo.Finale.ReconstructionVersion!=0||state.Campaign.CurrentMapId!=Home||BaseBattleLoot.Pending(state)||!BaseInteraction.At(state,"custom","demo_broken_sword")&&!BaseInteraction.At(state,"custom","demo_survivor"))return false;
+            if(!Opened(state)||state.Demo.Stage!=BaseDemoStage.AttackWon||state.Demo.Finale.ReconstructionVersion!=0||state.Campaign.CurrentMapId!=Home||BaseBattleLoot.Pending(state)||!BaseInteraction.At(state,"custom","demo_broken_sword"))return false;
             state.Demo.Evidence.Add(Sword);state.Demo.Finale.ReconstructionVersion=1;state.Demo.Finale.RebuildDay=state.Day;return true;
         }
         private static readonly string[] RebuildIds={"demo_rebuild_farm","demo_rebuild_tent","demo_rebuild_warehouse"};
+        private static readonly string[] RebuildNames={"小粮田","营帐","仓库"};
+        private static readonly string[] RebuildAssets={"farm-small","camp-tent","warehouse"};
+        internal static string RebuildName(int item)=>RebuildNames[item];
         private static bool RebuildRecordsValid(BaseState state)
         {
             var objects=BaseSceneInstances.Layout(state,Home).Objects;var placed=objects.Where(o=>RebuildIds.Contains(o.Id)).ToArray();
@@ -161,15 +164,16 @@ namespace BaseConquest.Base
             if((state.Demo.Finale.RebuildMask&(1<<item))!=0)return "该设施已放置";
             if(BaseSceneInstances.Layout(state,Home).Objects.Count>=(state.Demo.StoryScene?.Valid==true?300:200))return "场景物件数量已满";
             var board=BaseBattlefield.Board(state,Home);var cell=board.Cell(new GridPosition(x,y));double px=x+.5,py=y+.5;
-            if(cell==null||!cell.Walkable||!BaseSpatial.Geometry(state,px,py,Home))return "请选择可通行空地";
-            if(BaseSpatial.Objects(state,Home).Any(o=>(o.Blocks||!o.VisualOnly||RebuildIds.Contains(o.Id))&&o.Distance(px,py)<.5)||Math.Abs(state.PlayerX-px)<.8&&Math.Abs(state.PlayerY-py)<.8)return "不能覆盖设施或人物";
+            var objects=BaseSpatial.Objects(state,Home);
+            if(cell==null||!cell.Walkable||!BaseSpatial.Geometry(objects,px,py,board.Width,board.Height))return "请选择可通行空地";
+            if(objects.Any(o=>(o.Blocks||!o.VisualOnly||RebuildIds.Contains(o.Id))&&o.Distance(px,py)<.5)||Math.Abs(state.PlayerX-px)<.8&&Math.Abs(state.PlayerY-py)<.8)return "不能覆盖设施或人物";
             return "";
         }
         public static bool PlaceRebuild(BaseState state,int item,int x,int y)
         {
             if(RebuildProblem(state,item,x,y)!="")return false;
             var layout=BaseSceneInstances.Layout(state,Home);string id=RebuildIds[item];
-            layout.Objects.Add(new BaseMapPlacement{Id=id,SourceObjectId=id,Name=new[]{"小粮田","营帐","仓库"}[item],AssetId=new[]{"farm-small","home","warehouse"}[item],Kind="facility",X=x+.5,Y=y+.5,Width=1,Height=1,VisualOnly=true});
+            layout.Objects.Add(new BaseMapPlacement{Id=id,SourceObjectId=id,Name=RebuildName(item),AssetId=RebuildAssets[item],Kind="facility",X=x+.5,Y=y+.5,Width=1,Height=1,VisualOnly=true});
             state.Demo.Finale.RebuildMask|=1<<item;return true;
         }
         public static bool RemoveRebuild(BaseState state,int item)
@@ -191,7 +195,14 @@ namespace BaseConquest.Base
             if(progress.Version!=1||progress.CampBoard==null||(storyCamp?(progress.CampBoard.Width<10||progress.CampBoard.Width>64||progress.CampBoard.Height<10||progress.CampBoard.Height>64):(progress.CampBoard.Width!=(BaseDemoRelease.Enabled(state)?32:24)||progress.CampBoard.Height!=(BaseDemoRelease.Enabled(state)?24:14)))||progress.CampBoard.Cells?.Length!=progress.CampBoard.Width*progress.CampBoard.Height||progress.CampBoard.Cells.Any(cell=>cell==null||!cell.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),cell.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),cell.Zone))||progress.Village==null||progress.Village.Objects==null||!progress.Village.Objects.Any(obj=>obj.Id=="village_house"&&obj.Blocks)||!progress.Village.Objects.Any(obj=>(obj.Id=="intro_farm"||obj.Id=="village_field")&&obj.Blocks))throw new ArgumentException("Demo攻营／"+BaseScriptNames.Village+"快照非法");
             if(!progress.WorldOpened){if(progress.AttackDay!=0||progress.EndDay!=0||progress.ReconstructionVersion!=0||progress.RebuildDay!=0||progress.RebuildMask!=0||progress.VillageRebuilt||Later(state))throw new ArgumentException("未开启行军不能提交结尾");return;}
             if(!BaseDemoDefense.Won(state)||state.Campaign.InstanceVersion!=1||state.Campaign.DesignId!=state.Demo.BalanceHash||!BaseWorldJourney.Active(state)||state.Campaign.Layouts.Count!=(BaseSceneRules.Active(state)?8:7)+(BaseBanditHideout.Installed(state)?1:0)||state.Campaign.WorldJourney.Nodes.Count!=3||state.Campaign.WorldJourney.Roads.Count!=2||state.Campaign.WorldJourney.Roads.Any(road=>road.Days!=1))throw new ArgumentException("Demo世界身份、路线或阶段非法");
-            var site=BaseThreats.Site(state,Camp);if(site==null||state.Campaign.Layouts.Single(map=>map.SourceMapId==Home).Region!="custom")throw new ArgumentException("Demo敌营／"+BaseScriptNames.Village+"缺失");
+            var site=BaseThreats.Site(state,Camp);var home=state.Campaign.Layouts.Single(map=>map.SourceMapId==Home);
+            if(site==null||home.Region!="custom")throw new ArgumentException("Demo敌营／"+BaseScriptNames.Village+"缺失");
+            var survivor=home.Objects.SingleOrDefault(o=>o.Id=="demo_survivor");
+            if(survivor!=null)survivor.VisualOnly=false;
+            var sword=home.Objects.SingleOrDefault(o=>o.Id=="demo_broken_sword");
+            if(sword?.Name=="幸存者与断剑 · 调查")sword.Name="断剑 · 调查";
+            var tent=home.Objects.SingleOrDefault(o=>o.Id==RebuildIds[1]);
+            if(tent?.AssetId=="home")tent.AssetId=RebuildAssets[1];
             if(Later(state)?progress.AttackDay<state.Demo.Defense.VictoryDay||progress.AttackDay>state.Day||site.Owner!="player"||!state.Campaign.Reports.Any(report=>report.EventId==site.AttackEventId&&report.Outcome=="SideAWin"&&!report.Passive):progress.AttackDay!=0)throw new ArgumentException("攻营阶段缺少真实主动胜利");
             if(state.Demo.Stage==BaseDemoStage.Finished?progress.EndDay<progress.AttackDay||progress.EndDay>state.Day:progress.EndDay!=0)throw new ArgumentException("断剑记录日期非法");
             if(progress.ReconstructionVersion<0||progress.ReconstructionVersion>1||progress.RebuildMask<0||progress.RebuildMask>7||progress.ReconstructionVersion==0&&(progress.RebuildDay!=0||progress.RebuildMask!=0||progress.VillageRebuilt)||progress.ReconstructionVersion==1&&(progress.RebuildDay<progress.AttackDay||progress.RebuildDay>state.Day||!state.Demo.Evidence.Contains(Sword)||progress.VillageRebuilt!=(state.Demo.Stage==BaseDemoStage.Finished)||progress.VillageRebuilt&&progress.RebuildMask!=7||!progress.VillageRebuilt&&state.Day!=progress.RebuildDay))throw new ArgumentException("返乡重建状态非法");

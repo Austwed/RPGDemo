@@ -45,7 +45,12 @@ namespace BaseConquest.Battle
                 if(!run.Model.PlaceNearest(unit,point))throw new InvalidOperationException("当前位置附近没有足够合法落格");
                 
             }
-            state.PlayerX=run.Model.Player.Position.X;state.PlayerY=run.Model.Player.Position.Z;
+            // 演练的战术站位独立于村庄坐标，结束后从开练前的位置恢复。
+            if(run.Session.Opening.Id!=BaseDemoIntro.BattleId)
+            {
+                state.PlayerX=run.Model.Player.Position.X;
+                state.PlayerY=run.Model.Player.Position.Z;
+            }
         }
         public static void Capture(BaseState state,RealtimeCampaignBattle run)
         {

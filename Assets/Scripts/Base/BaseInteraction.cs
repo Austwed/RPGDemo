@@ -22,8 +22,8 @@ namespace BaseConquest.Base
             var axis = PlayerHeroFrames.WalkingAxis(dx, dy);
             if (axis.X != 0 || axis.Z != 0) Facing = new BasePoint(axis.X, axis.Z);
         }
-        public static bool CanReach(BattleBoard board,BaseMapObject target,double positionX,double positionY)
-            =>CanReach(board,target,positionX,positionY,Facing);
+        public static bool WithinReach(BattleBoard board,BaseMapObject target,double positionX,double positionY)
+            =>CanReach(board,target,positionX,positionY,default);
         public static bool CanReach(BattleBoard board,BaseMapObject target,double positionX,double positionY,BasePoint facing)
         {
             if(board==null||target==null||target.VisualOnly||BaseEnvironment.Decorative(target)||!(target.Distance(positionX,positionY)<=Distance+.000000001))return false;
@@ -41,7 +41,7 @@ namespace BaseConquest.Base
         {
             if(state==null||target==null||target.VisualOnly||BaseSceneCombat.Active(state))return false;
             if(state.Leaders.Any(person=>person.Id==target.Id))return target.Distance(state.PlayerX,state.PlayerY)<BaseMap.InteractionDistance;
-            return CanReach(BaseBattlefield.Board(state),target,state.PlayerX,state.PlayerY);
+            return CanReach(BaseBattlefield.Board(state),target,state.PlayerX,state.PlayerY,Facing);
         }
         public static bool At(BaseState state,string region,string id)=>state.Campaign.Location==region&&CanReach(state,BaseSpatial.Objects(state,region).SingleOrDefault(target=>target.Id==id));
     }

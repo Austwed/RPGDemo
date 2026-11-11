@@ -19,8 +19,11 @@ namespace BaseConquest.Base
         public string ConstructionHoverText {get;private set;}="点击地图连续施工；右键／Esc退出";
         public void StopConstruction()
         {
+            bool returningFromHome=RebuildPlacementMode;
+            ResetHomeRebuildOverview();RebuildPlacementMode=false;rebuildProject=-1;rebuildCell=null;
             constructionOpen=false;constructionBrush.Cancel();constructionTouch=-1;mouseTap=null;touches.Clear();
             regionView?.SelectCell(null);regionView?.TintSelection(new Color(1,.89f,.28f));Hud?.RefreshConstructionPalette();
+            if(returningFromHome)Hud?.RefreshSummary();
         }
         public void ArmConstruction()
         {
@@ -52,6 +55,12 @@ namespace BaseConquest.Base
         }
         private void UpdateConstructionPointer()
         {
+            if(RebuildPlacementMode)
+            {
+                if(Mouse.current?.rightButton.wasPressedThisFrame==true)StopConstruction();
+                else ReadPointer();
+                return;
+            }
             // Construction consumes primary pointer only; wheel and two-finger zoom remain available.
             var wheel=Mouse.current?.scroll.ReadValue().y??0;if(Math.Abs(wheel)>.01f)ZoomExploration(Mouse.current.position.ReadValue(),wheel);
             if(Touchscreen.current!=null){var pair=System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Take(System.Linq.Enumerable.Where(Touchscreen.current.touches,t=>t.press.isPressed),2));if(pair.Length==2){var a=pair[0].position.ReadValue();var b=pair[1].position.ReadValue();float span=Vector2.Distance(a,b);if(explorationPinchSpan>0)ZoomExplorationFactor((a+b)*.5f,explorationPinchSpan/Mathf.Max(1,span));explorationPinchSpan=span;constructionBrush.EndStroke();constructionTouch=-1;return;}}
@@ -91,6 +100,10 @@ namespace BaseConquest.Base
             regionView.SelectCell(cell);regionView.TintSelection(problem=="" ? new Color(.35f,1,.55f) : new Color(1,.32f,.25f));
         }
         public void PaintConstructionCell(GridPosition cell)
-        {if(!ConstructionMode)return;constructionBrush.BeginStroke();PaintConstructionCells(constructionBrush.Sample(cell));constructionBrush.EndStroke();Hud.RefreshConstructionPalette();}
+        {
+            if(!ConstructionMode)return;
+            if(RebuildPlacementMode){SelectRebuildCell(cell);return;}
+            constructionBrush.BeginStroke();PaintConstructionCells(constructionBrush.Sample(cell));constructionBrush.EndStroke();Hud.RefreshConstructionPalette();
+        }
     }
 }

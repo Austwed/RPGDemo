@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BaseConquest.Story;
 namespace BaseConquest.Base
 {
     [Serializable] public sealed class BaseDemoFlowState
@@ -42,10 +43,15 @@ namespace BaseConquest.Base
             if(!s.Campaign.Events.Any(e=>e.Id==BaseDemoDefense.EventId)&&s.Demo.Stage==BaseDemoStage.RuinsDelivered)BaseDemoDefense.ScheduleOnDelivery(s);
             s.Demo.Flow.FirstIntelOffered=true;return true;
         }
+        private static BaseCampaignEvent UnclaimedFirst(BaseState s)
+        {
+            if(!BaseDemoFlow.Active(s)||!s.Demo.Flow.FirstIntelOffered||s.Demo.Flow.FreeFirstRaidDay!=0)return null;
+            return s.Campaign.Events.FirstOrDefault(e=>e.Id==BaseDemoDefense.EventId&&e.Status=="pending");
+        }
+        public static bool CanClaimFirst(BaseState s)=>UnclaimedFirst(s)!=null;
         public static bool ClaimFirst(BaseState s)
         {
-            if(!BaseDemoFlow.Active(s)||!s.Demo.Flow.FirstIntelOffered||s.Demo.Flow.FreeFirstRaidDay!=0)return false;
-            var e=s.Campaign.Events.FirstOrDefault(x=>x.Id==BaseDemoDefense.EventId&&x.Status=="pending");if(e==null)return false;
+            var e=UnclaimedFirst(s);if(e==null)return false;
             s.Demo.Flow.FreeFirstRaidDay=e.AvailableDay;return true;
         }
         public static bool Known(BaseState s,BaseCampaignEvent e)
@@ -89,8 +95,11 @@ namespace BaseConquest.Base
         {
             // 只在开局教学窗口（第 1～2 日）拦一次，过了窗口或已经歇过一晚就永不触发；缺粮本身由产能／攻击惩罚承担。
             if(!Active(s)||s.Demo.Flow.RestLessonDone||s.Day>2||!Recruited(s)||!s.Demo.Defense.WorkshopRepaired||!s.Demo.Defense.BarracksRepaired)return "";
-            if(BaseEconomy.EligibleWorkers(s,"workshop")<1)return "【工坊】尚无人手值守。外患将至，请先安排至少 1 名工人打制军需再行歇息。";
-            return BaseDailyDelta.Read(s).Food>0?"":"眼下口粮入不敷出（预计净增需大于 0）。先去【粮田】增派人手，或到城镇买粮，免得弟兄们明早饿肚子。";
+            if(BaseEconomy.EligibleWorkers(s,"workshop")<1)
+                return StoryText.Get("story.ui.rest.workshop_shortage","工坊缺 1 名工人。请先安排人手打制军需。");
+            int missing=BaseEconomy.Preview(s).NextMissing;
+            return missing==0?"":StoryText.Get("story.ui.rest.food_shortage","明日缺粮 {missing} 份。请增派粮田工人，或到灰岩镇买粮。")
+                .Replace("{missing}",missing.ToString());
         }
         public static void Validate(BaseState s)
         {

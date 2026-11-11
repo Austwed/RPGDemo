@@ -30,9 +30,15 @@ namespace BaseConquest.Editor
                 "序章短剑无法穿戴");
             BaseDemoIntro.CheckEquipment(state);
             Need(state.Demo.Intro.Step == 4, "穿戴后未开放演练");
+            var villageBoard = BaseBattlefield.Board(state);
+            var villageMemory = BaseSceneRules.Memory(state);
+            Need(villageMemory.MapId == "demo_prologue" && villageMemory.Width == villageBoard.Width &&
+                villageMemory.Height == villageBoard.Height && state.Campaign.RegionMaps.All(map => map.Id != villageMemory.MapId),
+                "序章迷雾记忆须使用村庄尺寸，且不产生同名区域地图");
             BaseEconomy.Validate(state);
             Note("第1天 白桦村：选择女主角，与搭档结伴，步行问候阿禾，粮田2→4，接过并穿戴序章短剑。");
 
+            SaveRouteCheckpoint(state, "drill");
             PlayOpeningPractice(state);
             Note("序章演练：显式选人／暂停、实际下达移动与驻守、施放技能、查看增益，等待木桩示范和自动攻击，主动攻击搭档完成演练。");
 
@@ -94,8 +100,12 @@ namespace BaseConquest.Editor
         private static void PlayOpeningPractice(BaseState state)
         {
             var intro = state.Demo.Intro;
+            var explorationStart = new BasePoint(state.PlayerX, state.PlayerY);
             var practice = new RealtimeCampaignBattle(BaseDemoIntro.Practice(state));
             state.SceneBattleId = BaseDemoIntro.BattleId;
+            BattleScenePlacement.Snap(state, practice);
+            Need(state.PlayerX == explorationStart.X && state.PlayerY == explorationStart.Y,
+                "序章演练的战术站位不应覆盖开练前的村庄坐标");
             BaseDemoIntro.Configure(practice, intro);
             var actor = practice.Model.Player;
             int[] selected = { actor.Id - 1 };
@@ -136,6 +146,7 @@ namespace BaseConquest.Editor
             Need(practice.Issue(selected, PrototypeOrder.Focus, opponent.Position, opponent.Id - 1, commanderOnly: true), "演练无法指向搭档");
             AdvanceUntil(() => practice.Battle.Phase == BattlePhase.Finished, 1200, "演练最后一击未结算");
             Need(practice.Battle.Report.Outcome == BattleOutcome.SideAWin && BaseDemoIntro.FinishPractice(state, true), "无法交出演练战果");
+            BaseEconomy.Validate(state);
             BaseSceneRules.RememberStrategy(state, practice.Session);
         }
 

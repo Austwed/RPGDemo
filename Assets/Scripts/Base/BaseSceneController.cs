@@ -187,8 +187,10 @@ namespace BaseConquest.Base
             explorationActors=new GameObject("FreeMovementActors").transform;explorationActors.SetParent(regionView.Root.transform,false);
             npcViews.Clear();motionViews.Clear();
             BaseConquest.Presentation.EnvironmentRoadEdges.Build(State,regionView.Board,regionView.Root.transform,regionView.ObliqueExploration);
+            bool hasSwordProp=MapObjects.Any(o=>o.Id=="demo_sword_prop");
             foreach(var obj in MapObjects.Where(o=>!o.Id.StartsWith("partner")&&(!o.Blocks||!string.IsNullOrEmpty(o.SourceObjectId)||!string.IsNullOrEmpty(o.AssetId))))
             {
+                if(hasSwordProp&&obj.Id=="demo_broken_sword")continue;
                 if(!string.IsNullOrEmpty(obj.SourceObjectId)||!string.IsNullOrEmpty(obj.AssetId))
                 {
                     var feet=WorldPoint(obj.X,obj.Y);if(!string.IsNullOrEmpty(obj.Shape))feet.y=WorldPoint(obj.Parts[0].X,obj.Parts[0].Y).y;
@@ -245,7 +247,7 @@ namespace BaseConquest.Base
             if (!Application.isPlaying) return;
             if (RuntimeMissing()) { BeginSession(); return; }
             if (DeploymentWorldActive) { UpdateDeploymentWorld(); return; }
-            if(combatController==null) regionView?.UpdateCamera(ConstructionMode ? 190f/1280 : 0,0);
+            if(combatController==null) regionView?.UpdateCamera(HomeRebuildOverview ? 0 : RebuildPlacementMode ? Hud.HomeRebuildMapInset : ConstructionMode ? 190f/1280 : 0,0);
             if(State!=null&&!Busy&&runtimeRoot!=null&&runtimeRoot.gameObject.activeInHierarchy)Hud.RefreshAchievementNotice(Time.unscaledDeltaTime);
             if(State!=null&&!Busy)
             {
@@ -278,18 +280,20 @@ namespace BaseConquest.Base
             if (Hud.ResourcePopoverOpen && escape) { Hud.CloseResourcePopover(); escape = false; }
             if (escape && Hud.CloseInventoryItemMenu()) return;
             if(keyboard!=null&&HandlePanelShortcuts(keyboard.bKey.wasPressedThisFrame,keyboard.nKey.wasPressedThisFrame,keyboard.mKey.wasPressedThisFrame))return;
+            if(HomeRebuildOverview&&escape&&!Hud.PanelOpen){ReturnToHomeRebuild();return;}
             if(ConstructionMode&&escape){StopConstruction();if(Hud.PanelOpen)Hud.ClosePanel();Message="已退出营造";Hud.RefreshSummary();return;}
             if (escape) { if (Hud.PanelOpen) Hud.ClosePanel(); else if (SelectedCell != null) ClearSelection(); else Hud.OpenMenu(); return; }
             if (Hud.PanelOpen) explorationPinchSpan = 0;
             if (Hud.PanelOpen || PlayerAway || State.Campaign.HasActiveBattle || State.Aftermath.GameOver || BaseBattleGateway.MainMenu) { touches.Clear(); mouseTap = null; return; }
             if (Hud.ResourcePopoverOpen) ReadResourceDismissPointer();
+            if(HomeRebuildOverview)return;
             if(ConstructionMode)UpdateConstructionPointer();else ReadPointer();
             Vector2 input = Hud.Joystick.Direction;
             if (keyboard != null)
             {
                 input += new Vector2((keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0),
                     (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1 : 0));
-                if (keyboard.eKey.wasPressedThisFrame) { Interact(); return; }
+                if (keyboard.eKey.wasPressedThisFrame&&!RebuildPlacementMode) { Interact(); return; }
             }
             MoveExploration(input,Math.Min(Time.deltaTime,.05));
         }

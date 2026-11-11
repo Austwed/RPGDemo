@@ -392,6 +392,7 @@ namespace BaseConquest.Base
             var (actions, filters, list) = OpenFacilityPanel("facility:home", "营帐", "休息与管理", FacilityCopy("forecast", "日结预览"));
             FacilityText(filters, $"第{day}天 → 第{day + 1}天", true);
             FacilityButton(actions, "Rest", "休息至明天", () => owner.Rest(day), restProblem == "" || BaseDemoDefense.AnyDue(state), true);
+            if (restProblem != "" && raids.Length == 0) FacilityText(actions, restProblem);
             FacilityButton(actions, "Government", "营地管理", () => { activeObject = "government"; activePage = "workers"; OpenGovernment(); });
             if (BasePartyInventory.AtWarehouse(state)) FacilityButton(actions, "Warehouse", "仓库", OpenWarehouse);
             if (BaseDeputy.Unlocked(state)) FacilityButton(actions, "Deputy", "副手 · " + (BaseDeputy.Leader(state)?.Name ?? "未指定"), OpenDeputy);
@@ -419,7 +420,6 @@ namespace BaseConquest.Base
                 FacilityText(list, "待处理入侵", true);
                 foreach (var raid in raids) FacilityText(list, raid.Title);
             }
-            else if (restProblem != "") FacilityText(list, restProblem);
             FinishFacilityPanel();
         }
     }

@@ -21,13 +21,17 @@ namespace BaseConquest.Base
             constructionCaption=Box("ConstructionStatus",controls,new Vector2(.5f,0),new Vector2(70,34),new Vector2(860,62),new Color(.055f,.08f,.12f,.96f));
             constructionStatus=Label(constructionCaption,"",Vector2.zero,new Vector2(838,56),19,TextAnchor.MiddleCenter);
             constructionPalette.gameObject.SetActive(false);constructionCaption.gameObject.SetActive(false);
+            BuildHomeRebuildPalette();
         }
         public void RefreshConstructionPalette()
         {
             if(constructionPalette==null)return;
-            bool show=owner.ConstructionMode&&!PanelOpen&&!owner.Busy&&owner.State!=null&&!owner.State.Campaign.HasActiveBattle&&!owner.State.Aftermath.GameOver;
+            bool active=owner.ConstructionMode&&!PanelOpen&&!owner.Busy&&owner.State!=null&&!owner.State.Campaign.HasActiveBattle&&!owner.State.Aftermath.GameOver;
+            bool show=active&&!owner.RebuildPlacementMode;
+            bool showRebuild=active&&owner.RebuildPlacementMode;
+            RefreshHomeRebuildPalette(showRebuild);
             constructionPalette.gameObject.SetActive(show);constructionCaption.gameObject.SetActive(show);
-            mapLabels.offsetMin=new Vector2(show ? 188 : 12,ExplorationHudLayout.FooterHeight);
+            mapLabels.offsetMin=new Vector2(showRebuild&&!owner.HomeRebuildOverview ? HomeRebuildGutter : show ? 188 : 12,ExplorationHudLayout.FooterHeight);
             if(!show)return;
             trapProject.gameObject.SetActive(true);sandbagProject.gameObject.SetActive(true);
             trapProject.GetComponent<Image>().color=owner.SelectedConstructionProject==ConstructionProject.Trap ? new Color(.15f,.39f,.52f) : buttonColor;

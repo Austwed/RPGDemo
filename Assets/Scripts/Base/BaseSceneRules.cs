@@ -78,7 +78,8 @@ namespace BaseConquest.Base
         {
             string mapId=literalKey?mapKey:BaseSpatial.Layout(s,mapKey)?.SourceMapId;
             string key=string.IsNullOrEmpty(mapId)?mapKey:mapId;
-            var b=board??BaseBattlefield.Board(s,mapKey);
+            // 序章的记忆键与营地分开，尺寸取当前村庄，不创建同名区域。
+            var b=board??BaseBattlefield.Board(s,literalKey?null:mapKey);
             var memories=s.Demo.TerrainMemories??(s.Demo.TerrainMemories=new List<BaseTerrainMemory>());
             var m=memories.FirstOrDefault(v=>v.MapId==key);
             // 同一张图尺寸变了（换版本或旧记录）就重建，避免 Known 长度与宽高对不上。

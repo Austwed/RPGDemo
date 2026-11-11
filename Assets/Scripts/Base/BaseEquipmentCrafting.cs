@@ -65,6 +65,54 @@ namespace BaseConquest.Base
         }
         public static bool CanSelectReforge(BaseState s,BaseInventoryEntry entry)=>entry?.Gear!=null&&!entry.Protected&&entry.Category!="accessory"
             &&BaseAdventure.Members(s).Any(l=>l.Id==entry.Holder&&BasePartyInventory.AccessibleLeader(s,l));
+
+        private static (double Attack,double Defense,double Health,double Range,double CritChance,double CritDamage,double Speed)
+            ItemStats(BaseState state,BasePersonalItem item,int quality)
+        {
+            var rules=BaseRpg.Active(state)?state.Demo.Rpg:null;
+            var gear=BasePersonalEquipment.Definition(rules,item.Template);
+            if(rules==null)
+            {
+                float Scale(float value)=>BasePersonalEquipment.Scale(value,quality);
+                return (Scale(gear.Damage),Scale(gear.Defense),Scale(gear.Health),
+                    gear.Slot=="weapon"?gear.Range+BasePersonalEquipment.ExtraRange(quality):0,
+                    Scale(gear.CritChance),Scale(gear.CritMultiplier),Scale(gear.Movement));
+            }
+
+            double range=gear.Slot!="weapon"?0:gear.Weapon=="bow"?rules.Range[1]+rules.BowQualityRange[quality]
+                :rules.Range[gear.Weapon=="spear"?2:0];
+            return (rules.EquipmentAttack(gear,quality),rules.EquipmentScale(gear.Defense,quality)*rules.DefenseEquipmentScale,
+                rules.EquipmentScale(gear.Health,quality)*rules.HealthEquipmentScale,range,0,
+                rules.EquipmentScale(gear.CritMultiplier,quality),rules.EquipmentScale(gear.Movement,quality));
+        }
+
+        private static (double Attack,double Defense,double Health,double Range,double CritChance,double CritDamage,double Speed)
+            WornStats(BaseState state,BaseInventoryEntry entry,int quality)
+        {
+            var leader=state.Leaders.Single(person=>person.Id==entry.Holder);
+            var preview=leader.Copy();
+            if(preview.Rpg!=null)preview.Rpg.Rules=leader.Rpg.Rules;
+            preview.PersonalEquipment.Items.Single(item=>item.Id==entry.Id).Quality=quality;
+            var stats=BasePersonalEquipment.Stats(preview);
+            bool rpg=preview.Rpg?.Version==1;
+            return (stats.Damage,stats.Defense,stats.Health,rpg?BasePersonalEquipment.RealtimeRange(preview):stats.Range,
+                stats.CritChance,stats.CritMultiplier,rpg?BaseRpg.MovementSpeed(preview):BasePersonalEquipment.Movement(preview));
+        }
+
+        internal static string StatChanges(BaseState state,BaseInventoryEntry entry,int fromQuality,int toQuality)
+        {
+            var before=entry.Worn?WornStats(state,entry,fromQuality):ItemStats(state,entry.Gear,fromQuality);
+            var after=entry.Worn?WornStats(state,entry,toQuality):ItemStats(state,entry.Gear,toQuality);
+            string Change(string name,double from,double to,string format="0.####")=>from==to?null:
+                name+" "+from.ToString(format)+" → "+to.ToString(format);
+            var changes=new[]{Change("攻击",before.Attack,after.Attack),Change("防御",before.Defense,after.Defense),
+                Change("生命上限",before.Health,after.Health),Change("射程",before.Range,after.Range),
+                Change("暴击率",before.CritChance,after.CritChance,"0.####%"),
+                Change("暴伤",before.CritDamage,after.CritDamage,"0.####%"),Change("移速",before.Speed,after.Speed)};
+            string delta=string.Join(" · ",changes.Where(change=>change!=null));
+            return delta.Length==0?StoryText.Get("story.ui.trade.reforge_stats_unchanged","属性未变"):delta;
+        }
+
         public static string Blocked(BaseState s,string id,int stones)
         {
             if(!BasePersonalEquipment.AtSmith(s)||s.Campaign.HasActiveBattle||!BasePartyInventory.Peaceful(s)||BaseBattleLoot.Pending(s))
@@ -72,6 +120,9 @@ namespace BaseConquest.Base
             var e=BasePartyInventory.Find(s,id);
             if(!CanSelectReforge(s,e))return StoryText.Get("story.ui.trade.reforge_target","请选择随行角色的武器或护具");
             if(e.Quality==5)return "传奇已是最高品质，不能继续重铸";
+            var current=ItemStats(s,e.Gear,e.Quality);
+            if(Enumerable.Range(0,BasePersonalEquipment.Qualities.Length).All(quality=>ItemStats(s,e.Gear,quality)==current))
+                return StoryText.Get("story.ui.trade.reforge_no_stat_change","这件装备的属性不随品质变化。新手短剑可从巴隆赠礼或古窟战利品获得。");
             if(stones<1||stones>10)return "每次使用1～10颗锻造石";
             if(BasePartyInventory.AvailableMaterial(s,Stone)<stones)return "可用锻造石不足";
             if(s.Backpack.Revision>=int.MaxValue-1||s.PersonalEquipment.ReforgeRolls>=int.MaxValue-1)return "操作序号已达上限";

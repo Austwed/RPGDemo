@@ -40,10 +40,11 @@ namespace BaseConquest.Editor
                 At(state,smith.Id);
                 Need(BasePersonalEquipment.AtSmith(state),"未在铁匠交互范围");
                 state.Inventory.Coins=Math.Max(10000,state.Inventory.Coins);
-                state.Demo.Flow.NoviceShop=true;
 
                 string recipient=BaseAdventure.Members(state).First(l=>l.Id!=state.PlayerLeaderId).Id;
-                string template=BasePersonalEquipment.ShopFor(state).First(o=>o.Slot=="weapon"||o.Slot=="armor").Id;
+                const string template="novice_sword";
+                Need(!BasePersonalEquipment.CanBuy(state,template,recipient),"初次进城不应提前开放新手装备");
+                state.Demo.Flow.NoviceShop=true;
                 int price=BasePersonalEquipment.BuyPrice(state,template);
                 Need(BasePersonalEquipment.CanBuy(state,template,recipient),"随行角色不能收货");
 
@@ -68,6 +69,14 @@ namespace BaseConquest.Editor
                 int cellForStone=BasePartyInventory.FreeCell(state,state.PlayerLeaderId);
                 Need(cellForStone>=0,"缺少随身材料测试格");
                 state.Backpack.Items.Add(new BaseBagItem{Id="bag:"+state.Backpack.NextId++,ItemId=BaseEquipmentCrafting.Stone,Count=2,Holder=state.PlayerLeaderId,Cell=cellForStone});
+                var player=state.Leaders.Single(l=>l.Id==state.PlayerLeaderId);
+                var basic=player.PersonalEquipment.Items.Single(gear=>gear.Slot=="weapon");
+                Need(BaseEquipmentCrafting.Blocked(state,basic.Id,1).Contains("新手短剑"),"无属性变化的开局短剑应显示重铸引导");
+                Unchanged(state,()=>BaseEquipmentCrafting.Confirm(state,BaseEquipmentCrafting.Quote(state,basic.Id,1)),"开局短剑不得消耗锻造石");
+                var legacy=state.Copy();
+                BasePartyInventory.Find(legacy,basic.Id).Gear.Quality=5;
+                BaseEconomy.Validate(legacy);
+                Need(BasePartyInventory.Find(legacy,basic.Id).Quality==5&&BaseEquipmentCrafting.Quote(legacy,basic.Id,1)==null,"旧档传奇短剑应保留原品质");
                 var quote=BaseEquipmentCrafting.Quote(state,itemId,1);
                 Need(quote!=null,"城镇铁匠未接受随行装备");
                 var warehouse=state.Copy();
@@ -77,13 +86,24 @@ namespace BaseConquest.Editor
                 var leftTown=state.Copy();leftTown.Campaign.Location="base";
                 Unchanged(leftTown,()=>BaseEquipmentCrafting.Confirm(leftTown,quote),"离开铁匠不得消耗材料");
 
+                Need(BasePartyInventory.Move(state,itemId,state.PlayerLeaderId,BasePartyInventory.FreeCell(state,state.PlayerLeaderId))&&
+                    BasePersonalEquipment.Equip(state,state.PlayerLeaderId,itemId,"weapon"),"新手短剑无法转移并装备给主角");
+                var equipped=BaseEquipmentCrafting.Quote(state,itemId,1);
+                Need(equipped!=null,"城镇铁匠未接受穿戴装备");
+                Unchanged(state,()=>BaseEquipmentCrafting.Confirm(state,quote),"换装后旧报价不得重铸");
+                float beforeAttack=BasePersonalEquipment.Stats(player).Damage;
+                var upgrade=state.Copy();
+                BasePartyInventory.Find(upgrade,itemId).Gear.Quality++;
+                Need(BasePersonalEquipment.Stats(upgrade.Leaders.Single(l=>l.Id==state.PlayerLeaderId)).Damage>beforeAttack,"新手短剑升档应改变实际攻击");
                 int available=BasePartyInventory.AvailableMaterial(state,BaseEquipmentCrafting.Stone);
-                Need(BaseEquipmentCrafting.Confirm(state,quote)
+                Need(BaseEquipmentCrafting.Confirm(state,equipped)
                     &&BasePartyInventory.AvailableMaterial(state,BaseEquipmentCrafting.Stone)==available-1,
                     "重铸未结算随身锻造石");
-                Unchanged(state,()=>BaseEquipmentCrafting.Confirm(state,quote),"同一报价不得重复重铸");
+                int resultQuality=BasePartyInventory.Find(state,itemId).Quality;
+                Need(Math.Sign(BasePersonalEquipment.Stats(player).Damage-beforeAttack)==Math.Sign(resultQuality-equipped.Quality),"重铸后的攻击应与实际品质一同变化");
+                Unchanged(state,()=>BaseEquipmentCrafting.Confirm(state,equipped),"同一报价不得重复重铸");
                 BaseEconomy.Validate(state);
-                Debug.Log("[VerifyDemoTrade] 指定收货、满包／报价拒绝、城镇重铸与消耗 PASS");
+                Debug.Log("[VerifyDemoTrade] 指定收货、满包／报价拒绝、开局短剑拦截、旧档保留、城镇重铸与属性变化 PASS");
             }
             finally{BaseInteraction.Facing=originalFacing;}
         }

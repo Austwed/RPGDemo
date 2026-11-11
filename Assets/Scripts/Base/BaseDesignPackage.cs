@@ -99,7 +99,7 @@ namespace BaseConquest.Base
                 if(!string.IsNullOrEmpty(link.TargetObjectId))
                 {
                     var entrance=target.Objects.SingleOrDefault(obj=>obj.SourceObjectId==link.TargetObjectId);
-                    if(entrance==null||!IsExit(target.Region,entrance)||!BaseInteraction.CanReach(BaseBattlefield.Board(state,instances?target.SourceMapId:target.Region),entrance.Object,link.X,link.Y))throw new ArgumentException("目标出口身份或同层安全落点非法："+link.TargetObjectId);
+                    if(entrance==null||!IsExit(target.Region,entrance)||!BaseInteraction.WithinReach(BaseBattlefield.Board(state,instances?target.SourceMapId:target.Region),entrance.Object,link.X,link.Y))throw new ArgumentException("目标出口身份或同层安全落点非法："+link.TargetObjectId);
                 }
             }
             foreach(var map in maps)
@@ -118,7 +118,7 @@ namespace BaseConquest.Base
             foreach(var map in maps)
             {
                 string key=instances?map.SourceMapId:map.Region;var board=BaseBattlefield.Board(state,key);var points=Flood(state,key,map.SpawnX,map.SpawnY);
-                foreach(var marker in map.Objects.Where(obj=>IsExit(map.Region,obj)&&!obj.VisualOnly))if(!points.Any(point=>BaseInteraction.CanReach(board,marker.Object,point.X,point.Y)))throw new ArgumentException(map.Title+"：出生区到出口不通 "+marker.Name);
+                foreach(var marker in map.Objects.Where(obj=>IsExit(map.Region,obj)&&!obj.VisualOnly))if(!points.Any(point=>BaseInteraction.WithinReach(board,marker.Object,point.X,point.Y)))throw new ArgumentException(map.Title+"：出生区到出口不通 "+marker.Name);
                 foreach(var link in links.Where(link=>link.TargetMapId==map.SourceMapId))if(!Flood(state,key,link.X,link.Y).Any(point=>Math.Abs(point.X-map.SpawnX)+Math.Abs(point.Y-map.SpawnY)<=.4))throw new ArgumentException(map.Title+"：连接落点与出生区不通");
                 if(map.Region=="outpost"||map.Region=="perimeter")foreach(var side in new[]{DeploymentZone.A,DeploymentZone.B})if(!board.Positions().Any(point=>board.Cell(point).Zone==side&&board.Walkable(point)&&BaseSpatial.Walkable(state,point.X+.5,point.Z+.5,key)))throw new ArgumentException(map.Title+"：双方部署区不完整");
             }

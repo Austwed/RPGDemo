@@ -44,13 +44,13 @@ namespace BaseConquest.Base
             if(Layout.Region=="world"&&Board.Cells.Any(c=>c.Terrain!=TerrainKind.Ground||c.Zone!=DeploymentZone.None||c.Elevation!=0||c.Ramp!=RampAxis.None))throw new ArgumentException("世界地图只允许导航空地，不放置战术地形或部署区");
             if(!BaseSpatial.Geometry(Layout.Objects.Select(o=>o.Object),Layout.SpawnX,Layout.SpawnY,Board.Width,Board.Height)||!BaseSpatial.TerrainWalkable(Board,Layout.SpawnX,Layout.SpawnY,Layout.Objects.Select(o=>o.Object).ToArray()))throw new ArgumentException(Layout.Title+"：玩家入口位于不可通行处，请移动入口或障碍物");
             foreach(var obj in Layout.Objects.Where(o=>!o.Id.StartsWith("partner")&&!o.Blocks&&!o.VisualOnly))
-                if(!Board.Positions().Any(p=>BaseInteraction.CanReach(Board,obj.Object,p.X+.5,p.Z+.5)&&Board.Walkable(p)))throw new ArgumentException("交互点无法在同层一格内接近："+obj.Name);
+                if(!Board.Positions().Any(p=>BaseInteraction.WithinReach(Board,obj.Object,p.X+.5,p.Z+.5)&&Board.Walkable(p)))throw new ArgumentException("交互点无法在同层一格内接近："+obj.Name);
             if(Board.Cells.Any(c=>c.Elevation>0||c.Ramp!=RampAxis.None))
             {
                 var start=new GridPosition((int)Math.Floor(Layout.SpawnX),(int)Math.Floor(Layout.SpawnY));var reached=new HashSet<GridPosition>{start};var open=new Queue<GridPosition>();open.Enqueue(start);
                 while(open.Count>0){var from=open.Dequeue();foreach(var d in new[]{new GridPosition(1,0),new GridPosition(-1,0),new GridPosition(0,1),new GridPosition(0,-1)}){var to=from+d;if(Board.CanStep(from,to)&&reached.Add(to))open.Enqueue(to);}}
                 foreach(var obj in Layout.Objects.Where(o=>!o.Blocks&&!o.Id.StartsWith("partner")&&!o.VisualOnly))
-                    if(!reached.Any(p=>BaseInteraction.CanReach(Board,obj.Object,p.X+.5,p.Z+.5)))throw new ArgumentException("出生点无法经坡道在同层一格内接近交互点："+obj.Name);
+                    if(!reached.Any(p=>BaseInteraction.WithinReach(Board,obj.Object,p.X+.5,p.Z+.5)))throw new ArgumentException("出生点无法经坡道在同层一格内接近交互点："+obj.Name);
             }
             if(Layout.Region=="perimeter"&&(!Board.Walkable(new GridPosition(Board.Width-1,6))||!Board.Walkable(new GridPosition(0,6))||!Board.Cells.Any(c=>c.Zone==DeploymentZone.A&&c.Walkable)||!Board.Cells.Any(c=>c.Zone==DeploymentZone.B&&c.Walkable)))throw new ArgumentException("迎敌地图须保留东西撤离格(23,6)/(0,6)，并保留双方可部署格");
         }
