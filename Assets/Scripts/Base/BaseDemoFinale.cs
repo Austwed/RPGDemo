@@ -63,20 +63,29 @@ namespace BaseConquest.Base
                 else if(map.Region=="outpost"){map.Region="custom";map.ParentMapId="demo_town";foreach(var obj in map.Objects.Where(obj=>obj.Id!="demo_ruins_return"&&obj.Id!="demo_ruins_investigate"&&obj.Id!=BaseBanditHideout.EntryId))obj.VisualOnly=true;}
             }
             var worldMap=new BaseMapLayout {Region="world",SourceMapId="demo_world",Title="返乡行军",SpawnX=12,SpawnY=6.5};campaign.Layouts.Add(worldMap);
-            var campLayout=state.Demo.StoryScene?.Valid==true?state.Demo.StoryScene.Map("bandit").Layout.Copy():BaseDemoRelease.Enabled(state)?state.Demo.ReleaseMaps.Single(m=>m.Role=="bandit").Layout.Copy():CreateCampLayout();campaign.Layouts.Add(campLayout);
-            var village=state.Demo.StoryScene?.Valid==true?state.Demo.StoryScene.ReturnVillage():state.Demo.Finale.Village.Copy();village.SourceMapId=Home;village.Region="custom";village.ParentMapId=null;village.Title=BaseScriptNames.Village+" · 劫后余痕";village.SpawnX=21;village.SpawnY=7;
-            village.Objects.RemoveAll(obj=>!obj.Blocks&&!BaseEnvironment.Decorative(obj.Object));foreach(var obj in village.Objects)obj.Name="受损的"+obj.Name;
-            village.Objects.Add(new BaseMapPlacement {Id="demo_home_world",Name="返回世界道路",X=23.3,Y=7,Width=1,Height=2});
-            village.Objects.Add(new BaseMapPlacement {Id="demo_broken_sword",Name="断剑 · 调查",X=10,Y=7,Width=1,Height=1});campaign.Layouts.Add(village);
+            var story=state.Demo.StoryScene;bool authored=story?.Version==2&&story.Valid;
+            var campLayout=story?.Valid==true?story.Map("bandit").Layout.Copy():BaseDemoRelease.Enabled(state)?state.Demo.ReleaseMaps.Single(m=>m.Role=="bandit").Layout.Copy():CreateCampLayout();
+            campLayout.SourceMapId=Camp;campaign.Layouts.Add(campLayout);
+            var village=story?.Valid==true?story.ReturnVillage():state.Demo.Finale.Village.Copy();village.SourceMapId=Home;village.Region="custom";village.ParentMapId=null;village.Title=BaseScriptNames.Village+" · 劫后余痕";
+            if(!authored)
+            {
+                village.SpawnX=21;village.SpawnY=7;
+                village.Objects.RemoveAll(obj=>!obj.Blocks&&!BaseEnvironment.Decorative(obj.Object));foreach(var obj in village.Objects)obj.Name="受损的"+obj.Name;
+                village.Objects.Add(new BaseMapPlacement {Id="demo_home_world",Name="返回世界道路",X=23.3,Y=7,Width=1,Height=2});
+                village.Objects.Add(new BaseMapPlacement {Id="demo_broken_sword",Name="断剑 · 调查",X=10,Y=7,Width=1,Height=1});
+            }
+            campaign.Layouts.Add(village);
             if(BaseDemoRelease.Enabled(state))
             {
-                village.Objects.Add(new BaseMapPlacement {Id="demo_sword_prop",Name="断裂的王室式长剑",X=10.5,Y=7.5,Width=1.4,Height=1.8,Kind="demo-prop",AssetId="demo-broken-sword",VisualOnly=true});
-                village.Objects.Add(new BaseMapPlacement {Id="demo_survivor",Name="幸存村民",X=8.8,Y=7.5,Width=.5,Height=.5,Kind="npc",AssetId="ahe"});
+                var sword=village.Objects.Single(obj=>obj.Id=="demo_broken_sword");
+                village.Objects.Add(new BaseMapPlacement {Id="demo_sword_prop",Name="断裂的王室式长剑",X=sword.X+.5,Y=sword.Y+.5,Width=1.4,Height=1.8,Kind="demo-prop",AssetId="demo-broken-sword",VisualOnly=true});
+                if(!village.Objects.Any(obj=>obj.Id=="demo_survivor"))
+                    village.Objects.Add(new BaseMapPlacement {Id="demo_survivor",Name="幸存村民",X=8.8,Y=7.5,Width=.5,Height=.5,Kind="npc",AssetId="ahe"});
                 int debris=0;foreach(var building in village.Objects.Where(o=>o.Blocks&&!BaseEnvironment.Decorative(o.Object)).ToArray())village.Objects.Add(new BaseMapPlacement {Id="demo_damage_"+debris++,Name="烧毁的残片",X=building.X,Y=building.Y-building.Height/2+.5,Width=1.6,Height=1,Kind="demo-prop",AssetId="demo-debris",VisualOnly=true});
             }
             foreach(var map in campaign.Layouts)foreach(var obj in map.Objects)if(string.IsNullOrEmpty(obj.SourceObjectId))obj.SourceObjectId=map.SourceMapId+"_"+obj.Id;
             var campBoard=CreateCampBoard(state);
-            boards.Add(new BaseRegionMap {Id=Camp,Board=campBoard});var homeBoard=BaseWorldMap.CreateWorld();if(BaseEnvironment.Active(state))BaseEnvironment.Populate(village,homeBoard);boards.Add(new BaseRegionMap {Id=Home,Board=homeBoard});boards.Add(new BaseRegionMap {Id="demo_world",Board=BaseWorldMap.CreateWorld()});campaign.RegionMaps=boards;
+            boards.Add(new BaseRegionMap {Id=Camp,Board=campBoard});var homeBoard=authored?story.Map("village").Board.Clone():BaseWorldMap.CreateWorld();if(!authored&&BaseEnvironment.Active(state))BaseEnvironment.Populate(village,homeBoard);boards.Add(new BaseRegionMap {Id=Home,Board=homeBoard});boards.Add(new BaseRegionMap {Id="demo_world",Board=BaseWorldMap.CreateWorld()});campaign.RegionMaps=boards;
             var site=campaign.EnemySites.Single();string oldSite=site.Id;site.Id=Camp;site.Name=BaseScriptNames.Bandit;
             if(state.Demo.Encounters?.Version==2)
             {

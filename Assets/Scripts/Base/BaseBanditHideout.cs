@@ -61,7 +61,7 @@ namespace BaseConquest.Base
             var dungeonBoard = campaign.RegionMaps.SingleOrDefault(map => map?.Id == (instances ? BaseSceneRules.DungeonId : "dungeon"))?.Board;
             var ruins = entrance?.Objects?.SingleOrDefault(o => o?.Id == "demo_ruins_investigate");
             if (ruins == null || dungeon == null || entranceBoard == null || dungeonBoard == null) return;
-            InstallOutdoorEntrance(entrance, entranceBoard, ruins);
+            if(state.Demo.StoryScene?.Version!=2)InstallOutdoorEntrance(entrance, entranceBoard, ruins);
             var mission = campaign.Events.SingleOrDefault(e => e?.Id == EventId);
             if (mission != null)
             {

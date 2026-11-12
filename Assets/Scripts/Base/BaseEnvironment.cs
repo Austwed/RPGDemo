@@ -44,7 +44,7 @@ namespace BaseConquest.Base
         public static void Install(BaseState s,bool preserveRelease=false)
         {
             if(!BaseSceneRules.Active(s))return;s.Demo.EnvironmentVersion=1;
-            if(s.Demo.StoryScene?.Valid==true){foreach(var map in s.Campaign.Layouts.Where(map=>map.Region=="dungeon"))Populate(map,BaseBattlefield.Board(s,map.Region));return;}
+            if(s.Demo.StoryScene?.Valid==true){if(s.Demo.StoryScene.Version==1)foreach(var map in s.Campaign.Layouts.Where(map=>map.Region=="dungeon"))Populate(map,BaseBattlefield.Board(s,map.Region));return;}
             foreach(var m in s.Campaign.Layouts.Where(m=>m.Region!="world"&&(!preserveRelease||m.Region!="outpost"&&m.Region!="perimeter")))Populate(m,BaseBattlefield.Board(s,m.Region));
             if(!BaseDemoPrologue.Village(s))ClearCampApproach(s);
             if(s.Demo.Finale?.Village!=null)Populate(s.Demo.Finale.Village,BattleBoard.CreateDefault(24,14));

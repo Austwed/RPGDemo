@@ -491,9 +491,9 @@ namespace BaseConquest.Base
                 OpenSceneCampMenu();
                 return;
             }
-            BeginPanel("据点菜单");
+            BeginPanel(BaseBattleGateway.CustomMapTestMode ? "自定义地图测试 · 菜单" : "据点菜单");
             // 阶段测试档属开发期入口（P16）：正常游玩不显示，确认开发者模式后才出现。
-            if(BaseBattleGateway.DemoMode&&RuntimeDeveloperOptions.Enabled){RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;}
+            if(BaseBattleGateway.DemoMode&&!BaseBattleGateway.CustomMapTestMode&&RuntimeDeveloperOptions.Enabled){RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;}
             Line("3个手动／6个节点自动档；经营设置不会持续落盘。"+(UnityEngine.Application.isPlaying&&BaseBattleGateway.Session().HasUnsavedChanges?"\n有未手动保存的会话更改。":""),65,18);
             DemoUiIcons.Attach(RowButton("手动保存",-210,400,()=>OpenSlots(true),!owner.State.Campaign.HasActiveBattle),"save");RowButton("读取存档",210,400,()=>OpenSlots(false));row+=60;
             if(owner.State.Campaign.HasActiveBattle){RowButton("恢复当前战斗",0,800,owner.ResumeCampaign);row+=60;}
@@ -523,6 +523,14 @@ namespace BaseConquest.Base
         public void OpenRecovery()
         {
             activeObject = "recovery";
+            if (BaseBattleGateway.CustomMapTestMode)
+            {
+                BeginPanel("自定义地图测试未开始");
+                Line(owner.Message, 112, 18);
+                RowButton("回到正式主菜单", 0, 830, owner.ToMainMenu); row += 60;
+                EndPanel();
+                return;
+            }
             BeginPanel("开发开局不可用");Line(owner.Message,90,18);AddTemplates();EndPanel();
         }
 

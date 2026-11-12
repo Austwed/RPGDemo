@@ -97,7 +97,7 @@ namespace BaseConquest.Base
             if(BaseBattleGateway.DemoMode)Add("退出游戏",()=>BaseBattleGateway.ExitDemoSession(true));
             if (BaseConquest.Battle.RuntimeDeveloperOptions.Enabled)
             {
-                Add("阶段测试档", OpenDemoStages);
+                if (!BaseBattleGateway.CustomMapTestMode) Add("阶段测试档", OpenDemoStages);
                 if (BaseDemo.Active(state)) Add("独立即时战斗测试", OpenStandaloneBattleTest);
             }
             RefreshSummary();

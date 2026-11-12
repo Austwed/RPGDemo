@@ -14,7 +14,16 @@ namespace BaseConquest.Editor
     {
         private static readonly List<string> Report = new List<string>();
 
-        public static void RunAndExit()
+        public static void RunAndExit()=>RunRoute(null);
+        public static void RunCustomMapAndExit()
+        {
+            var arguments=System.Environment.GetCommandLineArgs();
+            int index=Array.IndexOf(arguments,"-storyTestPackage");
+            if(index<0||index+1>=arguments.Length){Debug.LogError("Missing -storyTestPackage");EditorApplication.Exit(2);return;}
+            RunRoute(arguments[index+1]);
+        }
+
+        private static void RunRoute(string packagePath)
         {
             const string difficultyKey = "BaseConquest.GlobalDifficulty";
             bool hadDifficulty = PlayerPrefs.HasKey(difficultyKey);
@@ -29,8 +38,15 @@ namespace BaseConquest.Editor
                 string raw = File.ReadAllText(Path.Combine(Application.streamingAssetsPath, "BaseScenarios", BaseDemo.BalanceTemplate));
                 var parsedRules=DemoBalanceTableReader.ReadVerifiedTables(DemoBalanceImporter.WorkbookPath);
                 Need(parsedRules.RuinsFirstControllerTemplate==config.Rules.RuinsFirstControllerTemplate,"古窟首通配表与运行包不一致");
-                OpenRoute(raw, config.Rules, config.WorkbookSha256,"male",false);
-                var state = OpenRoute(raw, config.Rules, config.WorkbookSha256);
+                BaseStoryScenePackage story=null;
+                if(packagePath!=null)
+                {
+                    story=JsonUtility.FromJson<BaseStoryScenePackage>(File.ReadAllText(packagePath));
+                    story.ValidateForPlay();
+                    Note("自定义地图包："+story.Id);
+                }
+                OpenRoute(raw, config.Rules, config.WorkbookSha256,"male",false,story);
+                var state = OpenRoute(raw, config.Rules, config.WorkbookSha256,saveFixture:story==null,story:story);
                 PrepareFirstDefense(state);
                 state = FinishRoute(state);
                 Need(state.Demo.Stage == BaseDemoStage.Finished, "路线未走到 Demo 结束");
@@ -48,7 +64,7 @@ namespace BaseConquest.Editor
                 else PlayerPrefs.DeleteKey(difficultyKey);
                 BaseInteraction.Facing = priorFacing;
                 Directory.CreateDirectory("Logs");
-                File.WriteAllLines("Logs/demo-player-route.txt", Report);
+                File.WriteAllLines(packagePath==null?"Logs/demo-player-route.txt":"Logs/custom-map-player-route.txt", Report);
             }
             EditorApplication.Exit(exit);
         }
@@ -71,6 +87,7 @@ namespace BaseConquest.Editor
             var solo = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
             solo.AutoPlace();
             var lost = new RealtimeCampaignBattle(solo.Begin(state));
+            if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"dungeon",lost.Battle.Board);
             var inBattle=state.Copy();
             BaseDemoRuins.Configure(lost);
             ApproachController(lost, true, 5400, () => BaseDemoRuins.SoloRetreatGuide(lost));
@@ -470,10 +487,20 @@ namespace BaseConquest.Editor
 
         private static void SaveRouteCheckpoint(BaseState state, string name)
         {
+            if(state.Demo.StoryScene?.Version==2)return;
             const string folder = "Logs/demo-route-checkpoints";
             BaseEconomy.Validate(state);
             Directory.CreateDirectory(folder);
             File.WriteAllText(Path.Combine(folder, name + ".json"), JsonUtility.ToJson(state));
+        }
+
+        private static void CheckAuthoredBoard(BaseState state,BaseStoryScenePackage story,string role,BattleBoard current=null)
+        {
+            current??=BaseBattlefield.Board(state);
+            var authored=story.Map(role).Board;
+            Need(current.Width==authored.Width&&current.Height==authored.Height&&
+                current.Cells.Select(c=>(c.Surface,c.Elevation,c.Ramp)).SequenceEqual(authored.Cells.Select(c=>(c.Surface,c.Elevation,c.Ramp))),
+                "实际载入的地图未保留编辑地表和高差："+role);
         }
     }
 }

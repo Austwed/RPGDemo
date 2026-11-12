@@ -14,7 +14,7 @@ namespace BaseConquest.Base
         public static List<BasePoint> Route(BaseState s,BasePoint from,BasePoint to)
         {
             var objects=BaseSpatial.Objects(s);var board=BaseBattlefield.Board(s);
-            Func<double,double,bool> pass=(x,y)=>BaseSpatial.Geometry(objects,x,y,board.Width,board.Height)&&BaseSpatial.TerrainWalkable(board,x,y);
+            Func<double,double,bool> pass=(x,y)=>BaseSpatial.Geometry(objects,x,y,board.Width,board.Height)&&BaseSpatial.TerrainWalkable(board,x,y,objects);
             var link=BaseMap.EightLink(from,to,null,pass,false,board.Width,board.Height);if(link!=null)return link;
             var route=BaseMap.FindRoute(from,to,null,pass,false,board.Width,board.Height);
             for(int n=route.Count-1;n>0;n--)if(BaseMap.EightAligned(from,route[n])&&BaseMap.ClearSegment(from,route[n],null,pass,false,board.Width,board.Height)){route.RemoveRange(0,n);break;}

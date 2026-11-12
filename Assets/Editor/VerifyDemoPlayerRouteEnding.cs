@@ -12,6 +12,7 @@ namespace BaseConquest.Editor
         {
             Need(state.Campaign.Location == "base" && BaseDemoDefense.Due(state), "主线未到首次迎敌日");
             EnterDefenseField(state);
+            if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"field");
             state = WinRouteBattle(state, BasePrepRoute.Defense);
             BaseDemoDefense.AcknowledgeBatu(state);
             ResolveLoot(state);
@@ -38,6 +39,7 @@ namespace BaseConquest.Editor
             int departureDay = state.Day;
             Need(BaseWorldJourney.Step(state, _ => null) && state.Day == departureDay + 1, "攻营行军没有正确推进一天");
             BaseWorldJourney.EnterScene(state, "bandit_entry");
+            if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"bandit");
             At(state, "demo_camp_attack");
             Note($"第 {departureDay} 天从南侧出口选出征队，经世界地图走一天，第 {state.Day} 天抵达黑鸦寨。行军前返乡路受敌寨阻断。");
 
@@ -52,6 +54,7 @@ namespace BaseConquest.Editor
             int day = state.Day;
             Need(BaseCampaign.Travel(state, "custom", "demo_direct_home") && state.Campaign.CurrentMapId == BaseDemoFinale.Home &&
                 state.Day == day, "攻寨后的白桦村直达出口未生效");
+            if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"village");
             string alien = BaseAdventure.Members(state).FirstOrDefault(leader => leader.IsAlien)?.Name;
             Note(alien == null
                 ? "经寨内出口直达白桦村且未扣日程。本路线上没有异族伙伴随行，迦兰的返乡附加对白条件未满足。"

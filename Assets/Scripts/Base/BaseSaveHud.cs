@@ -63,10 +63,10 @@ namespace BaseConquest.Base
         public void OpenSlots(bool saving)
         {
             var entries=UnityEngine.Application.isPlaying ? BaseBattleGateway.Catalog().Entries() : new System.Collections.Generic.List<BaseSaveEntry>();
-            BeginPanel(saving ? "手动保存 · 3个槽位" : "读取游戏 · 3手动／6自动");
+            BeginPanel((BaseBattleGateway.CustomMapTestMode ? "地图测试 · " : "") + (saving ? "手动保存 · 3个槽位" : "读取游戏 · 3手动／6自动"));
             RowButton("返回",-210,400,()=>{if(BaseBattleGateway.MainMenu) OpenMainMenu(); else if(owner.State?.Aftermath.GameOver==true) OpenGameOver(); else OpenMenu();});
             RowButton("存档规则 i",210,400,()=>RuleInfo("存档规则","3个手动槽需主动保存，覆盖前确认；6个自动槽只在新游戏、完整推进一天、关卡最终奖励全部处理后轮换。普通经营操作和战斗中不写盘。会话内退出普通战斗回到确认前，序章追兵战无损重试；Demo遗迹和首次防守失败可回本场战前，胜利保留真实战损。完全退出后读最近磁盘档，不保留未保存的会话更改。Demo序章完成、领主接取、遗迹救助及交付各一次节点；首防战利品／俘虏全部处理完才存，不在战胜瞬间抢存。旧档文件不删除。",()=>OpenSlots(saving))); row+=66;
-            if(!saving&&BaseBattleGateway.DemoMode&&BaseConquest.Battle.RuntimeDeveloperOptions.Enabled){RowButton("阶段测试档",0,800,OpenDemoStages);row+=64;}
+            if(!saving&&BaseBattleGateway.DemoMode&&!BaseBattleGateway.CustomMapTestMode&&BaseConquest.Battle.RuntimeDeveloperOptions.Enabled){RowButton("阶段测试档",0,800,OpenDemoStages);row+=64;}
             foreach(string key in saving ? BaseSaveCatalog.Slots : BaseSaveCatalog.Slots.Concat(BaseSaveCatalog.AutoSlots))
             {
                 string id=key; var e=entries.FirstOrDefault(x=>x.Id==id);

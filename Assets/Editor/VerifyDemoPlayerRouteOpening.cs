@@ -9,12 +9,13 @@ namespace BaseConquest.Editor
 {
     public static partial class VerifyDemoPlayerRoute
     {
-        private static BaseState OpenRoute(string raw, RpgRules rules, string configHash,string sex="female",bool saveFixture=true)
+        private static BaseState OpenRoute(string raw, RpgRules rules, string configHash,string sex="female",bool saveFixture=true,BaseStoryScenePackage story=null)
         {
             var source = JsonUtility.FromJson<BaseScenarioDocument>(raw);
-            var opening = BaseDemo.CreateOpening(source, raw, true, true, true, rules, configHash);
+            var opening = BaseDemo.CreateOpening(source, raw, true, true, true, rules, configHash,story);
             opening.Opening.Demo.Rpg.GenerationSeed = DemoStageSaveTools.StageGenerationSeed;
             var state = opening.CreateState();
+            if(story!=null)CheckAuthoredBoard(state,story,"village");
             Need(BaseQuestLog.Cue(state).Control == "hero", "开场任务未指向选角");
             Need(BaseDemoIntro.Choose(state,sex) && BaseDemoIntro.PlayerArt(state)==(sex=="male"?"player":"female"), "序章无法选择主角："+sex);
             Need(BaseQuestLog.Cue(state).ObjectId == "demo_captain", "选角后任务未指向搭档");
@@ -64,7 +65,8 @@ namespace BaseConquest.Editor
             CheckPursuitDefeat(state.Copy());
             PlayOpeningPursuit(state);
             Need(BaseDemoPrologue.Recover(state), "重伤后无法进入断流滩新营地");
-            At(state, "home");
+            if(story!=null)CheckAuthoredBoard(state,story,"camp");
+            else At(state, "home");
             Need(BaseDemo.AcknowledgeWaking(state), "营帐醒来对白无法推进拜访领主");
             Need(BaseQuestLog.Cue(state).ObjectId == "exit_east" && !BaseQuestLog.ToggleTrack(state, "demo:ruins_trial"), "主线出口目标或未开放任务的追踪不正确");
             Need(BaseQuestLog.ToggleTrack(state, "demo:partner_farm") && BaseQuestLog.Cue(state).ObjectId == "demo_ahe", "手动追踪未指向阿禾");

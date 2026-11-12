@@ -57,7 +57,7 @@ namespace BaseConquest.Base
         public static BaseScenarioDocument CreateOpening(BaseScenarioDocument balance,string sourceJson,bool includePrologue=false,bool release=false,bool includeIntro=false,RpgRules openingRules=null,string configHash=null,BaseStoryScenePackage story=null)
         {
             if(balance==null||balance.UseOpeningRules!=true||balance.Title!="35 · 配表驱动验证"||balance.Opening?.Demo?.Version>0)throw new ArgumentException("Demo需要有效35号配表快照，不回退到26号或全局默认数值");
-            if(story!=null){if(!includePrologue||!includeIntro||release)throw new ArgumentException("剧情场景暂需完整序章与普通Demo开局");story.Validate();}
+            if(story!=null){if(!includePrologue||!includeIntro||release&&story.Version!=2)throw new ArgumentException("剧情场景需要完整序章；正式规则测试需要新版地图包");story.Validate();}
             openingRules?.Validate();
             if(!string.IsNullOrEmpty(configHash)&&(openingRules==null||configHash.Length!=64||configHash.Any(c=>!"0123456789abcdef".Contains(c))))throw new ArgumentException("Demo数值表来源哈希非法");
             balance.CreateState();
@@ -148,10 +148,11 @@ namespace BaseConquest.Base
             if(BaseDemoDefense.Enabled(state))BaseDemoDefense.InstallMap(state);
             BaseDemoFinale.InstallMarker(state);
             if(BaseDemoRelease.Enabled(state))BaseDemoRelease.Install(state);
-            // 编辑器设计的六张剧情图最后覆盖：内置布局与发布快照都不再作数。
+            // 自定义地图测试在正式规则初始化后，覆盖对应的场景布局。
             if(state.Demo?.StoryScene?.Valid==true)state.Demo.StoryScene.InstallCamp(state);
-            BaseSceneRules.Install(state);if(state.Demo.EnvironmentVersion>0)BaseEnvironment.Install(state,true);
-            BaseEnvironment.ClearCampApproach(state);
+            BaseSceneRules.Install(state);state.Demo?.StoryScene?.InstallDungeon(state);
+            if(state.Demo.EnvironmentVersion>0)BaseEnvironment.Install(state,true);
+            if(state.Demo?.StoryScene?.Version!=2)BaseEnvironment.ClearCampApproach(state);
             BaseBanditHideout.Install(state);
             // 没有剧情场景包时，开局点按当前营帐实际坐标推算，不再写死旧布局的 (4, 8.8)——
             // 那样营帐一挪位，玩家就出生在离仓库两格开外，连仓库都打不开。
@@ -185,7 +186,7 @@ namespace BaseConquest.Base
         public static void EnsureCampLayout(BaseState state)
         {
             if(state?.Demo==null||state.Campaign?.Layouts==null)return;
-            if(!BaseDemoPrologue.Village(state))BaseEnvironment.ClearCampApproach(state);
+            if(!BaseDemoPrologue.Village(state)&&state.Demo.StoryScene?.Version!=2)BaseEnvironment.ClearCampApproach(state);
             if(state.Demo.CampLayoutVersion>=2)return;
             var camp=state.Campaign.Layouts.FirstOrDefault(map=>map.Region=="base");
             if(camp!=null)

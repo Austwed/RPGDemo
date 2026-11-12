@@ -52,6 +52,7 @@ namespace BaseConquest.Base
         public static BasePoint Landing(BaseState s,string map,BaseMapPlacement marker)
         {
             var board=BaseBattlefield.Board(s,map);var layout=BaseSpatial.Layout(s,map);
+            if(marker.VisualOnly&&s.Demo.StoryScene?.Version==2){marker=marker.Copy();marker.VisualOnly=false;}
             var points=board.Positions().Select(p=>new BasePoint(p.X+.5,p.Z+.5)).Where(p=>BaseSpatial.Walkable(s,p.X,p.Y,map)&&BaseInteraction.WithinReach(board,marker.Object,p.X,p.Y)).OrderBy(p=>p.Distance(new BasePoint(layout.SpawnX,layout.SpawnY))).ToArray();
             if(points.Length==0)throw new ArgumentException("出入口没有安全落点："+marker.Id);return points[0];
         }

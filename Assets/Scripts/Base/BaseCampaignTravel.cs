@@ -226,15 +226,27 @@ namespace BaseConquest.Base
         public static string RequestedId;
         public static bool MainMenu;
         public static bool ShowPrisoners;
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)] private static void Reset() { sessions.Clear();OpeningProfile=null;designPackage=null;workshopSession=false;editorTestSession=false;editorTestPending=true; SessionHud=null;SessionPages=Array.Empty<GameObject>(); RequestedId = null; MainMenu = ShowPrisoners = false; }
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)] private static void Reset() { sessions.Clear();OpeningProfile=null;designPackage=null;workshopSession=false;editorTestSession=false;editorTestPending=true;CustomMapTestPackageId=null;freshCustomMapTest=false; SessionHud=null;SessionPages=Array.Empty<GameObject>(); RequestedId = null; MainMenu = ShowPrisoners = false; }
         public static GameObject SessionHud;
         public static GameObject[] SessionPages=Array.Empty<GameObject>();
         private static bool workshopSession;
         private static BaseDesignPackage designPackage;
         public static bool DesignMode=>designPackage!=null;
-        public static bool DemoMode=>!DesignMode&&(OpeningProfile==BaseDemo.Profile||OpeningProfile==BaseDemo.ReleaseProfile);
-        public static bool DemoReleaseMode=>!DesignMode&&OpeningProfile==BaseDemo.ReleaseProfile;
-        public static void UseDemo(bool release=true){designPackage=null;workshopSession=false;OpeningProfile=release?BaseDemo.ReleaseProfile:BaseDemo.Profile;RequestedId=null;ShowPrisoners=false;}
+        private const string CustomMapProfile="custom-map-test";
+        private static bool freshCustomMapTest;
+        public static string CustomMapTestPackageId {get;private set;}
+        public static bool CustomMapTestMode=>!DesignMode&&OpeningProfile==CustomMapProfile&&CustomMapTestPackageId!=null;
+        public static bool DemoMode=>!DesignMode&&(OpeningProfile==BaseDemo.Profile||DemoReleaseMode);
+        public static bool DemoReleaseMode=>!DesignMode&&(OpeningProfile==BaseDemo.ReleaseProfile||CustomMapTestMode);
+        public static void UseDemo(bool release=true){designPackage=null;workshopSession=false;CustomMapTestPackageId=null;freshCustomMapTest=false;OpeningProfile=release?BaseDemo.ReleaseProfile:BaseDemo.Profile;RequestedId=null;ShowPrisoners=false;}
+#if UNITY_EDITOR
+        public static void UseCustomMapTest(string packageId)
+        {
+            if(packageId?.Length!=64||packageId.Any(c=>"0123456789abcdef".IndexOf(c)<0))throw new ArgumentException("自定义地图测试包编号无效");
+            UseDemo();OpeningProfile=CustomMapProfile;CustomMapTestPackageId=packageId;MainMenu=false;
+            sessions.Remove(SaveDirectory);freshCustomMapTest=true;
+        }
+#endif
         public static string ExplorationScene=>DesignMode ? "DesignPackage_Stage3" : "Base_Stage2";
         public static void UseDesignPackage(BaseDesignPackage package){package.CreateState();designPackage=package;}
         public static BaseScenarioDocument DesignOpening=>designPackage?.Scenario;
@@ -248,9 +260,9 @@ namespace BaseConquest.Base
             {
 #if UNITY_EDITOR
                 var checkPath = Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES");
-                if (Application.isBatchMode && !string.IsNullOrEmpty(checkPath)) return checkPath;
+                if (Application.isBatchMode && !string.IsNullOrEmpty(checkPath)) return CustomMapTestMode?Path.Combine(checkPath,CustomMapProfile,CustomMapTestPackageId):checkPath;
 #endif
-                return Path.Combine(Application.persistentDataPath,"BaseConquest","RealtimeCampaignExperiment",DemoMode ? "Demo/"+OpeningProfile : DesignMode ? "DesignPackageExperiment/"+designPackage.Id : workshopSession ? "EditorExperiment" : editorTestSession ? "EditorDevelopment/"+Path.GetFileNameWithoutExtension(OpeningProfile??"33_即时格战经营闭环.json") : "");
+                return Path.Combine(Application.persistentDataPath,"BaseConquest","RealtimeCampaignExperiment",CustomMapTestMode ? "Demo/"+CustomMapProfile+"/"+CustomMapTestPackageId : DemoMode ? "Demo/"+OpeningProfile : DesignMode ? "DesignPackageExperiment/"+designPackage.Id : workshopSession ? "EditorExperiment" : editorTestSession ? "EditorDevelopment/"+Path.GetFileNameWithoutExtension(OpeningProfile??"33_即时格战经营闭环.json") : "");
             }
         }
         public static BaseSaveCatalog Catalog(bool checkExisting=true) => new BaseSaveCatalog(SaveDirectory, d=>JsonUtility.ToJson(d,true), json=>JsonUtility.FromJson<BaseSaveDocument>(json),DemoMode,checkExisting);
@@ -260,14 +272,16 @@ namespace BaseConquest.Base
             string path=SaveDirectory;
             if(!sessions.TryGetValue(path,out var session))
             {
-                bool restore=!(DemoMode&&MainMenu);
+                bool restore=!(DemoMode&&MainMenu)&&!freshCustomMapTest;
                 sessions.Add(path,session=new BasePlaySession(Catalog(restore),Path.Combine(path,"session-memory"),restore));
+                freshCustomMapTest=false;
             }
             return session;
         }
         internal static void ExitDemoSession(bool quit)
         {
             sessions.Remove(SaveDirectory);
+            if(CustomMapTestMode&&!quit){UseDemo();sessions.Remove(SaveDirectory);}
             RequestedId=null;ShowPrisoners=false;MainMenu=true;
             if(quit)Application.Quit();else SceneManager.LoadScene(ExplorationScene);
         }
