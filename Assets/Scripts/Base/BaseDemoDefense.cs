@@ -11,12 +11,12 @@ namespace BaseConquest.Base
         public int Version, GearDay, GearCount, WarningDay, ArrivalDay, VictoryDay, RetryDay, BatuStoryDay;
         public bool WorkshopRepaired, BarracksRepaired, ScheduledOnDelivery;
         public string GearProduct="", BatuFate="", SecondOutcome="";
-        public bool MerchantDone,FirstBriefingSeen,SecondBriefingSeen,BattleIntelSeen;public double MerchantX,MerchantY;
+        public bool MerchantDone,FirstBriefingSeen,SecondBriefingSeen,BattleIntelSeen,SecondVictoryReportSeen;public double MerchantX,MerchantY;
         public List<BaseEnemyMember> MainForce=new List<BaseEnemyMember>();
         public BaseFacilityProtection Workshop;
         public ArmyDefinition Army;
         public BaseCampaignEvent Mission;
-        public BaseDemoDefenseProgress Copy()=>new BaseDemoDefenseProgress {Version=Version,GearDay=GearDay,GearCount=GearCount,WarningDay=WarningDay,ArrivalDay=ArrivalDay,VictoryDay=VictoryDay,RetryDay=RetryDay,BatuStoryDay=BatuStoryDay,WorkshopRepaired=WorkshopRepaired,BarracksRepaired=BarracksRepaired,ScheduledOnDelivery=ScheduledOnDelivery,GearProduct=GearProduct,BatuFate=BatuFate,SecondOutcome=SecondOutcome,MerchantDone=MerchantDone,FirstBriefingSeen=FirstBriefingSeen,SecondBriefingSeen=SecondBriefingSeen,BattleIntelSeen=BattleIntelSeen,MerchantX=MerchantX,MerchantY=MerchantY,MainForce=MainForce?.Select(unit=>unit.Copy()).ToList(),Workshop=Workshop?.Copy(),Army=Army?.Clone(),Mission=Mission?.Copy()};
+        public BaseDemoDefenseProgress Copy()=>new BaseDemoDefenseProgress {Version=Version,GearDay=GearDay,GearCount=GearCount,WarningDay=WarningDay,ArrivalDay=ArrivalDay,VictoryDay=VictoryDay,RetryDay=RetryDay,BatuStoryDay=BatuStoryDay,WorkshopRepaired=WorkshopRepaired,BarracksRepaired=BarracksRepaired,ScheduledOnDelivery=ScheduledOnDelivery,GearProduct=GearProduct,BatuFate=BatuFate,SecondOutcome=SecondOutcome,MerchantDone=MerchantDone,FirstBriefingSeen=FirstBriefingSeen,SecondBriefingSeen=SecondBriefingSeen,BattleIntelSeen=BattleIntelSeen,SecondVictoryReportSeen=SecondVictoryReportSeen,MerchantX=MerchantX,MerchantY=MerchantY,MainForce=MainForce?.Select(unit=>unit.Copy()).ToList(),Workshop=Workshop?.Copy(),Army=Army?.Clone(),Mission=Mission?.Copy()};
     }
     public static class BaseDemoDefense
     {
@@ -194,7 +194,13 @@ namespace BaseConquest.Base
             if(!BattleActive(state)||!Encounter(run.Session)||state.Campaign.ActiveBattle.Id!=run.Session.Opening.Id||run.Battle.Phase!=BattlePhase.Finished||run.Battle.Report.Outcome!=BattleOutcome.SideAWin)return false;
             bool second=run.Session.Opening.EventId==SecondEventId;
             run.SaveCheckpoint(state);if(!BaseCampaign.Settle(state,run.Session))return false;
-            if(second){state.Demo.Defense.SecondOutcome="defended";BaseEconomy.Validate(state);return true;}
+            if(second)
+            {
+                state.Demo.Defense.SecondOutcome="defended";
+                if(BaseDemoFinale.Enabled(state))BaseDemoFinale.OccupyAfterSecondDefense(state,state.Day);
+                BaseEconomy.Validate(state);
+                return true;
+            }
             var batu=run.Battle.Commander(BattleSide.B,0);
             state.Demo.Stage=BaseDemoStage.DefenseWon;state.Demo.Defense.VictoryDay=state.Day;state.Demo.Defense.BatuFate=batu!=null&&batu.InstantDead?"dead":"escaped";state.Demo.Evidence.Add(Proof);
             foreach(var manifest in state.Aftermath.Loot.Where(item=>item.BattleId==run.Session.Opening.Id))if(BaseBattleLoot.CanFinish(state,manifest)&&!state.Aftermath.Prisoners.Any(p=>p.BattleId==manifest.BattleId&&p.Status=="held"))BaseBattleLoot.Finish(state,manifest.BattleId);

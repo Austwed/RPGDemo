@@ -493,6 +493,7 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(State)&&State.Demo.Stage==BaseDemoStage.Waking&&!BaseBattleGateway.MainMenu&&BaseInteraction.At(State,"base","home"))Hud.OpenDemoStory();
             else if(BaseDemoPrologue.Village(State)&&!BaseBattleGateway.MainMenu)Hud.OpenDemoStory();
             else if(BaseDemoDefense.Won(State)&&State.Demo.Defense.BatuStoryDay==0&&!BaseBattleGateway.MainMenu&&!State.Campaign.HasActiveBattle)Hud.OpenDemoDefenseAftermath();
+            else if(BaseDemoFinale.SecondRaidReportPending(State)&&!BaseBattleGateway.MainMenu&&!State.Campaign.HasActiveBattle)Hud.OpenSecondRaidVictoryReport();
             else if(BaseDemoRuins.Enabled(State)&&BaseDemoRuins.InRuins(State)&&!BaseBattleGateway.MainMenu&&(!string.IsNullOrEmpty(State.Demo.RuinsRewards?.PendingBattleId)||BaseRuinsRewards.FirstRewardPending(State)))Hud.OpenRuinsVictory();
             if(State?.Campaign.HasActiveBattle==true && BaseBattleGateway.RequestedId==State.Campaign.ActiveBattle.Id && !BaseBattleGateway.MainMenu) ResumeCampaign();
             SetRegionReady(true);

@@ -270,6 +270,7 @@ namespace BaseConquest.Base
             if(!BaseDemoDefense.Repaired(state,"workshop")&&(state.Muster.Facilities.Any(facility=>facility.FacilityId=="workshop"&&(facility.Capacity!=0||facility.MinimumWorkers!=0))||state.Leaders.Any(leader=>leader.FacilityId=="workshop")||state.Workers.Any(worker=>worker.FacilityId=="workshop")))throw new ArgumentException("Demo工坊尚未修复，不能提前生产");
             if(state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Any(obj=>new[]{"workshop","barracks"}.Contains(obj.Id)&&obj.VisualOnly==BaseDemoDefense.Repaired(state,obj.Id)))throw new ArgumentException("Demo建筑外观与实际修复状态不一致");
             BaseDemoPrologue.Validate(state);BaseDemoIntro.Validate(state);
+            BaseDemoFinale.Normalize(state);
             BaseDemoRuins.Validate(state);
             BaseRuinsRewards.Validate(state);
             BaseDemoDefense.Validate(state);

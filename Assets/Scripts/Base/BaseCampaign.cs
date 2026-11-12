@@ -431,7 +431,7 @@ namespace BaseConquest.Base
             if (a.EventId != BaseBanditHideout.EventId) BaseSceneRules.RememberStrategy(s,session);
             BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
         }
-        private static void ApplyEventInventory(BaseState s, BaseCampaignEvent e, bool win, BaseCampaignReport r, double? rewardFactor=null)
+        internal static void ApplyEventInventory(BaseState s, BaseCampaignEvent e, bool win, BaseCampaignReport r, double? rewardFactor=null)
         {
             if (win) { double f = rewardFactor??s.Aftermath.Difficulty.RewardFactor; r.FoodChange = Math.Min((int)(e.FoodReward * f), 100000000 - s.Inventory.Food); r.MaterialChange = Math.Min((int)(e.MaterialReward * f), 100000000 - s.Inventory.Materials); r.CoinChange = Math.Min((int)(e.CoinReward * f), 100000000 - s.Inventory.Coins); }
             // 防守失败的掠夺不再在这里扣：按人头算的损失由 BaseRaidLoot 统一结算。

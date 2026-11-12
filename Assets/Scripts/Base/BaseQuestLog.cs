@@ -78,7 +78,7 @@ namespace BaseConquest.Base
                 if (BaseDemoDefense.Later(s))
                     list.Add(new BaseQuestEntry { Id = "demo:defend", Main = true, Title = "守住新营地", Status = BaseDemoDefense.Won(s) ? "已完成" : "进行中", Goal = BaseDemoDefense.Objective(s), Reward = "攻营与返乡道路线索", Done = BaseDemoDefense.Won(s), Phase = BaseDemoDefense.Won(s) ? QuestPhase.Done : QuestPhase.Active });
                 if (BaseDemoDefense.Won(s))
-                    list.Add(new BaseQuestEntry { Id = "demo:attack", Main = true, Title = "攻营与返乡", Status = s.Demo.Stage == BaseDemoStage.Finished ? "已完成" : "进行中", Goal = BaseDemoFinale.Objective(s), Reward = "断剑与幸存者证词", Done = s.Demo.Stage == BaseDemoStage.Finished, Phase = s.Demo.Stage == BaseDemoStage.Finished ? QuestPhase.Done : QuestPhase.Active });
+                    list.Add(new BaseQuestEntry { Id = "demo:attack", Main = true, Title = BaseDemoFinale.OccupiedBySecondDefense(s) ? "返乡调查" : "攻营与返乡", Status = s.Demo.Stage == BaseDemoStage.Finished ? "已完成" : "进行中", Goal = BaseDemoFinale.Objective(s), Reward = "断剑与幸存者证词", Done = s.Demo.Stage == BaseDemoStage.Finished, Phase = s.Demo.Stage == BaseDemoStage.Finished ? QuestPhase.Done : QuestPhase.Active });
             }
             if (BaseDemoPrologue.Village(s)) return;
             foreach (var id in new[] { "partner_farm", "partner_craft" })

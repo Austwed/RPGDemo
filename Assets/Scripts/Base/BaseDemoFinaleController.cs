@@ -58,7 +58,18 @@ namespace BaseConquest.Base
         }
         public void InvestigateDemoSword()
         {
-            if(Change(next=>{if(!BaseDemoFinale.Investigate(next))throw new InvalidOperationException("先处理攻营战果，返乡到断剑旁同层一格内调查");},"已记录断剑，开始返乡重建"))Hud.OpenRebuild();
+            if(Change(next=>{if(!BaseDemoFinale.Investigate(next))throw new InvalidOperationException("先处理战果，返乡后到断剑旁同层一格内调查");},"已记录断剑，开始返乡重建"))Hud.OpenRebuild();
+        }
+
+        internal void CollectDemoCampSupplies()
+        {
+            if(!Change(next=>
+            {
+                if(!BaseDemoFinale.ClaimCampSupplies(next))throw new InvalidOperationException(
+                    StoryText.Get("story.ui.finale.camp_supplies_unavailable","此处已没有可搜查的物资。"));
+            },""))return;
+            RefreshDemoRegion();
+            Hud.OpenDemoCampSuppliesFound();
         }
 
         private int rebuildProject=-1;
@@ -250,12 +261,18 @@ namespace BaseConquest.Base
             lines.Add(new NpcLine("你","","山道狭窄，注意利用两侧的【枯树】阻路，击碎高处【巨石】可顺势碾碎敌阵！",true));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备攻营",proceed),new NpcReply("暂不进攻",ClosePanel)});
         }
+        internal void OpenDemoCampSuppliesFound()
+        {
+            NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.ui.finale.camp_supplies_collected","已找到黑鸦寨剩余的物资。"),true)},
+                Array.Empty<NpcReply>(),onCompleted:ClosePanel);
+        }
         private bool OpenDemoFinaleInteraction(string id)
         {
             if(!BaseDemoFinale.Enabled(owner.State))return false;
             if(id=="demo_march_exit"&&!BaseDemoFinale.Opened(owner.State))
             {
                 if(owner.State.Demo.Defense.BatuStoryDay==0){OpenDemoDefenseAftermath();return true;}
+                if(BaseDemoFinale.OccupiedBySecondDefense(owner.State)){owner.PrepareDemoJourney();return true;}
                 activeObject="demo-roads";interactionObject="";
                 NpcDialogue(new[]{new NpcLine(BaseScriptNames.Scout,"chenan","缴获记录确认了敌营位置，就在营地和你的"+BaseScriptNames.Village+"之间。无论是否招降俘虏，我们都掌握了这条线索。"),new NpcLine(BaseScriptNames.Scout,"chenan","先整备损失，再带队沿路出发吧。两段道路各走一天；攻下敌营并处理战果后，就能通往"+BaseScriptNames.Village+"。")},new[]{new NpcReply("查看路线并选择出征队",owner.PrepareDemoJourney,!BaseBattleLoot.Pending(owner.State)),new NpcReply("先留营整备",ClosePanel)});return true;
             }
@@ -264,6 +281,7 @@ namespace BaseConquest.Base
                 if(BaseDemoFinale.Later(owner.State)){OpenDemoStory();return true;}
                 OpenBattlePreparation(BasePrepRoute.BlackCrow);return true;
             }
+            if(id==BaseDemoFinale.CampSuppliesMarker){owner.CollectDemoCampSupplies();return true;}
             if(id!="demo_broken_sword"&&id!="demo_survivor")return false;
             if(owner.State.Demo.Stage==BaseDemoStage.Finished){OpenDemoStory();return true;}
             if(BaseDemoFinale.Rebuilding(owner.State)){OpenRebuild();return true;}

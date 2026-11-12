@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BaseConquest.Battle;
 using BaseConquest.RealtimePrototype;
+using BaseConquest.Story;
 
 namespace BaseConquest.Base
 {
@@ -10,16 +11,26 @@ namespace BaseConquest.Base
     {
         public int Version, AttackDay, EndDay,ReconstructionVersion,RebuildDay,RebuildMask;
         public bool WorldOpened,AttackBriefingSeen,VillageRebuilt;
+        public bool CampTakenByDefense, CampSuppliesTaken;
         public BattleBoard CampBoard;
         public BaseMapLayout Village;
-        public BaseDemoFinaleProgress Copy()=>new BaseDemoFinaleProgress {Version=Version,AttackDay=AttackDay,EndDay=EndDay,ReconstructionVersion=ReconstructionVersion,RebuildDay=RebuildDay,RebuildMask=RebuildMask,VillageRebuilt=VillageRebuilt,WorldOpened=WorldOpened,AttackBriefingSeen=AttackBriefingSeen,CampBoard=CampBoard?.Clone(),Village=Village?.Copy()};
+        public BaseDemoFinaleProgress Copy()=>new BaseDemoFinaleProgress {Version=Version,AttackDay=AttackDay,EndDay=EndDay,ReconstructionVersion=ReconstructionVersion,RebuildDay=RebuildDay,RebuildMask=RebuildMask,VillageRebuilt=VillageRebuilt,WorldOpened=WorldOpened,AttackBriefingSeen=AttackBriefingSeen,CampTakenByDefense=CampTakenByDefense,CampSuppliesTaken=CampSuppliesTaken,CampBoard=CampBoard?.Clone(),Village=Village?.Copy()};
     }
     public static class BaseDemoFinale
     {
         public const string Camp="demo_bandit", Home="demo_home", AttackProof="demo:bandit:captured", Sword="demo:clue:broken-sword";
+        public const string CampSuppliesMarker="demo_camp_supplies";
         public static bool Enabled(BaseState state)=>BaseDemo.Active(state)&&state.Demo.Finale?.Version==1;
         public static bool Opened(BaseState state)=>Enabled(state)&&state.Demo.Finale.WorldOpened;
         public static bool Later(BaseState state)=>state.Demo.Stage==BaseDemoStage.AttackWon||state.Demo.Stage==BaseDemoStage.Finished;
+        public static bool OccupiedBySecondDefense(BaseState state)=>Enabled(state)&&state.Demo.Finale.CampTakenByDefense;
+        public static bool SecondRaidReportPending(BaseState state)=>OccupiedBySecondDefense(state)&&!state.Demo.Defense.SecondVictoryReportSeen;
+        public static bool AcknowledgeSecondRaidReport(BaseState state)
+        {
+            if(!SecondRaidReportPending(state))return false;
+            state.Demo.Defense.SecondVictoryReportSeen=true;
+            return true;
+        }
         public static bool Rebuilding(BaseState state)=>Enabled(state)&&state.Demo.Stage==BaseDemoStage.AttackWon&&state.Demo.Finale.ReconstructionVersion==1;
         public static bool BattleActive(BaseState state)=>Opened(state)&&state.Campaign.CurrentMapId==Camp&&state.Campaign.HasActiveBattle&&state.Campaign.ActiveBattle.EventId==BaseThreats.Site(state,Camp).AttackEventId;
         public static bool Encounter(BaseCampaignSession session)=>session?.Opening.MapId==Camp;
@@ -27,7 +38,7 @@ namespace BaseConquest.Base
         {state.Demo.Finale=new BaseDemoFinaleProgress {Version=1,CampBoard=BaseBattlefield.Board(state,"outpost").Clone(),Village=BaseDemoPrologue.CreateVillage()};}
         public static void InstallMarker(BaseState state)
         {if(Enabled(state))state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Add(new BaseMapPlacement {Id="demo_march_exit",Name="世界道路 · 首次防守后开放",X=12,Y=.7,Width=2,Height=1,VisualOnly=true});}
-        public static string Objective(BaseState state)=>!Enabled(state)?"此旧Demo没有攻营与结尾快照，请新开Demo":state.Demo.Stage==BaseDemoStage.Finished?"Demo结束：已记录队长断剑，失踪真相仍待追查":Rebuilding(state)?"返乡重建：放置小粮田、营帐和仓库，再确认完成":Later(state)?BaseBattleLoot.Pending(state)?"处理攻营战果后，沿世界道路返乡":"返乡通路已开放：行军至"+BaseScriptNames.Village+"，调查断剑":"首防已胜：补损整备，从营地南侧世界出口攻营";
+        public static string Objective(BaseState state)=>!Enabled(state)?"此旧Demo没有攻营与结尾快照，请新开Demo":state.Demo.Stage==BaseDemoStage.Finished?"Demo结束：已记录队长断剑，失踪真相仍待追查":Rebuilding(state)?"返乡重建：放置小粮田、营帐和仓库，再确认完成":Later(state)?BaseBattleLoot.Pending(state)?"处理战果后，沿世界道路返乡":"返乡通路已开放：行军至"+BaseScriptNames.Village+"，调查断剑":"首防已胜：补损整备，从营地南侧世界出口攻营";
         public static BaseMapLayout CreateCampLayout()=>new BaseMapLayout {Region="outpost",SourceMapId=Camp,Title=BaseScriptNames.Bandit,SpawnX=2,SpawnY=6.5,Objects=new List<BaseMapPlacement> {
             new BaseMapPlacement {Id="demo_camp_world",Name="世界道路",X=.7,Y=6.5,Width=1,Height=2},
             new BaseMapPlacement {Id="demo_camp_attack",Name="土匪驻军 · 进攻",X=3,Y=6.5,Width=1,Height=1}
@@ -41,7 +52,7 @@ namespace BaseConquest.Base
         }
         public static void OpenWorld(BaseState state)
         {
-            if(!Enabled(state)||Opened(state)||state.Demo.Stage!=BaseDemoStage.DefenseWon||state.Demo.Defense.BatuStoryDay==0||BaseBattleLoot.Pending(state)||!BaseInteraction.At(state,"base","demo_march_exit")||state.Muster.Parties.Count>0)throw new InvalidOperationException("先处理首防战果并返营整备，到南侧世界出口确认");
+            if(!Enabled(state)||Opened(state)||state.Demo.Stage!=BaseDemoStage.DefenseWon&&!OccupiedBySecondDefense(state)||state.Demo.Defense.BatuStoryDay==0||BaseBattleLoot.Pending(state)||!BaseInteraction.At(state,"base","demo_march_exit")||state.Muster.Parties.Count>0)throw new InvalidOperationException("先处理战果并返营整备，到南侧世界出口确认");
             var campaign=state.Campaign;var keys=new Dictionary<string,string>{{"base","demo_camp"},{"town","demo_town"},{"outpost","demo_ruins"},{"perimeter","demo_field"},{"dungeon",BaseSceneRules.DungeonId},{BaseBanditHideout.Region,BaseBanditHideout.MapId}};
             var boards=campaign.Layouts.Where(map=>map.Region!="perimeter").Select(map=>new BaseRegionMap {Id=keys[map.Region],Board=BaseBattlefield.Board(state,map.Region).Clone()}).ToList();
             foreach(var map in campaign.Layouts)
@@ -70,8 +81,12 @@ namespace BaseConquest.Base
             if(state.Demo.Encounters?.Version==2)
             {
                 var preset=state.Demo.Encounters.Camp;var layout=campaign.Layouts.Single(map=>map.SourceMapId==Camp);layout.Enemy=preset.Copy();
-                preset.ValidateBoard(campBoard);BaseThreats.InstallPreset(site,preset);
-                if(state.Demo.Defense.MainForce?.Count>0){site.Garrison=state.Demo.Defense.MainForce.Select(unit=>unit.Copy()).ToList();site.NextUnitNumber=Math.Max(site.NextUnitNumber,site.Garrison.Count+1);}
+                preset.ValidateBoard(campBoard);
+                if(site.Owner=="enemy")
+                {
+                    BaseThreats.InstallPreset(site,preset);
+                    if(state.Demo.Defense.MainForce?.Count>0){site.Garrison=state.Demo.Defense.MainForce.Select(unit=>unit.Copy()).ToList();site.NextUnitNumber=Math.Max(site.NextUnitNumber,site.Garrison.Count+1);}
+                }
             }
             foreach(var mission in campaign.Events.Where(mission=>mission.SourceSiteId==oldSite))mission.SourceSiteId=Camp;
             foreach(var loss in state.Aftermath.LostItems.Where(loss=>loss.SourceSiteId==oldSite))loss.SourceSiteId=Camp;
@@ -85,7 +100,6 @@ namespace BaseConquest.Base
             Bind(state,"demo_camp","exit_east","demo_town","travel_base",2,6.5);Bind(state,"demo_town","travel_base","demo_camp","exit_east",22.4,6.5);
             Bind(state,"demo_town","demo_ruins_exit","demo_ruins","demo_ruins_return",2,7.5);Bind(state,"demo_ruins","demo_ruins_return","demo_town","demo_ruins_exit",22.4,6.5);
             Bind(state,"demo_camp","demo_defense_exit","demo_field","demo_defense_return",22,6.5);Bind(state,"demo_field","demo_defense_return","demo_camp","demo_defense_exit",1.6,6.5);
-            BaseSceneInstances.Layout(state,"perimeter").Objects.Single(obj=>obj.Id=="demo_defense_start").VisualOnly=true;
             var world=new BaseWorldJourneyState {Version=1,NodeId="camp"};campaign.WorldJourney=world;
             world.Nodes.Add(new BaseWorldNode {Id="camp",Title="新领地营地",X=.18,Y=.38,MapIds=new List<string>{"demo_camp","demo_town","demo_field","demo_ruins"}});
             if(BaseSceneRules.Active(state))world.Nodes.Single(n=>n.Id=="camp").MapIds.Add(BaseSceneRules.DungeonId);
@@ -94,7 +108,13 @@ namespace BaseConquest.Base
             world.Nodes.Add(new BaseWorldNode {Id="home",AreaId="home",Title=BaseScriptNames.Village+"领地 · 村庄",X=.82,Y=.4,MapIds=new List<string>{Home}});
             world.Roads.Add(new BaseWorldRoad {Id="camp_bandit",From="camp",To="bandit",Days=1});world.Roads.Add(new BaseWorldRoad {Id="bandit_home",From="bandit",To="home",Days=1,EnemyMapId=Camp});
             Entry(state,world,"camp_entry","camp","demo_camp","demo_march_exit",12,1.5);Entry(state,world,"bandit_entry","bandit",Camp,"demo_camp_world",1.6,6.5);Entry(state,world,"home_entry","home",Home,"demo_home_world",22.4,7);
-            state.Demo.Finale.WorldOpened=true;BaseAdventure.Arrive(state);BaseEconomy.Validate(state);
+            state.Demo.Finale.WorldOpened=true;
+            if(OccupiedBySecondDefense(state))
+            {
+                ShowOccupiedCamp(state);
+                ConnectHome(state);
+            }
+            BaseAdventure.Arrive(state);BaseEconomy.Validate(state);
         }
         private static void Bind(BaseState state,string from,string marker,string to,string target,double x,double y)
         {
@@ -127,9 +147,90 @@ namespace BaseConquest.Base
         {
             if(!BattleActive(state)||!Encounter(run.Session)||state.Campaign.ActiveBattle.Id!=run.Session.Opening.Id||run.Battle.Phase!=BattlePhase.Finished||run.Battle.Report.Outcome!=BattleOutcome.SideAWin)return false;
             run.SaveCheckpoint(state);if(!BaseCampaign.Settle(state,run.Session))return false;
-            state.Demo.Stage=BaseDemoStage.AttackWon;state.Demo.Finale.AttackDay=state.Day;state.Demo.Evidence.Add(AttackProof);BaseDemoDefense.CancelSecond(state,"camp_captured");ConnectHome(state);
+            RecordCampCapture(state,state.Day);BaseDemoDefense.CancelSecond(state,"camp_captured");
             foreach(var manifest in state.Aftermath.Loot.Where(item=>item.BattleId==run.Session.Opening.Id))if(BaseBattleLoot.CanFinish(state,manifest))BaseBattleLoot.Finish(state,manifest.BattleId);
             BaseEconomy.Validate(state);return true;
+        }
+        private static BaseEnemySite CampSite(BaseState state)=>BaseThreats.Site(state,Opened(state)?Camp:"outpost");
+
+        private static BaseCampaignReport SecondDefenseVictory(BaseState state)=>state.Campaign.Reports.LastOrDefault(report=>report.EventId==BaseDemoDefense.SecondEventId&&report.Outcome=="SideAWin"&&!report.Passive);
+
+        internal static void Normalize(BaseState state)
+        {
+            if(!Enabled(state))return;
+            if(Opened(state))
+            {
+                var start=BaseSceneInstances.Layout(state,"perimeter").Objects.Single(obj=>obj.Id=="demo_defense_start");
+                start.VisualOnly=!BaseDemoDefense.SecondDue(state);
+            }
+            if(Later(state))
+            {
+                if(Opened(state))ShowOccupiedCamp(state);
+                return;
+            }
+            if(state.Demo.Stage!=BaseDemoStage.DefenseWon||state.Demo.Defense?.SecondOutcome!="defended"||state.Campaign.HasActiveBattle||state.Aftermath.GameOver)return;
+            var victory=SecondDefenseVictory(state);
+            var site=CampSite(state);
+            if(victory!=null&&site?.Owner=="enemy"&&!state.Campaign.Reports.Any(report=>report.EventId==site.AttackEventId&&report.Day>=victory.Day))
+                OccupyAfterSecondDefense(state,victory.Day);
+        }
+
+        internal static void OccupyAfterSecondDefense(BaseState state,int day)
+        {
+            var site=CampSite(state);
+            var attack=state.Campaign.Events.Single(mission=>mission.Id==site.AttackEventId);
+            site.Owner="player";
+            site.CapturedDay=day;
+            site.Garrison.Clear();
+            attack.Status="resolved";
+            attack.EnemyArmy.Clear();
+            state.Demo.Finale.CampTakenByDefense=true;
+            var baseMap=state.Campaign.Layouts.Single(map=>map.Region=="base");
+            baseMap.Objects.Single(obj=>obj.Id=="demo_defense_exit").Name="← 迎敌战场 · 已守住";
+            if(!Opened(state))baseMap.Objects.Single(obj=>obj.Id=="demo_march_exit").Name="世界道路 · 返乡";
+            RecordCampCapture(state,day);
+        }
+
+        private static void RecordCampCapture(BaseState state,int day)
+        {
+            state.Demo.Stage=BaseDemoStage.AttackWon;
+            state.Demo.Finale.AttackDay=day;
+            state.Demo.Evidence.Add(AttackProof);
+            if(Opened(state))
+            {
+                ShowOccupiedCamp(state);
+                ConnectHome(state);
+            }
+        }
+
+        private static void ShowOccupiedCamp(BaseState state)
+        {
+            var world=state.Campaign.WorldJourney;
+            world.Nodes.Single(node=>node.Id=="bandit").Title=BaseScriptNames.Bandit+" · 已占领";
+            var camp=BaseSceneInstances.Layout(state,Camp);
+            camp.Title=BaseScriptNames.Bandit;
+            var marker=camp.Objects.SingleOrDefault(obj=>obj.Id=="demo_camp_attack");
+            if(marker==null)return;
+            if(!OccupiedBySecondDefense(state))
+            {
+                camp.Objects.Remove(marker);
+                return;
+            }
+            marker.Id=CampSuppliesMarker;
+            marker.SourceObjectId=Camp+"_"+CampSuppliesMarker;
+            marker.Name=StoryText.Get("story.ui.finale.camp_supplies_marker","搜查剩余物资");
+        }
+
+        public static bool ClaimCampSupplies(BaseState state)
+        {
+            if(!OccupiedBySecondDefense(state)||!Opened(state)||state.Demo.Finale.CampSuppliesTaken||state.Campaign.CurrentMapId!=Camp||BaseBattleLoot.Pending(state)||state.Aftermath.GameOver||!BaseInteraction.At(state,"outpost",CampSuppliesMarker))return false;
+            var attack=state.Campaign.Events.Single(mission=>mission.Id==CampSite(state).AttackEventId);
+            var recovered=new BaseCampaignReport();
+            BaseCampaign.ApplyEventInventory(state,attack,true,recovered);
+            BaseItemRecovery.ReturnForEvent(state,attack.Id,recovered);
+            state.Demo.Finale.CampSuppliesTaken=true;
+            BaseSceneInstances.Layout(state,Camp).Objects.RemoveAll(obj=>obj.Id==CampSuppliesMarker);
+            return true;
         }
         private static void ConnectHome(BaseState s)
         {
@@ -193,7 +294,20 @@ namespace BaseConquest.Base
             if(progress==null){if(Later(state))throw new ArgumentException("结尾阶段缺少快照");return;}
             bool storyCamp=state.Demo?.StoryScene?.Valid==true;
             if(progress.Version!=1||progress.CampBoard==null||(storyCamp?(progress.CampBoard.Width<10||progress.CampBoard.Width>64||progress.CampBoard.Height<10||progress.CampBoard.Height>64):(progress.CampBoard.Width!=(BaseDemoRelease.Enabled(state)?32:24)||progress.CampBoard.Height!=(BaseDemoRelease.Enabled(state)?24:14)))||progress.CampBoard.Cells?.Length!=progress.CampBoard.Width*progress.CampBoard.Height||progress.CampBoard.Cells.Any(cell=>cell==null||!cell.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),cell.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),cell.Zone))||progress.Village==null||progress.Village.Objects==null||!progress.Village.Objects.Any(obj=>obj.Id=="village_house"&&obj.Blocks)||!progress.Village.Objects.Any(obj=>(obj.Id=="intro_farm"||obj.Id=="village_field")&&obj.Blocks))throw new ArgumentException("Demo攻营／"+BaseScriptNames.Village+"快照非法");
-            if(!progress.WorldOpened){if(progress.AttackDay!=0||progress.EndDay!=0||progress.ReconstructionVersion!=0||progress.RebuildDay!=0||progress.RebuildMask!=0||progress.VillageRebuilt||Later(state))throw new ArgumentException("未开启行军不能提交结尾");return;}
+            if(progress.CampTakenByDefense)
+            {
+                var occupied=CampSite(state);
+                if(!Later(state)||state.Demo.Defense?.SecondOutcome!="defended"||SecondDefenseVictory(state)?.Day!=progress.AttackDay||occupied?.Owner!="player"||occupied.CapturedDay!=progress.AttackDay)
+                    throw new ArgumentException("黑鸦寨自动占领缺少第二波防守胜利");
+            }
+            else if(progress.CampSuppliesTaken||state.Demo.Defense?.SecondVictoryReportSeen==true)
+                throw new ArgumentException("黑鸦寨未因第二波防守占领，不能提交对应报告或物资记录");
+            if(!progress.WorldOpened)
+            {
+                if(!progress.CampTakenByDefense&&(progress.AttackDay!=0||Later(state))||progress.CampSuppliesTaken||state.Demo.Stage==BaseDemoStage.Finished||progress.EndDay!=0||progress.ReconstructionVersion!=0||progress.RebuildDay!=0||progress.RebuildMask!=0||progress.VillageRebuilt)
+                    throw new ArgumentException("未开启行军不能提交结尾");
+                return;
+            }
             if(!BaseDemoDefense.Won(state)||state.Campaign.InstanceVersion!=1||state.Campaign.DesignId!=state.Demo.BalanceHash||!BaseWorldJourney.Active(state)||state.Campaign.Layouts.Count!=(BaseSceneRules.Active(state)?8:7)+(BaseBanditHideout.Installed(state)?1:0)||state.Campaign.WorldJourney.Nodes.Count!=3||state.Campaign.WorldJourney.Roads.Count!=2||state.Campaign.WorldJourney.Roads.Any(road=>road.Days!=1))throw new ArgumentException("Demo世界身份、路线或阶段非法");
             var site=BaseThreats.Site(state,Camp);var home=state.Campaign.Layouts.Single(map=>map.SourceMapId==Home);
             if(site==null||home.Region!="custom")throw new ArgumentException("Demo敌营／"+BaseScriptNames.Village+"缺失");
@@ -203,7 +317,14 @@ namespace BaseConquest.Base
             if(sword?.Name=="幸存者与断剑 · 调查")sword.Name="断剑 · 调查";
             var tent=home.Objects.SingleOrDefault(o=>o.Id==RebuildIds[1]);
             if(tent?.AssetId=="home")tent.AssetId=RebuildAssets[1];
-            if(Later(state)?progress.AttackDay<state.Demo.Defense.VictoryDay||progress.AttackDay>state.Day||site.Owner!="player"||!state.Campaign.Reports.Any(report=>report.EventId==site.AttackEventId&&report.Outcome=="SideAWin"&&!report.Passive):progress.AttackDay!=0)throw new ArgumentException("攻营阶段缺少真实主动胜利");
+            if(progress.CampTakenByDefense)
+            {
+                var objects=BaseSceneInstances.Layout(state,Camp).Objects;
+                if(objects.Count(obj=>obj.Id==CampSuppliesMarker)!=(progress.CampSuppliesTaken?0:1)||objects.Any(obj=>obj.Id=="demo_camp_attack"))
+                    throw new ArgumentException("黑鸦寨物资记录与地图交互不一致");
+            }
+            else if(Later(state)?progress.AttackDay<state.Demo.Defense.VictoryDay||progress.AttackDay>state.Day||site.Owner!="player"||!state.Campaign.Reports.Any(report=>report.EventId==site.AttackEventId&&report.Outcome=="SideAWin"&&!report.Passive):progress.AttackDay!=0)
+                throw new ArgumentException("攻营阶段缺少真实主动胜利");
             if(state.Demo.Stage==BaseDemoStage.Finished?progress.EndDay<progress.AttackDay||progress.EndDay>state.Day:progress.EndDay!=0)throw new ArgumentException("断剑记录日期非法");
             if(progress.ReconstructionVersion<0||progress.ReconstructionVersion>1||progress.RebuildMask<0||progress.RebuildMask>7||progress.ReconstructionVersion==0&&(progress.RebuildDay!=0||progress.RebuildMask!=0||progress.VillageRebuilt)||progress.ReconstructionVersion==1&&(progress.RebuildDay<progress.AttackDay||progress.RebuildDay>state.Day||!state.Demo.Evidence.Contains(Sword)||progress.VillageRebuilt!=(state.Demo.Stage==BaseDemoStage.Finished)||progress.VillageRebuilt&&progress.RebuildMask!=7||!progress.VillageRebuilt&&state.Day!=progress.RebuildDay))throw new ArgumentException("返乡重建状态非法");
             if(progress.ReconstructionVersion==1&&!RebuildRecordsValid(state))throw new ArgumentException("返乡设施与重建记录不一致");

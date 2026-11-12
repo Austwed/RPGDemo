@@ -656,6 +656,36 @@
       "notes": "老莫上门第二句，功能占位。适用于巴图两种结局，50 字以内。"
     },
     {
+      "key": "story.scene.defense.second_victory_report",
+      "group": "剧情／第二波胜利",
+      "text": "匪营那边的残兵都跑了。我们现在可以直接去白桦村，也可以看看匪营有没有剩下的物资。",
+      "notes": "陈安在第二波守胜后报告，55 字以内。"
+    },
+    {
+      "key": "story.ui.defense.second_report_continue",
+      "group": "界面／第二波胜利",
+      "text": "知道了",
+      "notes": "确认听完陈安的报告，8 字以内。"
+    },
+    {
+      "key": "story.ui.finale.camp_supplies_marker",
+      "group": "界面／黑鸦寨",
+      "text": "搜查剩余物资",
+      "notes": "第二波守胜后黑鸦寨的可交互标记，10 字以内。"
+    },
+    {
+      "key": "story.ui.finale.camp_supplies_collected",
+      "group": "界面／黑鸦寨",
+      "text": "已找到黑鸦寨剩余的物资。",
+      "notes": "在黑鸦寨搜查成功后显示，20 字以内。"
+    },
+    {
+      "key": "story.ui.finale.camp_supplies_unavailable",
+      "group": "界面／黑鸦寨",
+      "text": "此处已没有可搜查的物资。",
+      "notes": "旧交互已失效、无法重复搜查时显示，20 字以内。"
+    },
+    {
       "key": "story.ui.finale.rebuild_title",
       "group": "界面／返乡重建",
       "text": "返乡重建",

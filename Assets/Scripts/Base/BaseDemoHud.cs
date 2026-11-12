@@ -31,6 +31,7 @@ namespace BaseConquest.Base
             var state=owner.State;if(!BaseDemo.Active(state))return;
             if(BaseDemoFinale.Rebuilding(state)&&state.Campaign.CurrentMapId==BaseDemoFinale.Home){OpenRebuild();return;}
             if(BaseDemoDefense.Won(state)&&state.Demo.Defense.BatuStoryDay==0){OpenDemoDefenseAftermath();return;}
+            if(BaseDemoFinale.SecondRaidReportPending(state)){OpenSecondRaidVictoryReport();return;}
             activeObject="demo-story";interactionObject="";
             if(BaseDemoPrologue.Village(state)){OpenPrologueStory();return;}
             if(state.Demo.Stage==BaseDemoStage.Waking)
@@ -89,7 +90,7 @@ namespace BaseConquest.Base
             // 主线之后行商会透露下次流寇的大致日期：给区间不给准确日，保留「去打探」的价值。
             string rumor="";
             string text=id=="town_guard"?"爵士老爷嘴上硬气，其实镇里的卫队连守城墙都勉强，哪腾得出手管外头的荒滩。"
-                :id=="town_peddler"?(BaseDemo.Active(state)
+                :id=="town_peddler"?(BaseDemo.Active(state)&&!BaseDemoFinale.Later(state)
                     ?"南边通往"+BaseScriptNames.Village+"的官道被【"+BaseScriptNames.Bandit+"】彻底封死了，听说他们最近发了一笔来路不明的横财。要采买粮草器械，或者出手沿途的战利品，都在我这补给摊上，价钱公道。"
                         +(string.IsNullOrEmpty(rumor)?"":"\n\n［压低声音］"+rumor)
                     :StoryText.Get("story.ui.trade.market_greeting","这里可以买卖物资、装备和随身补给。"))

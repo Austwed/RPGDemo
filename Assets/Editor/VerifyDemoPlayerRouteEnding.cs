@@ -18,7 +18,8 @@ namespace BaseConquest.Editor
             Note($"第 {state.Day} 天首防结算，巴图{(state.Demo.Defense.BatuFate == "dead" ? "战死" : "撤离")}，对白确认后第二波排在第 {BaseDemoDefense.SecondArrival(state)} 天。");
             SaveRouteCheckpoint(state, "merchant");
 
-            VerifySecondRaidBranch(state.Copy());
+            VerifySecondRaidBranch(state.Copy(), false);
+            VerifySecondRaidBranch(state.Copy(), true);
             TryHideoutRoute(state);
             Rest(state);
             BuyMarchSupply(state);
@@ -45,6 +46,8 @@ namespace BaseConquest.Editor
             ResolveLoot(state);
             Need(state.Demo.Defense.SecondOutcome == "camp_captured" || state.Demo.Defense.SecondOutcome == "intercepted",
                 "早出征攻寨后第二波仍待触发");
+            Need(!BaseDemoFinale.OccupiedBySecondDefense(state) && !BaseDemoFinale.SecondRaidReportPending(state) &&
+                !BaseSpatial.Objects(state).Any(obj => obj.Id == BaseDemoFinale.CampSuppliesMarker), "主动攻寨被识别为第二波自动接管");
             At(state, "demo_direct_home");
             int day = state.Day;
             Need(BaseCampaign.Travel(state, "custom", "demo_direct_home") && state.Campaign.CurrentMapId == BaseDemoFinale.Home &&
@@ -105,7 +108,10 @@ namespace BaseConquest.Editor
         private static void EnterDefenseField(BaseState state)
         {
             At(state, "demo_defense_exit");
-            Need(BaseDemoDefense.Travel(state, "perimeter"), BaseDemoDefense.TravelProblem(state, "perimeter"));
+            bool arrived = BaseDemoFinale.Opened(state)
+                ? BaseCampaign.Travel(state, "perimeter", "demo_defense_exit")
+                : BaseDemoDefense.Travel(state, "perimeter");
+            Need(arrived, "未能从营地前往外围迎战");
             At(state, "demo_defense_start");
         }
 
@@ -125,8 +131,13 @@ namespace BaseConquest.Editor
             Need(BaseCampaign.Travel(state, "base"), "补军需后不能回营");
         }
 
-        private static void VerifySecondRaidBranch(BaseState branch)
+        private static void VerifySecondRaidBranch(BaseState branch, bool worldOpened)
         {
+            if (worldOpened)
+            {
+                At(branch, "demo_march_exit");
+                BaseDemoFinale.OpenWorld(branch);
+            }
             int arrival = BaseDemoDefense.SecondArrival(branch);
             for (int day = branch.Day; day < arrival; day++)
             {
@@ -135,15 +146,95 @@ namespace BaseConquest.Editor
             }
             Need(BaseDemoDefense.SecondDue(branch), "留营分支未触发第二波");
             EnterDefenseField(branch);
+            var priorSite = branch.Campaign.EnemySites.Single().Copy();
             var wave = OpenRouteBattle(branch, BasePrepRoute.Second);
             Need(!wave.RetreatAll(), "第二波出现撤退路径");
             Tick(wave, 60 * 90);
             var outcome = wave.Battle.Report?.Outcome;
             if (outcome == BattleOutcome.SideAWin)
+            {
                 Need(BaseDemoDefense.Complete(branch, wave) && branch.Demo.Defense.SecondOutcome == "defended", "第二波胜利未记入结算");
+                VerifySecondRaidOccupation(branch, priorSite, worldOpened);
+            }
             else if (outcome == BattleOutcome.SideBWin)
                 Need(BaseDemoCombat.Fail(branch, wave) && branch.Aftermath.GameOver, "第二波败北没有进游戏结束");
-            Note($"旁支从同一首防后存档留营至第 {arrival} 天，第二波真实运行 {wave.Model.Elapsed:F1} 秒，结果 {outcome?.ToString() ?? "90 秒内未结束"}；撤退不可用。主路线采用提前攻寨。");
+            Note($"旁支在世界地图{(worldOpened ? "已" : "未")}开放时留营至第 {arrival} 天，第二波真实运行 {wave.Model.Elapsed:F1} 秒，结果 {outcome?.ToString() ?? "90 秒内未结束"}；撤退不可用。");
+        }
+
+        private static void VerifySecondRaidOccupation(BaseState branch, BaseEnemySite priorSite, bool worldOpened)
+        {
+            var occupied = BaseThreats.Site(branch, priorSite.Id);
+            Need(BaseDemoFinale.OccupiedBySecondDefense(branch) && occupied.Owner == "player" &&
+                occupied.CapturedDay == branch.Day && occupied.Garrison.Count == 0 &&
+                branch.Campaign.Events.Single(item => item.Id == occupied.AttackEventId).Status == "resolved",
+                "第二波胜利没有清空守军并占领黑鸦寨");
+            if (worldOpened)
+            {
+                ResolveLoot(branch);
+                Need(BaseWorldJourney.Plan(branch, null, "home").Reachable &&
+                    BaseSpatial.Objects(branch, BaseDemoFinale.Camp).Any(obj => obj.Id == BaseDemoFinale.CampSuppliesMarker),
+                    "世界地图已开放时胜利未更新返乡路与寨内搜查点");
+                return;
+            }
+
+            var legacy = branch.Copy();
+            legacy.Demo.Stage = BaseDemoStage.DefenseWon;
+            legacy.Demo.Finale.AttackDay = 0;
+            legacy.Demo.Finale.CampTakenByDefense = false;
+            legacy.Demo.Evidence.Remove(BaseDemoFinale.AttackProof);
+            legacy.Campaign.EnemySites[0] = priorSite;
+            legacy.Campaign.Events.Single(item => item.Id == priorSite.AttackEventId).Status = "pending";
+            BaseEconomy.Validate(legacy);
+            Need(BaseDemoFinale.SecondRaidReportPending(legacy) && legacy.Campaign.EnemySites.Single().Owner == "player",
+                "旧第二波胜利存档未补齐黑鸦寨占领与陈安报告");
+
+            // Defense completion returns the party to the camp before its report and loot are shown.
+            branch.Campaign.Location = "base";
+            branch.Campaign.CurrentMapId = BaseSpatial.Layout(branch, "base").SourceMapId ?? "";
+            var landing = BaseSpatial.Nearest(branch, new BasePoint(1.6, 6.5));
+            branch.PlayerX = landing.X;
+            branch.PlayerY = landing.Y;
+            BaseAdventure.Arrive(branch);
+            SaveRouteCheckpoint(branch, "second-occupation");
+            BaseDemoFinale.AcknowledgeSecondRaidReport(branch);
+            ResolveLoot(branch);
+            At(branch, "demo_march_exit");
+            BaseDemoFinale.OpenWorld(branch);
+            BaseAdventure.RecallPaused(branch);
+            var travel = PrepareRouteRoster(branch, BasePrepRoute.Travel);
+            Need(BaseMuster.Confirm(branch, travel.TravelPlan(branch)), "第二波胜利后的出征编队未确认");
+            BaseWorldJourney.EnterWorld(branch, "camp_entry");
+            var direct = branch.Copy();
+            var homePlan = BaseWorldJourney.Plan(direct, null, "home");
+            Need(homePlan.Reachable && homePlan.Days == 2, "第二波胜利后白桦村行程未解锁");
+            BaseWorldJourney.Start(direct, homePlan.Path);
+            Need(BaseWorldJourney.Step(direct, _ => null) && BaseWorldJourney.Marching(direct) &&
+                BaseWorldJourney.Step(direct, _ => null) && !BaseWorldJourney.Marching(direct),
+                "第二波胜利后的返乡行军不能连续通过黑鸦寨");
+            BaseWorldJourney.EnterScene(direct, "home_entry");
+            Need(direct.Campaign.CurrentMapId == BaseDemoFinale.Home && !direct.Campaign.HasActiveBattle &&
+                !direct.Demo.Finale.CampSuppliesTaken, "直接返乡触发了黑鸦寨战斗或搜查");
+
+            var campPlan = BaseWorldJourney.Plan(branch, null, "bandit");
+            BaseWorldJourney.Start(branch, campPlan.Path);
+            Need(BaseWorldJourney.Step(branch, _ => null), "占领后不能行军到黑鸦寨");
+            BaseWorldJourney.EnterScene(branch, "bandit_entry");
+            Need(!BaseDemoFinale.ClaimCampSupplies(branch), "未到搜查点就能领取物资");
+            At(branch, BaseDemoFinale.CampSuppliesMarker);
+            SaveRouteCheckpoint(branch, "camp-remnants");
+            var stock = branch.Inventory.Copy();
+            Need(BaseDemoFinale.ClaimCampSupplies(branch) &&
+                (branch.Inventory.Food > stock.Food || branch.Inventory.Materials > stock.Materials || branch.Inventory.Coins > stock.Coins),
+                "进入占领的黑鸦寨未能领取余下物资");
+            var saves = BaseSaveStore.InMemory("second-camp-supplies");
+            saves.RestoreSession(branch.Copy());
+            var restored = saves.Load();
+            Need(restored.Demo.Finale.CampSuppliesTaken && !BaseDemoFinale.ClaimCampSupplies(restored),
+                "读档后重复领到了黑鸦寨物资");
+            At(restored, "demo_direct_home");
+            Need(BaseCampaign.Travel(restored, "custom", "demo_direct_home") && restored.Campaign.CurrentMapId == BaseDemoFinale.Home,
+                "搜查黑鸦寨后未能经寨内出口返乡");
+            Note("第二波胜利自动占领黑鸦寨，验证直接行军返乡、进寨领取物资、读档防重领及寨内出口。");
         }
 
         private static BaseBattlePreparation PrepareRouteRoster(BaseState state, BasePrepRoute route)

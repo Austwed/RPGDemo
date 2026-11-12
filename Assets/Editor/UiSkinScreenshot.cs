@@ -98,6 +98,34 @@ namespace BaseConquest.Editor
                     CaptureViewports("ui-player-route-merchant-after-defense");
                     Log.Add("[PASS] 首防后老莫在对白交代巴图、黑鸦寨与出征线索");
                     H.ClosePanel();
+                    LoadRouteView("second-occupation");
+                    break;
+                case "route-second-occupation":
+                    if (!RouteViewReady(state => BaseDemoFinale.SecondRaidReportPending(state) && H.DialogueOpen)) return;
+                    var report = RequirePanel("NpcDialogue");
+                    if (!report.Find("Replies").GetComponentsInChildren<Button>().Any(button => button.interactable))
+                        H.ContinueDialogue();
+                    var reportLine = report.Find("DialogueText").GetComponent<Text>().text;
+                    if (report.Find("SpeakerName").GetComponent<Text>().text != "陈安" ||
+                        !reportLine.Contains("残兵都跑了") || !reportLine.Contains("白桦村") || !reportLine.Contains("剩下的物资"))
+                        throw new InvalidOperationException("第二波胜利存档未接陈安的占领报告");
+                    CaptureViewports("ui-player-route-second-occupation");
+                    Click("知道了");
+                    if (BaseDemoFinale.SecondRaidReportPending(controller.State))
+                        throw new InvalidOperationException("陈安报信确认后没有记录进度");
+                    Log.Add("[PASS] 第二波胜利后载入可看陈安报信，确认后保存");
+                    LoadRouteView("camp-remnants");
+                    break;
+                case "route-camp-remnants":
+                    if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Camp)) return;
+                    Approach(BaseDemoFinale.CampSuppliesMarker);
+                    H.OpenObject(BaseDemoFinale.CampSuppliesMarker);
+                    H.ContinueDialogue();
+                    if (!controller.State.Demo.Finale.CampSuppliesTaken ||
+                        !RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("剩余的物资"))
+                        throw new InvalidOperationException("已占领黑鸦寨的搜查入口未领取或显示反馈");
+                    CaptureViewports("ui-player-route-camp-remnants");
+                    Log.Add("[PASS] 已占领黑鸦寨的地标可搜查一次并显示领取反馈");
                     LoadRouteView("world");
                     break;
                 case "route-world":

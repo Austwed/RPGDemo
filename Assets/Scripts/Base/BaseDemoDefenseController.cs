@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using BaseConquest.Battle;
+using BaseConquest.Story;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -53,24 +54,34 @@ namespace BaseConquest.Base
         }
         private bool FinishDemoDefenseEncounter(RealtimeCampaignBattle run,bool abandon,bool mainMenu)
         {
-            if(beforeDemoDefense==null){if(State.Campaign.HasActiveBattle)return false;FinishLocalScene(mainMenu,()=>Hud.OpenLoot());return true;}
+            bool victory=run?.Battle.Report?.Outcome==BattleOutcome.SideAWin;
+            if(beforeDemoDefense==null){if(State.Campaign.HasActiveBattle)return false;FinishLocalScene(mainMenu,AfterDefense);return true;}
             if(mainMenu&&run?.Session.Opening.EventId==BaseDemoDefense.SecondEventId&&run.Battle.Phase==BattlePhase.Fighting)
             {SaveStore.Save(beforeDemoDefense);State=beforeDemoDefense;beforeDemoDefense=null;FinishLocalScene(true);return true;}
-            bool victory=run?.Battle.Report?.Outcome==BattleOutcome.SideAWin;var next=run==null?beforeDemoDefense.Copy():State.Copy();
+            var next=run==null?beforeDemoDefense.Copy():State.Copy();
             if(victory?!BaseDemoDefense.Complete(next,run):run!=null&&!BaseDemoCombat.Fail(next,run))return false;
             if(!victory&&run!=null)BaseDemoCombat.RetreatPosition(next,true);
             if(victory)BattleScenePlacement.Capture(next,run);
             next.Campaign.Location="base";var camp=BaseSpatial.Layout(next,"base");next.Campaign.CurrentMapId=camp.SourceMapId??"";
             var landing=BaseSpatial.Nearest(next,new BasePoint(1.6,6.5));next.PlayerX=landing.X;next.PlayerY=landing.Y;BaseAdventure.Arrive(next);
             BaseEconomy.Validate(next);SaveStore.Save(next);State=next;beforeDemoDefense=null;
-            if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,()=>{if(State.Aftermath.GameOver)Hud.OpenGameOver();else if(victory&&run.Session.Opening.EventId==BaseDemoDefense.EventId)Hud.OpenDemoDefenseAftermath();else if(BaseBattleLoot.Pending(State))Hud.OpenLoot();else Hud.OpenDemoStory();});return true;}
+            if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,AfterDefense);return true;}
             if(Application.isPlaying){BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;BaseBattleGateway.ShowPrisoners=BaseBattleLoot.Pending(next);SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
             else
             {
                 var previous=combatController;combatController=null;if(previous!=null){previous.gameObject.SetActive(false);BattleBoardView.DestroyObject(previous.gameObject);}
-                RefreshDemoRegion();if(victory&&run.Session.Opening.EventId==BaseDemoDefense.EventId)Hud.OpenDemoDefenseAftermath();else if(BaseBattleLoot.Pending(State))Hud.OpenLoot();else Hud.OpenDemoStory();
+                RefreshDemoRegion();AfterDefense();
             }
             return true;
+
+            void AfterDefense()
+            {
+                if(State.Aftermath.GameOver)Hud.OpenGameOver();
+                else if(victory&&run.Session.Opening.EventId==BaseDemoDefense.EventId)Hud.OpenDemoDefenseAftermath();
+                else if(BaseDemoFinale.SecondRaidReportPending(State))Hud.OpenSecondRaidVictoryReport();
+                else if(BaseBattleLoot.Pending(State))Hud.OpenLoot();
+                else Hud.OpenDemoStory();
+            }
         }
     }
     public sealed partial class BaseHud
@@ -123,6 +134,25 @@ namespace BaseConquest.Base
             NpcDialogue(new[]{new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),dead?"咳……你们守得住这一回，也挡不住大当家亲自来。":"是我们低估了你们。告诉大当家，这笔账还没完。"),
                 new NpcLine("你","","他们还会回来。先清点伤损，再查清敌营的位置。",true)},
                 new[]{new NpcReply("处理战果",()=>{if(owner.Change(next=>{BaseDemoDefense.AcknowledgeBatu(next);},"已记录敌军威胁")){ClosePanel();owner.RefreshDemoRegion();if(BaseBattleLoot.Pending(owner.State))owner.Hud.OpenLoot();else owner.Hud.OpenDemoStory();}})});
+        }
+        public void OpenSecondRaidVictoryReport()
+        {
+            if(!BaseDemoFinale.SecondRaidReportPending(owner.State))return;
+            activeObject="demo-second-victory-report";
+            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Scout,BaseScriptNames.Portrait("chenan"),
+                    StoryText.Get("story.scene.defense.second_victory_report","匪营那边的残兵都跑了。我们现在可以直接去白桦村，也可以看看匪营有没有剩下的物资。"))},
+                new[]{new NpcReply(StoryText.Get("story.ui.defense.second_report_continue","知道了"),()=>ContinueDialogue())},
+                onCompleted:FinishReport,quietAdvance:true);
+
+            void FinishReport()
+            {
+                if(!owner.Change(next=>BaseDemoFinale.AcknowledgeSecondRaidReport(next),""))
+                {
+                    OpenSecondRaidVictoryReport();
+                    return;
+                }
+                ClosePanel();
+            }
         }
         public void OpenDemoDefenseSupply()
         {
