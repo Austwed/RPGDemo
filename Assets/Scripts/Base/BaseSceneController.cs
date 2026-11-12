@@ -50,7 +50,7 @@ namespace BaseConquest.Base
         private readonly List<BaseConquest.Presentation.AuthoredMapView> npcViews=new List<BaseConquest.Presentation.AuthoredMapView>();
         private static float? explorationViewSize;
         public Vector3 PlayerCameraTarget=>player.GetComponent<BattlePawn2D>().ExplorationHeadPoint;
-        private sealed class Tap { public Vector2 Start; public float Travel; }
+        private sealed class Tap { public Vector2 Start; public float Travel; public bool Pinched; }
         private readonly Dictionary<int, Tap> touches = new Dictionary<int, Tap>();
         private Tap mouseTap;private float explorationPinchSpan;
         private readonly List<RaycastResult> uiHits = new List<RaycastResult>();
@@ -374,33 +374,54 @@ namespace BaseConquest.Base
         private void ReadPointer()
         {
             float threshold = Mathf.Max(10, Screen.height / 720f * 16); bool handledTouch = false;
-            if(Touchscreen.current!=null)
+            var screen = Touchscreen.current;
+            if (screen != null)
             {
-                var active=Touchscreen.current.touches.Where(t=>t.press.isPressed).Take(2).ToArray();
-                if(active.Length==2)
+                UnityEngine.InputSystem.Controls.TouchControl first = null, second = null;
+                foreach (var touch in screen.touches)
                 {
-                    Vector2 a=active[0].position.ReadValue(),b=active[1].position.ReadValue();float span=Vector2.Distance(a,b);
-                    if(explorationPinchSpan>0&&!IsUiPoint(a)&&!IsUiPoint(b))ZoomExplorationFactor((a+b)*.5f,explorationPinchSpan/Mathf.Max(1,span));
-                    explorationPinchSpan=span;touches.Clear();mouseTap=null;return;
+                    bool pressed = touch.press.isPressed;
+                    handledTouch |= pressed || touch.press.wasReleasedThisFrame;
+                    int id = touch.touchId.ReadValue();
+                    if (touch.press.wasPressedThisFrame)
+                    {
+                        Vector2 point = touch.position.ReadValue();
+                        if (WorldCamera.pixelRect.Contains(point) && !IsUiPoint(point))
+                            touches[id] = new Tap { Start = point };
+                    }
+                    if (!pressed || !touches.ContainsKey(id)) continue;
+                    if (first == null) first = touch;
+                    else if (second == null) second = touch;
                 }
-            }
-            explorationPinchSpan=0;
-            if (Touchscreen.current != null)
-                foreach (var touch in Touchscreen.current.touches)
+                if (second != null)
+                {
+                    Vector2 a = first.position.ReadValue(), b = second.position.ReadValue();
+                    float span = Vector2.Distance(a, b);
+                    touches[first.touchId.ReadValue()].Pinched = true;
+                    touches[second.touchId.ReadValue()].Pinched = true;
+                    bool onMap = WorldCamera.pixelRect.Contains(a) && WorldCamera.pixelRect.Contains(b) &&
+                        !IsUiPoint(a) && !IsUiPoint(b);
+                    if (onMap && explorationPinchSpan > 0)
+                        ZoomExplorationFactor((a + b) * .5f, explorationPinchSpan / Mathf.Max(1, span));
+                    explorationPinchSpan = onMap ? span : 0;
+                }
+                else explorationPinchSpan = 0;
+                foreach (var touch in screen.touches)
                 {
                     int id = touch.touchId.ReadValue(); Vector2 point = touch.position.ReadValue();
-                    if (touch.press.wasPressedThisFrame) { handledTouch = true; if (!IsUiPoint(point)) touches[id] = new Tap { Start = point }; }
                     if (touches.TryGetValue(id, out var tap))
                     {
                         tap.Travel = Mathf.Max(tap.Travel, Vector2.Distance(tap.Start, point));
                         if (touch.press.wasReleasedThisFrame)
                         {
-                            handledTouch = true; touches.Remove(id);
-                            if (touch.phase.ReadValue() != UnityEngine.InputSystem.TouchPhase.Canceled && tap.Travel <= threshold && !IsUiPoint(point)) SelectScreenPoint(point);
+                            touches.Remove(id);
+                            if (!tap.Pinched && touch.phase.ReadValue() != UnityEngine.InputSystem.TouchPhase.Canceled &&
+                                tap.Travel <= threshold && !IsUiPoint(point)) SelectScreenPoint(point);
                         }
                     }
-                    handledTouch |= touch.press.isPressed;
                 }
+            }
+            else explorationPinchSpan = 0;
             if (handledTouch) { mouseTap = null; return; }
             if (Mouse.current == null) return;
             Vector2 mouse = Mouse.current.position.ReadValue();
@@ -521,16 +542,30 @@ namespace BaseConquest.Base
             using (var request = UnityWebRequest.Get(uri))
             {
                 yield return request.SendWebRequest();
+                bool demo = BaseBattleGateway.DemoMode;
+                bool release = BaseBattleGateway.DemoReleaseMode;
+                BaseStoryScenePackage story = null;
+                // The release profile has fixed tactical snapshots; the authored package belongs to the ordinary profile.
+                if (request.result == UnityWebRequest.Result.Success && demo && !release)
+                {
+                    string storyPath = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/StoryScene/story-scene-package.json";
+                    bool embedded = storyPath.Contains("://");
+                    if (embedded || File.Exists(storyPath))
+                    {
+                        using var storyRequest = UnityWebRequest.Get(embedded ? storyPath : new Uri(storyPath).AbsoluteUri);
+                        yield return storyRequest.SendWebRequest();
+                        if (storyRequest.result == UnityWebRequest.Result.Success)
+                            story = ParseStoryScene(storyRequest.downloadHandler.text, storyPath);
+                        else Debug.LogWarning("[StoryScene] 剧情场景包不可用，本次按内置布局开局：" + storyRequest.error);
+                    }
+                }
                 try
                 {
                     if (request.result != UnityWebRequest.Result.Success) throw new IOException(request.error);
                     var opening = JsonUtility.FromJson<BaseScenarioDocument>(request.downloadHandler.text);
-                    if (BaseBattleGateway.DemoMode)
+                    if (demo)
                     {
                         var config = DemoBalanceRuntime.Load();
-                        bool release = BaseBattleGateway.DemoReleaseMode;
-                        // The release profile has fixed tactical snapshots; the authored story package belongs to the ordinary profile.
-                        var story = release ? null : StorySceneFile();
                         opening = BaseDemo.CreateOpening(opening, request.downloadHandler.text, true, release, true, config.Rules, config.WorkbookSha256, story);
                     }
                     if (opening == null) throw new ArgumentException("模板为空");
@@ -547,14 +582,11 @@ namespace BaseConquest.Base
         }
         // 编辑器导出的剧情场景包：存在即用于新开局，不存在则用内置布局。
         // 包体损坏时退回内置布局并留下警告，不阻断开局。
-        public static BaseStoryScenePackage StorySceneFile()
+        private static BaseStoryScenePackage ParseStoryScene(string json, string path)
         {
-            if(!Application.isPlaying)return null;
-            string path=Path.Combine(Application.streamingAssetsPath,"StoryScene","story-scene-package.json");
-            if(!File.Exists(path))return null;
             try
             {
-                var package=JsonUtility.FromJson<BaseStoryScenePackage>(File.ReadAllText(path));
+                var package=JsonUtility.FromJson<BaseStoryScenePackage>(json);
                 if(package==null)throw new ArgumentException("剧情场景包为空");
                 package.Validate();
                 Debug.Log("[StoryScene] 新开局使用编辑器设计："+path+"（"+package.Id.Substring(0,8)+"）");
@@ -575,8 +607,15 @@ namespace BaseConquest.Base
             if(changedLocation)UnityEngine.SceneManagement.SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
             else if((State.Campaign.Location=="world"||State.Campaign.Location=="outpost")&&!State.Muster.Parties.Any(p=>p.Purpose=="expedition"))Hud.OpenDeparture("world");
         }
-        private void OnApplicationPause(bool paused) { if (paused) Save(); }
-        private void OnApplicationFocus(bool focused) { if (!focused) { touches.Clear(); mouseTap = null; constructionBrush.EndStroke();constructionTouch=-1;Hud?.Joystick.ResetInput(); Save(); } }
+        private void OnApplicationPause(bool paused) { if (paused) SaveAfterInputReset(); }
+        private void OnApplicationFocus(bool focused) { if (!focused) SaveAfterInputReset(); }
+        private void SaveAfterInputReset()
+        {
+            touches.Clear(); mouseTap = null; explorationPinchSpan = 0;
+            constructionBrush.EndStroke(); constructionTouch = -1;
+            Hud?.Joystick.ResetInput();
+            Save();
+        }
         private void OnApplicationQuit() => Save();
         private void OnDestroy() { EndDeploymentWorld(false); regionView?.Dispose(); BattleBoardView.DestroyObject(mapMaterial); BattleBoardView.DestroyObject(font); }
     }

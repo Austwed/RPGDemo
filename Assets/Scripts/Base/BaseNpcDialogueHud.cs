@@ -64,6 +64,26 @@ namespace BaseConquest.Base
             var advance = Ui<Button>(view, "AdvanceButton");
             var choices = Ui<ScrollRect>(view, "Replies");
             var template = Ui<Button>(choices.content, "ReplyTemplate");
+            bool touch = Application.platform == RuntimePlatform.Android;
+            if (touch)
+            {
+                SetDialogueRect(view, 0, 174, 1248, 324);
+                SetDialogueRect(portrait, -540, 0, 134, 194);
+                avatar.rectTransform.sizeDelta = new Vector2(116, 178);
+                SetDialogueRect(name.rectTransform, -125, 128, 660, 44);
+                name.fontSize = 29;
+                SetDialogueRect(speech.rectTransform, -125, 14, 660, 184);
+                speech.fontSize = 24;
+                SetDialogueRect(hint.rectTransform, -171, -123, 550, 58);
+                hint.fontSize = 19;
+                hint.text = "点按正文或箭头继续";
+                SetDialogueRect((RectTransform)advance.transform, 164, -121, 78, 60);
+                advance.GetComponentInChildren<Text>(true).fontSize = 25;
+                SetDialogueRect((RectTransform)choices.transform, 413, 0, 392, 300);
+                var row = template.GetComponent<LayoutElement>();
+                row.minHeight = row.preferredHeight = 68;
+                template.GetComponentInChildren<Text>(true).fontSize = 23;
+            }
             var surface = Ui<Button>(view, "");
             surface.onClick.AddListener(() => ContinueDialogue());
             advance.onClick.AddListener(() => ContinueDialogue());
@@ -163,6 +183,12 @@ namespace BaseConquest.Base
                     }
                 }
             }
+        }
+
+        private static void SetDialogueRect(RectTransform rect, float x, float y, float width, float height)
+        {
+            rect.anchoredPosition = new Vector2(x, y);
+            rect.sizeDelta = new Vector2(width, height);
         }
     }
 }

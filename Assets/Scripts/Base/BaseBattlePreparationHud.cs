@@ -121,6 +121,7 @@ namespace BaseConquest.Base
             bool travel = battleDraft.Route == BasePrepRoute.Travel;
             var state = PreparationState(battleDraft.Route);
             var view = OpenScenePanel("BattlePreparation", PreparationView);
+            if (Application.platform == RuntimePlatform.Android) AdaptBattlePreparationForTouch(view);
             activeObject = "battle-preparation";
             interactionObject = "";
             prepRoster = Ui<ScrollRect>(view, "Candidates/List");
@@ -156,6 +157,21 @@ namespace BaseConquest.Base
             foreach (var team in PrepLeaders)
             {
                 var card = CloneSceneUi("BattlePreparationTeam", cards);
+                if (Application.platform == RuntimePlatform.Android)
+                    foreach (string kind in new[] { "Melee", "Ranged", "Cavalry" })
+                    {
+                        var group = card.Find(kind);
+                        var minus = group.Find("Minus").GetComponent<Button>();
+                        var plus = group.Find("Plus").GetComponent<Button>();
+                        var input = (RectTransform)group.Find("Input");
+                        ((RectTransform)minus.transform).sizeDelta = new Vector2(38, 49);
+                        ((RectTransform)plus.transform).sizeDelta = new Vector2(38, 49);
+                        ((RectTransform)plus.transform).anchoredPosition = new Vector2(84, -17);
+                        input.sizeDelta = new Vector2(42, 49);
+                        input.anchoredPosition = new Vector2(40, -17);
+                        ResizeTouchButton(minus, 49, 22);
+                        ResizeTouchButton(plus, 49, 22);
+                    }
                 BindInventoryPortrait(Ui<RectTransform>(card, "Portrait"), team.Leader);
                 string marker = team.Selected ? (char)('A' + slot++) + " · " : "○ ";
                 PrepButton(card, "Select", marker + team.Name, () => TogglePrepLeader(team), team.Id != battleDraft.PlayerId);
@@ -182,6 +198,48 @@ namespace BaseConquest.Base
             RefreshPreparationFields();
             Canvas.ForceUpdateCanvases();
             prepRoster.content.anchoredPosition = new Vector2(0, Mathf.Clamp(prepRosterScroll, 0, Mathf.Max(0, prepRoster.content.rect.height - prepRoster.viewport.rect.height)));
+        }
+
+        private static void AdaptBattlePreparationForTouch(RectTransform view)
+        {
+            foreach (var path in new[] { "Back", "Help", "Close" })
+            {
+                var button = view.Find(path).GetComponent<Button>();
+                var rect = (RectTransform)button.transform;
+                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -2);
+                ResizeTouchButton(button, 42, 20);
+            }
+            foreach (var path in new[] { "Continue", "Reset", "Priority", "Sweep", "Reward" })
+            {
+                var button = view.Find(path).GetComponent<Button>();
+                var rect = (RectTransform)button.transform;
+                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -569);
+                ResizeTouchButton(button, 58, 22);
+            }
+            foreach (var path in new[] { "Supply/Grade1", "Supply/Grade2" })
+                ResizeTouchButton(view.Find(path).GetComponent<Button>(), 50, 21);
+
+            var candidates = view.Find("Candidates");
+            foreach (var name in new[] { "All", "Melee", "Ranged", "Cavalry" })
+                ResizeTouchButton(candidates.Find(name).GetComponent<Button>(), 40, 20);
+            foreach (var name in new[] { "SortRole", "SortHealth", "SortStatus" })
+            {
+                var button = candidates.Find(name).GetComponent<Button>();
+                var rect = (RectTransform)button.transform;
+                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -76);
+                ResizeTouchButton(button, 36, 19);
+            }
+            foreach (var name in new[] { "List", "Detail", "Empty" })
+            {
+                var rect = (RectTransform)candidates.Find(name);
+                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, rect.anchoredPosition.y - 17);
+                if (name != "Empty")
+                    rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, rect.rect.height - 17);
+            }
+
+            var feedbackRect = (RectTransform)view.Find("Feedback");
+            feedbackRect.anchoredPosition = new Vector2(feedbackRect.anchoredPosition.x, -537);
+            feedbackRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 28);
         }
 
         private void BindPreparationHelp(Transform view, bool travel)

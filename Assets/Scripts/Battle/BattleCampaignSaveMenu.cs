@@ -159,11 +159,12 @@ namespace BaseConquest.Battle
                     boardView.SetGridOutlines(MapDisplayOptions.BattleGridOutlines);
                     OpenCampaignOptions();
                 });
-                Option("Developer", "开发者模式：" + (RuntimeDeveloperOptions.Enabled ? "开启" : "关闭"), y -= 62, () =>
-                {
-                    RuntimeDeveloperOptions.Enabled = !RuntimeDeveloperOptions.Enabled;
-                    OpenCampaignOptions();
-                });
+                if (RuntimeDeveloperOptions.Available)
+                    Option("Developer", "开发者模式：" + (RuntimeDeveloperOptions.Enabled ? "开启" : "关闭"), y -= 62, () =>
+                    {
+                        RuntimeDeveloperOptions.Enabled = !RuntimeDeveloperOptions.Enabled;
+                        OpenCampaignOptions();
+                    });
                 Option("Continue", back, y - 62, CloseCampaignMenu);
             }
             else

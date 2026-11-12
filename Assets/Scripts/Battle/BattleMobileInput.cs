@@ -126,10 +126,11 @@ namespace BaseConquest.Battle
             if (!CanUndoAction) return;
             ManualPause(); feedback = battle.UndoLastAction() ? "已撤回上一条未执行命令／部署" : "没有可撤回的行动"; requestedPatient = -1; RefreshUnits(); SyncViews(); hud?.Refresh();
         }
-        public void OpenCommanderDetails(int slot) { if(IsRealtimeCampaign&&slot==0)realtime?.TutorialAction?.Invoke(BaseDemoIntro.Inspect); if (slot < 0 || slot >= battle.Scenario.Army(selectedSide).HeroCount) return; ManualPause(); detailsSlot = slot; detailsUnitId = battle.Commander(selectedSide, slot)?.Id ?? -1; hud?.Refresh(); }
+        public void OpenCommanderDetails(int slot) { if(IsRealtimeCampaign&&slot==0)realtime?.TutorialAction?.Invoke(BaseDemoIntro.Inspect); if (slot < 0 || slot >= battle.Scenario.Army(selectedSide).HeroCount) return; if (IsRealtimeCampaign && mapTouchIds.Count > 0) CancelGesture(); ManualPause(); detailsSlot = slot; detailsUnitId = battle.Commander(selectedSide, slot)?.Id ?? -1; hud?.Refresh(); }
         public void OpenUnitDetails(int id)
         {
             var unit = battle.Soldier(id); if (unit == null || !battle.CanInspectUnit(selectedSide, unit)) return;
+            if (IsRealtimeCampaign && mapTouchIds.Count > 0) CancelGesture();
             ManualPause(); CloseContext(); detailsUnitId = id; detailsSlot = unit.Kind == SoldierKind.Hero ? unit.OriginCommanderSlot : -1; hud?.Refresh();
         }
         public bool FocusUnit(int id, bool allowDowned = false)

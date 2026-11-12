@@ -116,7 +116,7 @@ namespace BaseConquest.Battle
             campaignBattleId="";
             SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
         }
-        private void OnApplicationPause(bool paused){if(paused){ManualPause();PersistCampaignCheckpoint(true);}}
+        private void OnApplicationPause(bool paused){if(paused){CancelGesture();ManualPause();PersistCampaignCheckpoint(true);}}
         private void OnApplicationQuit()=>PersistCampaignCheckpoint(true);
     }
 }

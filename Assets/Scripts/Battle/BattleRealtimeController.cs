@@ -192,12 +192,11 @@ namespace BaseConquest.Battle
                 if(keyboard.nKey.wasPressedThisFrame){ManualPause();OpenBattleQuests();return;}
             }
             bool cameraGestureConsumed=ReadMapCameraInput(Time.unscaledDeltaTime);
-            if(!cameraGestureConsumed&&!DetailsVisible&&hud?.ReportVisible!=true)
+            if(!cameraGestureConsumed&&!DetailsVisible&&hud?.ReportVisible!=true&&!ReadTouchPointer())
             {
                 var mouse=Mouse.current;
                 if(mouse?.leftButton.wasPressedThisFrame==true)RealtimePointer(mouse.position.ReadValue(),false,keyboard?.leftShiftKey.isPressed==true);
                 if(mouse?.rightButton.wasPressedThisFrame==true)RealtimePointer(mouse.position.ReadValue(),true,keyboard?.leftShiftKey.isPressed==true);
-                if(Touchscreen.current!=null)foreach(var touch in Touchscreen.current.touches)if(touch.press.wasPressedThisFrame)RealtimePointer(touch.position.ReadValue());
             }
             int iterations=fastMode?3:1;for(int index=0;index<iterations;index++)AdvanceRealtimeModel(Math.Min(.25,Time.unscaledDeltaTime));
             SyncRealtimeViews();
@@ -241,6 +240,10 @@ namespace BaseConquest.Battle
             }
         }
         private void OnApplicationFocus(bool focused)
-        {if(!focused&&IsRealtimeCampaign){MapPanUp();ManualPause();PersistCampaignCheckpoint(true);}}
+        {
+            if (focused) return;
+            CancelGesture();
+            if (IsRealtimeCampaign) { ManualPause(); PersistCampaignCheckpoint(true); }
+        }
     }
 }

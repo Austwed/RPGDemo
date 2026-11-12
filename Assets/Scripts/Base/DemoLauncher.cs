@@ -9,7 +9,8 @@ namespace BaseConquest.Base
         private void Awake()
         {
             Application.targetFrameRate=60;QualitySettings.vSyncCount=1;
-            if(!Application.isEditor)Screen.SetResolution(1280,720,FullScreenMode.Windowed);
+            if(!Application.isEditor&&!Application.isMobilePlatform)
+                Screen.SetResolution(1280,720,FullScreenMode.Windowed);
             PrepareSession();SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
         }
     }

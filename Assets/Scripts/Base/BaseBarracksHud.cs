@@ -16,9 +16,12 @@ namespace BaseConquest.Base
             Action details = null, bool showStats = true)
         {
             var card = CloneSceneUi("PersonnelRosterRow", list);
+            bool touch = Application.platform == RuntimePlatform.Android;
+            if (touch) card.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(card.rect.height, 60));
             Ui<LayoutElement>(card, "").preferredHeight = card.rect.height;
             var button = Ui<Button>(card, "");
             var label = Ui<Text>(card, "Label");
+            if (touch) label.fontSize = Mathf.Max(label.fontSize, 19);
             var stats = useCurrentStats ? unit.Current : unit.Basic;
             string combat = showStats ? $" · 攻 {stats.Damage:0.#} 防 {stats.Defense:0.#}" : "";
             label.text = $"{unit.Name} · 生命 {unit.Health:0.#}/{unit.MaxHealth:0.#}{combat}\n{unit.Facility} · {status}";
@@ -26,6 +29,7 @@ namespace BaseConquest.Base
             if (select != null) button.onClick.AddListener(() => { if (!owner.Busy) select(); });
             else button.transition = Selectable.Transition.None;
             var info = Ui<Button>(card, "Info");
+            if (touch) ResizeTouchButton(info, 48, 20);
             info.gameObject.SetActive(details != null);
             if (details != null) info.onClick.AddListener(() => { if (!owner.Busy) details(); });
             if (selected)

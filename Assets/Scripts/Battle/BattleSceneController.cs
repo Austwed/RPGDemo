@@ -217,7 +217,7 @@ namespace BaseConquest.Battle
 
         private int displayedTerrainRevision=-1;
         private bool externalDialogue;
-        public bool ExternalDialogue {get=>externalDialogue;set{externalDialogue=value;if(hud!=null)hud.Root.SetActive(!value);}}
+        public bool ExternalDialogue {get=>externalDialogue;set{if(value&&!externalDialogue)CancelGesture();externalDialogue=value;if(hud!=null)hud.Root.SetActive(!value);}}
         private void Update()
         {
             if(ExternalDialogue)return;

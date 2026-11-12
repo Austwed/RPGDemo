@@ -90,7 +90,11 @@ namespace BaseConquest.Battle
             if (fog != battle.Scenario.FogEnabled || reveal != battle.Scenario.ShowEnemiesThroughFog) ToggleTestFog(fog, reveal);
             if (ActionButton("切换操作阵营·测试")) SwitchSide();
             bool grid=GUILayout.Toggle(MapDisplayOptions.BattleGridOutlines,"战斗格子描边",centeredButton,GUILayout.Width(width));if(grid!=MapDisplayOptions.BattleGridOutlines)MapDisplayOptions.BattleGridOutlines=grid;
-            bool developer=GUILayout.Toggle(RuntimeDeveloperOptions.Enabled,"开发者模式",centeredButton,GUILayout.Width(width));if(developer!=RuntimeDeveloperOptions.Enabled)RuntimeDeveloperOptions.Enabled=developer;
+            if (RuntimeDeveloperOptions.Available)
+            {
+                bool developer = GUILayout.Toggle(RuntimeDeveloperOptions.Enabled, "开发者模式", centeredButton, GUILayout.Width(width));
+                if (developer != RuntimeDeveloperOptions.Enabled) RuntimeDeveloperOptions.Enabled = developer;
+            }
             Note(scenarioMessage);
             if (activeScenarioDocument != null) { Note(activeScenarioDocument.Description); foreach (string note in activeScenarioDocument.TestNotes ?? new string[0]) Note("• " + note); }
             Note("修改地图／数值请编辑JSON后读取；战中保存的是初始站位。");

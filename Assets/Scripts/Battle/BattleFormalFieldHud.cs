@@ -97,6 +97,76 @@ namespace BaseConquest.Battle
             }
         }
 
+        private void ApplyAndroidControls()
+        {
+            if (owner.UsesCampaignSystemMenu)
+            {
+                PlaceTouchButton(drawer, -14, -9, 106, 52, 22);
+                if (!owner.FormalFieldHud)
+                {
+                    PlaceTouchButton(skip, -128, -9, 70, 52, 20);
+                    PlaceTouchButton(fast, -206, -9, 70, 52, 20);
+                    PlaceTouchButton(automatic, -284, -9, 92, 52, 20);
+                }
+            }
+
+            for (int i = 0; i < portraits.Length; i++)
+            {
+                var portrait = (RectTransform)portraits[i].transform;
+                var module = (RectTransform)portrait.parent;
+                module.anchoredPosition = new Vector2(10 + i * 126, module.anchoredPosition.y);
+                module.sizeDelta = new Vector2(118, 142);
+                portrait.anchoredPosition = new Vector2(0, 56);
+                portrait.sizeDelta = new Vector2(118, 86);
+                portraitLabels[i].fontSize = 16;
+                PlaceTouchButton(skills[i], 0, 0, 56, 52, 17);
+                PlaceTouchButton(ultimates[i], 62, 0, 56, 52, 17);
+                if (!owner.FormalFieldHud) continue;
+                var row = formalTroopRows[i];
+                row.anchoredPosition = new Vector2(0, 146);
+                row.sizeDelta = new Vector2(118, 176);
+                PlaceTouchButton(formalTroopToggles[i], -2, -2, 38, 38, 21);
+                for (int troop = 0; troop < BattleSimulation.TroopKinds.Length; troop++)
+                    PlaceTouchButton(formalTroops[i, troop], 0, (2 - troop) * 60, 118, 56, 21);
+            }
+
+            if (!owner.FormalFieldHud) return;
+
+            formalHeading.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 68);
+            formalSummary.anchoredPosition = new Vector2(0, -68);
+            formalSummary.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 40);
+            formalExpandedHeight = 108;
+            formalMap.fontSize = 23;
+            formalGoal.fontSize = formalStatus.fontSize = 19;
+            formalAlly.fontSize = formalEnemy.fontSize = formalSupply.fontSize = 18;
+            formalGoal.rectTransform.offsetMax = new Vector2(-500, 0);
+            formalStatus.rectTransform.offsetMin = new Vector2(-498, 0);
+            formalStatus.rectTransform.offsetMax = new Vector2(-390, 0);
+            PlaceTouchButton(formalSummaryToggle, -128, -9, 56, 52, 23);
+            PlaceTouchButton(fast, -192, -9, 72, 52, 21);
+            PlaceTouchButton(automatic, -272, -9, 106, 52, 21);
+            status.fontSize = 17;
+            infoPanel.anchoredPosition = new Vector2(infoPanel.anchoredPosition.x, -114);
+            logPanel.anchoredPosition = new Vector2(logPanel.anchoredPosition.x, -327);
+            information.fontSize = log.fontSize = 16;
+
+            draftControls.sizeDelta = new Vector2(564, 66);
+            string[] actions = { "Back", "Auto", "Clear", "Start" };
+            for (int i = 0; i < actions.Length; i++)
+                PlaceTouchButton(draftControls.Find(actions[i]).GetComponent<Button>(), i * 143, 2, 134, 62, 22);
+
+            PlaceTouchButton(realtimeGuard, 8, 116, 136, 58, 21);
+            PlaceTouchButton(realtimeRetreat, 152, 116, 136, 58, 21);
+        }
+
+        private static void PlaceTouchButton(Button button, float x, float y, float width, float height, int fontSize)
+        {
+            var rect = (RectTransform)button.transform;
+            rect.anchoredPosition = new Vector2(x, y);
+            rect.sizeDelta = new Vector2(width, height);
+            button.GetComponentInChildren<Text>(true).fontSize = fontSize;
+        }
+
         private static void MoveTopControl(Button control, RectTransform anchor)
         {
             var rect = (RectTransform)control.transform;

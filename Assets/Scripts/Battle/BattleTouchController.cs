@@ -12,6 +12,7 @@ namespace BaseConquest.Battle
         private bool drawerOpen, fastMode, skipping, gestureActive, gestureDragging, gestureLong, gestureStartedOnUnit;
         private bool deployArmed = true;
         private bool cameraGesture;
+        private readonly HashSet<int> mapTouchIds = new HashSet<int>();
         private bool quickSelection;
         private int gestureId;
         private float gestureStartTime, previousSpan;
@@ -225,6 +226,8 @@ namespace BaseConquest.Battle
             if (picked != null) { cell = picked.Cell; return true; } return found;
         }
         private bool IsUiPoint(Vector2 point) => DetailsVisible || formationOpen || (drawerOpen && point.x < PanelWidth * UiScale) || (hud?.BlocksPointer(point) ?? false);
+        private bool IsMapTouchPoint(Vector2 point) => !ExternalDialogue && campaignMenu == null && hud?.ReportVisible != true &&
+            developerPanel?.BlocksPointer(point) != true && !IsUiPoint(point) && boardView.Camera.pixelRect.Contains(point);
         // Same device route for deployment and realtime combat; camera input never issues orders or pauses.
         public bool WaitForMovementRelease;
         public bool ReadMapCameraInput(float seconds)
@@ -257,33 +260,64 @@ namespace BaseConquest.Battle
             }
             return false;
         }
-        private void ReadPointer()
+        private bool ReadTouchPointer()
         {
             Touchscreen screen = Touchscreen.current;
-            if (screen != null)
+            if (screen == null) return false;
+            bool touched = false;
+            UnityEngine.InputSystem.Controls.TouchControl first = null, second = null;
+            foreach (var touch in screen.touches)
             {
-                var active = screen.touches.Where(t => t.press.isPressed).ToList();
-                bool touched = active.Count > 0 || screen.touches.Any(t => t.press.wasReleasedThisFrame);
-                if (active.Count >= 2)
-                {
-                    Vector2 a = active[0].position.ReadValue(), b = active[1].position.ReadValue(), center = (a + b) * 0.5f;
-                    if (!cameraGesture) { CancelGesture(); CloseContext(); ManualPause(); previousCenter = center; previousSpan = Vector2.Distance(a, b); cameraGesture = true; }
-                    if (!IsUiPoint(a) && !IsUiPoint(b)) { boardView.Pan(center - previousCenter); boardView.Zoom(previousSpan / Mathf.Max(1, Vector2.Distance(a, b))); }
-                    previousCenter = center; previousSpan = Vector2.Distance(a, b); return;
-                }
-                if (cameraGesture) { if (active.Count == 0) cameraGesture = false; return; }
-                if (touched)
-                {
-                    foreach (var t in screen.touches)
-                    {
-                        int id = t.touchId.ReadValue(); Vector2 p = t.position.ReadValue();
-                        if (t.press.wasPressedThisFrame) PointerDown(id, p);
-                        else if (t.press.isPressed) PointerMove(id, p);
-                        if (t.press.wasReleasedThisFrame) PointerUp(id, p, t.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled);
-                    }
-                    return;
-                }
+                bool pressed = touch.press.isPressed;
+                touched |= pressed || touch.press.wasReleasedThisFrame;
+                int id = touch.touchId.ReadValue();
+                if (touch.press.wasPressedThisFrame && IsMapTouchPoint(touch.position.ReadValue())) mapTouchIds.Add(id);
+                if (!pressed || !mapTouchIds.Contains(id)) continue;
+                if (first == null) first = touch;
+                else if (second == null) second = touch;
             }
+            if (second != null)
+            {
+                Vector2 a = first.position.ReadValue(), b = second.position.ReadValue();
+                Vector2 center = (a + b) * .5f;
+                float span = Vector2.Distance(a, b);
+                bool onBoard = IsMapTouchPoint(a) && IsMapTouchPoint(b);
+                if (!cameraGesture)
+                {
+                    CancelGesture(keepMapTouches: true);
+                    CloseContext();
+                    if (!IsRealtimeCampaign && !DeploymentDraftActive) ManualPause();
+                    cameraGesture = true;
+                }
+                else if (onBoard && previousSpan > 0)
+                {
+                    boardView.Pan(center - previousCenter);
+                    boardView.ZoomAt(previousSpan / Mathf.Max(1, span), center);
+                }
+                previousCenter = center;
+                previousSpan = onBoard ? span : 0;
+            }
+            else previousSpan = 0;
+            foreach (var touch in screen.touches)
+            {
+                int id = touch.touchId.ReadValue();
+                if (!mapTouchIds.Contains(id)) continue;
+                if (!cameraGesture)
+                {
+                    Vector2 point = touch.position.ReadValue();
+                    if (touch.press.wasPressedThisFrame) PointerDown(id, point);
+                    else if (touch.press.isPressed) PointerMove(id, point);
+                    if (touch.press.wasReleasedThisFrame)
+                        PointerUp(id, point, touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled);
+                }
+                if (!touch.press.isPressed) mapTouchIds.Remove(id);
+            }
+            if (mapTouchIds.Count == 0) cameraGesture = false;
+            return touched;
+        }
+        private void ReadPointer()
+        {
+            if (ReadTouchPointer()) return;
             bool normalCamera = IsRealtimeCampaign || DeploymentDraftActive;
             if(normalCamera&&ReadMapCameraInput(Time.unscaledDeltaTime))return;
             Mouse mouse = Mouse.current; if (mouse == null) return; Vector2 position = mouse.position.ReadValue();
@@ -309,6 +343,15 @@ namespace BaseConquest.Battle
         public void PointerDown(int id, Vector2 position)
         {
             if (DeploymentDraftActive) { DraftPointerDown(id, position); return; }
+            if (id >= 0 && IsRealtimeCampaign && realtime != null)
+            {
+                if (gestureActive || !IsMapTouchPoint(position)) return;
+                gestureActive = true;
+                gestureDragging = false;
+                gestureId = id;
+                gestureStart = gestureCurrent = position;
+                return;
+            }
             if (battle.ModernRules) { ModernPointerDown(id, position); return; }
             if (IsUiPoint(position) || skipping) return;
             if (gestureActive) { CancelGesture(); return; }
@@ -326,6 +369,15 @@ namespace BaseConquest.Battle
         public void PointerMove(int id, Vector2 position)
         {
             if (DeploymentDraftActive) { DraftPointerMove(id, position); return; }
+            if (id >= 0 && IsRealtimeCampaign && realtime != null)
+            {
+                if (!gestureActive || id != gestureId) return;
+                if (Vector2.Distance(gestureStart, position) > Mathf.Max(8f, 12f * UiScale)) gestureDragging = true;
+                if (gestureDragging && IsMapTouchPoint(position) && IsMapTouchPoint(gestureCurrent))
+                    boardView.Pan(position - gestureCurrent);
+                gestureCurrent = position;
+                return;
+            }
             if (battle.ModernRules && modernPointerActive) { ModernPointerMove(id, position); return; }
             if (!gestureActive || id != gestureId) return; gestureCurrent = position;
             if (gestureLong) return;
@@ -372,6 +424,14 @@ namespace BaseConquest.Battle
         public void PointerUp(int id, Vector2 position, bool canceled = false)
         {
             if (DeploymentDraftActive) { DraftPointerUp(id, position, canceled); return; }
+            if (id >= 0 && IsRealtimeCampaign && realtime != null)
+            {
+                if (!gestureActive || id != gestureId) return;
+                gestureActive = false;
+                if (!canceled && !gestureDragging && Vector2.Distance(gestureStart, position) <= Mathf.Max(8f, 12f * UiScale) &&
+                    IsMapTouchPoint(position)) RealtimePointer(position);
+                return;
+            }
             if (battle.ModernRules && modernPointerActive) { ModernPointerUp(id, position, canceled); return; }
             if (!gestureActive || id != gestureId) return;
             bool wasDrag = gestureDragging, wasLong = gestureLong, fromUnit = gestureStartedOnUnit; GridPosition? start = gestureCell;
@@ -412,6 +472,19 @@ namespace BaseConquest.Battle
             feedback = ok ? "所选单位指令已更新，将在下一轮执行" : "非法落点或不可达，原指令保留"; orderOverlay.Invalidate(); SyncViews();
         }
         private BattleSoldier VisibleEnemyAt(GridPosition cell) => battle.UnitsAt(cell).Where(s => s.Side != selectedSide && battle.Vision.CanSee(selectedSide, s)).OrderByDescending(s => s.IsTransit).ThenBy(s => s.Id).FirstOrDefault();
-        private void CancelGesture() { FinishDeploymentStroke(); EndPortraitSelection(); middleMapPan = false; modernPointerActive = modernPanning = modernHold = false; gestureActive = gestureDragging = gestureLong = false; strokeFrom = rectangleFrom = null; dragTarget = null; boardView?.ShowOutline(default, default, false); }
+        private void CancelGesture(bool keepMapTouches = false)
+        {
+            if (!keepMapTouches)
+            {
+                mapTouchIds.Clear();
+                cameraGesture = false;
+                previousSpan = 0;
+            }
+            FinishDeploymentStroke(); EndPortraitSelection(); middleMapPan = false;
+            modernPointerActive = modernPanning = modernHold = false;
+            gestureActive = gestureDragging = gestureLong = false;
+            strokeFrom = rectangleFrom = null; dragTarget = null;
+            boardView?.ShowOutline(default, default, false);
+        }
     }
 }

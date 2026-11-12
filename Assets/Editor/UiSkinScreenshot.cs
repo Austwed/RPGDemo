@@ -10,8 +10,11 @@ using BaseConquest.RealtimePrototype;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
+using TouchPhase = UnityEngine.InputSystem.TouchPhase;
 
 namespace BaseConquest.Editor
 {
@@ -35,7 +38,7 @@ namespace BaseConquest.Editor
         private static int defenseSupplyStock;
         private static Camera ruinsEntranceCamera;
         private static string ruinsEntranceMap;
-        private static bool failed;
+        private static bool failed, androidTouch;
         private static readonly List<string> Log = new List<string>();
 
         private static BaseSceneController C => Object.FindAnyObjectByType<BaseSceneController>();
@@ -56,6 +59,12 @@ namespace BaseConquest.Editor
         public static void RunPlayerRouteViews()
         {
             stage = "route-boot";
+            Run();
+        }
+
+        public static void RunAndroidTouch()
+        {
+            androidTouch = true;
             Run();
         }
 
@@ -573,6 +582,7 @@ namespace BaseConquest.Editor
                         throw new InvalidOperationException("开战未按实际落位人数锁定军需，或提前扣除了库存");
                     Log.Add("[PASS] 备战军需按计划校验，实际开战按一个落位士兵锁定且未扣库存");
                     VerifyOpeningBattleSelection(defenseBattle);
+                    if (androidTouch) VerifyBattleTouch(defenseBattle);
                     if (Object.FindObjectsByType<RectTransform>().Any(t => t.name == "BattleJoystick"))
                         throw new InvalidOperationException("正式战斗仍显示角色操控摇杆");
                     CaptureViewports("ui-icons-battle-hud");
@@ -1762,7 +1772,7 @@ namespace BaseConquest.Editor
             if (root.Find("DraftPreparationControls/Start").GetComponent<Button>().interactable)
                 throw new InvalidOperationException("主角未布置便可开战");
             PlaceByPointer(battle, draft, draft.PlayerId);
-            Log.Add("[PASS] 进场直接点选落位，开战前未写进度");
+            Log.Add(androidTouch ? "[PASS] Touchscreen 点按战场部署主角，开战前未写进度" : "[PASS] 进场直接点选落位，开战前未写进度");
         }
 
         private static void PlaceByPointer(BattleSceneController battle, BaseBattlePreparation draft, string id)
@@ -1777,8 +1787,19 @@ namespace BaseConquest.Editor
                 picked++;
                 if (battle.PreviewHud.BlocksPointer(screen)) continue;
                 unblocked++;
-                battle.PointerDown(-1, screen);
-                battle.PointerUp(-1, screen);
+                if (androidTouch)
+                {
+                    WithBattleTouch(battle, "ReadPointer", sample =>
+                    {
+                        sample(1, TouchPhase.Began, screen);
+                        sample(1, TouchPhase.Ended, screen);
+                    });
+                }
+                else
+                {
+                    battle.PointerDown(-1, screen);
+                    battle.PointerUp(-1, screen);
+                }
                 if (!draft.Positions.TryGetValue(id, out var chosen)) continue;
                 if (chosen != point) throw new InvalidOperationException("战场点击没有落在所选地格");
                 return;
@@ -1814,6 +1835,106 @@ namespace BaseConquest.Editor
 
         private static Vector2 BattleScreen(BattleSceneController battle, BattleBoard board, GridPosition cell) =>
             battle.PreviewBoard.Camera.WorldToScreenPoint(BattleBoardView.World(cell, board));
+
+        private static void WithBattleTouch(BattleSceneController battle, string reader,
+            Action<Action<int, TouchPhase, Vector2>> verify)
+        {
+            var read = typeof(BattleSceneController).GetMethod(reader, BindingFlags.Instance | BindingFlags.NonPublic);
+            // Batch mode has no focused Game view. Drive the player's Input System buffer explicitly.
+            var update = typeof(InputSystem).GetMethod("Update", BindingFlags.Static | BindingFlags.NonPublic,
+                null, new[] { typeof(InputUpdateType) }, null);
+            var settings = InputSystem.settings;
+            var originalEditorRouting = settings.editorInputBehaviorInPlayMode;
+            var originalBackgroundInput = settings.backgroundBehavior;
+            bool originalRunInBackground = Application.runInBackground;
+            Touchscreen device = null;
+            try
+            {
+                Application.runInBackground = true;
+                settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+                settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+                device = InputSystem.AddDevice<Touchscreen>();
+                verify((id, phase, screen) =>
+                {
+                    InputSystem.QueueStateEvent(device, new TouchState { touchId = id, phase = phase, position = screen });
+                    update.Invoke(null, new object[] { InputUpdateType.Dynamic });
+                    if (phase == TouchPhase.Began && !device.touches.Any(t => t.touchId.ReadValue() == id && t.press.wasPressedThisFrame))
+                        throw new InvalidOperationException("合成触点没有送入 Play Mode 输入缓冲区");
+                    read.Invoke(battle, null);
+                });
+            }
+            finally
+            {
+                if (device != null) InputSystem.RemoveDevice(device);
+                settings.editorInputBehaviorInPlayMode = originalEditorRouting;
+                settings.backgroundBehavior = originalBackgroundInput;
+                Application.runInBackground = originalRunInBackground;
+            }
+        }
+
+        private static void VerifyBattleTouch(BattleSceneController battle)
+        {
+            var view = battle.PreviewBoard;
+            var board = battle.PreviewSimulation.Board;
+            var camera = view.Camera;
+            float originalSize = camera.orthographicSize;
+            var originalOffset = (Vector3)Field(view, "panOffset");
+            var originalInspection = battle.RealtimeFineInformation;
+            var originalFeedback = battle.Feedback;
+            Canvas.ForceUpdateCanvases();
+            bool MapPoint(Vector2 point) => camera.pixelRect.Contains(point) && !battle.PreviewHud.BlocksPointer(point) && view.Pick(point, out _);
+            void NoCommand()
+            {
+                if (battle.RealtimeFineInformation != originalInspection || battle.Feedback != originalFeedback)
+                    throw new InvalidOperationException("战场触屏手势误触发检视或指令");
+            }
+            try
+            {
+                view.SetViewSize(view.FullViewSize);
+                Vector2 a = camera.pixelRect.center - Vector2.right * 48, b = camera.pixelRect.center + Vector2.right * 48;
+                Vector2 outward = Vector2.right * 42;
+                if (!MapPoint(a) || !MapPoint(b) || !MapPoint(a - outward) || !MapPoint(b + outward))
+                    throw new InvalidOperationException("战场中央没有足够空间验证触屏手势");
+                WithBattleTouch(battle, "ReadTouchPointer", sample =>
+                {
+                    var beforePan = camera.transform.position;
+                    sample(1, TouchPhase.Began, a);
+                    NoCommand();
+                    sample(1, TouchPhase.Moved, a - outward);
+                    sample(1, TouchPhase.Ended, a - outward);
+                    NoCommand();
+                    if (camera.transform.position == beforePan) throw new InvalidOperationException("单指拖动未平移战场");
+
+                    float beforeZoom = camera.orthographicSize;
+                    sample(2, TouchPhase.Began, a);
+                    sample(3, TouchPhase.Began, b);
+                    sample(2, TouchPhase.Moved, a - outward);
+                    sample(3, TouchPhase.Moved, b + outward);
+                    sample(2, TouchPhase.Ended, a - outward);
+                    sample(3, TouchPhase.Ended, b + outward);
+                    NoCommand();
+                    if (camera.orthographicSize >= beforeZoom) throw new InvalidOperationException("双指捏合未缩放战场");
+
+                    var target = board.Positions().Select(cell => (cell, point: BattleScreen(battle, board, cell)))
+                        .First(hit => hit.cell != battle.InformationCell && MapPoint(hit.point));
+                    sample(4, TouchPhase.Began, target.point);
+                    NoCommand();
+                    sample(4, TouchPhase.Canceled, target.point);
+                    NoCommand();
+                    sample(5, TouchPhase.Began, target.point);
+                    NoCommand();
+                    sample(5, TouchPhase.Ended, target.point);
+                    if (battle.InformationCell != target.cell)
+                        throw new InvalidOperationException("触屏抬手未检视目标地格");
+                });
+            }
+            finally
+            {
+                view.SetViewSize(originalSize);
+                view.Follow(originalOffset);
+            }
+            Log.Add("[PASS] Touchscreen 战斗单指平移、双指缩放与取消均不误下令，点按抬手检视目标地格");
+        }
 
         private static void VerifyDeploymentSpace(BattleSceneController battle)
         {
@@ -2004,7 +2125,8 @@ namespace BaseConquest.Editor
         {
             EditorApplication.update -= Tick;
             Log.Insert(0, "exit=" + code + " " + message + " ｜ " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
-            string report = stage.StartsWith("route-", StringComparison.Ordinal) ? "ui-player-route-views-report.txt" : "ui-skin-report.txt";
+            string report = androidTouch ? "ui-android-touch-report.txt" :
+                stage.StartsWith("route-", StringComparison.Ordinal) ? "ui-player-route-views-report.txt" : "ui-skin-report.txt";
             File.WriteAllText(Path.Combine(OutDir, report), string.Join("\n", Log));
             if (code == 0) Debug.Log("[UiSkin] " + message); else Debug.LogError("[UiSkin] " + message);
             failed = code != 0;

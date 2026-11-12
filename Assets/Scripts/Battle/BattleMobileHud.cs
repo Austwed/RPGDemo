@@ -194,6 +194,7 @@ namespace BaseConquest.Battle
             UiPrefabBinding.Complete(Root);
             if (owner.FormalFieldHud) ApplyFormalLayout(sceneShell != null && sceneShell.transform.Find("SafeArea/FormalBanner") != null);
             if (owner.UsesCampaignSystemMenu) ApplySystemMenuLayout(sceneOwner?.SceneUiTemplate("BaseShell")?.transform.Find("Header/菜单") as RectTransform);
+            if (Application.platform == RuntimePlatform.Android) ApplyAndroidControls();
             drawerPosition = ((RectTransform)drawer.transform).anchoredPosition;
             detailsSize = details.sizeDelta;
             effectsSize = detailEffectsPanel.sizeDelta;
@@ -544,7 +545,9 @@ namespace BaseConquest.Battle
                 label.text=(owner.Realtime?.SkillName(owner.ControlledSide,i)??BattleSimulation.CommanderSkillName(i))+(cooldown>1e-7?"\n"+Math.Ceiling(cooldown).ToString("0"):"");
             }
             for(int slot=0;slot<portraits.Length;slot++){var commander=battle.Commander(owner.ControlledSide,slot);if(commander?.IsDowned==true)portraitLabels[slot].text=battle.CommanderDisplayName(commander.Side,slot)+(owner.Realtime?.Session.Opening.DemoCombat==true?"\n倒地·战后1血恢复":"\n倒地·救援待接");}
-            if(owner.InformationUnits.Count==0)information.text=owner.InformationCell.HasValue?(battle.CanInspectCell(owner.ControlledSide,owner.InformationCell.Value)?"格内无可显示单位":"当前无视野，无法查看单位或地形"):"点格子查看格内单位与地形\n点队长或头像选队，Shift点队长单选\n点空地移动／点敌人集火\n空格继续／暂停";
+            if(owner.InformationUnits.Count==0)information.text=owner.InformationCell.HasValue?(battle.CanInspectCell(owner.ControlledSide,owner.InformationCell.Value)?"格内无可显示单位":"当前无视野，无法查看单位或地形"):Application.platform == RuntimePlatform.Android
+                ? "点格查看单位和地形\n点按或拖划头像选队，点空地移动，点敌人集火\n单指拖动战场平移，双指捏合缩放"
+                : "点格子查看格内单位与地形\n点队长或头像选队，Shift点队长单选\n点空地移动／点敌人集火\n空格继续／暂停";
             else information.text=string.Join("\n\n",owner.InformationUnits.Select(unit=>battle.UnitName(unit)+"\n归属队长："+(battle.CommanderFor(unit) is BattleSoldier commander?battle.UnitName(commander):"无（自主作战）")+"\n生命 "+unit.Health.ToString("0")+" / "+unit.Stats.Health.ToString("0")+" · 攻击 "+owner.RealtimeAttack(unit).ToString("0.#")+" · 防御 "+unit.Stats.Defense.ToString("0.#")+"\n射程 "+owner.RealtimeRange(unit).ToString("0.#")+"细格 · 移速 "+owner.RealtimeSpeed(unit).ToString("0.#")+"细格／秒"));
             if(owner.InformationCell.HasValue)information.text+="\n\n"+owner.RealtimeFineInformation+"\n"+CellInformation(battle,owner.InformationCell.Value,owner.ControlledSide);
             if(!string.IsNullOrEmpty(owner.RealtimeRangeDescription))information.text+="\n\n"+owner.RealtimeRangeDescription;

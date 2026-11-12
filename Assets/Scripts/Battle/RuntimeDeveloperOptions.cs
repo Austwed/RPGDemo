@@ -6,10 +6,17 @@ namespace BaseConquest.Battle
     {
         private const string Key="BaseConquest.DeveloperMode";
         public static event Action<bool> Changed;
+        public static bool Available => Application.platform != RuntimePlatform.Android || Debug.isDebugBuild;
         public static bool Enabled
         {
-            get=>PlayerPrefs.GetInt(Key,0)!=0;
-            set {PlayerPrefs.SetInt(Key,value ? 1 : 0);PlayerPrefs.Save();Changed?.Invoke(value);}
+            get=>Available&&PlayerPrefs.GetInt(Key,0)!=0;
+            set
+            {
+                if (!Available) return;
+                PlayerPrefs.SetInt(Key,value ? 1 : 0);
+                PlayerPrefs.Save();
+                Changed?.Invoke(value);
+            }
         }
     }
 }

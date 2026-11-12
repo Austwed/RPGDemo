@@ -1,4 +1,5 @@
 using System;
+using BaseConquest.Battle;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 namespace BaseConquest.Base
@@ -18,6 +19,7 @@ namespace BaseConquest.Base
     {
         public void LoadDemoStage(string id,string gender)
         {
+            if (!RuntimeDeveloperOptions.Available) return;
             try
             {
                 if((id!="camp"&&id!="defense")||(gender!="male"&&gender!="female"))throw new InvalidOperationException("无效的阶段档选择");
@@ -35,6 +37,7 @@ namespace BaseConquest.Base
         private string stageGender="male";
         public void OpenDemoStages()
         {
+            if (!RuntimeDeveloperOptions.Available) return;
             BeginPanel("阶段测试档","demo-stages");
             RowButton("返回",0,820,()=>OpenSlots(false));row+=52;
             foreach(string choice in new[]{"male","female"}){string hero=choice;RowButton((stageGender==hero?"● ":"")+(hero=="male"?"男主角":"女主角"),hero=="male"?-210:210,400,()=>{stageGender=hero;OpenDemoStages();});}row+=52;

@@ -122,8 +122,35 @@ namespace BaseConquest.Base
             if (Application.isPlaying && EventSystem.current == null) { var eventSystem = new GameObject("BaseEventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule)); eventSystem.transform.SetParent(owner.transform, false); eventSystem.GetComponent<InputSystemUIInputModule>().AssignDefaultActions(); }
             UiPrefabBinding.Complete(canvas);
             BindResourceStrip(header);
+            if (Application.platform == RuntimePlatform.Android)
+            {
+                stick.sizeDelta = new Vector2(158, 158);
+                knob.sizeDelta = new Vector2(64, 64);
+                ResizeTouchButton(interact, 78, 23);
+                ResizeTouchButton(construction, 78, 23);
+                ResizeTouchButton(header.Find("菜单").GetComponent<Button>(), 52, 22);
+                ResizeTouchButton(header.Find("背包").GetComponent<Button>(), 52, 22);
+                if (resourceStrip != null)
+                {
+                    header.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 84);
+                    header.anchoredPosition = new Vector2(header.anchoredPosition.x, -42);
+                    mapLabels.offsetMax = new Vector2(mapLabels.offsetMax.x, -84);
+                    var location = Ui<Text>(resourceStrip, "Location");
+                    var locationRect = location.rectTransform;
+                    locationRect.anchoredPosition = new Vector2(locationRect.anchoredPosition.x, -62);
+                    location.fontSize = 17;
+                    foreach (var stat in resourceButtons.Values)
+                        stat.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 66);
+                }
+            }
             foreach (var label in labels) StyleMapName(label.GetComponent<Text>());
         }
+        private static void ResizeTouchButton(Button button, float height, int fontSize)
+        {
+            ((RectTransform)button.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            button.GetComponentInChildren<Text>(true).fontSize = fontSize;
+        }
+
         private static void StyleMapName(Text text)
         {
             text.color = DemoUiTheme.Current.Panel;
@@ -227,7 +254,10 @@ namespace BaseConquest.Base
             {
                 nearbyId = id;
                 interact.GetComponentInChildren<Text>().text = nearby == null ? "接近对象后交互" : (nearby.Kind=="npc"||owner.State.Leaders.Any(l=>l.Id==nearby.Id)||nearby.Id.StartsWith("demo_villager")||nearby.Id=="prologue_ahe") ? "交谈 · " + nearby.Name.Replace("伙伴 · ","").Replace(" · 交谈","") : (nearby.Kind=="facility"?"管理 · ":nearby.Id.Contains("exit")||nearby.Id.Contains("travel")||nearby.Id.Contains("trigger")?"前往 · ":"使用 · ")+nearby.Name;
-                hint.text = owner.PlayerAway ? "主角外出中：入侵信息查看敌情，兵营查看外出队伍" : nearby == null ? "设施需在边缘一格内且同层；伙伴靠近对话\n电脑：WASD／方向键移动，E交互 · B背包 · N任务 · M地图" : "附近：" + nearby.Name + "\n点击右侧交互，或按 E";
+                bool touch = Application.platform == RuntimePlatform.Android;
+                hint.text = owner.PlayerAway ? "主角外出中：入侵信息查看敌情，兵营查看外出队伍" : nearby == null
+                    ? touch ? "拖动左侧摇杆移动，靠近人物或设施后点按右侧按钮" : "设施需在边缘一格内且同层；伙伴靠近对话\n电脑：WASD／方向键移动，E交互 · B背包 · N任务 · M地图"
+                    : "附近：" + nearby.Name + (touch ? "\n点按右侧按钮交互" : "\n点击右侧交互，或按 E");
             }
             for (int i = 0; i < labels.Length; i++)
             {
