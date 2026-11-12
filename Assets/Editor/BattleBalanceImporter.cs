@@ -721,10 +721,6 @@ namespace BaseConquest.Editor
                     rules.Capacity[level-1]=(int)capacity;
                     if(level>1&&rules.Capacity[level-1]<rules.Capacity[level-2])throw new InvalidOperationException(economy+"!B"+row+"：升级后容量不能减少");
                 }
-                var inn=BattleBalanceImporter.Section(archive,economy,31,32,"ABC");
-                Header(inn,economy,"A31","旅店参数ID");Header(inn,economy,"B31","值");Header(inn,economy,"C31","单位");
-                if(Need(inn,economy,"A32")!="inn_daily_fee"||Need(inn,economy,"C32")!="钱币/人日")throw new InvalidOperationException(economy+" 第32行：旅店参数ID或单位不匹配");
-                double fee=Number(inn,economy,"B32",1,1000);if(fee!=Math.Truncate(fee))throw new InvalidOperationException(economy+"!B32：旅店费用须为整数");rules.InnDailyFee=(int)fee;
                 var repairs=BattleBalanceImporter.Section(archive,economy,35,37,"ABC");
                 Header(repairs,economy,"A35","设施修复参数ID");Header(repairs,economy,"B35","值");Header(repairs,economy,"C35","单位");
                 var repairKeys=new Dictionary<string,(string unit,Action<int> apply)>{{"repair_materials",("原料/设施",x=>rules.FacilityRepairMaterials=x)},{"repair_coins",("钱币/设施",x=>rules.FacilityRepairCoins=x)}};
@@ -788,6 +784,14 @@ namespace BaseConquest.Editor
                     if (count != Math.Truncate(count)) throw new InvalidOperationException(formula + "!C135：土匪窝点人数须为整数");
                     rules.HideoutEnemyCount = (int)count;
                 }
+                const string encounterSheet="09c 战斗与编制";
+                var ruinsController=BattleBalanceImporter.Section(archive,encounterSheet,17,17,"ACEH");
+                if(Need(ruinsController,encounterSheet,"A17")!="encounter_ruins"||Need(ruinsController,encounterSheet,"H17")!="controlled_source")
+                    throw new InvalidOperationException(encounterSheet+" 第17行须为古窟首通控制来源");
+                var controllerTemplate=Need(ruinsController,encounterSheet,"C17");
+                if(!new[]{"captain_normal_saber","captain_awakened_saber"}.Contains(controllerTemplate)||Number(ruinsController,encounterSheet,"E17",1,1)!=1)
+                    throw new InvalidOperationException(encounterSheet+"!C17:E17：古窟首通须使用一级剑士队长模板");
+                rules.RuinsFirstControllerTemplate=RpgRules.Template(controllerTemplate=="captain_awakened_saber"?"captain_awakened":"captain_normal",0);
                 if(rules.BaseInterval<rules.MinimumInterval)throw new InvalidOperationException(formula+"：基础前摇不能低于最小间隔");
                 double maxAttackSpeed=rules.Traits.Single(t=>t.Id=="frenzy").Max/100+rules.Skills.Single(s=>s.Id=="rapid_fire").Amount;
                 if(rules.BaseInterval/(1+maxAttackSpeed)<rules.MinimumInterval)throw new InvalidOperationException("10c 效果定义与明细 / 11b 特性数值与互斥 / 02a 全局参数与试算：连射与乱武的最大组合使攻击间隔低于下限");

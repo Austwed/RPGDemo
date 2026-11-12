@@ -40,7 +40,7 @@ namespace BaseConquest.Base
                 new BaseAchievementDefinition {Id=Harvest,Category="side",Name="有米下锅",Condition="一次真实日结中粮田实际产出粮食",Food=20},
                 new BaseAchievementDefinition {Id=Mercy,Category="hidden",Name="破咒不伤人",Condition="单场遗迹胜利，且我方未对任一受控村民造成有效伤害（可重刷）",Template="novice_light_armor"},
                 new BaseAchievementDefinition {Id=Caution,Category="hidden",Name="谨慎为上",Condition="在遗迹入口警告中选择暂不进入",Coins=20},
-                new BaseAchievementDefinition {Id=Reunion,Category="hidden",Name="片刻小别",Condition="伙伴暂离入住后，在当地旅店或扎营点接回随行",ItemId="forging_stone"}
+                new BaseAchievementDefinition {Id=Reunion,Category="hidden",Name="片刻小别",Condition="在营地外让伙伴暂离，回到等候地点接回随行",ItemId="forging_stone"}
             }};
         }
         public static bool Active(BaseState s)=>s?.Achievements?.Version==1;

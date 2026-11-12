@@ -269,7 +269,7 @@ namespace BaseConquest.RealtimePrototype
                 MoveSpeed=role==PrototypeRole.Leader ? 2.6 : role==PrototypeRole.Archer ? 2.1 : 2.35};
             unit.MaxHealth=unit.Health;Units.Add(unit);RebuildReservations();return unit;
         }
-        public void SetPaused(bool paused){Paused=paused;}
+        public void SetPaused(bool paused){Paused=paused;if(paused&&remainder>=FixedSeconds)remainder%=FixedSeconds;}
         // Read-only route preview: committed transit first, then the same weighted fine-grid field.
         // Other units may yield/replan while moving; drawing never advances AI or reservations.
         public void PreviewPath(PrototypeUnit unit,List<PrototypePoint> points)
@@ -455,6 +455,8 @@ namespace BaseConquest.RealtimePrototype
             if(Paused||Outcome!=PrototypeOutcome.Fighting)return;
             remainder+=seconds;
             while(remainder+1e-9>=FixedSeconds&&Outcome==PrototypeOutcome.Fighting&&!Paused){remainder-=FixedSeconds;Step();}
+            // A terminal callback can end a frame before its remaining fixed steps are simulated.
+            if(Outcome!=PrototypeOutcome.Fighting&&remainder>=FixedSeconds)remainder%=FixedSeconds;
         }
         private void RebuildReservations()
         {

@@ -94,6 +94,7 @@ namespace BaseConquest.Base
             Add("选项", OpenOptions);
             Add("帮助", OpenHelp);
             Add("回主菜单", owner.ToMainMenu);
+            if(BaseBattleGateway.DemoMode)Add("退出游戏",()=>BaseBattleGateway.ExitDemoSession(true));
             if (BaseConquest.Battle.RuntimeDeveloperOptions.Enabled)
             {
                 Add("阶段测试档", OpenDemoStages);

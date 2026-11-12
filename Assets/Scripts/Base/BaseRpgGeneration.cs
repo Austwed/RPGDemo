@@ -44,7 +44,9 @@ namespace BaseConquest.Base
             if(!Active(state))return;var r=state.Demo.Rpg;
             foreach(var e in enemies)
             {
-                if(e.Rpg?.Version==1){e.Rpg.Rules=r;continue;}
+                bool firstController=eventId==BaseDemoRuins.EventId&&state.Demo.RuinsDay==0&&e.Kind==SoldierKind.Hero&&e.CommanderSlot==0;
+                string firstTemplate=firstController?(string.IsNullOrEmpty(r.RuinsFirstControllerTemplate)?RpgRules.Template("captain_awakened",0):r.RuinsFirstControllerTemplate):null;
+                if(e.Rpg?.Version==1&&(!firstController||e.Rpg.TemplateId==firstTemplate)){e.Rpg.Rules=r;continue;}
                 int p=Profession(e.Stats.HasProfessionKind?e.Stats.ProfessionKind:e.Stats.HasCombatKind?e.Stats.CombatKind:e.Kind==SoldierKind.Hero?SoldierKind.Melee:e.Kind);
                 bool story=eventId==BaseDemoPrologue.BattleId;
                 e.Rpg=e.Kind==SoldierKind.Hero?(story?Character(e.Id,p,e.IsAlien||e.IsAwakened,true,r,e.Stats.Level):Generate(e.Id,p,e.Stats.Level,r)):
@@ -57,6 +59,13 @@ namespace BaseConquest.Base
                     if(!string.IsNullOrEmpty(authored.TemplateId)){if(!authored.TemplateId.StartsWith("captain_",StringComparison.Ordinal))throw new ArgumentException("队长须引用队长模板");e.Rpg.TemplateId=authored.TemplateId;}
                     if(!string.IsNullOrEmpty(authored.SkillId))e.Rpg.SkillId=authored.SkillId;
                     if(authored.FixedTraits)e.Rpg.Traits=authored.Traits.Select(t=>t.Copy()).ToList();
+                    ValidateCharacter(e.Rpg,r);
+                }
+                if(firstController)
+                {
+                    e.Rpg.TemplateId=firstTemplate;
+                    e.Rpg.SkillId="inspire";
+                    e.Rpg.Traits.Clear();
                     ValidateCharacter(e.Rpg,r);
                 }
                 double fraction=e.Stats.Health>0?e.Health/e.Stats.Health:0;

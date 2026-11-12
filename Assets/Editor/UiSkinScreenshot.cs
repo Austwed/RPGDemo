@@ -139,6 +139,13 @@ namespace BaseConquest.Editor
                     break;
                 case "route-world":
                     if (!RouteViewReady(BaseWorldJourney.OnWorld)) return;
+                    // The continuous rules run grants rewards but does not dismiss their receipts.
+                    if (H.PanelOpen && (string)Field(H, "panelViewKey") == "reward-receipt")
+                    {
+                        H.ClosePanel();
+                        frameDeadline = Time.frameCount + 2;
+                        return;
+                    }
                     var journey = Object.FindAnyObjectByType<BaseWorldJourneyHud>();
                     var map = journey?.transform.Find("游戏显示区域 · 16比9/WorldMap");
                     if (map == null || !map.gameObject.activeInHierarchy)
@@ -324,7 +331,7 @@ namespace BaseConquest.Editor
                 case "dialogue-shot":
                     if (Time.frameCount < frameDeadline) return;
                     RequirePanel("NpcDialogue");
-                    CaptureViewports("ui-skin-dialogue");
+                    CaptureViewports("ui-skin-dialogue", mobile: true);
                     H.ClosePanel();
                     Approach("town_peddler");
                     H.OpenObject("town_peddler");
@@ -557,7 +564,7 @@ namespace BaseConquest.Editor
                     break;
                 case "defense-deployment-shot":
                     if (Time.frameCount < frameDeadline) return;
-                    CaptureViewports("ui-skin-battle-deployment");
+                    CaptureViewports("ui-skin-battle-deployment", mobile: true);
                     VerifyDeploymentSpace(defenseBattle);
                     FinishDialogue();
                     Click("拔剑迎战");
@@ -590,10 +597,29 @@ namespace BaseConquest.Editor
                     break;
                 case "done":
                     if (Time.frameCount < frameDeadline) return;
-                    Finish(0, "OK");
+                    exitSaveFiles=SnapshotSaves();
+                    defenseBattle.OpenCampaignMenu();
+                    var systemMenu=((GameObject)Field(defenseBattle,"campaignMenu")).GetComponentsInChildren<RectTransform>(true).Single(rect=>rect.name=="选项面板");
+                    Press(systemMenu,"MainMenu");
+                    stage="discarded";stageAt=EditorApplication.timeSinceStartup;
+                    break;
+                case "discarded":
+                    if(C==null||C.Hud==null||!BaseBattleGateway.MainMenu||defenseBattle)
+                    {
+                        if(EditorApplication.timeSinceStartup-stageAt>20)throw new InvalidOperationException("回主菜单未丢弃当前战斗");
+                        return;
+                    }
+                    if(C.State!=null||!exitSaveFiles.SequenceEqual(SnapshotSaves()))
+                        throw new InvalidOperationException("回主菜单仍恢复了会话或改写了磁盘存档");
+                    Log.Add("[PASS] 战中回主菜单直接丢弃会话，存档文件逐字节不变");
+                    Finish(0,"OK");
                     break;
             }
         }
+
+        private static string[] exitSaveFiles;
+        private static string[] SnapshotSaves()=>Directory.GetFiles(BaseBattleGateway.SaveDirectory,"*.json*")
+            .OrderBy(path=>path,StringComparer.Ordinal).Select(path=>Path.GetFileName(path)+":"+Convert.ToBase64String(File.ReadAllBytes(path))).ToArray();
 
         private static void VerifyOpeningDrillControls()
         {
@@ -604,18 +630,23 @@ namespace BaseConquest.Editor
 
             var area = BattleSafeArea(drill);
             var portrait = area.Find("CommanderSlot0/CommanderPortrait_0");
-            var pause = area.Find("自动");
+            var pause = area.Find("RealtimeControls/Pause");
             var skill = area.Find("CommanderSlot0/战技");
-            var attack = area.Find("CommanderDetails/Strategy_Attack");
+            var attack = area.Find("RealtimeControls/Attack");
             var close = area.Find("CommanderDetails/关闭详情");
+            var arrow = area.Find("PracticeArrow");
             var buttons = new[] { portrait, pause, skill, attack, close };
-            if (buttons.Any(button => button?.GetComponent<Outline>() == null))
+            if (buttons.Any(button => button?.GetComponent<Outline>() == null) || arrow == null ||
+                area.Find("ControlledArmy").gameObject.activeInHierarchy || area.Find("自动").gameObject.activeInHierarchy ||
+                area.Find("RealtimeControls").GetComponentsInChildren<Button>().Length != 5 ||
+                ((RectTransform)skill).anchoredPosition.y <= ((RectTransform)portrait).anchoredPosition.y)
                 throw new InvalidOperationException("演练缺少正式场景按钮或边框组件");
             var intro = controller.State.Demo.Intro;
             var tickGuide = typeof(BaseSceneController).GetMethod("TickPracticeGuide", BindingFlags.Instance | BindingFlags.NonPublic);
-            tickGuide.Invoke(controller, null);
             drill.PreviewHud.Refresh();
             var resting = buttons.ToDictionary(button => button, ReadOutline);
+            if ((intro.DrillFlags & BaseDemoIntro.Select) != 0)
+                throw new InvalidOperationException("开场默认选中误记为玩家选择");
 
             (Color Color, Vector2 Distance, bool Enabled) ReadOutline(Transform target)
             {
@@ -625,6 +656,8 @@ namespace BaseConquest.Editor
 
             void ExpectCue(Transform target = null)
             {
+                if (arrow.gameObject.activeInHierarchy != (target != null))
+                    throw new InvalidOperationException("演练没有显示或清除箭头");
                 foreach (var button in buttons)
                 {
                     var expected = button == target ? (DemoUiTheme.Current.Gold, new Vector2(4, -4), true) : resting[button];
@@ -637,11 +670,15 @@ namespace BaseConquest.Editor
             {
                 BaseDemoIntro.AdvanceTutorialDelay(intro, 1);
                 tickGuide.Invoke(controller, null);
-                FinishDialogue();
-                if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains(expected))
+                if (!area.Find("PracticeInstruction").GetComponentInChildren<Text>().text.Contains(expected))
                     throw new InvalidOperationException("演练正文没有指向当前控件：" + expected);
-                Click("明白，开始练习");
                 drill.PreviewHud.Refresh();
+            }
+
+            void ClearDelayCue()
+            {
+                tickGuide.Invoke(controller, null);
+                ExpectCue();
             }
 
             void HoldPortrait()
@@ -661,11 +698,11 @@ namespace BaseConquest.Editor
             ExpectCue(portrait);
             CaptureViewports("ui-player-route-drill-select");
             ClickHudButton(portrait);
-            ExpectCue();
-            ShowStep(pause.GetComponentInChildren<Text>().text);
+            ClearDelayCue();
+            ShowStep("右下角");
             ExpectCue(pause);
             ClickHudButton(pause);
-            ExpectCue();
+            ClearDelayCue();
             if (!drill.Automatic || (intro.DrillFlags & BaseDemoIntro.Pause) == 0)
                 throw new InvalidOperationException("战斗时间按钮没有推进演练");
 
@@ -674,21 +711,23 @@ namespace BaseConquest.Editor
             ShowStep(drill.Realtime.SkillName(BattleSide.A, 0));
             ExpectCue(skill);
             ClickHudButton(skill);
-            ExpectCue();
+            ClearDelayCue();
             ShowStep("状态效果");
             ExpectCue(portrait);
             HoldPortrait();
             ExpectCue();
+            if (!drill.Realtime.Model.Paused || area.Find("CommanderDetails/Strategy_Attack").gameObject.activeInHierarchy)
+                throw new InvalidOperationException("查看详情时未暂时暂停，或旧策略按钮仍可见");
             ClickHudButton(close);
+            if (drill.Realtime.Model.Paused || !drill.Automatic)
+                throw new InvalidOperationException("关闭详情后未恢复战斗");
 
             intro.DummyPhase = 2;
-            ShowStep("长按");
-            ExpectCue(portrait);
-            HoldPortrait();
+            ShowStep("进攻");
             ExpectCue(attack);
             Canvas.ForceUpdateCanvases();
             var attackBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(attack.parent, attack);
-            foreach (var strategy in new[] { "Strategy_Obey", "Strategy_Protect" })
+            foreach (var strategy in new[] { "Manual", "Defense", "Pause", "Speed" })
             {
                 var other = attack.parent.Find(strategy);
                 if (other?.gameObject.activeInHierarchy != true ||
@@ -699,14 +738,10 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("进攻按钮未接收界面输入");
             Capture("ui-player-route-drill-strategy");
             ClickHudButton(attack);
-            ExpectCue(close);
-            ClickHudButton(close);
-            ExpectCue(pause);
-            ClickHudButton(pause);
             ExpectCue();
             if (intro.DummyPhase != 3 || !drill.Automatic || !drill.WithdrawSceneEncounter())
                 throw new InvalidOperationException("演练策略或返回村庄失败");
-            Log.Add("[PASS] 序章演练实测头像、暂停／继续、战技、长按详情和进攻策略高亮，操作后恢复原边框");
+            Log.Add("[PASS] 序章演练实际控件有指引箭头，查看详情暂时暂停并恢复，进攻在统一操作栏");
         }
 
         private static void LoadRouteView(string fixture)
@@ -1148,6 +1183,7 @@ namespace BaseConquest.Editor
             Press(BattleSafeArea(battle), "DraftPreparationControls/Start");
             FinishDialogue();
             Click("准备交战");
+            CaptureViewports("ui-skin-ruins-combat", mobile: true);
             var player = battle.Realtime.Model.Player;
             player.Health = player.MaxHealth * .5;
             var retreat = controller.GetType().GetMethod("TickRuinsRetreatGuide", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -1270,7 +1306,7 @@ namespace BaseConquest.Editor
             FinishDialogue();
             var player = controller.State.Leaders.Single(l => l.Id == controller.State.PlayerLeaderId);
             double health = player.Health;
-            Click("询问短剑并原地切磋");
+            Click("原地切磋");
             var duel = (BattleSceneController)Field(controller, "combatController");
             if (duel?.Realtime == null || !duel.IsAzhuDuel)
                 throw new InvalidOperationException("原地比武未开战");
@@ -1287,6 +1323,20 @@ namespace BaseConquest.Editor
             Capture("ui-skin-azhu-duel-dialogue");
             Click("暂缓邀请");
             Log.Add("[PASS] 隐藏未解锁比武选项，原地比武胜利恢复状态并直进阿铸对白");
+            Approach("demo_azhu");
+            H.OpenObject("demo_azhu");
+            FinishDialogue();
+            Click("邀请加入小队");
+            FinishDialogue();
+            var receipt = RequirePanel("CommonPanel");
+            if ((string)Field(H, "panelViewKey") != "reward-receipt" ||
+                !receipt.GetComponentsInChildren<Text>().Any(label => label.text.Contains("新手短剑")) ||
+                !receipt.GetComponentsInChildren<Text>().Any(label => label.text.Contains("锻造石")) ||
+                receipt.GetComponentsInChildren<Button>().Any(button => button.interactable && button.GetComponentInChildren<Text>()?.text.Contains("领取") == true))
+                throw new InvalidOperationException("老铁匠的赠礼没有自动入包并显示简明奖励小窗");
+            CaptureViewports("ui-skin-reward-receipt", mobile: true);
+            H.ClosePanel();
+            Log.Add("[PASS] 阿铸入队后完成赠礼对白，奖励自动入包并在小窗显示");
         }
 
         private static void VerifyRuinsWarning()
@@ -1705,6 +1755,12 @@ namespace BaseConquest.Editor
                 controller.State.PlayerY > marker.Y + .241 || sprite.sortingOrder <= portal.sortingOrder ||
                 !BaseInteraction.CanReach(controller.State, marker))
                 throw new InvalidOperationException("遗迹门前没有正确阻挡移动、显示角色或保留交互");
+            var facing=avatar.GetComponent<PlayerHeroView>();
+            walk.Invoke(controller,new object[]{Vector2.right,0d});
+            double y=controller.State.PlayerY;
+            walk.Invoke(controller,new object[]{Vector2.up,.01d});
+            if(facing==null||facing.Facing!=HeroFacing.North||BaseInteraction.Facing.Y!=1||Math.Abs(controller.State.PlayerY-y)>.001)
+                throw new InvalidOperationException("被门槛挡住时单独朝北输入未更新人物与交互朝向");
             Capture("ui-skin-ruins-entrance");
             Log.Add("[PASS] 北向移动停在门槛外，角色完整且仍可交互");
         }
@@ -1755,13 +1811,15 @@ namespace BaseConquest.Editor
                 if (!battle.Realtime.Model.Paused) throw new InvalidOperationException("菜单打开时空格恢复了战斗");
             }
             CaptureViewports(draft != null ? "ui-bandit-hideout-deployment-menu" : "ui-bandit-hideout-battle-menu");
-            Press(Overlay(), "Quit");
-            Press(Overlay(), "Cancel");
-            Press(Overlay(), "Continue");
+            var overlay = Overlay();
+            if (overlay.Find("MainMenu")?.GetComponent<Button>()?.interactable != true ||
+                overlay.Find("Quit")?.GetComponent<Button>()?.interactable != true)
+                throw new InvalidOperationException("战场菜单缺少回主菜单或退出游戏入口");
+            Press(overlay, "Continue");
             if (Field(battle, "campaignMenu") != null || (draft != null && !positions.OrderBy(p => p.Key)
                     .SequenceEqual(draft.Positions.OrderBy(p => p.Key))) || (draft == null && !battle.Realtime.Model.Paused))
-                throw new InvalidOperationException("取消退出没有保留部署或战斗暂停状态");
-            Log.Add(draft != null ? "[PASS] 部署菜单位置、地图和空格拦截、取消退出保留落点" : "[PASS] 战斗菜单位置、取消退出及手动继续前保持暂停");
+                throw new InvalidOperationException("返回战场没有保留部署或战斗暂停状态");
+            Log.Add(draft != null ? "[PASS] 部署菜单位置、两个退出入口、拦截地图和空格、返回后保留落点" : "[PASS] 战斗菜单位置、两个退出入口、返回后保持暂停直至手动继续");
         }
 
         private static void VerifyDeploymentPointer(BattleSceneController battle)
@@ -2007,11 +2065,16 @@ namespace BaseConquest.Editor
             Debug.Log("[UiSkin] " + message + "（阶段 " + stage + "）");
         }
 
-        private static void CaptureViewports(string name)
+        private static void CaptureViewports(string name, bool mobile = false)
         {
             Capture(name);
             Capture(name + "-1080p", 1920, 1080);
             Capture(name + "-narrow", 1024, 640);
+            if (mobile)
+            {
+                Capture(name + "-854x480", 854, 480);
+                Capture(name + "-960x432", 960, 432);
+            }
         }
 
         private static void Capture(string name, int w = 1280, int h = 720)

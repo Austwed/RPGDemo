@@ -55,7 +55,7 @@ namespace BaseConquest.Base
 
         private static string FacilityCopy(string key, string fallback) => StoryText.Get("story.ui.facility." + key, fallback);
 
-        private void FacilityButton(Transform parent, string name, string title, Action action,
+        private Button FacilityButton(Transform parent, string name, string title, Action action,
             bool available = true, bool selected = false)
         {
             var view = CloneSceneUi("FacilityAction", parent);
@@ -69,6 +69,7 @@ namespace BaseConquest.Base
                 var image = view.GetComponent<Image>();
                 image.color = Color.Lerp(image.color, DemoUiTheme.Current.Gold, .6f);
             }
+            return button;
         }
 
         private void FacilityChange(Action<BaseState> change, string success, Action refresh)

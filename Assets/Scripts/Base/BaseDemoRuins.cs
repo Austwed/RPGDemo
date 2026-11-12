@@ -30,7 +30,7 @@ namespace BaseConquest.Base
             var town=state.Campaign.Layouts.Single(map=>map.Region=="town");
             town.Objects.Add(new BaseMapPlacement {Id="demo_ruins_exit",Name=BaseScriptNames.Ruins+"调查 →",X=23.2,Y=6.5,Width=1.2,Height=2});
             if(!state.Leaders.Any(person=>person.Id=="partner_farm"))state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Add(new BaseMapPlacement {Id="demo_ahe",Name="阿禾 · 可选伙伴",X=8,Y=7,Width=.5,Height=.5});
-            if(!state.Leaders.Any(person=>person.Id=="partner_craft"))town.Objects.Add(new BaseMapPlacement {Id="demo_azhu",Name="阿铸 · 询问短剑",X=9,Y=8,Width=.5,Height=.5});
+            if(!state.Leaders.Any(person=>person.Id=="partner_craft"))town.Objects.Add(new BaseMapPlacement {Id="demo_azhu",Name="阿铸 · 交谈",X=9,Y=8,Width=.5,Height=.5});
             state.Campaign.Layouts.Add(new BaseMapLayout {Region="outpost",Title="野外"+BaseScriptNames.Ruins+" · 失踪者",SpawnX=2.5,SpawnY=7.5,Objects=new List<BaseMapPlacement> {
                 new BaseMapPlacement {Id="demo_ruins_return",Name="← 返回"+BaseScriptNames.Town,X=.7,Y=7.5,Width=1,Height=2},
                 new BaseMapPlacement {Id="demo_ruins_investigate",Name="异常者与控制来源 · 调查",X=12,Y=7,Width=1,Height=1},

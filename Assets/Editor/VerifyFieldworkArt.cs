@@ -45,7 +45,7 @@ namespace BaseConquest.Editor
             try
             {
                 boardView=new BattleBoardView(board,host.transform,source,source){FlatView=true,ObliqueBaseView=true};boardView.SetCombatMode(false);boardView.UpdateCamera(0,0);
-                var texture=PixelDemoArt.Building("town_inn");Need(texture!=null,"缺少旅店素材");
+                var texture=PixelDemoArt.Building("barracks");Need(texture!=null,"缺少兵营素材");
                 var facade=SpriteFacade.Create(boardView.Root.transform,texture,new Vector3(1,BaseTerrainView.LevelHeight,2),1,source,boardView.Camera);
                 Need(Mathf.Abs(facade.Feet.y-BaseTerrainView.LevelHeight)<.001f,"探索视图建筑脚点高度错误");
                 boardView.SetCombatMode(true);boardView.UpdateCamera(0,0);facade.Refresh();
@@ -92,12 +92,78 @@ namespace BaseConquest.Editor
         {
             var asset=Resources.Load<TextAsset>("DemoStages/camp-male");Need(asset!=null,"缺少营地阶段档");
             var state=JsonUtility.FromJson<BaseState>(asset.text);
-            var marker=BaseInn.Markers(state,"town").Single();
-            Need(marker.Id=="town_inn"&&marker.AssetId=="town_inn"&&marker.Kind=="facility"&&marker.Blocks&&marker.Width==1&&marker.Height==1,"城镇旅店标记或交互属性不符");
-            var catalog=Resources.Load<BuildingAppearanceCatalog>("BuildingAppearances");
-            Need(catalog?.Find(marker.AssetId)?.Texture==PixelDemoArt.Building("town_inn")&&PixelDemoArt.Building("town_inn")!=null,"旅店专用贴图无法通过运行目录加载");
-            Directory.CreateDirectory("Logs");File.WriteAllText("Logs/inn-art-verification.txt","PASS: town inn marker, interaction dimensions, dedicated catalog texture.\n");
-            Debug.Log("[VerifyInnArt] PASS");
+            Need(BaseSpatial.Objects(state,"town").All(o=>o.Id!="town_inn"),"灰岩镇仍有住宿入口");
+            var leader=state.Leaders.FirstOrDefault(l=>l.Id!=state.PlayerLeaderId);
+            if(leader==null){leader=new BaseLeader{Id="legacy-guest",Name="旧档队长"};state.Leaders.Add(leader);}
+            leader.Away=true;leader.PartyId="";state.Adventure.Members.Remove(leader.Id);
+            state.Inn.Guests.Add(new BaseInnGuest{LeaderId=leader.Id,Debt=4});
+            int coins=state.Inventory.Coins;bool rejected=false;
+            try{BaseInn.ValidateRetired(state);}catch(ArgumentException){rejected=true;}
+            Need(rejected&&state.Inn.Guests.Count==1&&leader.Away&&state.Inventory.Coins==coins,"已退役旅店存档仍被迁移");
+            Debug.Log("[VerifyRetiredInn] PASS");
+        }
+        public static void RunCampPolish()
+        {
+            RunInn();
+            var asset=Resources.Load<TextAsset>("DemoStages/camp-male");
+            var state=JsonUtility.FromJson<BaseState>(asset.text);
+            BaseEconomy.Validate(state);
+            var camp=state.Campaign.Layouts.Single(m=>m.Region=="base");
+            var keep=camp.Objects.Where(o=>!o.VisualOnly||o.Kind=="npc").Select(o=>o.Id).ToArray();
+            camp.Objects.Add(new BaseMapPlacement{Id="test-decor",Y=2,Kind="decoration",VisualOnly=true});
+            BaseEnvironment.ClearCampApproach(state);BaseEnvironment.ClearCampApproach(state);
+            Need(camp.Objects.All(o=>o.Id!="test-decor")&&keep.All(id=>camp.Objects.Any(o=>o.Id==id)),"清理营地装饰影响设施或人物");
+
+            var gift=new BaseLootReward{Template="novice_sword",Quality=2};
+            const string giftId="verify:reward:bag";
+            state.Campaign.SettledIds.Add(giftId);
+            BaseBattleLoot.Create(state,new BaseCampaignReport{BattleId=giftId,Title="测试奖励"},new[]{gift});
+            var bagLine=state.Aftermath.Loot.Single(m=>m.BattleId==giftId).Items.Single();
+            Need(bagLine.Status=="taken"&&bagLine.ReceiptDestination==state.PlayerLeaderId,"空背包未直接收到奖励");
+            int gearCount=state.PersonalEquipment.Warehouse.Count;
+            BaseBattleLoot.Create(state,new BaseCampaignReport{BattleId=giftId,Title="测试奖励"},new[]{gift});
+            Need(state.PersonalEquipment.Warehouse.Count==gearCount,"重复结算造成重复奖励");
+            foreach(var holder in BaseAdventure.Members(state).Where(l=>BasePartyInventory.AccessibleLeader(state,l)))
+                for(int cell=BasePartyInventory.FreeCell(state,holder.Id);cell>=0;cell=BasePartyInventory.FreeCell(state,holder.Id))
+                    state.PersonalEquipment.Warehouse.Add(new BasePersonalItem{Id="personal:"+state.PersonalEquipment.NextId++,Template="novice_sword",Holder=holder.Id,Cell=cell});
+            const string overflowId="verify:reward:warehouse";
+            state.Campaign.SettledIds.Add(overflowId);
+            BaseBattleLoot.Create(state,new BaseCampaignReport{BattleId=overflowId,Title="测试入库"},new[]{gift,new BaseLootReward{ItemId="forging_stone",Count=1}});
+            var restored=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            var receipt=BaseBattleLoot.ConsumeReceipt(restored,overflowId);
+            Need(receipt.Items.All(i=>i.Status=="taken"&&i.ReceiptDestination==BaseBattleLoot.WarehouseReceipt)&&
+                restored.PersonalEquipment.Warehouse.Any(i=>i.Holder==""&&i.Cell==-1&&i.Template=="novice_sword")&&
+                restored.Backpack.Items.Any(i=>i.Holder==""&&i.Cell==-1&&i.ItemId=="forging_stone")&&
+                !BaseBattleLoot.ConsumeReceipt(restored,overflowId).HasReceipt,"满包入库、存档收据或单次展示失败");
+            Debug.Log("[VerifyCampPolish] PASS camp approach, reward destination, once-only delivery and receipt persistence");
+            RunStairGeometry();
+        }
+        public static void RunStairGeometry()
+        {
+            foreach(var axis in new[]{RampAxis.EastWest,RampAxis.NorthSouth})foreach(int direction in new[]{-1,1})
+            {
+                var board=BattleBoard.CreateDefault(8,8);var point=new GridPosition(3,3);
+                bool eastWest=axis==RampAxis.EastWest;
+                var along=eastWest?new GridPosition(direction,0):new GridPosition(0,direction);
+                var across=eastWest?new GridPosition(0,1):new GridPosition(1,0);
+                var high=point+new GridPosition(-along.X,-along.Z);
+                foreach(var p in new[]{point,point+across}){board.Cell(p).Elevation=1;board.Cell(p).Ramp=axis;}
+                foreach(var p in new[]{high,high+across})board.Cell(p).Elevation=1;
+                Need(board.RampLowEdge(point)==direction&&board.CanStep(point+along,point)&&board.CanStep(point,high),"台阶坡向或通行不一致");
+                var mesh=BaseTerrainView.Ground(board,point,true);
+                try
+                {
+                    var v=mesh.vertices;float Lateral(Vector3 x)=>eastWest?x.z:x.x;
+                    float Progress(Vector3 x)=>(eastWest?x.x:x.z)*-direction;
+                    var tops=mesh.GetTriangles(0).Select(i=>v[i]).ToArray();
+                    Need(tops.Select(x=>x.y).Distinct().Count()>2&&Mathf.Abs(tops.OrderBy(Progress).First().y+.01f)<.001f&&
+                        Mathf.Abs(tops.OrderByDescending(Progress).First().y-(BaseTerrainView.LevelHeight-.01f))<.001f,"台阶踏面未从正确低端接到高端");
+                    var sides=mesh.GetTriangles(1);for(int i=0;i<sides.Length;i+=3)
+                        Need(!Enumerable.Range(i,3).All(j=>Lateral(v[sides[j]])>BattleBoardView.CellSize*.49f),"并排台阶之间出现挡板");
+                }
+                finally{UnityEngine.Object.DestroyImmediate(mesh);}
+            }
+            Debug.Log("[VerifyStairGeometry] PASS both ramp axes, both directions, walkability and joined stair lanes");
         }
         public static void RunFarm()
         {

@@ -88,9 +88,9 @@ namespace BaseConquest.Editor
             Need(p.MaxHealth>0,"阶段档主角最大生命为 0，无法验证带伤阈值");
             p.Health=p.MaxHealth*.59;
             Need(BaseHud.Wounded(s),"生命低于 60% 应判为带伤");
-            foreach(var id in new[]{"INJ_TOWN_MAIGE","INJ_TOWN_GUARD","INJ_TOWN_MO","INJ_TOWN_XIAOYUN","INJ_TOWN_BALONG","INJ_TOWN_LEIEN","INJ_CAMP_ZHOU","INJ_CAMP_CHUN","INJ_CAMP_AHE","INJ_CAMP_AZHU","INJ_CAMP_JIALAN"})
+            foreach(var id in new[]{"INJ_TOWN_GUARD","INJ_TOWN_MO","INJ_TOWN_XIAOYUN","INJ_TOWN_BALONG","INJ_TOWN_LEIEN","INJ_CAMP_ZHOU","INJ_CAMP_CHUN","INJ_CAMP_AHE","INJ_CAMP_AZHU","INJ_CAMP_JIALAN"})
                 Need(BaseHud.InjuredText(s,id)!="",id+" 缺带伤应答文案");
-            Need(BaseHud.InjuredText(s,"INJ_TOWN_MAIGE")!=BaseHud.InjuredText(s,"INJ_TOWN_GUARD"),"不同 NPC 的带伤应答不应重复");
+            Need(BaseHud.InjuredText(s,"INJ_TOWN_MO")!=BaseHud.InjuredText(s,"INJ_TOWN_GUARD"),"不同 NPC 的带伤应答不应重复");
             Need(BaseHud.RecordInjuryDialogue(s,"INJ_TOWN_MO"),"当天第一次交谈应触发");
             Need(!BaseHud.RecordInjuryDialogue(s.Copy(),"INJ_TOWN_MO"),"状态复制后同一 NPC 当天不得重复触发");
             var restored=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));
@@ -377,24 +377,23 @@ namespace BaseConquest.Editor
         {
             var s=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
             BaseDevelopment.Normalize(s);BaseQuests.Normalize(s);
+            Need(BaseQuestLog.Entries(s).All(entry=>entry.Main),"醒来时不应显示未解锁支线");
+            s.Demo.Stage=BaseDemoStage.VisitLord;s.Demo.RuinsVersion=1;
             var entries=BaseQuestLog.Entries(s);
             Need(entries.Any(entry=>entry.Main)&&entries.Any(entry=>!entry.Main),"任务应区分主线与支线");
             Need(entries.All(entry=>!string.IsNullOrEmpty(entry.Id)&&!string.IsNullOrEmpty(entry.Title)&&!string.IsNullOrEmpty(entry.Goal)),"任务条目应有 id／标题／目标");
             Need(entries.Select(entry=>entry.Id).Distinct().Count()==entries.Count,"任务 id 不能重复");
-            var target=entries.First(entry=>entry.Trackable);
-            Need(BaseQuestLog.TrackedId(s)==""&&BaseQuestLog.Tracked(s)==null,"默认不应有追踪目标");
-            Need(BaseQuestLog.ToggleTrack(s,target.Id)&&BaseQuestLog.TrackedId(s)==target.Id,"选择任务后应进入追踪");
-            Need(BaseQuestLog.Tracked(s)?.Id==target.Id,"常驻栏应取到被追踪的任务");
-            Need(BaseQuestLog.ToggleTrack(s,target.Id)&&BaseQuestLog.TrackedId(s)=="","再次选择同一任务应取消追踪");
+            var main=entries.First(entry=>entry.Main);var target=entries.First(entry=>!entry.Main&&entry.Id=="demo:partner_craft");
+            Need(BaseQuestLog.Cue(s).Id==main.Id&&!BaseQuestLog.ToggleTrack(s,main.Id)&&!BaseQuestLog.ToggleTrack(s,"demo:ruins_trial"),"默认追踪主线；不可手动追踪主线或未解锁任务");
+            Need(BaseQuestLog.ToggleTrack(s,target.Id)&&BaseQuestLog.Tracked(s)?.Id==target.Id,"可用支线应可追踪");
+            Need(BaseQuestLog.Cue(s).Id==target.Id&&BaseQuestLog.Cue(s).Instruction==target.Goal&&BaseQuestLog.Cue(s).ObjectId=="exit_east","任务册、提示和异地图出口应使用同一目标");
+            Need(BaseQuestLog.ToggleTrack(s,target.Id)&&BaseQuestLog.TrackedId(s)==""&&BaseQuestLog.Cue(s).Id==main.Id,"取消支线后应恢复主线");
             BaseQuestLog.ToggleTrack(s,target.Id);
-            BaseQuestLog.SetCollapsed(s,true);Need(BaseQuestLog.Collapsed(s),"折叠状态应能保存");
-            BaseQuestLog.SetCollapsed(s,false);Need(!BaseQuestLog.Collapsed(s),"折叠状态应能恢复");
-            // 已完成任务不给追踪入口；旧档缺字段补空串而不是 null。
-            var done=entries.FirstOrDefault(entry=>entry.Done);
-            if(done!=null)Need(!done.Trackable,"已完成任务应不可追踪");
+            s.Leaders.Add(new BaseLeader{Id="partner_craft"});
+            Need(BaseQuestLog.Tracked(s)==null&&BaseQuestLog.Cue(s).Id==main.Id&&!BaseQuestLog.ToggleTrack(s,target.Id),"支线完成后应恢复主线，且不再可追踪");
             s.Quests.TrackedId=null;BaseQuests.Normalize(s);
             Need(s.Quests.TrackedId=="","旧档缺失的追踪字段应补空串");
-            Debug.Log("[QuestTrack] 主支线分类、选择／取消追踪、折叠、已完成不可追踪、旧档补字段 PASS");
+            Debug.Log("[QuestTrack] 主线默认、支线解锁与选择、出口箭头、取消与完成回主线、旧档补字段 PASS");
         }
         // P36（2026-11-06 裁决）：三档＝手动／进攻／驻守；逃跑退出 UI 但保留枚举位，旧档按驻守读。
         // 权限守卫落在 BattleSimulation 命令入口：远程只放策略与查看，移动／集火／技能／改范围一律拒绝。

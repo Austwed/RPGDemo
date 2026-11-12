@@ -130,7 +130,7 @@ namespace BaseConquest.Battle
             if (prepared == null && battle.ModernRules && battle.Scenario.TestAutoDeployment && !suppressInitialDeploy) battle.AutoDeploy();
             if (prepared == null && battle.ModernRules && !battle.Scenario.TestAutoDeployment && !suppressInitialDeploy) battle.AutoDeploy(BattleSide.B);
             boardView = sharedMapView ?? new BattleBoardView(battle.Board, transform, material, lineMaterial); boardView.FlatView = battle.ModernRules;
-            float previousView=boardView.Camera.orthographicSize;bool preserve=sharedMapView!=null&&battle.Scenario.HeightVision;boardView.SetCombatMode(true,preserve);if(preserve)boardView.SetViewSize(previousView);
+            float previousView=boardView.Camera.orthographicSize;bool preserve=sharedMapView!=null&&battle.Scenario.HeightVision;boardView.SetCombatMode(true,preserve,battle.Phase==BattlePhase.Deployment && !IsRealtimeCampaign);if(preserve)boardView.SetViewSize(previousView);
             if (battle.ModernRules && !DeploymentDraftActive) { boardView.MarkExits(font,battle.ExitCell(BattleSide.A),battle.ExitCell(BattleSide.B)); boardView.Refresh(); }
             if (Application.isPlaying && boardView.Camera.GetComponent<AudioListener>()==null) boardView.Camera.gameObject.AddComponent<AudioListener>();
             unitsRoot = new GameObject("DeployedUnits").transform; unitsRoot.SetParent(transform, false);
@@ -225,7 +225,7 @@ namespace BaseConquest.Battle
             if (CampaignMenuOpen)
             {
                 if (Keyboard.current?.escapeKey.wasPressedThisFrame == true) CloseCampaignMenu();
-                if (!DeploymentDraftActive) PersistCampaignResult();
+                if (!DeploymentDraftActive && !BaseConquest.Base.BaseBattleGateway.DemoMode) PersistCampaignResult();
                 return;
             }
             if (DeploymentDraftActive) { UpdateDraftDeployment(); return; }

@@ -108,7 +108,7 @@ namespace BaseConquest.Battle
             }
             catch(Exception error){feedback="未放弃战斗："+error.Message;hud?.Refresh();return false;}
         }
-        public void CampaignMainMenu() {if(IsRealtimeCampaign){AbandonRealtimeBattle(true);return;}PersistCampaignCheckpoint(true);LoadCampaignMainMenu();}
+        public void CampaignMainMenu() {if(BaseBattleGateway.DemoMode&&!IsStandaloneTest){BaseBattleGateway.ExitDemoSession(false);return;}if(IsRealtimeCampaign){AbandonRealtimeBattle(true);return;}PersistCampaignCheckpoint(true);LoadCampaignMainMenu();}
         private void LoadCampaignMainMenu()
         {
             BaseBattleGateway.MainMenu=true;
@@ -117,6 +117,6 @@ namespace BaseConquest.Battle
             SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
         }
         private void OnApplicationPause(bool paused){if(paused){CancelGesture();ManualPause();PersistCampaignCheckpoint(true);}}
-        private void OnApplicationQuit()=>PersistCampaignCheckpoint(true);
+        private void OnApplicationQuit(){if(!BaseBattleGateway.DemoMode)PersistCampaignCheckpoint(true);}
     }
 }

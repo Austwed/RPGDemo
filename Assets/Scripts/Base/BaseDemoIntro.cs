@@ -43,23 +43,18 @@ namespace BaseConquest.Base
                 return BaseScriptNames.PartnerName(s);
             return captain.Name;
         }
-        private static string PracticeObjective(BaseDemoIntroState i)
-        {
-            int ex=NextExercise(i);
-            return ex==Select?"演练：选中指挥角色":ex==Pause?"演练：使用战术暂停":ex==Move?"演练：下达移动指令":ex==Guard?"演练：下达驻守指令":ex==Skill?"演练：施放战吼鼓舞":ex==Inspect?"演练：查看当前增益":ex==DummyDemo?"演练：观察攻击前摇":ex==AutoAttack?"演练：切换【进攻】策略":"演练：主动点击对手交锋";
-        }
         public static string Objective(BaseState s)
         {
             var i=s.Demo.Intro;
             switch(i.Step)
             {
                 case 0:return "选择你的主角，开启"+BaseScriptNames.Village+"的清晨";
-                case 1:return "走近搭档，按 E 交谈";
+                case 1:return "走近搭档交谈";
                 case 2:return "前往麦田问候阿禾";
-                case 9:return (i.FarmWorkers==4?"■ ":"□ ")+"为粮田调配 4 名劳力（"+i.FarmWorkers+"/4）";
+                case 9:return "为粮田调配 4 名工人，确认方案";
                 case 10:return "找"+PartnerName(s)+"领取佩剑";
-                case 3:return "按 B 打开背包穿戴【旧制短剑】，再找"+PartnerName(s)+"演练";
-                case 4:return PracticeObjective(i);
+                case 3:return "打开背包并装备旧制短剑";
+                case 4:return "和搭档交谈，开始民兵演练";
                 case 5:return "演练已经完成，等待村口的消息";
                 case 6:return "村口传来急促脚步声，去听取村民报告";
                 case 7:return "护送阿禾与村民向东撤离";
@@ -169,13 +164,17 @@ namespace BaseConquest.Base
             if(!Daily(s)||!(At(s,"intro_farm")||At(s,"intro_smith"))||workers<2||workers>4)return false;
             // PRO_02_LOCK_FARM／LOCK_SMITH：还没听阿禾说完人手安排，先别动粮田与铁匠铺的岗位。
             if(s.Demo.Intro.Step<9)throw new InvalidOperationException(At(s,"intro_farm")?"阿禾正在田埂边清点麦种，先过去听听他的盘算吧。":"炉火正旺，先去麦田问问阿禾今天的人手安排。");
-            s.Demo.Intro.FarmWorkers=workers;return true;
+            s.Demo.Intro.FarmWorkers=workers;
+            CompleteFarmAssignment(s);
+            return true;
         }
         public static int FarmOutput(BaseState s)=>(int)Math.Floor(s.Demo.Intro.FarmWorkers*s.Rules.FarmPerWorker);
         public static int VillageFood(BaseState s)=>4*s.Rules.SoldierFood+2*(BaseRpg.Active(s)?s.Demo.Rpg.LeaderFood:s.Rules.LeaderFood);
         public static double SmithWork(BaseState s)=>(4-s.Demo.Intro.FarmWorkers)*s.Rules.WorkshopPerWorker;
-        public static bool FinishFarm(BaseState s)
-        {if(!Daily(s)||s.Demo.Intro.Step!=9||s.Demo.Intro.FarmWorkers!=4||!(At(s,"intro_farm")||At(s,"intro_smith")))return false;s.Demo.Intro.Step=10;return true;}
+        internal static void CompleteFarmAssignment(BaseState s)
+        {
+            if(Daily(s)&&s.Demo.Intro.Step==9&&s.Demo.Intro.FarmWorkers==4)s.Demo.Intro.Step=10;
+        }
         public static bool AdvanceReporter(BaseState s,double seconds)
         {
             if(!Active(s)||s.Demo.Intro.Step!=6||s.Demo.Intro.ReporterArrived)return false;var i=s.Demo.Intro;

@@ -19,6 +19,8 @@ namespace BaseConquest.Base
         private BaseSceneController owner;
         private Font font;
         private RectTransform root,map,panel,actual,preview,roadsLayer;
+        private Text questLine, questMarker;
+        private Button enterAction, marchAction;
         private BaseWorldPlan plan;
         private string selected,entryId,lastState;
         private Coroutine animation;
@@ -47,6 +49,8 @@ namespace BaseConquest.Base
                 var icon=NodeSprite(node);if(icon!=null){var r=new GameObject("NodeIcon",typeof(RectTransform),typeof(Image)).GetComponent<RectTransform>();r.SetParent(button.transform,false);r.anchorMin=r.anchorMax=new Vector2(0,.5f);r.anchoredPosition=new Vector2(18,0);r.sizeDelta=new Vector2(32,32);var image=r.GetComponent<Image>();image.sprite=icon;image.preserveAspect=true;image.raycastTarget=false;var label=button.GetComponentInChildren<Text>();label.rectTransform.offsetMin+=new Vector2(32,0);}
             }
             actual=Marker("ActualParty",map,"队伍",theme.Wood);preview=Marker("PlanParty",map,"计划",theme.Gold);preview.gameObject.SetActive(false);
+            questLine=Text(map,"",new Vector2(22,-14),new Vector2(520,52),20);questLine.fontStyle=FontStyle.Bold;
+            questMarker=Text(root,"▼",Vector2.zero,new Vector2(36,38),26);questMarker.alignment=TextAnchor.MiddleCenter;questMarker.color=theme.Gold;
             gameObject.AddComponent<GameFrameCanvas>().Apply();
             selected=owner.State.Campaign.WorldJourney.NodeId;Canvas.ForceUpdateCanvases();PositionMap();actual.anchoredPosition=ActualPoint();RefreshPanel();
         }
@@ -63,13 +67,34 @@ namespace BaseConquest.Base
         private void Update()
         {
             if(owner==null||owner.State==null)return;
-            bool visible=BaseWorldJourney.OnWorld(owner.State)&&!owner.State.Aftermath.GameOver&&!BaseBattleLoot.Pending(owner.State)&&!owner.Hud.PanelOpen;
+            bool visible=BaseWorldJourney.OnWorld(owner.State)&&!owner.State.Aftermath.GameOver&&!BaseBattleLoot.ShouldPresent(owner.State)&&!owner.Hud.PanelOpen;
             map.gameObject.SetActive(visible);panel.gameObject.SetActive(visible);owner.Hud.SetVisible(!visible);
-            if(!visible){if(BaseBattleLoot.Pending(owner.State)&&!owner.Hud.PanelOpen)owner.Hud.OpenLoot();else if(owner.State.Aftermath.GameOver&&!owner.Hud.PanelOpen)owner.Hud.OpenMenu();return;}
+            if(!visible){questMarker.gameObject.SetActive(false);if(BaseBattleLoot.ShouldPresent(owner.State)&&!owner.Hud.PanelOpen)owner.Hud.OpenLoot();else if(owner.State.Aftermath.GameOver&&!owner.Hud.PanelOpen)owner.Hud.OpenMenu();return;}
             if(mapSize!=map.rect.size)PositionMap();
             actual.anchoredPosition=Vector2.MoveTowards(actual.anchoredPosition,ActualPoint(),Time.unscaledDeltaTime*700);
             var world=owner.State.Campaign.WorldJourney;string key=owner.State.Day+"/"+world.NodeId+"/"+world.RoadIndex+"/"+world.RoadDay+"/"+world.Route.Count+"/"+owner.WorldMarchRunning+"/"+owner.Busy;
             if(key!=lastState){lastState=key;if(!BaseWorldJourney.Marching(owner.State)&&owner.WorldMarchRunning==false&&plan?.Path.FirstOrDefault()!=world.NodeId){plan=null;selected=world.NodeId;preview.gameObject.SetActive(false);}RefreshPanel();DrawRoads();}
+            RefreshQuestCue(world);
+        }
+        private void RefreshQuestCue(BaseWorldJourneyState world)
+        {
+            var cue=BaseQuestLog.Cue(owner.State);
+            var targetEntry=world.Entries.FirstOrDefault(entry=>entry.Id==cue.ObjectId);
+            questMarker.gameObject.SetActive(false);
+            questLine.gameObject.SetActive(targetEntry!=null);
+            if(targetEntry==null)return;
+            if(questLine.text!=cue.Instruction)questLine.text=cue.Instruction;
+            if(owner.Busy||owner.WorldMarchRunning)return;
+            RectTransform target;
+            if(BaseWorldJourney.Marching(owner.State))target=marchAction.IsInteractable()?(RectTransform)marchAction.transform:null;
+            else if(selected==targetEntry.NodeId&&enterAction.IsInteractable())target=(RectTransform)enterAction.transform;
+            else if(selected==targetEntry.NodeId&&marchAction.IsInteractable())target=(RectTransform)marchAction.transform;
+            else target=map.Find("Node_"+targetEntry.NodeId) as RectTransform;
+            if(target==null)return;
+            var frame=(RectTransform)questMarker.rectTransform.parent;
+            Vector3 point=frame.InverseTransformPoint(target.TransformPoint(new Vector3(target.rect.center.x,target.rect.yMax)));
+            questMarker.rectTransform.anchoredPosition=new Vector2(point.x-frame.rect.xMin-18,point.y-frame.rect.yMax+32);
+            questMarker.transform.SetAsLastSibling();questMarker.gameObject.SetActive(true);
         }
         private RectTransform Layer(string name,Transform parent)
         {
@@ -163,6 +188,7 @@ namespace BaseConquest.Base
             actions.offsetMin=new Vector2(18,20);actions.offsetMax=new Vector2(-18,68);
             var enter=Button(actions,"进入",()=>owner.EnterWorldScene(entryId),new Vector2(136,0),new Vector2(118,48));enter.interactable=entryId!=null&&world.NodeId==selected&&!marching&&(route==null||route.Count<=1)&&!owner.Busy;
             var confirm=Button(actions,marching?"继续行军":"确认行军",()=>{if(animation!=null)StopCoroutine(animation);preview.gameObject.SetActive(false);owner.StartWorldMarch(plan?.Path);},Vector2.zero,new Vector2(128,48));confirm.interactable=!owner.WorldMarchRunning&&!owner.Busy&&(marching||route?.Count>1&&route.Last()==selected);
+            enterAction=enter;marchAction=confirm;
             StyleAction(enter,theme.Button);StyleAction(confirm,theme.Gold);
         }
         private void StyleAction(Button button,Color ready)

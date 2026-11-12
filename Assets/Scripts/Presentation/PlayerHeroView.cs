@@ -41,12 +41,13 @@ namespace BaseConquest.Presentation
             mesh=new Mesh{name="PlayerHeroAtlasQuad"};mesh.vertices=new[]{new Vector3(-.725f,.27f,-.09f),new Vector3(-.725f,.27f,1.36f),new Vector3(.725f,.27f,1.36f),new Vector3(.725f,.27f,-.09f)};mesh.triangles=new[]{0,1,2,0,2,3};mesh.RecalculateNormals();mesh.RecalculateBounds();
             obj.GetComponent<MeshFilter>().sharedMesh=mesh;surface=obj.GetComponent<MeshRenderer>();surface.sharedMaterial=material;Set(HeroPose.Idle,0,false,false);return true;
         }
-        public void Exploration(Vector3 feet)
+        public void Exploration(Vector3 feet,HeroFacing? facing=null)
         {
             var delta=hasPrevious ? feet-previous : Vector3.zero;hasPrevious=true;previous=feet;
-            bool moving=delta.sqrMagnitude>.000001f;
-            if(moving)walkDistance+=new Vector2(delta.x,delta.z).magnitude;
-            Facing=PlayerHeroFrames.FaceWalking(delta.x,delta.z,Facing);
+            var groundDelta=new Vector2(delta.x,delta.z);
+            bool moving=groundDelta.sqrMagnitude>.000001f;
+            if(moving)walkDistance+=groundDelta.magnitude;
+            Facing=facing??PlayerHeroFrames.FaceWalking(delta.x,delta.z,Facing);
             Set(moving ? HeroPose.Walk : HeroPose.Idle,moving ? walkDistance/(BattleBoardView.CellSize*4) : Time.unscaledTime,false,false);
         }
         public void Battle(BattleSimulation battle,BattleSoldier unit,float progress,bool carried)

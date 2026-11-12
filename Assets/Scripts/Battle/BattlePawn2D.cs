@@ -119,13 +119,13 @@ namespace BaseConquest.Battle
                 }
             }
         }
-        public void SyncExploration(Vector3 feet, Color color,Vector3? observer=null,double now=0,bool autonomous=false)
+        public void SyncExploration(Vector3 feet, Color color,Vector3? observer=null,double now=0,bool autonomous=false,BaseConquest.Presentation.HeroFacing? facing=null)
         {
             properties.Clear();
             // Art meshes sit .28 units above their original XZ sheet; standing the sheet rotates that offset toward the camera.
             transform.position=feet+(UprightExploration ? Vector3.forward*.28f : Vector3.zero);
             BaseConquest.Presentation.MapSpriteOrder.Apply(transform,feet.z);
-            playerHero?.Exploration(feet);
+            playerHero?.Exploration(feet,facing);
             companion?.Exploration(feet,observer,now,autonomous);
             foreach(var renderer in colored) { properties.SetColor("_BaseColor",color); renderer.SetPropertyBlock(properties); }
             if(crown!=null) { properties.SetColor("_BaseColor",new Color(1,.76f,.16f)); crown.SetPropertyBlock(properties); }

@@ -44,7 +44,7 @@ namespace BaseConquest.Base
             Line("队长沿用常驻冒险小队，通过伙伴对话暂离／归队或回营。",56,18);
             Line("默认带兵组成已移至兵营·队长编组；这里保留军需与留守设置。",58,18);
             foreach(var leader in BaseAdventure.Members(s))Line(BasePersonnel.LeaderName(leader)+" · "+TroopsText(leader.DefaultTroops),48,19);
-            Line("当前冒险小队 "+s.Adventure.Members.Count+"/3"+(BaseInn.Enabled(s)?" · 旅店寄存 "+s.Inn.Guests.Count:" · 暂离占位 "+s.Adventure.Pauses.Count),48,20);
+            Line("当前冒险小队 "+s.Adventure.Members.Count+"/3 · 暂离占位 "+s.Adventure.Pauses.Count,48,20);
             foreach (var leader in BaseAdventure.Members(s))
             {
                 Line(BasePersonnel.LeaderName(leader)+" · 生命 "+leader.Health.ToString("0.#")+"/"+leader.MaxHealth.ToString("0.#")+(leader.Away ? " · 外出" : " · 随行"),50,20);

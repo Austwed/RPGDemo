@@ -265,6 +265,27 @@ namespace BaseConquest.Battle
             var actor=Model.Units.FirstOrDefault(u=>u.Alive&&u.Side==PrototypeSide.Ally&&u.Role==PrototypeRole.Leader&&u.Squad==slot);if(actor==null)return false;
             Model.SetStrategy(actor,(PrototypeStrategy)(int)strategy);Battle.Scenario.Army(BattleSide.A).Commanders[slot].Strategy=strategy;if(strategy==SquadStrategy.Attack)TutorialAction?.Invoke(BaseDemoIntro.AutoAttack);return true;
         }
+
+        public bool ChooseStrategy(IEnumerable<int> commanderIds, SquadStrategy strategy)
+        {
+            if (Battle.Phase != BattlePhase.Fighting || strategy != SquadStrategy.Obey && strategy != SquadStrategy.Attack && strategy != SquadStrategy.Protect) return false;
+            var ids = new HashSet<int>(commanderIds);
+            bool changed = false;
+            foreach (var actor in Model.Units.Where(u => u.Alive && u.Side == PrototypeSide.Ally && u.Role == PrototypeRole.Leader && ids.Contains(u.Id - 1)))
+            {
+                // Clearing each order at its own cell makes defense anchor the current position.
+                var anchor = Model.Arena.Center(actor.Cell);
+                if (!Model.IssueOrder(-1, actor.Id, PrototypeOrder.Auto, anchor)) continue;
+                actor.Goal = anchor;
+                actor.MoveGoal = -1;
+                var squad = new[] { actor.Squad };
+                Tactics.Cancel(squad);
+                Model.MarkDirectOrder(squad, PrototypeOrder.Auto, -1, false);
+                changed |= Strategy(actor.Squad, strategy);
+            }
+            if (changed) Synchronize();
+            return changed;
+        }
         public bool DefensePursuitReady=>Session.Opening.EventId==BaseDemoDefense.EventId&&Battle.Phase==BattlePhase.Fighting&&Model.Elapsed+1e-8>=Battle.Scenario.Objective.HoldRounds&&!BaseDemoCombat.Defeated(this);
         public bool FinishDefensePursuit()
         {

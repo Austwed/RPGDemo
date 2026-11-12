@@ -12,7 +12,7 @@ namespace BaseConquest.Base
             try { var next=BaseBattleGateway.Catalog().LoadSlot(id,backup); if(next.Aftermath.GameOver) throw new InvalidOperationException("此档已结束，选择其他存档"); BaseBattleGateway.Session().Restore(next); BaseBattleGateway.MainMenu=false; BaseBattleGateway.RequestedId=null; SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); }
             catch(Exception e) { Message="读档失败，当前进度保留："+e.Message; Hud.OpenSlots(false); }
         }
-        public void ToMainMenu() { BaseBattleGateway.MainMenu=true; BaseBattleGateway.RequestedId=null; SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); }
+        public void ToMainMenu() { if(BaseBattleGateway.DemoMode){BaseBattleGateway.ExitDemoSession(false);return;} BaseBattleGateway.MainMenu=true; BaseBattleGateway.RequestedId=null; SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); }
     }
     public sealed partial class BaseHud
     {
@@ -40,11 +40,11 @@ namespace BaseConquest.Base
             if(BaseBattleGateway.DemoMode)
             {
                 BeginPanel("基地征服 · RPG Demo");
-                Line("角色探索与养成：序章→结识伙伴／调查遗迹→领主任务→经营整备→防守／攻营→返乡断剑。Demo独立3手动／6自动槽；默认继续最近存档，无档从序章开始。不兼容旧档会清除并重新开始，不迁移。",140,20);
+                Line("从白桦村出发，结识伙伴、经营营地，追查王室断剑。可从序章开始，或读取已有存档。",92,20);
                 if(owner.State!=null&&!owner.State.Aftermath.GameOver){RowButton("继续Demo",0,800,()=>{BaseBattleGateway.MainMenu=false;owner.LoadSaved();});row+=60;}
                 RowButton("读取Demo存档",0,800,()=>OpenSlots(false));row+=60;
                 if(BaseConquest.Battle.RuntimeDeveloperOptions.Enabled)RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;
-                AddTemplates();RowButton("难度设置",0,800,OpenDifficulty);row+=60;RowButton("选项",0,800,OpenOptions);row+=60;EndPanel();return;
+                AddTemplates();RowButton("难度设置",0,800,OpenDifficulty);row+=60;RowButton("选项",0,800,OpenOptions);row+=60;RowButton("退出游戏",0,800,()=>BaseBattleGateway.ExitDemoSession(true));row+=60;EndPanel();return;
             }
             BeginPanel("基地征服 · 即时格战隔离流程");Line("3手动／6节点自动档；退出游戏将丢失未保存的会话更改。",58,18);
             RowButton("进入Demo流程起步（独立存档）",0,800,owner.EnterDemo);row+=60;

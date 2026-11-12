@@ -58,31 +58,6 @@ namespace BaseConquest.Battle
         private readonly Texture2D buildingTexture;
         private readonly Material buildingMaterial;
         private readonly Material baseGrassMaterial,baseRaisedGrassMaterial,baseRaisedRoadMaterial,baseCliffMaterial,baseStairMaterial;
-        // 坡道按真实朝向取楼梯贴图：通用的 stair-64-v1 是竖条纹木板、不是楼梯，正斜坡因此整片错。
-        private readonly System.Collections.Generic.Dictionary<string,Material> stairSkins=new System.Collections.Generic.Dictionary<string,Material>();
-        private Material StairSkin(GridPosition p)
-        {
-            var cell=board.Cell(p);if(cell==null||cell.Ramp==RampAxis.None)return baseStairMaterial;
-            string direction;
-            if(cell.Ramp==RampAxis.EastWest)
-            {
-                int east=board.Cell(new GridPosition(p.X+1,p.Z))?.Elevation??cell.Elevation;
-                int west=board.Cell(new GridPosition(p.X-1,p.Z))?.Elevation??cell.Elevation;
-                direction=east>=west?"east":"west";
-            }
-            else
-            {
-                int south=board.Cell(new GridPosition(p.X,p.Z+1))?.Elevation??cell.Elevation;
-                int north=board.Cell(new GridPosition(p.X,p.Z-1))?.Elevation??cell.Elevation;
-                direction=south>=north?"south":"north";
-            }
-            if(stairSkins.TryGetValue(direction,out var cached)&&cached!=null)return cached;
-            var texture=Resources.Load<Texture2D>("PixelDemo/Terrain/stairs-"+direction+"-v1");
-            if(texture==null)return baseStairMaterial;
-            var skin=BattlePawn2D.Transparent(baseStairMaterial);skin.name="BaseStairs_"+direction;
-            skin.SetTexture("_BaseMap",texture);skin.SetTextureScale("_BaseMap",Vector2.one);skin.SetTextureOffset("_BaseMap",Vector2.zero);skin.SetColor("_BaseColor",Color.white);
-            stairSkins[direction]=skin;return skin;
-        }
         private readonly BuildingAppearanceCatalog buildings;
         private readonly System.Collections.Generic.Dictionary<string,Material> buildingMaterials=new System.Collections.Generic.Dictionary<string,Material>();
         private readonly System.Collections.Generic.Dictionary<GroundSurface,Material> surfaceMaterials=new System.Collections.Generic.Dictionary<GroundSurface,Material>();
@@ -161,12 +136,13 @@ namespace BaseConquest.Battle
         }
         public BattleBoard Board => board;
         public bool CombatMode { get; private set; } = true;
-        public void SetCombatMode(bool combat,bool preserveView=false)
+        private bool showDeploymentZones = true;
+        public void SetCombatMode(bool combat,bool preserveView=false,bool deploymentZones=true)
         {
             if(combat&&!CombatMode&&!preserveView){zoomFactor=1;panOffset=Vector3.zero;}
             if (!combat) { draftDeploymentZones = null; showDraftDeploymentZones = false; }
             fieldworkArt?.SetKnown(null);
-            CombatMode=combat; SelectCell(null); Refresh();
+            CombatMode=combat; showDeploymentZones=deploymentZones; SelectCell(null); Refresh();
             foreach(var edge in Root.GetComponentsInChildren<BaseConquest.Presentation.EnvironmentRoadEdges>(true)){edge.SetRaised(ObliqueExploration);edge.SetKnown(null);}
             foreach(var facade in Root.GetComponentsInChildren<BaseConquest.Presentation.SpriteFacade>(true))facade.SetRaised(ObliqueExploration);
             foreach(var fog in fogTiles) fog.gameObject.SetActive(false);
@@ -378,7 +354,7 @@ namespace BaseConquest.Battle
                 Vector3 position = World(p, board); float height = 0.18f;
                 Color color = (p.X + p.Z) % 2 == 0 ? new Color(0.19f, 0.24f, 0.3f) : new Color(0.23f, 0.29f, 0.35f);
                 color = new Color(.34f,.43f,.30f);
-                var zone = draftDeploymentZones == null ? cell.Zone : showDraftDeploymentZones && draftDeploymentZones.Cell(p)?.Zone == DeploymentZone.A
+                var zone = draftDeploymentZones == null ? showDeploymentZones ? cell.Zone : DeploymentZone.None : showDraftDeploymentZones && draftDeploymentZones.Cell(p)?.Zone == DeploymentZone.A
                     ? DeploymentZone.A : DeploymentZone.None;
                 bool draftAlly = draftDeploymentZones != null && zone == DeploymentZone.A && draftDeploymentZones.Walkable(p);
                 if (CombatMode && zone == DeploymentZone.A && !draftAlly) color = new Color(.17f,.4f,.59f);
@@ -462,8 +438,9 @@ namespace BaseConquest.Battle
                 if(ObliqueExploration&&cell.Terrain==TerrainKind.Ground&&(cell.Elevation>0||cell.Ramp!=RampAxis.None))
                 {
                     var surface=GroundSurfaceRules.Resolve(cell.Surface,surfaceRegion,p.X,p.Z);
-                    var topMaterial=cell.Ramp!=RampAxis.None&&baseStairMaterial!=null ? StairSkin(p) : surface==GroundSurface.Road&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : (surface==GroundSurface.Grass||surface==GroundSurface.Default)&&baseRaisedGrassMaterial!=null ? GrassVariant(baseRaisedGrassMaterial,p.X,p.Z) : tile.sharedMaterial;
-                    raisedMeshes[index]=BaseConquest.Presentation.BaseTerrainView.Ground(board,p);
+                    bool steps=board.RampLowEdge(p)!=0;
+                    var topMaterial=steps&&homeTerrainTrial&&baseStairMaterial!=null ? baseStairMaterial : (steps||surface==GroundSurface.Road)&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : (surface==GroundSurface.Grass||surface==GroundSurface.Default)&&baseRaisedGrassMaterial!=null ? GrassVariant(baseRaisedGrassMaterial,p.X,p.Z) : tile.sharedMaterial;
+                    raisedMeshes[index]=BaseConquest.Presentation.BaseTerrainView.Ground(board,p,steps);
                     tile.GetComponent<MeshFilter>().sharedMesh=raisedMeshes[index];
                     tile.sharedMaterials=new[]{topMaterial,baseCliffMaterial??wallMaterial};
                     tile.transform.position=World(p,board);tile.transform.localScale=Vector3.one;
@@ -471,7 +448,7 @@ namespace BaseConquest.Battle
                 }
                 if(surfaceRegion=="dungeon")
                 {
-                    string id=cell.Terrain==TerrainKind.Wall?"dungeon-wall":cell.Ramp!=RampAxis.None?"dungeon-stair":p.Z>=12&&(p.X+p.Z)%7<3?"dungeon-damp":"dungeon-floor";
+                    string id=cell.Terrain==TerrainKind.Wall?"dungeon-wall":!ObliqueExploration&&cell.Ramp!=RampAxis.None?"dungeon-stair":p.Z>=12&&(p.X+p.Z)%7<3?"dungeon-damp":"dungeon-floor";
                     var skin=DungeonSkin(id);
                     if(skin!=null)
                     {
@@ -626,7 +603,7 @@ namespace BaseConquest.Battle
             }
             texture.SetPixels(colors); texture.Apply(); return texture;
         }
-        public void Dispose() {DestroyObject(heightFogMaterial);DestroyObject(heightFogMesh);foreach(var mesh in rampFogMeshes.Values)DestroyObject(mesh);foreach(var m in dungeonMaterials.Values)DestroyObject(m);foreach(var s in stairSkins.Values)DestroyObject(s); elevationView?.Dispose();groundEdges?.Dispose();fieldworkArt?.Dispose();DestroyObject(baseGrassMaterial);DestroyObject(baseRaisedGrassMaterial);DestroyObject(baseRaisedRoadMaterial);DestroyObject(baseCliffMaterial);DestroyObject(baseStairMaterial);foreach(var mesh in buildingMeshes)DestroyObject(mesh);foreach(var mesh in raisedMeshes)DestroyObject(mesh);foreach(var skin in buildingMaterials.Values)DestroyObject(skin);foreach(var skin in surfaceMaterials.Values)DestroyObject(skin);DestroyObject(buildingMaterial);DestroyObject(buildingTexture);DestroyObject(gridMesh); DestroyObject(swampMaterial); DestroyObject(swampTexture); DestroyObject(translucentFog); DestroyObject(waterMaterial); DestroyObject(wallMaterial); DestroyObject(waterTexture); DestroyObject(wallTexture); }
+        public void Dispose() {DestroyObject(heightFogMaterial);DestroyObject(heightFogMesh);foreach(var mesh in rampFogMeshes.Values)DestroyObject(mesh);foreach(var m in dungeonMaterials.Values)DestroyObject(m);elevationView?.Dispose();groundEdges?.Dispose();fieldworkArt?.Dispose();DestroyObject(baseGrassMaterial);DestroyObject(baseRaisedGrassMaterial);DestroyObject(baseRaisedRoadMaterial);DestroyObject(baseCliffMaterial);DestroyObject(baseStairMaterial);foreach(var mesh in buildingMeshes)DestroyObject(mesh);foreach(var mesh in raisedMeshes)DestroyObject(mesh);foreach(var skin in buildingMaterials.Values)DestroyObject(skin);foreach(var skin in surfaceMaterials.Values)DestroyObject(skin);DestroyObject(buildingMaterial);DestroyObject(buildingTexture);DestroyObject(gridMesh); DestroyObject(swampMaterial); DestroyObject(swampTexture); DestroyObject(translucentFog); DestroyObject(waterMaterial); DestroyObject(wallMaterial); DestroyObject(waterTexture); DestroyObject(wallTexture); }
         public void ShowOutline(GridPosition from, GridPosition to, bool visible)
         {
             outline.enabled = visible; if (!visible) return;
@@ -639,14 +616,16 @@ namespace BaseConquest.Battle
         public void SelectCell(GridPosition? cell)
         {
             SelectedCell = cell; cellSelection.enabled = cell.HasValue; if (!cell.HasValue) return;
+            TintSelection(Color.white);
             Vector3 p = World(cell.Value, board) + Vector3.up * 1.1f; float r = CellSize * 0.48f;
             var corners=new[] { p + new Vector3(-r, 0, -r), p + new Vector3(-r, 0, r), p + new Vector3(r, 0, r), p + new Vector3(r, 0, -r) };
             if(ObliqueExploration)
                 for(int i=0;i<corners.Length;i++)corners[i].y=BaseConquest.Presentation.BaseTerrainView.Height(board,cell.Value,(corners[i].x-p.x)/CellSize+.5f,(corners[i].z-p.z)/CellSize+.5f)+.025f;
             cellSelection.SetPositions(corners);
         }
-        public void SelectFineCell(int x,int z)
+        public void SelectFineCell(int x,int z, bool guard = false)
         {
+            TintSelection(guard ? new Color(1f, .81f, .22f) : Color.white);
             SelectedCell=new GridPosition(x/2,z/2);cellSelection.enabled=true;
             var p=new Vector3((x*.5f+.25f-board.Width*.5f)*CellSize,1.1f,(z*.5f+.25f-board.Height*.5f)*CellSize);float r=CellSize*.24f;
             cellSelection.SetPositions(new[]{p+new Vector3(-r,0,-r),p+new Vector3(-r,0,r),p+new Vector3(r,0,r),p+new Vector3(r,0,-r)});
@@ -654,7 +633,7 @@ namespace BaseConquest.Battle
         public void CenterOn(GridPosition cell) { var p = World(cell, board); panOffset = new Vector3(p.x, 0, p.z); UpdateCamera(0, 0); }
         public void FollowSelection(GridPosition cell, Vector3 position)
         {
-            SelectedCell = cell; cellSelection.enabled = true; position.y = 1.4f; float r = CellSize * 0.48f;
+            SelectedCell = cell; cellSelection.enabled = true; TintSelection(Color.white); position.y = 1.4f; float r = CellSize * 0.48f;
             cellSelection.SetPositions(new[] { position + new Vector3(-r, 0, -r), position + new Vector3(-r, 0, r), position + new Vector3(r, 0, r), position + new Vector3(r, 0, -r) });
         }
         public void MarkExits(Font font, GridPosition? exitA=null, GridPosition? exitB=null)

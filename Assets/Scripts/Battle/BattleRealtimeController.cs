@@ -16,6 +16,53 @@ namespace BaseConquest.Battle
         private int informationFineCell=-1,lastRealtimeTap=int.MinValue;
         private double lastRealtimeTapTime=-10;
         private bool lastRealtimeGround;
+        private int practiceGroundCell = -1;
+        internal int PracticeStep { get; private set; }
+        internal string PracticeText { get; private set; } = "";
+
+        internal void SetPracticeCue(int step, string instruction)
+        {
+            if (step == PracticeStep && PracticeText == instruction) return;
+            if (step != PracticeStep) practiceGroundCell = -1;
+            PracticeStep = step;
+            PracticeText = instruction;
+            hud?.Refresh();
+        }
+
+        internal bool TryPracticeMapTarget(int step, out Vector2 screen)
+        {
+            screen = default;
+            var model = realtime?.Model;
+            var actor = model?.Player;
+            if (actor == null || boardView == null) return false;
+            PrototypePoint point;
+            float height = .22f;
+            if (step == BaseDemoIntro.Attack)
+            {
+                var opponent = model.Units.FirstOrDefault(u => u.Alive && u.Side == PrototypeSide.Enemy);
+                if (opponent == null) return false;
+                point = opponent.BodyCenter;
+                height = .65f;
+            }
+            else if (step == BaseDemoIntro.Move || step == BaseDemoIntro.Guard)
+            {
+                var arena = model.Arena;
+                if (practiceGroundCell < 0)
+                {
+                    var distances = arena.Distances(actor.Cell, true);
+                    double preferred = step == BaseDemoIntro.Move ? 1.5 : .8;
+                    practiceGroundCell = Enumerable.Range(0, distances.Length)
+                        .Where(i => distances[i] >= .75 && distances[i] <= 3 && arena.FineWalkable(i) &&
+                            !model.Units.Any(u => u.Alive && u.Contains(arena.Center(i))) && realtime.Tactics.At(arena.Center(i)) == null)
+                        .OrderBy(i => Math.Abs(distances[i] - preferred)).ThenBy(i => i).DefaultIfEmpty(-1).First();
+                }
+                if (practiceGroundCell < 0) return false;
+                point = arena.Center(practiceGroundCell);
+            }
+            else return false;
+            screen = boardView.Camera.WorldToScreenPoint(RealtimeWorld(point) + Vector3.up * height);
+            return true;
+        }
         public string RealtimeFineInformation=>informationIsCell&&informationFineCell>=0&&realtime!=null?"细格 ("+(informationFineCell%realtime.Model.Arena.FineColumns)+", "+(informationFineCell/realtime.Model.Arena.FineColumns)+")":"";
         private readonly Dictionary<int,LineRenderer> realtimeArrows=new Dictionary<int,LineRenderer>();
         public bool IsRealtimeCampaign=>campaignSession?.Opening.RealtimeRules==true;
@@ -26,8 +73,7 @@ namespace BaseConquest.Battle
         {var actor=realtime?.Model.Units.FirstOrDefault(a=>a.Id==unit.Id+1);return actor==null?RealtimeCampaignBattle.SpeedCells(campaignSession,unit):realtime.Model.MovementSpeed(actor)*2;}
         public double RealtimeAttack(BattleSoldier unit)
         {var actor=realtime?.Model.Units.FirstOrDefault(a=>a.Id==unit.Id+1);return actor==null?unit.Stats.Damage*unit.DrinkMultiplier:realtime.Model.DamageFor(actor);}
-        public string RealtimeStatus=>"即时格战 · "+(realtime?.Model.Elapsed??0).ToString("0.0")+"秒 · "+(autoRun?"进行中":"暂停")+" · "+(campaignSession?.Opening.RealtimeRulesVersion==0?"旧实验数值·本场保留":"细格数值")+(campaignSession?.Opening.DemoCombat==true?" · Demo独立存档":" · 独立实验存档");
-        public const string RealtimePending="首版：1轮参数暂按1秒；脚力冲锋／救援／胜后追击未接入";
+        public string RealtimeStatus=>"作战 "+(realtime?.Model.Elapsed??0).ToString("0.0")+"秒 · "+(autoRun?"进行中":"暂停");
         public void PrepareCampaignPreview(BaseCampaignSession session)
         {
             campaignSession=session;campaignBattleId=session.Opening.Id;suppressInitialDeploy=true;Initialize();
@@ -68,6 +114,16 @@ namespace BaseConquest.Battle
             SyncRealtimeViews();hud?.Refresh();return accepted;
         }
         public bool RealtimeMove(PrototypePoint point)=>RealtimeOrder(PrototypeOrder.Move,point);
+        internal IEnumerable<PrototypeStrategy> SelectedRealtimeStrategies => realtime?.Model.Units
+            .Where(u => u.Alive && u.Side == PrototypeSide.Ally && u.Role == PrototypeRole.Leader && selection.Contains(u.Id - 1))
+            .Select(u => u.Strategy) ?? Enumerable.Empty<PrototypeStrategy>();
+
+        internal void ChooseRealtimeStrategy(SquadStrategy strategy)
+        {
+            if (campaignMenu != null || DetailsVisible || ExternalDialogue || realtime?.ChooseStrategy(selection.Ids, strategy) != true) return;
+            SyncRealtimeViews();
+            hud?.Refresh();
+        }
         public void RealtimeGuardSelection()
         {
             var actor=realtime?.Model.Units.FirstOrDefault(unit=>selection.Contains(unit.Id-1)&&unit.Alive);
@@ -76,10 +132,10 @@ namespace BaseConquest.Battle
         public void RealtimeRetreat()
         {if(realtime==null)return;ManualPause();if(realtime.DefensePursuitReady)feedback=realtime.FinishDefensePursuit()?"已结束追击，存活敌军撤离":"无法结算";else feedback=realtime.RetreatAll()?(realtime.Session.Opening.DemoCombat?"已立即撤退；返回后结算真实战损与军需":"全军向真实撤离口移动；抵达后才算成功撤离"):"暂无可撤离单位";SyncRealtimeViews();hud?.Refresh();}
         public bool PauseForDialogue(){bool running=autoRun;autoRun=false;realtime?.Model.SetPaused(true);return running;}
-        public void ResumeAfterDialogue(bool running){autoRun=running;realtime?.Model.SetPaused(!running);}
+        public void ResumeAfterDialogue(bool running){autoRun=running;realtime?.Model.SetPaused(!running || DetailsVisible || campaignMenu != null);}
         public void ToggleRealtimePause()
         {
-            if(realtime==null||battle.Phase!=BattlePhase.Fighting)return;
+            if(realtime==null||battle.Phase!=BattlePhase.Fighting||campaignMenu!=null||DetailsVisible||ExternalDialogue||hud?.ReportVisible==true)return;
             realtime.TutorialAction?.Invoke(BaseDemoIntro.Pause);autoRun=!autoRun;realtime.Model.SetPaused(!autoRun);feedback=autoRun?"即时战斗进行中":"已暂停，可以下令";hud?.Refresh();
         }
         private void SelectRealtimeCommander(int id,bool alone,bool toggle = false)
@@ -105,14 +161,22 @@ namespace BaseConquest.Battle
         public void ToggleRealtimeAutoSkill(int slot)
         {if(realtime?.SetAutoSkill(slot,!realtime.AutoSkill(BattleSide.A,slot))==true){feedback="已更新自动技能";hud?.Refresh();}}
         private int realtimeCandidate=-1;
-        public bool RealtimePointer(Vector2 screen,bool secondary=false,bool single=false)
+        public bool RealtimePointer(Vector2 screen,bool secondary=false,bool single=false,bool holdGuard=false)
         {
-            if(realtime==null||battle.Phase!=BattlePhase.Fighting||developerPanel?.BlocksPointer(screen)==true||campaignMenu!=null||DetailsVisible||hud?.ReportVisible==true||hud?.BlocksPointer(screen)==true||!boardView.Camera.pixelRect.Contains(screen))return false;
+            if(realtime==null||battle.Phase!=BattlePhase.Fighting||ExternalDialogue||developerPanel?.BlocksPointer(screen)==true||campaignMenu!=null||DetailsVisible||hud?.ReportVisible==true||hud?.BlocksPointer(screen)==true||!boardView.Camera.pixelRect.Contains(screen))return false;
             if(!ResolvePointer(screen,out var cell))return false;
             var ray=boardView.Camera.ScreenPointToRay(screen);var plane=new Plane(Vector3.up,Vector3.zero);
             if(!plane.Raycast(ray,out float distance))return false;
             var world=ray.GetPoint(distance);var point=new PrototypePoint(world.x/BattleBoardView.CellSize+battle.Board.Width*.5,world.z/BattleBoardView.CellSize+battle.Board.Height*.5);
             int fine=realtime.Model.Arena.CellAt(point);if(fine<0)return false;
+            if (holdGuard)
+            {
+                if (!HasSelection || !realtime.Model.Arena.CanStand(point) || realtime.Tactics.At(point) != null || RealtimeFineUnits(fine).Any(u => u.IsActive)) return false;
+                lastRealtimeTap = int.MinValue;
+                lastRealtimeGround = false;
+                InspectRealtimeFine(point, showNotice: false);
+                return MarkRealtimeGuard(point);
+            }
             if (manualFieldEncounter && !HasSelection)
             {
                 InspectRealtimeFine(point);
@@ -135,13 +199,22 @@ namespace BaseConquest.Battle
                 if(commander!=null)SelectRealtimeCommander(commander.Id,single&&picked.Kind==SoldierKind.Hero);
                 InspectRealtimeFine(point);hud?.Refresh();return true;
             }
-            InspectRealtimeFine(point);
+            // A ground command must not open a card under the pointer between the two presses.
+            InspectRealtimeFine(point, showNotice: !guardDouble && (!HasSelection || picked != null || realtime.Tactics.At(point) != null));
             if(!HasSelection){feedback="查看格内全部可见单位与地形";hud?.Refresh();return true;}
-            if(guardDouble){RealtimeOrder(PrototypeOrder.Guard,point);return true;}
+            if(guardDouble){MarkRealtimeGuard(point);return true;}
             if(picked?.Side==BattleSide.B&&picked.IsActive){RealtimeOrder(PrototypeOrder.Focus,point,picked.Id,twice);return true;}
             if(picked?.Side==BattleSide.B){feedback="查看倒地单位；当前目标无法被攻击";hud?.Refresh();return true;}
             if(OrderTacticalObject(point))return true;
-            RealtimeOrder(twice?PrototypeOrder.Guard:PrototypeOrder.Move,point);return true;
+            if(twice)MarkRealtimeGuard(point);else RealtimeOrder(PrototypeOrder.Move,point);return true;
+        }
+
+        private bool MarkRealtimeGuard(PrototypePoint point)
+        {
+            if (!RealtimeOrder(PrototypeOrder.Guard, point)) return false;
+            int fine = realtime.Model.Arena.CellAt(point);
+            boardView.SelectFineCell(fine % realtime.Model.Arena.FineColumns, fine / realtime.Model.Arena.FineColumns, guard: true);
+            return true;
         }
         private List<BattleSoldier> RealtimeFineUnits(int fine)
         {
@@ -150,12 +223,13 @@ namespace BaseConquest.Battle
                 (a.FootprintLength==2?a.Contains(p):realtime.Model.Arena.CellAt(a.Position)==fine))
                 .Select(a=>battle.Soldier(a.Id-1)).Where(s=>battle.CanInspectUnit(selectedSide,s)).OrderBy(s=>s.Id).ToList();
         }
-        public void InspectRealtimeFine(PrototypePoint point)
+        public void InspectRealtimeFine(PrototypePoint point, bool showNotice = true)
         {
             if(realtime==null)return;int fine=realtime.Model.Arena.CellAt(point);if(fine<0)return;
             informationFineCell=fine;var cell=new GridPosition(fine%realtime.Model.Arena.FineColumns/2,fine/realtime.Model.Arena.FineColumns/2);
             boardView.SelectFineCell(fine%realtime.Model.Arena.FineColumns,fine/realtime.Model.Arena.FineColumns);informationCell=cell;informationIsCell=true;inspectionTracksUnit=false;
-            informationUnitId=RealtimeFineUnits(fine).FirstOrDefault()?.Id??-1;ShowInformationNotice();
+            informationUnitId=RealtimeFineUnits(fine).FirstOrDefault()?.Id??-1;
+            if(showNotice)ShowInformationNotice();
         }
         private void InspectRealtimeCell(GridPosition cell)
         {
@@ -169,8 +243,8 @@ namespace BaseConquest.Battle
         private void AdvanceRealtimeModel(double seconds)
         {
             if(realtime==null)return;
-            if(developerPanel?.BlocksGameInput==true||campaignMenu!=null||DetailsVisible||hud?.ReportVisible==true)ManualPause();
-            realtime.Model.SetPaused(!autoRun);
+            if(developerPanel?.BlocksGameInput==true||campaignMenu!=null||hud?.ReportVisible==true)ManualPause();
+            realtime.Model.SetPaused(!autoRun || DetailsVisible || ExternalDialogue);
             double before=realtime.Model.Elapsed;realtime.Tick(seconds);
             if(IsSceneEncounter&&realtime.Model.Elapsed>before)advanceSceneFollowers?.Invoke(realtime.Model.Elapsed-before);
         }
@@ -179,10 +253,11 @@ namespace BaseConquest.Battle
             boardView.UpdateCamera(Mathf.Min(.21f,132f/1280),.08f);
             if(developerPanel?.BlocksGameInput==true){MapPanUp();ManualPause();SyncRealtimeViews();PersistCampaignResult();hud?.Refresh();return;}
             var keyboard=Keyboard.current;
-            if(campaignMenu!=null){MapPanUp();ManualPause();PersistCampaignCheckpoint();PersistCampaignResult();hud?.Refresh();return;}
+            if(campaignMenu!=null){MapPanUp();ManualPause();hud?.Refresh();return;}
             if(keyboard!=null)
             {
-                if(keyboard.escapeKey.wasPressedThisFrame){ManualPause();if(DetailsVisible)CloseCommanderDetails();else if(hud.ReportVisible)hud.CloseReport();else OpenCampaignMenu();return;}
+                if(keyboard.escapeKey.wasPressedThisFrame){if(DetailsVisible)CloseCommanderDetails();else if(hud.ReportVisible)hud.CloseReport();else OpenCampaignMenu();return;}
+                if(DetailsVisible){AdvanceRealtimeModel(0);hud?.Refresh();return;}
                 if(keyboard.spaceKey.wasPressedThisFrame)HandleSpaceInput();
                 if(keyboard.digit1Key.wasPressedThisFrame)SelectCommanderSlot(0);
                 if(keyboard.digit2Key.wasPressedThisFrame)SelectCommanderSlot(1);
@@ -198,6 +273,8 @@ namespace BaseConquest.Battle
                 if(mouse?.leftButton.wasPressedThisFrame==true)RealtimePointer(mouse.position.ReadValue(),false,keyboard?.leftShiftKey.isPressed==true);
                 if(mouse?.rightButton.wasPressedThisFrame==true)RealtimePointer(mouse.position.ReadValue(),true,keyboard?.leftShiftKey.isPressed==true);
             }
+            if (gestureActive && gestureId >= 0 && !gestureDragging && !gestureLong && Time.unscaledTime - gestureStartTime >= .5f)
+                gestureLong = RealtimePointer(gestureCurrent, holdGuard: true);
             int iterations=fastMode?3:1;for(int index=0;index<iterations;index++)AdvanceRealtimeModel(Math.Min(.25,Time.unscaledDeltaTime));
             SyncRealtimeViews();
             UpdatePortraitHold();PersistCampaignResult();PersistCampaignCheckpoint();hud?.Refresh();

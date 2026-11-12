@@ -59,9 +59,10 @@ namespace BaseConquest.Base
     {
         public int GenerationSeed, SceneRulesVersion;
         public int HideoutEnemyCount;
+        public string RuinsFirstControllerTemplate="captain_awakened_warrior";
         public bool IntelPricingConfigured;
         public int ThreeDayIntelPrice,FiveDayIntelPrice;
-        public int Version,CampLevel=1,InnDailyFee=2,LeaderFood=2,ArcherFood=1,SupplyMaterial=2,SupplyWorkValue=5,FacilityRepairMaterials=10,FacilityRepairCoins=20;
+        public int Version,CampLevel=1,LeaderFood=2,ArcherFood=1,SupplyMaterial=2,SupplyWorkValue=5,FacilityRepairMaterials=10,FacilityRepairCoins=20;
         public double AwakenedChance=.2;
         public double EnemyLeaderDeath=.5;
         public double SoldierDeathBase=.5,SoldierDeathSensitivity=1;
@@ -176,7 +177,7 @@ namespace BaseConquest.Base
             if(Capacity.Any(x=>x<1||x>10000)||Capacity[1]<Capacity[0]||Capacity[2]<Capacity[1]||CampMaterials.Concat(CampCoins).Any(x=>x<0||x>1000000)||new[]{WeaponValues,HelmetValues,ArmorValues,AccessoryValues}.Any(a=>a.Any(x=>x<1||x>1000000))||SupplyWorkValue>1000000)throw new ArgumentException("营帐容量、升级费用或商品价值非法");
             if(new[]{ArmorK,ArmorCap,CriticalMultiplier,BaseInterval,MinimumInterval,ArrowSpeed,HeightAdvantage,WeaponAttackScale,AttackEquipmentScale,HealthEquipmentScale,DefenseEquipmentScale,BuyFactor,SellFactor,SupplyAttackLow,SupplyAttackHigh,SupplyDefenseLow,SupplyDefenseHigh,HealThreshold}.Any(x=>!Finite(x)||x<0)||HealThreshold<=0||HealThreshold>1||ArrowSpeed<=0||BuyFactor<=SellFactor||SupplyMaterial<1||LeaderFood<1||Range.Concat(Speed).Concat(Growth).Concat(QualityValue).Any(x=>!Finite(x)||x<=0)||DropQuality.Any(x=>!Finite(x)||x<0)||Math.Abs(DropQuality.Sum()-1)>1e-8||Templates.Any(x=>x==null)||Skills.Any(x=>x==null||string.IsNullOrEmpty(x.Id)||!Finite(x.Cooldown)||x.Cooldown<=0||!Finite(x.Duration)||x.Duration<0||!Finite(x.Amount)||x.Amount<=0||!Finite(x.Radius)||x.Radius<0||!Finite(x.SpeedBonus)||x.SpeedBonus<0||!Finite(x.Opening)||x.Opening<0)||Skills.Select(x=>x.Id).Distinct().Count()!=6||Traits.Any(x=>x==null||!Finite(x.Min)||!Finite(x.Max)||!Finite(x.Step)||!Finite(x.Weight))||Traits.Select(x=>x.Id).Distinct().Count()!=21)throw new ArgumentException("RPG参数非法");
             if(new[]{FoodValue,MaterialValue,BookValue,AdvancedBookValue,StoneValue,WineValue,OtherValue,SupplyMaterial,LeaderFood,ArcherFood}.Any(v=>v<1||v>1000000)||new[]{FacilityRepairMaterials,FacilityRepairCoins}.Any(v=>v<0||v>1000000))throw new ArgumentException("经济默认值非法");
-            if(Version!=1||CampLevel<1||CampLevel>3||InnDailyFee<1||InnDailyFee>1000||Hit.Length!=3||Evasion.Length!=3||Hit.Concat(Evasion).Any(x=>!Finite(x)||x<0||x>10||x!=Math.Truncate(x))||Templates.Count!=9||Templates.Select(t=>t.Id).Distinct().Count()!=9||Templates.Any(t=>!Finite(t.Health)||t.Health<1||!Finite(t.Attack)||t.Attack<0||!Finite(t.Defense)||t.Defense<0)||Skills.Count!=6||Traits.Count!=21||ArmorK<=0||ArmorCap<0||ArmorCap>=1||BaseInterval<MinimumInterval||MinimumInterval<=0||CriticalMultiplier<1||Traits.Any(t=>t.Min>t.Max||t.Step<=0||t.Weight<=0||Math.Abs((t.Max-t.Min)/t.Step-Math.Round((t.Max-t.Min)/t.Step))>1e-6))throw new ArgumentException("RPG规则／九类基准／技能特性配置非法");
+            if(Version!=1||CampLevel<1||CampLevel>3||Hit.Length!=3||Evasion.Length!=3||Hit.Concat(Evasion).Any(x=>!Finite(x)||x<0||x>10||x!=Math.Truncate(x))||Templates.Count!=9||Templates.Select(t=>t.Id).Distinct().Count()!=9||Templates.Any(t=>!Finite(t.Health)||t.Health<1||!Finite(t.Attack)||t.Attack<0||!Finite(t.Defense)||t.Defense<0)||Skills.Count!=6||Traits.Count!=21||ArmorK<=0||ArmorCap<0||ArmorCap>=1||BaseInterval<MinimumInterval||MinimumInterval<=0||CriticalMultiplier<1||Traits.Any(t=>t.Min>t.Max||t.Step<=0||t.Weight<=0||Math.Abs((t.Max-t.Min)/t.Step-Math.Round((t.Max-t.Min)/t.Step))>1e-6))throw new ArgumentException("RPG规则／九类基准／技能特性配置非法");
             // Validate derived prices before a snapshot can create a town or overflow a transaction.
             double supplyUnit=2d*SupplyMaterial*MaterialValue+SupplyWorkValue;
             foreach(int level in new[]{1,2})

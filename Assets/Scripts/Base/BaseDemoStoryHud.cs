@@ -31,7 +31,7 @@ namespace BaseConquest.Base
             bool awarded = owner.Change(state =>
             {
                 if (!BaseDemoStories.Gift(state)) throw new InvalidOperationException("赠礼已领取或阿铸尚未加入");
-            }, "老铁匠的赠礼已加入奖励清单");
+            }, "");
             if (awarded) OpenLoot();
             else OpenSmithFather();
         }
@@ -39,7 +39,7 @@ namespace BaseConquest.Base
         {
             if(!BaseDemoStories.ControllerDialogue(owner.State,id)){owner.Change(s=>{if(!BaseAftermath.Decide(s,id,"recruit"))throw new InvalidOperationException("无法安置队长，俘虏仍保留");},"已尝试招降");back();return;}
             NpcDialogue(new[]{new NpcLine(BaseScriptNames.Galan,BaseScriptNames.Portrait("galan"),"[低头致歉] 对不住二位。我为搜寻失散族人暂避于此，情急之下才出此下策。"),new NpcLine("获救百姓","villager","记住你今天说的话。往后的事，要用行动证明。"),new NpcLine(BaseScriptNames.Galan,BaseScriptNames.Portrait("galan"),"我以灰瞳先祖之名起誓，绝不再操控活人心智。若肯容我同行，愿凭此身赎罪。")},new[]{new NpcReply("接纳他，给他证明的机会",()=>{
-                if(!owner.Change(s=>{if(!BaseDemoStories.AcceptController(s,id))throw new InvalidOperationException("当前随行与驻地名额已满（或旅店首日费用不足），俘虏已暂留名册待安置；腾出名额后可再次交谈");},"异族队长已加入，身份与装备记录保持")){back();return;}
+                if(!owner.Change(s=>{if(!BaseDemoStories.AcceptController(s,id))throw new InvalidOperationException("队长名额已满，俘虏仍保留");},"")){back();return;}
                 NpcDialogue(new[]{new NpcLine(BaseScriptNames.Galan,BaseScriptNames.Portrait("galan"),"铭感大恩。我的血脉与长杖，今后皆听凭你的号令。")},new[]{new NpcReply("从现在开始，用行动证明",back)});
             }),new NpcReply("暂缓接纳，留在俘虏栏",back)});
         }

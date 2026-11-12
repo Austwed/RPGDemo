@@ -28,10 +28,10 @@ namespace BaseConquest.Base
         public BaseSaveStore(string path, Func<BaseSaveDocument, string> encode, Func<string, BaseSaveDocument> decode,bool demo=false)
         { Path = path; writeJson = encode; readJson = decode; this.demo=demo; }
         public bool Exists => memoryOnly ? sessionState!=null : File.Exists(Path);
-        public void Save(BaseState state, string label = null)
+        public void Save(BaseState state, string label = null, BaseState beforeChange = null)
         {
             BaseEconomy.Validate(state);
-            if(memoryOnly){var next=state.Copy();changed?.Invoke(sessionState,next);sessionState=next;return;}
+            if(memoryOnly){var next=state.Copy();changed?.Invoke(beforeChange??sessionState,next);sessionState=next;return;}
             string json = writeJson(new BaseSaveDocument { DemoSaveVersion=demo?BaseDemo.SaveVersion:0,State = state.Copy(), Label = label ?? state.TemplateTitle, SavedUtc = DateTime.UtcNow.ToString("o") });
             // 写前回读验证，失败保留旧存档；同卷临时文件替换防止半写入。
             Decode(json);

@@ -58,6 +58,7 @@ namespace BaseConquest.Base
             }
             inventoryWarehouse = warehouse;
             inventorySelectedCell = null;
+            questSwordTarget = null;
             inventoryChoice = null;
             OpenScenePanel(warehouse ? "PartyWarehouse" : "PartyInventory", viewKey);
             activeObject = warehouse ? "warehouse" : "backpack";
@@ -228,6 +229,8 @@ namespace BaseConquest.Base
                 outline.effectDistance = new Vector2(2, -2);
                 if (editable) inventorySelectedCell = button.GetComponent<RectTransform>();
             }
+            if (visible && editable && !entry.Worn && BaseDemoIntro.Daily(owner.State) &&
+                entry.Id == owner.State.Demo.Intro.PracticeId) questSwordTarget = (RectTransform)button.transform;
             if (visible && entry.Gear != null && entry.Quality >= 4) label.color = DemoUiTheme.Current.Copper;
             if (editable) BindInventoryDrop(button.gameObject, visible ? entry : null, holder, index, slot, !visible && entry != null);
             else
@@ -384,7 +387,10 @@ namespace BaseConquest.Base
                 allowed = inventoryQuantity < entry.Count;
             }
 
-            InventoryButton(details, "Primary", primary, act, allowed).gameObject.SetActive(act != null);
+            var primaryButton = InventoryButton(details, "Primary", primary, act, allowed);
+            primaryButton.gameObject.SetActive(act != null);
+            if (act != null && !entry.Worn && BaseDemoIntro.Daily(owner.State) && entry.Id == owner.State.Demo.Intro.PracticeId)
+                questSwordTarget = (RectTransform)primaryButton.transform;
             InventoryButton(details, "Destroy", null, () => InventoryDestroyConfirm(entry))
                 .gameObject.SetActive(!entry.Worn && !entry.Protected);
             InventoryButton(details, "QuantityDown", null, () => { inventoryQuantity--; OpenInventory(inventoryWarehouse); },

@@ -304,8 +304,8 @@ namespace BaseConquest.Editor
                     state.Workers.Sum(worker => worker.Count) == beforeCount + survivors.Length &&
                     state.Inventory.Coins == beforeCoins && BaseBattleLoot.RecruitAll(state, id) == 0,
                     "窝点幸存者未通过正常战果免费招募，或可被重复招募");
-                Need(BaseBattleLoot.CollectAll(state, id) == loot.Items.Count && BaseBattleLoot.Finish(state, id),
-                    "窝点首通奖励不能按正常掉落流程领取");
+                Need(loot.Items.All(item=>item.Status=="taken")&&BaseBattleLoot.ConsumeReceipt(state,id).HasReceipt&&loot.Closed,
+                    "窝点首通奖励未自动到账或无法展示奖励回执");
                 VerifySweepAndReward(state);
                 Debug.Log($"[VerifyBanditHideout] PASS victory settlement and recruited {survivors.Length} survivors, seed {seed}");
                 return;

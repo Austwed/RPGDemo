@@ -92,7 +92,10 @@ namespace BaseConquest.Battle
             panel.anchoredPosition = Vector2.zero;
             bool compact = UsesCampaignSystemMenu;
             bool confirmation = page == CampaignMenuPage.ConfirmMainMenu || page == CampaignMenuPage.ConfirmQuit;
-            panel.sizeDelta = new Vector2(720, compact ? (confirmation ? 334 : 306) : 418);
+            bool canWithdraw = !DeploymentDraftActive && realtime != null && battle?.Phase == BattlePhase.Fighting &&
+                (!IsSecondDefense || realtime.DefensePursuitReady) && !IsStandaloneTest;
+            bool demo = BaseBattleGateway.DemoMode && !IsStandaloneTest;
+            panel.sizeDelta = new Vector2(720, compact ? (confirmation ? 334 : canWithdraw ? 370 : 306) : 418);
             panel.gameObject.GetOrAdd<Image>();
             DemoUiTheme.Current.Frame(panel);
 
@@ -129,22 +132,27 @@ namespace BaseConquest.Battle
             string back = DeploymentDraftActive ? CampaignMenuText("return_deployment", "返回部署") : "返回战斗";
             if (page == CampaignMenuPage.Main)
             {
-                float y = compact ? 93 : 150;
+                float y = compact ? canWithdraw ? 124 : 93 : 150;
                 Option("Continue", back, y, CloseCampaignMenu, !CampaignGameOver);
                 Option("Options", "选项", y -= 62, OpenCampaignOptions, !CampaignGameOver);
                 Option("MainMenu", "回主菜单", y -= 62, () =>
                 {
-                    if (UsesCampaignSystemMenu) BuildCampaignMenu(CampaignMenuPage.ConfirmMainMenu);
+                    if (demo) BaseBattleGateway.ExitDemoSession(false);
+                    else if (UsesCampaignSystemMenu) BuildCampaignMenu(CampaignMenuPage.ConfirmMainMenu);
                     else CampaignMainMenu();
                 });
-                if (UsesCampaignSystemMenu)
-                    Option("Quit", CampaignMenuText("quit", "退出游戏"), y -= 62, () => BuildCampaignMenu(CampaignMenuPage.ConfirmQuit));
+                if (UsesCampaignSystemMenu || demo)
+                    Option("Quit", CampaignMenuText("quit", "退出游戏"), y -= 62, () =>
+                    {if(demo)BaseBattleGateway.ExitDemoSession(true);else BuildCampaignMenu(CampaignMenuPage.ConfirmQuit);});
+                if (canWithdraw)
+                    Option("RealtimeRetreat", realtime.DefensePursuitReady ? "结束追击" : "撤退", y -= 62,
+                        () => {CloseCampaignMenu();RealtimeRetreat();});
                 if (IsStandaloneTest)
                 {
                     Option("Restart", "重置本预设（不保存剧情）", y -= 62, () => RestartStandaloneTest?.Invoke());
                     Option("LeaveTest", "退出独立测试（不保存剧情）", y -= 62, () => AbandonRealtimeBattle());
                 }
-                else if (!UsesCampaignSystemMenu && IsRealtimeCampaign && !CampaignGameOver && !campaignSaved && !IsSecondDefense)
+                else if (!canWithdraw && !demo && !UsesCampaignSystemMenu && IsRealtimeCampaign && !CampaignGameOver && !campaignSaved && !IsSecondDefense)
                     Option("Withdraw", realtime?.Session.Opening.DemoCombat == true ? "立即撤出，结算战损" : "放弃本场，返回战前", y -= 62, () => AbandonRealtimeBattle());
                 else if (!UsesCampaignSystemMenu && battle?.Phase == BattlePhase.Deployment)
                     Option("CancelPreparation", "取消战场准备并返营", y -= 62, ReturnCampaign, CanReturnCampaign);
@@ -187,6 +195,7 @@ namespace BaseConquest.Battle
         private void ConfirmCampaignExit(CampaignMenuPage page)
         {
             bool quit = page == CampaignMenuPage.ConfirmQuit;
+            if(BaseBattleGateway.DemoMode&&!IsStandaloneTest){BaseBattleGateway.ExitDemoSession(quit);return;}
             if (DeploymentDraftActive)
             {
                 var scene = GetComponentInParent<BaseSceneController>();

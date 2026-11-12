@@ -8,7 +8,7 @@ namespace BaseConquest.Base
     {
         public int HiredKinds;
         public bool HideoutRecruitClueSeen;
-        public bool RecruitmentNotice, RecruitOpened, InnWelcomed, HomeEnterSeen, RestLessonDone, FarmOfferPending, FarmOfferShown, NoviceShop;
+        public bool RecruitmentNotice, RecruitOpened, HomeEnterSeen, RestLessonDone, FarmOfferPending, FarmOfferShown, NoviceShop;
         public bool AzhuDuelWon, SmithGiftOffered, ControllerAccepted, ControllerPledged, BanditCleared;
         public string FirstControllerId="";
         public double FarmX,FarmY,FarmNpcX,FarmNpcY;public bool FarmWalking;

@@ -154,6 +154,7 @@ namespace BaseConquest.Base
 
             BuildWorld(); Hud = new BaseHud(this, runtimeRoot, font);
             developerPanel=GetComponent<DeveloperPanel>()??gameObject.AddComponent<DeveloperPanel>();developerPanel.Initialize(this,font);
+            if(BaseBattleGateway.DemoMode&&BaseBattleGateway.MainMenu){Hud.OpenMainMenu();SetRegionReady(true);return;}
             if(packageProblem!=null){Message=packageProblem;Hud.OpenRecovery();SetRegionReady(true);return;}
             if (!freshEditorTest&&SaveStore.Exists) LoadSaved(); else StartCoroutine(ReadTemplate(RecommendedTemplate));
         }
@@ -270,7 +271,7 @@ namespace BaseConquest.Base
             }
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==0&&!BaseBattleGateway.MainMenu&&!Hud.PanelOpen){TickHeroChoice(Time.deltaTime);return;}
             AdvanceExplorationCompanions(Time.deltaTime);PlaceCompanions();Hud.RefreshMovement();Hud.RefreshInspection(false);
-            if(BaseBattleLoot.Pending(State)&&!Hud.PanelOpen){Hud.OpenLoot();return;}
+            if(BaseBattleLoot.ShouldPresent(State)&&!Hud.PanelOpen){Hud.OpenLoot();return;}
             TickDemoFlow();TickAzhuInvitation();
             if(developerPanel?.BlocksGameInput==true)return;
             var keyboard = Keyboard.current;
@@ -287,7 +288,9 @@ namespace BaseConquest.Base
             if (Hud.PanelOpen || PlayerAway || State.Campaign.HasActiveBattle || State.Aftermath.GameOver || BaseBattleGateway.MainMenu) { touches.Clear(); mouseTap = null; return; }
             if (Hud.ResourcePopoverOpen) ReadResourceDismissPointer();
             if(HomeRebuildOverview)return;
-            if(ConstructionMode)UpdateConstructionPointer();else ReadPointer();
+            // A UI click may close its modal before this Update sees the same input sample.
+            if (Hud.PanelClosedFrame == Time.frameCount) { touches.Clear(); mouseTap = null; explorationPinchSpan = 0; }
+            else if(ConstructionMode)UpdateConstructionPointer();else ReadPointer();
             Vector2 input = Hud.Joystick.Direction;
             if (keyboard != null)
             {
@@ -300,15 +303,16 @@ namespace BaseConquest.Base
         internal void MoveExploration(Vector2 input,double seconds)
         {
             input = Vector2.ClampMagnitude(input, 1);if(input.sqrMagnitude>.0001f){float magnitude=input.magnitude;float angle=Mathf.Round(Mathf.Atan2(input.y,input.x)/(Mathf.PI/4))*(Mathf.PI/4);input=new Vector2(Mathf.Cos(angle),Mathf.Sin(angle))*magnitude;}
+            bool cardinal=input.sqrMagnitude>.0001f&&(Mathf.Abs(input.x)<.000001f||Mathf.Abs(input.y)<.000001f);
             double x = State.PlayerX, y = State.PlayerY;
             BaseSpatial.Move(State,ref x,ref y,input.x * 4.3 * Math.Min(seconds,0.05),input.y * 4.3 * Math.Min(seconds,0.05),Companions.PlayerObstacles(State),playerMotion);
             double movedX = x - State.PlayerX, movedY = y - State.PlayerY;
-            BaseInteraction.RecordWalk(movedX, movedY);
+            BaseInteraction.RecordWalk(cardinal?input.x:movedX,cardinal?input.y:movedY);
             if(input.sqrMagnitude>.0001f)
             {
                 BaseDemoIntro.Walk(State,Math.Sqrt(movedX*movedX+movedY*movedY));
             }
-            State.PlayerX = x; State.PlayerY = y; PlacePlayer(); Hud.RefreshMovement();CheckPrologueTrigger();
+            State.PlayerX = x; State.PlayerY = y; PlacePlayer(cardinal?BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(input.x,input.y,BaseConquest.Presentation.HeroFacing.South):null); Hud.RefreshMovement();CheckPrologueTrigger();
         }
         private void AdvanceExplorationCompanions(double seconds)
         {
@@ -329,11 +333,11 @@ namespace BaseConquest.Base
             if(backpackPressed){StopConstruction();Hud.ToggleBackpack();return true;}
             return false;
         }
-        private void PlacePlayer()
+        private void PlacePlayer(BaseConquest.Presentation.HeroFacing? facing=null)
         {
             if (State == null) return;
             player.gameObject.SetActive(!PlayerAway);
-            player.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(State.PlayerX,State.PlayerY),new Color(.32f,.73f,.92f));
+            player.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(State.PlayerX,State.PlayerY),new Color(.32f,.73f,.92f),facing:facing);
             if(combatController==null&&!BaseWorldJourney.OnWorld(State)){regionView.Follow(PlayerCameraTarget);explorationViewSize=WorldCamera.orthographicSize;}
         }
         private void PlaceCompanions()
@@ -479,7 +483,7 @@ namespace BaseConquest.Base
             if (State.Campaign.HasActiveBattle&&(preparationInventoryClosed==null||!BasePartyInventory.Peaceful(State))) { Message = "先恢复并结束当前战斗"; Hud.RefreshSummary(); return false; }
             try
             {
-                Companions.Capture(State); var next = State.Copy(); edit(next); BaseDemoIntro.CheckEquipment(next); BaseDevelopment.Allocate(next); BaseEconomy.Validate(next); SaveStore.Save(next);
+                Companions.Capture(State); var next = State.Copy(); edit(next); BaseDemoIntro.CheckEquipment(next); BaseDevelopment.Allocate(next); BaseEconomy.Validate(next); SaveStore.Save(next,beforeChange:State);
                 if(!deploymentChangedMap&&State.Campaign.Location==next.Campaign.Location&&State.Campaign.CurrentMapId==next.Campaign.CurrentMapId)BaseBattlefield.KeepLiveBoard(next,MapSession.Board);
                 State = next; Message = message;
                 Companions.Synchronize(State);
@@ -515,7 +519,7 @@ namespace BaseConquest.Base
             else if(BaseDemoPrologue.Village(State)&&!BaseBattleGateway.MainMenu)Hud.OpenDemoStory();
             else if(BaseDemoDefense.Won(State)&&State.Demo.Defense.BatuStoryDay==0&&!BaseBattleGateway.MainMenu&&!State.Campaign.HasActiveBattle)Hud.OpenDemoDefenseAftermath();
             else if(BaseDemoFinale.SecondRaidReportPending(State)&&!BaseBattleGateway.MainMenu&&!State.Campaign.HasActiveBattle)Hud.OpenSecondRaidVictoryReport();
-            else if(BaseDemoRuins.Enabled(State)&&BaseDemoRuins.InRuins(State)&&!BaseBattleGateway.MainMenu&&(!string.IsNullOrEmpty(State.Demo.RuinsRewards?.PendingBattleId)||BaseRuinsRewards.FirstRewardPending(State)))Hud.OpenRuinsVictory();
+            else if(BaseDemoRuins.Enabled(State)&&BaseDemoRuins.InRuins(State)&&!BaseBattleGateway.MainMenu&&!string.IsNullOrEmpty(State.Demo.RuinsRewards?.PendingBattleId))Hud.OpenRuinsReward();
             if(State?.Campaign.HasActiveBattle==true && BaseBattleGateway.RequestedId==State.Campaign.ActiveBattle.Id && !BaseBattleGateway.MainMenu) ResumeCampaign();
             SetRegionReady(true);
         }

@@ -14,20 +14,25 @@ namespace BaseConquest.Base
     [Serializable] public sealed class BaseLootLine
     {
         public string Id, Status="pending";
+        public string ReceiptDestination;
         public BaseLootReward Reward=new BaseLootReward();
-        public BaseLootLine Copy()=>new BaseLootLine {Id=Id,Status=Status,Reward=Reward.Copy()};
+        public BaseLootLine Copy()=>new BaseLootLine {Id=Id,Status=Status,ReceiptDestination=ReceiptDestination,Reward=Reward.Copy()};
     }
     [Serializable] public sealed class BaseLootManifest
     {
         public string BattleId, Title;
         public bool Closed;
         public int Food, Materials, Coins;
+        public int ReceiptFood, ReceiptMaterials, ReceiptCoins;
         public List<BaseLootLine> Items=new List<BaseLootLine>();
-        public BaseLootManifest Copy()=>new BaseLootManifest {BattleId=BattleId,Title=Title,Closed=Closed,Food=Food,Materials=Materials,Coins=Coins,Items=Items.Select(i=>i.Copy()).ToList()};
+        public bool HasReceipt=>ReceiptFood>0||ReceiptMaterials>0||ReceiptCoins>0||Items.Any(i=>!string.IsNullOrEmpty(i.ReceiptDestination));
+        public BaseLootManifest Copy()=>new BaseLootManifest {BattleId=BattleId,Title=Title,Closed=Closed,Food=Food,Materials=Materials,Coins=Coins,ReceiptFood=ReceiptFood,ReceiptMaterials=ReceiptMaterials,ReceiptCoins=ReceiptCoins,Items=Items.Select(i=>i.Copy()).ToList()};
     }
     public static class BaseBattleLoot
     {
+        public const string WarehouseReceipt="@warehouse";
         public static bool Pending(BaseState s)=>s?.Aftermath!=null&&!s.Aftermath.GameOver&&s.Aftermath.Loot.Any(m=>!m.Closed);
+        public static bool ShouldPresent(BaseState s)=>Pending(s)||BaseDemo.Active(s)&&!s.Aftermath.GameOver&&s.Aftermath.Loot.Any(m=>m.HasReceipt);
         public static bool ValidReward(BaseState s,BaseLootReward r)=>r!=null&&r.Template!=null&&r.ItemId!=null&&r.Quality>=0&&r.Quality<6&&
             (!string.IsNullOrEmpty(r.Template)?string.IsNullOrEmpty(r.ItemId)&&r.Count==1&&BasePersonalEquipment.Definition(r.Template)!=null&&r.Template!="captains_ring":
             !r.RandomQuality&&r.Quality==2&&s.Backpack.Catalog.Any(d=>d.Id==r.ItemId&&d.Category!="quest"&&string.IsNullOrEmpty(d.ExclusiveLeaderId)&&r.Count>=1&&r.Count<=d.MaxStack));
@@ -42,9 +47,11 @@ namespace BaseConquest.Base
         {
             if(s.Aftermath.GameOver||s.Aftermath.Loot.Any(m=>m.BattleId==report.BattleId))return;
             var entries=rewards.ToArray();if(entries.Length>100||entries.Any(r=>!ValidReward(s,r)))throw new ArgumentException("战利品奖励配置非法");
-            if(s.Aftermath.Loot.Count>=256)s.Aftermath.Loot.RemoveAll(m=>m.Closed);
-            s.Aftermath.Loot.Add(new BaseLootManifest {BattleId=report.BattleId,Title=report.Title,Food=report.FoodChange,Materials=report.MaterialChange+report.DropMaterials,Coins=report.CoinChange,
-                Items=entries.Select((r,n)=>new BaseLootLine {Id=report.BattleId+":loot:"+n,Reward=ResolveQuality(s,r,report.BattleId,n)}).ToList()});
+            if(s.Aftermath.Loot.Count>=256)s.Aftermath.Loot.RemoveAll(m=>m.Closed&&!m.HasReceipt);
+            var manifest=new BaseLootManifest {BattleId=report.BattleId,Title=report.Title,Food=report.FoodChange,Materials=report.MaterialChange+report.DropMaterials,Coins=report.CoinChange,
+                Items=entries.Select((r,n)=>new BaseLootLine {Id=report.BattleId+":loot:"+n,Reward=ResolveQuality(s,r,report.BattleId,n)}).ToList()};
+            s.Aftermath.Loot.Add(manifest);
+            if(BaseDemo.Active(s)) Deliver(s,manifest,manifest.Food,manifest.Materials,manifest.Coins);
         }
         private static BaseLootReward ResolveQuality(BaseState s,BaseLootReward source,string battle,int index)
         {
@@ -59,6 +66,29 @@ namespace BaseConquest.Base
             if(m.Items.Count+entries.Length>100||entries.Any(r=>!ValidReward(s,r))||m.Items.Any(i=>i.Id.StartsWith(source+":loot:",StringComparison.Ordinal)))throw new InvalidOperationException("奖励清单已存在或容量不足");
             m.Title=title;m.Closed=false;m.Food+=food;m.Materials+=materials;m.Coins+=coins;
             m.Items.AddRange(entries.Select((r,n)=>new BaseLootLine{Id=source+":loot:"+n,Reward=ResolveQuality(s,r,source,n)}));
+            if(BaseDemo.Active(s)) Deliver(s,m,food,materials,coins);
+        }
+        private static void Deliver(BaseState s,BaseLootManifest manifest,int food,int materials,int coins)
+        {
+            var holders=BaseAdventure.Members(s).Where(l=>BasePartyInventory.AccessibleLeader(s,l)).Select(l=>l.Id).Append("").ToArray();
+            foreach(var line in manifest.Items.Where(i=>i.Status=="pending"))
+            {
+                string destination=holders.FirstOrDefault(holder=>Store(s,line,holder));
+                if(destination==null)throw new InvalidOperationException("奖励无法入库");
+                line.ReceiptDestination=destination==""?WarehouseReceipt:destination;
+            }
+            manifest.ReceiptFood+=Math.Max(0,food);manifest.ReceiptMaterials+=Math.Max(0,materials);manifest.ReceiptCoins+=Math.Max(0,coins);
+        }
+        public static BaseLootManifest ConsumeReceipt(BaseState s,string battle)
+        {
+            var manifest=s.Aftermath.Loot.Single(m=>m.BattleId==battle);
+            if(!manifest.Closed&&manifest.Items.Any(i=>i.Status=="pending"))
+                Deliver(s,manifest,manifest.Food,manifest.Materials,manifest.Coins);
+            var receipt=manifest.Copy();
+            manifest.ReceiptFood=manifest.ReceiptMaterials=manifest.ReceiptCoins=0;
+            foreach(var item in manifest.Items)item.ReceiptDestination=null;
+            if(!manifest.Closed&&CanFinish(s,manifest))manifest.Closed=true;
+            return receipt;
         }
         public static string Name(BaseState s,BaseLootLine line)=>line.Reward.Template!=""?BasePersonalEquipment.Name(new BasePersonalItem {Template=line.Reward.Template,Quality=line.Reward.Quality}):s.Backpack.Catalog.Single(d=>d.Id==line.Reward.ItemId).Name+" ×"+line.Reward.Count;
         public static bool CanFinish(BaseState s,BaseLootManifest m)=>m.Items.All(i=>i.Status!="pending")&&(BaseRpg.Active(s)||!s.Aftermath.Prisoners.Any(p=>p.BattleId==m.BattleId&&p.Status=="held"));
@@ -77,7 +107,7 @@ namespace BaseConquest.Base
         }
         public static int RecruitAll(BaseState s,string battle)
         {
-            if(!s.Aftermath.Loot.Any(m=>m.BattleId==battle&&!m.Closed)||!BasePartyInventory.Peaceful(s))return 0;
+            if(!s.Aftermath.Loot.Any(m=>m.BattleId==battle&&(BaseDemo.Active(s)||!m.Closed))||!BasePartyInventory.Peaceful(s))return 0;
             int count=0;
             foreach(var p in s.Aftermath.Prisoners.Where(p=>p.BattleId==battle&&p.Status=="held").ToArray())
                 if(BaseAftermath.Decide(s,p.Id,"recruit"))count++;
@@ -89,16 +119,21 @@ namespace BaseConquest.Base
             if(line==null||!BasePartyInventory.Peaceful(s)||s.Backpack.Revision>=int.MaxValue-1)return false;
             if(discard){line.Status="discarded";return true;}
             if(!BaseAdventure.Members(s).Any(l=>l.Id==holder&&BasePartyInventory.AccessibleLeader(s,l)))return false;
-            var r=line.Reward;int cell=BasePartyInventory.FreeCell(s,holder);
+            return Store(s,line,holder);
+        }
+        private static bool Store(BaseState s,BaseLootLine line,string holder)
+        {
+            if(s.Backpack.Revision>=int.MaxValue-1)return false;
+            var r=line.Reward;bool warehouse=holder=="";int cell=warehouse?-1:BasePartyInventory.FreeCell(s,holder);
             if(r.Template!="")
             {
-                if(cell<0||s.PersonalEquipment.NextId>=int.MaxValue-401)return false;
+                if(!warehouse&&cell<0||s.PersonalEquipment.NextId>=int.MaxValue-401)return false;
                 s.PersonalEquipment.Warehouse.Add(new BasePersonalItem {Id="personal:"+s.PersonalEquipment.NextId++,Template=r.Template,Quality=r.Quality,Holder=holder,Cell=cell});
             }
             else
             {
                 var d=s.Backpack.Catalog.Single(i=>i.Id==r.ItemId);var stacks=s.Backpack.Items.Where(i=>i.Holder==holder&&i.ItemId==d.Id).ToArray();int room=stacks.Sum(i=>d.MaxStack-i.Count);
-                if(room<r.Count&&(cell<0||s.Backpack.NextId>=int.MaxValue-1))return false;
+                if(room<r.Count&&(!warehouse&&cell<0||s.Backpack.NextId>=int.MaxValue-1))return false;
                 int left=r.Count;foreach(var stack in stacks){int n=Math.Min(left,d.MaxStack-stack.Count);stack.Count+=n;left-=n;}
                 if(left>0)s.Backpack.Items.Add(new BaseBagItem {Id="bag:"+s.Backpack.NextId++,ItemId=d.Id,Count=left,Holder=holder,Cell=cell});
             }

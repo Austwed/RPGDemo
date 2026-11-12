@@ -21,6 +21,7 @@
         "SoldierDeathBase": 0.5,
         "SoldierDeathSensitivity": 1.0,
         "HideoutEnemyCount": 12,
+        "RuinsFirstControllerTemplate": "captain_awakened_warrior",
         "RecruitSupplyFactor": 0.35,
         "RecruitPriceSensitivity": 2.0,
         "SweepLossAtParity": 0.25,

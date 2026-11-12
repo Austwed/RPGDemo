@@ -21,25 +21,31 @@ namespace BaseConquest.Base
                 if(keyboard!=null&&(keyboard.eKey.wasPressedThisFrame||keyboard.spaceKey.wasPressedThisFrame))Hud.ContinueDialogue();
                 return;
             }
-            if(combatController.Realtime.Battle.Phase!=BattlePhase.Fighting||combatController.DetailsVisible)return;
+            if(combatController.Realtime.Battle.Phase!=BattlePhase.Fighting){combatController.SetPracticeCue(0,"");return;}
+            if(combatController.DetailsVisible)return;
             BaseDemoIntro.AdvanceTutorialDelay(State.Demo.Intro,Time.unscaledDeltaTime);
-            int step=BaseDemoIntro.NextExercise(State.Demo.Intro);if(step==0||practiceShown==step)return;practiceShown=step;
+            int step=BaseDemoIntro.NextExercise(State.Demo.Intro);
+            if(step==0){combatController.SetPracticeCue(0,"");return;}
+            if(practiceShown==step)return;practiceShown=step;
             string text = step switch
             {
                 BaseDemoIntro.Select => StoryText.Get("story.scene.prologue.drill_select", "先点左下角的头像，也可以点你自己。"),
-                BaseDemoIntro.Pause => StoryText.Get("story.scene.prologue.drill_pause", "点右上角的【{toggle}】，也可以按空格，练习暂停和继续。")
-                    .Replace("{toggle}", combatController.Automatic ? "暂停" : "继续"),
+                BaseDemoIntro.Pause => StoryText.Get("story.scene.prologue.drill_pause", "点右下角的暂停／继续，或按空格。"),
                 BaseDemoIntro.Move => StoryText.Get("story.scene.prologue.drill_move", "【手动】时，你得自己下令。单击前方空地，暂停时按空格就会迈步。"),
                 BaseDemoIntro.Guard => StoryText.Get("story.scene.prologue.drill_guard", "双击身旁的空地，下令【驻守】。"),
-                BaseDemoIntro.Skill => StoryText.Get("story.scene.prologue.drill_skill", "点左下角头像下方的【{skill}】，把气势提起来！")
+                BaseDemoIntro.Skill => StoryText.Get("story.scene.prologue.drill_skill", "点头像上方的【{skill}】，把气势提起来！")
                     .Replace("{skill}", combatController.Realtime.SkillName(BattleSide.A, 0)),
                 BaseDemoIntro.Inspect => StoryText.Get("story.scene.prologue.drill_inspect", "长按左下角的头像，在【状态效果】里看技能能维持多久。"),
                 BaseDemoIntro.DummyDemo => StoryText.Get("story.scene.prologue.drill_dummy", "看好了，每次挥砍都有起手空当，算准距离才能刀刀见肉！"),
-                BaseDemoIntro.AutoAttack => StoryText.Get("story.scene.prologue.drill_auto_attack", "长按左下角的头像，在详情里选【进攻】。关闭详情后按空格，连劈木桩三剑！"),
+                BaseDemoIntro.AutoAttack => StoryText.Get("story.scene.prologue.drill_auto_attack", "点右下角的【进攻】，让队伍连续攻击木桩。战斗暂停时先继续。"),
                 _ => StoryText.Get("story.scene.prologue.drill_attack", "最后一式，单击我发起进攻。暂停时记得按空格继续！")
             };
-            bool running=combatController.PauseForDialogue();combatController.ExternalDialogue=true;Hud.SetVisible(true);
-            Hud.OpenPracticeInstruction(text,()=>{Hud.ClosePanel();Hud.SetVisible(false);if(combatController!=null){combatController.ExternalDialogue=false;if(step==BaseDemoIntro.DummyDemo)BaseDemoIntro.StartDummyDemo(combatController.Realtime,State.Demo.Intro);combatController.ResumeAfterDialogue(step==BaseDemoIntro.DummyDemo||step==BaseDemoIntro.AutoAttack?true:step==BaseDemoIntro.Inspect?false:running);}});
+            combatController.SetPracticeCue(step,text);
+            if(step==BaseDemoIntro.DummyDemo)
+            {
+                BaseDemoIntro.StartDummyDemo(combatController.Realtime,State.Demo.Intro);
+                combatController.ResumeAfterDialogue(true);
+            }
         }
         private void TickAzhuInvitation()
         {

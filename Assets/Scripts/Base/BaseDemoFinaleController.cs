@@ -180,7 +180,7 @@ namespace BaseConquest.Base
         private RectTransform rebuildPalette,rebuildOverview;
         private readonly Button[] rebuildProjects=new Button[3];
         private Color[] rebuildProjectColors;
-        private Button rebuildPlace,rebuildWithdraw,rebuildConfirm,rebuildResume;
+        private Button rebuildPlace,rebuildWithdraw,rebuildConfirm,rebuildResume,rebuildFinish;
         private Text rebuildStatus;
         internal float HomeRebuildGutter
         {
@@ -213,7 +213,7 @@ namespace BaseConquest.Base
 
             rebuildOverview=Box("HomeRebuildOverview",controls,new Vector2(.5f,0),new Vector2(0,38),new Vector2(304,58),wood);
             MakeButton(rebuildOverview,"返回重建",new Vector2(-73,0),new Vector2(134,42),owner.ReturnToHomeRebuild);
-            MakeButton(rebuildOverview,"结束 Demo",new Vector2(73,0),new Vector2(134,42),()=>owner.FinishHomeRebuild());
+            rebuildFinish=MakeButton(rebuildOverview,"结束 Demo",new Vector2(73,0),new Vector2(134,42),()=>owner.FinishHomeRebuild());
             rebuildResume=MakeButton(controls,"继续重建",new Vector2(103,-ExplorationHudLayout.HeaderHeight-41),new Vector2(154,44),OpenRebuild,new Vector2(0,1));
             rebuildPalette.gameObject.SetActive(false);rebuildOverview.gameObject.SetActive(false);rebuildResume.gameObject.SetActive(false);
         }

@@ -9,21 +9,26 @@ namespace BaseConquest.Editor
 {
     public static partial class VerifyDemoPlayerRoute
     {
-        private static BaseState OpenRoute(string raw, RpgRules rules, string configHash)
+        private static BaseState OpenRoute(string raw, RpgRules rules, string configHash,string sex="female",bool saveFixture=true)
         {
             var source = JsonUtility.FromJson<BaseScenarioDocument>(raw);
             var opening = BaseDemo.CreateOpening(source, raw, true, true, true, rules, configHash);
             opening.Opening.Demo.Rpg.GenerationSeed = DemoStageSaveTools.StageGenerationSeed;
             var state = opening.CreateState();
-            Need(BaseDemoIntro.Choose(state, "female") && BaseDemoIntro.PlayerArt(state) == "female", "序章无法选择女主角");
+            Need(BaseQuestLog.Cue(state).Control == "hero", "开场任务未指向选角");
+            Need(BaseDemoIntro.Choose(state,sex) && BaseDemoIntro.PlayerArt(state)==(sex=="male"?"player":"female"), "序章无法选择主角："+sex);
+            Need(BaseQuestLog.Cue(state).ObjectId == "demo_captain", "选角后任务未指向搭档");
             WalkToOpeningObject(state, "demo_captain");
             Need(BaseDemoIntro.Meet(state) && state.Adventure.Members.Contains("demo_captain"), "与搭档交谈未加入随行");
             WalkToOpeningObject(state, "intro_villager");
             Need(state.Demo.Intro.Walked > 0 && BaseDemoIntro.Patrol(state), "散步后无法与阿禾交谈");
+            Need(BaseQuestLog.Cue(state).ObjectId == "intro_farm", "派工目标未指向粮田");
             WalkToOpeningObject(state, "intro_farm");
-            Need(BaseDemoIntro.AssignFarm(state, 4) && BaseDemoIntro.FinishFarm(state), "序章粮田无法从两人调整至四人");
+            Need(BaseDemoIntro.AssignFarm(state, 3) && state.Demo.Intro.Step == 9, "未达到四人便完成粮田任务");
+            Need(BaseDemoIntro.AssignFarm(state, 4) && state.Demo.Intro.Step == 10, "确认四人后未自动推进粮田任务");
             WalkToOpeningObject(state, "demo_captain");
             Need(BaseDemoIntro.ReceiveSword(state), "搭档未交付序章短剑");
+            Need(BaseQuestLog.Cue(state).Control == "sword", "领取武器后任务未指向背包");
             // Opening the backpack UI records this flag before the equip transaction.
             state.Demo.Intro.BackpackOpened = true;
             Need(BasePersonalEquipment.Equip(state, state.PlayerLeaderId, state.Demo.Intro.PracticeId, "weapon"),
@@ -36,9 +41,9 @@ namespace BaseConquest.Editor
                 villageMemory.Height == villageBoard.Height && state.Campaign.RegionMaps.All(map => map.Id != villageMemory.MapId),
                 "序章迷雾记忆须使用村庄尺寸，且不产生同名区域地图");
             BaseEconomy.Validate(state);
-            Note("第1天 白桦村：选择女主角，与搭档结伴，步行问候阿禾，粮田2→4，接过并穿戴序章短剑。");
+            Note("第1天 白桦村："+(sex=="female"?"女主角":"男主角")+"与搭档结伴，步行问候阿禾，粮田2→4，接过并穿戴序章短剑。");
 
-            SaveRouteCheckpoint(state, "drill");
+            if(saveFixture)SaveRouteCheckpoint(state, "drill");
             PlayOpeningPractice(state);
             Note("序章演练：显式选人／暂停、实际下达移动与驻守、施放技能、查看增益，等待木桩示范和自动攻击，主动攻击搭档完成演练。");
 
@@ -56,12 +61,16 @@ namespace BaseConquest.Editor
             Need(BasePartyInventory.Find(state, state.Demo.Intro.PracticeId) == null, "序章练习装备在撤离后仍留在背包");
             WalkToOpeningObject(state, "prologue_trigger");
             Need(BaseDemoPrologue.BeginPursuit(state), "抵达东侧撤离点未触发追兵");
+            CheckPursuitDefeat(state.Copy());
             PlayOpeningPursuit(state);
             Need(BaseDemoPrologue.Recover(state), "重伤后无法进入断流滩新营地");
             At(state, "home");
             Need(BaseDemo.AcknowledgeWaking(state), "营帐醒来对白无法推进拜访领主");
+            Need(BaseQuestLog.Cue(state).ObjectId == "exit_east" && !BaseQuestLog.ToggleTrack(state, "demo:ruins_trial"), "主线出口目标或未开放任务的追踪不正确");
+            Need(BaseQuestLog.ToggleTrack(state, "demo:partner_farm") && BaseQuestLog.Cue(state).ObjectId == "demo_ahe", "手动追踪未指向阿禾");
+            Need(BaseQuestLog.ToggleTrack(state, "demo:partner_farm") && BaseQuestLog.Cue(state).ObjectId == "exit_east", "取消追踪没有恢复主线");
             BaseEconomy.Validate(state);
-            Note("追兵：三名村民走正式撤离路径离场；以受控敌方生命输入复核追兵胜利判定。经重伤和营帐醒来，到达断流滩新营地。");
+            Note("追兵：核对伽兰战斗形象、村民撤离与追兵胜负两条路线。均接重伤剧情，可进入断流滩新营地。");
             return state;
         }
 
@@ -165,14 +174,28 @@ namespace BaseConquest.Editor
                 BaseDemoPrologue.CaptureDepartures(state, movement);
             }
             Need(BaseDemoPrologue.Safe(state) && pursuit.Battle.Phase == BattlePhase.Fighting, "村民未能走到东侧撤离点");
-            var enemies = pursuit.Model.Units.Where(unit => unit.Side == PrototypeSide.Enemy).ToArray();
-            // Drive the authored victory threshold without making this route depend on combat tuning.
-            enemies[0].Health = 0;
-            enemies[1].Health = enemies[1].MaxHealth * BaseDemoPrologue.WoundedFraction - .01;
-            pursuit.Tick(.05);
+            Need(pursuit.Strategy(0,SquadStrategy.Attack),"追兵战无法下达进攻");
+            for(int step=0;step<1800&&pursuit.Battle.Phase==BattlePhase.Fighting;step++)pursuit.Tick(.05);
             Need(pursuit.Battle.Report?.Outcome == BattleOutcome.SideAWin && BaseDemoPrologue.Resolve(state, pursuit),
                 "追兵胜利条件未触发重伤");
             BaseSceneRules.RememberStrategy(state, pursuit.Session);
+        }
+
+        private static void CheckPursuitDefeat(BaseState state)
+        {
+            var encounter = BaseDemoPrologue.Encounter(state);
+            Need(encounter.Battle.Soldiers.Where(unit => unit.Side == BattleSide.B).All(unit => unit.AppearanceId == "galan"), "追兵仍使用占位形象");
+            var pursuit = new RealtimeCampaignBattle(encounter);
+            BaseDemoPrologue.Configure(pursuit, () => BaseDemoPrologue.Safe(state));
+            Need(!BaseDemoPrologue.Safe(state), "早败回归必须先保留仍在撤离的村民");
+            pursuit.Model.Player.Health = 0;
+            pursuit.Model.SetPaused(false);
+            pursuit.Tick(.05);
+            Need(pursuit.Battle.Report?.Outcome == BattleOutcome.SideBWin && BaseDemoPrologue.Resolve(state, pursuit), "主角提前倒下未接重伤剧情");
+            Need(state.Demo.Stage == BaseDemoStage.PrologueWounded && BaseDemoPrologue.Safe(state) && !BaseDemoPrologue.Resolve(state, pursuit),
+                "追兵败局未保留村民离场或战果重复提交");
+            BaseEconomy.Validate(state);
+            Need(BaseDemoPrologue.Recover(state) && state.Demo.Stage == BaseDemoStage.Waking, "追兵败局未进入断流滩");
         }
     }
 }

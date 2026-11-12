@@ -27,6 +27,9 @@ namespace BaseConquest.Editor
                 PlayerPrefs.SetString(difficultyKey, "normal");
                 var config = DemoBalanceRuntime.Load();
                 string raw = File.ReadAllText(Path.Combine(Application.streamingAssetsPath, "BaseScenarios", BaseDemo.BalanceTemplate));
+                var parsedRules=DemoBalanceTableReader.ReadVerifiedTables(DemoBalanceImporter.WorkbookPath);
+                Need(parsedRules.RuinsFirstControllerTemplate==config.Rules.RuinsFirstControllerTemplate,"古窟首通配表与运行包不一致");
+                OpenRoute(raw, config.Rules, config.WorkbookSha256,"male",false);
                 var state = OpenRoute(raw, config.Rules, config.WorkbookSha256);
                 PrepareFirstDefense(state);
                 state = FinishRoute(state);
@@ -63,21 +66,20 @@ namespace BaseConquest.Editor
 
             Travel(state, "demo_ruins_exit", "outpost");
             At(state, "demo_ruins_investigate");
+            var beforeSolo=state.Copy();
+            VerifyRuinsSoloVictory(beforeSolo);
             var solo = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
             solo.AutoPlace();
             var lost = new RealtimeCampaignBattle(solo.Begin(state));
+            var inBattle=state.Copy();
             BaseDemoRuins.Configure(lost);
-            ApproachController(lost, false, 3600, () => BaseDemoRuins.SoloRetreatGuide(lost));
-            bool reachedHalf = BaseDemoRuins.SoloRetreatGuide(lost);
-            if (!reachedHalf)
-            {
-                Need(lost.Battle.Phase == BattlePhase.Fighting && lost.Model.Player.Alive, "独闯未在半血停住");
-                lost.Model.Player.Health = lost.Model.Player.MaxHealth * .5;
-            }
+            ApproachController(lost, true, 5400, () => BaseDemoRuins.SoloRetreatGuide(lost));
+            Need(BaseDemoRuins.SoloRetreatGuide(lost), "初装主角独闯未打到半血撤退："+lost.Battle.Report?.Outcome+"，主角 "+lost.Model.Player.Health+"，敌队长 "+lost.Battle.Commander(BattleSide.B,0).Health);
             Need(BaseDemoRuins.SoloRetreatGuide(lost) && BaseDemoCombat.Fail(state, lost), "独闯半血撤退未结算");
             BaseSceneRules.LeaveDungeon(state);
             Need(BaseSceneRules.Entrance(state) && state.Demo.RuinsDay == 0 && !state.Campaign.HasActiveBattle, "撤退没有回到遗迹入口");
-            Note("沉眠古窟：主角独自布置进场，" + (reachedHalf ? "实战降至半血" : "用受控半血输入") + "触发撤退，回入口后可重整队伍。");
+            VerifyRuinsAutosaves(beforeSolo,inBattle,state);
+            Note("沉眠古窟：初装主角独自布置，实战降至半血触发撤退，回入口后可重整队伍。");
 
             Travel(state, "demo_ruins_return", "town");
             Travel(state, "travel_base", "base");
@@ -91,12 +93,23 @@ namespace BaseConquest.Editor
             ReforgeGift(state);
             Travel(state, "demo_ruins_exit", "outpost");
             At(state, "demo_ruins_investigate");
+            var twoCaptains=state.Copy();
+            twoCaptains.Adventure.Members.Remove("partner_farm");
+            var withAzhu=new BaseBattlePreparation(twoCaptains,BasePrepRoute.Ruins);
+            withAzhu.AutoPlace();
+            var two=new RealtimeCampaignBattle(withAzhu.Begin(twoCaptains));
+            BaseDemoRuins.Configure(two);
+            ApproachController(two,true,5400);
+            Need(two.Session.Opening.Leaders.Count==2&&BaseDemoRuins.Complete(twoCaptains,two),"主角和阿铸未正常完成古窟首通");
+            Note("沉眠古窟旁支：仅主角与阿铸出战，正常击败控制来源。");
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
             draft.AutoPlace();
             var rescue = new RealtimeCampaignBattle(draft.Begin(state));
             BaseDemoRuins.Configure(rescue);
-            ApproachController(rescue, true, 5400);
+            // 12 rendered frames/s at 3× advances a quarter second of battle per frame.
+            ApproachController(rescue, true, 360, frameSeconds:.25);
             Need(BaseDemoRuins.Complete(state, rescue), "古窟重试没有击败控制来源：" + rescue.Battle.Report?.Outcome);
+            Need(!BaseDemoRuins.Complete(state,rescue),"古窟战果能重复提交");
             string controller = state.Demo.Flow.FirstControllerId;
             Need(BaseDemoStories.AcceptController(state, controller), "古窟结算无法接纳迦兰");
             ResolveLoot(state);
@@ -150,6 +163,53 @@ namespace BaseConquest.Editor
             for (int attempt = 0; attempt < 12 && !BaseDemoDefense.Due(state); attempt++) Rest(state);
             Need(BaseDemoDefense.Due(state), "来袭没有到期");
             Note($"第{state.Day}天 首防到达。已逐次购兵{hired}人，粮田{BaseEconomy.WorkersAt(state, "farm")}人，工坊{BaseEconomy.WorkersAt(state, "workshop")}人，一级军需{BaseSupply.Available(state, "supply", 1)}件。");
+        }
+
+        private static void VerifyRuinsSoloVictory(BaseState entrance)
+        {
+            var grown=entrance.Copy();
+            var hero=grown.Leaders.Single(l=>l.Id==grown.PlayerLeaderId);
+            hero.Training.Origin=hero.PersonalEquipment.BaseStats.Clone();
+            hero.Training.Target=2;hero.Training.EndDay=grown.Day;
+            BaseTraining.AdvanceDay(grown);
+            for(int day=0;day<10&&hero.Health<hero.MaxHealth;day++)BaseDevelopment.Recover(grown);
+            var draft=new BaseBattlePreparation(grown,BasePrepRoute.Ruins);
+            draft.AutoPlace();
+            var encounter=draft.Begin(grown);
+            const string difficultyKey="BaseConquest.GlobalDifficulty";
+            var previous=PlayerPrefs.GetString(difficultyKey,"normal");
+            try
+            {
+                PlayerPrefs.SetString(difficultyKey,"easy");
+                var run=new RealtimeCampaignBattle(encounter);
+                BaseDemoRuins.Configure(run);
+                ApproachController(run,true,5400,()=>BaseDemoRuins.SoloRetreatGuide(run));
+                Need(run.Session.Opening.Leaders.Count==1&&BaseDemoRuins.Complete(grown,run),"成长主角合法独胜失败："+run.Battle.Report?.Outcome);
+            }
+            finally{PlayerPrefs.SetString(difficultyKey,previous);}
+            Note("沉眠古窟旁支：简单难度，二级主角独自实际取胜，首胜有效。");
+        }
+
+        private static void VerifyRuinsAutosaves(BaseState entrance,BaseState active,BaseState retreated)
+        {
+            string folder=Path.Combine("Logs","polish-saves",Guid.NewGuid().ToString("N"));
+            var catalog=new BaseSaveCatalog(folder,d=>JsonUtility.ToJson(d),JsonUtility.FromJson<BaseSaveDocument>,true);
+            var session=new BasePlaySession(catalog,Path.Combine(folder,"memory"),false);
+            var previouslySaved=entrance.Copy();previouslySaved.PlayerX-=.1;
+            session.Start(previouslySaved);
+            session.Store.Save(active,beforeChange:entrance);
+            var entry=catalog.Entries().Single(e=>e.Name=="确认开战前");
+            var disk=catalog.LoadSlot(entry.Id);
+            Need(!BaseSceneCombat.Active(disk)&&disk.Campaign.CurrentMapId==entrance.Campaign.CurrentMapId&&
+                disk.PlayerX==entrance.PlayerX&&disk.PlayerY==entrance.PlayerY,"战前自动档未使用确认时的地图和落点");
+            session.Store.Save(retreated);
+            var landed=catalog.Entries().Single(e=>e.Name.StartsWith("进入",StringComparison.Ordinal));
+            disk=catalog.LoadSlot(landed.Id);
+            Need(BaseSceneRules.Entrance(disk)&&disk.PlayerX==retreated.PlayerX&&disk.PlayerY==retreated.PlayerY,
+                "返回探索自动档未保存实际落点");
+            Need(!new BasePlaySession(catalog,Path.Combine(folder,"title"),false).Store.Exists&&catalog.Entries().Count==3,
+                "空会话改写或自动恢复了磁盘进度");
+            Note("存档：确认开战前保留实际探索落点，半血撤退后保存入口；空会话保留磁盘档。");
         }
 
         private static void BuyStones(BaseState state)
@@ -210,7 +270,7 @@ namespace BaseConquest.Editor
             Note("回镇主动找阿铸比武，" + (liveWin ? "实战" : "受控半血样本") + "胜利后邀请同行，领取巴隆赠礼。");
         }
 
-        private static void ApproachController(RealtimeCampaignBattle run, bool attack, int frames, Func<bool> stop = null)
+        private static void ApproachController(RealtimeCampaignBattle run, bool attack, int frames, Func<bool> stop = null,double frameSeconds=1d/60)
         {
             var enemy = run.Battle.Commander(BattleSide.B, 0);
             var actor = run.Model.Units.Single(unit => unit.Id == enemy.Id + 1);
@@ -227,7 +287,7 @@ namespace BaseConquest.Editor
                             actor.Position, focus ? actor.Id - 1 : -1, true);
                     }
                 }
-                run.Tick(1d / 60);
+                run.Tick(frameSeconds);
             }
         }
 

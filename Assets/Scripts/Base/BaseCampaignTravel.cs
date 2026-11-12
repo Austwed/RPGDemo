@@ -253,11 +253,23 @@ namespace BaseConquest.Base
                 return Path.Combine(Application.persistentDataPath,"BaseConquest","RealtimeCampaignExperiment",DemoMode ? "Demo/"+OpeningProfile : DesignMode ? "DesignPackageExperiment/"+designPackage.Id : workshopSession ? "EditorExperiment" : editorTestSession ? "EditorDevelopment/"+Path.GetFileNameWithoutExtension(OpeningProfile??"33_即时格战经营闭环.json") : "");
             }
         }
-        public static BaseSaveCatalog Catalog() => new BaseSaveCatalog(SaveDirectory, d=>JsonUtility.ToJson(d,true), json=>JsonUtility.FromJson<BaseSaveDocument>(json),DemoMode);
+        public static BaseSaveCatalog Catalog(bool checkExisting=true) => new BaseSaveCatalog(SaveDirectory, d=>JsonUtility.ToJson(d,true), json=>JsonUtility.FromJson<BaseSaveDocument>(json),DemoMode,checkExisting);
         private static readonly Dictionary<string,BasePlaySession> sessions=new Dictionary<string,BasePlaySession>();
         public static BasePlaySession Session()
         {
-            string path=SaveDirectory;if(!sessions.TryGetValue(path,out var session))sessions.Add(path,session=new BasePlaySession(Catalog(),Path.Combine(path,"session-memory")));return session;
+            string path=SaveDirectory;
+            if(!sessions.TryGetValue(path,out var session))
+            {
+                bool restore=!(DemoMode&&MainMenu);
+                sessions.Add(path,session=new BasePlaySession(Catalog(restore),Path.Combine(path,"session-memory"),restore));
+            }
+            return session;
+        }
+        internal static void ExitDemoSession(bool quit)
+        {
+            sessions.Remove(SaveDirectory);
+            RequestedId=null;ShowPrisoners=false;MainMenu=true;
+            if(quit)Application.Quit();else SceneManager.LoadScene(ExplorationScene);
         }
         public static BaseSaveStore Store()=>Session().Store;
     }

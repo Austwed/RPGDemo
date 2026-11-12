@@ -10,7 +10,7 @@ namespace BaseConquest.Base
     public sealed partial class BaseHud
     {
         private void OpenResourceInfo(Action back) => RuleInfo("资源与人员信息",
-            "基地总兵力只统计己方士兵，包含驻外、在岗、闲置与重伤士兵。\n\n带正负号的数字是按当前岗位预计的一日净变化。粮食扣除全部人员口粮，原料扣除工坊耗料，钱币扣除旅店寄存日费。主动住宿费在休息确认时另列。军需显示两档总量，库存页可查看品质拆分。\n\n姓名为黄色表示通过劝降加入，只标记来源，工作、伤情、编队和作战规则相同。\n\n格子信息 3 秒自动收起，点击信息面板可立即收起。兵营完整单位详情保持打开。", back);
+            "基地总兵力只统计己方士兵，包含驻外、在岗、闲置与重伤士兵。\n\n带正负号的数字是按当前岗位预计的一日净变化。粮食扣除全部人员口粮，原料扣除工坊耗料。军需显示两档总量，库存页可查看品质拆分。\n\n姓名为黄色表示通过劝降加入，只标记来源，工作、伤情、编队和作战规则相同。\n\n格子信息 3 秒自动收起，点击信息面板可立即收起。兵营完整单位详情保持打开。", back);
 
         public void OpenResources()
         {
@@ -19,7 +19,7 @@ namespace BaseConquest.Base
             interactionObject = "";
             BeginPanel("资源明细", "resources");
             RowButton("体力", -290, 270, OpenEnergy);
-            RowButton("规则 i", 0, 270, () => RuleInfo("资源与人员信息", "括号内是按当前岗位预计的一日净变化：正值红色、负值绿色、零为中性色。粮食扣除全部人员口粮，原料扣除工坊耗料，钱币扣除旅店寄存日费。军需只在战斗内加攻防。兵力四分类与编队同源：总数、可工作、可主动出战、重伤。", OpenResources));
+            RowButton("规则 i", 0, 270, () => RuleInfo("资源与人员信息", "括号内是按当前岗位预计的一日净变化：正值红色、负值绿色、零为中性色。粮食扣除全部人员口粮，原料扣除工坊耗料。军需只在战斗内加攻防。兵力四分类与编队同源：总数、可工作、可主动出战、重伤。", OpenResources));
             RowButton("日历", 290, 270, OpenCalendar);
             row += 58;
             ResourceCard("粮食 " + s.Inventory.Food, BaseTopBar.Food(s), -1);

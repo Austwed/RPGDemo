@@ -13,7 +13,8 @@ namespace BaseConquest.Battle
         public string SceneEncounterObjective {get;private set;}
         public bool IsAzhuDuel=>sceneEncounter?.Opening.Id==BaseLocalDuel.Id;
         public bool IsDemoPractice=>sceneEncounter?.Opening.Id==BaseDemoIntro.BattleId;
-        public bool ContinuesThroughDialogue=>IsAzhuDuel||IsDemoPractice||sceneEncounter?.Opening.Id==BaseDemoPrologue.BattleId;
+        public bool ContinuesThroughDialogue=>IsAzhuDuel||IsDemoPractice||sceneEncounter?.Opening.Id==BaseDemoPrologue.BattleId||
+            IsDemoRuins&&sceneEncounter.Opening.RuinsFirstClear&&battle?.Report?.Outcome==BattleOutcome.SideAWin;
         public bool IsDemoRuins=>BaseDemoRuins.Encounter(sceneEncounter);
         public bool IsDemoDefense=>BaseDemoDefense.Encounter(sceneEncounter);
         public bool IsSecondDefense=>IsDemoDefense&&sceneEncounter.Opening.EventId==BaseDemoDefense.SecondEventId;
@@ -56,7 +57,7 @@ namespace BaseConquest.Battle
                 finishSceneEncounter=null;
                 return true;
             }
-            catch(Exception error){feedback="未提交本场遭遇："+error.Message;UnityEngine.Debug.LogError(feedback+"\n"+error);hud?.Refresh();return false;}
+            catch(Exception error){feedback="暂时无法返回，请再试一次。";UnityEngine.Debug.LogException(error);hud?.Refresh();return false;}
         }
     }
 }

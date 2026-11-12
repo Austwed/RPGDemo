@@ -16,15 +16,18 @@ namespace BaseConquest.Battle
         public double SurfaceLevel(GridPosition position,double localX,double localZ)
         {
             var cell=Cell(position);if(cell==null)return 0;
-            double level=cell.Elevation;
-            if(cell.Ramp!=RampAxis.None)
-            {
-                var step=cell.Ramp==RampAxis.EastWest ? new GridPosition(1,0) : new GridPosition(0,1);
-                double along=Math.Max(0,Math.Min(1,cell.Ramp==RampAxis.EastWest ? localX : localZ));
-                if(Cell(position+new GridPosition(-step.X,-step.Z))?.Elevation==cell.Elevation-1)level-=1-along;
-                else if(Cell(position+step)?.Elevation==cell.Elevation-1)level-=along;
-            }
-            return level;
+            int low=RampLowEdge(position);
+            if(low==0)return cell.Elevation;
+            double along=Math.Max(0,Math.Min(1,cell.Ramp==RampAxis.EastWest ? localX : localZ));
+            return cell.Elevation-(low<0?1-along:along);
+        }
+        public int RampLowEdge(GridPosition position)
+        {
+            var cell=Cell(position);
+            if(cell==null||cell.Ramp==RampAxis.None)return 0;
+            var step=cell.Ramp==RampAxis.EastWest ? new GridPosition(1,0) : new GridPosition(0,1);
+            if(Cell(position+new GridPosition(-step.X,-step.Z))?.Elevation==cell.Elevation-1)return -1;
+            return Cell(position+step)?.Elevation==cell.Elevation-1?1:0;
         }
         public bool HeightConnection(GridPosition from,GridPosition to)
         {

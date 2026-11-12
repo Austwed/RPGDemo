@@ -77,7 +77,7 @@ namespace BaseConquest.Editor
                 lines.Add(preset.Id+"："+skill+"（"+preset.SkillId+"）；特性 "+trait);
             }
             lines.Add("生命／攻击／防御9级成长倍率、三职业训练成本、13件装备及品质属性倍率、六技能、21特性、经营口粮／产量、军需、招募基准、领主／遗迹奖励及树石参数已校验。");
-            lines.Add("品质掉落："+string.Join(" / ",rules.DropQuality.Select(x=>(x*100).ToString("0.##",CultureInfo.InvariantCulture)+"%"))+"；粮食基础价值 "+rules.FoodValue+"，营帐容量 "+string.Join(" / ",rules.Capacity)+"，旅店日费 "+rules.InnDailyFee+"。");
+            lines.Add("品质掉落："+string.Join(" / ",rules.DropQuality.Select(x=>(x*100).ToString("0.##",CultureInfo.InvariantCulture)+"%"))+"；粮食基础价值 "+rules.FoodValue+"，营帐容量 "+string.Join(" / ",rules.Capacity)+"。");
             lines.Add("固定剧情、地图坐标、D10算法和装备槽位由代码／地图资产维护；其余未列入的表格区域暂不驱动游戏。");
             lines.Add("改动表格后必须重新校验；四个固定阶段档按当前数值实际完成招募、建设和日结。若无法到达首防，将显示失败原因并保留原配置与阶段档。");
             string[] stageNames={"camp-male","camp-female","defense-male","defense-female"};

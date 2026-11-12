@@ -6,7 +6,7 @@ namespace BaseConquest.Base
     public static partial class BaseRpg
     {
         public static int Capacity(BaseState s)=>Active(s)?s.Demo.Rpg.Capacity[s.Demo.Rpg.CampLevel-1]:100;
-        public static int Population(BaseState s)=>s.Leaders.Count(l=>l.Fate!="dead"&&l.Fate!="missing"&&BaseInn.Guest(s,l.Id)==null);
+        public static int Population(BaseState s)=>s.Leaders.Count(l=>l.Fate!="dead"&&l.Fate!="missing");
         public static bool HasRoom(BaseState s)=>Population(s)<Capacity(s);
         public static string CampUpgradeProblem(BaseState s)
         {

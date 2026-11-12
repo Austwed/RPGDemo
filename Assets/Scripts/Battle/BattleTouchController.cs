@@ -74,7 +74,7 @@ namespace BaseConquest.Battle
         public float HudScale => UiScale;
 
         public void ToggleAutomatic() { if(IsRealtimeCampaign){ToggleRealtimePause();return;} if (battle.Phase != BattlePhase.Fighting || skipping || VictoryChoicePending) return; CloseContext(); autoRun = !autoRun; feedback = autoRun ? "自动连续推进" : "连续推进已暂停"; }
-        public void ToggleFast() { fastMode = !fastMode; feedback = fastMode ? "棋盘 3 倍速" : "棋盘正常速度"; }
+        public void ToggleFast() { fastMode = !fastMode; feedback = fastMode ? "3倍速" : "1倍速"; hud?.Refresh(); }
         public void ToggleQuickSelection() { if (battle.ModernRules) return; quickSelection = !quickSelection; feedback = quickSelection ? "快速选择开启：连续点选加入／移出" : "快速选择关闭：单击只选当前单位"; hud?.Refresh(); }
         public void SpaceAction()
         {
@@ -347,9 +347,10 @@ namespace BaseConquest.Battle
             {
                 if (gestureActive || !IsMapTouchPoint(position)) return;
                 gestureActive = true;
-                gestureDragging = false;
+                gestureDragging = gestureLong = false;
                 gestureId = id;
                 gestureStart = gestureCurrent = position;
+                gestureStartTime = Time.unscaledTime;
                 return;
             }
             if (battle.ModernRules) { ModernPointerDown(id, position); return; }
@@ -371,7 +372,7 @@ namespace BaseConquest.Battle
             if (DeploymentDraftActive) { DraftPointerMove(id, position); return; }
             if (id >= 0 && IsRealtimeCampaign && realtime != null)
             {
-                if (!gestureActive || id != gestureId) return;
+                if (!gestureActive || gestureLong || id != gestureId) return;
                 if (Vector2.Distance(gestureStart, position) > Mathf.Max(8f, 12f * UiScale)) gestureDragging = true;
                 if (gestureDragging && IsMapTouchPoint(position) && IsMapTouchPoint(gestureCurrent))
                     boardView.Pan(position - gestureCurrent);
@@ -428,8 +429,8 @@ namespace BaseConquest.Battle
             {
                 if (!gestureActive || id != gestureId) return;
                 gestureActive = false;
-                if (!canceled && !gestureDragging && Vector2.Distance(gestureStart, position) <= Mathf.Max(8f, 12f * UiScale) &&
-                    IsMapTouchPoint(position)) RealtimePointer(position);
+                if (!canceled && !gestureLong && !gestureDragging && Vector2.Distance(gestureStart, position) <= Mathf.Max(8f, 12f * UiScale) && IsMapTouchPoint(position))
+                    RealtimePointer(position, holdGuard: Time.unscaledTime - gestureStartTime >= .5f);
                 return;
             }
             if (battle.ModernRules && modernPointerActive) { ModernPointerUp(id, position, canceled); return; }

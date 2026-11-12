@@ -65,6 +65,7 @@ namespace BaseConquest.Base
             foreach(var l in s.Leaders.Where(l=>l.Id.StartsWith("partner_recruit:")&&s.Aftermath.Prisoners.Any(p=>p.Status=="recruited"&&l.Id=="partner_recruit:"+p.Id)))
             {if(!l.Recruited)l.Name=UnitDisplayNames.RecruitedName(l.Name);l.Recruited=true;if(!l.HasHomePosition){var home=BasePersonnel.BarracksDoor(s);l.HasHomePosition=true;l.HomeX=home.X;l.HomeY=home.Y;}}
         }
+        public static bool CanRecruitLeader(BaseState s)=>s.Leaders.Count<100&&BaseRpg.HasRoom(s);
         public static bool Decide(BaseState s, string id, string action)
         {
             BaseEconomy.Validate(s); if (s.Aftermath.GameOver || s.Campaign.HasActiveBattle) return false;
@@ -73,14 +74,28 @@ namespace BaseConquest.Base
             if (action != "recruit") return false;
             bool controller=BaseDemoStories.ControllerDialogue(s,id);
             if(controller&&!s.Demo.Flow.ControllerAccepted)return false;
-            if (p.Kind == SoldierKind.Hero ? BaseInn.Enabled(s)?!BaseInn.CanRecruit(s):!BaseRpg.HasRoom(s) : s.Workers.Sum(w => w.Count) >= 10000) return false;
+            if (p.Kind == SoldierKind.Hero ? !CanRecruitLeader(s) : s.Workers.Sum(w => w.Count) >= 10000) return false;
             // 2026-11-01 用户裁决：取消招降概率。战场上没死的目标只要容量允许就固定招募成功，
             // 即死率已承担损失角色；特殊剧情（迦兰）由 ControllerAccepted 前置自行把关。
-            string destination=BaseInn.Enabled(s)&&p.Kind==SoldierKind.Hero?BaseInn.RecruitDestination(s):"base";
             if (p.Kind == SoldierKind.Hero) {var door=BasePersonnel.BarracksDoor(s);s.Leaders.Add(new BaseLeader { Id = "partner_recruit:" + p.Id, Name = UnitDisplayNames.RecruitedName(p.Name),AcquisitionSource="战后招降 · "+(string.IsNullOrEmpty(p.CaptureSource)?p.BattleId:p.CaptureSource),AcquisitionDay=s.Day,IsAlien=p.IsAlien,IsAwakened=p.IsAwakened, AppearanceId=p.AppearanceId, Recruited=true,HasHomePosition=true,HomeX=door.X,HomeY=door.Y,HasMapPosition=true,MapX=door.X,MapY=door.Y, Health = p.Health, MaxHealth = p.Stats.Health, Resting = false, UnavailableDay = s.Day, HasCombatProfile = true, CombatStats = p.Stats.Clone(), Training=BaseTraining.FromProfile(p.Stats),Rpg=p.Rpg?.Copy(),PersonalEquipment=p.Rpg?.Version!=1?null:new BasePersonalLoadout {Version=1,Weapon=new[]{"sword","bow","spear"}[p.Rpg.Profession],InitialWeapon=new[]{"sword","bow","spear"}[p.Rpg.Profession],BaseStats=p.Stats.Clone()} });}
             else s.Workers.Add(new BaseWorkerBucket { Kind = BaseCampaign.ToBase(p.Kind), Recruited=true, Count = 1, Health = p.Health, MaxHealth = p.Stats.Health, Resting = p.Health < p.Stats.Health * BaseDevelopment.DutyThreshold, UnavailableDay = s.Day, HasCombatProfile = true, CombatStats = p.Stats.Clone() });
-            if(BaseInn.Enabled(s)&&p.Kind==SoldierKind.Hero)BaseInn.PlaceRecruit(s,s.Leaders.Last(),destination);
+            if(BaseRpg.Active(s)&&p.Kind==SoldierKind.Hero&&s.Adventure.Members.Count<BaseAdventure.Capacity)
+                JoinRecruit(s,s.Leaders.Last());
             p.Status = "recruited";if(controller)s.Demo.Flow.ControllerPledged=true; BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
+        }
+        private static void JoinRecruit(BaseState s,BaseLeader leader)
+        {
+            s.Adventure.Members.Add(leader.Id);
+            var point=BaseSpatial.Nearest(s,new BasePoint(s.PlayerX,s.PlayerY-.9));
+            leader.MapX=point.X;leader.MapY=point.Y;leader.MapRegion=s.Campaign.Location;leader.MapId=s.Campaign.CurrentMapId;
+            var party=s.Muster.Parties.FirstOrDefault(p=>p.Leaders.Any(r=>r.LeaderId==s.PlayerLeaderId));
+            if(party!=null)
+            {
+                leader.Away=true;leader.PartyId=party.Id;party.Leaders.Add(new BaseMusterLeader{LeaderId=leader.Id,OriginalFacility=""});
+                party.CommanderTroops=BaseMuster.Distribute(party.Leaders.Select(r=>new BaseCommanderAllocation{LeaderId=r.LeaderId,Requested=s.Leaders.Single(l=>l.Id==r.LeaderId).DefaultTroops.Copy()}),k=>s.Workers.Where(w=>w.PartyId==party.Id&&w.Kind==k).Sum(w=>w.Count),true);
+                party.Preset.SelectLeaders(party.Leaders.Select(r=>r.LeaderId));
+            }
+            BaseAchievements.PartyChanged(s);
         }
         public static int StableIdentity(string text) { unchecked { int hash = 17; foreach (char c in text) hash = hash * 31 + c; return hash; } }
         public static bool ValidStats(SoldierStats p)=>p!=null&&p.EquipmentStatsValid&&new[]{p.Health,p.Damage,p.Defense,p.CritChance,p.CritMultiplier}.All(v=>!float.IsNaN(v)&&!float.IsInfinity(v))&&p.Health>=1&&p.Health<=100000&&p.Damage>=0&&p.Defense>=0&&p.Range>=1&&p.Range<=12&&p.MoveDistance>=1&&p.MoveDistance<=12&&p.CritChance>=0&&p.CritChance<=1&&p.CritMultiplier>=1&&p.CritMultiplier<=10;

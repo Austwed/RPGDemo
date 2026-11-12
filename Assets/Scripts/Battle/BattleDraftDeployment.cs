@@ -21,7 +21,7 @@ namespace BaseConquest.Battle
         public bool DeploymentDraftActive => deploymentDraft != null;
         public bool DraftPlacementActive { get; private set; }
         private bool DraftInputBlocked => ExternalDialogue || campaignMenu != null;
-        internal bool FormalFieldHud => DeploymentDraftActive || manualFieldEncounter;
+        internal bool FormalFieldHud => DeploymentDraftActive || IsRealtimeCampaign;
         internal IReadOnlyList<BasePrepUnit> DraftTeams => draftTeams;
         internal int DraftTeamSlot { get; private set; }
         internal SoldierKind? DraftArmedKind => draftArmedUnit?.Kind;
@@ -336,14 +336,20 @@ namespace BaseConquest.Battle
             }
         }
 
+        private bool draftPointerPan;
+
         private void DraftPointerDown(int id, Vector2 point)
         {
-            if (!DraftPlacementActive || DraftInputBlocked || IsUiPoint(point) || !ResolvePointer(point, out var cell)) return;
+            if (!DraftPlacementActive || DraftInputBlocked || !IsMapTouchPoint(point)) return;
+            bool found = ResolvePointer(point, out var cell);
+            if (!found && id >= 0) return;
             gestureActive = true;
             gestureLong = gestureDragging = false;
-            gestureStartedOnUnit = DraftUnitAt(cell) != null;
+            gestureStartedOnUnit = found && DraftUnitAt(cell) != null;
+            draftPointerPan = id < 0 && !gestureStartedOnUnit &&
+                (!found || draftArmedUnit == null || !deploymentDraft.CanPlace(draftArmedUnit.Id, cell));
             gestureId = id;
-            gestureCell = cell;
+            gestureCell = found ? cell : (GridPosition?)null;
             strokeFrom = null;
             gestureStart = gestureCurrent = point;
             gestureStartTime = Time.unscaledTime;
@@ -352,7 +358,16 @@ namespace BaseConquest.Battle
         private void DraftPointerMove(int id, Vector2 point)
         {
             if (!gestureActive || gestureId != id) return;
+            Vector2 previous = gestureCurrent;
             gestureCurrent = point;
+            if (draftPointerPan)
+            {
+                if (!gestureDragging && Vector2.Distance(gestureStart, point) <= 10 * UiScale) return;
+                if (IsMapTouchPoint(point) && IsMapTouchPoint(previous))
+                    boardView.Pan(point - (gestureDragging ? previous : gestureStart));
+                gestureDragging = true;
+                return;
+            }
             if (gestureLong || gestureStartedOnUnit || draftArmedUnit == null) return;
             if (!gestureDragging && Vector2.Distance(gestureStart, point) <= 10 * UiScale) return;
             if (!gestureDragging) { gestureDragging = true; strokeFrom = gestureCell; }
@@ -375,8 +390,11 @@ namespace BaseConquest.Battle
         private void DraftPointerUp(int id, Vector2 point, bool canceled)
         {
             if (!gestureActive || gestureId != id) return;
+            if (draftPointerPan && !canceled) DraftPointerMove(id, point);
             gestureActive = false;
-            if (canceled || gestureLong || IsUiPoint(point)) return;
+            bool panned = draftPointerPan && gestureDragging;
+            draftPointerPan = false;
+            if (canceled || gestureLong || panned || IsUiPoint(point)) return;
             if (!gestureStartedOnUnit && (gestureDragging || Vector2.Distance(gestureStart, point) > 10 * UiScale))
             {
                 if (!gestureDragging) strokeFrom = gestureCell;

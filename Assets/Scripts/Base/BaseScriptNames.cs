@@ -31,7 +31,6 @@ namespace BaseConquest.Base
         public const string ChunShen="春婶";
         public const string Blacksmith="老铁匠巴隆"; // 阿铸之父
         public const string Recruiter="募兵官雷恩";
-        public const string InnKeeper="旅店麦格";
         public const string Merchant="行商";
         public const string Scout="陈安";
         public const string Guard="镇卫兵";            // 城镇闲聊
@@ -66,7 +65,7 @@ namespace BaseConquest.Base
                 case "azhu":return "azhu";           // 骑乘阿铸的头像（portrait-azhu-v1，已换新骑乘版）
                 case "chief":return "chief";
                 case "huoya":return "huoya";
-                default:return "villager";           // 春婶／募兵官／旅店／镇民 兜底
+                default:return "villager";           // 春婶／募兵官／镇民 兜底
             }
         }
     }

@@ -30,8 +30,7 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(s))return "demo-local";
             return region=="base"||region=="town"||region=="perimeter"?"base-local":region;
         }
-        public static string PauseProblem(BaseState s,string id,bool resume=false)
-        {if(BaseInn.Enabled(s)&&!resume)return BaseInn.CheckInProblem(s,id);return LegacyPauseProblem(s,id,resume);}
+        public static string PauseProblem(BaseState s,string id,bool resume=false)=>LegacyPauseProblem(s,id,resume);
         private static string LegacyPauseProblem(BaseState s,string id,bool resume=false)
         {
             var l=s.Leaders.FirstOrDefault(p=>p.Id==id);
@@ -50,8 +49,7 @@ namespace BaseConquest.Base
             if(!resume&&party?.Leaders.Count==1)return "请先让这支独立队伍整体返营";
             return "";
         }
-        public static bool Pause(BaseState s,string id)
-        {if(BaseInn.Enabled(s))return BaseInn.CheckIn(s,id);return DetachForPause(s,id);}
+        public static bool Pause(BaseState s,string id)=>DetachForPause(s,id);
         private static bool DetachForPause(BaseState s,string id)
         {
             if(LegacyPauseProblem(s,id)!="")return false;var l=s.Leaders.Single(p=>p.Id==id);

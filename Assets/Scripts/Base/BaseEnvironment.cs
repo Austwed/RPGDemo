@@ -22,6 +22,13 @@ namespace BaseConquest.Base
             new EnvironmentDefinition("bird-flock","鸟群",1,1,.4,.4,false,0,"bird"),new EnvironmentDefinition("rabbit-burrow","兔子与洞口",1.8,.7,.55,.55,false,0,"rabbit")};
         public static EnvironmentDefinition Find(string id)=>Catalog.FirstOrDefault(d=>d.Id==id);
         public static bool Decorative(BaseMapObject o)=>o?.Kind=="decoration"||o?.Kind=="wildlife";
+        private const double CampApproachNorth=9.2;
+        public static void ClearCampApproach(BaseState state)
+        {
+            var camp=state.Campaign.Layouts.FirstOrDefault(m=>m.Region=="base");
+            camp?.Objects.RemoveAll(o=>o.Y<CampApproachNorth&&o.VisualOnly&&
+                (Decorative(o.Object)||o.DefinitionId=="decor_obstacle"||o.DefinitionId=="decor_marker"));
+        }
         public static bool Active(BaseState s)=>s?.Demo?.EnvironmentVersion==1;
         public static BasePoint FineCenter(BasePoint p)=>new BasePoint(Math.Floor(p.X*2)*.5+.25,Math.Floor(p.Y*2)*.5+.25);
         public static int[] RoadEdgeSlots(bool[] sides,bool[] corners)
@@ -39,6 +46,7 @@ namespace BaseConquest.Base
             if(!BaseSceneRules.Active(s))return;s.Demo.EnvironmentVersion=1;
             if(s.Demo.StoryScene?.Valid==true){foreach(var map in s.Campaign.Layouts.Where(map=>map.Region=="dungeon"))Populate(map,BaseBattlefield.Board(s,map.Region));return;}
             foreach(var m in s.Campaign.Layouts.Where(m=>m.Region!="world"&&(!preserveRelease||m.Region!="outpost"&&m.Region!="perimeter")))Populate(m,BaseBattlefield.Board(s,m.Region));
+            if(!BaseDemoPrologue.Village(s))ClearCampApproach(s);
             if(s.Demo.Finale?.Village!=null)Populate(s.Demo.Finale.Village,BattleBoard.CreateDefault(24,14));
             foreach(var m in s.Demo.ReleaseMaps)
             {
@@ -76,7 +84,6 @@ namespace BaseConquest.Base
                 if(cells.Length==0||cells.Any(p=>!b.Walkable(p)||b.Cell(p).Ramp!=RampAxis.None||d.Blocks&&b.Cell(p).Zone!=DeploymentZone.None||d.Blocks&&(b.Cell(p).Surface==GroundSurface.Cobble||b.Cell(p).Surface==GroundSurface.DirtPath))||cells.Select(p=>b.Cell(p).Elevation).Distinct().Count()>1)return false;
                 if(m.Objects.Any(v=>(v.Blocks||!v.VisualOnly)&&v.Object.Parts.Any(r=>Math.Abs(r.X-x)<(r.Width+d.Width)/2+.4&&Math.Abs(r.Y-y)<(r.Height+d.Depth)/2+.4)))return false;
                 if(m.TacticalObjects.Any(v=>Math.Abs(v.X+.5-x)<d.Width/2+1&&Math.Abs(v.Y+.5-y)<d.Depth/2+1))return false;
-                if(town&&Math.Abs(x-7)<d.Width/2+.8&&Math.Abs(y-11)<d.Depth/2+.8)return false;
                 m.Objects.Add(o);return true;
             }
             if(town)

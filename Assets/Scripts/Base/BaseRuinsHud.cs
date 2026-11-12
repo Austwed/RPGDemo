@@ -30,9 +30,8 @@ namespace BaseConquest.Base
             NpcDialogue(new[]{
                 new NpcLine("获救百姓甲","villager","刚才脑子里像蒙着雾，身体也不听使唤……现在清醒了。谢谢你救了我们！"),
                 new NpcLine("获救百姓乙","villager","我们两个都恢复神智了。你尽管来和我们说话；我们一定去领主那里替你说好话。"),
-                new NpcLine("战果提示","","控制者已被击倒，可以在战果中招降；每名队长的技能和特性各不相同。本次奖励已加入清单，不消耗体力。"),
-                new NpcLine("你","","先离开危险的地方。"+BaseScriptNames.Ruins+"的调查证据我会带回去；即使之前没接委托，也可以向领主说明经过。",true)
-            },new[]{new NpcReply("查看奖励",OpenLoot),new NpcReply("先与两位百姓交流",ClosePanel)});
+                new NpcLine("你","","先离开危险的地方。我会带上证据，回灰岩镇向领主交代经过。",true)
+            },new[]{new NpcReply("继续",ClosePanel)});
         }
         public void OpenRescuedCivilian(string id)
         {

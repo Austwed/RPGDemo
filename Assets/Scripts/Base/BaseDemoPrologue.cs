@@ -99,7 +99,7 @@ namespace BaseConquest.Base
             var stats=BaseCommanderIdentity.Stats(player,new ArmyDefinition().Hero);var elite=stats.Clone();elite.Health*=1.2f;elite.Damage*=.35f;elite.Defense*=.7f;elite.CritChance=0;elite.HasProfessionKind=elite.HasCombatKind=true;elite.ProfessionKind=elite.CombatKind=SoldierKind.Melee;
             var scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),CampaignRules=true,FogEnabled=false,PlayerHeroAppearance=true,PlayerLeaderSlot=0,CustomExits=true,ExitA=new GridPosition(23,6),ExitB=new GridPosition(0,6),MaxRounds=90,InstantDeathEnabled=false,
                 A=new ArmyDefinition {HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=stats},
-                B=new ArmyDefinition {HeroCount=2,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=elite,CommanderNames=new List<string>{"受伤精英追兵","受伤精英追兵"}},
+                B=new ArmyDefinition {HeroCount=2,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=elite,CommanderNames=new List<string>{"受伤精英追兵","受伤精英追兵"},CommanderAppearances=new List<string>{"galan","galan"}},
                 Objective=new ObjectiveConfig {Title="掩护撤离 · 追兵交战"},Placements=new List<UnitPlacement>()};
             var playerCell=new GridPosition((int)state.PlayerX,(int)state.PlayerY);
             var firstEnemy=new GridPosition(Math.Max(1,playerCell.X-6),5);var secondEnemy=new GridPosition(Math.Max(1,playerCell.X-7),8);
@@ -128,12 +128,11 @@ namespace BaseConquest.Base
         public static bool Resolve(BaseState state,RealtimeCampaignBattle run,bool abandon=false)
         {
             if(!Pursuit(state)||state.SceneBattleId!=BattleId)return false;
-            bool complete=!abandon&&run?.Battle.Phase==BattlePhase.Finished&&run.Battle.Report.Outcome==BattleOutcome.SideAWin&&Safe(state);
             if(!abandon&&run?.Battle.Phase!=BattlePhase.Finished)return false;
-            if(complete)
+            if(!abandon)
             {
-                var enemies=run.Model.Units.Where(unit=>unit.Side==PrototypeSide.Enemy).ToArray();
-                if(enemies.Count(unit=>unit.Health<=0)!=1||!enemies.Any(unit=>unit.Health>0&&unit.Health<=unit.MaxHealth*WoundedFraction+.001))return false;
+                // 即使主角先倒下，追兵也被拖住，村民趁乱从东侧脱身。
+                foreach(var person in Followers(state))person.Fate="escaped";
                 state.Demo.Stage=BaseDemoStage.PrologueWounded;state.Demo.PrologueCompleted=true;
             }
             else

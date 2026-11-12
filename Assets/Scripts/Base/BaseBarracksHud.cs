@@ -63,12 +63,12 @@ namespace BaseConquest.Base
         private void OpenHeldPrisoners()
         {
             var s=owner.State;BeginPanel("保留俘虏 · 待招降");RowButton("返回名册",0,800,()=>{activePage="roster";OpenBarracks();});row+=60;
-            Line("队长名额 "+BaseRpg.Population(s)+" / "+BaseRpg.Capacity(s)+"；随行满时送本领地基地，营帐满时进入当地旅店／扎营点（最多3名）；费用或寄存名额不足才保留俘虏。",70,19);
+            Line("队长名额 "+BaseRpg.Population(s)+" / "+BaseRpg.Capacity(s)+"；随行满时返回营地，队长名额已满时保留俘虏。",62,19);
             foreach(var prisoner in s.Aftermath.Prisoners.Where(p=>p.Status=="held").ToArray())
             {
                 string id=prisoner.Id;Line(prisoner.Name+" · 生命 "+prisoner.Health.ToString("0.#")+"/"+prisoner.Stats.Health.ToString("0.#"),48,20);
                 if(prisoner.Rpg?.Version==1)Line(BaseRpg.Describe(prisoner.Rpg),120,18);
-                RowButton("招降",-210,400,()=>RecruitPrisoner(id,OpenHeldPrisoners),prisoner.Kind!=SoldierKind.Hero||(BaseInn.Enabled(s)?BaseInn.CanRecruit(s):BaseRpg.HasRoom(s)));
+                RowButton("招降",-210,400,()=>RecruitPrisoner(id,OpenHeldPrisoners),prisoner.Kind!=SoldierKind.Hero||BaseAftermath.CanRecruitLeader(s));
                 RowButton("释放",210,400,()=>{BeginPanel("确认释放 · "+prisoner.Name);Line("释放后离开名单，无法再招降。",64);RowButton("确认释放",-210,400,()=>{owner.Change(next=>{if(!BaseAftermath.Decide(next,id,"release"))throw new InvalidOperationException("俘虏状态已变化");},"俘虏已释放");OpenHeldPrisoners();});RowButton("取消",210,400,OpenHeldPrisoners);row+=60;EndPanel();});row+=60;
             }
             EndPanel();

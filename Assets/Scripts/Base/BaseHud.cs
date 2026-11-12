@@ -35,10 +35,11 @@ namespace BaseConquest.Base
         private string nearbyId;
         private string activeObject = "", activePage = "";
         private string interactionObject="";
-        private static readonly HashSet<string> facilityInteractions=new HashSet<string>{"home","government","farm","workshop","barracks","warehouse","office","caravan","town_market","town_inn","town_recruit"};
+        private static readonly HashSet<string> facilityInteractions=new HashSet<string>{"home","government","farm","workshop","barracks","warehouse","office","caravan","town_market","town_recruit"};
         private float nextInspectionRefresh;
         public BaseJoystick Joystick { get; }
         public bool PanelOpen => modal.gameObject.activeSelf;
+        internal int PanelClosedFrame { get; private set; } = -1;
         public string InteractionProblem
         {
             get
@@ -72,7 +73,8 @@ namespace BaseConquest.Base
             summary.rectTransform.offsetMin = new Vector2(18, 42); summary.rectTransform.offsetMax = new Vector2(-410, -10);
             bool authoredResources = BaseBattleGateway.DemoMode && owner.SceneUiTemplate("ResourceStrip") != null;
             MakeButton(header, "菜单", new Vector2(-90, -36), new Vector2(140, 48), OpenMenu, new Vector2(1, 1));
-            DemoUiIcons.Attach(MakeButton(header, "背包", new Vector2(-270, -36), new Vector2(86, 44), ToggleBackpack, new Vector2(1, 1)),"equipment");
+            questBackpackButton = MakeButton(header, "背包", new Vector2(-270, -36), new Vector2(86, 44), ToggleBackpack, new Vector2(1, 1));
+            DemoUiIcons.Attach(questBackpackButton,"equipment");
             if (!authoredResources)
             {
                 var summaryLink = summary.gameObject.GetOrAdd<Button>(); summaryLink.targetGraphic = summary; summaryLink.onClick.AddListener(OpenResources);
@@ -271,6 +273,7 @@ namespace BaseConquest.Base
             }
             RefreshCompanionLabels();
             hint.gameObject.SetActive(owner.SelectedCell == null && !PanelOpen && !owner.ConstructionMode);RefreshConstructionPalette();
+            RefreshQuestCue();
         }
         public void RefreshInspection(bool force = true)
         {
@@ -406,8 +409,9 @@ namespace BaseConquest.Base
             if (ClosePreparationHelp()) return;
             if (DialogueExitLocked) return;
             if(owner.State?.Aftermath.GameOver==true || BaseBattleGateway.MainMenu || BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) return;
-            if(BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
+            if(!BaseDemo.Active(owner.State)&&BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             workerDraft=null;workerMoves.Clear();ClearPanelSelection();
+            if (PanelOpen) PanelClosedFrame = Time.frameCount;
             dialogueContinue=null;modal.gameObject.SetActive(false); activeObject = "";interactionObject=""; panelViewKey = null; panelScrollOffsets.Clear();
             BattlePreparationPanelClosed();
             if (owner.State != null) RefreshSummary();
@@ -453,7 +457,6 @@ namespace BaseConquest.Base
                 if(owner.State.Demo.Stage==BaseDemoStage.Waking){OpenDemoStory();return;}
                 bool zhou=id=="demo_rescuer";NpcDialogue(WithInjury(owner.State,zhou?"INJ_CAMP_ZHOU":"INJ_CAMP_CHUN",new NpcLine(zhou?BaseScriptNames.LaoZhou:BaseScriptNames.ChunShen,BaseScriptNames.Portrait(zhou?"laozhou":"chunshen"),zhou?"留得青山在，总能寻回你那位同伴的。":"饿了就回营帐歇歇，哪怕天塌下来也得先填饱肚子。")),new[]{new NpcReply("回头见",ClosePanel)});return;
             }
-            if(id=="town_inn"){OpenInn();return;}
             if(BaseDemo.Active(owner.State)&&id=="town_quest"){OpenDemoLord();return;}
             if(BaseDemo.Active(owner.State)&&(id=="town_guard"||id=="town_peddler"||id=="town_girl")){OpenTownChat(id);return;}
             if(BaseDemoPrologue.Village(owner.State)){if(!OpenIntroInteraction(id))OpenDemoStory();return;}

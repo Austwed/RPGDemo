@@ -13,7 +13,6 @@ namespace BaseConquest.Base
         }
         private static readonly Dictionary<string,InjuredLine> InjuredLines=new Dictionary<string,InjuredLine>
         {
-            {"INJ_TOWN_MAIGE",new InjuredLine{Speaker=BaseScriptNames.InnKeeper,Art=BaseScriptNames.Portrait("innkeeper"),Text="[倒吸凉气] 哎呀，这一身血。二楼那间空着，两枚钱币，热水管够。先把人保住再说。"}},
             {"INJ_TOWN_GUARD",new InjuredLine{Speaker=BaseScriptNames.Guard,Art="villager",Text="甲片裂成这样，仗打得够呛。人活着回来就成，锤子我这儿有，能替你敲回去。"}},
             {"INJ_TOWN_MO",new InjuredLine{Speaker=BaseScriptNames.Peddler,Art=BaseScriptNames.Portrait("merchant"),Text="嘶，这脸色白得像张纸！钱币没了可以再赚，人要是倒了可就本利全空喽。"}},
             {"INJ_TOWN_XIAOYUN",new InjuredLine{Speaker=BaseScriptNames.Girl,Art="villager",Text="[惊呼捂嘴] 血……你袖子一直在滴血！你站着别动，我去叫人！"}},

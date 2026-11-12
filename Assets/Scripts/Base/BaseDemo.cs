@@ -151,6 +151,7 @@ namespace BaseConquest.Base
             // 编辑器设计的六张剧情图最后覆盖：内置布局与发布快照都不再作数。
             if(state.Demo?.StoryScene?.Valid==true)state.Demo.StoryScene.InstallCamp(state);
             BaseSceneRules.Install(state);if(state.Demo.EnvironmentVersion>0)BaseEnvironment.Install(state,true);
+            BaseEnvironment.ClearCampApproach(state);
             BaseBanditHideout.Install(state);
             // 没有剧情场景包时，开局点按当前营帐实际坐标推算，不再写死旧布局的 (4, 8.8)——
             // 那样营帐一挪位，玩家就出生在离仓库两格开外，连仓库都打不开。
@@ -184,6 +185,7 @@ namespace BaseConquest.Base
         public static void EnsureCampLayout(BaseState state)
         {
             if(state?.Demo==null||state.Campaign?.Layouts==null)return;
+            if(!BaseDemoPrologue.Village(state))BaseEnvironment.ClearCampApproach(state);
             if(state.Demo.CampLayoutVersion>=2)return;
             var camp=state.Campaign.Layouts.FirstOrDefault(map=>map.Region=="base");
             if(camp!=null)
@@ -269,13 +271,14 @@ namespace BaseConquest.Base
             if(state.Campaign.Layouts.Count!=((BaseSceneRules.Active(state)?1:0)+(BaseBanditHideout.Installed(state)?1:0)+(world?7:BaseDemoDefense.Enabled(state)?4:BaseDemoRuins.Enabled(state)?3:2))||!state.Campaign.Layouts.Any(map=>map.Region=="town")||!BaseDemoPrologue.Village(state)&&new[]{"home","barracks"}.Any(id=>!state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Any(obj=>obj.Id==id&&obj.Blocks)))throw new ArgumentException("Demo地图须保留营帐、兵营与领主驻地");
             if(!BaseDemoDefense.Repaired(state,"workshop")&&(state.Muster.Facilities.Any(facility=>facility.FacilityId=="workshop"&&(facility.Capacity!=0||facility.MinimumWorkers!=0))||state.Leaders.Any(leader=>leader.FacilityId=="workshop")||state.Workers.Any(worker=>worker.FacilityId=="workshop")))throw new ArgumentException("Demo工坊尚未修复，不能提前生产");
             if(state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Any(obj=>new[]{"workshop","barracks"}.Contains(obj.Id)&&obj.VisualOnly==BaseDemoDefense.Repaired(state,obj.Id)))throw new ArgumentException("Demo建筑外观与实际修复状态不一致");
-            BaseDemoPrologue.Validate(state);BaseDemoIntro.Validate(state);
+            BaseDemoPrologue.Validate(state);BaseDemoIntro.Validate(state);BaseDemoIntro.CompleteFarmAssignment(state);
             BaseDemoFinale.Normalize(state);
             BaseDemoRuins.Validate(state);
             BaseRuinsRewards.Validate(state);
             BaseDemoDefense.Validate(state);
             BaseDemoFinale.Validate(state);
             BaseDemoRaids.Validate(state);
+            BaseQuestLog.NormalizeDemoTrack(state);
         }
 
         public static bool AcknowledgeWaking(BaseState state)

@@ -35,7 +35,7 @@ namespace BaseConquest.Base
             BaseFacilityLayout.Normalize(s);
             BaseRpg.Bind(s);
             BaseBanditHideout.Install(s);
-            BaseSceneRules.Validate(s);BaseInn.Validate(s);
+            BaseSceneRules.Validate(s);BaseInn.ValidateRetired(s);
             if (s.Campaign.Location == "base" && (s.Development == null || s.Development.Version == 0)) BaseMap.RelocateLegacyBarracks(ref s.PlayerX, ref s.PlayerY);
             BaseSceneRules.RepairEntrancePositions(s);
             if (!Finite(s.PlayerX) || !Finite(s.PlayerY) || !BaseSpatial.Geometry(s,s.PlayerX,s.PlayerY)) throw new ArgumentException("角色位置不可通行");
@@ -128,7 +128,7 @@ namespace BaseConquest.Base
             s.Inventory.Food = food; stock.Count = equipment; s.Inventory.Materials -= p.MaterialsSpent;
             s.FarmFraction = p.FarmFraction; BaseConstruction.Progress(s,p.Product).Fraction = p.WorkshopFraction;
             report.PeopleRecovered = BaseDevelopment.Recover(s);
-            s.LastCompletedDay = s.Day; s.Day++;BaseInn.AdvanceDay(s);
+            s.LastCompletedDay = s.Day; s.Day++;
             BaseTown.AdvanceDay(s);
             BaseRuinsRewards.AdvanceDay(s);
             BaseTraining.AdvanceDay(s);

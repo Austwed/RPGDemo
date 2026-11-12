@@ -910,8 +910,8 @@
     {
       "key": "story.scene.prologue.drill_pause",
       "group": "剧情／序章演练",
-      "text": "点右上角的【{toggle}】，也可以按空格，练习暂停和继续。",
-      "notes": "演练第 2 步。{toggle} 为右上按钮当时的文字。"
+      "text": "点右下角的暂停／继续，或按空格。",
+      "notes": "演练第 2 步，箭头指向战斗操作区的暂停或继续按钮。"
     },
     {
       "key": "story.scene.prologue.drill_move",
@@ -928,7 +928,7 @@
     {
       "key": "story.scene.prologue.drill_skill",
       "group": "剧情／序章演练",
-      "text": "点左下角头像下方的【{skill}】，把气势提起来！",
+      "text": "点头像上方的【{skill}】，把气势提起来！",
       "notes": "演练第 5 步。{skill} 为当前战技按钮名称。"
     },
     {
@@ -946,7 +946,7 @@
     {
       "key": "story.scene.prologue.drill_auto_attack",
       "group": "剧情／序章演练",
-      "text": "长按左下角的头像，在详情里选【进攻】。关闭详情后按空格，连劈木桩三剑！",
+      "text": "点右下角的【进攻】，让队伍连续攻击木桩。战斗暂停时先继续。",
       "notes": "演练第 8 步，说明进攻策略入口和恢复战斗方式。"
     },
     {
@@ -954,6 +954,30 @@
       "group": "剧情／序章演练",
       "text": "最后一式，单击我发起进攻。暂停时记得按空格继续！",
       "notes": "演练第 9 步，实战命中搭档。"
+    },
+    {
+      "key": "story.scene.prologue.pursuit_royal_sword",
+      "group": "剧情／序章追兵",
+      "text": "王室的剑怎么会在你们手里？",
+      "notes": "主角在开战前看清追兵持剑；无变量。"
+    },
+    {
+      "key": "story.scene.prologue.pursuit_stab",
+      "group": "剧情／序章追兵",
+      "text": "［一名古裔追兵从雾中刺出王室的剑，贯穿了你的胸口。］",
+      "notes": "自然胜负共用的重伤对白第一句；无变量。"
+    },
+    {
+      "key": "story.scene.prologue.pursuit_blackout",
+      "group": "剧情／序章追兵",
+      "text": "王室……怎么会……{Partner}……［失去意识］",
+      "notes": "主角被剑刺穿；{Partner} 为当局搭档本名。"
+    },
+    {
+      "key": "story.scene.prologue.pursuit_goon",
+      "group": "剧情／序章追兵",
+      "text": "这人倒下了。别管他，快去搬粮！",
+      "notes": "重伤对白最后一句，继续进入断流滩苏醒；无变量。"
     },
     {
       "key": "story.scene.prologue.pursuit_retry",

@@ -33,7 +33,7 @@ namespace BaseConquest.Base
             var replies=new List<NpcReply>{new NpcReply("聊天对话",()=>RenderPartner(id,dialogue.Chat(leader)))};
             if(joined)
             {
-                replies.Add(new NpcReply(paused?"恢复随行 · 保留的名额":"暂离队伍 · 入住当地旅店",()=>ConfirmPartnerDisposition(id,paused?"resume":"pause"),nearby&&BaseAdventure.PauseProblem(s,id,paused)==""));
+                replies.Add(new NpcReply(paused?"恢复随行":"在这里等候",()=>ConfirmPartnerDisposition(id,paused?"resume":"pause"),nearby&&BaseAdventure.PauseProblem(s,id,paused)==""));
                 replies.Add(new NpcReply("回到基地 · 带本队士兵",()=>ConfirmPartnerDisposition(id,"home"),nearby&&BaseAdventure.ReturnHomeProblem(s,id)==""));
                 problem=BaseAdventure.ReturnHomeProblem(s,id);
             }
@@ -48,24 +48,19 @@ namespace BaseConquest.Base
         {
             string title=action=="pause"?"确认暂离队伍":action=="resume"?"确认恢复随行":"确认本队回营";
             BeginPanel(title,"partner-disposition:"+id);
-            Line(action=="pause"?"伙伴入住当地旅店，释放随行与营帐名额，保留装备和背包。每人每天2金币、先付首日，最多额外寄存3人；"+BaseScriptNames.Village+"扎营点免费。士兵留在出征队，不入住旅店。":action=="resume"?"恢复伙伴随行及暂存的实际编组，不补血、不复制人员。":"队长、本队实际士兵与随身物品立即回到本领地基地，不耗日；保留战损，今日不生产。",110,21);
+            Line(action=="pause"?"伙伴和本队士兵留在这里等候，保留随行名额。":action=="resume"?"伙伴与本队士兵恢复随行。":"队长、本队士兵与随身物品一同回营，今天不参加生产。",78,21);
             RowButton("确认",-210,400,()=>
             {
-                // TOWN_04_INN_DEBT：还挂着账就别想领人，先由麦格把话挑明。
-                if(action=="resume"&&owner.State.Inn.Guests.Any(g=>g.LeaderId==id&&g.Debt>0))
-                {NpcDialogue(new[]{new NpcLine(BaseScriptNames.InnKeeper,BaseScriptNames.Portrait("innkeeper"),"［搓手陪笑］客官，这几天的挂账房钱还没结清呢，补齐了账随时把人领走！")},new[]{new NpcReply("这就去补账",ClosePanel)});return;}
                 bool changed=owner.Change(next=>
                 {
                     if(!BaseInteraction.CanReach(next,owner.PresentedObject(id)))throw new InvalidOperationException("请在伙伴旁交谈");
                     bool ok=action=="pause"?BaseAdventure.Pause(next,id):action=="resume"?BaseAdventure.Resume(next,id):BaseAdventure.SendHome(next,id);
                     if(!ok)throw new InvalidOperationException(action=="home"?BaseAdventure.ReturnHomeProblem(next,id):BaseAdventure.PauseProblem(next,id,action=="resume"));
-                },action=="pause"?"伙伴已入住，名额释放":action=="resume"?"伙伴恢复随行":"伙伴与本队士兵已返营");
+                },"");
                 if(!changed){OpenPartner(id);return;}
                 var leader=owner.State.Leaders.FirstOrDefault(l=>l.Id==id);
                 string who=leader==null?"同伴":BasePersonnel.LeaderName(leader);
                 string art=leader==null?"":BaseCommanderIdentity.Appearance(leader);
-                // TOWN_04_INN_STORE：寄住成功由麦格收钱；TOWN_04_INN_RECALL：结清接回由伙伴本人答话。
-                if(action=="pause"){NpcDialogue(new[]{new NpcLine(BaseScriptNames.InnKeeper,BaseScriptNames.Portrait("innkeeper"),"首日房钱收妥！放心去闯荡吧，你的同伴在店里吃住包在我身上。")},new[]{new NpcReply("交给你了",ClosePanel)});return;}
                 if(action=="resume"){NpcDialogue(new[]{new NpcLine(who,art,"歇够了骨头都快生锈了，咱们这就出发！")},new[]{new NpcReply("出发",()=>{ClosePanel();OpenPartner(id);})});return;}
                 if(action=="home")ClosePanel();else OpenPartner(id);
             });RowButton("取消",210,400,()=>OpenPartner(id));row+=65;EndPanel();

@@ -93,7 +93,6 @@ namespace BaseConquest.Base
             campaign.Events.Single(mission=>mission.Id==site.AttackEventId).Title="攻占"+BaseScriptNames.Bandit;
             foreach(var leader in state.Leaders.Where(leader=>leader.HasMapPosition)){leader.MapId=keys[BaseAdventure.Region(leader)];if(leader.MapRegion=="outpost"||leader.MapRegion=="dungeon"||leader.MapRegion==BaseBanditHideout.Region)leader.MapRegion="custom";}
             foreach(var paused in state.Adventure.Pauses){paused.MapId=keys[paused.Region];if(paused.Region=="outpost"||paused.Region=="dungeon"||paused.Region==BaseBanditHideout.Region)paused.Region="custom";paused.AreaId="camp";}
-            foreach(var guest in state.Inn.Guests)if(guest.AreaId=="demo-local")guest.AreaId="camp";
             if(state.Demo.TerrainMemories!=null)foreach(var memory in state.Demo.TerrainMemories)if(keys.ContainsKey(memory.MapId))memory.MapId=keys[memory.MapId];
             campaign.InstanceVersion=1;campaign.DesignId=state.Demo.BalanceHash;campaign.CurrentMapId="demo_camp";
             campaign.DesignLinks.Clear();

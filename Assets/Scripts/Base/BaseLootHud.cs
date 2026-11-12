@@ -1,7 +1,9 @@
 using System;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
 using BaseConquest.Presentation;
+using BaseConquest.Story;
 
 namespace BaseConquest.Base
 {
@@ -14,6 +16,7 @@ namespace BaseConquest.Base
         internal void OpenLoot(string battle)
         {
             var s=owner.State;if(s==null||s.Aftermath.GameOver)return;
+            if(BaseDemo.Active(s)){OpenDemoReward(battle);return;}
             var m=s.Aftermath.Loot.FirstOrDefault(x=>!x.Closed&&(battle==null||x.BattleId==battle));
             if(m==null){ClosePanel();return;}
             lootBattle=m.BattleId;
@@ -26,7 +29,6 @@ namespace BaseConquest.Base
             RowButton("处理完毕 · 继续",-290,270,()=>{if(owner.Change(next=>{if(!BaseBattleLoot.Finish(next,m.BattleId))throw new InvalidOperationException("请先处理全部道具和俘虏");},"战利品已处理"))ClosePanel();},BaseBattleLoot.CanFinish(s,m));
             RowButton("整理小队背包 · B",0,270,OpenBackpack);
             RowButton("规则 i",290,270,()=>RuleInfo("战利品处理规则",(BaseRpg.Active(s)?"处理完全部道具后可保留俘虏继续，俘虏不会丢失；营帐满员可回营升级后再招降。\n":"")+"必须处理全部道具后才能离开。可打开B背包拖放、换装、整理或确认销毁；关闭背包回到本清单。领取失败不会丢失奖励。\n\n普通道具进入随行队员背包，不远程送仓库；放弃不可恢复。战略物资已一次计入库存，只在此展示。\n\n招降加入己方，姓名为黄色，规则与其他单位一致。测试招降100%；非测试可能拒绝，拒绝也结束本次处置。处死永久移除；释放离开名单但不记为死亡，特殊剧情以后设计。",OpenLoot));row+=62;
-            if(BaseRpg.Active(s))Line("队长名额 "+BaseRpg.Population(s)+" / "+BaseRpg.Capacity(s)+"；随行满时回本领地基地；营帐满或当地无基地时进入当地旅店／扎营点（最多3名），名额或钱币不足则保留俘虏。",65,19);
             int held=s.Aftermath.Prisoners.Count(p=>p.BattleId==m.BattleId&&p.Status=="held");
             RowButton("奖励 · 待领取 "+m.Items.Count(i=>i.Status=="pending"),-210,400,()=>{lootTab="items";lootConfirmation="";OpenLoot();});
             RowButton("俘虏 · 待处理 "+held,210,400,()=>{lootTab="prisoners";lootConfirmation="";OpenLoot();});row+=62;
@@ -63,6 +65,88 @@ namespace BaseConquest.Base
                 if(held==0)Line("本场俘虏已全部处理。",60);
             }
             EndPanel();
+        }
+        private void OpenDemoReward(string battle)
+        {
+            var state=owner.State;
+            var manifest=state.Aftermath.Loot.FirstOrDefault(m=>(!m.Closed||m.HasReceipt)&&(battle==null||m.BattleId==battle));
+            if(manifest==null)
+            {
+                if(battle!=null&&state.Aftermath.Prisoners.Any(p=>p.BattleId==battle&&p.Status=="held"))OpenRewardPrisoners(battle);
+                else ClosePanel();
+                return;
+            }
+            battle=manifest.BattleId;
+            interactionObject="";
+            BaseLootManifest receipt=null;
+            if(!owner.Change(next=>receipt=BaseBattleLoot.ConsumeReceipt(next,battle),""))return;
+            bool held=owner.State.Aftermath.Prisoners.Any(p=>p.BattleId==battle&&p.Status=="held");
+            if(!receipt.HasReceipt){if(held)OpenRewardPrisoners(battle);else ClosePanel();return;}
+            var lines=receipt.Items.Where(i=>!string.IsNullOrEmpty(i.ReceiptDestination)).Select(i=>BaseBattleLoot.Name(owner.State,i)+"  ·  "+
+                (i.ReceiptDestination==BaseBattleLoot.WarehouseReceipt?StoryText.Get("ui.reward.warehouse","仓库"):
+                    (owner.State.Leaders.FirstOrDefault(l=>l.Id==i.ReceiptDestination)?.Name??"")+StoryText.Get("ui.reward.backpack","的背包"))).ToList();
+            if(receipt.ReceiptFood>0)lines.Insert(0,StoryText.Get("ui.reward.food","粮食")+" +"+receipt.ReceiptFood);
+            if(receipt.ReceiptMaterials>0)lines.Insert(0,StoryText.Get("ui.reward.materials","原料")+" +"+receipt.ReceiptMaterials);
+            if(receipt.ReceiptCoins>0)lines.Insert(0,StoryText.Get("ui.reward.coins","钱币")+" +"+receipt.ReceiptCoins);
+            OpenRewardReceipt(receipt.Title,lines.ToArray(),held?()=>OpenRewardPrisoners(battle):(Action)null);
+        }
+        private void OpenRewardReceipt(string title,string[] lines,Action prisoners)
+        {
+            activeObject="reward-receipt";
+            BeginPanel(StoryText.Get("ui.reward.received","获得奖励")+" · "+title,"reward-receipt");
+            var view=panel;
+            var viewport=panelScroll.viewport;
+            const float width=536f;
+            float listHeight=Mathf.Clamp(lines.Length*34+12,56,240),height=listHeight+(prisoners!=null?110:66);
+            view.sizeDelta=new Vector2(width,height);
+            var header=view.Find("Header") as RectTransform;
+            if(header!=null)Pin(header,new Vector2(0,1),new Vector2(1,1),new Vector2(0,-45),Vector2.zero);
+            var caption=(view.Find("Title")??view.GetComponentsInChildren<Text>(true).First().transform) as RectTransform;
+            Pin(caption,new Vector2(0,1),new Vector2(1,1),new Vector2(16,-44),new Vector2(-90,0));
+            var close=view.Find("Close") as RectTransform;
+            if(close==null)close=view.GetComponentsInChildren<Button>(true).First().GetComponent<RectTransform>();
+            close.GetComponent<Button>().interactable=true;
+            Pin(close,Vector2.one,Vector2.one,new Vector2(-81,-40),new Vector2(-8,-5));
+            Pin(viewport,new Vector2(0,1),new Vector2(1,1),new Vector2(14,-52-listHeight),new Vector2(-14,-52));
+            content.sizeDelta=new Vector2(width-28,Mathf.Max(listHeight,lines.Length*34+8));
+            panelScroll.vertical=lines.Length*34+8>listHeight;
+            for(int i=0;i<lines.Length;i++)
+                Label(content,lines[i],new Vector2(0,-21-i*34),new Vector2(width-54,34),18,TextAnchor.MiddleLeft,new Vector2(.5f,1));
+            if(prisoners!=null)MakeButton(view,StoryText.Get("ui.reward.prisoners","处理俘虏"),new Vector2(0,29),new Vector2(160,38),prisoners,new Vector2(.5f,0));
+            RefreshSummary();
+            void Pin(RectTransform node,Vector2 min,Vector2 max,Vector2 low,Vector2 high)
+            {node.anchorMin=min;node.anchorMax=max;node.offsetMin=low;node.offsetMax=high;}
+        }
+        private void OpenRewardPrisoners(string battle)
+        {
+            activeObject="reward-prisoners";
+            interactionObject="";
+            var state=owner.State;
+            var held=state.Aftermath.Prisoners.Where(p=>p.BattleId==battle&&p.Status=="held").ToArray();
+            if(held.Length==0){ClosePanel();return;}
+            BeginPanel(StoryText.Get("ui.reward.prisoners","处理俘虏"),"reward-prisoners:"+battle);
+            RowButton("一键招募",0,800,()=>
+            {
+                var special=owner.State.Aftermath.Prisoners.FirstOrDefault(p=>p.BattleId==battle&&BaseDemoStories.ControllerDialogue(owner.State,p.Id));
+                if(special!=null){RecruitPrisoner(special.Id,()=>OpenRewardPrisoners(battle));return;}
+                owner.Change(next=>BaseBattleLoot.RecruitAll(next,battle),"");OpenRewardPrisoners(battle);
+            });row+=54;
+            foreach(var p in held)
+            {
+                string id=p.Id;
+                Line(p.Name+" · 生命 "+p.Health.ToString("0.#")+" / "+p.Stats.Health.ToString("0.#"),46,19);
+                RowButton("招降",-290,270,()=>RecruitPrisoner(id,()=>OpenRewardPrisoners(battle)),p.Kind!=BaseConquest.Battle.SoldierKind.Hero||BaseAftermath.CanRecruitLeader(state));
+                RowButton("释放",0,270,()=>Confirm("release",p.Name,id));
+                RowButton("处死",290,270,()=>Confirm("execute",p.Name,id));row+=54;
+            }
+            EndPanel();
+            void Confirm(string action,string name,string id)
+            {
+                string verb=action=="execute"?"处死":"释放";
+                BeginPanel(verb+" · "+name,"reward-prisoner-confirm");
+                RowButton("确认"+verb,-210,400,()=>{owner.Change(next=>{if(!BaseAftermath.Decide(next,id,action))throw new InvalidOperationException("俘虏状态已变化");},"");OpenRewardPrisoners(battle);});
+                RowButton("取消",210,400,()=>OpenRewardPrisoners(battle));row+=60;EndPanel();
+            }
         }
         private void RenderTradeSale(RectTransform details)
         {

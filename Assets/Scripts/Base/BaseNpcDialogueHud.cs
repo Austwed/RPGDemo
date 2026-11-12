@@ -29,6 +29,7 @@ namespace BaseConquest.Base
         private Action dialogueContinue;
         private Action<float> dialogueTick;
         private bool dialogueLocked;
+        private Button dialogueQuestTarget;
 
         public bool DialogueOpen => PanelOpen && panelViewKey == "npc-dialogue";
         public bool DialogueExitLocked => DialogueOpen && dialogueLocked;
@@ -47,7 +48,7 @@ namespace BaseConquest.Base
         }
 
         private void NpcDialogue(NpcLine[] lines, NpcReply[] replies, bool lockExitUntilFinished = false, Action onCompleted = null,
-            bool quietAdvance = false)
+            bool quietAdvance = false, bool guide = false)
         {
             var view = OpenScenePanel("NpcDialogue", "npc-dialogue");
             root.GetComponent<Canvas>().sortingOrder = 300;
@@ -62,6 +63,7 @@ namespace BaseConquest.Base
             var hint = Ui<Text>(view, "DialogueHint");
             hint.text = StoryText.Get("story.ui.dialogue.advance", "点击正文或按 E／空格继续");
             var advance = Ui<Button>(view, "AdvanceButton");
+            dialogueQuestTarget = guide ? advance : null;
             var choices = Ui<ScrollRect>(view, "Replies");
             var template = Ui<Button>(choices.content, "ReplyTemplate");
             bool touch = Application.platform == RuntimePlatform.Android;
@@ -169,7 +171,7 @@ namespace BaseConquest.Base
                     speech.text = fullText;
                     dialogueTick = null;
                     if (!last) return;
-                    dialogueLocked = quietAdvance;
+                    dialogueLocked = quietAdvance || guide && lockExitUntilFinished && onCompleted != null;
                     foreach (var row in replyRows)
                     {
                         row.Label.text = row.Reply.Text;
@@ -180,6 +182,7 @@ namespace BaseConquest.Base
                         dialogueContinue = null;
                         advance.gameObject.SetActive(false);
                         hint.gameObject.SetActive(false);
+                        if (guide) dialogueQuestTarget = replyRows.FirstOrDefault(row => row.Reply.Enabled).Button;
                     }
                 }
             }

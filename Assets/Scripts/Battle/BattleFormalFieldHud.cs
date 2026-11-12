@@ -1,4 +1,5 @@
 using System.Linq;
+using BaseConquest.Base;
 using BaseConquest.Presentation;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,7 +10,6 @@ namespace BaseConquest.Battle
     {
         private RectTransform formalBanner, formalHeading, formalSummary;
         private Text formalMap, formalGoal, formalStatus, formalAlly, formalEnemy, formalSupply;
-        private RectTransform formalPauseAnchor, formalSpeedAnchor;
         private float formalExpandedHeight;
         private Button formalSummaryToggle;
         private bool formalSummaryFolded;
@@ -44,9 +44,98 @@ namespace BaseConquest.Battle
             formalAlly = BannerLabel("AllyCounts", formalSummary, 14, 0, .34f, 16, -8);
             formalEnemy = BannerLabel("EnemyCounts", formalSummary, 14, .34f, .68f, 8, -8);
             formalSupply = BannerLabel("SupplyCounts", formalSummary, 14, .68f, 1, 8, -16);
-            formalPauseAnchor = Rect("PauseAnchor", formalBanner, Vector2.one, new Vector2(-212, -9), new Vector2(70, 33));
-            formalSpeedAnchor = Rect("SpeedAnchor", formalBanner, Vector2.one, new Vector2(-162, -9), new Vector2(42, 33));
             formalBanner.gameObject.SetActive(false);
+        }
+
+        private void CreateRealtimeControls()
+        {
+            realtimeControls = Rect("RealtimeControls", safe, new Vector2(1, 0), new Vector2(-14, 44), new Vector2(390, 44));
+            string[] names = { "Manual", "Attack", "Defense" };
+            string[] labels = { "手动", "进攻", "防守" };
+            for (int i = 0; i < realtimeStrategies.Length; i++)
+            {
+                var strategy = TierStrategies[i];
+                realtimeStrategies[i] = RealtimeButton(names[i], labels[i], i, () => owner.ChooseRealtimeStrategy(strategy));
+            }
+            realtimePause = RealtimeButton("Pause", "继续", 3, owner.ToggleRealtimePause);
+            realtimeSpeed = RealtimeButton("Speed", "1倍", 4, owner.ToggleFast);
+            realtimeControls.gameObject.SetActive(false);
+        }
+
+        private Button RealtimeButton(string name, string label, int index, System.Action action)
+        {
+            var button = Button(name, realtimeControls, Vector2.zero, new Vector2(index * 79, 0), new Vector2(74, 44), action);
+            button.GetComponentInChildren<Text>().text = label;
+            return button;
+        }
+
+        private void CreatePracticeGuide()
+        {
+            practiceInstruction = Rect("PracticeInstruction", safe, new Vector2(0, 1), new Vector2(12, -115), new Vector2(420, 54));
+            var panel = practiceInstruction.gameObject.GetOrAdd<Image>();
+            panel.color = DemoUiTheme.Current.Wood;
+            panel.raycastTarget = false;
+            practiceInstructionText = Label("", practiceInstruction, 16);
+            practiceInstructionText.color = DemoUiTheme.Current.Panel;
+            practiceInstructionText.alignment = TextAnchor.MiddleLeft;
+            practiceInstructionText.rectTransform.offsetMin = new Vector2(12, 4);
+            practiceInstructionText.rectTransform.offsetMax = new Vector2(-12, -4);
+            practiceArrow = Label("▼", safe, 26, "PracticeArrow");
+            practiceArrow.rectTransform.anchorMin = practiceArrow.rectTransform.anchorMax = new Vector2(.5f, .5f);
+            practiceArrow.rectTransform.pivot = new Vector2(.5f, .5f);
+            practiceArrow.rectTransform.sizeDelta = new Vector2(34, 32);
+            practiceArrow.color = DemoUiTheme.Current.Gold;
+            var outline = practiceArrow.gameObject.GetOrAdd<Outline>();
+            outline.effectColor = DemoUiTheme.Current.Wood;
+            outline.effectDistance = new Vector2(2, -2);
+        }
+
+        private void RefreshPracticeControl(BattleSimulation battle)
+        {
+            if (practiceScene == null) return;
+            var intro = practiceScene.State?.Demo?.Intro;
+            int step = owner.PracticeStep;
+            bool visible = battle.Phase == BattlePhase.Fighting && step != 0 && !owner.DetailsVisible && !owner.CampaignMenuOpen;
+            practiceInstruction.gameObject.SetActive(visible && !string.IsNullOrWhiteSpace(owner.PracticeText));
+            practiceInstructionText.text = owner.PracticeText;
+            Button target = !visible ? null : step switch
+            {
+                BaseDemoIntro.Select or BaseDemoIntro.Inspect => portraits[0],
+                BaseDemoIntro.Pause => realtimePause,
+                BaseDemoIntro.Skill => skills[0],
+                BaseDemoIntro.AutoAttack when intro?.DummyPhase < 3 => realtimeStrategies[1].interactable ? realtimeStrategies[1] : portraits[0],
+                BaseDemoIntro.Move or BaseDemoIntro.AutoAttack when !owner.Automatic => realtimePause,
+                _ => null
+            };
+            var cue = target != null && target.gameObject.activeInHierarchy ? target.GetComponent<DemoButtonTint>() : null;
+            if (cue != practiceCue)
+            {
+                practiceCue?.SetGuide(false);
+                practiceCue = cue;
+                practiceCue?.SetGuide(true);
+            }
+            Vector2 position;
+            if (target != null && target.gameObject.activeInHierarchy)
+            {
+                var rect = (RectTransform)target.transform;
+                position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(new Vector3(rect.rect.center.x, rect.rect.yMax)));
+            }
+            else if (!visible || !owner.TryPracticeMapTarget(step, out position))
+            {
+                practiceArrow.gameObject.SetActive(false);
+                return;
+            }
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(safe, position, null, out var local))
+            {
+                practiceArrow.gameObject.SetActive(false);
+                return;
+            }
+            var area = safe.rect;
+            local.x = Mathf.Clamp(local.x, area.xMin + 20, area.xMax - 20);
+            local.y = Mathf.Clamp(local.y + 19, area.yMin + 18, area.yMax - 18);
+            practiceArrow.rectTransform.localPosition = new Vector3(local.x, local.y);
+            practiceArrow.rectTransform.SetAsLastSibling();
+            practiceArrow.gameObject.SetActive(true);
         }
 
         private Text BannerLabel(string name, RectTransform parent, int size, float min, float max, float left, float right)
@@ -66,8 +155,6 @@ namespace BaseConquest.Battle
         {
             formalBanner.SetAsFirstSibling();
             formalExpandedHeight = formalBanner.rect.height;
-            MoveTopControl(automatic, formalPauseAnchor);
-            MoveTopControl(fast, formalSpeedAnchor);
             if (!authored)
             {
                 formalBanner.GetComponent<Image>().color = DemoUiTheme.Current.Wood;
@@ -116,16 +203,15 @@ namespace BaseConquest.Battle
                 var module = (RectTransform)portrait.parent;
                 module.anchoredPosition = new Vector2(10 + i * 126, module.anchoredPosition.y);
                 module.sizeDelta = new Vector2(118, 142);
-                portrait.anchoredPosition = new Vector2(0, 56);
+                portrait.anchoredPosition = new Vector2(0, owner.FormalFieldHud ? 0 : 56);
                 portrait.sizeDelta = new Vector2(118, 86);
                 portraitLabels[i].fontSize = 16;
-                PlaceTouchButton(skills[i], 0, 0, 56, 52, 17);
-                PlaceTouchButton(ultimates[i], 62, 0, 56, 52, 17);
+                PlaceTouchButton(skills[i], 0, owner.FormalFieldHud ? 91 : 0, 72, 52, 17);
                 if (!owner.FormalFieldHud) continue;
                 var row = formalTroopRows[i];
-                row.anchoredPosition = new Vector2(0, 146);
+                row.anchoredPosition = new Vector2(0, 147);
                 row.sizeDelta = new Vector2(118, 176);
-                PlaceTouchButton(formalTroopToggles[i], -2, -2, 38, 38, 21);
+                PlaceTouchButton(formalTroopToggles[i], 76, 91, 42, 52, 21);
                 for (int troop = 0; troop < BattleSimulation.TroopKinds.Length; troop++)
                     PlaceTouchButton(formalTroops[i, troop], 0, (2 - troop) * 60, 118, 56, 21);
             }
@@ -139,12 +225,10 @@ namespace BaseConquest.Battle
             formalMap.fontSize = 23;
             formalGoal.fontSize = formalStatus.fontSize = 19;
             formalAlly.fontSize = formalEnemy.fontSize = formalSupply.fontSize = 18;
-            formalGoal.rectTransform.offsetMax = new Vector2(-500, 0);
-            formalStatus.rectTransform.offsetMin = new Vector2(-498, 0);
-            formalStatus.rectTransform.offsetMax = new Vector2(-390, 0);
+            formalGoal.rectTransform.offsetMax = new Vector2(-288, 0);
+            formalStatus.rectTransform.offsetMin = new Vector2(-282, 0);
+            formalStatus.rectTransform.offsetMax = new Vector2(-188, 0);
             PlaceTouchButton(formalSummaryToggle, -128, -9, 56, 52, 23);
-            PlaceTouchButton(fast, -192, -9, 72, 52, 21);
-            PlaceTouchButton(automatic, -272, -9, 106, 52, 21);
             status.fontSize = 17;
             infoPanel.anchoredPosition = new Vector2(infoPanel.anchoredPosition.x, -114);
             logPanel.anchoredPosition = new Vector2(logPanel.anchoredPosition.x, -327);
@@ -155,8 +239,10 @@ namespace BaseConquest.Battle
             for (int i = 0; i < actions.Length; i++)
                 PlaceTouchButton(draftControls.Find(actions[i]).GetComponent<Button>(), i * 143, 2, 134, 62, 22);
 
-            PlaceTouchButton(realtimeGuard, 8, 116, 136, 58, 21);
-            PlaceTouchButton(realtimeRetreat, 152, 116, 136, 58, 21);
+            realtimeControls.sizeDelta = new Vector2(464, 64);
+            var actionsLive = realtimeStrategies.Concat(new[] { realtimePause, realtimeSpeed }).ToArray();
+            for (int i = 0; i < actionsLive.Length; i++)
+                PlaceTouchButton(actionsLive[i], 94 * i, 2, 86, 60, 22);
         }
 
         private static void PlaceTouchButton(Button button, float x, float y, float width, float height, int fontSize)
@@ -181,7 +267,7 @@ namespace BaseConquest.Battle
         {
             var row = Rect("DraftTroops", module, Vector2.zero, new Vector2(0, 134), new Vector2(92, 146));
             formalTroopRows[slot] = row;
-            formalTroopToggles[slot] = Button("TroopToggle", module, Vector2.one, new Vector2(-2, -2), new Vector2(25, 24), () =>
+            formalTroopToggles[slot] = Button("TroopToggle", module, Vector2.zero, new Vector2(64, 91), new Vector2(28, 38), () =>
             {
                 formalTroopsFolded[slot] = !formalTroopsFolded[slot];
                 Refresh();
@@ -244,11 +330,6 @@ namespace BaseConquest.Battle
             {
                 if (draft) (formalAlly.text, formalEnemy.text) = owner.FieldDraftSummary();
                 else (formalAlly.text, formalEnemy.text, formalSupply.text) = FieldLiveSummary(battle);
-            }
-            if (!draft)
-            {
-                realtimeGuard.interactable = owner.SelectedUnits.Count > 0;
-                cancel.interactable &= owner.SelectedUnits.Count > 0;
             }
         }
 

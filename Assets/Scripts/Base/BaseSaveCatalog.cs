@@ -13,10 +13,10 @@ namespace BaseConquest.Base
         public readonly bool DemoMode;
         public static readonly string[] Slots = Enumerable.Range(1,3).Select(i => "slot" + i).ToArray();
         public static readonly string[] AutoSlots = Enumerable.Range(1,6).Select(i => "auto" + i).ToArray();
-        public BaseSaveCatalog(string folder, Func<BaseSaveDocument,string> encode, Func<string,BaseSaveDocument> decode,bool demo=false)
+        public BaseSaveCatalog(string folder, Func<BaseSaveDocument,string> encode, Func<string,BaseSaveDocument> decode,bool demo=false,bool checkExisting=true)
         {
             this.folder=Path.GetFullPath(folder);this.encode=encode;this.decode=decode;DemoMode=demo;
-            if(demo)DiscardIncompatibleDemoFiles();
+            if(demo&&checkExisting)DiscardIncompatibleDemoFiles();
         }
         private void DiscardIncompatibleDemoFiles()
         {
@@ -67,9 +67,10 @@ namespace BaseConquest.Base
         private bool beforeUnsaved;
         public bool HasUnsavedChanges {get;private set;}
         public string LoadError {get;private set;}
-        public BasePlaySession(BaseSaveCatalog catalog,string memoryPath)
+        public BasePlaySession(BaseSaveCatalog catalog,string memoryPath,bool restoreLatest=true)
         {
             this.catalog=catalog;Store=BaseSaveStore.InMemory(memoryPath,ProgressChanged);
+            if(!restoreLatest)return;
             try
             {
             var recent=catalog.Entries().Where(entry=>entry.Error==null&&!entry.InBattle&&(BaseSaveCatalog.Slots.Contains(entry.Id)||BaseSaveCatalog.AutoSlots.Contains(entry.Id))).OrderByDescending(entry=>entry.SavedUtc,StringComparer.Ordinal).FirstOrDefault();
@@ -106,9 +107,16 @@ namespace BaseConquest.Base
         }
         private void ProgressChanged(BaseState previous,BaseState next)
         {
+            bool wasFighting=previous!=null&&BaseSceneCombat.Active(previous), fighting=BaseSceneCombat.Active(next);
+            if(catalog.DemoMode&&previous!=null&&!wasFighting&&fighting)
+            {
+                catalog.SaveAuto(previous,"确认开战前");
+                beforeBattle=previous.Copy();beforeUnsaved=false;
+            }
             HasUnsavedChanges=true;
-            if(previous==null||BaseSceneCombat.Active(next)||next.Aftermath.GameOver)return;
-            string reason=next.Day==previous.Day+1&&next.LastCompletedDay==previous.Day?"完整推进一天":previous.Aftermath.Loot.Any(old=>!old.Closed&&next.Aftermath.Loot.Any(item=>item.BattleId==old.BattleId&&item.Closed))?"关卡最终奖励处理完成":BaseDemo.AutoSaveReason(previous,next);
+            if(previous==null||fighting||next.Aftermath.GameOver)return;
+            bool entered=catalog.DemoMode&&(wasFighting||previous.Campaign.Location!=next.Campaign.Location||previous.Campaign.CurrentMapId!=next.Campaign.CurrentMapId||BaseDemoPrologue.Village(previous)!=BaseDemoPrologue.Village(next));
+            string reason=entered?"进入"+BaseCampaign.LocationName(next):next.Day==previous.Day+1&&next.LastCompletedDay==previous.Day?"完整推进一天":previous.Aftermath.Loot.Any(old=>!old.Closed&&next.Aftermath.Loot.Any(item=>item.BattleId==old.BattleId&&item.Closed))?"关卡最终奖励处理完成":BaseDemo.AutoSaveReason(previous,next);
             if(reason!=null){catalog.SaveAuto(next,reason);HasUnsavedChanges=false;}
         }
     }
