@@ -148,15 +148,29 @@ namespace BaseConquest.Base
             if(freshEditorTest&&!LoadDesignPackage&&!BaseBattleGateway.DesignMode)BaseDevelopmentFiles.ClearEditorDevelopment(Path.Combine(Application.persistentDataPath,"BaseConquest"));
 #endif
             SaveStore=BaseBattleGateway.Store();packageProblem=packageProblem??BaseBattleGateway.Session().LoadError;
-            if(freshEditorTest)State=null;
-            if (!freshEditorTest&&SaveStore.Exists) try { State = SaveStore.Load(); BaseCampaign.SeedContent(State); } catch (Exception e) { Message = e.Message; }
+            bool hasSavedProgress = !freshEditorTest && SaveStore.Exists;
+            bool showMainMenu = BaseBattleGateway.DemoMode && BaseBattleGateway.MainMenu;
+            bool restoreOnStart = hasSavedProgress && !showMainMenu && packageProblem == null;
+            bool restored = restoreOnStart && TryReadSavedState(false);
+            if (hasSavedProgress && !restored)
+            {
+                // 主菜单和恢复页读取现有进度，归整失败时也保留能读取的状态。
+                try { State = SaveStore.Load(); BaseCampaign.SeedContent(State); }
+                catch (Exception e) { if (!restoreOnStart) Message = e.Message; }
+            }
             font = Font.CreateDynamicFontFromOSFont(new[] { "Microsoft YaHei", "Noto Sans CJK SC", "Arial" }, 20);
 
             BuildWorld(); Hud = new BaseHud(this, runtimeRoot, font);
             developerPanel=GetComponent<DeveloperPanel>()??gameObject.AddComponent<DeveloperPanel>();developerPanel.Initialize(this,font);
-            if(BaseBattleGateway.DemoMode&&BaseBattleGateway.MainMenu){Hud.OpenMainMenu();SetRegionReady(true);return;}
+            if(showMainMenu){Hud.OpenMainMenu();SetRegionReady(true);return;}
             if(packageProblem!=null){Message=packageProblem;Hud.OpenRecovery();SetRegionReady(true);return;}
-            if (!freshEditorTest&&SaveStore.Exists) LoadSaved(); else StartCoroutine(ReadTemplate(RecommendedTemplate));
+            if (restoreOnStart)
+            {
+                Hud.ClearBattlePreparation();
+                StopConstruction();
+                CompleteSavedLoad(restored);
+            }
+            else StartCoroutine(ReadTemplate(RecommendedTemplate));
         }
         public BaseMapSession MapSession { get; private set; }
         private BattleBoardView regionView;
@@ -512,8 +526,59 @@ namespace BaseConquest.Base
             Hud?.ClearBattlePreparation();
             SetRegionReady(false);
             StopConstruction();
-            try { var next = backup ? SaveStore.LoadBackup() : SaveStore.Load(); bool seed = !next.Campaign.ContentInitialized || next.Campaign.ThreatVersion==0&&!next.Campaign.HasActiveBattle&&!next.Aftermath.GameOver; string location = State?.Campaign.Location ?? "base"; BaseCampaign.SeedContent(next); BaseDevelopment.Allocate(next); BasePartyInventory.Normalize(next); if (seed || backup) SaveStore.Save(next); if(!RuntimeDeveloperOptions.Enabled)BaseDeveloperTools.ClearEffects(next);State = next; if (location != State.Campaign.Location) { UnityEngine.SceneManagement.SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); return; } Message = "已载入第" + State.Day + "天，未重复扣粮"; RebuildRegion(); Companions.Synchronize(State, true); PlaceCompanions(); PlacePlayer(); ClearSelection(); Hud.ClosePanel(); if (State.Campaign.HasActiveBattle || State.Aftermath.GameOver || BaseBattleGateway.MainMenu) Hud.OpenMenu(); else if(BaseBattleGateway.ShowPrisoners){BaseBattleGateway.ShowPrisoners=false;Hud.OpenLoot();} else if((State.Campaign.Location=="world"||State.Campaign.Location=="outpost")&&!State.Muster.Parties.Any(p=>p.Purpose=="expedition"))Hud.OpenDeparture("world"); }
-            catch (Exception e) { Message = "载入失败，当前状态保留：" + e.Message; if (State == null) Hud.OpenRecovery(); }
+            string location = State?.Campaign.Location ?? "base";
+            bool restored = TryReadSavedState(backup);
+            CompleteSavedLoad(restored, location);
+        }
+        private bool TryReadSavedState(bool backup)
+        {
+            try
+            {
+                var next = backup ? SaveStore.LoadBackup() : SaveStore.Load();
+                bool seed = !next.Campaign.ContentInitialized || next.Campaign.ThreatVersion == 0 && !next.Campaign.HasActiveBattle && !next.Aftermath.GameOver;
+                BaseCampaign.SeedContent(next);
+                BaseDevelopment.Allocate(next);
+                BasePartyInventory.Normalize(next);
+                if (seed || backup) SaveStore.Save(next);
+                if (!RuntimeDeveloperOptions.Enabled) BaseDeveloperTools.ClearEffects(next);
+                State = next;
+                return true;
+            }
+            catch (Exception e)
+            {
+                Message = "载入失败，当前状态保留：" + e.Message;
+                return false;
+            }
+        }
+        private void CompleteSavedLoad(bool restored, string previousLocation = null)
+        {
+            try
+            {
+                if (restored)
+                {
+                    if (previousLocation != null && previousLocation != State.Campaign.Location)
+                    {
+                        UnityEngine.SceneManagement.SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+                        return;
+                    }
+                    Message = "已载入第" + State.Day + "天，未重复扣粮";
+                    if (previousLocation != null) RebuildRegion();
+                    Companions.Synchronize(State, true);
+                    PlaceCompanions();
+                    PlacePlayer();
+                    ClearSelection();
+                    Hud.ClosePanel();
+                    if (State.Campaign.HasActiveBattle || State.Aftermath.GameOver || BaseBattleGateway.MainMenu) Hud.OpenMenu();
+                    else if (BaseBattleGateway.ShowPrisoners)
+                    {
+                        BaseBattleGateway.ShowPrisoners = false;
+                        Hud.OpenLoot();
+                    }
+                    else if ((State.Campaign.Location == "world" || State.Campaign.Location == "outpost") && !State.Muster.Parties.Any(p => p.Purpose == "expedition")) Hud.OpenDeparture("world");
+                }
+            }
+            catch (Exception e) { Message = "载入失败，当前状态保留：" + e.Message; }
+            if (State == null) Hud.OpenRecovery();
             Hud.RefreshSummary();
             if(BaseDemo.Active(State)&&State.Demo.Stage==BaseDemoStage.Waking&&!BaseBattleGateway.MainMenu&&BaseInteraction.At(State,"base","home"))Hud.OpenDemoStory();
             else if(BaseDemoPrologue.Village(State)&&!BaseBattleGateway.MainMenu)Hud.OpenDemoStory();

@@ -54,9 +54,27 @@ namespace BaseConquest.Base
         public void SaveAuto(BaseState state,string reason)
         {
             if(BaseSceneCombat.Active(state)||state.Aftermath.GameOver)throw new InvalidOperationException("战中或游戏结束时不写节点自动档");
-            var entries=Entries();string slot=AutoSlots.FirstOrDefault(id=>!entries.Any(entry=>entry.Id==id));
-            if(slot==null)slot=entries.Where(entry=>AutoSlots.Contains(entry.Id)).OrderBy(entry=>entry.Error==null?1:0).ThenBy(entry=>entry.SavedUtc,StringComparer.Ordinal).ThenBy(entry=>entry.Id,StringComparer.Ordinal).First().Id;
-            Store(slot).Save(state,reason);
+
+            BaseSaveStore destination = null;
+            DateTime oldestWrite = DateTime.MaxValue;
+            foreach (string id in AutoSlots)
+            {
+                var store = Store(id);
+                var file = new FileInfo(store.Path);
+                if (!file.Exists)
+                {
+                    destination = store;
+                    break;
+                }
+
+                DateTime lastWrite = file.LastWriteTimeUtc;
+                if (destination == null || lastWrite < oldestWrite)
+                {
+                    destination = store;
+                    oldestWrite = lastWrite;
+                }
+            }
+            destination.Save(state,reason);
         }
     }
     public sealed class BasePlaySession
