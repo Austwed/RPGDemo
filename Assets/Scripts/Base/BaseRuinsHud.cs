@@ -10,17 +10,32 @@ namespace BaseConquest.Base
         public void OpenRuinsWarning(Action proceed)
         {
             var s=owner.State;var lines=new List<NpcLine>();
-            if(BaseAdventure.Following(s,"partner_farm"))lines.Add(new NpcLine("阿禾","ahe","［打了个寒颤］洞口吹出来的黑风好邪门，吸一口胸口就像塞了团火炭……"));
-            if(BaseAdventure.Following(s,"partner_craft"))lines.Add(new NpcLine("阿铸","azhu","里头瘴气太毒！咱们燃脉者扛得住，普通弟兄进去怕是撑不了几息！"));
+            if(BaseAdventure.Following(s,"partner_farm"))lines.Add(new NpcLine("阿禾","ahe","［咳了两声］这风一吸进去，胸口烧得慌。"));
+            if(BaseAdventure.Following(s,"partner_craft"))lines.Add(new NpcLine("阿铸","azhu","这股黑风我扛得住。寻常人进去，可得当心。"));
             lines.Add(new NpcLine(BaseScriptNames.Ruins+"警告","","严重警告：当前出战队伍有普通人。仅副本内，非异族、非异能者每秒损失最大生命的"+(BaseRuinsRewards.Exposure(s)*100).ToString("0.##")+"%；异族和异能者免受侵蚀伤害；"+BaseScriptNames.Ruins+"中受迦兰魂丝保护的村民暂免侵蚀。入口野外没有侵蚀，暂离成员不会进入副本。战斗中存在真实战损，请谨慎决定。"));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("知晓危险，仍让当前队伍进入",proceed),new NpcReply("暂不进入，先调整随行",owner.CancelRuinsEntry)});
         }
         public void OpenRuinsConfrontation(Action proceed)
         {
-            NpcDialogue(new[]{new NpcLine("迦兰","galan","别伤他们！我用魂丝护住了他们，才让他们撑到现在。"),
-                new NpcLine("迦兰","galan","我若松开魂丝，瘴气立刻会要他们的命。"),
-                new NpcLine("你","","先想办法制住他。不要伤到村民。",true)},
-                new[]{new NpcReply("准备交战",proceed),new NpcReply("暂不交战",ClosePanel)});
+            var fight=new NpcReply("准备交战",proceed);
+            var defer=new NpcReply("暂不交战",CloseRuinsBriefing);
+            NpcDialogue(new[]{
+                new NpcLine("迦兰","galan","站住。他们吸了瘴气，全靠我护着。"),
+                new NpcLine("迦兰","galan","我这点织魂……这点手段一松，他们就撑不住了。"),
+                new NpcLine("你","","他们连一步都挪不了。先制住他，别伤镇民。",true)
+            },new[]{
+                fight,
+                new NpcReply("追问他们为何不能动",()=>NpcDialogue(new[]{
+                    new NpcLine("你","","你说在救他们。那他们怎么连手脚都动不了？",true),
+                    new NpcLine("迦兰","galan","［杖尖点地，两人挪上前］再走一步，他们就得拦你。")
+                },new[]{fight,defer})),
+                defer
+            });
+        }
+        internal void CloseRuinsBriefing()
+        {
+            if(owner.DeploymentWorldActive)owner.ResumeDeploymentWorld();
+            else ClosePanel();
         }
         public void OpenRuinsVictory()
         {
@@ -28,19 +43,34 @@ namespace BaseConquest.Base
             bool first=s.Campaign.Reports.Count(r=>r.EventId==BaseDemoRuins.EventId&&r.Outcome=="SideAWin")==1;
             if(!first){OpenRuinsReward();return;}
             NpcDialogue(new[]{
-                new NpcLine("获救百姓甲","villager","刚才脑子里像蒙着雾，身体也不听使唤……现在清醒了。谢谢你救了我们！"),
-                new NpcLine("获救百姓乙","villager","我们两个都恢复神智了。你尽管来和我们说话；我们一定去领主那里替你说好话。"),
-                new NpcLine("你","","先离开危险的地方。我会带上证据，回灰岩镇向领主交代经过。",true)
+                new NpcLine("获救百姓甲","villager","脑子里像蒙了层雾，手脚全不听使唤……多谢你。"),
+                new NpcLine("获救百姓乙","villager","现在腿能动了。先扶我一把，出去再说。"),
+                new NpcLine("你","","先到洞外透气。古窟的事，我回镇上向霍恩交代。",true)
             },new[]{new NpcReply("继续",ClosePanel)});
         }
         public void OpenRescuedCivilian(string id)
         {
-            if(BaseSceneRules.Active(owner.State)&&BaseSceneRules.Entrance(owner.State))
+            var state=owner.State;
+            if(BaseSceneRules.Active(state)&&BaseSceneRules.Entrance(state)&&state.Demo.Rescue?.Stage==1)
             {
-                NpcDialogue(new[]{new NpcLine("获救百姓乙","villager","总算呼吸到外头的活气了！要不是你剑下留情，我们哥俩就交代在里头了。"),new NpcLine("获救百姓甲","villager","我们这就回灰岩镇面见霍恩爵士，一定在老爷面前替你好好美言几句！")},new[]{new NpcReply("路上小心，我们城里见",owner.ReturnRescuedVillagers),new NpcReply("稍后再谈",ClosePanel)});return;
+                NpcDialogue(new[]{
+                    new NpcLine("获救百姓乙","villager","总算能喘口气了。多亏你手下留情，我们才出得来。"),
+                    new NpcLine("获救百姓甲","villager","我们这就回灰岩镇。见了霍恩爵士，会把经过说清楚。")
+                },new[]{new NpcReply("路上小心，我们城里见",owner.ReturnRescuedVillagers),new NpcReply("稍后再谈",ClosePanel)});return;
             }
             bool first=id=="demo_rescued_1";
-            NpcDialogue(new[]{new NpcLine(first?"获救百姓甲":"获救百姓乙","villager",first?"啊……我这是在哪儿？刚才脑子里一片空白，多谢壮士救命！":"你若想重建营地，就去找领主吧。我们会替你说好话；这份恩情不会忘。")},new[]{new NpcReply("查看"+BaseScriptNames.Ruins+"副本奖励",OpenRuinsReward,unlocked:!string.IsNullOrEmpty(owner.State.Demo.RuinsRewards?.PendingBattleId)),new NpcReply("保重，尽快离开"+BaseScriptNames.Ruins,ClosePanel)});
+            bool inTown=state.Campaign.Location=="town"&&state.Demo.Rescue?.Stage==3;
+            string speech;
+            if(inTown)
+            {
+                speech=first?"回镇才算缓过神。要没你，我们还困在那座窟里。":
+                    BaseDemoDefense.Delivered(state)?"爵士已经听过经过。多亏有你，我们才回得了家。":"营地的事去找爵士吧。古窟里的经过，我们替你作证。";
+            }
+            else speech=first?"刚才脑子里一片空白。你是来救我们的？":"你救了我们，见到霍恩爵士，我会把这话说清楚。";
+            NpcDialogue(new[]{new NpcLine(first?"获救百姓甲":"获救百姓乙","villager",speech)},new[]{
+                new NpcReply("查看"+BaseScriptNames.Ruins+"副本奖励",OpenRuinsReward,unlocked:!string.IsNullOrEmpty(state.Demo.RuinsRewards?.PendingBattleId)),
+                new NpcReply(inTown?"回头见":"保重，尽快离开"+BaseScriptNames.Ruins,ClosePanel)
+            });
         }
         public void OpenRuinsReward() => OpenRuinsReward(BasePrepRoute.Ruins);
         internal void OpenRuinsReward(BasePrepRoute route)

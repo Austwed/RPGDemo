@@ -214,7 +214,7 @@ namespace BaseConquest.Base
                 case TradeVendor.Smith: OpenSmithFather(); break;
                 default:
                     NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",
-                        new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),TradeShelfName(TradeShelf.Recruits))),
+                        new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"还缺哪一队的人？接着挑，我把名册拿给你。")),
                         new[]{new NpcReply("开始招募",OpenTownRecruit),new NpcReply("离开",ClosePanel)});
                     break;
             }
@@ -298,7 +298,7 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(owner.State)&&!BaseDemoDefense.Delivered(owner.State))
             {
                 NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),
-                    "［斜睨一眼］生面孔？没领主大人的手令，私募甲兵可是掉脑袋的罪过，请回吧。")),
+                    "外乡人？没爵士的手令，我一个兵也不能给你。")),
                     new[]{new NpcReply("先去拜访领主",ClosePanel)});
                 return;
             }
@@ -307,9 +307,9 @@ namespace BaseConquest.Base
                 owner.Change(next=>next.Demo.Flow.RecruitOpened=true,"");
                 NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",new[]{
                     new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),
-                        BaseScriptNames.Lord+"的手令到了！"+BaseScriptNames.Camp+"既已立寨，我这儿的剑士、弓兵和骑兵任你挑。"),
+                        "手令给我看看。好，剑士、弓兵、骑兵都能拨给断流滩。"),
                     new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),
-                        "刚立营寨百废待兴，建议先将【剑士、弓兵、骑兵】各募一人，能战也能垦荒。")
+                        "三种兵各募一个吧。营里缺人，他们也能下地干活。")
                 }),new[]{new NpcReply("开始招募",()=>{ClosePanel();OpenTownRecruit();})});
                 return;
             }

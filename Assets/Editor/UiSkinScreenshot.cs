@@ -38,7 +38,7 @@ namespace BaseConquest.Editor
         private static int defenseSupplyStock;
         private static Camera ruinsEntranceCamera;
         private static string ruinsEntranceMap;
-        private static bool failed, androidTouch;
+        private static bool failed, androidTouch, homeCopyOnly;
         private static readonly List<string> Log = new List<string>();
 
         private static BaseSceneController C => Object.FindAnyObjectByType<BaseSceneController>();
@@ -68,6 +68,19 @@ namespace BaseConquest.Editor
             Run();
         }
 
+        public static void RunOpeningCopy()
+        {
+            stage = "opening-copy";
+            Run();
+        }
+
+        public static void RunHomeCopy()
+        {
+            homeCopyOnly = true;
+            stage = "route-boot";
+            Run();
+        }
+
         private static void Tick()
         {
             try { TickStage(); }
@@ -80,10 +93,17 @@ namespace BaseConquest.Editor
             if (!EditorApplication.isPlaying) { Note("等待进入 playmode"); return; }
             switch (stage)
             {
+                case "opening-copy":
+                    controller = C;
+                    if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    VerifyOpeningCopy();
+                    VerifyRuinsConfrontationCopy();
+                    Finish(0, "OK");
+                    break;
                 case "route-boot":
                     controller = C;
                     if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
-                    LoadRouteView("drill");
+                    LoadRouteView(homeCopyOnly ? "home-arrival" : "drill");
                     break;
                 case "route-drill":
                     if (!RouteViewReady(state => BaseDemoPrologue.Village(state) && state.Demo.Intro.Step == 4)) return;
@@ -186,8 +206,15 @@ namespace BaseConquest.Editor
                     break;
                 case "route-home-arrival":
                     if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Home && !BaseDemoFinale.Rebuilding(state))) return;
+                    if (H.PanelOpen && (string)Field(H, "panelViewKey") == "reward-receipt")
+                    {
+                        H.ClosePanel();
+                        frameDeadline = Time.frameCount + 2;
+                        return;
+                    }
                     CheckHomeArrival();
-                    LoadRouteView("rebuild");
+                    if (homeCopyOnly) Finish(0, "OK");
+                    else LoadRouteView("rebuild");
                     break;
                 case "route-rebuild":
                     if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Home && BaseDemoFinale.Rebuilding(state))) return;
@@ -202,6 +229,7 @@ namespace BaseConquest.Editor
                     { Note("等待序章进度"); return; }
                     if (!BaseDemoPrologue.Village(controller.State)) throw new InvalidOperationException("新档未进入白桦村");
                     CaptureViewports("ui-skin-prologue");
+                    VerifyOpeningCopy();
                     controller.LoadDemoStage("camp", "female");
                     stage = "loading"; stageAt = EditorApplication.timeSinceStartup;
                     break;
@@ -368,10 +396,19 @@ namespace BaseConquest.Editor
                     VerifyTownReforge();
                     VerifyAzhuDuelDialogue();
                     Approach("town_quest");
-                    if (!controller.Change(s =>
+                    if (controller.State.Demo.AcceptedDay == 0)
                     {
-                        if (s.Demo.AcceptedDay == 0 && !BaseDemo.AcceptLordQuest(s)) throw new InvalidOperationException("未能接取古窟调查");
-                    }, "界面检查")) throw new InvalidOperationException(controller.Message);
+                        H.OpenObject("town_quest");
+                        H.ContinueDialogue();
+                        if (!H.DialogueExitLocked || !RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("拖住了追兵"))
+                            throw new InvalidOperationException("领主委托第一页或退出锁定错误");
+                        FinishDialogue();
+                        if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("募兵处也会放行"))
+                            throw new InvalidOperationException("领主委托漏播建设和募兵条件");
+                        Click("接受" + BaseScriptNames.Ruins + "调查");
+                        if (controller.State.Demo.AcceptedDay == 0)
+                            throw new InvalidOperationException("对白未能接取古窟调查");
+                    }
                     Approach("demo_ruins_exit");
                     controller.TravelDemo("outpost");
                     stage = "ruins-entrance"; frameDeadline = Time.frameCount + 15;
@@ -398,19 +435,28 @@ namespace BaseConquest.Editor
                         !Object.FindObjectsByType<Renderer>().Any(r => r.name == "PixelDemo_dungeon-entrance"))
                         throw new InvalidOperationException("返回备战没有恢复遗迹入口");
                     Press(RequirePanel("BattlePreparation"), "Continue");
-                    var cancelRuins = BattleSafeArea(RequireBattleDraft());
-                    Press(cancelRuins, "DraftPreparationControls/Start");
+                    var cancelRuins = RequireBattleDraft();
+                    var cancelDraft = (BaseBattlePreparation)Field(H, "battleDraft");
+                    var cancelPositions = cancelDraft.Positions.ToDictionary(pair => pair.Key, pair => pair.Value);
+                    Press(BattleSafeArea(cancelRuins), "DraftPreparationControls/Start");
+                    FinishDialogue();
+                    Click("追问他们为何不能动");
                     FinishDialogue();
                     Click("暂不交战");
+                    if (RequireBattleDraft() != cancelRuins || H.PanelOpen ||
+                        !cancelPositions.OrderBy(pair => pair.Key).SequenceEqual(cancelDraft.Positions.OrderBy(pair => pair.Key)))
+                        throw new InvalidOperationException("古窟追问后取消没有保留战场和落点");
                     if (BaseAchievements.Record(controller.State, BaseAchievements.Caution) != null)
                         throw new InvalidOperationException("免疫队伍误触发了古窟危险警告");
+                    Press(BattleSafeArea(cancelRuins), "DraftPreparationControls/Back");
+                    H.ClosePanel();
                     if (!controller.Change(state => VerifyBanditHideout.AddSoldiers(state, 1, 0, 0), "界面检查"))
                         throw new InvalidOperationException(controller.Message);
                     VerifyRuinsWarning();
                     if (H.PanelOpen || controller.State.Campaign.CurrentMapId != ruinsEntranceMap ||
                         controller.State.Campaign.HasActiveBattle || Object.FindObjectsByType<BattleSceneController>().Any(b => b.DeploymentDraftActive))
-                        throw new InvalidOperationException("取消遗迹交战没有恢复入口或清空草案");
-                    Log.Add("[PASS] 古窟免疫队伍跳过警告、落位普通士兵弹出确认，接受进入首次对峙，拒绝恢复入口");
+                        throw new InvalidOperationException("退出部署后没有恢复遗迹入口");
+                    Log.Add("[PASS] 古窟免疫队伍跳过警告、普通士兵弹出确认，追问后取消保留部署及落点，退出备战返回入口");
                     VerifyRuinsSoloRetreat();
                     VerifyHideoutUi();
                     controller.LoadDemoStage("defense", "female");
@@ -811,7 +857,39 @@ namespace BaseConquest.Editor
 
         private static void CheckHomeArrival()
         {
-            H.ClosePanel();
+            var arrival = RequirePanel("NpcDialogue");
+            if (controller.State.Demo.Flow.HomeEnterSeen)
+                throw new InvalidOperationException("首次返乡开场读完前就写入了已读标记");
+            H.ContinueDialogue();
+            if (!arrival.Find("DialogueText").GetComponent<Text>().text.Contains("粮仓也被搬空"))
+                throw new InvalidOperationException("首次入村未独立播放返乡开场");
+            CaptureViewports("ui-player-route-home-arrival");
+            string galanId = "partner_recruit:" + controller.State.Demo.Flow.FirstControllerId;
+            bool shouldHearGalan = BaseAdventure.Following(controller.State, galanId);
+            bool heardGalan = false;
+            for (int i = 0; i < 24 && H.DialogueOpen; i++)
+            {
+                H.ContinueDialogue();
+                if (H.DialogueOpen && arrival.Find("SpeakerName").GetComponent<Text>().text == "迦兰" &&
+                    arrival.Find("DialogueText").GetComponent<Text>().text.Contains("受过操练"))
+                    heardGalan = true;
+            }
+            if (heardGalan != shouldHearGalan || H.PanelOpen || !controller.State.Demo.Flow.HomeEnterSeen ||
+                !controller.SaveStore.Load().Demo.Flow.HomeEnterSeen)
+                throw new InvalidOperationException("返乡开场没有按迦兰实际随行情况播放，或读完没有回到探索并保存");
+
+            var field = BaseSpatial.Objects(controller.State).Single(item => item.Id == "intro_farm" || item.Id == "village_field");
+            Approach(field.Id);
+            var day = controller.State.Day;
+            H.OpenObject(field.Id);
+            H.ContinueDialogue();
+            if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("马蹄印"))
+                throw new InvalidOperationException("麦田未播放可选独白");
+            CaptureViewports("ui-player-route-home-field");
+            FinishDialogue();
+            if (H.PanelOpen || controller.State.Day != day || BaseDemoFinale.Rebuilding(controller.State))
+                throw new InvalidOperationException("麦田独白改变了日程或重建进度");
+
             Approach("demo_survivor");
             var initialPosition = new BasePoint(controller.State.PlayerX, controller.State.PlayerY);
             H.OpenObject("demo_survivor");
@@ -839,7 +917,7 @@ namespace BaseConquest.Editor
             Click("记录断剑 · 开始重建");
             if (!controller.RebuildPlacementMode || !BaseDemoFinale.Rebuilding(controller.State))
                 throw new InvalidOperationException("未从断剑调查进入地图重建");
-            Log.Add("[PASS] 与幸存村民交谈后继续探索，调查断剑进入返乡重建");
+            Log.Add("[PASS] 首次入村独立播放并保存，迦兰按实际随行发言，麦田可选独白不改变进度，调查断剑进入返乡重建");
         }
 
         private static void CheckHomeRebuild()
@@ -1027,6 +1105,84 @@ namespace BaseConquest.Editor
             button.onClick.Invoke();
         }
 
+        private static void VerifyOpeningCopy()
+        {
+            const string playerName = "青岚";
+            var state = controller.State;
+            if (!BaseDemoPrologue.Village(state) || state.Demo.Intro.Step != 0)
+                throw new InvalidOperationException("新档未停在白桦村选角");
+
+            var choice = Field(H, "heroChoiceLayer") as RectTransform;
+            if (choice == null) throw new InvalidOperationException("新档未打开选角界面");
+            ClickHudButton(choice.Find("HeroChoice_female"));
+            ClickHudButton(choice.Find("确认选择"));
+            var nameDialog = choice.Find("HeroName/NameConfirmation");
+            var input = nameDialog.Find("PlayerNameInput").GetComponent<InputField>();
+            var confirm = nameDialog.Find("ConfirmPlayerName").GetComponent<Button>();
+            if (confirm.interactable) throw new InvalidOperationException("空姓名可以确认");
+            input.text = "错/名";
+            if (confirm.interactable) throw new InvalidOperationException("包含路径符号的姓名可以确认");
+            input.text = playerName;
+            if (!confirm.interactable) throw new InvalidOperationException("合法中文姓名不能确认");
+            CaptureViewports("ui-skin-player-name");
+            ClickHudButton(nameDialog.Find("返回选角"));
+            string directory = BaseBattleGateway.SaveDirectory;
+            if (controller.State.Demo.Intro.Step != 0 || !string.IsNullOrEmpty(controller.State.Demo.Intro.PlayerName)
+                || Directory.Exists(directory) && Directory.EnumerateFiles(directory, "*.json").Any())
+                throw new InvalidOperationException("取消填写姓名写入了进度");
+
+            ClickHudButton(choice.Find("确认选择"));
+            var currentNameDialog = ((RectTransform)Field(H, "heroNameLayer")).Find("NameConfirmation");
+            currentNameDialog.Find("PlayerNameInput").GetComponent<InputField>().text = playerName;
+            ClickHudButton(currentNameDialog.Find("ConfirmPlayerName"));
+            state = controller.State;
+            var catalog = BaseBattleGateway.Catalog();
+            var namedEntry = catalog.Entries().FirstOrDefault(e => e.Error == null && e.PlayerName == playerName);
+            if (state.Demo.Intro.Step != 1 || state.Demo.Intro.Hero != "female" ||
+                state.Leaders.Single(l => l.Id == state.PlayerLeaderId).Name != playerName || namedEntry == null ||
+                !Directory.EnumerateFiles(directory, playerName + "-auto*.json").Any() ||
+                catalog.LoadSlot(namedEntry.Id).Demo.Intro.PlayerName != playerName)
+                throw new InvalidOperationException("自定义姓名没有保存到主角和新版自动档");
+            Log.Add("[PASS] 选角后填写姓名，拒绝空白与非法符号，取消零写入，中文姓名保存并可重读");
+
+            H.ClosePanel();
+            Approach("demo_captain");
+            H.OpenObject("demo_captain");
+            FinishDialogue();
+            Click("聊聊从前在王都值夜");
+            H.ContinueDialogue();
+            if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("宫门外"))
+                throw new InvalidOperationException("长椅旧事分支未播放");
+            FinishDialogue();
+            if (controller.State.Demo.Intro.Step != 1)
+                throw new InvalidOperationException("追问旧事提前推进了序章");
+            Click("一起去，先向阿禾打个招呼");
+            Approach("intro_villager");
+            H.OpenObject("intro_villager");
+            FinishDialogue();
+            Click("我们去粮田安排");
+            Approach("intro_farm");
+            H.OpenObject("intro_farm");
+            for (int i = 0; i < 2; i++)
+            {
+                var actions = RequirePanel("FacilityPanel").Find("Left/List").GetComponent<ScrollRect>().content;
+                Press(actions, "VillageFarmWorkers/Plus");
+            }
+            Click("确认方案");
+            H.ContinueDialogue();
+            if (controller.State.Demo.Intro.Step != 10 || controller.State.Demo.Intro.FarmWorkers != 4 ||
+                !RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("晚麦"))
+                throw new InvalidOperationException("调工到四人后未接入阿禾回应");
+            H.ContinueDialogue();
+            H.ContinueDialogue();
+            if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("来找我拿剑"))
+                throw new InvalidOperationException("调工后未接入搭档领剑指引");
+            FinishDialogue();
+            if (H.DialogueOpen || BaseQuestLog.Cue(controller.State).ObjectId != "demo_captain")
+                throw new InvalidOperationException("调工回应结束后未继续领剑主线");
+            Log.Add("[PASS] 长椅旧事汇回原主线，粮田实际调到四人后接阿禾与搭档对白");
+        }
+
         private static void VerifyAuthoredLayout()
         {
             var source = (RectTransform)controller.transform.Find("UI 布局源/PartyMemberCard/BagSlot_0");
@@ -1200,6 +1356,35 @@ namespace BaseConquest.Editor
             Log.Add("[PASS] 古窟单人半血真实撤退，只有主角独白，收起后回探索");
         }
 
+        private static void VerifyRuinsConfrontationCopy()
+        {
+            int battleStarts = 0;
+            void Open() => H.OpenRuinsConfrontation(() => battleStarts++);
+            Open();
+            FinishDialogue();
+            Click("追问他们为何不能动");
+            H.ContinueDialogue();
+            var view = RequirePanel("NpcDialogue");
+            if (!view.Find("DialogueText").GetComponent<Text>().text.Contains("手脚都动不了") || battleStarts != 0)
+                throw new InvalidOperationException("古窟追问未切入主角的追问页");
+            FinishDialogue();
+            if (!view.Find("DialogueText").GetComponent<Text>().text.Contains("他们就得拦你") ||
+                view.Find("Replies").GetComponentsInChildren<Button>().Count(button => button.interactable) != 2 ||
+                battleStarts != 0)
+                throw new InvalidOperationException("古窟追问没有回到开战或暂缓");
+            Click("暂不交战");
+            if (H.DialogueOpen || battleStarts != 0)
+                throw new InvalidOperationException("暂缓古窟没有返回原处");
+            Open();
+            FinishDialogue();
+            Click("追问他们为何不能动");
+            FinishDialogue();
+            Click("准备交战");
+            if (battleStarts != 1) throw new InvalidOperationException("追问支线没有调用原战斗入口");
+            H.ClosePanel();
+            Log.Add("[PASS] 古窟对峙追问两页，播完可暂缓或从原入口开战");
+        }
+
         private static void BuySelectedForgeStone()
         {
             var before = controller.State;
@@ -1294,6 +1479,7 @@ namespace BaseConquest.Editor
             FinishDialogue();
             Capture("ui-skin-azhu-invitation");
             Click("眼下有要事，改日再比");
+            FinishDialogue();
             tickInvitation.Invoke(controller, null);
             if (H.DialogueOpen || Field(controller, "combatController") != null || !controller.State.Demo.AzhuInvitationSeen)
                 throw new InvalidOperationException("拒绝阿铸叫停邀约后重复弹出对白或开启比武");
@@ -1354,7 +1540,8 @@ namespace BaseConquest.Editor
                 }
                 Press(preparation, "Supply/Grade1");
                 Press(RequirePanel("BattlePreparation"), "Continue");
-                var field = BattleSafeArea(RequireBattleDraft());
+                var deployed = RequireBattleDraft();
+                var field = BattleSafeArea(deployed);
                 Press(field, "DraftPreparationControls/Auto");
                 Press(field, "DraftPreparationControls/Start");
                 FinishDialogue();
@@ -1366,6 +1553,10 @@ namespace BaseConquest.Editor
                     Click("暂不交战");
                 }
                 else Click("暂不进入，先调整随行");
+                if (H.PanelOpen || RequireBattleDraft() != deployed || controller.State.Campaign.HasActiveBattle)
+                    throw new InvalidOperationException("古窟危险确认取消后没有回到原部署");
+                Press(field, "DraftPreparationControls/Back");
+                H.ClosePanel();
             }
         }
 
@@ -2189,6 +2380,7 @@ namespace BaseConquest.Editor
             EditorApplication.update -= Tick;
             Log.Insert(0, "exit=" + code + " " + message + " ｜ " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
             string report = androidTouch ? "ui-android-touch-report.txt" :
+                stage == "opening-copy" ? "ui-opening-copy-report.txt" :
                 stage.StartsWith("route-", StringComparison.Ordinal) ? "ui-player-route-views-report.txt" : "ui-skin-report.txt";
             File.WriteAllText(Path.Combine(OutDir, report), string.Join("\n", Log));
             if (code == 0) Debug.Log("[UiSkin] " + message); else Debug.LogError("[UiSkin] " + message);

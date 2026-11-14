@@ -17,7 +17,10 @@ namespace BaseConquest.Editor
             var state = opening.CreateState();
             if(story!=null)CheckAuthoredBoard(state,story,"village");
             Need(BaseQuestLog.Cue(state).Control == "hero", "开场任务未指向选角");
-            Need(BaseDemoIntro.Choose(state,sex) && BaseDemoIntro.PlayerArt(state)==(sex=="male"?"player":"female"), "序章无法选择主角："+sex);
+            string playerName=sex=="male"?"远山":"白露";
+            Need(!BaseDemoIntro.Choose(state,sex,"../旧档")&&state.Demo.Intro.Step==0,"无效姓名推进了序章");
+            Need(BaseDemoIntro.Choose(state,sex,playerName) && BaseDemoIntro.PlayerArt(state)==(sex=="male"?"player":"female") &&
+                state.Leaders.Single(leader=>leader.Id==state.PlayerLeaderId).Name==playerName,"序章无法选择主角："+sex);
             Need(BaseQuestLog.Cue(state).ObjectId == "demo_captain", "选角后任务未指向搭档");
             WalkToOpeningObject(state, "demo_captain");
             Need(BaseDemoIntro.Meet(state) && state.Adventure.Members.Contains("demo_captain"), "与搭档交谈未加入随行");

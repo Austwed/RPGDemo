@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 namespace BaseConquest.Base
 {
-    public sealed class BaseSaveEntry { public string Id, Name, Error, SavedUtc, Location, SceneTitle; public int Day,Round; public bool GameOver, InBattle,Realtime;public double Seconds;public string CombatProgress=>Realtime?Seconds.ToString("0.0")+"秒":"第"+Round+"轮"; public string TimeLabel=>DateTime.TryParse(SavedUtc,out var time)?time.ToLocalTime().ToString("MM-dd HH:mm"):""; }
+    public sealed class BaseSaveEntry { public string Id, Name, PlayerName, Error, SavedUtc, Location, SceneTitle; public int Day,Round; public bool GameOver, InBattle,Realtime;public double Seconds;public string CombatProgress=>Realtime?Seconds.ToString("0.0")+"秒":"第"+Round+"轮"; public string TimeLabel=>DateTime.TryParse(SavedUtc,out var time)?time.ToLocalTime().ToString("MM-dd HH:mm"):""; }
     public sealed class BaseSaveCatalog
     {
         private readonly string folder;
@@ -33,7 +33,32 @@ namespace BaseConquest.Base
         public BaseSaveStore Store(string id)
         {
             if (!Slots.Contains(id) && !AutoSlots.Contains(id) && !new[]{"slot4","slot5","slot6","before-battle","auto"}.Contains(id)) throw new ArgumentException("未知存档槽");
-            return new BaseSaveStore(Path.Combine(folder,id == "auto" ? "base-save-v1.json" : id + ".json"),encode,decode,DemoMode);
+            string filename=id=="auto"?"base-save-v1.json":id+".json";
+            string path=DemoMode&&Directory.Exists(folder)
+                ?Directory.EnumerateFiles(folder,"*-"+filename)
+                    .Where(file=>Path.GetFileName(file).EndsWith("-"+filename,StringComparison.Ordinal))
+                    .OrderByDescending(File.GetLastWriteTimeUtc).ThenBy(file=>file,StringComparer.Ordinal).FirstOrDefault()
+                :null;
+            return CreateStore(path??Path.Combine(folder,filename));
+        }
+        private BaseSaveStore CreateStore(string path)=>new BaseSaveStore(path,encode,decode,DemoMode);
+        private void Save(string id,BaseState state,string label)
+        {
+            var previous=Store(id);
+            string name=DemoMode?state.Demo?.Intro?.PlayerName:null;
+            var destination=BaseDemoIntro.TryPlayerName(name,out var prefix)
+                ?CreateStore(Path.Combine(folder,prefix+"-"+id+".json")):previous;
+            if(string.Equals(previous.Path,destination.Path,
+                Path.DirectorySeparatorChar=='\\'?StringComparison.OrdinalIgnoreCase:StringComparison.Ordinal))
+            {
+                previous.Save(state,label);
+                return;
+            }
+
+            destination.Save(state,label);
+            if(!previous.Exists)return;
+            File.Copy(previous.Path,destination.Path+".bak",true);
+            File.Delete(previous.Path);
         }
         public List<BaseSaveEntry> Entries()
         {
@@ -42,20 +67,20 @@ namespace BaseConquest.Base
             {
                 var store=Store(id); if (!store.Exists) continue;
                 var entry=new BaseSaveEntry { Id=id };
-                try { var doc=decode(File.ReadAllText(store.Path)); var s=store.Load(); entry.Name=doc.Label; entry.SavedUtc=doc.SavedUtc; entry.Day=s.Day; entry.GameOver=s.Aftermath.GameOver; entry.InBattle=s.Campaign.HasActiveBattle;entry.Realtime=entry.InBattle&&s.Campaign.ActiveBattle.RealtimeRules;entry.Seconds=entry.Realtime&&s.Campaign.ActiveBattle.HasRealtimeState?s.Campaign.ActiveBattle.RealtimeState.Seconds:0;entry.Location=s.Campaign.Location;entry.SceneTitle=BaseCampaign.LocationName(s);entry.Round=s.Campaign.HasActiveBattle&&s.Campaign.ActiveBattle.HasCheckpoint?s.Campaign.ActiveBattle.Checkpoint.Round:0; }
+                try { var doc=decode(File.ReadAllText(store.Path)); var s=store.Load(); entry.Name=doc.Label; entry.PlayerName=s.Demo?.Intro?.PlayerName; entry.SavedUtc=doc.SavedUtc; entry.Day=s.Day; entry.GameOver=s.Aftermath.GameOver; entry.InBattle=s.Campaign.HasActiveBattle;entry.Realtime=entry.InBattle&&s.Campaign.ActiveBattle.RealtimeRules;entry.Seconds=entry.Realtime&&s.Campaign.ActiveBattle.HasRealtimeState?s.Campaign.ActiveBattle.RealtimeState.Seconds:0;entry.Location=s.Campaign.Location;entry.SceneTitle=BaseCampaign.LocationName(s);entry.Round=s.Campaign.HasActiveBattle&&s.Campaign.ActiveBattle.HasCheckpoint?s.Campaign.ActiveBattle.Checkpoint.Round:0; }
                 catch(Exception e) { entry.Error=e.Message; }
                 list.Add(entry);
             }
             return list;
         }
         public void SaveSlot(string id, BaseState state, string name)
-        { if (!Slots.Contains(id) || state.Aftermath.GameOver || !string.IsNullOrEmpty(state.SceneBattleId)||state.Campaign.HasActiveBattle&&state.Campaign.ActiveBattle.RealtimeRules) throw new InvalidOperationException("当前不能手动保存；即时战斗结束或放弃本场后再保存"); Store(id).Save(state,name); }
+        { if (!Slots.Contains(id) || state.Aftermath.GameOver || !string.IsNullOrEmpty(state.SceneBattleId)||state.Campaign.HasActiveBattle&&state.Campaign.ActiveBattle.RealtimeRules) throw new InvalidOperationException("当前不能手动保存；即时战斗结束或放弃本场后再保存"); Save(id,state,name); }
         public BaseState LoadSlot(string id, bool backup=false) => backup ? Store(id).LoadBackup() : Store(id).Load();
         public void SaveAuto(BaseState state,string reason)
         {
             if(BaseSceneCombat.Active(state)||state.Aftermath.GameOver)throw new InvalidOperationException("战中或游戏结束时不写节点自动档");
 
-            BaseSaveStore destination = null;
+            string destination = null;
             DateTime oldestWrite = DateTime.MaxValue;
             foreach (string id in AutoSlots)
             {
@@ -63,18 +88,18 @@ namespace BaseConquest.Base
                 var file = new FileInfo(store.Path);
                 if (!file.Exists)
                 {
-                    destination = store;
+                    destination = id;
                     break;
                 }
 
                 DateTime lastWrite = file.LastWriteTimeUtc;
                 if (destination == null || lastWrite < oldestWrite)
                 {
-                    destination = store;
+                    destination = id;
                     oldestWrite = lastWrite;
                 }
             }
-            destination.Save(state,reason);
+            Save(destination,state,reason);
         }
     }
     public sealed class BasePlaySession
@@ -113,7 +138,12 @@ namespace BaseConquest.Base
             if(state.Campaign.HasActiveBattle&&state.Campaign.ActiveBattle.RealtimeRules)throw new InvalidOperationException("不再恢复战中检查点，请选择对应战前或其他存档");
             Store.RestoreSession(state);beforeBattle=null;HasUnsavedChanges=false;LoadError=null;
         }
-        public void Start(BaseState state){catalog.SaveAuto(state,"开始新游戏");Restore(state);}
+        private static bool AwaitingName(BaseState state)=>BaseDemoIntro.Daily(state)&&state.Demo.Intro.Step==0;
+        public void Start(BaseState state)
+        {
+            if(!catalog.DemoMode||!AwaitingName(state))catalog.SaveAuto(state,"开始新游戏");
+            Restore(state);
+        }
         public void RememberBeforeBattle(BaseState state)
         {if(BaseSceneCombat.Active(state))throw new InvalidOperationException("已有战斗，不能覆盖战前回退点");BaseEconomy.Validate(state);beforeBattle=state.Copy();beforeUnsaved=HasUnsavedChanges;}
         public void AbandonBattle()
@@ -132,9 +162,9 @@ namespace BaseConquest.Base
                 beforeBattle=previous.Copy();beforeUnsaved=false;
             }
             HasUnsavedChanges=true;
-            if(previous==null||fighting||next.Aftermath.GameOver)return;
+            if(previous==null||fighting||next.Aftermath.GameOver||catalog.DemoMode&&AwaitingName(next))return;
             bool entered=catalog.DemoMode&&(wasFighting||previous.Campaign.Location!=next.Campaign.Location||previous.Campaign.CurrentMapId!=next.Campaign.CurrentMapId||BaseDemoPrologue.Village(previous)!=BaseDemoPrologue.Village(next));
-            string reason=entered?"进入"+BaseCampaign.LocationName(next):next.Day==previous.Day+1&&next.LastCompletedDay==previous.Day?"完整推进一天":previous.Aftermath.Loot.Any(old=>!old.Closed&&next.Aftermath.Loot.Any(item=>item.BattleId==old.BattleId&&item.Closed))?"关卡最终奖励处理完成":BaseDemo.AutoSaveReason(previous,next);
+            string reason=catalog.DemoMode&&AwaitingName(previous)?"开始新游戏":entered?"进入"+BaseCampaign.LocationName(next):next.Day==previous.Day+1&&next.LastCompletedDay==previous.Day?"完整推进一天":previous.Aftermath.Loot.Any(old=>!old.Closed&&next.Aftermath.Loot.Any(item=>item.BattleId==old.BattleId&&item.Closed))?"关卡最终奖励处理完成":BaseDemo.AutoSaveReason(previous,next);
             if(reason!=null){catalog.SaveAuto(next,reason);HasUnsavedChanges=false;}
         }
     }

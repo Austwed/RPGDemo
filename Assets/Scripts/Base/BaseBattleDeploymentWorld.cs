@@ -111,7 +111,11 @@ namespace BaseConquest.Base
             var keyboard = Keyboard.current;
             if (keyboard == null || developerPanel?.BlocksGameInput == true) return;
             if (keyboard.eKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame) Hud.ContinueDialogue();
-            else if (keyboard.escapeKey.wasPressedThisFrame) Hud.ClosePanel();
+            else if (keyboard.escapeKey.wasPressedThisFrame)
+            {
+                if (deploymentDraft.Route == BasePrepRoute.Ruins) Hud.CloseRuinsBriefing();
+                else Hud.ClosePanel();
+            }
         }
     }
 }

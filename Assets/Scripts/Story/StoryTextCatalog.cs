@@ -9,6 +9,7 @@ namespace BaseConquest.Story
     [Serializable] public sealed class StoryTextEntry
     {
         public string key="",group="",text="",notes="";
+        public int revision;
         public StoryTextEntry Copy()=>(StoryTextEntry)MemberwiseClone();
     }
     [Serializable] public sealed class StoryTextDocument

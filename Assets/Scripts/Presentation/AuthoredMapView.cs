@@ -32,6 +32,7 @@ namespace BaseConquest.Presentation
             var root=new GameObject(placement.Id+" · "+placement.Name);root.transform.SetParent(parent,false);root.transform.localPosition=feet;
             var view=root.AddComponent<AuthoredMapView>();view.person=placement.Kind=="npc";view.feet=feet;
             view.shaped=!string.IsNullOrEmpty(placement.Shape);
+            bool ravagedField=false;
             if(BaseEnvironment.Decorative(placement)){view.shaped=true;EnvironmentDecorView.Attach(root,placement,source);return view;}
             string prop=placement.AssetId=="dungeon-entrance"?"dungeon-entrance":placement.Kind=="pixel-prop"?placement.AssetId:placement.Kind=="tactical-rock"?"boulder":placement.Kind=="tactical-tree"?"dead-tree":placement.Kind=="tactical-trunk"?"fallen-log":placement.AssetId=="demo-broken-sword"?"broken-sword":placement.AssetId=="demo-long-sword"?"longsword":placement.AssetId=="demo-debris"?"ruined-wall":null;
             var pixelProp=prop==null?null:PixelDemoArt.Prop(root.transform,prop,Vector3.zero,source,prop=="dungeon-entrance"?3:prop=="dead-tree"?1.25f:1.5f,prop=="dungeon-entrance"?3:prop=="dead-tree"?2.5f:prop=="ruined-wall"?.75f:1.5f);
@@ -82,22 +83,27 @@ namespace BaseConquest.Presentation
                 var catalog=Resources.Load<BuildingAppearanceCatalog>("BuildingAppearances");
                 string asset=string.IsNullOrEmpty(placement.AssetId)?placement.Id:placement.AssetId;
                 var owner=root.GetComponentInParent<BaseSceneController>(true);
-                view.farmVisual=asset=="farm"||asset=="farm-small";
+                bool returnedVillage=owner?.State?.Campaign.CurrentMapId==BaseDemoFinale.Home;
+                ravagedField=returnedVillage&&BaseDemoFinale.IsReturnField(placement.Id);
+                if(returnedVillage&&placement.Id=="village_house")asset="damaged-house";
+                view.farmVisual=!ravagedField&&(asset=="farm"||asset=="farm-small");
                 if(view.farmVisual)asset=FarmAppearance(owner?.State);
                 view.farmAppearance=asset;
-                var texture=asset=="notice" ? PixelDemoArt.Load("Props","noticeboard")??Resources.Load<Texture2D>("MapSurfaces/Notice-v1") : catalog?.Find(asset)?.Texture;
+                var texture=ravagedField ? PixelDemoArt.Load("Terrain","field-soil") :
+                    asset=="notice" ? PixelDemoArt.Load("Props","noticeboard")??Resources.Load<Texture2D>("MapSurfaces/Notice-v1") : catalog?.Find(asset)?.Texture;
+                bool groundArtwork=ravagedField||asset.StartsWith("farm");
                 if(texture==null&&placement.Blocks)
                 {
                     view.shaped=true;var block=GameObject.CreatePrimitive(PrimitiveType.Cube);block.name=placement.Name+" · 实体占位";block.transform.SetParent(root.transform,false);block.transform.localPosition=Vector3.up*.55f;block.transform.localScale=new Vector3((float)placement.Width*BattleBoardView.CellSize,1.1f,(float)placement.Height*BattleBoardView.CellSize);BattleBoardView.DestroyObject(block.GetComponent<Collider>());
                     view.ownedMaterial=new Material(source);view.ownedMaterial.SetTexture("_BaseMap",Texture2D.whiteTexture);view.ownedMaterial.SetColor("_BaseColor",new Color(.64f,.50f,.32f));block.GetComponent<Renderer>().sharedMaterial=view.ownedMaterial;return view;
                 }
-                if(texture!=null&&asset!="notice"&&!asset.StartsWith("farm"))
+                if(texture!=null&&asset!="notice"&&!groundArtwork)
                 {
                     view.shaped=true;
                     SpriteFacade.Create(root.transform,texture,feet-Vector3.forward*(float)placement.Height*BattleBoardView.CellSize*.5f,(float)placement.Width*BattleBoardView.CellSize,source,owner.WorldCamera);
                     return view;
                 }
-                if(asset.StartsWith("farm"))view.shaped=true;
+                if(groundArtwork)view.shaped=true;
                 var face=GameObject.CreatePrimitive(PrimitiveType.Quad);face.name=placement.Name;face.transform.SetParent(root.transform,false);BattleBoardView.DestroyObject(face.GetComponent<Collider>());
                 float halfDepth=(float)placement.Height*BattleBoardView.CellSize*.5f;
                 root.transform.localPosition=feet-Vector3.forward*halfDepth;
@@ -112,7 +118,7 @@ namespace BaseConquest.Presentation
             view.SetExploration(exploration);
             if(view.dungeonEntrance==null)
                 MapSpriteOrder.Apply(root.transform,feet.z-(float)placement.BoundsHeight*BattleBoardView.CellSize*.5f);
-            if(view.farmVisual)foreach(var renderer in root.GetComponentsInChildren<Renderer>())renderer.sortingOrder=-30500;
+            if(view.farmVisual||ravagedField)foreach(var renderer in root.GetComponentsInChildren<Renderer>())renderer.sortingOrder=-30500;
             return view;
         }
         public void RefreshFarmAppearance(BaseState state)

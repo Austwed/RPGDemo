@@ -286,6 +286,7 @@ namespace BaseConquest.Base
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==0&&!BaseBattleGateway.MainMenu&&!Hud.PanelOpen){TickHeroChoice(Time.deltaTime);return;}
             AdvanceExplorationCompanions(Time.deltaTime);PlaceCompanions();Hud.RefreshMovement();Hud.RefreshInspection(false);
             if(BaseBattleLoot.ShouldPresent(State)&&!Hud.PanelOpen){Hud.OpenLoot();return;}
+            if(Hud.TryOpenHomeArrival())return;
             TickDemoFlow();TickAzhuInvitation();
             if(developerPanel?.BlocksGameInput==true)return;
             var keyboard = Keyboard.current;

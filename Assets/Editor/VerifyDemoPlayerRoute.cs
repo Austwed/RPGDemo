@@ -5,6 +5,7 @@ using System.Linq;
 using BaseConquest.Base;
 using BaseConquest.Battle;
 using BaseConquest.RealtimePrototype;
+using BaseConquest.Story;
 using UnityEditor;
 using UnityEngine;
 
@@ -33,6 +34,7 @@ namespace BaseConquest.Editor
             Report.Clear();
             try
             {
+                VerifyInstalledStoryText();
                 PlayerPrefs.SetString(difficultyKey, "normal");
                 var config = DemoBalanceRuntime.Load();
                 string raw = File.ReadAllText(Path.Combine(Application.streamingAssetsPath, "BaseScenarios", BaseDemo.BalanceTemplate));
@@ -69,9 +71,33 @@ namespace BaseConquest.Editor
             EditorApplication.Exit(exit);
         }
 
+        private static void VerifyInstalledStoryText()
+        {
+            var packaged=StoryTextFiles.Parse(File.ReadAllText(StoryTextFiles.SourcePath));
+            var installed=packaged.Copy();
+            var obsolete=installed.entries.Single(entry=>entry.key=="story.scene.prologue.pursuit_stab");
+            obsolete.text="旧版雾中演出";
+            obsolete.revision=0;
+            const string unchanged="story.scene.prologue.drill_pause";
+            installed.entries.Single(entry=>entry.key==unchanged).text="本机自改的操作提示";
+            const string added="story.item.practice_sword.description";
+            installed.entries.RemoveAll(entry=>entry.key==added);
+            var upgraded=StoryTextFiles.UpgradeInstalled(packaged,installed);
+            upgraded.Validate();
+            Need(upgraded.entries.Single(entry=>entry.key==obsolete.key).text.Contains("古裔追兵") &&
+                upgraded.entries.Single(entry=>entry.key==unchanged).text=="本机自改的操作提示" &&
+                upgraded.entries.Single(entry=>entry.key==added).text.Contains("青绳"),
+                "旧安装副本覆盖了新版台词，或未保留未改键的玩家文本");
+            Note("发行文本：旧安装副本迁移覆盖过时台词，保留未改键的自定义内容，补入新物品说明。");
+        }
+
         private static void PrepareFirstDefense(BaseState state)
         {
             Travel(state, "exit_east", "town");
+            var earlyRescue=state.Copy();
+            Travel(earlyRescue,"demo_ruins_exit","outpost");
+            At(earlyRescue,"demo_ruins_investigate");
+            VerifyRuinsSoloVictory(earlyRescue);
             At(state, "town_quest");
             Need(BaseDemo.AcceptLordQuest(state), "未能接取领主委托");
             At(state, "demo_azhu");
@@ -83,7 +109,6 @@ namespace BaseConquest.Editor
             Travel(state, "demo_ruins_exit", "outpost");
             At(state, "demo_ruins_investigate");
             var beforeSolo=state.Copy();
-            VerifyRuinsSoloVictory(beforeSolo);
             var solo = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
             solo.AutoPlace();
             var lost = new RealtimeCampaignBattle(solo.Begin(state));
@@ -182,9 +207,8 @@ namespace BaseConquest.Editor
             Note($"第{state.Day}天 首防到达。已逐次购兵{hired}人，粮田{BaseEconomy.WorkersAt(state, "farm")}人，工坊{BaseEconomy.WorkersAt(state, "workshop")}人，一级军需{BaseSupply.Available(state, "supply", 1)}件。");
         }
 
-        private static void VerifyRuinsSoloVictory(BaseState entrance)
+        private static void VerifyRuinsSoloVictory(BaseState grown)
         {
-            var grown=entrance.Copy();
             var hero=grown.Leaders.Single(l=>l.Id==grown.PlayerLeaderId);
             hero.Training.Origin=hero.PersonalEquipment.BaseStats.Clone();
             hero.Training.Target=2;hero.Training.EndDay=grown.Day;
@@ -204,7 +228,14 @@ namespace BaseConquest.Editor
                 Need(run.Session.Opening.Leaders.Count==1&&BaseDemoRuins.Complete(grown,run),"成长主角合法独胜失败："+run.Battle.Report?.Outcome);
             }
             finally{PlayerPrefs.SetString(difficultyKey,previous);}
-            Note("沉眠古窟旁支：简单难度，二级主角独自实际取胜，首胜有效。");
+            Need(grown.Demo.Stage==BaseDemoStage.RuinsCleared&&grown.Demo.AcceptedDay==0,
+                "先救人分支在交付前提前接取了委托");
+            ResolveLoot(grown);
+            Travel(grown,"demo_ruins_return","town");
+            At(grown,"town_quest");
+            Need(BaseDemoRuins.Deliver(grown)&&grown.Demo.AcceptedDay==grown.Day&&BaseDemoDefense.Delivered(grown)&&
+                !BaseDemoRuins.Deliver(grown),"先救人交差未能补记委托，或可重复发放许可");
+            Note("沉眠古窟旁支：未领委托，简单难度二级主角独自实战取胜。返镇交差时补记委托，许可仅发一次。");
         }
 
         private static void VerifyRuinsAutosaves(BaseState entrance,BaseState active,BaseState retreated)
@@ -226,7 +257,20 @@ namespace BaseConquest.Editor
                 "返回探索自动档未保存实际落点");
             Need(!new BasePlaySession(catalog,Path.Combine(folder,"title"),false).Store.Exists&&catalog.Entries().Count==3,
                 "空会话改写或自动恢复了磁盘进度");
+            string name=entrance.Demo.Intro.PlayerName;
+            Need(catalog.Entries().All(item=>item.PlayerName==name&&Path.GetFileName(catalog.Store(item.Id).Path).StartsWith(name+"-",StringComparison.Ordinal)),
+                "自动档文件名或列表未使用本局姓名");
+            catalog.SaveSlot("slot1",entrance,"手动档");
+            var other=entrance.Copy();
+            other.Demo.Intro.PlayerName="远山";
+            other.Leaders.Single(leader=>leader.Id==other.PlayerLeaderId).Name="远山";
+            catalog.SaveSlot("slot1",other,"覆盖手动档");
+            Need(Path.GetFileName(catalog.Store("slot1").Path)=="远山-slot1.json" &&
+                catalog.LoadSlot("slot1").Demo.Intro.PlayerName=="远山" &&
+                catalog.LoadSlot("slot1",true).Demo.Intro.PlayerName==name,
+                "覆盖不同姓名时未保留原手动档备份");
             Note("存档：确认开战前保留实际探索落点，半血撤退后保存入口；空会话保留磁盘档。");
+            Note("存档：自动档及手动档使用姓名前缀，跨姓名覆盖保留原槽备份。");
         }
 
         private static void BuyStones(BaseState state)

@@ -300,7 +300,8 @@ namespace BaseConquest.Base
             {
                 var people = owner.Companions.Agents.Where(a => a.Visible && (int)Math.Floor(a.Position.X) == cell.X && (int)Math.Floor(a.Position.Y) == cell.Y)
                     .Select(a => a.Name + (a.TemporarilyDetached?"（暂离·占位）":a.Following ? "（随行）" : a.FacilityId == "" ? "（闲置）" : "（" + BaseEconomy.FacilityName(a.FacilityId) + (a.Arrived ? "管理员）" : "，前往中）"))).ToList();
-                if ((int)Math.Floor(owner.State.PlayerX) == cell.X && (int)Math.Floor(owner.State.PlayerY) == cell.Y) people.Add("主角");
+                if ((int)Math.Floor(owner.State.PlayerX) == cell.X && (int)Math.Floor(owner.State.PlayerY) == cell.Y)
+                    people.Add(owner.State.Leaders.FirstOrDefault(leader=>leader.Id==owner.State.PlayerLeaderId)?.Name??"主角");
                 inspectionDetails.text = "地面：" + TerrainLabel(cell.X,cell.Y) + "\n人物：" + (people.Count == 0 ? "无人" : string.Join("、", people)) + "\n点击格子查看；接近对象后可交互";
             }
         }
@@ -536,7 +537,7 @@ namespace BaseConquest.Base
 
         private void AddTemplates()
         {
-            if(BaseBattleGateway.DemoMode){RowButton("开始新游戏",0,830,()=>Confirm("开始新游戏","从序章开始，并重新选择主角。",()=>owner.NewTemplate(BaseDemo.Profile)));row+=60;return;}
+            if(BaseBattleGateway.DemoMode){RowButton("开始新游戏",0,830,()=>Confirm("开始新游戏","从白桦村序章开始。选择主角后填写姓名。",()=>owner.NewTemplate(BaseDemo.Profile)));row+=60;return;}
             if(BaseDesignRoutes.Active(owner.State)){RowButton("重新开始当前设计组合",0,830,()=>Confirm("重开设计组合","只替换当前设计的隔离实验进度？",()=>owner.NewTemplate(owner.RecommendedTemplate)));row+=60;return;}
             foreach(var entry in BaseSceneController.TemplateEntries)
             {
@@ -809,7 +810,18 @@ namespace BaseConquest.Base
         {
             var leader=owner.State.Leaders.Single(l=>l.Id==leaderId);
             string extra=facility!=""&&BaseAdventure.Contains(owner.State,leaderId)?"；任职后退出随行小队":"";
-            NpcDialogue(new[]{new NpcLine("岗位安排","",leader.Name+" → "+BaseEconomy.FacilityName(facility)+extra)},new[]{new NpcReply("确认方案",()=>{owner.Change(next=>{if(!BaseEconomy.AssignLeader(next,leaderId,facility))throw new InvalidOperationException("设施或人员状态已变化，请重新安排");},"已确认管理员安排"+extra);refresh();}),new NpcReply("取消",refresh)});
+            NpcDialogue(new[]{new NpcLine("岗位安排","",leader.Name+" → "+BaseEconomy.FacilityName(facility)+extra)},new[]{
+                new NpcReply("确认方案",()=>{
+                    bool aheNewFarmPost=BaseDemo.Active(owner.State)&&leaderId=="partner_farm"&&facility=="farm"&&leader.FacilityId!="farm";
+                    bool assigned=owner.Change(next=>{
+                        if(!BaseEconomy.AssignLeader(next,leaderId,facility))throw new InvalidOperationException("设施或人员状态已变化，请重新安排");
+                    },"已确认管理员安排"+extra);
+                    if(assigned&&aheNewFarmPost)
+                        OpenAheResponse("这片田就交给我。明早我先去看看地里缺不缺水。",refresh);
+                    else refresh();
+                }),
+                new NpcReply("取消",refresh)
+            });
         }
         private void Production()
         {

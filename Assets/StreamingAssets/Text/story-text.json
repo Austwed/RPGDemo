@@ -214,8 +214,9 @@
     {
       "key": "story.ui.trade.market_greeting",
       "group": "界面／交易",
-      "text": "这里可以买卖物资、装备和随身补给。",
-      "notes": "非 Demo 城镇摊位的功能占位。"
+      "text": "要添补给，还是出手些装备？物资也能买卖。",
+      "notes": "老莫在商店的普通问候。",
+      "revision": 2
     },
     {
       "key": "story.ui.trade.recipient",
@@ -622,14 +623,16 @@
     {
       "key": "story.ui.intel.first_offer",
       "group": "剧情／免费首防消息",
-      "text": "可领取一次免费首防消息。",
-      "notes": "功能占位，待写。"
+      "text": "东家，回营前听我一句。黑鸦寨有点动静，这条消息算我送你的。",
+      "notes": "老莫在首防前首次主动提供消息。",
+      "revision": 2
     },
     {
       "key": "story.ui.intel.first_claimed",
       "group": "剧情／免费首防消息",
-      "text": "首防日期：第 {day} 天。查看日历，准备粮食与军需。",
-      "notes": "功能占位，待改写。保留{day}。"
+      "text": "黑鸦寨第 {day} 天来袭。回去看看日历，趁早备好粮食和军需。",
+      "notes": "{day} 是本档实际来袭日期。",
+      "revision": 2
     },
     {
       "key": "story.ui.rest.workshop_shortage",
@@ -652,8 +655,9 @@
     {
       "key": "story.scene.defense.merchant_bandit_lead",
       "group": "剧情／首防后行商上门",
-      "text": "带人袭营的巴图是黑鸦寨的头目。他们吃了这场亏，多半还会再来。",
-      "notes": "老莫上门第二句，功能占位。适用于巴图两种结局，50 字以内。"
+      "text": "带人来的是黑鸦寨的巴图。寨里吃了亏，多半还会派人来。",
+      "notes": "老莫上门第二句，适用于巴图两种结局。",
+      "revision": 2
     },
     {
       "key": "story.scene.defense.second_victory_report",
@@ -892,14 +896,16 @@
     {
       "key": "story.scene.prologue.practice_won",
       "group": "剧情／白桦村序章",
-      "text": "练得不错。你听，村头有人跑过来了。",
-      "notes": "演练成功后返回村庄，搭档对白。功能占位，待回稿。"
+      "text": "这剑没生疏。等等，村头那人怎么跑得这样急？",
+      "notes": "演练成功后返回村庄，搭档对白。",
+      "revision": 2
     },
     {
       "key": "story.scene.prologue.practice_retry",
       "group": "剧情／白桦村序章",
-      "text": "先歇一歇。想再练，随时来找我。",
-      "notes": "演练未完成并返回村庄。功能占位，待回稿。"
+      "text": "先把剑收了。你想再练，就过来叫我。",
+      "notes": "演练未完成并返回村庄，搭档对白。",
+      "revision": 2
     },
     {
       "key": "story.scene.prologue.drill_select",
@@ -964,20 +970,23 @@
     {
       "key": "story.scene.prologue.pursuit_stab",
       "group": "剧情／序章追兵",
-      "text": "［一名古裔追兵从雾中刺出王室的剑，贯穿了你的胸口。］",
-      "notes": "自然胜负共用的重伤对白第一句；无变量。"
+      "text": "［古裔追兵用王室的剑刺穿你的胸口，随即力竭倒下。］",
+      "notes": "自然胜负共用的重伤对白第一句；无变量。",
+      "revision": 2
     },
     {
       "key": "story.scene.prologue.pursuit_blackout",
       "group": "剧情／序章追兵",
-      "text": "王室……怎么会……{Partner}……［失去意识］",
-      "notes": "主角被剑刺穿；{Partner} 为当局搭档本名。"
+      "text": "王室……怎么会……搭档……［失去意识］",
+      "notes": "主角被剑刺穿，昏迷前的独白。无变量。",
+      "revision": 2
     },
     {
       "key": "story.scene.prologue.pursuit_goon",
       "group": "剧情／序章追兵",
-      "text": "这人倒下了。别管他，快去搬粮！",
-      "notes": "重伤对白最后一句，继续进入断流滩苏醒；无变量。"
+      "text": "都倒了？别管了，去粮仓搬吃的。",
+      "notes": "重伤对白最后一句，继续进入断流滩苏醒；无变量。",
+      "revision": 2
     },
     {
       "key": "story.scene.prologue.pursuit_retry",
@@ -994,14 +1003,16 @@
     {
       "key": "story.scene.home_rebuild.survivor",
       "group": "剧情／返乡断剑",
-      "text": "去西桥头看看。",
-      "notes": "返乡后、调查断剑前与幸存村民交谈。对白结束后回到原地探索，保留西桥头指向，24 字以内。"
+      "text": "去西桥头看看吧，那天动静全在那边。",
+      "notes": "返乡后、调查断剑前与幸存村民交谈。对白结束后回到原地探索，保留西桥头指向，24 字以内。",
+      "revision": 2
     },
     {
       "key": "story.scene.home_rebuild.finished",
       "group": "剧情／返乡断剑",
-      "text": "断剑和证词都在手上。这件事还没完。",
-      "notes": "确认结束 Demo 后主角独白。功能占位，待回稿。"
+      "text": "白桦村安顿下来了。带上这把断剑，下一步沿车辙进西山。",
+      "notes": "三项设施修好后，确认结束 Demo 时的主角独白。",
+      "revision": 2
     },
     {
       "key": "story.ui.hideout.recruiter_clue_1",
@@ -1104,6 +1115,20 @@
       "group": "界面／土匪窝点",
       "text": "战损已结算 · 基础伤损 {0:P1} · 阵亡士兵 {1} 人",
       "notes": "扫荡结束时展示，参数为基础伤损率、阵亡士兵数。功能占位，待回稿。"
+    },
+    {
+      "key": "story.item.royal_sword.description",
+      "group": "剧情／物品",
+      "text": "刺穿你胸口的秘银剑，剑脊刻着禁卫军的暗金云纹。任务物品，不可装备。",
+      "notes": "苏醒时交还的任务物品。",
+      "revision": 2
+    },
+    {
+      "key": "story.item.practice_sword.description",
+      "group": "剧情／物品",
+      "text": "搭档重新缠过青绳。剑刃虽旧，握着仍顺手。",
+      "notes": "仅用于白桦村领到的旧制短剑实例。",
+      "revision": 2
     }
   ]
 }

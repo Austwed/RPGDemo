@@ -105,8 +105,8 @@ namespace BaseConquest.Base
         public void OpenFirstRaidBriefing(Action proceed, Action back = null)
         {
             NpcDialogue(new[]{
-                new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"哈哈！新出炉的军械，还有"+BaseScriptNames.Village+"漏网的余党，今天全归"+BaseScriptNames.Bandit+"！"),
-                new NpcLine("你","","冲着"+BaseScriptNames.Village+"幸存者来的？正好，拿你的脑袋问问幕后雇主是谁！",true)
+                new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"新打的军械都留下！断流滩这块地，黑鸦寨也要了！"),
+                new NpcLine("你","","想要军械？先问问我手里这把。",true)
             },new[]{new NpcReply("拔剑迎战",proceed),new NpcReply("先看布防",back ?? OpenDemoDefenseSupply)});
         }
         // DEF_01_MID_INTEL：敌军只剩一人时崩溃泄密，供出敌营位置。同场只播一次（BattleIntelSeen 由调用方记录）。
@@ -114,25 +114,25 @@ namespace BaseConquest.Base
         {
             root.GetComponent<UnityEngine.Canvas>().sortingOrder=300;
             NpcDialogue(new[]{
-                new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","完了完了！寨子里就留了老弱，大当家带人下山，谁守得住营盘啊……"),
-                new NpcLine("你","","大当家带了多少人？营盘在哪个方向？快说！",true),
-                new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","在……在营地南边官道拐口！山道两边全是枯树和大石，你们攻不上去的！")
+                new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","别杀我！寨子里就剩些老弱，大当家已经带人下山了。"),
+                new NpcLine("你","","你们的寨子在哪儿？",true),
+                new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","南边官道拐口的山坳里。山道两边都是枯树和大石。")
             },new[]{new NpcReply("继续战斗",proceed)});
         }
         public void OpenSecondRaidBriefing(Action proceed, Action back = null)
         {
-            var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"上次没能拿下这营地，这回我亲自来。")};
-            if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"我说过我们还会回来。"));
+            var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"上回没拿下断流滩。今天我亲自来。")};
+            if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"寨主，就是他们。我说过，我会回来的。"));
             else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"巴图的账，今天一起算！"));
-            lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"弟兄们，跟紧我，别乱了阵脚！"));
+            lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"弟兄们跟紧！别把口子让出来。"));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备迎战",proceed),new NpcReply("暂缓迎战",back ?? OpenDemoDefenseSupply)});
         }
         public void OpenDemoDefenseAftermath()
         {
             var state=owner.State;if(!BaseDemoDefense.Won(state)||state.Demo.Defense.BatuStoryDay>0){if(BaseBattleLoot.Pending(state))OpenLoot();else OpenDemoStory();return;}
             bool dead=state.Demo.Defense.BatuFate=="dead";
-            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),dead?"咳……你们守得住这一回，也挡不住大当家亲自来。":"是我们低估了你们。告诉大当家，这笔账还没完。"),
-                new NpcLine("你","","他们还会回来。先清点伤损，再查清敌营的位置。",true)},
+            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),dead?"这回算你们守住了……大当家会亲自来，替我报仇。":"这回算你们守住了。大当家不会就这么算了。"),
+                new NpcLine("你","","先清点伤员，把能用的兵器收起来。",true)},
                 new[]{new NpcReply("处理战果",()=>{if(owner.Change(next=>{BaseDemoDefense.AcknowledgeBatu(next);},"已记录敌军威胁")){ClosePanel();owner.RefreshDemoRegion();if(BaseBattleLoot.Pending(owner.State))owner.Hud.OpenLoot();else owner.Hud.OpenDemoStory();}})});
         }
         public void OpenSecondRaidVictoryReport()

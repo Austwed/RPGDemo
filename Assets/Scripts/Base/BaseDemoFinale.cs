@@ -20,6 +20,7 @@ namespace BaseConquest.Base
     {
         public const string Camp="demo_bandit", Home="demo_home", AttackProof="demo:bandit:captured", Sword="demo:clue:broken-sword";
         public const string CampSuppliesMarker="demo_camp_supplies";
+        internal static bool IsReturnField(string id)=>id=="intro_farm"||id=="village_field";
         public static bool Enabled(BaseState state)=>BaseDemo.Active(state)&&state.Demo.Finale?.Version==1;
         public static bool Opened(BaseState state)=>Enabled(state)&&state.Demo.Finale.WorldOpened;
         public static bool Later(BaseState state)=>state.Demo.Stage==BaseDemoStage.AttackWon||state.Demo.Stage==BaseDemoStage.Finished;
@@ -38,7 +39,7 @@ namespace BaseConquest.Base
         {state.Demo.Finale=new BaseDemoFinaleProgress {Version=1,CampBoard=BaseBattlefield.Board(state,"outpost").Clone(),Village=BaseDemoPrologue.CreateVillage()};}
         public static void InstallMarker(BaseState state)
         {if(Enabled(state))state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Add(new BaseMapPlacement {Id="demo_march_exit",Name="世界道路 · 首次防守后开放",X=12,Y=.7,Width=2,Height=1,VisualOnly=true});}
-        public static string Objective(BaseState state)=>!Enabled(state)?"此旧Demo没有攻营与结尾快照，请新开Demo":state.Demo.Stage==BaseDemoStage.Finished?"Demo结束：已记录队长断剑，失踪真相仍待追查":Rebuilding(state)?"返乡重建：放置小粮田、营帐和仓库，再确认完成":Later(state)?BaseBattleLoot.Pending(state)?"处理战果后，沿世界道路返乡":"返乡通路已开放：行军至"+BaseScriptNames.Village+"，调查断剑":"首防已胜：补损整备，从营地南侧世界出口攻营";
+        public static string Objective(BaseState state)=>!Enabled(state)?"此旧Demo没有攻营与结尾快照，请新开Demo":state.Demo.Stage==BaseDemoStage.Finished?"已找到搭档的断剑，车辙往西山延伸":Rebuilding(state)?"返乡重建：放置小粮田、营帐和仓库，再确认完成":Later(state)?BaseBattleLoot.Pending(state)?"处理战果后，沿世界道路返乡":"返乡通路已开放：行军至"+BaseScriptNames.Village+"，调查断剑":"首防已胜：补损整备，从营地南侧世界出口攻营";
         public static BaseMapLayout CreateCampLayout()=>new BaseMapLayout {Region="outpost",SourceMapId=Camp,Title=BaseScriptNames.Bandit,SpawnX=2,SpawnY=6.5,Objects=new List<BaseMapPlacement> {
             new BaseMapPlacement {Id="demo_camp_world",Name="世界道路",X=.7,Y=6.5,Width=1,Height=2},
             new BaseMapPlacement {Id="demo_camp_attack",Name="土匪驻军 · 进攻",X=3,Y=6.5,Width=1,Height=1}
@@ -78,10 +79,10 @@ namespace BaseConquest.Base
             if(BaseDemoRelease.Enabled(state))
             {
                 var sword=village.Objects.Single(obj=>obj.Id=="demo_broken_sword");
-                village.Objects.Add(new BaseMapPlacement {Id="demo_sword_prop",Name="断裂的王室式长剑",X=sword.X+.5,Y=sword.Y+.5,Width=1.4,Height=1.8,Kind="demo-prop",AssetId="demo-broken-sword",VisualOnly=true});
+                village.Objects.Add(new BaseMapPlacement {Id="demo_sword_prop",Name="搭档的断剑",X=sword.X+.5,Y=sword.Y+.5,Width=1.4,Height=1.8,Kind="demo-prop",AssetId="demo-broken-sword",VisualOnly=true});
                 if(!village.Objects.Any(obj=>obj.Id=="demo_survivor"))
                     village.Objects.Add(new BaseMapPlacement {Id="demo_survivor",Name="幸存村民",X=8.8,Y=7.5,Width=.5,Height=.5,Kind="npc",AssetId="ahe"});
-                int debris=0;foreach(var building in village.Objects.Where(o=>o.Blocks&&!BaseEnvironment.Decorative(o.Object)).ToArray())village.Objects.Add(new BaseMapPlacement {Id="demo_damage_"+debris++,Name="烧毁的残片",X=building.X,Y=building.Y-building.Height/2+.5,Width=1.6,Height=1,Kind="demo-prop",AssetId="demo-debris",VisualOnly=true});
+                int debris=0;foreach(var building in village.Objects.Where(o=>o.Blocks&&!BaseEnvironment.Decorative(o.Object)).ToArray())village.Objects.Add(new BaseMapPlacement {Id="demo_damage_"+debris++,Name="破损残片",X=building.X,Y=building.Y-building.Height/2+.5,Width=1.6,Height=1,Kind="demo-prop",AssetId="demo-debris",VisualOnly=true});
             }
             foreach(var map in campaign.Layouts)foreach(var obj in map.Objects)if(string.IsNullOrEmpty(obj.SourceObjectId))obj.SourceObjectId=map.SourceMapId+"_"+obj.Id;
             var campBoard=CreateCampBoard(state);
@@ -247,7 +248,7 @@ namespace BaseConquest.Base
             if(camp.Objects.Any(o=>o.Id=="demo_direct_home"))return;
             var campPoint=BaseSpatial.Nearest(s,new BasePoint(camp.Columns-2,12),Camp);var homePoint=BaseSpatial.Nearest(s,new BasePoint(1.5,7.5),Home);
             camp.Objects.Add(new BaseMapPlacement{Id="demo_direct_home",Name="前往"+BaseScriptNames.Village+" · 领地内直达",SourceObjectId="demo_direct_home",DefinitionId="map_exit",X=campPoint.X,Y=campPoint.Y,Width=.6,Height=1});
-            home.Objects.Add(new BaseMapPlacement{Id="demo_direct_camp",Name="返回旧敌营 · 领地内直达",SourceObjectId="demo_direct_camp",DefinitionId="map_exit",X=homePoint.X,Y=homePoint.Y,Width=.6,Height=1});
+            home.Objects.Add(new BaseMapPlacement{Id="demo_direct_camp",Name="返回黑鸦寨 · 领地内直达",SourceObjectId="demo_direct_camp",DefinitionId="map_exit",X=homePoint.X,Y=homePoint.Y,Width=.6,Height=1});
             Bind(s,Camp,"demo_direct_home",Home,"demo_direct_camp",homePoint.X,homePoint.Y);Bind(s,Home,"demo_direct_camp",Camp,"demo_direct_home",campPoint.X,campPoint.Y);
         }
         public static bool Investigate(BaseState state)

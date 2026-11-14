@@ -13,17 +13,17 @@ namespace BaseConquest.Base
         }
         private static readonly Dictionary<string,InjuredLine> InjuredLines=new Dictionary<string,InjuredLine>
         {
-            {"INJ_TOWN_GUARD",new InjuredLine{Speaker=BaseScriptNames.Guard,Art="villager",Text="甲片裂成这样，仗打得够呛。人活着回来就成，锤子我这儿有，能替你敲回去。"}},
-            {"INJ_TOWN_MO",new InjuredLine{Speaker=BaseScriptNames.Peddler,Art=BaseScriptNames.Portrait("merchant"),Text="嘶，这脸色白得像张纸！钱币没了可以再赚，人要是倒了可就本利全空喽。"}},
-            {"INJ_TOWN_XIAOYUN",new InjuredLine{Speaker=BaseScriptNames.Girl,Art="villager",Text="[惊呼捂嘴] 血……你袖子一直在滴血！你站着别动，我去叫人！"}},
-            {"INJ_TOWN_BALONG",new InjuredLine{Speaker=BaseScriptNames.Blacksmith,Art=BaseScriptNames.Portrait("blacksmith"),Text="人受了伤得睡觉，铁甲被砍豁了口子就得换！别拿自己的肉身去硬抗刀剑！"}},
-            {"INJ_TOWN_LEIEN",new InjuredLine{Speaker=BaseScriptNames.Recruiter,Art=BaseScriptNames.Portrait("recruiter"),Text="挂彩了？胜败乃兵家常事，只要队长还没咽气，回营睡一觉、补几个新兵照样翻盘！"}},
-            {"INJ_CAMP_ZHOU",new InjuredLine{Speaker=BaseScriptNames.LaoZhou,Art=BaseScriptNames.Portrait("laozhou"),Text="又是一身伤回来。你当我这把老骨头还能替你扛？进帐躺下，天塌了也等明早。"}},
-            {"INJ_CAMP_CHUN",new InjuredLine{Speaker=BaseScriptNames.ChunShen,Art=BaseScriptNames.Portrait("chunshen"),Text="[心疼叹气] 旧的没长好，又添新的。锅里给你留了麦粥，喝完再睡。"}},
-            {"INJ_CAMP_AHE",new InjuredLine{Speaker="阿禾",Art="ahe",Text="你流了好多血！要是一个人扛不住，千万带上我们一起上阵分担啊！"}},
-            {"INJ_CAMP_AZHU",new InjuredLine{Speaker="阿铸",Art="azhu",Text="[拍胸脯] 哪个不开眼的把你伤成这样？歇一晚养好伤，明天叫上我，去砍翻他们！"}},
+            {"INJ_TOWN_GUARD",new InjuredLine{Speaker=BaseScriptNames.Guard,Art="villager",Text="甲片都裂了。人能站着回来就好，先去包扎。"}},
+            {"INJ_TOWN_MO",new InjuredLine{Speaker=BaseScriptNames.Peddler,Art=BaseScriptNames.Portrait("merchant"),Text="脸都白了！钱币没了还能挣，人可赔不起。"}},
+            {"INJ_TOWN_XIAOYUN",new InjuredLine{Speaker=BaseScriptNames.Girl,Art="villager",Text="你的袖子在滴血！先按住伤口，别再走了。"}},
+            {"INJ_TOWN_BALONG",new InjuredLine{Speaker=BaseScriptNames.Blacksmith,Art=BaseScriptNames.Portrait("blacksmith"),Text="铁甲破了还能换。你这伤，得老老实实躺一晚。"}},
+            {"INJ_TOWN_LEIEN",new InjuredLine{Speaker=BaseScriptNames.Recruiter,Art=BaseScriptNames.Portrait("recruiter"),Text="挂彩了？能回来就能再整队。先把伤养好。"}},
+            {"INJ_CAMP_ZHOU",new InjuredLine{Speaker=BaseScriptNames.LaoZhou,Art=BaseScriptNames.Portrait("laozhou"),Text="又是一身伤。进帐躺下，天塌了也等明早。"}},
+            {"INJ_CAMP_CHUN",new InjuredLine{Speaker=BaseScriptNames.ChunShen,Art=BaseScriptNames.Portrait("chunshen"),Text="旧伤还没好，又添新的。锅里有麦粥，喝完就睡。"}},
+            {"INJ_CAMP_AHE",new InjuredLine{Speaker="阿禾",Art="ahe",Text="你流了这么多血。下回叫上我，我能帮你盯后头。"}},
+            {"INJ_CAMP_AZHU",new InjuredLine{Speaker="阿铸",Art="azhu",Text="谁把你伤成这样？今晚先歇着，下回叫上我。"}},
             // 迦兰在 Demo 里只是遗迹战队长／收编对话，没有营地点击入口；文案先登记，等有交互位再接。
-            {"INJ_CAMP_JIALAN",new InjuredLine{Speaker=BaseScriptNames.Galan,Art=BaseScriptNames.Portrait("galan"),Text="你的气息乱了。伤口拖久了，燃脉会慢慢空掉。回帐里躺一夜。"}}
+            {"INJ_CAMP_JIALAN",new InjuredLine{Speaker=BaseScriptNames.Galan,Art=BaseScriptNames.Portrait("galan"),Text="你的气息乱了。回帐躺一夜，别让伤口再裂开。"}}
         };
         public static bool Wounded(BaseState s)
         {

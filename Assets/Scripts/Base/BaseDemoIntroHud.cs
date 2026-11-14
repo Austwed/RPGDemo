@@ -15,8 +15,8 @@ namespace BaseConquest.Base
         internal void OpenPracticeResult(bool completed)
         {
             string text=completed
-                ?StoryText.Get("story.scene.prologue.practice_won","练得不错。你听，村头有人跑过来了。")
-                :StoryText.Get("story.scene.prologue.practice_retry","先歇一歇。想再练，随时来找我。");
+                ?StoryText.Get("story.scene.prologue.practice_won","这剑没生疏。等等，村头那人怎么跑得这样急？")
+                :StoryText.Get("story.scene.prologue.practice_retry","先把剑收了。你想再练，就过来叫我。");
             NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(owner.State),text)},Array.Empty<NpcReply>(),onCompleted:ClosePanel);
         }
         internal void OpenPursuitRetry()
@@ -26,11 +26,11 @@ namespace BaseConquest.Base
         }
         internal void OpenPursuitArrival(Action begin)
         {
-            NpcDialogue(new[]{new NpcLine("旁白","","【低沉的古裔骨号声穿透浓雾，西侧村头传来兵刃交击声】"),
-                new NpcLine("你","","西桥头的动静停了……{Partner}还没跟上来！",true),
-                new NpcLine("古裔追兵","galan","拦住他们！祭司大人有令，带“燃脉”气息的活口一个不留！"),
+            NpcDialogue(new[]{new NpcLine("旁白","","村西的兵刃声忽然停了。"),
+                new NpcLine("你","","搭档还没跟上来！",true),
+                new NpcLine("古裔追兵","galan","截住东口！别让他们过去！"),
                 new NpcLine("你","",StoryText.Get("story.scene.prologue.pursuit_royal_sword","王室的剑怎么会在你们手里？"),true),
-                new NpcLine("你","","［瞳孔微缩］他们身上的伤口是{Partner}的剑路！是从西桥头漏过来的！",true),
+                new NpcLine("你","","这伤像是搭档留下的。他们从西桥过来。",true),
                 new NpcLine("你","","阿禾，带乡亲们直奔东山口！这两个残兵交给我！",true)},new[]{new NpcReply("让阿禾带村民离开，准备迎敌",begin)},guide:true);
         }
         private RectTransform heroChoiceLayer;
@@ -38,6 +38,7 @@ namespace BaseConquest.Base
         private Button heroChoiceConfirm;
         private Text heroChoiceHint;
         private string selectedHero="";
+        private RectTransform heroNameLayer;
         private void OpenHeroChoice()
         {
             if(heroChoiceLayer!=null){heroChoiceLayer.gameObject.SetActive(true);return;}
@@ -54,9 +55,43 @@ namespace BaseConquest.Base
                 var label=button.GetComponentInChildren<Text>();label.alignment=TextAnchor.LowerCenter;label.fontSize=17;StyleMapName(label);
                 heroChoiceTargets[n]=button;
             }
-            heroChoiceConfirm=MakeButton(heroChoiceLayer,"确认选择",new Vector2(120,55),new Vector2(210,52),()=>owner.SelectDemoHero(selectedHero),new Vector2(.5f,0));heroChoiceConfirm.interactable=false;
+            heroChoiceConfirm=MakeButton(heroChoiceLayer,"确认选择",new Vector2(120,55),new Vector2(210,52),OpenHeroName,new Vector2(.5f,0));heroChoiceConfirm.interactable=false;
             MakeButton(heroChoiceLayer,"返回主菜单",new Vector2(-120,55),new Vector2(210,52),owner.ToMainMenu,new Vector2(.5f,0));
             owner.BeginHeroChoice();UpdateHeroChoice();
+        }
+        private void OpenHeroName()
+        {
+            if(heroNameLayer!=null)return;
+            heroNameLayer=StretchLayer("HeroName",heroChoiceLayer);
+            heroNameLayer.gameObject.GetOrAdd<Image>().color=new Color(0,0,0,.58f);
+            var card=Box("NameConfirmation",heroNameLayer,new Vector2(.5f,.5f),Vector2.zero,new Vector2(490,258),DemoUiTheme.Current.Panel);
+            Label(card,"为主角取名",new Vector2(0,88),new Vector2(440,45),27,TextAnchor.MiddleCenter);
+            var box=Box("PlayerNameInput",card,new Vector2(.5f,.5f),new Vector2(0,24),new Vector2(388,54),DemoUiTheme.Current.Panel);
+            DemoUiTheme.Current.Surface(box.GetComponent<Image>(),inset:true);
+            var typed=Label(box,"",Vector2.zero,new Vector2(354,42),23);
+            typed.supportRichText=false;
+            var placeholder=Label(box,"点击输入姓名",Vector2.zero,new Vector2(354,42),21);
+            var input=box.gameObject.AddComponent<InputField>();
+            input.targetGraphic=box.GetComponent<Image>();input.textComponent=typed;input.placeholder=placeholder;
+            input.characterLimit=BaseDemoIntro.PlayerNameLimit;
+            var hint=Label(card,"最多 12 个字。姓名将用于存档名称。",new Vector2(0,-22),new Vector2(440,30),17,TextAnchor.MiddleCenter);
+            var confirm=MakeButton(card,"确认姓名",new Vector2(102,-85),new Vector2(174,48),()=>
+            {
+                if(!BaseDemoIntro.TryPlayerName(input.text,out var name))return;
+                owner.SelectDemoHero(selectedHero,name);
+                if(heroNameLayer!=null&&!string.IsNullOrEmpty(owner.Message))hint.text=owner.Message;
+            });
+            confirm.name="ConfirmPlayerName";confirm.interactable=false;
+            input.onValueChanged.AddListener(value=>
+            {
+                confirm.interactable=BaseDemoIntro.TryPlayerName(value,out _);
+                hint.text=confirm.interactable||string.IsNullOrWhiteSpace(value)?"最多 12 个字。姓名将用于存档名称。":"请使用文字或数字，去掉点号等特殊符号。";
+            });
+            MakeButton(card,"返回选角",new Vector2(-102,-85),new Vector2(174,48),()=>
+            {
+                heroNameLayer.gameObject.SetActive(false);
+                UnityEngine.Object.Destroy(heroNameLayer.gameObject);heroNameLayer=null;
+            });
         }
         private void ChooseHeroPreview(string hero)
         {
@@ -89,30 +124,35 @@ namespace BaseConquest.Base
             }
             if(id=="intro_villager"&&i.Step==2)
             {
-                NpcDialogue(new[]{new NpcLine("阿禾","ahe","你们可算来了！今早露水重，这批晚麦得趁晌午前抢播下去。"),
-                    new NpcLine("你","","田里现在只有两名弟兄，忙不过来？",true),new NpcLine("阿禾","ahe","是啊！铁匠铺农具昨晚都修齐了，能不能把那两位弟兄调来麦田？"),
-                    new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"派工一向归你拍板，去粮田把人手调成四个并按【确认】吧。")},
+                NpcDialogue(new[]{new NpcLine("阿禾","ahe","可算等到你们了！这茬晚麦得赶在晌午前下种。"),
+                    new NpcLine("你","","田里现在只有两名弟兄，忙不过来？",true),new NpcLine("阿禾","ahe","农具昨晚修齐了。能把铁匠铺那两位弟兄调过来吗？"),
+                    new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"去粮田把人手调成四个。你一点【确认】，他们就过来。")},
                     new[]{new NpcReply("我们去粮田安排",()=>owner.AdvanceDemoIntro(BaseDemoIntro.Patrol))},guide:true);return true;
             }
             if(id=="demo_captain")
             {
                 if(i.Step==1)
                 {
-                    NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"醒了？昨晚后山风大，听见你在屋里翻身到半夜。"),
+                    string portrait=BaseDemoIntro.CaptainArt(s);
+                    var meet=new NpcReply("一起去，先向阿禾打个招呼",()=>owner.AdvanceDemoIntro(BaseDemoIntro.Meet));
+                    NpcDialogue(new[]{new NpcLine("搭档",portrait,"昨夜山风刮得紧。我听你翻了半宿，没睡踏实吧？"),
                         new NpcLine("你","","习惯了。以前在王都值夜，风声比这紧得多。",true),
-                        new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"［轻笑］卸了那身官袍整一年，你摸剑柄的毛病还没改。"),
-                        new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"官印我那年就扔了，跟着你进的山。往后别再提这事。"),
-                        new NpcLine("你","","粮仓那差事辞了也好，至少不用天天防着背后的冷箭。",true),
-                        new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"走吧，阿禾天刚亮就在麦田张望，八成是秋播缺人手了。")},
-                        new[]{new NpcReply("一起去，先向阿禾打个招呼",()=>owner.AdvanceDemoIntro(BaseDemoIntro.Meet))},guide:true);return true;
+                        new NpcLine("搭档",portrait,"［轻笑］卸了那身官袍整一年，你摸剑柄的毛病还没改。"),
+                        new NpcLine("搭档",portrait,"那年我把官印一放，就跟你进了山。是我自己选的。"),
+                        new NpcLine("你","","辞了也好。在王都，背后的冷箭比明刀难防。",true),
+                        new NpcLine("搭档",portrait,"走吧，阿禾天刚亮就在麦田张望，八成是秋播缺人手了。")},
+                        new[]{meet,new NpcReply("聊聊从前在王都值夜",()=>NpcDialogue(new[]{
+                            new NpcLine("你","","那年在宫门外站了一夜，冻得连剑都拔不出鞘。",true),
+                            new NpcLine("搭档",portrait,"那时候哪想过还能睡到天亮。走吧，别让阿禾等急了。")
+                        },new[]{meet},guide:true))},guide:true);return true;
                 }
                 if(i.Step==10)
                 {
-                    NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"给，昨晚趁油灯没灭，替你把松掉的剑柄青绳结重编了一遍。"),new NpcLine("你","","是以前禁卫营的盘结手法……可惜剑刃有些卷口了。",true),new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"等秋麦入仓，咱们一起去灰岩镇，找那位老铁匠用好钢重淬一遍。"),new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"先打开【背包】把剑挂上腰，让我看看你的剑法生疏了没有！")},new[]{new NpcReply("接过短剑，准备演练",()=>owner.AdvanceDemoIntro(BaseDemoIntro.ReceiveSword))},guide:true);return true;
+                    NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"给。昨晚灯还亮着，我把剑柄上松了的青绳结重新打好了。"),new NpcLine("你","","是以前禁卫营的盘结手法……可惜剑刃有些卷口了。",true),new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"等秋麦入仓，咱们去灰岩镇，请老铁匠把剑重淬一遍。"),new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"打开【背包】把剑佩上，我看看你还记得几招。")},new[]{new NpcReply("接过短剑，准备演练",()=>owner.AdvanceDemoIntro(BaseDemoIntro.ReceiveSword))},guide:true);return true;
                 }
                 if(i.Step==4)
                 {
-                    NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"我会带你练习选择、暂停、移动、驻守和鼓舞，再看看鼓舞的效果，最后向我出手。")},new[]{new NpcReply("开始演练",owner.BeginDemoPractice),new NpcReply("再看看装备",ClosePanel)},guide:true);return true;
+                    NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"先拿木桩找找手感。等我说好了，你再朝我出剑。")},new[]{new NpcReply("开始演练",owner.BeginDemoPractice),new NpcReply("再看看装备",ClosePanel)},guide:true);return true;
                 }
                 NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"我就在附近，慢慢来。")},new[]{new NpcReply("继续",ClosePanel)});return true;
             }
@@ -158,7 +198,12 @@ namespace BaseConquest.Base
                     int before=owner.State.Demo.Intro.FarmWorkers,step=owner.State.Demo.Intro.Step,workers=introFarmDraft;
                     if(!owner.Change(next=>{if(!BaseDemoIntro.AssignFarm(next,workers))throw new InvalidOperationException("请靠近粮田或铁匠铺再安排岗位");},""))return;
                     if(workers!=before)owner.EnqueueWorkerTransfer(BaseTroopKind.Melee,workers>before?"intro_smith":"intro_farm",workers>before?"intro_farm":"intro_smith",Math.Abs(workers-before));
-                    if(step==9&&owner.State.Demo.Intro.Step==10)ClosePanel();else OpenIntroProduction(id);
+                    if(step==9&&owner.State.Demo.Intro.Step==10)
+                        NpcDialogue(new[]{
+                            new NpcLine("阿禾","ahe","人齐了！趁地还润着，这就把晚麦种下。"),
+                            new NpcLine("搭档",BaseDemoIntro.CaptainArt(owner.State),"田里的事妥了。来找我拿剑，咱们过两招。")
+                        },Array.Empty<NpcReply>(),onCompleted:ClosePanel,guide:true);
+                    else OpenIntroProduction(id);
                 },pending,pending);
                 questFarmTarget=introFarmDraft<4?(RectTransform)counter.Find("Plus"):(RectTransform)apply.transform;
                 FacilityButton(actions,"Cancel","取消方案",()=>{introFarmDraft=owner.State.Demo.Intro.FarmWorkers;OpenIntroProduction(id);},pending);
@@ -183,19 +228,19 @@ namespace BaseConquest.Base
             if(BaseDemoIntro.Daily(s)||s.Demo.Intro.Step==7){ClosePanel();return true;}
             if(s.Demo.Intro.Step==6)
             {
-                if(!s.Demo.Intro.ReporterArrived){IntroReminder("报信的乡亲正从村头跑来，等他到搭档身边再问问情况。");return true;}
+                if(!s.Demo.Intro.ReporterArrived){IntroReminder("村头有人跑来了。等他到跟前，再问出了什么事。");return true;}
                 string partner=BaseDemoIntro.PlayerArt(s)=="female"?"他":"她";
-                NpcDialogue(new[]{new NpcLine("报信村民","villager","［气喘吁吁］不好了！西边黑林子里涌出成群的灰瞳古裔！"),
-                    new NpcLine("你","","［脸色骤变］多少人？离村口还有多远？！",true),
-                    new NpcLine("报信村民","villager","怕有上百号！他们连粮车都不抢，领头的祭司托着罗盘直奔村里搜人！"),
+                NpcDialogue(new[]{new NpcLine("报信村民","villager","西边来了十几个异族，全穿着重甲！"),
+                    new NpcLine("你","","十几个重甲？他们离村口还有多远？",true),
+                    new NpcLine("报信村民","villager","刚过林子，瞧都没瞧我一眼，直奔村里去了。"),
                     new NpcLine("报信村民","villager","我再去东头通知采药的乡亲，你们快撤吧！"),
-                    new NpcLine("阿禾","ahe","上百号古裔……咱们村里满打满算才四个民兵弟兄，怎么挡得住？"),
-                    new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"西村口那道窄桥能卡死敌阵。我带那四名剑士去桥头挡一阵！"),
-                    new NpcLine("你","","你疯了？五个人去挡上百古裔？要守一起守，你带阿禾他们走！",true),
-                    new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"阿禾他们是凡躯，没有你护着，连东山口都逃不出去！"),
-                    new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"别忘了还约好去灰岩镇找老铁匠淬剑呢。我拆了木桥就追上来！"),
-                    new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"护村队的弟兄，跟我去西桥头迎敌！——快带乡亲往东走，别回头！"),
-                    new NpcLine("阿禾","ahe","［咬紧牙关］走吧！往东村口撤，绝不能白费"+partner+"拿命争来的时间！")},
+                    new NpcLine("阿禾","ahe","咱村就四个护村弟兄。怎么撤？我去叫人。"),
+                    new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"西村口桥窄，我带那四名剑士在桥头拖住他们。"),
+                    new NpcLine("你","","五个人挡十几个重甲？我去守桥，你带乡亲往东。",true),
+                    new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"东山口那段路得你护着。阿禾他们还指望你。"),
+                    new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"还约了去灰岩镇淬剑呢。我拆了木桥就赶上来！"),
+                    new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"护村队跟我上西桥！你带乡亲往东，别回头！"),
+                    new NpcLine("阿禾","ahe","往东走！"+partner+"在替我们争时间，别停下！")},
                     new[]{new NpcReply("我会把大家带出去。你一定跟上",()=>owner.AdvanceDemoIntro(BaseDemoIntro.Depart))},guide:true);return true;
             }
             return false;

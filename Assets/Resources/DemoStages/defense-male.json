@@ -77729,9 +77729,9 @@
             },
             {
                 "Id": "royal_mithril_sword",
-                "Name": "王都秘银长剑",
+                "Name": "王室秘银长剑",
                 "Category": "quest",
-                "Description": "序章暗算贯穿你胸膛的凶器。剑脊刻着禁卫军独有的暗金云纹，断口平整得反常。任务物品，不可装备。",
+                "Description": "刺穿你胸口的秘银剑，剑脊刻着禁卫军的暗金云纹。任务物品，不可装备。",
                 "ExclusiveLeaderId": "",
                 "MaxStack": 1
             }

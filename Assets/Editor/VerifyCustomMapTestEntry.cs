@@ -33,7 +33,7 @@ namespace BaseConquest.Editor
                 officialPath=catalog.Store("slot1").Path;
                 officialBytes=File.ReadAllBytes(officialPath);
                 var custom=BaseDemo.CreateOpening(source,raw,true,true,true,rules.Rules,rules.WorkbookSha256,package).CreateState();
-                if(!BaseDemoIntro.Choose(custom,"male"))throw new InvalidOperationException("不能准备已有地图测试档");
+                if(!BaseDemoIntro.Choose(custom,"male","地图测试"))throw new InvalidOperationException("不能准备已有地图测试档");
                 BaseBattleGateway.UseCustomMapTest(packageId);
                 BaseBattleGateway.Catalog(false).SaveSlot("slot1",custom,"已有地图测试档");
                 deadline=EditorApplication.timeSinceStartup+65;

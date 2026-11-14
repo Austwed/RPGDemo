@@ -12,14 +12,7 @@ namespace BaseConquest.Base
         public const string Ruins="沉眠古窟";       // 旧泛称：遗迹
         public const string Bandit="黑鸦寨";        // 旧泛称：匪寨／阻路土匪营地／敌营
 
-        // ===== 主角与搭档（规格 2.1 方案 C）=====
-        // art 取 player（男）／female（女），与 BaseDemoIntro.PlayerArt/CaptainArt 一致。
-        public static string HeroName(string art)=>art=="female"?"秦昭":"林烬";
-        public static string HeroName(BaseState s)=>HeroName(BaseDemoIntro.PlayerArt(s));
-        // 搭档＝未选的那一位，取其 art 后同样走 HeroName。
-        public static string PartnerName(BaseState s)=>HeroName(BaseDemoIntro.CaptainArt(s));
-        // 旧档兼容：旧档把搭档名写死为「搭档」，读档时按所选性别回填本名，不回写存档字段。
-        public const string LegacyPartner="搭档";
+        public const string Partner="搭档";
 
         // ===== 人物名（规格 2.2／2.3，头像列的 key 见 Portrait）=====
         public const string Lord="霍恩爵士";        // 城镇领主，旧称「领主」

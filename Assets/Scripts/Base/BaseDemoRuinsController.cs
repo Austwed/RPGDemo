@@ -14,8 +14,15 @@ namespace BaseConquest.Base
         public void JoinDemoPartner(string id)
         {
             bool toBase=State.Adventure.Members.Count>=BaseAdventure.Capacity;
-            if(!Change(next=>{if(!BaseDemoRuins.Join(next,id))throw new InvalidOperationException(!BaseRpg.HasRoom(next)?"营帐队长名额已满，请先扩建营帐或腾出名额":"请先交谈，并确认伙伴可加入、没有未返营的队伍");},toBase?"小队已满，伙伴已加入基地":"伙伴已加入小队"))return;
-            RefreshDemoRegion();Hud.ClosePanel();if(id=="partner_craft")Hud.OpenSmithFather();
+            bool ahe=id=="partner_farm";
+            if(!Change(next=>{if(!BaseDemoRuins.Join(next,id))throw new InvalidOperationException(!BaseRpg.HasRoom(next)?"营帐队长名额已满，请先扩建营帐或腾出名额":"请先交谈，并确认伙伴可加入、没有未返营的队伍");},toBase?"小队已满，伙伴已加入基地":"伙伴已加入小队"))
+            {
+                if(ahe&&!BaseRpg.HasRoom(State))Hud.OpenAheResponse("等营里腾出位置，再来叫我吧。",()=>Hud.OpenDemoPartner(id));
+                return;
+            }
+            RefreshDemoRegion();Hud.ClosePanel();
+            if(ahe)Hud.OpenAheResponse(BaseAdventure.Contains(State,id)?"成，你走前头。我带着弓，替你看住背后。":"队里满了？那我留营，你有事就来叫我。");
+            else if(id=="partner_craft")Hud.OpenSmithFather();
         }
         public void TravelDemo(string target)
         {
@@ -99,7 +106,7 @@ namespace BaseConquest.Base
         public void DeliverDemoRuins()
         {if(Change(next=>{if(!BaseDemoRuins.Deliver(next))throw new InvalidOperationException("请带真实救助证据到领主同层一格以内，且库存未达上限");},"遗迹证据已交付，奖赏与建设许可只发放一次"))Hud.OpenObject("town_quest");}
         public void CancelRuinsEntry()
-        {if(Change(s=>BaseAchievements.Unlock(s,BaseAchievements.Caution),"已暂缓进入遗迹"))Hud.ClosePanel();}
+        {if(Change(s=>BaseAchievements.Unlock(s,BaseAchievements.Caution),"已暂缓进入遗迹"))Hud.CloseRuinsBriefing();}
         public void ClaimRuinsReward(BasePrepRoute route)
         {
             string battle = BaseRuinsRewards.PendingBattle(State, route);

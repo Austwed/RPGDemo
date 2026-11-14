@@ -48,7 +48,7 @@ namespace BaseConquest.Base
     public static class BaseDemo
     {
         // Increment only when Demo progress becomes incompatible; old files are discarded, never migrated.
-        public const int SaveVersion=18;
+        public const int SaveVersion=19;
         public const string Profile="demo-new-camp-v1", ReleaseProfile="demo-complete-v2", BalanceTemplate="35_配表驱动验证.json", Assignment="demo:lord:ruins-assignment";
         public static bool Active(BaseState state) => state?.Demo?.Version==1;
         public static bool FacilityAvailable(BaseState state,string id) => !BaseDemoPrologue.Village(state)&&(!Active(state)||id!="workshop"&&id!="barracks"||BaseDemoDefense.Repaired(state,id))&&(id!="caravan"||BaseFacilityLayout.Built(state,"caravan"))&&(!Active(state)||id!="farm"&&id!="workshop"||BaseFacilityLayout.Built(state,id));
@@ -290,7 +290,7 @@ namespace BaseConquest.Base
             if(!Active(state)||state.Demo.Stage!=BaseDemoStage.Waking)return false;
             const string sword=BaseBackpack.RoyalSword;
             if(state.Backpack.Catalog.Any(d=>d.Id==sword)||state.Backpack.Catalog.Count>=1000)return false;
-            var definition=new BaseBagDefinition {Id=sword,Name="王都秘银长剑",Category="quest",Description=BaseBackpack.RoyalSwordDescription,MaxStack=1};
+            var definition=new BaseBagDefinition {Id=sword,Name=BaseBackpack.RoyalSwordName,Category="quest",Description=BaseBackpack.RoyalSwordDescription,MaxStack=1};
             state.Backpack.Catalog.Add(definition);
             if(!BaseBackpack.Add(state,sword,1)){state.Backpack.Catalog.Remove(definition);return false;}
             int cell=BasePartyInventory.FreeCell(state,state.PlayerLeaderId);

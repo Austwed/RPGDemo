@@ -68,11 +68,11 @@ namespace BaseConquest.Base
     {
         public void OpenFirstRaidIntel()
         {
-            string offer = StoryText.Get("story.ui.intel.first_offer", "可领取一次免费首防消息。");
+            string offer = StoryText.Get("story.ui.intel.first_offer", "东家，回营前听我一句。黑鸦寨有点动静，这条消息算我送你的。");
             NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),offer)},new[]{
                 new NpcReply("领取免费首防消息",()=>{
                     if(!owner.Change(next=>{if(!BaseRaidIntel.ClaimFirst(next))throw new InvalidOperationException("首防消息不可用");},"已记录首防日期"))return;
-                    string text=StoryText.Get("story.ui.intel.first_claimed","首防日期：第 {day} 天。查看日历，准备粮食与军需。")
+                    string text=StoryText.Get("story.ui.intel.first_claimed","黑鸦寨第 {day} 天来袭。回去看看日历，趁早备好粮食和军需。")
                         .Replace("{day}",owner.State.Demo.Flow.FreeFirstRaidDay.ToString());
                     NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),text)},new[]{new NpcReply("知道了",ClosePanel)});
                 }),new NpcReply("离开",ClosePanel)});
@@ -126,20 +126,30 @@ namespace BaseConquest.Base
         public void OpenDemoMerchant()
         {
             string warning=StoryText.Get("story.scene.defense.merchant_bandit_lead",
-                "带人袭营的巴图是黑鸦寨的头目。他们吃了这场亏，多半还会再来。");
-            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"我常走这条路，听说营地遇袭，特意来送个消息。"),new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),warning),new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"他们的寨子就在通往"+BaseScriptNames.Village+"的路上。从营地南边上世界道路，走一天就到。")},
+                "带人来的是黑鸦寨的巴图。寨里吃了亏，多半还会派人来。");
+            NpcDialogue(new[]{
+                new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"东家，我走南路回来，听说你们刚打了一仗。"),
+                new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),warning),
+                new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"黑鸦寨在霍恩辖地外。走营地南口上官道，一天就到。")},
                 new[]{new NpcReply("记下敌营位置",()=>{if(owner.Change(next=>{next.Demo.Defense.MerchantDone=true;next.Campaign.Layouts.Single(map=>map.Region=="base").Objects.RemoveAll(obj=>obj.Id=="demo_merchant");},"已记录敌营位置与道路")){ClosePanel();owner.RefreshDemoRegion();}})});
         }
         public void OpenRecruitmentComplete()=>NpcDialogue(new[]{
-            new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"兵强马壮！新募的弟兄今天就能下地干活，或是进工坊打铁。"),
-            new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"对了，城外那座"+BaseScriptNames.Ruins+"虽已破除主阵，底下仍有残余财货，消耗体力即可反复搜刮。"),
-            new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"但切记——古窟瘴气蚀骨，普通士卒进去会不断折损生机，千万慎用凡躯涉险！")
+            new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"人齐了。新募的弟兄今儿就能下田，也能进工坊。"),
+            new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"古窟底下还有余财。再打赢，领那份赏要费些体力。"),
+            new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"记着，那股黑风伤人，普通弟兄进去得当心。")
         },new[]{new NpcReply("回营地安排生产",ClosePanel)});
-        public void OpenSmithGoods()=>NpcDialogue(new[]{new NpcLine(BaseScriptNames.Blacksmith,BaseScriptNames.Portrait("blacksmith"),"听说你拔掉了古窟那颗毒钉！老头子连夜赶制了一批轻重甲胄和兵刃，快来看看！")},new[]{new NpcReply("去看看新装备",ClosePanel)});
+        public void OpenSmithGoods()=>NpcDialogue(new[]{new NpcLine(BaseScriptNames.Blacksmith,BaseScriptNames.Portrait("blacksmith"),"听说古窟的事办成了？我新打了些甲和兵刃，过来看看。")},new[]{new NpcReply("去看看新装备",ClosePanel)});
         public void OpenAheFarmOffer(bool recruited)
         {
-            var lines=new[]{new NpcLine("阿禾","ahe","看你往田里派了人手，有件事我可得毛遂自荐！"),new NpcLine("阿禾","ahe","我从小跟庄稼打交道，要是让我当粮田管事，收成还能多一成！"),new NpcLine("角色特性","","可在角色详情页查看阿禾特性【种植专精：粮田产出 +10%】。任命管事将退出随行小队，次日结算起生效。")};
-            NpcDialogue(lines,new[]{new NpcReply(recruited?"我会查看你的特性":"任命阿禾为粮田管事",()=>{if(recruited)ClosePanel();else owner.JoinDemoPartner("partner_farm");}),new NpcReply("这次先不安排",ClosePanel)});
+            var lines=new[]{
+                new NpcLine("阿禾","ahe","田里来了人手。我想跟你讨件差事。"),
+                new NpcLine("阿禾","ahe","我从小跟庄稼打交道。你肯让我管这片田，收成还能好些。"),
+                new NpcLine("角色特性","","可在角色详情页查看阿禾特性【种植专精：粮田产出 +10%】。任命管事将退出随行小队，次日结算起生效。")
+            };
+            NpcDialogue(lines,new[]{
+                new NpcReply(recruited?"我会查看你的特性":"邀请阿禾加入",()=>{if(recruited)ClosePanel();else owner.JoinDemoPartner("partner_farm");}),
+                new NpcReply("这次先不安排",()=>OpenAheResponse("成，先照旧安排。往后田里缺人，再来叫我。"))
+            });
         }
     }
 }

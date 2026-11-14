@@ -87,7 +87,7 @@ namespace BaseConquest.Base
                 case "demo:partner_farm":
                     if (!BaseDemoRuins.Enabled(s) || s.Leaders.Any(l => l.Id == "partner_farm")) return default;
                     return s.Campaign.Location == "base"
-                        ? new BaseQuestCue(id, "去营地粮田旁找阿禾，邀请他同行", "demo_ahe")
+                        ? new BaseQuestCue(id, "去营地粮田旁找阿禾，邀请她同行", "demo_ahe")
                         : ToCamp(s, id, "回营地找阿禾");
                 case "demo:partner_craft":
                     if (!BaseDemoRuins.Enabled(s) || s.Leaders.Any(l => l.Id == "partner_craft")) return default;
@@ -99,11 +99,11 @@ namespace BaseConquest.Base
                     if (!BaseDemoFinale.OccupiedBySecondDefense(s) || s.Demo.Finale.CampSuppliesTaken) return default;
                     if (!BaseDemoFinale.Opened(s)) return ToCamp(s, id, "从营地南侧出口进入世界道路", "demo_march_exit");
                     if (s.Campaign.CurrentMapId == BaseDemoFinale.Camp)
-                        return new BaseQuestCue(id, "搜查匪营剩下的物资", BaseDemoFinale.CampSuppliesMarker);
+                        return new BaseQuestCue(id, "搜查黑鸦寨剩下的物资", BaseDemoFinale.CampSuppliesMarker);
                     if (s.Campaign.CurrentMapId == BaseDemoFinale.Home)
-                        return new BaseQuestCue(id, "返回旧敌营搜查剩下的物资", "demo_direct_camp");
-                    if (s.Campaign.Location == "world") return new BaseQuestCue(id, "沿世界道路前往旧敌营", "bandit_entry");
-                    return ToCamp(s, id, "前往匪营搜查剩下的物资", "demo_march_exit");
+                        return new BaseQuestCue(id, "返回黑鸦寨搜查剩下的物资", "demo_direct_camp");
+                    if (s.Campaign.Location == "world") return new BaseQuestCue(id, "沿官道前往黑鸦寨", "bandit_entry");
+                    return ToCamp(s, id, "前往黑鸦寨搜查剩下的物资", "demo_march_exit");
             }
             return default;
         }
@@ -149,7 +149,7 @@ namespace BaseConquest.Base
                 var i = demo.Intro;
                 return i.Step switch
                 {
-                    0 => new BaseQuestCue(intro, "选择主角并确认", control: "hero"),
+                    0 => new BaseQuestCue(intro, "选择主角并填写姓名", control: "hero"),
                     1 => new BaseQuestCue(intro, "与" + BaseDemoIntro.PartnerName(s) + "交谈", "demo_captain"),
                     2 => new BaseQuestCue(intro, "去麦田旁和阿禾打招呼", "intro_villager"),
                     9 => new BaseQuestCue(intro, "为粮田调配 4 名工人并确认", "intro_farm", "farm"),
@@ -232,7 +232,7 @@ namespace BaseConquest.Base
                 if (BaseDemoDefense.Delivered(s))
                     list.Add(new BaseQuestEntry { Id = "demo:defend", Main = true, Title = "守住新营地", Status = BaseDemoDefense.Won(s) ? "已完成" : "进行中", Goal = BaseDemoDefense.Objective(s), Reward = "攻营与返乡道路线索", Done = BaseDemoDefense.Won(s), Phase = BaseDemoDefense.Won(s) ? QuestPhase.Done : QuestPhase.Active });
                 if (BaseDemoDefense.Won(s))
-                    list.Add(new BaseQuestEntry { Id = "demo:attack", Main = true, Title = BaseDemoFinale.OccupiedBySecondDefense(s) ? "返乡调查" : "攻营与返乡", Status = s.Demo.Stage == BaseDemoStage.Finished ? "已完成" : "进行中", Goal = BaseDemoFinale.Objective(s), Reward = "断剑与幸存者证词", Done = s.Demo.Stage == BaseDemoStage.Finished, Phase = s.Demo.Stage == BaseDemoStage.Finished ? QuestPhase.Done : QuestPhase.Active });
+                    list.Add(new BaseQuestEntry { Id = "demo:attack", Main = true, Title = BaseDemoFinale.OccupiedBySecondDefense(s) ? "返乡调查" : "攻营与返乡", Status = s.Demo.Stage == BaseDemoStage.Finished ? "已完成" : "进行中", Goal = BaseDemoFinale.Objective(s), Reward = "搭档的断剑", Done = s.Demo.Stage == BaseDemoStage.Finished, Phase = s.Demo.Stage == BaseDemoStage.Finished ? QuestPhase.Done : QuestPhase.Active });
             }
             if (BaseDemoPrologue.Village(s) || s.Demo.Stage == BaseDemoStage.Waking) return;
             foreach (var id in BaseDemoRuins.Enabled(s) ? new[] { "partner_farm", "partner_craft" } : Array.Empty<string>())
@@ -257,8 +257,8 @@ namespace BaseConquest.Base
             if (BaseDemoFinale.OccupiedBySecondDefense(s))
             {
                 bool taken = s.Demo.Finale.CampSuppliesTaken;
-                list.Add(new BaseQuestEntry { Id = "demo:camp_supplies", Title = "匪营遗留物资", Status = taken ? "已搜查" : "可搜查",
-                    Goal = "前往匪营搜查剩下的物资。", Reward = "匪营物资", Done = taken, Phase = taken ? QuestPhase.Done : QuestPhase.Available });
+                list.Add(new BaseQuestEntry { Id = "demo:camp_supplies", Title = "黑鸦寨遗留物资", Status = taken ? "已搜查" : "可搜查",
+                    Goal = "前往黑鸦寨搜查剩下的物资。", Reward = "黑鸦寨物资", Done = taken, Phase = taken ? QuestPhase.Done : QuestPhase.Available });
             }
         }
     }

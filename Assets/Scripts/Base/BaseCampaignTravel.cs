@@ -262,7 +262,7 @@ namespace BaseConquest.Base
                 var checkPath = Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES");
                 if (Application.isBatchMode && !string.IsNullOrEmpty(checkPath)) return CustomMapTestMode?Path.Combine(checkPath,CustomMapProfile,CustomMapTestPackageId):checkPath;
 #endif
-                return Path.Combine(Application.persistentDataPath,"BaseConquest","RealtimeCampaignExperiment",CustomMapTestMode ? "Demo/"+CustomMapProfile+"/"+CustomMapTestPackageId : DemoMode ? "Demo/"+OpeningProfile : DesignMode ? "DesignPackageExperiment/"+designPackage.Id : workshopSession ? "EditorExperiment" : editorTestSession ? "EditorDevelopment/"+Path.GetFileNameWithoutExtension(OpeningProfile??"33_即时格战经营闭环.json") : "");
+                return Path.Combine(Application.persistentDataPath,"BaseConquest","RealtimeCampaignExperiment",CustomMapTestMode ? "Demo/"+CustomMapProfile+"/"+CustomMapTestPackageId : DemoMode ? "Demo/"+OpeningProfile+"/v"+BaseDemo.SaveVersion : DesignMode ? "DesignPackageExperiment/"+designPackage.Id : workshopSession ? "EditorExperiment" : editorTestSession ? "EditorDevelopment/"+Path.GetFileNameWithoutExtension(OpeningProfile??"33_即时格战经营闭环.json") : "");
             }
         }
         public static BaseSaveCatalog Catalog(bool checkExisting=true) => new BaseSaveCatalog(SaveDirectory, d=>JsonUtility.ToJson(d,true), json=>JsonUtility.FromJson<BaseSaveDocument>(json),DemoMode,checkExisting);

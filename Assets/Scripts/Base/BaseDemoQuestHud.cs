@@ -109,7 +109,7 @@ namespace BaseConquest.Base
             questInstruction.gameObject.SetActive(showInstruction);
             if (showInstruction && questInstruction.text != cue.Instruction) questInstruction.text = cue.Instruction;
             questArrow.gameObject.SetActive(false);
-            if (!show) return;
+            if (!show || heroNameLayer != null && heroNameLayer.gameObject.activeInHierarchy) return;
             var arrowFrame = (RectTransform)questArrow.rectTransform.parent;
             RectTransform target = null;
             Vector2? point = null;

@@ -26,6 +26,9 @@ namespace BaseConquest.Base
         public static BaseMapObject Present(BaseState state,BaseMapObject original)
         {
             if(!BaseDemo.Active(state))return original;
+            if(state.Campaign.CurrentMapId==BaseDemoFinale.Home&&BaseDemoFinale.IsReturnField(original.Id))
+                return new BaseMapObject(original.Id,"麦田 · 查看",original.X,original.Y,original.Width,original.Height,
+                    original.Blocks,original.SourceObjectId,original.AssetId,original.Kind,false,original.Shape,original.Rotation);
             string name=null,appearance="chenan";
             switch(original.Id)
             {

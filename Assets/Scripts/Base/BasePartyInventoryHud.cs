@@ -361,7 +361,9 @@ namespace BaseConquest.Base
             string quantity = entry.Count > 1 ? inventoryQuantity + " / " + entry.Count : entry.Count.ToString();
             Ui<Text>(details, "Meta").text = "数量 " + quantity + (entry.Gear != null
                 ? " · " + BasePersonalEquipment.SlotName(BasePersonalEquipment.Definition(entry.Gear.Template).Slot) : "");
-            Ui<Text>(details, "Description").text = entry.Gear != null ? InventoryGearDescription(entry, recipient) : entry.Description;
+            string description=entry.Description;
+            if(entry.Gear!=null)description=(string.IsNullOrEmpty(description)?"":description+"\n")+InventoryGearDescription(entry,recipient);
+            Ui<Text>(details, "Description").text=description;
 
             string primary = null;
             Action act = null;

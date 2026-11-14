@@ -22,9 +22,9 @@ namespace BaseConquest.Base
             float t=1-Mathf.Exp(-6*Mathf.Max(0,seconds));heroChoiceCamera=Vector3.Lerp(heroChoiceCamera,target,t);regionView.Follow(heroChoiceCamera);
             regionView.SetViewSize(Mathf.Lerp(WorldCamera.orthographicSize,heroChoiceFocus==""?5f:4f,t));Hud.UpdateHeroChoice();
         }
-        public void SelectDemoHero(string hero)
+        public void SelectDemoHero(string hero,string playerName)
         {
-            if(!Change(next=>{if(!BaseDemoIntro.Choose(next,hero))throw new InvalidOperationException("请在新旅程选择主角");},""))return;
+            if(!Change(next=>{if(!BaseDemoIntro.Choose(next,hero,playerName))throw new InvalidOperationException("请在新旅程选择主角并填写姓名");},""))return;
             RebuildRegion();RebuildHud();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();Hud.ClosePanel();Hud.OpenDemoStory();
         }
         public void AdvanceDemoIntro(Func<BaseState,bool> action)

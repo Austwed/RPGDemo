@@ -48,11 +48,28 @@ namespace BaseConquest.Base
         public static bool AtWarehouse(BaseState s)=>Peaceful(s)&&s.Campaign.Location=="base"&&BaseInteraction.CanReach(s,WarehouseObject(s));
         public static IEnumerable<BaseInventoryEntry> Entries(BaseState s)
         {
-            foreach(var l in s.Leaders.Where(l=>l.PersonalEquipment?.Version==1))foreach(var i in l.PersonalEquipment.Items)yield return GearEntry(i,l.Id,i.Slot);
-            foreach(var i in s.PersonalEquipment.Warehouse)yield return GearEntry(i,i.Holder??"","");
-            foreach(var i in s.Backpack.Items){var d=s.Backpack.Catalog.Single(x=>x.Id==i.ItemId);yield return new BaseInventoryEntry {Id=i.Id,Name=d.Name,Category=d.Category,Holder=i.Holder??"",Cell=i.Cell,Slot="",Count=i.Count,Stack=i,Bound=d.ExclusiveLeaderId,Protected=d.Category=="quest",Description=i.ItemId==BaseEquipmentCrafting.Stone?BaseEquipmentCrafting.DescribeStone(d.Description):d.Description};}
+            string practiceId=s.Demo?.Intro?.PracticeId;
+            foreach(var l in s.Leaders.Where(l=>l.PersonalEquipment?.Version==1))foreach(var i in l.PersonalEquipment.Items)yield return GearEntry(i,l.Id,i.Slot,practiceId);
+            foreach(var i in s.PersonalEquipment.Warehouse)yield return GearEntry(i,i.Holder??"","",practiceId);
+            foreach(var i in s.Backpack.Items)
+            {
+                var d=s.Backpack.Catalog.Single(x=>x.Id==i.ItemId);
+                bool royalSword=i.ItemId==BaseBackpack.RoyalSword;
+                yield return new BaseInventoryEntry {Id=i.Id,Name=royalSword?BaseBackpack.RoyalSwordName:d.Name,Category=d.Category,
+                    Holder=i.Holder??"",Cell=i.Cell,Slot="",Count=i.Count,Stack=i,Bound=d.ExclusiveLeaderId,Protected=d.Category=="quest",
+                    Description=royalSword?BaseBackpack.RoyalSwordDescription:i.ItemId==BaseEquipmentCrafting.Stone?BaseEquipmentCrafting.DescribeStone(d.Description):d.Description};
+            }
         }
-        private static BaseInventoryEntry GearEntry(BasePersonalItem i,string holder,string slot){var d=BasePersonalEquipment.Definition(i.Template);return new BaseInventoryEntry {Id=i.Id,Name=BasePersonalEquipment.Name(i),Category=d.Slot=="weapon"?"weapon":d.Slot=="accessory"?"accessory":"armor",Holder=holder,Cell=i.Cell,Slot=slot,Count=1,Quality=i.Quality,Gear=i,Bound=i.BoundLeader,Protected=i.Template=="captains_ring",Description=d.Name};}
+        private static BaseInventoryEntry GearEntry(BasePersonalItem i,string holder,string slot,string practiceId)
+        {
+            var d=BasePersonalEquipment.Definition(i.Template);
+            bool practice=i.Id==practiceId;
+            return new BaseInventoryEntry {Id=i.Id,Name=practice?"旧制短剑":BasePersonalEquipment.Name(i),
+                Category=d.Slot=="weapon"?"weapon":d.Slot=="accessory"?"accessory":"armor",Holder=holder,Cell=i.Cell,Slot=slot,
+                Count=1,Quality=i.Quality,Gear=i,Bound=i.BoundLeader,Protected=i.Template=="captains_ring",
+                Description=practice?BaseConquest.Story.StoryText.Get("story.item.practice_sword.description",
+                    "搭档重新缠过青绳。剑刃虽旧，握着仍顺手。"):""};
+        }
         public static BaseInventoryEntry Find(BaseState s,string id)=>Entries(s).SingleOrDefault(e=>e.Id==id);
         public static int FreeCell(BaseState s,string holder)=>Enumerable.Range(0,Capacity).Where(n=>!Entries(s).Any(e=>!e.Worn&&e.Holder==holder&&e.Cell==n)).DefaultIfEmpty(-1).First();
         public static bool PartyFreeCell(BaseState s,out string holder,out int cell){foreach(var l in BaseAdventure.Members(s).Where(l=>AccessibleLeader(s,l))){cell=FreeCell(s,l.Id);if(cell>=0){holder=l.Id;return true;}}holder="";cell=-1;return false;}

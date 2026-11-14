@@ -11,7 +11,7 @@ namespace BaseConquest.Base
         public int Step, DrillFlags, FarmWorkers=2, DummyPhase, DummyHits;
         public BaseLeader Captain;public int DeparturePhase,MilitiaSpawned;public double DepartureWait,MilitiaDelay;
         public List<BaseLeader> Militia=new List<BaseLeader>();
-        public string Hero="", PracticeId="", OriginalWeaponId="";
+        public string Hero="", PlayerName="", PracticeId="", OriginalWeaponId="";
         public double Walked, CaptainX=10, CaptainY=8.6;
         public bool Zoomed, BackpackOpened, MoveOrdered;
         public double DrillMoveOrigin;
@@ -35,13 +35,13 @@ namespace BaseConquest.Base
         public static string PlayerArt(BaseState s)=>Active(s)&&s.Demo.Intro.Hero=="female"?"female":"player";
         public static string CaptainArt(BaseState s)=>PlayerArt(s)=="female"?"player":"female";
         public static string Address(BaseState s)=>PlayerArt(s)=="female"?"姑娘":"少侠";
-        // 搭档名：优先取队长的实际名字；旧档把名字写死为「搭档」时按所选性别回填本名，不回写存档字段。
-        public static string PartnerName(BaseState s)
+        public static string PartnerName(BaseState s)=>BaseScriptNames.Partner;
+        public const int PlayerNameLimit=12;
+        public static bool TryPlayerName(string input,out string name)
         {
-            var captain=s.Leaders.FirstOrDefault(l=>l.Id=="demo_captain");
-            if(captain==null||string.IsNullOrEmpty(captain.Name)||captain.Name==BaseScriptNames.LegacyPartner)
-                return BaseScriptNames.PartnerName(s);
-            return captain.Name;
+            name=(input??"").Trim();
+            return name.Length>0&&name.Length<=PlayerNameLimit
+                &&name.All(c=>!char.IsControl(c)&&!char.IsSurrogate(c)&&"<>:\"/\\|?*{}.".IndexOf(c)<0);
         }
         public static string Objective(BaseState s)
         {
@@ -95,14 +95,14 @@ namespace BaseConquest.Base
             StoryFix(s.Demo.Encounters.Camp.Commanders[2],"captain_normal_warrior","inspire",new[]{StoryTrait("tough",12),StoryTrait("taunt",2)}); // 豁牙：近战肉盾拉仇恨
             s.Demo.Encounters.Validate();
         }
-        public static bool Choose(BaseState s,string hero)
+        public static bool Choose(BaseState s,string hero,string playerName)
         {
-            if(!Daily(s)||s.Demo.Intro.Step!=0||!new[]{"male","female"}.Contains(hero))return false;
-            s.Demo.Intro.Hero=hero;s.Demo.Intro.Step=1;
+            if(!Daily(s)||s.Demo.Intro.Step!=0||!new[]{"male","female"}.Contains(hero)||!TryPlayerName(playerName,out var name))return false;
+            s.Demo.Intro.Hero=hero;s.Demo.Intro.PlayerName=name;s.Demo.Intro.Step=1;
             var left=new BasePoint(s.PlayerX,s.PlayerY);var right=new BasePoint(s.Demo.Intro.CaptainX,s.Demo.Intro.CaptainY);
             var opening=BaseSpatial.Nearest(s,hero=="male"?left:right);var partner=BaseSpatial.Nearest(s,hero=="male"?right:left);
             s.PlayerX=s.Campaign.BaseX=opening.X;s.PlayerY=s.Campaign.BaseY=opening.Y;s.Demo.Intro.CaptainX=partner.X;s.Demo.Intro.CaptainY=partner.Y;
-            s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).AppearanceId=PlayerArt(s);return true;
+            var player=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId);player.AppearanceId=PlayerArt(s);player.Name=name;return true;
         }
         public static void Walk(BaseState s,double distance)
         {if(Daily(s)&&s.Demo.Intro.Step==2&&distance>1e-6&&distance<2)s.Demo.Intro.Walked+=distance;}
@@ -111,7 +111,7 @@ namespace BaseConquest.Base
         public static void JoinCaptain(BaseState s)
         {
             if(s.Leaders.Any(l=>l.Id=="demo_captain"))return;
-            var captain=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).Copy();captain.Id="demo_captain";captain.Name=BaseScriptNames.PartnerName(s);captain.AppearanceId=CaptainArt(s);captain.AcquisitionSource=BaseScriptNames.Village+" · 临时同行";captain.AcquisitionDay=s.Day;
+            var captain=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).Copy();captain.Id="demo_captain";captain.Name=BaseScriptNames.Partner;captain.AppearanceId=CaptainArt(s);captain.AcquisitionSource=BaseScriptNames.Village+" · 临时同行";captain.AcquisitionDay=s.Day;
             captain.PreferredStrategy=SquadStrategy.Attack;
             captain.HasMapPosition=true;captain.MapX=s.Demo.Intro.CaptainX;captain.MapY=s.Demo.Intro.CaptainY;captain.MapRegion="base";
             if(captain.Rpg!=null)captain.Rpg.Id=captain.Id;
@@ -163,7 +163,7 @@ namespace BaseConquest.Base
         {
             if(!Daily(s)||!(At(s,"intro_farm")||At(s,"intro_smith"))||workers<2||workers>4)return false;
             // PRO_02_LOCK_FARM／LOCK_SMITH：还没听阿禾说完人手安排，先别动粮田与铁匠铺的岗位。
-            if(s.Demo.Intro.Step<9)throw new InvalidOperationException(At(s,"intro_farm")?"阿禾正在田埂边清点麦种，先过去听听他的盘算吧。":"炉火正旺，先去麦田问问阿禾今天的人手安排。");
+            if(s.Demo.Intro.Step<9)throw new InvalidOperationException(At(s,"intro_farm")?"阿禾正在田埂边清点麦种，先过去听听她怎么安排。":"炉火正旺，先去麦田问问阿禾今天的人手安排。");
             s.Demo.Intro.FarmWorkers=workers;
             CompleteFarmAssignment(s);
             return true;

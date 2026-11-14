@@ -55,13 +55,19 @@ namespace BaseConquest.Editor
             Need(BaseCampaign.Travel(state, "custom", "demo_direct_home") && state.Campaign.CurrentMapId == BaseDemoFinale.Home &&
                 state.Day == day, "攻寨后的白桦村直达出口未生效");
             if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"village");
-            string alien = BaseAdventure.Members(state).FirstOrDefault(leader => leader.IsAlien)?.Name;
-            Note(alien == null
-                ? "经寨内出口直达白桦村且未扣日程。本路线上没有异族伙伴随行，迦兰的返乡附加对白条件未满足。"
-                : $"经寨内出口直达白桦村且未扣日程。{alien}仍在随行，满足调查处的异族附加对白条件。");
+            Need(!state.Demo.Flow.HomeEnterSeen, "首次返乡进图时已经标记看过开场");
+            SaveRouteCheckpoint(state, "home-arrival");
+            string galanId = "partner_recruit:" + state.Demo.Flow.FirstControllerId;
+            Note(BaseAdventure.Following(state, galanId)
+                ? "经寨内出口直达白桦村且未扣日程。首通接纳的迦兰仍在随行，满足返乡开场脚印对白条件。"
+                : "经寨内出口直达白桦村且未扣日程。迦兰未随行，返乡开场不应播他的脚印对白。");
+            var field = BaseSpatial.Objects(state).Single(item => item.Id == "intro_farm" || item.Id == "village_field");
+            Need(field.Blocks && !field.VisualOnly, "返乡麦田必须保留碰撞并可调查");
+            At(state, field.Id);
+            Need(BaseInteraction.At(state, "custom", field.Id) && state.Day == day && !BaseDemoFinale.Rebuilding(state),
+                "返乡麦田无法靠近调查，或改变了日程与重建状态");
             At(state, "demo_survivor");
             Need(BaseInteraction.At(state, "custom", "demo_survivor"), "不能在白桦村与幸存村民交谈");
-            SaveRouteCheckpoint(state, "home-arrival");
             At(state, "demo_broken_sword");
             Need(BaseDemoFinale.Investigate(state) && state.Demo.Evidence.Contains(BaseDemoFinale.Sword) &&
                 BaseDemoFinale.Rebuilding(state), "断剑调查没有开启三项重建");
