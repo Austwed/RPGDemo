@@ -247,7 +247,7 @@ namespace BaseConquest.Editor
 
     // Early, deliberately limited parser for the two verified workbook tables.
     // It is not exposed as a complete Demo importer until all fields are wired.
-    public static class DemoBalanceTableReader
+    public static partial class DemoBalanceTableReader
     {
         private static string Need(Dictionary<string,string> cells,string sheet,string address)
         {if(!cells.TryGetValue(address,out var value)||string.IsNullOrWhiteSpace(value))throw new InvalidOperationException(sheet+"!"+address+"：必填值为空");return value;}

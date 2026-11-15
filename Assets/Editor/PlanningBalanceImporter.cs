@@ -25,6 +25,8 @@ namespace BaseConquest.Editor
     {
         public DemoBalancePackage Package;
         public string WorkbookPath,WorkbookHash,SeedPath,SeedHash,OutputPath,OutputHash,Preview;
+        public string ConfigurationHash;
+        public string EffectiveHash=>ConfigurationHash??WorkbookHash;
         public Dictionary<string,string> StageHashes;
     }
 
@@ -80,6 +82,7 @@ namespace BaseConquest.Editor
             lines.Add("品质掉落："+string.Join(" / ",rules.DropQuality.Select(x=>(x*100).ToString("0.##",CultureInfo.InvariantCulture)+"%"))+"；粮食基础价值 "+rules.FoodValue+"，营帐容量 "+string.Join(" / ",rules.Capacity)+"。");
             lines.Add("固定剧情、地图坐标、D10算法和装备槽位由代码／地图资产维护；其余未列入的表格区域暂不驱动游戏。");
             lines.Add("改动表格后必须重新校验；四个固定阶段档按当前数值实际完成招募、建设和日结。若无法到达首防，将显示失败原因并保留原配置与阶段档。");
+            lines.Add("这是30页全量导入；确认生成会按原表重建完整规则，覆盖之前通过独立六页表调整的数值。");
             string[] stageNames={"camp-male","camp-female","defense-male","defense-female"};
             var stageHashes=stageNames.ToDictionary(n=>n,n=>{string p=Path.GetFullPath("Assets/Resources/DemoStages/"+n+".json");return File.Exists(p)?PlanningBalanceImporter.Hash(File.ReadAllBytes(p)):null;});
             return new DemoBalanceImport {Package=package,WorkbookPath=workbook,WorkbookHash=hash,SeedPath=seed,SeedHash=PlanningBalanceImporter.Hash(seedBytes),OutputPath=output,OutputHash=File.Exists(output)?PlanningBalanceImporter.Hash(File.ReadAllBytes(output)):null,Preview=string.Join("\n",lines),StageHashes=stageHashes};
@@ -87,11 +90,11 @@ namespace BaseConquest.Editor
         public static void Write(DemoBalanceImport import,Func<DemoBalancePackage,string> serialize,Func<string,DemoBalancePackage> deserialize,Func<string,BaseScenarioDocument> deserializeSeed)
         {
             if(import==null||import.Package==null)throw new InvalidOperationException("请先校验配表");
-            if(import.Package.WorkbookSha256!=import.WorkbookHash)throw new InvalidOperationException("配表来源与预览快照不一致，请重新校验");
+            if(import.Package.WorkbookSha256!=import.EffectiveHash)throw new InvalidOperationException("配表来源与预览快照不一致，请重新校验");
             if(PlanningBalanceImporter.Hash(File.ReadAllBytes(import.WorkbookPath))!=import.WorkbookHash||PlanningBalanceImporter.Hash(File.ReadAllBytes(import.SeedPath))!=import.SeedHash)throw new InvalidOperationException("配表或开局基底在预览后已修改，请重新校验");
             string current=File.Exists(import.OutputPath)?PlanningBalanceImporter.Hash(File.ReadAllBytes(import.OutputPath)):null;
             if(current!=import.OutputHash)throw new InvalidOperationException("目标配置在预览后已改变，请重新校验");
-            import.Package.Validate();string json=serialize(import.Package);var roundtrip=deserialize(json);roundtrip?.Validate();
+            import.Package.Validate();string json=serialize(import.Package);var roundtrip=deserialize(json.TrimStart('\ufeff'));roundtrip?.Validate();
             if(roundtrip==null||serialize(roundtrip)!=json)throw new InvalidOperationException("导出后的快照不完整，原配置保留");
             string seedJson=File.ReadAllText(import.SeedPath,Encoding.UTF8).TrimStart('\ufeff');
             BaseDemo.CreateOpening(deserializeSeed(seedJson),seedJson,true,true,true,roundtrip.Rules).CreateState();
@@ -152,7 +155,7 @@ namespace BaseConquest.Editor
             if(import==null||Path.GetFullPath(import.OutputPath)!=Path.GetFullPath(OutputPath)||import.StageHashes?.Count!=4)throw new InvalidOperationException("请先校验正式Demo配表与阶段档");
             string seedJson=File.ReadAllText(import.SeedPath,Encoding.UTF8).TrimStart('\ufeff');
             Dictionary<string,string> stages;
-            try { stages=DemoStageSaveTools.Generate(seedJson,import.Package.Rules,import.WorkbookHash); }
+            try { stages=DemoStageSaveTools.Generate(seedJson,import.Package.Rules,import.EffectiveHash); }
             catch(Exception error) { throw new InvalidOperationException("固定阶段档无法按当前配置生成："+error.Message+"。请检查开局资源、兵源和经营参数；原配置与阶段档未更改。",error); }
             if(stages.Count!=4||import.StageHashes.Keys.Any(k=>!stages.ContainsKey(k)))throw new InvalidOperationException("阶段档生成不完整");
             var paths=import.StageHashes.Keys.ToDictionary(k=>k,k=>Path.GetFullPath("Assets/Resources/DemoStages/"+k+".json"));
@@ -161,7 +164,7 @@ namespace BaseConquest.Editor
                 string old=File.Exists(pair.Value)?PlanningBalanceImporter.Hash(File.ReadAllBytes(pair.Value)):null;
                 if(old!=import.StageHashes[pair.Key])throw new InvalidOperationException("阶段档在预览后已改变，请重新校验："+pair.Key);
                 var state=JsonUtility.FromJson<BaseState>(stages[pair.Key]);BaseEconomy.Validate(state);
-                if(state.Demo.ConfigHash!=import.WorkbookHash)throw new InvalidOperationException("阶段档数值来源不一致："+pair.Key);
+                if(state.Demo.ConfigHash!=import.EffectiveHash)throw new InvalidOperationException("阶段档数值来源不一致："+pair.Key);
             }
             var contents=paths.ToDictionary(p=>p.Value,p=>stages[p.Key]);
             var expected=paths.ToDictionary(p=>p.Value,p=>import.StageHashes[p.Key]);
