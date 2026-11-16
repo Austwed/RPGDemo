@@ -39,6 +39,9 @@ namespace BaseConquest.Editor
         private static Camera ruinsEntranceCamera;
         private static string ruinsEntranceMap;
         private static bool failed, androidTouch, homeCopyOnly;
+        private static BaseDayPreview civilianDayPreview;
+        private static BaseWorkerJourney civilianCrossing;
+        private static Transform civilianCrossingView;
         private static readonly List<string> Log = new List<string>();
 
         private static BaseSceneController C => Object.FindAnyObjectByType<BaseSceneController>();
@@ -81,6 +84,12 @@ namespace BaseConquest.Editor
             Run();
         }
 
+        public static void RunCivilianWork()
+        {
+            CivilianStage("civilian-boot");
+            Run();
+        }
+
         private static void Tick()
         {
             try { TickStage(); }
@@ -91,6 +100,7 @@ namespace BaseConquest.Editor
         {
             if (failed || EditorApplication.timeSinceStartup > deadline) { Finish(2, "超时或前置失败：" + stage); return; }
             if (!EditorApplication.isPlaying) { Note("等待进入 playmode"); return; }
+            if (stage.StartsWith("civilian-", StringComparison.Ordinal)) { TickCivilianWork(); return; }
             switch (stage)
             {
                 case "opening-copy":
@@ -1719,6 +1729,218 @@ namespace BaseConquest.Editor
             Log.Add("[PASS] 交易右栏使用与独立背包一致的角色卡尺寸与格数");
         }
 
+        private static void CivilianStage(string key)
+        {
+            stage = key;
+            stageAt = EditorApplication.timeSinceStartup;
+        }
+
+        private static void TickCivilianWork()
+        {
+            if (EditorApplication.timeSinceStartup - stageAt > 60)
+                throw new InvalidOperationException("村民走查等待超时：" + (controller != null ? controller.Message : stage));
+            controller = C;
+            if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+
+            var state = controller.State;
+            var travel = (BaseWorkerTravel)Field(controller, "workerTravel");
+            if (travel.Active.Count(j => j.AppearanceId == "villager") > 2)
+                throw new InvalidOperationException("同一时刻出现了超过两名村民");
+            if (stage.StartsWith("civilian-rapid-", StringComparison.Ordinal) &&
+                travel.Active.Any(j => j.AppearanceId == "villager" && j != civilianCrossing))
+                throw new InvalidOperationException("连续确认的中间方案产生了额外村民旅程");
+            switch (stage)
+            {
+                case "civilian-boot":
+                    controller.LoadDemoStage("camp", "male");
+                    CivilianStage("civilian-farm-out");
+                    break;
+                case "civilian-farm-out":
+                    if (state.Demo.Stage != BaseDemoStage.Waking || VisibleCivilianJourneys("farm").Length < 2) return;
+                    H.ClosePanel();
+                    CaptureViewports("ui-civilian-walk-to-farm");
+                    var tent = BaseStageWalk.Door(state, "home");
+                    Approach("home");
+                    if (!controller.Change(s =>
+                    {
+                        if (!BaseDemo.AcknowledgeWaking(s)) throw new InvalidOperationException("没有完成断流滩苏醒");
+                        s.PlayerX = tent.X;
+                        s.PlayerY = tent.Y;
+                        s.Inventory.Food = s.Inventory.Coins = s.Inventory.Materials = 0;
+                        s.TodayFoodConsumed = 0;
+                        s.TodayFoodMissing = s.TodayFoodRequired;
+                    }, "村民生产走查准备")) throw new InvalidOperationException(controller.Message);
+                    VerifyCivilianRoster("farm", 2, "ui-civilian-farm-roster");
+                    Approach("home");
+                    civilianDayPreview = BaseEconomy.Preview(controller.State);
+                    H.OpenObject("home");
+                    var home = RequirePanel("FacilityPanel");
+                    if (!home.Find("Right/List").GetComponent<ScrollRect>().content.GetComponentsInChildren<Text>()
+                        .Any(t => t.text.Contains($"预计产粮 +{civilianDayPreview.FoodProduced} · 明日口粮 {civilianDayPreview.FoodRequired} · 扣粮后库存 {civilianDayPreview.NextFood}")) ||
+                        civilianDayPreview.FoodProduced != (int)controller.State.Rules.FarmPerWorker ||
+                        civilianDayPreview.NextFood <= 0 || controller.State.Workers.Count != 0)
+                        throw new InvalidOperationException("零兵、零资源时的营帐预估未显示村民半工与净粮");
+                    CaptureViewports("ui-civilian-before-rest");
+                    Press(home.Find("Left/List").GetComponent<ScrollRect>().content, "Rest");
+                    CivilianStage("civilian-rest");
+                    break;
+                case "civilian-rest":
+                    if (state.Day != civilianDayPreview.Day + 1) return;
+                    var report = state.LastReport;
+                    if (!state.HasReport || report.FoodProduced != civilianDayPreview.FoodProduced ||
+                        report.FoodRequired != civilianDayPreview.FoodRequired || state.Inventory.Food != civilianDayPreview.NextFood ||
+                        state.Inventory.Coins != 0 || state.Inventory.Materials != 0 || state.Workers.Count != 0)
+                        throw new InvalidOperationException("实际日结与营帐预估不符，或村民改变了军队和库存口径");
+                    H.ClosePanel();
+                    H.OpenReport();
+                    if (!RequirePanel("CommonPanel").GetComponentsInChildren<Text>()
+                        .Any(t => t.text.Contains($"产粮{report.FoodProduced} - 口粮{report.FoodConsumed} = {report.FoodAfter}")))
+                        throw new InvalidOperationException("日结报告没有显示对应产粮与口粮");
+                    CaptureViewports("ui-civilian-after-rest");
+                    Log.Add("[PASS] 两名村民使用正式营地演员从营帐出工，零兵缺粮时名册、营帐预估与实际日结一致");
+                    controller.LoadDemoStage("defense", "male");
+                    CivilianStage("civilian-perimeter");
+                    break;
+                case "civilian-perimeter":
+                    if (state.Demo.Stage != BaseDemoStage.DefenseWarned || state.Campaign.Location != "perimeter") return;
+                    H.ClosePanel();
+                    Approach("demo_defense_return");
+                    controller.TravelDemo("base");
+                    CivilianStage("civilian-workshop-out");
+                    break;
+                case "civilian-workshop-out":
+                    if (state.Campaign.Location != "base" || VisibleCivilianJourneys("workshop").Length < 2) return;
+                    H.ClosePanel();
+                    CaptureViewports("ui-civilian-walk-to-workshop");
+                    VerifyCivilianRoster("farm", 0, "ui-civilian-farm-full");
+                    VerifyCivilianRoster("workshop", 2, "ui-civilian-workshop-roster");
+                    CivilianStage("civilian-split-posts");
+                    break;
+                case "civilian-split-posts":
+                    if (!CivilianTravelIdle()) return;
+                    ChangeCivilianFarmPost("Minus", 1);
+                    VerifyCivilianRoster("farm", 1, "ui-civilian-split-farm");
+                    VerifyCivilianRoster("workshop", 1, "ui-civilian-split-workshop");
+                    CivilianStage("civilian-split-walk");
+                    break;
+                case "civilian-split-walk":
+                    if (!TrackCivilianCrossing("farm", out bool reachedFarmLeg) || !reachedFarmLeg) return;
+                    CivilianStage("civilian-replace");
+                    break;
+                case "civilian-replace":
+                    if (!CivilianTravelIdle()) return;
+                    civilianCrossing = null;
+                    ChangeCivilianFarmPost("Plus", 0);
+                    VerifyCivilianRoster("farm", 0, "ui-civilian-farm-replaced");
+                    VerifyCivilianRoster("workshop", 2, null);
+                    CivilianStage("civilian-return");
+                    break;
+                case "civilian-return":
+                    if (!TrackCivilianCrossing("workshop", out _)) return;
+                    ChangeCivilianFarmPost("Minus", 1);
+                    frameDeadline = Time.frameCount + 3;
+                    CivilianStage("civilian-rapid-restore");
+                    break;
+                case "civilian-rapid-restore":
+                    if (Time.frameCount < frameDeadline) return;
+                    ChangeCivilianFarmPost("Plus", 0);
+                    CivilianStage("civilian-rapid-crossing");
+                    break;
+                case "civilian-rapid-crossing":
+                    if (!TrackCivilianCrossing("workshop", out bool reachedWorkshopLeg) || !reachedWorkshopLeg) return;
+                    CaptureViewports("ui-civilian-via-tent");
+                    CivilianStage("civilian-rapid-arrival");
+                    break;
+                case "civilian-rapid-arrival":
+                    if (!CivilianTravelIdle()) return;
+                    frameDeadline = Time.frameCount + 20;
+                    CivilianStage("civilian-rapid-settled");
+                    break;
+                case "civilian-rapid-settled":
+                    if (Time.frameCount < frameDeadline) return;
+                    if (!CivilianTravelIdle()) throw new InvalidOperationException("最终排岗不变仍追加了村民旅程");
+                    Log.Add("[PASS] 确认士兵调工后村民先补粮田，田坊之间经营帐保持同一演员；连续调工只采纳最终岗位");
+                    Finish(0, "OK");
+                    break;
+            }
+        }
+
+        private static bool CivilianTravelIdle()
+        {
+            var travel = (BaseWorkerTravel)Field(controller, "workerTravel");
+            return travel.Active.Count == 0 && travel.Pending == 0;
+        }
+
+        private static (BaseWorkerJourney journey, Transform view)[] VisibleCivilianJourneys(string destination)
+        {
+            var travel = (BaseWorkerTravel)Field(controller, "workerTravel");
+            var actors = (Dictionary<BaseWorkerJourney, Transform>)Field(controller, "workerTravelViews");
+            var door = BaseStageWalk.Door(controller.State, destination);
+            return travel.Active.Where(journey => journey.AppearanceId == "villager" &&
+                    journey.Route.Last().Distance(door) < .08 && actors.ContainsKey(journey))
+                .Select(journey => (journey, view: actors[journey]))
+                .Where(actor => actor.view != null && actor.view.gameObject.activeInHierarchy &&
+                    actor.view.GetComponent<CompanionSpriteView>()?.AppearanceId == "villager").ToArray();
+        }
+
+        private static bool TrackCivilianCrossing(string destination, out bool reachedSecondLeg)
+        {
+            reachedSecondLeg = false;
+            var (journey, view) = VisibleCivilianJourneys(destination).SingleOrDefault();
+            if (journey == null) return false;
+            var tent = BaseStageWalk.Door(controller.State, "home");
+            int node = journey.Route.FindIndex(point => point.Distance(tent) < .08);
+            if (node < 0 || node == journey.Route.Count - 1)
+                throw new InvalidOperationException("粮田与工坊切换的单条旅程应经过营帐");
+            if (civilianCrossing != null && (civilianCrossing != journey || civilianCrossingView != view))
+                throw new InvalidOperationException("村民换岗经过营帐时重建了旅程或演员");
+            civilianCrossing = journey;
+            civilianCrossingView = view;
+            reachedSecondLeg = journey.Waypoint > node;
+            return true;
+        }
+
+        private static Transform OpenCivilianFacility(string facility)
+        {
+            H.ClosePanel();
+            Approach(facility);
+            H.OpenObject(facility);
+            return RequirePanel("FacilityPanel");
+        }
+
+        private static void VerifyCivilianRoster(string facility, int civilians, string screenshot)
+        {
+            var view = OpenCivilianFacility(facility);
+            RequireCivilianRoster(view, civilians);
+            if (screenshot != null) CaptureViewports(screenshot);
+            H.ClosePanel();
+        }
+
+        private static void RequireCivilianRoster(Transform view, int civilians)
+        {
+            var list = view.Find("Right/List").GetComponent<ScrollRect>().content;
+            var expected = civilians == 0 ? Array.Empty<string>() : new[] { $"村民 ×{civilians} · 补位" };
+            if (!list.GetComponentsInChildren<Text>().Select(t => t.text).Where(t => t.StartsWith("村民 ×", StringComparison.Ordinal)).SequenceEqual(expected))
+                throw new InvalidOperationException("实际设施名册的村民人数与预期不符");
+        }
+
+        private static void ChangeCivilianFarmPost(string adjustment, int expected)
+        {
+            var farm = OpenCivilianFacility("farm");
+            var actions = farm.Find("Left/List").GetComponent<ScrollRect>().content;
+            int old = BaseEconomy.CivilianWorkersAt(controller.State, "farm");
+            Press(actions, "Melee/" + adjustment);
+            farm = RequirePanel("FacilityPanel");
+            RequireCivilianRoster(farm, expected);
+            if (BaseEconomy.CivilianWorkersAt(controller.State, "farm") != old)
+                throw new InvalidOperationException("调工草案未确认就变更实际村民岗位");
+            Press(farm.Find("Left/List").GetComponent<ScrollRect>().content, "FacilityActionRow/Apply");
+            if (BaseEconomy.CivilianWorkersAt(controller.State, "farm") != expected ||
+                BaseEconomy.CivilianWorkersAt(controller.State, "workshop") != 2 - expected)
+                throw new InvalidOperationException("确认士兵调工后没有按粮田优先重排村民");
+            H.ClosePanel();
+        }
+
         private static void VerifyFacilityRosters()
         {
             H.ClosePanel();
@@ -2381,6 +2603,7 @@ namespace BaseConquest.Editor
             Log.Insert(0, "exit=" + code + " " + message + " ｜ " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
             string report = androidTouch ? "ui-android-touch-report.txt" :
                 stage == "opening-copy" ? "ui-opening-copy-report.txt" :
+                stage.StartsWith("civilian-", StringComparison.Ordinal) ? "ui-civilian-work-report.txt" :
                 stage.StartsWith("route-", StringComparison.Ordinal) ? "ui-player-route-views-report.txt" : "ui-skin-report.txt";
             File.WriteAllText(Path.Combine(OutDir, report), string.Join("\n", Log));
             if (code == 0) Debug.Log("[UiSkin] " + message); else Debug.LogError("[UiSkin] " + message);

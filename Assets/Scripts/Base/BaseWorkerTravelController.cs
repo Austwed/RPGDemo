@@ -11,7 +11,7 @@ namespace BaseConquest.Base
         private readonly Dictionary<string,Transform> militiaViews=new Dictionary<string,Transform>();
         private string workerTravelMap;
         private BaseState civilianTravelState;
-        private int civilianFarmWorkers, civilianWorkshopWorkers;
+        private List<BasePoint> civilianWorkplaces = new List<BasePoint>();
         public void EnqueueWorkerTransfer(BaseTroopKind kind,string from,string to,int count)
         {if(State!=null&&!BaseSceneCombat.Active(State))workerTravel.Enqueue(State,kind,from,to,count);}
         private void ClearWorkerTravel()
@@ -19,7 +19,7 @@ namespace BaseConquest.Base
             workerTravel.Clear();foreach(var view in workerTravelViews.Values)if(view!=null)BattleBoardView.DestroyObject(view.gameObject);workerTravelViews.Clear();
             foreach(var view in militiaViews.Values)if(view!=null)BattleBoardView.DestroyObject(view.gameObject);militiaViews.Clear();workerTravelMap=null;
             civilianTravelState = null;
-            civilianFarmWorkers = civilianWorkshopWorkers = 0;
+            civilianWorkplaces.Clear();
         }
         private Transform TravelActor(string id,string art,BasePoint at)
         {
@@ -27,22 +27,38 @@ namespace BaseConquest.Base
         }
         private void SyncCivilianWorkerTravel()
         {
-            if (State.Campaign.Location != "base" || BaseBattleGateway.MainMenu || ReferenceEquals(civilianTravelState, State))
+            if (State.Campaign.Location != "base" || BaseBattleGateway.MainMenu || ReferenceEquals(civilianTravelState, State) ||
+                workerTravel.CivilianInTransit)
                 return;
 
-            // Economy changes replace State. Check assignments once after a change, and start from the tent after a map transition.
+            // Preserve the doors before building changes and play one journey per civilian.
             civilianTravelState = State;
-            SyncCivilianWorkerTransfer("farm", ref civilianFarmWorkers);
-            SyncCivilianWorkerTransfer("workshop", ref civilianWorkshopWorkers);
-        }
-        private void SyncCivilianWorkerTransfer(string facility, ref int previousCount)
-        {
-            int count = BaseEconomy.CivilianWorkersAt(State, facility);
-            if (count > previousCount)
-                workerTravel.EnqueueCivilians(State, "home", facility, count - previousCount);
-            else if (count < previousCount)
-                workerTravel.EnqueueCivilians(State, facility, "home", previousCount - count);
-            previousCount = count;
+            var nextWorkplaces = new List<BasePoint>(2);
+            foreach (string facility in new[] { "farm", "workshop" })
+            {
+                int count = BaseEconomy.CivilianWorkersAt(State, facility);
+                if (count > 0) nextWorkplaces.AddRange(Enumerable.Repeat(BaseStageWalk.Door(State, facility), count));
+            }
+            var departures = new List<BasePoint>(civilianWorkplaces);
+            var arrivals = new List<BasePoint>(2);
+            foreach (var workplace in nextWorkplaces)
+            {
+                int retained = departures.FindIndex(old => old.Distance(workplace) < .01);
+                if (retained >= 0) departures.RemoveAt(retained);
+                else arrivals.Add(workplace);
+            }
+            civilianWorkplaces = nextWorkplaces;
+            int journeys = System.Math.Max(departures.Count, arrivals.Count);
+            if (journeys == 0) return;
+
+            var camp = BaseStageWalk.Door(State, "home");
+            for (int i = 0; i < journeys; i++)
+            {
+                bool leavingWork = i < departures.Count;
+                bool startingWork = i < arrivals.Count;
+                workerTravel.EnqueueCivilian(leavingWork ? departures[i] : camp, startingWork ? arrivals[i] : camp,
+                    leavingWork && startingWork ? camp : (BasePoint?)null);
+            }
         }
         private void TickWorkerTravel(double seconds)
         {

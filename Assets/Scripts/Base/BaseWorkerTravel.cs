@@ -39,10 +39,13 @@ namespace BaseConquest.Base
     // Presentation only: the successful economy transaction already owns the assignment.
     public sealed class BaseWorkerTravel
     {
-        private sealed class Batch {public string AppearanceId;public BasePoint From,To;public int Count;}
+        private const string CivilianAppearance = "villager";
+        private sealed class Batch {public string AppearanceId;public BasePoint From,To;public BasePoint? Via;public int Count;}
         private readonly Queue<Batch> pending=new Queue<Batch>();private double delay;
         public readonly List<BaseWorkerJourney> Active=new List<BaseWorkerJourney>();
         public int Pending=>pending.Sum(v=>v.Count);
+        public bool CivilianInTransit => pending.Any(b => b.AppearanceId == CivilianAppearance) ||
+            Active.Any(w => w.AppearanceId == CivilianAppearance);
         public void Clear(){pending.Clear();Active.Clear();delay=0;}
         public void Enqueue(BaseState s,BaseTroopKind kind,string from,string to,int count)
         {
@@ -50,7 +53,9 @@ namespace BaseConquest.Base
             Enqueue(s, appearance, from == "" ? "barracks" : from, to == "" ? "barracks" : to, count);
         }
         public void EnqueueCivilians(BaseState s,string from,string to,int count)
-            => Enqueue(s, "villager", from, to, count);
+            => Enqueue(s, CivilianAppearance, from, to, count);
+        internal void EnqueueCivilian(BasePoint from, BasePoint to, BasePoint? via)
+            => pending.Enqueue(new Batch { AppearanceId = CivilianAppearance, From = from, To = to, Via = via, Count = 1 });
         private void Enqueue(BaseState s,string appearance,string from,string to,int count)
         {
             if(count<=0)return;
@@ -61,7 +66,12 @@ namespace BaseConquest.Base
             if(paused)return;seconds=Math.Max(0,seconds);delay-=seconds;
             if(delay<=0&&Active.Count<8&&pending.Count>0)
             {
-                var b=pending.Peek();var route=BaseStageWalk.Route(s,b.From,b.To);
+                var b=pending.Peek();var route=BaseStageWalk.Route(s,b.From,b.Via ?? b.To);
+                if (b.Via.HasValue && route.Count > 0)
+                {
+                    var onward = BaseStageWalk.Route(s, b.Via.Value, b.To);
+                    if (onward.Count > 0) route.AddRange(onward);
+                }
                 if(route.Count>0)Active.Add(new BaseWorkerJourney{AppearanceId=b.AppearanceId,Position=b.From,Route=route});
                 if(--b.Count==0)pending.Dequeue();delay=.4;
             }

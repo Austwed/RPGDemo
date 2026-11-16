@@ -119,6 +119,7 @@ namespace BaseConquest.Base
             if(initializedSession>=0&&initializedSession!=session)realtimeProfile=null;
             regionView?.Dispose(); if(mapMaterial!=null)BattleBoardView.DestroyObject(mapMaterial); combatController=null;
             initializedSession = session; constructionOpen=false;constructionBrush.Cancel();constructionTouch=-1; StopAllCoroutines(); State = null; Busy = loadingTemplate = false;
+            ClearWorkerTravel();
             environmentMapKey=null;environmentAnimals.Clear();playerMotion=new BaseMotionAssist(); SelectedCell = null; Companions = new BaseCompanionMovement(); companionViews.Clear(); touches.Clear(); mouseTap = null;
             if (Application.isMobilePlatform) Screen.orientation = ScreenOrientation.LandscapeLeft;
             foreach (Transform child in transform.Cast<Transform>().ToArray())
