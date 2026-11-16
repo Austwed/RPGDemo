@@ -63,7 +63,7 @@ namespace BaseConquest.Base
             var preview = BaseEconomy.Preview(s);
             return new[]
             {
-                "工坊在岗 " + BaseEconomy.EligibleWorkers(s, "workshop") + " 人 · 当前产品 " + BaseEconomy.ProductName(s.WorkshopProduct) + "（" + BaseConstruction.ProductLevel(s) + " 级）",
+                "工坊在岗 " + BaseEconomy.ProductionWorkersAt(s, "workshop") + " 人 · 当前产品 " + BaseEconomy.ProductName(s.WorkshopProduct) + "（" + BaseConstruction.ProductLevel(s) + " 级）",
                 "预计消耗原料 " + preview.MaterialsSpent + "：可做成 " + preview.ProductsMade + " 件（每件 " + BaseConstruction.MaterialCost(s, s.WorkshopProduct) + "）",
                 "库存 " + s.Inventory.Materials + (s.Inventory.Materials < preview.MaterialsSpent ? " · 原料不足，产能会打折" : "")
             };

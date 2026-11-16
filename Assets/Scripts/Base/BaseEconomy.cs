@@ -70,10 +70,35 @@ namespace BaseConquest.Base
         public static double AttackFactor(BaseState s) => 1 - s.Rules.HungerAttackPenalty * Hunger(s);
         public static int WorkersAt(BaseState s, string facility, BaseTroopKind? kind = null) => s.Workers.Where(x => !x.Away && x.FacilityId == facility && (facility == "" || BaseDevelopment.Effective(s, x)) && (!kind.HasValue || x.Kind == kind)).Sum(x => x.Count);
         public static int EligibleWorkers(BaseState s, string facility) => s.Workers.Where(x => BaseDevelopment.Effective(s, x) && x.FacilityId == facility).Sum(x => x.Count);
+        public static int CivilianWorkersAt(BaseState s, string facility)
+        {
+            const int availableCivilians = 2;
+            if (!BaseDemo.Active(s) || (facility != "farm" && facility != "workshop") ||
+                !BaseDemo.FacilityAvailable(s, "farm")) return 0;
+
+            int farming = Math.Min(availableCivilians, Vacancies("farm"));
+            if (facility == "farm") return farming;
+            if (farming == availableCivilians || !BaseDemo.FacilityAvailable(s, "workshop")) return 0;
+            return Math.Min(availableCivilians - farming, Vacancies("workshop"));
+
+            int Vacancies(string id)
+            {
+                var post = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == id);
+                return post == null ? 0 : Math.Max(0, post.Capacity - WorkersAt(s, id));
+            }
+        }
+        public static int ProductionWorkersAt(BaseState s, string facility)
+            => EligibleWorkers(s, facility) + CivilianWorkersAt(s, facility);
         public static BaseLeader Manager(BaseState s, string facility) => s.Leaders.FirstOrDefault(x => BaseDevelopment.Effective(s, x) && x.FacilityId == facility);
         private static double Bonus(BaseState s, string facility) { var chief = Manager(s, facility); return chief == null ? 1 : 1 + BaseDevelopment.Bonus(chief, facility); }
         public static bool ProductionPaused(BaseState s,string facility) => s.Muster.Facilities.Any(f=>f.FacilityId==facility&&f.DeveloperProductionPaused);
-        private static double Work(BaseState s, string facility) => ProductionPaused(s,facility)||!BaseDemo.FacilityAvailable(s,facility) ? 0 : s.Workers.Where(w => BaseDevelopment.Effective(s, w) && w.FacilityId == facility).Sum(w => w.Count * BaseDevelopment.Efficiency(w, facility));
+        private static double Work(BaseState s, string facility, double soldierFactor)
+        {
+            if (ProductionPaused(s, facility) || !BaseDemo.FacilityAvailable(s, facility)) return 0;
+            double soldierWork = s.Workers.Where(w => BaseDevelopment.Effective(s, w) && w.FacilityId == facility)
+                .Sum(w => w.Count * BaseDevelopment.Efficiency(w, facility));
+            return soldierWork * soldierFactor + CivilianWorkersAt(s, facility) * .5;
+        }
         public static bool PayMorningFood(BaseState s)
         {
             if (s.FoodPaidDay == s.Day) return false;
@@ -87,8 +112,8 @@ namespace BaseConquest.Base
         {
             Validate(s);
             double factor = ProductionFactor(s);
-            double food = s.FarmFraction + Work(s, "farm") * s.Rules.FarmPerWorker * Bonus(s, "farm") * factor;
-            double work = BaseConstruction.Progress(s,s.WorkshopProduct).Fraction + Work(s, "workshop") * s.Rules.WorkshopPerWorker * Bonus(s, "workshop") * factor / BaseConstruction.ProductLevel(s);
+            double food = s.FarmFraction + Work(s, "farm", factor) * s.Rules.FarmPerWorker * Bonus(s, "farm");
+            double work = BaseConstruction.Progress(s,s.WorkshopProduct).Fraction + Work(s, "workshop", factor) * s.Rules.WorkshopPerWorker * Bonus(s, "workshop") / BaseConstruction.ProductLevel(s);
             int foodWhole = (int)Math.Floor(food + 1e-9), workWhole = (int)Math.Floor(work + 1e-9);
             int made = Math.Min(workWhole, s.Inventory.Materials / BaseConstruction.MaterialCost(s,s.WorkshopProduct)), need = FoodRequired(s);
             int nextFood = checked(s.Inventory.Food + foodWhole);

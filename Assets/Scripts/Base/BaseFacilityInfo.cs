@@ -42,11 +42,13 @@ namespace BaseConquest.Base
             if(id!="farm"&&id!="workshop"){info.Status=obj.Kind=="npc"?"人物 · 接近后交谈":obj.VisualOnly?"场景装饰":"接近后交互";return info;}
             var manager = BaseEconomy.Manager(state, id); var preview = BaseEconomy.Preview(state);
             info.Administrator = manager == null ? "无可生产的管理员" : BasePersonnel.LeaderName(manager) + "（产能+" + (BaseDevelopment.Bonus(manager, id) * 100).ToString("0.#") + "%）";
-            info.Workers = BaseEconomy.WorkersAt(state, id) + "人（近战" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Melee) + "／弓兵" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Ranged) + "／骑兵" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Cavalry) + "）";
+            int producing = BaseEconomy.ProductionWorkersAt(state, id);
+            info.Workers = producing + " 人在岗（其中近战" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Melee) +
+                "／弓兵" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Ranged) + "／骑兵" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Cavalry) + "）";
             info.Production = id == "farm" ? "今日预计产粮 " + preview.FoodProduced + "；累计进度 " + state.FarmFraction.ToString("0.##")
                 : "今日预计" + preview.ProductLevel + "级" + BaseEconomy.ProductName(preview.Product) + " " + preview.ProductsMade + "件；消耗原料 " + preview.MaterialsSpent;
-            info.Status = BaseEconomy.ProductionPaused(state,id) ? "开发者已暂停产出" : BaseEconomy.EligibleWorkers(state, id) == 0 ? "无人可生产" : id == "workshop" && preview.ProductsMade < preview.WorkCapacity ? "原料不足" : "正常生产";
-            info.Status += " · 今日生产人数 " + BaseEconomy.EligibleWorkers(state, id) + "/" + state.Muster.Facilities.Single(f => f.FacilityId == id).Capacity + " · 缺粮产能系数 " + (preview.ProductionFactor * 100).ToString("0.#") + "%";
+            info.Status = BaseEconomy.ProductionPaused(state,id) ? "开发者已暂停产出" : producing == 0 ? "无人可生产" : id == "workshop" && preview.ProductsMade < preview.WorkCapacity ? "原料不足" : "正常生产";
+            info.Status += " · 今日生产人数 " + producing + "/" + state.Muster.Facilities.Single(f => f.FacilityId == id).Capacity + " · 士兵产能系数 " + (preview.ProductionFactor * 100).ToString("0.#") + "%";
             return info;
         }
     }

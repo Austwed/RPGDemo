@@ -147,7 +147,8 @@ namespace BaseConquest.Base
             if (manager != null) BindInventoryPortrait(Ui<RectTransform>(card, "Portrait"), manager);
 
             int count = BaseEconomy.WorkersAt(draft, id);
-            FacilityText(actions, $"岗位 {count}/{facility.Capacity} · 今日生产 {BaseEconomy.EligibleWorkers(draft, id)} 人");
+            int producing = BaseEconomy.ProductionWorkersAt(draft, id);
+            FacilityText(actions, $"岗位 {producing}/{facility.Capacity} · 今日生产 {producing} 人");
             FacilityText(actions, workshop
                 ? $"预计产出 {preview.ProductLevel}级{BaseEconomy.ProductName(draft.WorkshopProduct)} {preview.ProductsMade} 件 · 原料 {preview.MaterialsSpent}"
                 : $"预计产粮 {preview.FoodProduced} · 扣粮后库存 {preview.NextFood}");
@@ -216,6 +217,8 @@ namespace BaseConquest.Base
 
         private void FillFacilityWorkers(Transform list, BaseState draft, string id, bool room)
         {
+            int civilians = BaseEconomy.CivilianWorkersAt(draft, id);
+            if (civilians > 0) FacilityText(list, CivilianRosterLabel(civilians), true);
             var units = BasePersonnel.Units(draft).Where(u => !u.IsLeader && !u.Away &&
                 (draft.Workers[u.BucketIndex].FacilityId == id || draft.Workers[u.BucketIndex].FacilityId == ""))
                 .OrderByDescending(u => draft.Workers[u.BucketIndex].FacilityId == id).ThenBy(u => u.Kind).ToArray();
@@ -230,6 +233,8 @@ namespace BaseConquest.Base
                     assigned || unit.Effective && room, assigned, showStats: false);
             }
         }
+
+        private static string CivilianRosterLabel(int count) => $"村民 ×{count} · 补位";
 
         private void FillFacilityManagers(Transform list, BaseState state, string id, bool pending)
         {

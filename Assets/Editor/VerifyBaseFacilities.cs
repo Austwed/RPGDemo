@@ -17,6 +17,7 @@ namespace BaseConquest.Editor
         {
             var s = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
             BaseEconomy.Validate(s);
+            VerifyCivilianWork(s);
             Need(!BaseFacilityLayout.OfficeBuilt(s), "阶段档不应预先拥有办公设施");
             Need(BaseDevelopment.EffectivePolicy(s) == "manual", "办公设施未建成时应按手动执行");
             bool rejected = false;
@@ -144,6 +145,54 @@ namespace BaseConquest.Editor
             Need(legacy.Layout.Version == BaseFacilityLayout.Version && legacy.Caravan.Version == BaseCaravan.Version, "旧档缺布局／商队字段时应补默认");
             BaseEconomy.Validate(legacy);
             Debug.Log("[BaseFacilities] 办公门禁、策略迁移、设施收存、自动分配、商队往返与存档往返 PASS");
+        }
+
+        private static void VerifyCivilianWork(BaseState camp)
+        {
+            var empty = camp.Copy();
+            empty.Workers.Clear();
+            empty.Inventory.Food = empty.Inventory.Coins = empty.Inventory.Materials = 0;
+            empty.TodayFoodConsumed = 0;
+            empty.TodayFoodMissing = empty.TodayFoodRequired;
+            int captainRations = empty.Leaders.Count(x => x.Health > 0) * empty.Demo.Rpg.LeaderFood;
+            Need(BaseEconomy.CivilianWorkersAt(empty, "farm") == 2 &&
+                BaseEconomy.CivilianWorkersAt(empty, "workshop") == 0, "空营粮田应有两名村民补位");
+            Need(BaseEconomy.Preview(empty).FoodProduced == (int)empty.Rules.FarmPerWorker &&
+                BaseEconomy.FoodRequired(empty) == captainRations, "缺粮时村民仍各提供半工，且不吃部队口粮");
+            Need(BaseEconomy.Rest(empty, empty.Day) && empty.LastReport.FoodProduced == (int)empty.Rules.FarmPerWorker &&
+                empty.Inventory.Coins == 0 && empty.Inventory.Materials == 0 && empty.Workers.Count == 0,
+                "村民工量应进入真实日结，且不产生士兵或个人消耗");
+            var saved = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(empty));
+            BaseEconomy.Validate(saved);
+            Need(BaseEconomy.CivilianWorkersAt(saved, "farm") == 2 && saved.Workers.Count == 0,
+                "读档应从岗位重算村民工量");
+            var travel = new BaseWorkerTravel();
+            var tent = BaseStageWalk.Door(camp, "home");
+            var farm = BaseStageWalk.Door(camp, "farm");
+            travel.EnqueueCivilians(camp, "home", "farm", 1);
+            travel.EnqueueCivilians(camp, "farm", "home", 1);
+            travel.Tick(camp, 0);
+            var outbound = travel.Active.Single();
+            Need(outbound.AppearanceId == "villager" && outbound.Position.Distance(tent) < .01 &&
+                outbound.Route.Last().Distance(farm) < .08, "村民应沿营地通路从营帐走到粮田");
+            travel.Tick(camp, .4);
+            var returning = travel.Active.Single(journey => journey != outbound);
+            Need(returning.AppearanceId == "villager" && returning.Route.Last().Distance(tent) < .08,
+                "调回村民应走回营帐");
+
+            var defense = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/defense-male").text);
+            BaseEconomy.Validate(defense);
+            Need(BaseEconomy.CivilianWorkersAt(defense, "farm") == 0 &&
+                BaseEconomy.CivilianWorkersAt(defense, "workshop") == 2, "粮田已被士兵填满时村民应补到工坊");
+            Need(BaseEconomy.MoveWorkers(defense, BaseTroopKind.Melee, "farm", "", 1) &&
+                BaseEconomy.CivilianWorkersAt(defense, "farm") == 1 &&
+                BaseEconomy.CivilianWorkersAt(defense, "workshop") == 1, "两处同时有空岗时应先补足粮田");
+            Need(BaseEconomy.MoveWorkers(defense, BaseTroopKind.Melee, "", "farm", 1) &&
+                BaseEconomy.CivilianWorkersAt(defense, "farm") == 0 &&
+                BaseEconomy.CivilianWorkersAt(defense, "workshop") == 2, "士兵应能调入被村民补位的岗位");
+            defense.Inventory.Materials = 0;
+            Need(BaseEconomy.Preview(defense).ProductsMade == 0, "工坊有村民时仍须原料才能生产军需");
+            Debug.Log("[CivilianWork] 零兵缺粮日结、派工优先、工坊原料、存档重算、营帐到岗路线 PASS");
         }
     }
 }

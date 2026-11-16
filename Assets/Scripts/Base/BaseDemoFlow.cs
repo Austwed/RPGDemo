@@ -95,7 +95,7 @@ namespace BaseConquest.Base
         {
             // 只在开局教学窗口（第 1～2 日）拦一次，过了窗口或已经歇过一晚就永不触发；缺粮本身由产能／攻击惩罚承担。
             if(!Active(s)||s.Demo.Flow.RestLessonDone||s.Day>2||!Recruited(s)||!s.Demo.Defense.WorkshopRepaired||!s.Demo.Defense.BarracksRepaired)return "";
-            if(BaseEconomy.EligibleWorkers(s,"workshop")<1)
+            if(BaseEconomy.ProductionWorkersAt(s,"workshop")<1)
                 return StoryText.Get("story.ui.rest.workshop_shortage","工坊缺 1 名工人。请先安排人手打制军需。");
             int missing=BaseEconomy.Preview(s).NextMissing;
             return missing==0?"":StoryText.Get("story.ui.rest.food_shortage","明日缺粮 {missing} 份。请增派粮田工人，或到灰岩镇买粮。")

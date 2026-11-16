@@ -456,7 +456,14 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(owner.State)&&(id=="demo_rescuer"||id=="demo_chunshen"))
             {
                 if(owner.State.Demo.Stage==BaseDemoStage.Waking){OpenDemoStory();return;}
-                bool zhou=id=="demo_rescuer";NpcDialogue(WithInjury(owner.State,zhou?"INJ_CAMP_ZHOU":"INJ_CAMP_CHUN",new NpcLine(zhou?BaseScriptNames.LaoZhou:BaseScriptNames.ChunShen,BaseScriptNames.Portrait(zhou?"laozhou":"chunshen"),zhou?"留得青山在，总能寻回你那位同伴的。":"饿了就回营帐歇歇，哪怕天塌下来也得先填饱肚子。")),new[]{new NpcReply("回头见",ClosePanel)});return;
+                bool zhou = id == "demo_rescuer";
+                string campGreeting = zhou ? "留得青山在，总能寻回你那位同伴的。" :
+                    BaseConquest.Story.StoryText.Get("story.scene.camp.civilian_work", "乡亲先补粮田的空位，田里人手齐了再去工坊。你照常调兵就好。");
+                NpcDialogue(WithInjury(owner.State, zhou ? "INJ_CAMP_ZHOU" : "INJ_CAMP_CHUN",
+                    new NpcLine(zhou ? BaseScriptNames.LaoZhou : BaseScriptNames.ChunShen,
+                        BaseScriptNames.Portrait(zhou ? "laozhou" : "chunshen"), campGreeting)),
+                    new[] { new NpcReply("回头见", ClosePanel) });
+                return;
             }
             if(BaseDemo.Active(owner.State)&&id=="town_quest"){OpenDemoLord();return;}
             if(BaseDemo.Active(owner.State)&&(id=="town_guard"||id=="town_peddler"||id=="town_girl")){OpenTownChat(id);return;}
@@ -740,7 +747,7 @@ namespace BaseConquest.Base
             RowButton("取消方案",210,400,()=>{ResetWorkerDraft();refresh();});row+=60;
             foreach (string facility in facilities)
             {
-                Line(BaseEconomy.FacilityName(facility) + "：今日生产人数 " + BaseEconomy.EligibleWorkers(s, facility) + "/" + s.Muster.Facilities.Single(f => f.FacilityId == facility).Capacity, 42);
+                Line(BaseEconomy.FacilityName(facility) + "：今日生产人数 " + BaseEconomy.ProductionWorkersAt(s, facility) + "/" + s.Muster.Facilities.Single(f => f.FacilityId == facility).Capacity, 42);
                 RowButton(RosterText("open", "点名调配"), 0, 800, () => { workerRosterPage = 0; OpenWorkerRoster(facility, refresh); });row += 56;
                 foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
                 {
@@ -773,6 +780,8 @@ namespace BaseConquest.Base
             if (state == null) { back(); return; }
             BeginPanel(BaseEconomy.FacilityName(facility) + " · 人员名册", "workers-roster:" + facility);
             RowButton("返回调配方案", 0, 800, back); row += 60;
+            int civilians = BaseEconomy.CivilianWorkersAt(state, facility);
+            if (civilians > 0) Line(CivilianRosterLabel(civilians), 42, 19);
             var available = BasePersonnel.Units(state).Where(u => !u.IsLeader && !u.Away &&
                 (state.Workers[u.BucketIndex].FacilityId == facility || state.Workers[u.BucketIndex].FacilityId == ""))
                 .OrderByDescending(u => state.Workers[u.BucketIndex].FacilityId == facility).ThenBy(u => u.Kind).ToArray();
