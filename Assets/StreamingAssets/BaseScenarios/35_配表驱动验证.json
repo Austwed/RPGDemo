@@ -63,7 +63,7 @@
         "Rules": {
             "SoldierFood": 1,
             "CavalryFood": 2,
-            "LeaderFood": 1,
+            "LeaderFood": 0,
             "FarmPerWorker": 3.0,
             "WorkshopPerWorker": 1.0,
             "HungerProductionPenalty": 0.5,

@@ -17,6 +17,7 @@ namespace BaseConquest.Editor
         {
             var s = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
             BaseEconomy.Validate(s);
+            VerifyCaptainRations(s);
             VerifyCivilianWork(s);
             Need(!BaseFacilityLayout.OfficeBuilt(s), "阶段档不应预先拥有办公设施");
             Need(BaseDevelopment.EffectivePolicy(s) == "manual", "办公设施未建成时应按手动执行");
@@ -147,6 +148,23 @@ namespace BaseConquest.Editor
             Debug.Log("[BaseFacilities] 办公门禁、策略迁移、设施收存、自动分配、商队往返与存档往返 PASS");
         }
 
+        private static void VerifyCaptainRations(BaseState camp)
+        {
+            Need(BaseEconomy.FoodRequired(camp) == 0 && camp.TodayFoodRequired == 0,
+                "只带主角的正式营地首日应免口粮");
+            var legacy = camp.Copy();
+            legacy.Demo.CaptainRationsUpdated = false;
+            legacy.Demo.Rpg.LeaderFood = legacy.Demo.Rpg.OpeningEconomy.LeaderFood = legacy.Rules.LeaderFood = 2;
+            legacy.TodayFoodRequired = legacy.TodayFoodConsumed = 2;
+            legacy.Inventory.Food -= 2;
+            legacy = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(legacy));
+            BaseEconomy.Validate(legacy);
+            Need(BaseEconomy.FoodRequired(legacy) == 0 && legacy.TodayFoodConsumed == 2 &&
+                legacy.Inventory.Food == camp.Inventory.Food - 2, "旧档应更新后续口粮并保留已扣粮食");
+            Need(BaseEconomy.Rest(legacy, legacy.Day) && legacy.LastReport.FoodRequired == 0 &&
+                legacy.LastReport.FoodConsumed == 0, "旧档下一次日结应免除队长口粮");
+        }
+
         private static void VerifyCivilianWork(BaseState camp)
         {
             var empty = camp.Copy();
@@ -154,11 +172,10 @@ namespace BaseConquest.Editor
             empty.Inventory.Food = empty.Inventory.Coins = empty.Inventory.Materials = 0;
             empty.TodayFoodConsumed = 0;
             empty.TodayFoodMissing = empty.TodayFoodRequired;
-            int captainRations = empty.Leaders.Count(x => x.Health > 0) * empty.Demo.Rpg.LeaderFood;
             Need(BaseEconomy.CivilianWorkersAt(empty, "farm") == 2 &&
                 BaseEconomy.CivilianWorkersAt(empty, "workshop") == 0, "空营粮田应有两名村民补位");
             Need(BaseEconomy.Preview(empty).FoodProduced == (int)empty.Rules.FarmPerWorker &&
-                BaseEconomy.FoodRequired(empty) == captainRations, "缺粮时村民仍各提供半工，且不吃部队口粮");
+                BaseEconomy.FoodRequired(empty) == 0, "队长和村民均不耗粮，两名村民仍各提供半工");
             Need(BaseEconomy.Rest(empty, empty.Day) && empty.LastReport.FoodProduced == (int)empty.Rules.FarmPerWorker &&
                 empty.Inventory.Coins == 0 && empty.Inventory.Materials == 0 && empty.Workers.Count == 0,
                 "村民工量应进入真实日结，且不产生士兵或个人消耗");
@@ -192,7 +209,7 @@ namespace BaseConquest.Editor
                 BaseEconomy.CivilianWorkersAt(defense, "workshop") == 2, "士兵应能调入被村民补位的岗位");
             defense.Inventory.Materials = 0;
             Need(BaseEconomy.Preview(defense).ProductsMade == 0, "工坊有村民时仍须原料才能生产军需");
-            Debug.Log("[CivilianWork] 零兵缺粮日结、派工优先、工坊原料、存档重算、营帐到岗路线 PASS");
+            Debug.Log("[CivilianWork] 零兵零库存日结、派工优先、工坊原料、存档重算、营帐到岗路线 PASS");
         }
     }
 }

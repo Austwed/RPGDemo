@@ -73,7 +73,7 @@ namespace BaseConquest.Base
     }
     [Serializable] public sealed class BaseEconomyRules
     {
-        public int SoldierFood = 1, CavalryFood = 2, LeaderFood = 1;
+        public int SoldierFood = 1, CavalryFood = 2, LeaderFood;
         public double FarmPerWorker = 3, WorkshopPerWorker = 1, HungerProductionPenalty = 0.5, HungerAttackPenalty = 0.2;
         public int SwordMaterial = 2, BowMaterial = 2, ArmorMaterial = 3;
         public BaseEconomyRules Copy() => (BaseEconomyRules)MemberwiseClone();

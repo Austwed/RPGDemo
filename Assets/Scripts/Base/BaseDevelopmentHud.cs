@@ -109,7 +109,7 @@ namespace BaseConquest.Base
         private void Recovery()
         {
             var s = owner.State;
-            Line("全员每天自然恢复最大生命的 " + (BaseDevelopment.RecoveryRatio(s) * 100).ToString("0") + "%（营帐 " + (s.Demo?.Rpg?.CampLevel ?? 1) + " 级），满血停止，口粮照常。队长不受血量阈值限制；士兵生命低于 30% 不能工作也不能主动出战，遇袭守家仍可迎战。", 98, 18);
+            Line("全员每天自然恢复最大生命的 " + (BaseDevelopment.RecoveryRatio(s) * 100).ToString("0") + "%（营帐 " + (s.Demo?.Rpg?.CampLevel ?? 1) + " 级），满血停止。队长不受血量阈值限制；士兵生命低于 30% 不能工作也不能主动出战，遇袭守家仍可迎战。", 98, 18);
             foreach (var person in s.Leaders)
             {
                 string id = person.Id;

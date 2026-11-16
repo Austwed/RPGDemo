@@ -62,7 +62,7 @@ namespace BaseConquest.Base
         public string RuinsFirstControllerTemplate="captain_awakened_warrior";
         public bool IntelPricingConfigured;
         public int ThreeDayIntelPrice,FiveDayIntelPrice;
-        public int Version,CampLevel=1,LeaderFood=2,ArcherFood=1,SupplyMaterial=2,SupplyWorkValue=5,FacilityRepairMaterials=10,FacilityRepairCoins=20;
+        public int Version,CampLevel=1,LeaderFood,ArcherFood=1,SupplyMaterial=2,SupplyWorkValue=5,FacilityRepairMaterials=10,FacilityRepairCoins=20;
         public double AwakenedChance=.2;
         public double EnemyLeaderDeath=.5;
         public double SoldierDeathBase=.5,SoldierDeathSensitivity=1;
@@ -157,7 +157,7 @@ namespace BaseConquest.Base
             if(OpeningAuxVersion<0||OpeningAuxVersion>1)throw new ArgumentException("Demo物件／奖励版本非法");
             if(OpeningAuxVersion==1){if(OpeningTactical==null)throw new ArgumentException("Demo物件规则缺失");OpeningTactical.Validate();BaseRuinsRewards.ValidateDefaults(OpeningRewards);}
             if(TroopBaseline?.Length!=3||RecruitBasePrices?.Length!=3||TrainingDays?.Length!=24||TrainingBooks?.Length!=24||TroopBaseline.Any(v=>v<1||v>10000)||RecruitBasePrices.Any(v=>v<1||v>1000000)||TrainingDays.Any(v=>v<1||v>365)||TrainingBooks.Any(v=>v<1||v>1000))throw new ArgumentException("兵力基准、招募价格或训练成本非法");
-            if(OpeningEconomyVersion<0||OpeningEconomyVersion>1||OpeningEconomyVersion==0&&OpeningRecoveryPerDay!=0||OpeningEconomyVersion==1&&(OpeningEconomy==null||!Finite(OpeningRecoveryPerDay)||OpeningRecoveryPerDay<=0||OpeningRecoveryPerDay>1||new[]{OpeningEconomy.SoldierFood,OpeningEconomy.CavalryFood,OpeningEconomy.LeaderFood,OpeningEconomy.SwordMaterial,OpeningEconomy.BowMaterial,OpeningEconomy.ArmorMaterial}.Any(x=>x<1||x>100)||new[]{OpeningEconomy.FarmPerWorker,OpeningEconomy.WorkshopPerWorker}.Any(x=>!Finite(x)||x<=0||x>100)||new[]{OpeningEconomy.HungerProductionPenalty,OpeningEconomy.HungerAttackPenalty}.Any(x=>!Finite(x)||x<0||x>=1)))throw new ArgumentException("Demo开局经营规则非法");
+            if(OpeningEconomyVersion<0||OpeningEconomyVersion>1||OpeningEconomyVersion==0&&OpeningRecoveryPerDay!=0||OpeningEconomyVersion==1&&(OpeningEconomy==null||OpeningEconomy.LeaderFood<0||OpeningEconomy.LeaderFood>100||!Finite(OpeningRecoveryPerDay)||OpeningRecoveryPerDay<=0||OpeningRecoveryPerDay>1||new[]{OpeningEconomy.SoldierFood,OpeningEconomy.CavalryFood,OpeningEconomy.SwordMaterial,OpeningEconomy.BowMaterial,OpeningEconomy.ArmorMaterial}.Any(x=>x<1||x>100)||new[]{OpeningEconomy.FarmPerWorker,OpeningEconomy.WorkshopPerWorker}.Any(x=>!Finite(x)||x<=0||x>100)||new[]{OpeningEconomy.HungerProductionPenalty,OpeningEconomy.HungerAttackPenalty}.Any(x=>!Finite(x)||x<0||x>=1)))throw new ArgumentException("Demo开局经营规则非法");
             // Demo 15 snapshots predate configurable equipment. Their empty list
             // keeps the old definitions until the new save version is enabled.
             if(Equipment?.Count>0)
@@ -175,8 +175,8 @@ namespace BaseConquest.Base
             if(Hit==null||Evasion==null||Capacity?.Length!=3||CampMaterials?.Length!=2||CampCoins?.Length!=2||Range?.Length!=3||Speed?.Length!=3||Growth?.Length!=9||QualityValue?.Length!=6||DropQuality?.Length!=6||Templates==null||Skills==null||Traits==null||new[]{WeaponValues,HelmetValues,ArmorValues,AccessoryValues}.Any(a=>a?.Length!=5))throw new ArgumentException("RPG配置集合缺失");
             if(AttributeGrowthVersion<0||AttributeGrowthVersion>1||AttributeGrowthVersion==1&&(AttackGrowth?.Length!=9||DefenseGrowth?.Length!=9||AttackGrowth.Concat(DefenseGrowth).Any(x=>!Finite(x)||x<=0||x>100)||AttackGrowth[0]!=1||DefenseGrowth[0]!=1))throw new ArgumentException("队长攻击／防御成长倍率非法");
             if(Capacity.Any(x=>x<1||x>10000)||Capacity[1]<Capacity[0]||Capacity[2]<Capacity[1]||CampMaterials.Concat(CampCoins).Any(x=>x<0||x>1000000)||new[]{WeaponValues,HelmetValues,ArmorValues,AccessoryValues}.Any(a=>a.Any(x=>x<1||x>1000000))||SupplyWorkValue>1000000)throw new ArgumentException("营帐容量、升级费用或商品价值非法");
-            if(new[]{ArmorK,ArmorCap,CriticalMultiplier,BaseInterval,MinimumInterval,ArrowSpeed,HeightAdvantage,WeaponAttackScale,AttackEquipmentScale,HealthEquipmentScale,DefenseEquipmentScale,BuyFactor,SellFactor,SupplyAttackLow,SupplyAttackHigh,SupplyDefenseLow,SupplyDefenseHigh,HealThreshold}.Any(x=>!Finite(x)||x<0)||HealThreshold<=0||HealThreshold>1||ArrowSpeed<=0||BuyFactor<=SellFactor||SupplyMaterial<1||LeaderFood<1||Range.Concat(Speed).Concat(Growth).Concat(QualityValue).Any(x=>!Finite(x)||x<=0)||DropQuality.Any(x=>!Finite(x)||x<0)||Math.Abs(DropQuality.Sum()-1)>1e-8||Templates.Any(x=>x==null)||Skills.Any(x=>x==null||string.IsNullOrEmpty(x.Id)||!Finite(x.Cooldown)||x.Cooldown<=0||!Finite(x.Duration)||x.Duration<0||!Finite(x.Amount)||x.Amount<=0||!Finite(x.Radius)||x.Radius<0||!Finite(x.SpeedBonus)||x.SpeedBonus<0||!Finite(x.Opening)||x.Opening<0)||Skills.Select(x=>x.Id).Distinct().Count()!=6||Traits.Any(x=>x==null||!Finite(x.Min)||!Finite(x.Max)||!Finite(x.Step)||!Finite(x.Weight))||Traits.Select(x=>x.Id).Distinct().Count()!=21)throw new ArgumentException("RPG参数非法");
-            if(new[]{FoodValue,MaterialValue,BookValue,AdvancedBookValue,StoneValue,WineValue,OtherValue,SupplyMaterial,LeaderFood,ArcherFood}.Any(v=>v<1||v>1000000)||new[]{FacilityRepairMaterials,FacilityRepairCoins}.Any(v=>v<0||v>1000000))throw new ArgumentException("经济默认值非法");
+            if(new[]{ArmorK,ArmorCap,CriticalMultiplier,BaseInterval,MinimumInterval,ArrowSpeed,HeightAdvantage,WeaponAttackScale,AttackEquipmentScale,HealthEquipmentScale,DefenseEquipmentScale,BuyFactor,SellFactor,SupplyAttackLow,SupplyAttackHigh,SupplyDefenseLow,SupplyDefenseHigh,HealThreshold}.Any(x=>!Finite(x)||x<0)||HealThreshold<=0||HealThreshold>1||ArrowSpeed<=0||BuyFactor<=SellFactor||SupplyMaterial<1||LeaderFood<0||Range.Concat(Speed).Concat(Growth).Concat(QualityValue).Any(x=>!Finite(x)||x<=0)||DropQuality.Any(x=>!Finite(x)||x<0)||Math.Abs(DropQuality.Sum()-1)>1e-8||Templates.Any(x=>x==null)||Skills.Any(x=>x==null||string.IsNullOrEmpty(x.Id)||!Finite(x.Cooldown)||x.Cooldown<=0||!Finite(x.Duration)||x.Duration<0||!Finite(x.Amount)||x.Amount<=0||!Finite(x.Radius)||x.Radius<0||!Finite(x.SpeedBonus)||x.SpeedBonus<0||!Finite(x.Opening)||x.Opening<0)||Skills.Select(x=>x.Id).Distinct().Count()!=6||Traits.Any(x=>x==null||!Finite(x.Min)||!Finite(x.Max)||!Finite(x.Step)||!Finite(x.Weight))||Traits.Select(x=>x.Id).Distinct().Count()!=21)throw new ArgumentException("RPG参数非法");
+            if(new[]{FoodValue,MaterialValue,BookValue,AdvancedBookValue,StoneValue,WineValue,OtherValue,SupplyMaterial,ArcherFood}.Any(v=>v<1||v>1000000)||LeaderFood>100||new[]{FacilityRepairMaterials,FacilityRepairCoins}.Any(v=>v<0||v>1000000))throw new ArgumentException("经济默认值非法");
             if(Version!=1||CampLevel<1||CampLevel>3||Hit.Length!=3||Evasion.Length!=3||Hit.Concat(Evasion).Any(x=>!Finite(x)||x<0||x>10||x!=Math.Truncate(x))||Templates.Count!=9||Templates.Select(t=>t.Id).Distinct().Count()!=9||Templates.Any(t=>!Finite(t.Health)||t.Health<1||!Finite(t.Attack)||t.Attack<0||!Finite(t.Defense)||t.Defense<0)||Skills.Count!=6||Traits.Count!=21||ArmorK<=0||ArmorCap<0||ArmorCap>=1||BaseInterval<MinimumInterval||MinimumInterval<=0||CriticalMultiplier<1||Traits.Any(t=>t.Min>t.Max||t.Step<=0||t.Weight<=0||Math.Abs((t.Max-t.Min)/t.Step-Math.Round((t.Max-t.Min)/t.Step))>1e-6))throw new ArgumentException("RPG规则／九类基准／技能特性配置非法");
             // Validate derived prices before a snapshot can create a town or overflow a transaction.
             double supplyUnit=2d*SupplyMaterial*MaterialValue+SupplyWorkValue;
@@ -240,6 +240,14 @@ namespace BaseConquest.Base
         public static void Bind(BaseState s)
         {
             if(!Active(s))return;var rules=s.Demo.Rpg;rules.Validate();
+            if (!s.Demo.CaptainRationsUpdated)
+            {
+                // Apply the new rule without changing rations that were already paid.
+                rules.LeaderFood = 0;
+                if (rules.OpeningEconomy != null) rules.OpeningEconomy.LeaderFood = 0;
+                s.Demo.CaptainRationsUpdated = true;
+            }
+            s.Rules.LeaderFood = rules.LeaderFood;
             foreach(var site in s.Campaign.EnemySites)PrepareEnemies(s,site.Garrison,site.AttackEventId);
             foreach(var mission in s.Campaign.Events)PrepareEnemies(s,mission.EnemyArmy,mission.Id);
             foreach(var leader in s.Leaders.Concat(s.Demo.Candidates??new List<BaseLeader>()).Concat(s.Demo.SceneFollowers??new List<BaseLeader>()))if(leader.Rpg?.Version==1)ValidateCharacter(leader.Rpg,rules);
@@ -260,6 +268,8 @@ namespace BaseConquest.Base
             var r=openingRules==null?RpgRules.Defaults():openingRules.Copy();
             if(r==null)throw new ArgumentException("开局RPG规则快照缺版本");
             r.Validate();s.Demo.Rpg=r;
+            s.Demo.CaptainRationsUpdated = true;
+            s.Rules.LeaderFood = r.LeaderFood;
             if(r.ForgeDailyStock>0)s.PersonalEquipment.StonesRemaining=r.ForgeDailyStock;
             foreach(var l in s.Leaders.Concat(s.Demo.Candidates))
             {

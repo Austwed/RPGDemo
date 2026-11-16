@@ -1797,7 +1797,7 @@ namespace BaseConquest.Editor
                         .Any(t => t.text.Contains($"产粮{report.FoodProduced} - 口粮{report.FoodConsumed} = {report.FoodAfter}")))
                         throw new InvalidOperationException("日结报告没有显示对应产粮与口粮");
                     CaptureViewports("ui-civilian-after-rest");
-                    Log.Add("[PASS] 两名村民使用正式营地演员从营帐出工，零兵缺粮时名册、营帐预估与实际日结一致");
+                    Log.Add("[PASS] 两名村民从营帐出工，零兵零库存时名册、营帐预估与实际日结一致");
                     controller.LoadDemoStage("defense", "male");
                     CivilianStage("civilian-perimeter");
                     break;

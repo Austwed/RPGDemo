@@ -137,7 +137,7 @@ namespace BaseConquest.Editor
                 {"food_saber",("INT",x=>opening.SoldierFood=(int)x,1,100)},
                 {"food_archer",("INT",x=>rules.ArcherFood=(int)x,1,100)},
                 {"food_rider",("INT",x=>opening.CavalryFood=(int)x,1,100)},
-                {"food_captain",("INT",x=>{rules.LeaderFood=(int)x;opening.LeaderFood=(int)x;},1,100)},
+                {"food_captain",("INT",x=>{rules.LeaderFood=(int)x;opening.LeaderFood=(int)x;},0,100)},
                 {"farm_output_base",("NUM",x=>opening.FarmPerWorker=x,.0001,100)},
                 {"workshop_workpoint_base",("NUM",x=>opening.WorkshopPerWorker=x,.0001,100)},
                 {"hunger_production_penalty_max",("RATE",x=>opening.HungerProductionPenalty=x,0,.999999)},

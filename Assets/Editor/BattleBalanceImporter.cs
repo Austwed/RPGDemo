@@ -118,7 +118,7 @@ namespace BaseConquest.Editor
             {
                 SoldierFood = Integer(keyed["soldier_food"], "value", 1, 100),
                 CavalryFood = Integer(keyed["cavalry_food"], "value", 1, 100),
-                LeaderFood = Integer(keyed["leader_food"], "value", 1, 100),
+                LeaderFood = Integer(keyed["leader_food"], "value", 0, 100),
                 FarmPerWorker = Number(keyed["farm_per_worker"], "value", float.Epsilon, 100f),
                 WorkshopPerWorker = Number(keyed["workshop_per_worker"], "value", float.Epsilon, 100f),
                 HungerProductionPenalty = Number(keyed["hunger_production_penalty"], "value", 0f, 0.999f),
@@ -357,7 +357,7 @@ namespace BaseConquest.Editor
                     {"food_saber",("INT",x=>opening.SoldierFood=(int)x,1,100)},
                     {"food_archer",("INT",x=>rules.ArcherFood=(int)x,1,100)},
                     {"food_rider",("INT",x=>opening.CavalryFood=(int)x,1,100)},
-                    {"food_captain",("INT",x=>{rules.LeaderFood=(int)x;opening.LeaderFood=(int)x;},1,100)},
+                    {"food_captain",("INT",x=>{rules.LeaderFood=(int)x;opening.LeaderFood=(int)x;},0,100)},
                     {"farm_output_base",("NUM",x=>opening.FarmPerWorker=x,.0001,100)},
                     {"workshop_workpoint_base",("NUM",x=>opening.WorkshopPerWorker=x,.0001,100)},
                     {"hunger_production_penalty_max",("RATE",x=>opening.HungerProductionPenalty=x,0,.999999)},

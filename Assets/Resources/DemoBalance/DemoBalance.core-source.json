@@ -1,0 +1,9 @@
+{
+  "Version": 1,
+  "Kind": "SixSheetPatch",
+  "CoreWorkbook": "DEMO核心数值表.xlsx",
+  "CoreWorkbookSha256": "57db415a675398691fb146f9eb9ba4bba6e7bb463699306fab12efccc9465f04",
+  "BaselineSnapshotSha256": "0129e12cabe0801d50e105a455fc38addd6ee92b4efe5524ec360f870fee3863",
+  "BaselineConfigurationHash": "57e3f711d49a731c12009857d43f57c6b0f48aff3ef8b6093280660d22a74b62",
+  "EffectiveConfigurationHash": "fd4be6e60cb4e1036bf7e9765ef3710f1eec5f0a9d2cff35bcbb30c317504b94"
+}

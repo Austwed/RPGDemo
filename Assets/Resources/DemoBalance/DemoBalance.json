@@ -1,6 +1,6 @@
 {
     "Version": 1,
-    "WorkbookSha256": "57e3f711d49a731c12009857d43f57c6b0f48aff3ef8b6093280660d22a74b62",
+    "WorkbookSha256": "fd4be6e60cb4e1036bf7e9765ef3710f1eec5f0a9d2cff35bcbb30c317504b94",
     "Rules": {
         "GenerationSeed": 0,
         "SceneRulesVersion": 0,
@@ -10,7 +10,7 @@
         "Version": 1,
         "CampLevel": 1,
         "InnDailyFee": 2,
-        "LeaderFood": 2,
+        "LeaderFood": 0,
         "ArcherFood": 1,
         "SupplyMaterial": 2,
         "SupplyWorkValue": 5,
@@ -701,7 +701,7 @@
         "OpeningEconomy": {
             "SoldierFood": 1,
             "CavalryFood": 2,
-            "LeaderFood": 2,
+            "LeaderFood": 0,
             "FarmPerWorker": 4.0,
             "WorkshopPerWorker": 1.0,
             "HungerProductionPenalty": 0.5,
