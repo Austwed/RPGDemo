@@ -192,6 +192,20 @@ namespace BaseConquest.Presentation
             float body=norm*(riding||mountedArt?1.45f:1f);
             Root.transform.localScale=Vector3.one*(carried?.55f:body);
         }
+        internal void BenchFrame(Texture2D texture,int frame)
+        {
+            const float unit=1.55f/72f, halfCell=40*unit, belowFeet=5*unit, aboveFeet=75*unit;
+            float left=frame*.25f,right=left+.25f;
+            Mesh.uv=new[]{new Vector2(left,0),new Vector2(left,1),new Vector2(right,1),new Vector2(right,0)};
+            Mesh.vertices=new[]{new Vector3(-halfCell,.28f,-belowFeet),new Vector3(-halfCell,.28f,aboveFeet),
+                new Vector3(halfCell,.28f,aboveFeet),new Vector3(halfCell,.28f,-belowFeet)};
+            Mesh.RecalculateBounds();
+            ink.SetTexture("_BaseMap",texture);
+            ink.SetColor("_BaseColor",Color.white);
+            Renderer.SetPropertyBlock(ink);
+            Root.transform.localRotation=Quaternion.identity;
+            Root.transform.localScale=Vector3.one;
+        }
         public void Dispose(){BattleBoardView.DestroyObject(Mesh);BattleBoardView.DestroyObject(material);}
     }
 }

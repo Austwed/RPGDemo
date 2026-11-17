@@ -16,6 +16,10 @@ namespace BaseConquest.Base
         private string facilityPersonnelDetail;
         private bool UseFacilityPanel => BaseBattleGateway.DemoMode && BaseDemo.Active(owner.State) &&
             owner.SceneUiTemplate("FacilityPanel") != null;
+        internal bool ProductionFacilityOpen => PanelOpen &&
+            (panelViewKey == "intro_farm" || panelViewKey == "intro_smith" ||
+             panelViewKey?.StartsWith("farm:", StringComparison.Ordinal) == true ||
+             panelViewKey?.StartsWith("workshop:", StringComparison.Ordinal) == true);
 
         private (RectTransform actions, RectTransform filters, RectTransform list) OpenFacilityPanel(string key, string title,
             string actionsTitle, string rosterTitle)
@@ -117,7 +121,7 @@ namespace BaseConquest.Base
                 foreach (var move in moves) owner.EnqueueWorkerTransfer(move.kind, move.from, move.to, 1);
             ResetWorkerDraft();
             refresh();
-            if (!saved && panelFeedback != null)
+            if (panelFeedback != null)
             {
                 panelFeedback.text = owner.Message;
                 panelFeedback.gameObject.SetActive(true);

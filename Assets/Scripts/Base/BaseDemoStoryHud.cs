@@ -20,9 +20,17 @@ namespace BaseConquest.Base
                 return;
             }
 
-            NpcDialogue(WithInjury(owner.State, "INJ_TOWN_BALONG",
+            var state = owner.State;
+            if (BaseDemoSideQuests.Smith(state) == BaseSideQuestStage.Ready && BasePersonalEquipment.AtSmith(state))
+            {
+                OpenSmithLessonResult();
+                return;
+            }
+            NpcDialogue(WithInjury(state, "INJ_TOWN_BALONG",
                     new NpcLine(smith, portrait, "兵刃护具在这儿挑。营里的军需，得你们自己打。")),
-                new[] { TradeEntry(TradeVendor.Smith, TradeShelf.Equipment),
+                new[] { new NpcReply("向巴隆请教重铸", OpenSmithLesson,
+                             unlocked: BaseDemoSideQuests.SmithOffer(state) && BasePersonalEquipment.AtSmith(state)),
+                    TradeEntry(TradeVendor.Smith, TradeShelf.Equipment),
                     TradeEntry(TradeVendor.Smith, TradeShelf.Reforge), new NpcReply("稍后再来", ClosePanel) });
         }
 

@@ -170,7 +170,7 @@ namespace BaseConquest.Base
         {
             if(!HomeRebuildOverview||Hud.PanelOpen)return false;
             if(!Change(next=>{if(!BaseDemoFinale.FinishRebuild(next))throw new InvalidOperationException("请先完成三项重建");},""))return false;
-            StopConstruction();FrameRebuiltVillage();Hud.OpenDemoStory();return true;
+            StopConstruction();FrameRebuiltVillage();Hud.OpenDemoStory(showCompletion: true);return true;
         }
         private void ReloadTravelRegion()
         {if(Application.isPlaying)SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);else{RefreshDemoRegion();Hud.ClosePanel();}}

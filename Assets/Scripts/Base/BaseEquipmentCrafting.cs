@@ -162,6 +162,7 @@ namespace BaseConquest.Base
             if(!BasePartyInventory.ConsumeMaterial(s,Stone,quote.Stones))return false;
             e.Gear.Quality=quality;s.PersonalEquipment.ReforgeRolls++;
             if(e.Worn){var l=s.Leaders.Single(x=>x.Id==e.Holder);l.MaxHealth=BasePersonalEquipment.Stats(l).Health;l.Health=Math.Min(l.Health,l.MaxHealth);}
+            BaseDemoSideQuests.Reforged(s);
             return true;
         }
     }

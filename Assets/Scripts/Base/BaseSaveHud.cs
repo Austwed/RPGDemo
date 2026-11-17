@@ -49,14 +49,14 @@ namespace BaseConquest.Base
         {
             if(BaseBattleGateway.DemoMode)
             {
-                BeginPanel("基地征服 · RPG Demo");
+                BeginPanel("DEMO");
                 Line("从白桦村出发，结识伙伴、经营营地，追查王室断剑。可从序章开始，或读取已有存档。",92,20);
-                if(owner.State!=null&&!owner.State.Aftermath.GameOver){RowButton("继续Demo",0,800,()=>{BaseBattleGateway.MainMenu=false;owner.LoadSaved();});row+=60;}
-                RowButton("读取Demo存档",0,800,()=>OpenSlots(false));row+=60;
+                if(owner.State!=null&&!owner.State.Aftermath.GameOver){RowButton("继续游戏",0,800,()=>{BaseBattleGateway.MainMenu=false;owner.LoadSaved();});row+=60;}
+                RowButton("读取存档",0,800,()=>OpenSlots(false));row+=60;
                 if(BaseConquest.Battle.RuntimeDeveloperOptions.Enabled)RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;
                 AddTemplates();RowButton("难度设置",0,800,OpenDifficulty);row+=60;RowButton("选项",0,800,OpenOptions);row+=60;RowButton("退出游戏",0,800,()=>BaseBattleGateway.ExitDemoSession(true));row+=60;EndPanel();return;
             }
-            BeginPanel("基地征服 · 即时格战隔离流程");Line("3手动／6节点自动档；退出游戏将丢失未保存的会话更改。",58,18);
+            BeginPanel("DEMO · 即时格战隔离流程");Line("3手动／6节点自动档；退出游戏将丢失未保存的会话更改。",58,18);
             RowButton("进入Demo流程起步（独立存档）",0,800,owner.EnterDemo);row+=60;
             if(owner.State!=null&&!owner.State.Aftermath.GameOver){RowButton("继续本次会话",0,800,()=>{BaseBattleGateway.MainMenu=false;owner.LoadSaved();});row+=60;}
             RowButton("读取存档",0,800,()=>OpenSlots(false));row+=60;

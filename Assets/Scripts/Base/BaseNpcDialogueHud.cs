@@ -175,7 +175,7 @@ namespace BaseConquest.Base
                     speech.text = fullText;
                     dialogueTick = null;
                     if (!last) return;
-                    dialogueLocked = quietAdvance || guide && lockExitUntilFinished && onCompleted != null;
+                    dialogueLocked = quietAdvance || lockExitUntilFinished && onCompleted != null;
                     foreach (var row in replyRows)
                     {
                         row.Label.text = row.Reply.Text;

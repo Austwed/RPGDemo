@@ -1,6 +1,6 @@
 param(
     [string]$UnityEditor = 'C:/Program Files/Unity/Hub/Editor/6000.6.4f1/Editor/Unity.exe',
-    [string]$ApkPath = 'Builds/Android/RPGDemo.apk',
+    [string]$ApkPath = 'Builds/Android/DEMO.apk',
     [switch]$Development,
     [switch]$IncludeDevelopmentAssets
 )
@@ -13,7 +13,7 @@ $log = [IO.Path]::ChangeExtension($output, '.unity.log')
 $temp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 if ($temp -match '[^\u0000-\u007F]') { throw 'Android requires an ASCII temporary path.' }
 $stage = Join-Path $temp ('BaseConquestAndroid-' + [Guid]::NewGuid().ToString('N'))
-$stagedApk = Join-Path $stage 'RPGDemo.apk'
+$stagedApk = Join-Path $stage 'DEMO.apk'
 $stagedLog = Join-Path $stage 'android-build.log'
 $succeeded = $false
 [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($output)) | Out-Null

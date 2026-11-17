@@ -11,6 +11,10 @@ namespace BaseConquest.Presentation
         private Texture2D atlas;
         private PlayerHeroWalkRig walkRig;
         private PixelCharacterSheet pixel;
+        private string appearanceId;
+        private Texture2D benchAtlas;
+        internal bool CanSitOnBench => pixel != null &&
+            (benchAtlas ??= PixelDemoArt.Motion(appearanceId, "sit")) != null;
         public float LeftStride=>walkRig?.LeftStride??0;
         public float RightStride=>walkRig?.RightStride??0;
         public void SortRig(int order)=>walkRig?.Sort(order);
@@ -29,6 +33,7 @@ namespace BaseConquest.Presentation
         public bool Initialize(Material source,string appearance="player")
         {
             if(pixel!=null)return true;
+            appearanceId=appearance;
             var recommended=PixelDemoArt.Load("Characters",appearance);
             if(recommended!=null){pixel=new PixelCharacterSheet(transform,source,recommended,null,appearance);Set(HeroPose.Idle,0,false,false);return true;}
             if(mesh!=null)return true;
@@ -42,9 +47,18 @@ namespace BaseConquest.Presentation
             mesh=new Mesh{name="PlayerHeroAtlasQuad"};mesh.vertices=new[]{new Vector3(-.725f,.27f,-.09f),new Vector3(-.725f,.27f,1.36f),new Vector3(.725f,.27f,1.36f),new Vector3(.725f,.27f,-.09f)};mesh.triangles=new[]{0,1,2,0,2,3};mesh.RecalculateNormals();mesh.RecalculateBounds();
             obj.GetComponent<MeshFilter>().sharedMesh=mesh;surface=obj.GetComponent<MeshRenderer>();surface.sharedMaterial=material;Set(HeroPose.Idle,0,false,false);return true;
         }
-        public void Exploration(Vector3 feet,HeroFacing? facing=null)
+        public void Exploration(Vector3 feet,HeroFacing? facing=null,float? benchProgress=null,bool standingUp=false)
         {
             var delta=hasPrevious ? feet-previous : Vector3.zero;hasPrevious=true;previous=feet;
+            if(benchProgress.HasValue&&CanSitOnBench)
+            {
+                Facing=HeroFacing.South;
+                Pose=standingUp?HeroPose.StandingUp:benchProgress.Value>=1?HeroPose.Seated:HeroPose.Sitting;
+                AtlasFrame=Mathf.RoundToInt(Mathf.Clamp01(benchProgress.Value)*3);
+                pixel.BenchFrame(benchAtlas,AtlasFrame);
+                return;
+            }
+            if(Pose==HeroPose.Sitting||Pose==HeroPose.Seated||Pose==HeroPose.StandingUp)delta=Vector3.zero;
             var groundDelta=new Vector2(delta.x,delta.z);
             bool moving=groundDelta.sqrMagnitude>.000001f;
             if(moving)walkDistance+=groundDelta.magnitude;

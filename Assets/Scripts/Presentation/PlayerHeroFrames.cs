@@ -2,7 +2,7 @@ using System;
 namespace BaseConquest.Presentation
 {
     public enum HeroFacing { South, West, East, North }
-    public enum HeroPose { Idle, Walk, Attack, Hurt, Down }
+    public enum HeroPose { Idle, Walk, Attack, Hurt, Down, Sitting, Seated, StandingUp }
     // Atlas indices are presentation data. They never advance simulation or change unit stats.
     public static class PlayerHeroFrames
     {

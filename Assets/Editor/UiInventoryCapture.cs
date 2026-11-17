@@ -299,7 +299,7 @@ namespace BaseConquest.Editor
 
         // 跑截图会经由 LoadDemoStage 等写入本机 Demo 存档。开跑前把 persistentDataPath/BaseConquest 整个备份到 Logs/ui-capture/save-backup，
         // 结束时用备份覆盖回去；本次运行新产生的存档文件移到 Logs/ui-capture/run-saves（不删除），保证用户原有存档不变。
-        private static string SaveRoot => Path.Combine(Application.persistentDataPath, "BaseConquest");
+        private static string SaveRoot => Path.Combine(BaseBattleGateway.PlayerDataDirectory, "BaseConquest");
         private static string BackupRoot => Path.Combine(OutDir, "save-backup");
         private static bool restored;
         private static void BackupSaves()

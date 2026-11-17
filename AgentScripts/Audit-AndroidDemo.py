@@ -172,7 +172,7 @@ def report(release, baseline, count):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--apk", type=Path, default=PROJECT / "Builds/Android/RPGDemo.apk")
+    parser.add_argument("--apk", type=Path, default=PROJECT / "Builds/Android/DEMO.apk")
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--top", type=int, default=10, help="List the N largest entries (0 disables these lists)")
     args = parser.parse_args()

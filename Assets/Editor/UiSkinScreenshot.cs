@@ -1160,6 +1160,7 @@ namespace BaseConquest.Editor
             Log.Add("[PASS] 选角后填写姓名，拒绝空白与非法符号，取消零写入，中文姓名保存并可重读");
 
             H.ClosePanel();
+            VerifyBenchInteraction();
             Approach("demo_captain");
             H.OpenObject("demo_captain");
             FinishDialogue();
@@ -1195,6 +1196,41 @@ namespace BaseConquest.Editor
             if (H.DialogueOpen || BaseQuestLog.Cue(controller.State).ObjectId != "demo_captain")
                 throw new InvalidOperationException("调工回应结束后未继续领剑主线");
             Log.Add("[PASS] 长椅旧事汇回原主线，粮田实际调到四人后接阿禾与搭档对白");
+        }
+
+        private static void VerifyBenchInteraction()
+        {
+            foreach (string hero in new[] { "player", "female" })
+            {
+                var atlas = PixelDemoArt.Motion(hero, "sit");
+                if (atlas == null || atlas.width != 320 || atlas.height != 80)
+                    throw new InvalidOperationException("缺少完整坐姿图集：" + hero);
+            }
+            var bench = controller.MapObjects.Single(o => o.Id == "village_bench");
+            var view = ((Transform)Field(controller, "player")).GetComponent<PlayerHeroView>();
+            var move = typeof(BaseSceneController).GetMethod("MoveExploration", BindingFlags.Instance | BindingFlags.NonPublic);
+            foreach (int side in new[] { -1, 1 })
+            {
+                double x = bench.X + side * bench.Width * .29;
+                double y = bench.Y - bench.Height / 2 - BaseMap.Radius - .06;
+                if (!controller.Change(s => { s.PlayerX = x; s.PlayerY = y; }, "") ||
+                    controller.Nearby?.Id != bench.Id + (side < 0 ? ":seat:left" : ":seat:right"))
+                    throw new InvalidOperationException("长椅没有对应的可达座位");
+                controller.Interact();
+                for (int n = 0; n < 9; n++) move.Invoke(controller, new object[] { Vector2.zero, .05 });
+                if (view.Pose != HeroPose.Seated || view.Facing != HeroFacing.South || view.AtlasFrame != 3 ||
+                    controller.State.PlayerX != x || controller.State.PlayerY != y || controller.State.Demo.Intro.Step != 1)
+                    throw new InvalidOperationException("长椅坐姿变更了实际位置或剧情");
+                if (side < 0)
+                {
+                    CaptureViewports("ui-skin-bench-sit");
+                    controller.Interact();
+                }
+                for (int n = 0; n < 8; n++) move.Invoke(controller, new object[] { side < 0 ? Vector2.zero : Vector2.down, .05 });
+                if (view.Pose != HeroPose.Idle || controller.State.PlayerX != x || controller.State.PlayerY != y)
+                    throw new InvalidOperationException("完成起身后没有回到原站位");
+            }
+            Log.Add("[PASS] 白桦村长椅两端可分别坐下，E／触屏和方向输入可起身，保持剧情与存档位置");
         }
 
         private static void VerifyAuthoredLayout()

@@ -96,7 +96,7 @@ namespace BaseConquest.Base
         private BaseMapObject[] motionObjects=Array.Empty<BaseMapObject>();
         public BaseMapObject[] DisplayObjects=>motionObjects.Length==0?MapObjects:MapObjects.Concat(motionObjects).ToArray();
         public void SetMotionCheck(string id,HeroPose pose){if(motionViews.TryGetValue(id,out var view))view.Preview(pose);}
-        public BaseMapObject Nearby => State == null || PlayerAway ? null : DisplayObjects.Where(o=>!State.Leaders.Any(l=>l.Id==o.Id)).Concat(Companions.Footprints).Where(o=>SceneObjectVisible(o)&&BaseInteraction.CanReach(State,o)).OrderBy(o => o.Distance(State.PlayerX, State.PlayerY)).FirstOrDefault();
+        public BaseMapObject Nearby => State == null || PlayerAway ? null : NearbyBenchSeat(DisplayObjects.Where(o=>!State.Leaders.Any(l=>l.Id==o.Id)).Concat(Companions.Footprints).Where(o=>SceneObjectVisible(o)&&BaseInteraction.CanReach(State,o)).OrderBy(o => o.Distance(State.PlayerX, State.PlayerY)).FirstOrDefault());
         public BaseMapObject PresentedObject(string id) => (State?.Leaders.Any(l=>l.Id==id)==true||BaseDemoPrologue.Followers(State).Any(l=>l.Id==id)) ? Companions.Agents.FirstOrDefault(a => a.Id == id && a.Visible)?.Footprint : DisplayObjects.FirstOrDefault(o => o.Id == id&&SceneObjectVisible(o));
         internal bool TryCharacterTop(string id, out Vector3 top)
         {
@@ -139,7 +139,7 @@ namespace BaseConquest.Base
             runtimeRoot=new GameObject("RuntimeGenerated").transform;runtimeRoot.SetParent(transform,false);SetRegionReady(false);
             OpeningAudio = null;
             if (font != null) Destroy(font);
-            SaveStore = new BaseSaveStore(Path.Combine(Application.persistentDataPath, "BaseConquest", "base-save-v1.json"),
+            SaveStore = new BaseSaveStore(Path.Combine(BaseBattleGateway.PlayerDataDirectory, "BaseConquest", "base-save-v1.json"),
                 d => JsonUtility.ToJson(d, true), json => JsonUtility.FromJson<BaseSaveDocument>(json));
             string packageProblem=null;
             if(LoadDesignPackage&&!BaseBattleGateway.DesignMode)
@@ -156,7 +156,7 @@ namespace BaseConquest.Base
             BaseBattleGateway.UseOpeningProfile(string.IsNullOrEmpty(realtimeProfile)?RecommendedTemplate:realtimeProfile);realtimeProfile=BaseBattleGateway.OpeningProfile;
 #if UNITY_EDITOR
             freshEditorTest=BaseBattleGateway.BeginEditorTest()&&!BaseBattleGateway.RealtimeCampaign;
-            if(freshEditorTest&&!LoadDesignPackage&&!BaseBattleGateway.DesignMode)BaseDevelopmentFiles.ClearEditorDevelopment(Path.Combine(Application.persistentDataPath,"BaseConquest"));
+            if(freshEditorTest&&!LoadDesignPackage&&!BaseBattleGateway.DesignMode)BaseDevelopmentFiles.ClearEditorDevelopment(Path.Combine(BaseBattleGateway.PlayerDataDirectory,"BaseConquest"));
 #endif
             SaveStore=BaseBattleGateway.Store();packageProblem=packageProblem??BaseBattleGateway.Session().LoadError;
             bool hasSavedProgress = !freshEditorTest && SaveStore.Exists;
@@ -212,6 +212,7 @@ namespace BaseConquest.Base
             var landmarks=new GameObject("RegionLandmarks").transform;landmarks.SetParent(regionView.Root.transform,false);
             explorationActors=new GameObject("FreeMovementActors").transform;explorationActors.SetParent(regionView.Root.transform,false);
             npcViews.Clear();motionViews.Clear();
+            BuildBenchTargets();
             BaseConquest.Presentation.EnvironmentRoadEdges.Build(State,regionView.Board,regionView.Root.transform,regionView.ObliqueExploration);
             bool hasSwordProp=MapObjects.Any(o=>o.Id=="demo_sword_prop");
             foreach(var obj in MapObjects.Where(o=>!o.Id.StartsWith("partner")&&(!o.Blocks||!string.IsNullOrEmpty(o.SourceObjectId)||!string.IsNullOrEmpty(o.AssetId))))
@@ -254,6 +255,7 @@ namespace BaseConquest.Base
         }
         private void RebuildRegion()
         {
+            ClearBenchSeat();
             InvalidateObjects();
             if(regionView!=null) {regionView.Root.SetActive(false);regionView.Dispose();BattleBoardView.DestroyObject(regionView.Root);}
             if(mapMaterial!=null)BattleBoardView.DestroyObject(mapMaterial);companionViews.Clear();BuildWorld();
@@ -329,6 +331,7 @@ namespace BaseConquest.Base
         }
         internal void MoveExploration(Vector2 input,double seconds)
         {
+            if(UpdateBenchSeat(input,seconds))return;
             input = Vector2.ClampMagnitude(input, 1);if(input.sqrMagnitude>.0001f){float magnitude=input.magnitude;float angle=Mathf.Round(Mathf.Atan2(input.y,input.x)/(Mathf.PI/4))*(Mathf.PI/4);input=new Vector2(Mathf.Cos(angle),Mathf.Sin(angle))*magnitude;}
             bool cardinal=input.sqrMagnitude>.0001f&&(Mathf.Abs(input.x)<.000001f||Mathf.Abs(input.y)<.000001f);
             double x = State.PlayerX, y = State.PlayerY;
@@ -360,11 +363,12 @@ namespace BaseConquest.Base
         }
         private bool HandlePanelShortcuts(bool backpackPressed,bool questsPressed,bool mapPressed=false)
         {
-            if((!backpackPressed&&!questsPressed&&!mapPressed)||Hud.DialogueOpen)return false;
+            if((!backpackPressed&&!questsPressed&&!mapPressed)||Hud.DialogueOpen||Hud.DemoCompletionOpen)return false;
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==0)return true;
             var selected=EventSystem.current!=null?EventSystem.current.currentSelectedGameObject:null;
             // Unity destroyed objects pass ?. checks; use Unity's null comparison before GetComponent.
             if(selected!=null&&selected.GetComponent<UnityEngine.UI.InputField>()?.isFocused==true)return false;
+            if(Hud.OfferSmithLessonOnTradeExit())return true;
             if(Hud.HandleBattlePreparationShortcut(backpackPressed))return true;
             if(!BaseBattleGateway.MainMenu&&!State.Aftermath.GameOver&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State)&&mapPressed){StopConstruction();Hud.ToggleLandMap();return true;}
             if(!BaseBattleGateway.MainMenu&&!State.Aftermath.GameOver&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State)&&questsPressed){StopConstruction();Hud.ToggleQuests();return true;}
@@ -375,7 +379,11 @@ namespace BaseConquest.Base
         {
             if (State == null) return;
             player.gameObject.SetActive(!PlayerAway);
-            player.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(State.PlayerX,State.PlayerY),new Color(.32f,.73f,.92f),facing:facing);
+            var feet=WorldPoint(State.PlayerX,State.PlayerY);
+            var pawn=player.GetComponent<BattlePawn2D>();
+            if(benchSeat!=null)
+                pawn.SyncExploration(Vector3.Lerp(feet,benchSeatAnchor,Mathf.SmoothStep(0,1,benchSitProgress)),new Color(.32f,.73f,.92f),benchProgress:benchSitProgress,standingUp:leavingBench);
+            else pawn.SyncExploration(feet,new Color(.32f,.73f,.92f),facing:facing);
             if(combatController==null&&!BaseWorldJourney.OnWorld(State)){regionView.Follow(PlayerCameraTarget);explorationViewSize=WorldCamera.orthographicSize;}
         }
         private void PlaceCompanions()
@@ -511,8 +519,10 @@ namespace BaseConquest.Base
         public void Interact()
         {
             if (State?.Campaign.HasActiveBattle == true) { Hud.OpenMenu(); return; }
-            if (Busy || Hud.PanelOpen || Nearby == null) return;
-            Hud.OpenObject(Nearby.Id);
+            if (Busy || Hud.PanelOpen || BaseBattleGateway.MainMenu) return;
+            var nearby = Nearby;
+            if (nearby?.Kind == BenchSeatKind) UseBenchSeat(nearby);
+            else if (nearby != null) Hud.OpenObject(nearby.Id);
         }
         public bool Change(Action<BaseState> edit, string message)
         {

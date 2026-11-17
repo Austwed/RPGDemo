@@ -115,9 +115,24 @@ namespace BaseConquest.Battle
             {var actor=realtime.Model.Units.FirstOrDefault(unit=>unit.Alive&&selection.Contains(unit.Id-1));if(actor==null)return false;point=actor.Position;}
             bool accepted=realtime.Issue(selection.Ids,order,point,target,true,squadFocus);
             bool groupPlacement = selection.Ids.Count > 1 && (order == PrototypeOrder.Move || order == PrototypeOrder.Guard);
-            feedback=accepted?(autoRun?"指令已执行":"指令已写入，按空格或继续按钮运行"):groupPlacement
-                ? StoryText.Get("story.ui.battle.group_no_space", "队长落点不足，原指令保留。")
-                : "未下令：请选择可行动队长／小队，确认目标可见、落点可达";
+            if (accepted)
+            {
+                string orderName = order switch
+                {
+                    PrototypeOrder.Move => "移动",
+                    PrototypeOrder.Guard => "驻守",
+                    PrototypeOrder.Focus => squadFocus ? "集火" : "攻击",
+                    PrototypeOrder.Retreat => "撤退",
+                    _ => "恢复自主"
+                };
+                feedback = "已下达" + orderName + "指令" + (autoRun ? "" : " · 暂停中");
+            }
+            else
+            {
+                feedback = groupPlacement
+                    ? StoryText.Get("story.ui.battle.group_no_space", "队长落点不足，原指令保留。")
+                    : "未下令：请选择可行动队长／小队，确认目标可见、落点可达";
+            }
             SyncRealtimeViews();hud?.Refresh();return accepted;
         }
         public bool RealtimeMove(PrototypePoint point)=>RealtimeOrder(PrototypeOrder.Move,point);
@@ -219,8 +234,11 @@ namespace BaseConquest.Battle
         private bool MarkRealtimeGuard(PrototypePoint point)
         {
             if (!RealtimeOrder(PrototypeOrder.Guard, point)) return false;
-            int fine = realtime.Model.Arena.CellAt(point);
-            boardView.SelectFineCell(fine % realtime.Model.Arena.FineColumns, fine / realtime.Model.Arena.FineColumns, guard: true);
+            var first = realtime.Model.Units.Where(unit => unit.Alive && unit.Side == PrototypeSide.Ally &&
+                unit.Role == PrototypeRole.Leader && selection.Contains(unit.Id - 1)).OrderBy(unit => unit.Squad).FirstOrDefault();
+            var arena = realtime.Model.Arena;
+            int fine = arena.CellAt(first?.Anchor ?? point);
+            boardView.SelectFineCell(fine % arena.FineColumns, fine / arena.FineColumns, guard: true);
             return true;
         }
         private List<BattleSoldier> RealtimeFineUnits(int fine)

@@ -9,7 +9,7 @@ namespace BaseConquest.Battle
     public sealed class BattleOrderOverlay
     {
         public readonly GameObject Root;
-        private readonly LineRenderer path, aim, target, obstacle;
+        private readonly LineRenderer path, aim, target, obstacle, destination;
         private readonly List<PrototypePoint> realtimePath = new List<PrototypePoint>();
         private readonly MaterialPropertyBlock tint = new MaterialPropertyBlock();
         private int cachedId = -2, cachedRound = -1, cachedCommands = -1;
@@ -29,6 +29,9 @@ namespace BaseConquest.Battle
             obstacle = MakeLine("BlockingEnemyLine", material, 0.06f); obstacle.positionCount = 2;
             obstacle.startColor = obstacle.endColor = new Color(1, 0.8f, 0.15f);
             aim.positionCount = 2; target.positionCount = 4; target.loop = true;
+            destination = MakeLine("OrderDestination", material, 0.075f);
+            destination.positionCount = 4;
+            destination.loop = true;
         }
         private LineRenderer MakeLine(string name, Material material, float width)
         {
@@ -46,7 +49,7 @@ namespace BaseConquest.Battle
         public void RefreshRealtime(RealtimeCampaignBattle run, PrototypeUnit unit)
         {
             Root.SetActive(true);Current=null;Invalidate();
-            path.enabled=aim.enabled=target.enabled=obstacle.enabled=false;
+            path.enabled=aim.enabled=target.enabled=obstacle.enabled=destination.enabled=false;
             if(unit==null||!unit.Alive||unit.Side!=PrototypeSide.Ally||run.Battle.Phase!=BattlePhase.Fighting||!run.Battle.Vision.CanSee(BattleSide.A,run.Battle.Soldier(unit.Id-1)))return;
             run.Model.PreviewPath(unit,realtimePath);
             int count=0;
@@ -60,6 +63,25 @@ namespace BaseConquest.Battle
                 path.enabled=true;path.positionCount=count;
                 Tint(path,unit.BlockedFor>.35?new Color(1,.68f,.2f):new Color(.3f,1,.48f));
                 for(int i=0;i<count;i++)path.SetPosition(i,RealtimePosition(realtimePath[i],run.Battle.Board));
+            }
+            if (unit.Role == PrototypeRole.Leader && unit.ManualOrder && !unit.Steering && !unit.ObjectOrder &&
+                (unit.Order == PrototypeOrder.Move || unit.Order == PrototypeOrder.Guard))
+            {
+                bool guarding = unit.Order == PrototypeOrder.Guard;
+                var arena = run.Model.Arena;
+                var goal = guarding ? unit.Anchor : unit.Goal;
+                int cell = arena.CellAt(goal);
+                if (cell >= 0 && run.Battle.Vision.Explored(BattleSide.A, new GridPosition((int)goal.X, (int)goal.Z)))
+                {
+                    destination.enabled = true;
+                    Tint(destination, guarding ? new Color(1, .78f, .22f) : new Color(.3f, 1, .48f));
+                    var center = RealtimePosition(arena.Center(cell), run.Battle.Board) + Vector3.up * .015f;
+                    float halfWidth = BattleBoardView.CellSize * .23f;
+                    destination.SetPosition(0, center + new Vector3(-halfWidth, 0, -halfWidth));
+                    destination.SetPosition(1, center + new Vector3(-halfWidth, 0, halfWidth));
+                    destination.SetPosition(2, center + new Vector3(halfWidth, 0, halfWidth));
+                    destination.SetPosition(3, center + new Vector3(halfWidth, 0, -halfWidth));
+                }
             }
             var locked=run.Model.Units.FirstOrDefault(actor=>actor.Id==unit.TargetId&&actor.Alive&&actor.Side!=unit.Side);
             if(locked==null||!run.Battle.Vision.CanSee(BattleSide.A,run.Battle.Soldier(locked.Id-1)))return;
@@ -79,7 +101,7 @@ namespace BaseConquest.Battle
                 cachedPhase = battle.Phase;
                 cachedVision = battle.Vision.Revision;
             }
-            path.enabled = aim.enabled = target.enabled = obstacle.enabled = false;
+            path.enabled = aim.enabled = target.enabled = obstacle.enabled = destination.enabled = false;
             BattleSoldier soldier = battle.Soldier(id);
             if (Current == null || soldier == null || !soldier.IsActive || battle.Phase != BattlePhase.Fighting || !battle.Vision.CanSee(observer ?? soldier.Side, soldier)) return;
             var shownPath = presentation < 1 && soldier.LastAction == RoundAction.Move ? soldier.LastMovePath : Current.Path;

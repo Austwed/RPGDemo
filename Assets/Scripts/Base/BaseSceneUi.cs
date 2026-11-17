@@ -43,6 +43,12 @@ namespace BaseConquest.Base
 
         private RectTransform OpenScenePanel(string key, string viewKey)
         {
+            ResetScenePanel(viewKey);
+            return panel = CloneSceneUi(key, modal);
+        }
+
+        private void ResetScenePanel(string viewKey)
+        {
             CloseResourcePopover();
             if (panel != null)
             {
@@ -59,7 +65,6 @@ namespace BaseConquest.Base
             modal.gameObject.SetActive(true);
             Joystick.ResetInput();
             Joystick.gameObject.SetActive(false);
-            return panel = CloneSceneUi(key, modal);
         }
 
         private void OpenSceneCampMenu()

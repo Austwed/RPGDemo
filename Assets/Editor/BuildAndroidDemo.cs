@@ -15,7 +15,7 @@ namespace BaseConquest.Editor
             var args = Environment.GetCommandLineArgs();
             int pathArg = Array.IndexOf(args, "-demoApkPath");
             string output = Path.GetFullPath(pathArg >= 0 && pathArg + 1 < args.Length
-                ? args[pathArg + 1] : "Builds/Android/RPGDemo.apk");
+                ? args[pathArg + 1] : "Builds/Android/DEMO.apk");
             Directory.CreateDirectory(Path.GetDirectoryName(output));
             bool previousBundle = EditorUserBuildSettings.buildAppBundle;
             int exitCode = 0;

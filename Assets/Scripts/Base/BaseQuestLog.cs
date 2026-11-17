@@ -95,6 +95,32 @@ namespace BaseConquest.Base
                 case "demo:ruins_trial":
                     if (s.Demo.RuinsDay > 0) return ToRuins(s, id, "在地下回廊挑战或扫荡；领奖消耗体力");
                     break;
+                case BaseDemoSideQuests.SmithId:
+                    switch (BaseDemoSideQuests.Smith(s))
+                    {
+                        case BaseSideQuestStage.Accepted:
+                            return ToTown(s,id,"找巴隆，在他的重铸界面完成一次重铸","town_blacksmith");
+                        case BaseSideQuestStage.Ready:
+                            return ToTown(s,id,"听巴隆讲重铸的门道","town_blacksmith");
+                    }
+                    break;
+                case BaseDemoSideQuests.ZhouId:
+                    switch (BaseDemoSideQuests.Zhou(s))
+                    {
+                        case BaseSideQuestStage.Accepted:
+                            var player=BaseDemoSideQuests.Player(s);
+                            if(BaseTraining.Busy(player.Training))
+                                return new BaseQuestCue(id,"等待第 "+player.Training.EndDay+" 天训练完成");
+                            var book=BaseDemoSideQuests.ZhouBook(s,2);
+                            var missing=BaseTraining.Books(player,2)-BasePartyInventory.AvailableMaterial(s,book);
+                            if(missing>0) return ToTown(s,id,"找老莫买 "+missing+" 本"+BaseDemoSideQuests.ZhouBookName(s,2),"town_peddler");
+                            return BaseDemoDefense.Repaired(s,"barracks")
+                                ? ToCamp(s,id,"去兵营训练至 Lv2","barracks")
+                                : ToCamp(s,id,"先修复兵营，再训练至 Lv2","demo_fix_barracks");
+                        case BaseSideQuestStage.Ready:
+                            return ToCamp(s,id,"回断流滩向老周说明训练成果","demo_rescuer");
+                    }
+                    break;
                 case "demo:camp_supplies":
                     if (!BaseDemoFinale.OccupiedBySecondDefense(s) || s.Demo.Finale.CampSuppliesTaken) return default;
                     if (!BaseDemoFinale.Opened(s)) return ToCamp(s, id, "从营地南侧出口进入世界道路", "demo_march_exit");
@@ -235,6 +261,11 @@ namespace BaseConquest.Base
                     list.Add(new BaseQuestEntry { Id = "demo:attack", Main = true, Title = BaseDemoFinale.OccupiedBySecondDefense(s) ? "返乡调查" : "攻营与返乡", Status = s.Demo.Stage == BaseDemoStage.Finished ? "已完成" : "进行中", Goal = BaseDemoFinale.Objective(s), Reward = "搭档的断剑", Done = s.Demo.Stage == BaseDemoStage.Finished, Phase = s.Demo.Stage == BaseDemoStage.Finished ? QuestPhase.Done : QuestPhase.Active });
             }
             if (BaseDemoPrologue.Village(s) || s.Demo.Stage == BaseDemoStage.Waking) return;
+            AddHiddenSideQuest(BaseDemoSideQuests.SmithId,BaseDemoSideQuests.SmithTitle,BaseDemoSideQuests.Smith(s),
+                "到铁匠铺完成一次重铸。","锻造石 ×"+BaseDemoSideQuests.RewardStones);
+            if (BaseDemoSideQuests.Zhou(s) != BaseSideQuestStage.Hidden)
+                AddHiddenSideQuest(BaseDemoSideQuests.ZhouId,BaseDemoSideQuests.ZhouTitle,BaseDemoSideQuests.Zhou(s),
+                    "在兵营完成主角的等级训练，再向老周回报。",BaseDemoSideQuests.ZhouBookName(s,3)+" ×1");
             foreach (var id in BaseDemoRuins.Enabled(s) ? new[] { "partner_farm", "partner_craft" } : Array.Empty<string>())
             {
                 bool joined = s.Leaders.Any(leader => leader.Id == id);
@@ -259,6 +290,15 @@ namespace BaseConquest.Base
                 bool taken = s.Demo.Finale.CampSuppliesTaken;
                 list.Add(new BaseQuestEntry { Id = "demo:camp_supplies", Title = "黑鸦寨遗留物资", Status = taken ? "已搜查" : "可搜查",
                     Goal = "前往黑鸦寨搜查剩下的物资。", Reward = "黑鸦寨物资", Done = taken, Phase = taken ? QuestPhase.Done : QuestPhase.Available });
+            }
+
+            void AddHiddenSideQuest(string id,string title,BaseSideQuestStage stage,string goal,string reward)
+            {
+                if (stage == BaseSideQuestStage.Hidden) return;
+                bool done=stage==BaseSideQuestStage.Complete;
+                bool ready=stage==BaseSideQuestStage.Ready;
+                list.Add(new BaseQuestEntry { Id=id, Title=title, Status=done?"已完成":ready?"可回报":"进行中",
+                    Goal=goal, Reward=reward, Done=done, Phase=done?QuestPhase.Done:ready?QuestPhase.Ready:QuestPhase.Active });
             }
         }
     }

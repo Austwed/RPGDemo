@@ -221,7 +221,8 @@ namespace BaseConquest.Base
         {
             var s = owner.State; feedback.text = owner.Message;feedback.gameObject.SetActive(owner.Message.Contains("失败")||owner.Message.Contains("未保存"));
             bool selectingHero = heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf;
-            summary.transform.parent.gameObject.SetActive(!selectingHero && !owner.HomeRebuildOverview && (!PanelOpen || panelViewKey != "npc-dialogue"));
+            summary.transform.parent.gameObject.SetActive(!selectingHero && !owner.HomeRebuildOverview &&
+                (!PanelOpen || panelViewKey != "npc-dialogue" && panelViewKey != DemoCompletionView));
             if (reserveRules != null) reserveRules.interactable = s != null && !s.Aftermath.GameOver && !owner.Busy;
             if (panelFeedback != null) panelFeedback.text = owner.Message;
             owner.InvalidateObjects();
@@ -265,7 +266,7 @@ namespace BaseConquest.Base
             if (nearbyId != id)
             {
                 nearbyId = id;
-                interact.GetComponentInChildren<Text>().text = nearby == null ? "接近对象后交互" : (nearby.Kind=="npc"||owner.State.Leaders.Any(l=>l.Id==nearby.Id)||nearby.Id.StartsWith("demo_villager")||nearby.Id=="prologue_ahe") ? "交谈 · " + nearby.Name.Replace("伙伴 · ","").Replace(" · 交谈","") : (nearby.Kind=="facility"?"管理 · ":nearby.Id.Contains("exit")||nearby.Id.Contains("travel")||nearby.Id.Contains("trigger")?"前往 · ":"使用 · ")+nearby.Name;
+                interact.GetComponentInChildren<Text>().text = nearby == null ? "接近对象后交互" : nearby.Kind == BaseSceneController.BenchSeatKind ? nearby.Name : (nearby.Kind=="npc"||owner.State.Leaders.Any(l=>l.Id==nearby.Id)||nearby.Id.StartsWith("demo_villager")||nearby.Id=="prologue_ahe") ? "交谈 · " + nearby.Name.Replace("伙伴 · ","").Replace(" · 交谈","") : (nearby.Kind=="facility"?"管理 · ":nearby.Id.Contains("exit")||nearby.Id.Contains("travel")||nearby.Id.Contains("trigger")?"前往 · ":"使用 · ")+nearby.Name;
                 bool touch = Application.platform == RuntimePlatform.Android;
                 hint.text = owner.PlayerAway ? "主角外出中：入侵信息查看敌情，兵营查看外出队伍" : nearby == null
                     ? touch ? "拖动左侧摇杆移动，靠近人物或设施后点按右侧按钮" : "设施需在边缘一格内且同层；伙伴靠近对话\n电脑：WASD／方向键移动，E交互 · B背包 · N任务 · M地图"
@@ -420,6 +421,7 @@ namespace BaseConquest.Base
             if (ClosePreparationHelp()) return;
             if (DialogueExitLocked) return;
             if(owner.State?.Aftermath.GameOver==true || BaseBattleGateway.MainMenu || BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) return;
+            if (OfferSmithLessonOnTradeExit()) return;
             if(!BaseDemo.Active(owner.State)&&BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             workerDraft=null;workerMoves.Clear();ClearPanelSelection();
             if (PanelOpen) PanelClosedFrame = Time.frameCount;
@@ -467,6 +469,7 @@ namespace BaseConquest.Base
             {
                 if(owner.State.Demo.Stage==BaseDemoStage.Waking){OpenDemoStory();return;}
                 bool zhou = id == "demo_rescuer";
+                if (zhou && OpenZhouTraining()) return;
                 string campGreeting = zhou ? "留得青山在，总能寻回你那位同伴的。" :
                     BaseConquest.Story.StoryText.Get("story.scene.camp.civilian_work", "乡亲先补粮田的空位，田里人手齐了再去工坊。你照常调兵就好。");
                 NpcDialogue(WithInjury(owner.State, zhou ? "INJ_CAMP_ZHOU" : "INJ_CAMP_CHUN",

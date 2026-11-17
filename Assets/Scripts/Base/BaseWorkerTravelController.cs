@@ -65,7 +65,7 @@ namespace BaseConquest.Base
             string key=State.Campaign.Location+":"+State.Campaign.CurrentMapId+":"+BaseDemoPrologue.Village(State);
             if(workerTravelMap!=null&&workerTravelMap!=key)ClearWorkerTravel();workerTravelMap=key;
             SyncCivilianWorkerTravel();
-            workerTravel.Tick(State,seconds,EnvironmentPaused);
+            workerTravel.Tick(State,seconds,EnvironmentPaused || Hud.ProductionFacilityOpen);
             foreach(var a in workerTravelViews.Keys.Where(a=>!workerTravel.Active.Contains(a)).ToArray()){if(workerTravelViews[a]!=null)BattleBoardView.DestroyObject(workerTravelViews[a].gameObject);workerTravelViews.Remove(a);}
             foreach (var journey in workerTravel.Active)
             {

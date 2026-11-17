@@ -10,6 +10,7 @@ namespace BaseConquest.Base
         public bool HideoutRecruitClueSeen;
         public bool RecruitmentNotice, RecruitOpened, HomeEnterSeen, RestLessonDone, FarmOfferPending, FarmOfferShown, NoviceShop;
         public bool AzhuDuelWon, SmithGiftOffered, ControllerAccepted, ControllerPledged, BanditCleared;
+        public BaseSideQuestStage SmithLesson, ZhouTraining;
         public string FirstControllerId="";
         public double FarmX,FarmY,FarmNpcX,FarmNpcY;public bool FarmWalking;
         public bool FirstIntelEligible,FirstIntelOffered;
@@ -106,6 +107,7 @@ namespace BaseConquest.Base
             if(!Active(s))return;var f=s.Demo.Flow;
             f.RaidIntel??=new List<BaseRaidIntelSnapshot>();
             f.NotifiedRaids??=new List<string>();
+            if(!Enum.IsDefined(typeof(BaseSideQuestStage),f.SmithLesson)||!Enum.IsDefined(typeof(BaseSideQuestStage),f.ZhouTraining)||f.ZhouTraining==BaseSideQuestStage.Ready)throw new ArgumentException("营地支线进度非法");
             if(f.NotifiedRaids.Count>100000||f.NotifiedRaids.Any(string.IsNullOrWhiteSpace)||f.NotifiedRaids.Distinct().Count()!=f.NotifiedRaids.Count)throw new ArgumentException("袭击通知记录非法");
             if(f.FreeFirstRaidDay<0||f.FreeFirstRaidDay>1000000||f.RaidIntel.Count>2000000||f.RaidIntel.Any(x=>x==null||x.Day<1||x.Day>s.Day||(x.Window!=3&&x.Window!=5)||x.Entries==null||x.Entries.Any(e=>e==null||string.IsNullOrEmpty(e.EventId)||string.IsNullOrEmpty(e.Title)||e.Day<=x.Day||e.Day>x.Day+x.Window)||x.HasRaid!=(x.Entries.Count>0))||f.RaidIntel.GroupBy(x=>new{x.Day,x.Window}).Any(g=>g.Count()!=1))throw new ArgumentException("商人消息快照非法");
             var controller=s.Aftermath.Prisoners.FirstOrDefault(p=>p.Id==f.FirstControllerId);

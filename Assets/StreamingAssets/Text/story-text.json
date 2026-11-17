@@ -1129,6 +1129,72 @@
       "text": "搭档重新缠过青绳。剑刃虽旧，握着仍顺手。",
       "notes": "仅用于白桦村领到的旧制短剑实例。",
       "revision": 2
+    },
+    {
+      "key": "story.quest.smith_lesson.title",
+      "group": "支线／巴隆",
+      "text": "炉前试手",
+      "notes": "阿铸入队后，向巴隆接取的隐藏支线标题。"
+    },
+    {
+      "key": "story.quest.smith_lesson.offer.1",
+      "group": "支线／巴隆",
+      "text": "阿铸会给枪换杆，可一碰上炉火就心急。你来，我教你看一回火候。",
+      "notes": "接取前，巴隆第1页。"
+    },
+    {
+      "key": "story.quest.smith_lesson.offer.2",
+      "group": "支线／巴隆",
+      "text": "桌上那几颗锻造石送你。拿件武器或护具来，重铸一次，我再跟你说这里头的门道。",
+      "notes": "接取前，巴隆第2页，确认后发试用锻造石。"
+    },
+    {
+      "key": "story.quest.smith_lesson.finish.1",
+      "group": "支线／巴隆",
+      "text": "这炉算你亲手试过了。添石能让升档更有把握，可火候没人说得准。",
+      "notes": "接取后完成一次重铸并退出界面，巴隆第1页。升档、留级和降档均使用。"
+    },
+    {
+      "key": "story.quest.smith_lesson.finish.2",
+      "group": "支线／巴隆",
+      "text": "手上只有一件趁手家伙，就先留着打仗。这颗石头等你有了备用的，再拿来练。",
+      "notes": "结果对话第2页，确认后发完成奖励。"
+    },
+    {
+      "key": "story.quest.zhou_training.title",
+      "group": "支线／老周",
+      "text": "阵后读兵书",
+      "notes": "首防胜利后，向老周接取的隐藏支线标题。"
+    },
+    {
+      "key": "story.quest.zhou_training.offer.1",
+      "group": "支线／老周",
+      "text": "这一仗是守住了。下回呢？学几招总比多挨几刀强。",
+      "notes": "接取前，老周第1页。"
+    },
+    {
+      "key": "story.quest.zhou_training.offer.2",
+      "group": "支线／老周",
+      "text": "老莫那儿有{0}。买够{1}本去兵营练，练成了回来找我。",
+      "notes": "接取前第2页，未开始训练时也作提醒。{0}为所需基础兵书名，{1}为数量。"
+    },
+    {
+      "key": "story.quest.zhou_training.wait",
+      "group": "支线／老周",
+      "text": "慢慢练。等到第{0}天，你再来找我。",
+      "notes": "训练期间提醒。{0}为训练结束的游戏日。"
+    },
+    {
+      "key": "story.quest.zhou_training.finish.1",
+      "group": "支线／老周",
+      "text": "这架势稳了。书上的招肯下功夫练，到了阵前才使得出来。",
+      "notes": "主角达到2级后回报第1页。"
+    },
+    {
+      "key": "story.quest.zhou_training.finish.2",
+      "group": "支线／老周",
+      "text": "我箱子角上还压着一本旧书，是早年留下的。给你吧，搁我那儿也只剩垫箱子的用处。",
+      "notes": "主角达到2级后回报第2页，确认后发本职业高阶兵书。"
     }
   ]
 }

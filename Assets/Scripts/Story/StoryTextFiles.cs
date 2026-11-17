@@ -13,7 +13,7 @@ namespace BaseConquest.Story
         private const int InstalledRevision=2;
         public static string SourcePath=>Path.Combine(Application.streamingAssetsPath,"Text/story-text.json");
         public static string EditablePath=>Application.isEditor ? SourcePath : Path.Combine(ExchangeDirectory,"story-text-v"+InstalledRevision+".json");
-        public static string ExchangeDirectory=>Application.isEditor ? Path.GetFullPath(Path.Combine(Application.dataPath,"../Logs/StoryTextExports")) : Path.Combine(Application.persistentDataPath,"StoryText");
+        public static string ExchangeDirectory=>Application.isEditor ? Path.GetFullPath(Path.Combine(Application.dataPath,"../Logs/StoryTextExports")) : Path.Combine(BaseConquest.Base.BaseBattleGateway.PlayerDataDirectory,"StoryText");
         public static string CsvPath=>Path.Combine(ExchangeDirectory,"story-text.csv");
         public static string ExportPath=>Path.Combine(ExchangeDirectory,"story-text.export.json");
         public static string LastError {get;private set;}="";

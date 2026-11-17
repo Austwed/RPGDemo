@@ -25,7 +25,7 @@ namespace BaseConquest.Base
             NpcDialogue(new[]{new NpcLine(BaseScriptNames.Scout,BaseScriptNames.Portrait("chenan"),"大人，匪众已到营门外了。快从西口去迎敌战场！")},
                 new[]{new NpcReply("这就去迎敌",ClosePanel)});
         }
-        public void OpenDemoStory()
+        public void OpenDemoStory(bool showCompletion = false)
         {
             if(OpenIntroStory())return;
             var state=owner.State;if(!BaseDemo.Active(state))return;
@@ -52,7 +52,8 @@ namespace BaseConquest.Base
             if(state.Demo.Stage==BaseDemoStage.Finished)
             {
                 NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.scene.home_rebuild.finished", "白桦村安顿下来了。带上这把断剑，下一步沿车辙进西山。"),true)},
-                    Array.Empty<NpcReply>(),onCompleted:ClosePanel);
+                    Array.Empty<NpcReply>(),lockExitUntilFinished:showCompletion,
+                    onCompleted:showCompletion ? OpenDemoCompletion : ClosePanel);
                 return;
             }
             ClosePanel();

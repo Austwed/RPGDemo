@@ -210,6 +210,7 @@ namespace BaseConquest.Base
 
         private void ReturnToTradeDialogue()
         {
+            if(OfferSmithLessonOnTradeExit()) return;
             switch(tradeVendor)
             {
                 case TradeVendor.Merchant: OpenTownChat("town_peddler"); break;
