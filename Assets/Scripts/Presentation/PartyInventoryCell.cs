@@ -11,7 +11,7 @@ namespace BaseConquest.Presentation
         [NonSerialized] public Action<string,string,int,string> Move;
         [NonSerialized] public RectTransform Scope;
         [NonSerialized] public Action BeginDrag;
-        [NonSerialized] public Sprite Icon;
+        [NonSerialized] internal InventoryItemIcons.Icon Icon;
         [NonSerialized] public string ItemName;
         private static string dragging;
         private static RectTransform ghost,scope;
@@ -19,7 +19,7 @@ namespace BaseConquest.Presentation
         {
             if(string.IsNullOrEmpty(ItemId)||Scope==null)return;BeginDrag?.Invoke();Clear();dragging=ItemId;scope=Scope;
             var obj=new GameObject("拖动物品",typeof(RectTransform),typeof(CanvasRenderer),typeof(Image),typeof(CanvasGroup));obj.transform.SetParent(scope,false);
-            ghost=obj.GetComponent<RectTransform>();ghost.sizeDelta=new Vector2(Icon!=null?202:128,54);obj.GetComponent<Image>().color=new Color(.18f,.34f,.32f,.94f);obj.GetComponent<CanvasGroup>().blocksRaycasts=false;
+            ghost=obj.GetComponent<RectTransform>();ghost.sizeDelta=new Vector2(Icon.Sprite!=null?202:128,54);obj.GetComponent<Image>().color=new Color(.18f,.34f,.32f,.94f);obj.GetComponent<CanvasGroup>().blocksRaycasts=false;
             var textObject=new GameObject("名称",typeof(RectTransform),typeof(Text));textObject.transform.SetParent(ghost,false);var r=textObject.GetComponent<RectTransform>();r.anchorMin=Vector2.zero;r.anchorMax=Vector2.one;r.offsetMin=r.offsetMax=Vector2.zero;
             var t=textObject.GetComponent<Text>();var source=GetComponentInChildren<Text>();t.font=source?.font;t.fontSize=16;t.text=ItemName??source?.text??"物品";t.alignment=TextAnchor.MiddleCenter;t.color=Color.white;t.raycastTarget=false;
             InventoryItemIcons.LeadLabel(t, Icon, 31);

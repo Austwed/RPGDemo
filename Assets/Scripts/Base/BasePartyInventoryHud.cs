@@ -220,8 +220,8 @@ namespace BaseConquest.Base
             label.text = title;
             if (visible)
             {
-                var icon = InventoryItemIcons.Load(InventoryIconKey(entry));
-                if (icon != null)
+                var icon = InventoryIcon(entry);
+                if (icon.Sprite != null)
                 {
                     InventoryItemIcons.Draw(button.transform, icon, new Vector2(.5f, .5f), new Vector2(0, 6), 35);
                     var caption = label.rectTransform;
@@ -267,9 +267,13 @@ namespace BaseConquest.Base
             }
         }
 
-        private string InventoryIconKey(BaseInventoryEntry entry) =>
-            entry == null ? null : entry.Stack?.ItemId ??
-            (entry.Id == owner.State.Demo?.Intro?.PracticeId ? "practice_sword" : entry.Gear?.Template);
+        private InventoryItemIcons.Icon InventoryIcon(BaseInventoryEntry entry)
+        {
+            if (entry == null) return default;
+            var key = entry.Stack?.ItemId ??
+                (entry.Id == owner.State.Demo?.Intro?.PracticeId ? "practice_sword" : entry.Gear?.Template);
+            return InventoryItemIcons.Load(key, entry.Gear?.Quality ?? 2, entry.Category);
+        }
 
         private static string InventoryShortName(BaseInventoryEntry entry)
         {
@@ -301,7 +305,7 @@ namespace BaseConquest.Base
             var drag = obj.GetOrAdd<PartyInventoryCell>();
             drag.ItemId = entry?.Id;
             drag.ItemName = entry?.Name;
-            drag.Icon = InventoryItemIcons.Load(InventoryIconKey(entry));
+            drag.Icon = InventoryIcon(entry);
             drag.Holder = holder;
             drag.Cell = cell;
             drag.Slot = slot;
@@ -389,7 +393,7 @@ namespace BaseConquest.Base
             inventoryQuantity = Mathf.Clamp(inventoryQuantity, 1, entry.Count);
             var title = Ui<Text>(details, "Title");
             title.text = entry.Name + (entry.Count > 1 ? " ×" + entry.Count : "");
-            InventoryItemIcons.LeadLabel(title, InventoryItemIcons.Load(InventoryIconKey(entry)), 25);
+            InventoryItemIcons.LeadLabel(title, InventoryIcon(entry), 25);
             string quantity = entry.Count > 1 ? inventoryQuantity + " / " + entry.Count : entry.Count.ToString();
             Ui<Text>(details, "Meta").text = "数量 " + quantity + (entry.Gear != null
                 ? " · " + BasePersonalEquipment.SlotName(BasePersonalEquipment.Definition(entry.Gear.Template).Slot) : "");

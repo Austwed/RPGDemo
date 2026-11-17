@@ -99,7 +99,7 @@ namespace BaseConquest.Base
             return line;
         }
 
-        private void TradeOffer(Transform list,string id,string title,string iconKey=null)
+        private void TradeOffer(Transform list,string id,string title,InventoryItemIcons.Icon? itemIcon=null)
         {
             var button = TradeButton(list,tradeSale==""&&tradeSelection==id?"● "+title:title,()=>{
                 tradeSelection=id;
@@ -107,7 +107,7 @@ namespace BaseConquest.Base
                 tradeQuantity=1;
                 RenderTownTrade();
             });
-            InventoryItemIcons.LeadLabel(button.GetComponentInChildren<Text>(true), InventoryItemIcons.Load(iconKey ?? id), 26);
+            InventoryItemIcons.LeadLabel(button.GetComponentInChildren<Text>(true), itemIcon ?? InventoryItemIcons.Load(id), 26);
         }
 
         private void TradeCommit(Func<BaseState, bool> action, string message, bool recruitment = false)
