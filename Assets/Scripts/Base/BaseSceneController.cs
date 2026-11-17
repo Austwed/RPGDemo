@@ -25,6 +25,7 @@ namespace BaseConquest.Base
         public BaseSaveStore SaveStore { get; private set; }
         public BaseHud Hud { get; private set; }
         public Camera WorldCamera { get; private set; }
+        internal VillageOpeningAudio OpeningAudio { get; private set; }
         public bool Busy { get; private set; }
         public BasePoint EnvironmentPlayer=>combatController?.Realtime?.Model.Player!=null?new BasePoint(combatController.Realtime.Model.Player.Position.X,combatController.Realtime.Model.Player.Position.Z):new BasePoint(State.PlayerX,State.PlayerY);
         public bool EnvironmentPaused=>Busy||DeploymentWorldActive||combatController!=null&&(combatController.ExternalDialogue||combatController.Realtime?.Model.Paused!=false);
@@ -128,6 +129,7 @@ namespace BaseConquest.Base
                 child.gameObject.SetActive(false);Destroy(child.gameObject);
             }
             runtimeRoot=new GameObject("RuntimeGenerated").transform;runtimeRoot.SetParent(transform,false);SetRegionReady(false);
+            OpeningAudio = null;
             if (font != null) Destroy(font);
             SaveStore = new BaseSaveStore(Path.Combine(Application.persistentDataPath, "BaseConquest", "base-save-v1.json"),
                 d => JsonUtility.ToJson(d, true), json => JsonUtility.FromJson<BaseSaveDocument>(json));
@@ -262,6 +264,7 @@ namespace BaseConquest.Base
         {
             if (!Application.isPlaying) return;
             if (RuntimeMissing()) { BeginSession(); return; }
+            RefreshOpeningAudio();
             if (DeploymentWorldActive) { UpdateDeploymentWorld(); return; }
             if(combatController==null) regionView?.UpdateCamera(HomeRebuildOverview ? 0 : RebuildPlacementMode ? Hud.HomeRebuildMapInset : ConstructionMode ? 190f/1280 : 0,0);
             if(State!=null&&!Busy&&runtimeRoot!=null&&runtimeRoot.gameObject.activeInHierarchy)Hud.RefreshAchievementNotice(Time.unscaledDeltaTime);
@@ -326,9 +329,25 @@ namespace BaseConquest.Base
             BaseInteraction.RecordWalk(cardinal?input.x:movedX,cardinal?input.y:movedY);
             if(input.sqrMagnitude>.0001f)
             {
-                BaseDemoIntro.Walk(State,Math.Sqrt(movedX*movedX+movedY*movedY));
+                double travelled = Math.Sqrt(movedX * movedX + movedY * movedY);
+                BaseDemoIntro.Walk(State, travelled);
+                if (OpeningAudio?.TakingSteps == true && travelled > 0)
+                {
+                    var cell = new GridPosition((int)Math.Floor(x), (int)Math.Floor(y));
+                    var surface = regionView.Board.Cell(cell)?.Surface ?? GroundSurface.Default;
+                    OpeningAudio.Footstep(travelled, GroundSurfaceRules.Resolve(surface, State.Campaign.Location, cell.X, cell.Z));
+                }
             }
             State.PlayerX = x; State.PlayerY = y; PlacePlayer(cardinal?BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(input.x,input.y,BaseConquest.Presentation.HeroFacing.South):null); Hud.RefreshMovement();CheckPrologueTrigger();
+        }
+        private void RefreshOpeningAudio()
+        {
+            bool opening = !BaseBattleGateway.MainMenu && BaseDemoIntro.Active(State) &&
+                !State.Aftermath.GameOver && State.Campaign.Location == "base" &&
+                State.Demo.Stage == BaseDemoStage.PrologueBriefing && State.Demo.Intro.Step is not (6 or 7);
+            if (opening && OpeningAudio == null)
+                OpeningAudio = runtimeRoot.gameObject.AddComponent<VillageOpeningAudio>();
+            OpeningAudio?.SetContext(opening, combatController != null && State?.SceneBattleId == BaseDemoIntro.BattleId);
         }
         private void AdvanceExplorationCompanions(double seconds)
         {

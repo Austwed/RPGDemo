@@ -60,7 +60,15 @@ namespace BaseConquest.Base
             try{encounter=BaseDemoIntro.Practice(State);}catch(Exception e){ReportMessage(e.Message);return;}
             // The saved node remains before the exercise. Reloading safely restarts the isolated drill.
             practiceShown=-1;SaveStore.Save(State);State.SceneBattleId=BaseDemoIntro.BattleId;
-            try{BeginSceneEncounter(encounter,run=>BaseDemoIntro.Configure(run,State.Demo.Intro),null,FinishDemoPractice,"民兵演练 · 选主角／暂停／移动／攻击／驻守／手动鼓舞");}
+            try
+            {
+                RefreshOpeningAudio();
+                BeginSceneEncounter(encounter, run =>
+                {
+                    BaseDemoIntro.Configure(run, State.Demo.Intro);
+                    OpeningAudio?.BindPractice(run);
+                }, null, FinishDemoPractice, "民兵演练 · 选主角／暂停／移动／攻击／驻守／手动鼓舞");
+            }
             catch(Exception e){State.SceneBattleId="";MapSession.LeaveBattle();if(combatController!=null){combatController.gameObject.SetActive(false);BattleBoardView.DestroyObject(combatController.gameObject);combatController=null;}explorationActors.gameObject.SetActive(true);Hud.SetVisible(true);ReportMessage("演练准备失败："+e.Message);}
         }
         private bool FinishDemoPractice(RealtimeCampaignBattle run,bool abandon,bool mainMenu)

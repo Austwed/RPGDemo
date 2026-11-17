@@ -1,0 +1,57 @@
+Birch Village opening and militia exercise
+Source pages checked on 2026-11-17. The following recordings are released under CC0 1.0.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Exploration.ogg
+RandomMind — Medieval: Exploration
+https://opengameart.org/content/medieval-exploration
+Source: Exploration.wav. Adjusted gain and edge fades, encoded to stereo Vorbis.
+
+Ambience.ogg
+TinyWorlds — Forest Ambience
+https://opengameart.org/content/forest-ambience
+Source: Forest_Ambience_0.mp3. Trimmed and crossfaded the loop, encoded to stereo Vorbis.
+
+Grass/01–02.wav, Assignment/01.wav
+TinyWorlds — Different steps on wood, stone, leaves, gravel and mud
+https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud
+Source members: leaves01.ogg, leaves02.ogg, wood01.ogg.
+
+Grass/03.wav, Stone/01–03.wav
+Fantozzi — Fantozzi's footsteps (grass/sand, stone)
+https://opengameart.org/content/fantozzis-footsteps-grasssand-stone
+Source members: Fantozzi-SandR1.flac, Fantozzi-StoneL1.flac, Fantozzi-StoneR1.flac,
+Fantozzi-StoneL2.flac.
+
+Page/01–03.wav
+Luckius — Various Paper Sound Effects
+https://opengameart.org/content/various-paper-sound-effects
+Source files: paper_sound_-_1.mp3, paper_sound_-_2.mp3, paper_sound_-_3.mp3.
+
+Sword/01–03.wav, Bow/01–02.wav
+Ben Jaszczak & Brian Nelson (Still North Media) — Medieval Sound Effects: Weapon Textures
+https://opengameart.org/content/medieval-sound-effects-weapon-textures
+Source members: Sabre Swing.wav, Seax Swing.wav, Katana Swing.wav, English Longbow Shoot.wav.
+
+Hit/01–03.wav
+Ben Jaszczak & Brian Nelson (Still North Media) — Medieval Sound Effects: Weapon Impacts
+https://opengameart.org/content/medieval-sound-effects-weapon-impacts
+Source members: Sabre Norse Sword Blade on Blade.wav, Mace Sabre Blade.wav,
+Axe Sabre Blade on Hilt.wav.
+
+WoodHit/01–02.wav
+Independent.nu (submitted by qubodup) — 35 wooden cracks/hits/destructions
+https://opengameart.org/content/35-wooden-crackshitsdestructions
+Source members: impactwood03.mp3.flac, impactwood08.mp3.flac.
+
+Fall/01.wav
+Spring Spring — Various Sound Effects
+https://opengameart.org/content/various-sound-effects-0
+Source: fall_0.wav.
+
+Hoof/01–02.wav
+EZduzziteh — Horse Trotting
+https://opengameart.org/content/horse-trotting
+Source: Trot_0.ogg.
+
+Short cues were excerpted, level-adjusted and converted to 22.05 kHz mono PCM.

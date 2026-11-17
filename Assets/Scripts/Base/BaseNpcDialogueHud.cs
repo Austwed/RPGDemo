@@ -143,7 +143,11 @@ namespace BaseConquest.Base
                 void Advance()
                 {
                     if (shown < characters.Length) FinishLine();
-                    else if (!last) PresentLine(index + 1);
+                    else if (!last)
+                    {
+                        owner.OpeningAudio?.Play(VillageOpeningAudio.Cue.Page);
+                        PresentLine(index + 1);
+                    }
                     else if (onCompleted != null)
                     {
                         dialogueContinue = null;

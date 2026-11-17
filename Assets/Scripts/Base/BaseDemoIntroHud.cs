@@ -197,7 +197,11 @@ namespace BaseConquest.Base
                 var apply=FacilityButton(actions,"Apply","确认方案",()=>{
                     int before=owner.State.Demo.Intro.FarmWorkers,step=owner.State.Demo.Intro.Step,workers=introFarmDraft;
                     if(!owner.Change(next=>{if(!BaseDemoIntro.AssignFarm(next,workers))throw new InvalidOperationException("请靠近粮田或铁匠铺再安排岗位");},""))return;
-                    if(workers!=before)owner.EnqueueWorkerTransfer(BaseTroopKind.Melee,workers>before?"intro_smith":"intro_farm",workers>before?"intro_farm":"intro_smith",Math.Abs(workers-before));
+                    if (workers != before)
+                    {
+                        owner.OpeningAudio?.Play(VillageOpeningAudio.Cue.Assignment);
+                        owner.EnqueueWorkerTransfer(BaseTroopKind.Melee, workers > before ? "intro_smith" : "intro_farm", workers > before ? "intro_farm" : "intro_smith", Math.Abs(workers - before));
+                    }
                     if(step==9&&owner.State.Demo.Intro.Step==10)
                         NpcDialogue(new[]{
                             new NpcLine("阿禾","ahe","人齐了！趁地还润着，这就把晚麦种下。"),
