@@ -23,19 +23,18 @@ namespace BaseConquest.Presentation
         // 体量、可用的动作图集、名牌高度都按它判断。chief（大当家）是骑马的匪首，别漏。
         public static bool Mounted(string id)=>id=="azhu"||TroopId(id)=="cavalry"||id=="mounted-azhu"||id=="mounted-cavalry"||id=="chief";
         // 各图集里角色实际画了多少像素高（alpha 剪影中位数，从 Assets/Resources/PixelDemo/Characters 实测生成）。
-        // 美术把角色身高以及同一角色待机／行走／攻击的尺寸都画得不一致（cavalry 待机 48px、攻击 42px，chief 55px），
+        // 站姿或动作的实际剪影高可能随输入素材变化。
         // 只按格子渲染会让同一个人换姿势就忽大忽小。渲染时统一归一到该角色 -v1 的身高，再乘骑乘系数。
         private static readonly System.Collections.Generic.Dictionary<string,float> ArtHeight=new System.Collections.Generic.Dictionary<string,float>
         {
             { "ahe|v1", 56f }, { "ahe|walk", 56f }, { "ahe|attack", 56f },
-            { "archer|v1", 51f }, { "archer|attack", 55f }, { "archer|walk", 55f },
+            { "archer|v1", 56f },
             { "batu|v1", 57f }, { "batu|walk", 56f }, { "batu|attack", 56f },
-            { "cavalry|v1", 48f }, { "cavalry|attack", 42f },
-            { "mounted-cavalry|v1", 49f }, { "mounted-cavalry|idle", 57f }, { "mounted-cavalry|walk", 56f }, { "mounted-cavalry|attack", 53f },
+            { "mounted-cavalry|v1", 56f },
             { "azhu|v1", 56f },
             { "mounted-azhu|v1", 56f }, { "mounted-azhu|walk", 57f }, { "mounted-azhu|attack", 56f },
             { "chief|v1", 55f }, { "chief|idle", 56f }, { "chief|walk", 56f },
-            { "chenan|v1", 52f }, { "chenan|attack", 51f },
+            { "chenan|v1", 56f },
             { "baron|v1", 56f },
             { "chunshen|v1", 56f },
             { "enemy-captain|v1", 55f }, { "enemy-captain|attack", 51f }, { "enemy-captain|walk", 55f },
@@ -43,7 +42,7 @@ namespace BaseConquest.Presentation
             { "galan|v1", 56f }, { "galan|walk", 56f }, { "galan|attack", 55f },
             { "horn|v1", 56f },
             { "huoya|v1", 56f }, { "huoya|walk", 56f }, { "huoya|attack", 55f },
-            { "infantry|v1", 53f }, { "infantry|attack", 49f }, { "infantry|walk", 51f },
+            { "infantry|v1", 56f },
             { "laozhou|v1", 56f }, { "merchant|v1", 56f }, { "merchant|walk", 56f },
             { "player|v1", 56f }, { "player|walk", 56f }, { "player|attack", 55f },
             { "villager|v1", 50f }, { "villager|attack", 55f },
@@ -136,7 +135,7 @@ namespace BaseConquest.Presentation
             {
                 idleAtlas=PixelDemoArt.Motion(identity,"idle");if(walkingMotion)walkAtlas=PixelDemoArt.Motion(identity,"walk");if(combatMotion){attackAtlas=PixelDemoArt.Motion(identity,"attack");downAtlas=PixelDemoArt.Motion(identity,"down");}
                 mountedIdleAtlas=PixelDemoArt.Motion(riderId,"idle");if(walkingMotion)mountedWalkAtlas=PixelDemoArt.Motion(riderId,"walk");if(combatMotion){mountedAttackAtlas=PixelDemoArt.Motion(riderId,"attack");mountedDownAtlas=PixelDemoArt.Motion(riderId,"down");}
-                bowAttack=identity=="ahe";
+                bowAttack=identity=="ahe"||identity=="batu"||PixelDemoArt.TroopId(identity)=="archer";
             }
             Root=new GameObject("PixelDemoCharacter",typeof(MeshFilter),typeof(MeshRenderer));Root.transform.SetParent(parent,false);
             // 占位网格，真正每帧由 Set 按帧尺寸重建（体量差异在 Set 里按是否骑马处理）。
@@ -183,10 +182,8 @@ namespace BaseConquest.Presentation
             // 统一体量规则：
             // ① 每个姿势先归一到该角色 -v1 的身高——图集把同一角色画得忽大忽小（cavalry 待机 48px、攻击 42px），
             //    不归一就会「待机偏小、攻击正常」。倒地姿势是躺下的，不参与归一。
-            // ② 骑乘类（马＋骑手）整体 ×1.45：美术把整匹马压进同一个 56px 格子，不放大就比站着的还矮。
+            // ② 骑乘类（马＋骑手）以 56px 为基准，整体 ×1.45。
             // 等比缩放，身高与横向面积一起长；网格自底边向上生长，放大后仍踩在同一接地点。
-            // 骑乘的基准不能用 -v1 实测：-v1 是设定图批次（mounted-cavalry 只有 49px），动作图集是 ComfyUI 批次（56px），
-            // 拿 49 当基准会把动作帧压小 12.5%，反而破坏「骑马要高过步兵」。统一按标准 56px 基准归一，再乘骑乘倍数。
             float refPx=riding||mountedArt?56f:PixelDemoArt.ArtHeightOf(drawId,"v1");
             // 主角规格图集的身高写在 spec 里（72px），倒地也按它归一（spec.body 是站姿身高）；普通倒地图集保持原样不归一。
             float drawPx=spec!=null?spec.body:PixelDemoArt.ArtHeightOf(drawId,kind);

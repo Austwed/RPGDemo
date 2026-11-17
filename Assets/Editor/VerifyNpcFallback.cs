@@ -16,7 +16,7 @@ namespace BaseConquest.Editor
             // 它必须从下面的临时造图样本里移出——那段 finally 会 DeleteAsset，
             // 若不移除会误删正式资源；接线断言改在下方单独锁定。
             var ids=new[]{"guard","survivor","rescued-villager"};
-            var fallback=new[]{"villager","ahe","villager"};
+            var fallback=new[]{"villager","villager","villager"};
             var names=new[]{BaseScriptNames.Guard,"幸存村民","获救百姓甲"};
             var objects=new[]{"town_guard","demo_survivor","demo_rescued_1"};
             var state=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);

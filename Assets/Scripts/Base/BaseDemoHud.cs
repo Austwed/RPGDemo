@@ -73,7 +73,7 @@ namespace BaseConquest.Base
                 NpcDialogue(new[]{
                     new NpcLine("旁白","",StoryText.Get("story.scene.prologue.pursuit_stab","［古裔追兵用王室的剑刺穿你的胸口，随即力竭倒下。］")),
                     new NpcLine("你","",StoryText.Get("story.scene.prologue.pursuit_blackout","王室……怎么会……搭档……［失去意识］"),true),
-                    new NpcLine("古裔喽啰","galan",StoryText.Get("story.scene.prologue.pursuit_goon","都倒了？别管了，去粮仓搬吃的。"))
+                    new NpcLine("古裔喽啰","ancient-saber",StoryText.Get("story.scene.prologue.pursuit_goon","都倒了？别管了，去粮仓搬吃的。"))
                 },Array.Empty<NpcReply>(),lockExitUntilFinished:true,onCompleted:owner.RecoverDemoPrologue,guide:true);return;
             }
             ClosePanel();

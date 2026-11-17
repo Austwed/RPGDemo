@@ -49,6 +49,7 @@ namespace BaseConquest.Base
                 case "guard":return BaseDemoNpcs.ResolveNpcArt("guard",true);
                 case "girl":return BaseDemoNpcs.ResolveNpcArt("villager-girl",true);
                 case "scout":return "chenan";
+                case "recruiter":return "recruiter";
                 case "survivor":return BaseDemoNpcs.ResolveNpcArt("survivor",true);
                 case "rescued-villager":return BaseDemoNpcs.ResolveNpcArt("rescued-villager",true);
                 case "lord":return "horn";
@@ -58,7 +59,7 @@ namespace BaseConquest.Base
                 case "azhu":return "azhu";           // 骑乘阿铸的头像（portrait-azhu-v1，已换新骑乘版）
                 case "chief":return "chief";
                 case "huoya":return "huoya";
-                default:return "villager";           // 春婶／募兵官／镇民 兜底
+                default:return "villager";
             }
         }
     }

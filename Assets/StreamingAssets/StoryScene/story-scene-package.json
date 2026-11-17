@@ -166,7 +166,7 @@
             "Name": "幸存村民",
             "SourceObjectId": "story-village-demo_survivor",
             "DefinitionId": "story_village_demo_survivor",
-            "AssetId": "ahe",
+            "AssetId": "villager",
             "Kind": "npc",
             "VisualOnly": false,
             "X": 16,

@@ -41,6 +41,17 @@ namespace BaseConquest.Editor
                 foreach(string motion in new[]{"idle","walk","attack","down"}){string path="PixelDemo/Characters/"+atlas+"-"+motion+"-v2";if(Resources.Load<Texture2D>(path)!=null)Add(path,"可选动作 "+id,false);}
                 string portrait="PixelDemo/Portraits/portrait-"+id+"-v1";if(Resources.Load<Texture2D>(portrait)!=null)Add(portrait,"可选头像 "+id,false);
             }
+            Add("PixelDemo/Characters/ancient-saber-v1","古裔剑士四向图");
+            foreach(string id in new[]{"chenan","recruiter","ancient-saber"})
+                Add("PixelDemo/Portraits/portrait-"+id+"-v1","剧情专属头像");
+            foreach(string id in new[]{"player","female","ahe","azhu","galan","chief","batu","huoya","saber","archer","rider","villager"})
+            {
+                string path="PixelDemo/Characters/"+PixelDemoArt.AtlasId(id)+"-down-v2";
+                Add(path,"战斗倒地 "+id);
+                var down=Resources.Load<Texture2D>(path);
+                if(down!=null&&(down.height%4!=0||down.width!=(down.height/4)*8))
+                    throw new InvalidOperationException("倒地图集规格错误："+path);
+            }
             // Literal IDs passed indirectly through local variables are evidence of a possible reference.
             var sourceText=string.Join("\n",Directory.GetFiles("Assets/Scripts","*.cs",SearchOption.AllDirectories).Select(File.ReadAllText));
             foreach(string guid in AssetDatabase.FindAssets("t:Texture2D",new[]{"Assets/Resources/PixelDemo"}))
