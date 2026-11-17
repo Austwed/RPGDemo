@@ -78,7 +78,7 @@ namespace BaseConquest.Base
             if(enabled)button.onClick.AddListener(()=>click());
         }
 
-        private void TradeButton(Transform parent,string title,Action click,bool enabled=true,string template="TradeAction",bool selected=false)
+        private Button TradeButton(Transform parent,string title,Action click,bool enabled=true,string template="TradeAction",bool selected=false)
         {
             var button=CloneSceneUi(template,parent).GetComponent<Button>();
             BindTradeButton(button,title,()=>{if(!owner.Busy)click();},enabled);
@@ -89,6 +89,7 @@ namespace BaseConquest.Base
                 colors.disabledColor = Color.white;
                 button.colors = colors;
             }
+            return button;
         }
 
         private RectTransform TradeLine(Transform parent,string text)
@@ -98,14 +99,15 @@ namespace BaseConquest.Base
             return line;
         }
 
-        private void TradeOffer(Transform list,string id,string title)
+        private void TradeOffer(Transform list,string id,string title,string iconKey=null)
         {
-            TradeButton(list,tradeSale==""&&tradeSelection==id?"● "+title:title,()=>{
+            var button = TradeButton(list,tradeSale==""&&tradeSelection==id?"● "+title:title,()=>{
                 tradeSelection=id;
                 tradeSale=tradeFeedback="";
                 tradeQuantity=1;
                 RenderTownTrade();
             });
+            InventoryItemIcons.LeadLabel(button.GetComponentInChildren<Text>(true), InventoryItemIcons.Load(iconKey ?? id), 26);
         }
 
         private void TradeCommit(Func<BaseState, bool> action, string message, bool recruitment = false)

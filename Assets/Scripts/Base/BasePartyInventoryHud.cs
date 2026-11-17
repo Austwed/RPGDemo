@@ -218,6 +218,30 @@ namespace BaseConquest.Base
                 : entry == null ? "" : "·";
             var label = button.GetComponentInChildren<Text>(true);
             label.text = title;
+            if (visible)
+            {
+                var icon = InventoryItemIcons.Load(InventoryIconKey(entry));
+                if (icon != null)
+                {
+                    InventoryItemIcons.Draw(button.transform, icon, new Vector2(.5f, .5f), new Vector2(0, 6), 35);
+                    var caption = label.rectTransform;
+                    caption.anchorMin = Vector2.zero;
+                    caption.anchorMax = Vector2.right;
+                    caption.offsetMin = new Vector2(2, 1);
+                    caption.offsetMax = new Vector2(-2, 15);
+                    label.fontSize = Mathf.Min(label.fontSize, 12);
+                    label.alignment = TextAnchor.MiddleCenter;
+                    label.text = InventoryShortName(entry);
+                    if (entry.Count > 1)
+                    {
+                        var quantity = Label(button.transform, "×" + entry.Count, new Vector2(-15, -9),
+                            new Vector2(29, 15), 12, TextAnchor.MiddleRight, Vector2.one);
+                        quantity.color = DemoUiTheme.Current.Panel;
+                        var outline = quantity.gameObject.GetOrAdd<Outline>();
+                        outline.effectColor = DemoUiTheme.Current.Line;
+                    }
+                }
+            }
             button.interactable = editable || visible && select != null;
             if (editable) button.onClick.AddListener(() => SelectInventoryCell(visible ? entry : null, holder, slot));
             else if (visible && select != null) button.onClick.AddListener(() => select(entry));
@@ -242,6 +266,10 @@ namespace BaseConquest.Base
                 cell.Slot = slot;
             }
         }
+
+        private string InventoryIconKey(BaseInventoryEntry entry) =>
+            entry == null ? null : entry.Stack?.ItemId ??
+            (entry.Id == owner.State.Demo?.Intro?.PracticeId ? "practice_sword" : entry.Gear?.Template);
 
         private static string InventoryShortName(BaseInventoryEntry entry)
         {
@@ -272,6 +300,8 @@ namespace BaseConquest.Base
         {
             var drag = obj.GetOrAdd<PartyInventoryCell>();
             drag.ItemId = entry?.Id;
+            drag.ItemName = entry?.Name;
+            drag.Icon = InventoryItemIcons.Load(InventoryIconKey(entry));
             drag.Holder = holder;
             drag.Cell = cell;
             drag.Slot = slot;
@@ -357,7 +387,9 @@ namespace BaseConquest.Base
             details.gameObject.SetActive(entry != null);
             if (entry == null) return;
             inventoryQuantity = Mathf.Clamp(inventoryQuantity, 1, entry.Count);
-            Ui<Text>(details, "Title").text = entry.Name + (entry.Count > 1 ? " ×" + entry.Count : "");
+            var title = Ui<Text>(details, "Title");
+            title.text = entry.Name + (entry.Count > 1 ? " ×" + entry.Count : "");
+            InventoryItemIcons.LeadLabel(title, InventoryItemIcons.Load(InventoryIconKey(entry)), 25);
             string quantity = entry.Count > 1 ? inventoryQuantity + " / " + entry.Count : entry.Count.ToString();
             Ui<Text>(details, "Meta").text = "数量 " + quantity + (entry.Gear != null
                 ? " · " + BasePersonalEquipment.SlotName(BasePersonalEquipment.Definition(entry.Gear.Template).Slot) : "");

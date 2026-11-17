@@ -33,7 +33,7 @@ namespace BaseConquest.Base
             var s=owner.State;
             var entries=BasePartyInventory.Entries(s)
                 .Where(e=>e.Holder==person?.Id&&BaseEquipmentCrafting.CanSelectReforge(s,e)).ToArray();
-            foreach(var entry in entries)TradeOffer(offers,entry.Id,entry.Name+(entry.Worn?" · 已穿戴":""));
+            foreach(var entry in entries)TradeOffer(offers,entry.Id,entry.Name+(entry.Worn?" · 已穿戴":""),InventoryIconKey(entry));
 
             var selected=entries.FirstOrDefault(e=>e.Id==tradeSelection);
             if(selected==null)
