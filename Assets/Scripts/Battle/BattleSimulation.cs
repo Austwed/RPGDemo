@@ -206,7 +206,7 @@ namespace BaseConquest.Battle
         public bool Start(out string message)
         {
             if (Phase != BattlePhase.Deployment) { message = "当前已开战"; return false; }
-            if (!Soldiers.Exists(s => s.Side == BattleSide.A) || !Soldiers.Exists(s => s.Side == BattleSide.B)) { message = "甲方和乙方都至少需要投放一名单位"; return false; }
+            if (!Soldiers.Exists(s => s.Side == BattleSide.A) || !Soldiers.Exists(s => s.Side == BattleSide.B)) { message = "双方各至少需要投放一名单位"; return false; }
             if (Scenario.CommanderControl && (!Soldiers.Any(s => s.Side == BattleSide.A && s.Kind == SoldierKind.Hero) || !Scenario.BanditHideout && !Soldiers.Any(s => s.Side == BattleSide.B && s.Kind == SoldierKind.Hero)))
             { message = Scenario.BanditHideout ? "请先部署我方队长" : "双方至少各部署一名小队长"; return false; }
             if (Scenario.BanditHideout && TroopKinds.Any(kind => Remaining(BattleSide.B, kind) > 0)) { message = "敌军部署未完成"; return false; }
@@ -750,7 +750,7 @@ namespace BaseConquest.Battle
             RefreshArmyReports();
         }
         private bool HasReserves(BattleSide side) => Enum.GetValues(typeof(SoldierKind)).Cast<SoldierKind>().Any(kind => Remaining(side, kind) > 0);
-        public static string SideName(BattleSide side) => side == BattleSide.A ? "甲方" : "乙方";
+        public static string SideName(BattleSide side) => side == BattleSide.A ? "我方" : "敌方";
         public static string KindName(SoldierKind kind) => kind == SoldierKind.Melee ? "剑士" : kind == SoldierKind.Ranged ? "弓兵" : kind == SoldierKind.Cavalry ? "骑兵" : "队长";
     }
 }

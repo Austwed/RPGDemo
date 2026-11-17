@@ -66,7 +66,7 @@ namespace BaseConquest.Battle
             foreach (var a in report.Armies)
             {
                 var color = a.Side == observer ? "#5CB9FF" : "#FFAA62";
-                text.AppendLine("<color=" + color + "><b>" + BattleSimulation.SideName(a.Side) + " · " + (a.Side == observer ? "己方" : "对方") + "</b></color>");
+                text.AppendLine("<color=" + color + "><b>" + (a.Side == observer ? "我方" : "敌方") + "</b></color>");
                 text.AppendLine("普通兵：部署 " + a.Deployed + "，留场 " + a.Standing + "，倒地 " + a.Killed + "（其中即死 "+a.Troops.Sum(t=>t.InstantKilled)+"），撤离 " + a.Escaped + "，未部署 " + a.Stock);
                 text.AppendLine("兵种                 部署 / 留场 / 倒地 / 撤离 / 未部署");
                 foreach (var t in a.Troops) text.AppendLine(BattleSimulation.KindName(t.Kind) + "                  " + t.Deployed + " / " + t.Standing + " / " + t.Killed + " / " + t.Escaped + " / " + t.Stock);

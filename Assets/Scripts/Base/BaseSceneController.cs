@@ -48,7 +48,7 @@ namespace BaseConquest.Base
         private BaseMotionAssist playerMotion=new BaseMotionAssist();
         private Transform selectionFrame;
         private readonly Dictionary<string, Transform> companionViews = new Dictionary<string, Transform>();
-        private readonly List<BaseConquest.Presentation.AuthoredMapView> npcViews=new List<BaseConquest.Presentation.AuthoredMapView>();
+        private readonly Dictionary<string,AuthoredMapView> npcViews = new Dictionary<string,AuthoredMapView>();
         private static float? explorationViewSize;
         public Vector3 PlayerCameraTarget=>player.GetComponent<BattlePawn2D>().ExplorationHeadPoint;
         private sealed class Tap { public Vector2 Start; public float Travel; public bool Pinched; }
@@ -98,6 +98,14 @@ namespace BaseConquest.Base
         public void SetMotionCheck(string id,HeroPose pose){if(motionViews.TryGetValue(id,out var view))view.Preview(pose);}
         public BaseMapObject Nearby => State == null || PlayerAway ? null : DisplayObjects.Where(o=>!State.Leaders.Any(l=>l.Id==o.Id)).Concat(Companions.Footprints).Where(o=>SceneObjectVisible(o)&&BaseInteraction.CanReach(State,o)).OrderBy(o => o.Distance(State.PlayerX, State.PlayerY)).FirstOrDefault();
         public BaseMapObject PresentedObject(string id) => (State?.Leaders.Any(l=>l.Id==id)==true||BaseDemoPrologue.Followers(State).Any(l=>l.Id==id)) ? Companions.Agents.FirstOrDefault(a => a.Id == id && a.Visible)?.Footprint : DisplayObjects.FirstOrDefault(o => o.Id == id&&SceneObjectVisible(o));
+        internal bool TryCharacterTop(string id, out Vector3 top)
+        {
+            var visual = companionViews.TryGetValue(id, out var companion) ? companion :
+                npcViews.TryGetValue(id, out var npc) && npc != null ? npc.transform : null;
+            var pawn = visual != null && visual.gameObject.activeInHierarchy ? visual.GetComponent<BattlePawn2D>() : null;
+            top = pawn != null ? pawn.ExplorationVisualTop : default;
+            return pawn != null;
+        }
         public static BaseTemplateEntry[] TemplateEntries => BaseDevelopmentFiles.Templates(Path.Combine(Application.streamingAssetsPath,"BaseScenarios"),json=>JsonUtility.FromJson<BaseScenarioDocument>(json).Title,JsonUtility.FromJson<BaseTemplateList>(Resources.Load<TextAsset>("Presentation/BaseTemplates").text).Entries);
         public static string[] Templates => TemplateEntries.Select(e=>e.File).ToArray();
 
@@ -213,7 +221,7 @@ namespace BaseConquest.Base
                 {
                     var feet=WorldPoint(obj.X,obj.Y);if(!string.IsNullOrEmpty(obj.Shape))feet.y=WorldPoint(obj.Parts[0].X,obj.Parts[0].Y).y;
                     var authored=BaseConquest.Presentation.AuthoredMapView.Create(obj.Kind=="npc"?explorationActors:landmarks,obj,feet,mapMaterial,regionView.ObliqueExploration);
-                    if(obj.Kind=="npc")npcViews.Add(authored);
+                    if(obj.Kind=="npc")npcViews[obj.Id]=authored;
                     // 剧情人偶与美术检查台同规格：原地待机、可被交互切动作，顺带把视图登记进 motionViews。
                     if(BaseDemoNpcs.IsStoryShell(obj)){authored.Preview(HeroPose.Idle);motionViews[obj.Id]=authored;}
                 }
@@ -225,7 +233,7 @@ namespace BaseConquest.Base
             }
             foreach(var obj in motionObjects)
             {var view=BaseConquest.Presentation.AuthoredMapView.Create(explorationActors,obj,WorldPoint(obj.X,obj.Y),mapMaterial,regionView.ObliqueExploration);view.Preview(HeroPose.Idle);motionViews.Add(obj.Id,view);}
-            player=Person(explorationActors,"Player",new Vector2(12,6.5f),new Color(.32f,.73f,.92f));
+            player=Person(explorationActors,"Player",new Vector2((float)(State?.PlayerX??12),(float)(State?.PlayerY??6.5)),new Color(.32f,.73f,.92f));
             selectionFrame=new GameObject("FreeCellSelection").transform;selectionFrame.SetParent(explorationActors,false);selectionFrame.gameObject.SetActive(false);
             Sunlight=BaseConquest.Presentation.DemoSunlight.Create(this,regionView.Root.transform);
         }
@@ -331,12 +339,7 @@ namespace BaseConquest.Base
             {
                 double travelled = Math.Sqrt(movedX * movedX + movedY * movedY);
                 BaseDemoIntro.Walk(State, travelled);
-                if (OpeningAudio?.TakingSteps == true && travelled > 0)
-                {
-                    var cell = new GridPosition((int)Math.Floor(x), (int)Math.Floor(y));
-                    var surface = regionView.Board.Cell(cell)?.Surface ?? GroundSurface.Default;
-                    OpeningAudio.Footstep(travelled, GroundSurfaceRules.Resolve(surface, State.Campaign.Location, cell.X, cell.Z));
-                }
+                OpeningAudio?.Footstep(travelled, regionView, x, y);
             }
             State.PlayerX = x; State.PlayerY = y; PlacePlayer(cardinal?BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(input.x,input.y,BaseConquest.Presentation.HeroFacing.South):null); Hud.RefreshMovement();CheckPrologueTrigger();
         }
@@ -385,7 +388,9 @@ namespace BaseConquest.Base
                 view.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(agent.Position.X,agent.Position.Y),new Color(.62f,.55f,.32f),WorldPoint(State.PlayerX,State.PlayerY),Time.unscaledTimeAsDouble);
             }
             var eyePoint=WorldPoint(State.PlayerX,State.PlayerY);var attentionNow=Time.unscaledTimeAsDouble;
-            foreach(var npc in npcViews)npc.RefreshAttention(eyePoint,attentionNow);
+            bool choosingHero = BaseDemoIntro.Active(State) && State.Demo.Intro.Step == 0;
+            foreach(var npc in npcViews)
+                if (!choosingHero || npc.Key != "demo_captain") npc.Value.RefreshAttention(eyePoint,attentionNow);
             // 美术检查台也随主角转身，否则只能看到正面一列。
             foreach(var view in motionViews.Values)view.RefreshAttention(eyePoint,attentionNow);
         }

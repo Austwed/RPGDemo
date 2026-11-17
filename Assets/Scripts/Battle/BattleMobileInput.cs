@@ -37,7 +37,7 @@ namespace BaseConquest.Battle
         public void ClickCommanderSkill(int slot)
         {
             if (!CanUseCommanderSkill(slot)) return;
-            if(IsRealtimeCampaign){if(realtime.CastSkill(selectedSide,slot))feedback=BattleSimulation.CommanderSkillName(slot)+"已施放："+realtime.SkillDescription(slot);SyncRealtimeViews();hud?.Refresh();return;}
+            if(IsRealtimeCampaign){if(realtime.CastSkill(selectedSide,slot))feedback="已施放 · "+realtime.SkillDescription(selectedSide,slot);SyncRealtimeViews();hud?.Refresh();return;}
             if (animating)
             {
                 if (battle.UserAction(() => battle.QueueCommanderSkill(selectedSide, slot))) feedback = BattleSimulation.CommanderSkillName(slot) + "将在本轮动画结束后立即生效";
@@ -118,7 +118,7 @@ namespace BaseConquest.Battle
             if (animating || skipping) return;
             activeScenarioDocument = null; activeScenarioPath = null;
             var s = battle.Scenario.Clone(); s.Placements.Clear(); s.TestAutoDeployment = false; suppressInitialDeploy = false;
-            drawerOpen = false; ReplaceSimulation(s); feedback = "选择可用队长头像后部署；乙方已就位"; hud?.Refresh();
+            drawerOpen = false; ReplaceSimulation(s); feedback = "选择可用队长头像后部署；敌方已就位"; hud?.Refresh();
         }
         private bool UserOrder(Func<bool> action) { ManualPause(); return battle.ModernRules ? battle.UserAction(action) : action(); }
         public void UndoOneAction()
@@ -131,7 +131,6 @@ namespace BaseConquest.Battle
             if (slot < 0 || slot >= battle.Scenario.Army(selectedSide).HeroCount) return;
             if (IsRealtimeCampaign)
             {
-                if (slot == 0) realtime?.TutorialAction?.Invoke(BaseDemoIntro.Inspect);
                 if (mapTouchIds.Count > 0) CancelGesture();
                 realtime?.Model.SetPaused(true);
             }

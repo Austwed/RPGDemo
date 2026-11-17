@@ -18,10 +18,11 @@ namespace BaseConquest.Battle
         public void SetEntries(BattleSimulation battle, IEnumerable<BattleEvent> entries)
         {
             links.Clear(); var text = new StringBuilder();
+            var observer = Owner?.ControlledSide ?? BattleSide.A;
             foreach (var entry in entries)
             {
                 if (text.Length > 0) text.Append('\n');
-                int start = text.Length; string row = "[" + entry.Round + "] " + BattleMobileHud.RawEvent(battle, entry); text.Append(row);
+                int start = text.Length; string row = "[" + entry.Round + "] " + BattleMobileHud.RawEvent(battle, entry, observer); text.Append(row);
                 var ids = new[] { entry.SourceId, entry.TargetId }.Concat(entry.NamedIds ?? new int[0]).ToArray();
                 var names = new[] { entry.SourceName, entry.TargetName }.Concat(entry.NamedNames ?? new string[0]).ToArray();
                 for (int i = 0; i < ids.Length; i++)
@@ -29,6 +30,7 @@ namespace BaseConquest.Battle
                     if (ids[i] < 0) continue; string name = i < names.Length ? names[i] : null;
                     if (string.IsNullOrEmpty(name)) name = battle.UnitName(battle.Soldier(ids[i]));
                     bool ambiguous = names.Where((other, index) => index != i && index < ids.Length && ids[index] != ids[i]).Any(other => other == name);
+                    name = UnitDisplayNames.ForObserver(name, observer);
                     for (int offset = row.IndexOf(name, System.StringComparison.Ordinal); offset >= 0; offset = row.IndexOf(name, offset + name.Length, System.StringComparison.Ordinal))
                     {
                         if (links.Any(x => x.Start == start + offset)) continue;

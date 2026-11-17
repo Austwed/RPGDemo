@@ -44,6 +44,13 @@ namespace BaseConquest.Battle
                 point = opponent.BodyCenter;
                 height = .65f;
             }
+            else if (step == BaseDemoIntro.DummyDemo || step == BaseDemoIntro.AutoAttack)
+            {
+                var dummy = realtime.Tactics.Objects.FirstOrDefault(o => o.Id == BaseDemoIntro.DummyId && !o.Fallen);
+                if (dummy == null) return false;
+                point = new PrototypePoint(dummy.X + .5, dummy.Y + .5);
+                height = .58f;
+            }
             else if (step == BaseDemoIntro.Move || step == BaseDemoIntro.Guard)
             {
                 var arena = model.Arena;

@@ -42,7 +42,7 @@ namespace BaseConquest.Base
                     if(farmRouteIndex<farmRoute.Count)
                     {var next=farmRoute[farmRouteIndex];double d=origin.Distance(next),step=Math.Min(d,Math.Min(seconds<0?Time.deltaTime:seconds,.05)*2.8);if(d>.001){double x=f.FarmNpcX,y=f.FarmNpcY;BaseSpatial.Move(State,ref x,ref y,(next.X-x)/d*step,(next.Y-y)/d*step);f.FarmNpcX=x;f.FarmNpcY=y;}if(d<=.08)farmRouteIndex++;}
                 }
-                InvalidateObjects();foreach(var npc in npcViews.Where(n=>n!=null&&n.name.StartsWith("demo_ahe ·")))npc.MoveTo(WorldPoint(f.FarmNpcX,f.FarmNpcY));
+                InvalidateObjects();if(npcViews.TryGetValue("demo_ahe",out var npc))npc.MoveTo(WorldPoint(f.FarmNpcX,f.FarmNpcY));
                 if(new BasePoint(f.FarmNpcX,f.FarmNpcY).Distance(goal)>.8||new BasePoint(f.FarmNpcX,f.FarmNpcY).Distance(new BasePoint(State.PlayerX,State.PlayerY))>2)return;
             }
             if(Change(s=>{s.Demo.Flow.FarmOfferShown=true;s.Demo.Flow.FarmOfferPending=false;if(!recruited&&!BaseDemoRuins.Meet(s,"partner_farm"))throw new InvalidOperationException("请靠近阿禾交谈");},"阿禾向你介绍种植特性"))Hud.OpenAheFarmOffer(recruited);
@@ -57,7 +57,7 @@ namespace BaseConquest.Base
             {
                 if(merchantRoute==null||merchantRouteIndex>=merchantRoute.Count){merchantRoute=BaseMap.FindRoute(origin,goal,null,Ground,false,board.Width,board.Height);merchantRouteIndex=0;}
                 if(merchantRouteIndex<merchantRoute.Count){var next=merchantRoute[merchantRouteIndex];double distance=origin.Distance(next),step=Math.Min(distance,Math.Min(seconds<0?Time.deltaTime:seconds,.05)*2.8);if(distance>.001){double x=progress.MerchantX,y=progress.MerchantY;BaseSpatial.Move(State,ref x,ref y,(next.X-x)/distance*step,(next.Y-y)/distance*step);progress.MerchantX=x;progress.MerchantY=y;}if(distance<=.08)merchantRouteIndex++;}
-                marker.X=progress.MerchantX;marker.Y=progress.MerchantY;InvalidateObjects();foreach(var npc in npcViews.Where(view=>view!=null&&view.name.StartsWith("demo_merchant ·")))npc.MoveTo(WorldPoint(progress.MerchantX,progress.MerchantY));
+                marker.X=progress.MerchantX;marker.Y=progress.MerchantY;InvalidateObjects();if(npcViews.TryGetValue("demo_merchant",out var npc))npc.MoveTo(WorldPoint(progress.MerchantX,progress.MerchantY));
                 if(new BasePoint(progress.MerchantX,progress.MerchantY).Distance(new BasePoint(State.PlayerX,State.PlayerY))>2)return;
             }
             Hud.OpenDemoMerchant();

@@ -1,4 +1,5 @@
 using BaseConquest.Battle;
+using BaseConquest.Presentation;
 using BaseConquest.RealtimePrototype;
 using UnityEngine;
 
@@ -6,10 +7,10 @@ namespace BaseConquest.Base
 {
     public sealed class VillageOpeningAudio : MonoBehaviour
     {
-        internal enum Cue { Grass, Stone, Page, Assignment, Sword, Bow, WoodHit, Hit, Fall, Hoof }
+        internal enum Cue { Grass, Stone, Dirt, Page, Assignment, Sword, Bow, WoodHit, Hit, Fall, Hoof }
 
         private const string Root = "Audio/VillageOpening/";
-        private const double Stride = 1.05;
+        private const double Stride = 1.65;
 
         private sealed class Sound
         {
@@ -30,8 +31,7 @@ namespace BaseConquest.Base
         private Sound[] sounds;
         private bool active, inPractice;
         private double distance;
-
-        internal bool TakingSteps => active && !inPractice;
+        private float ambienceGain, scoreGain;
 
         private void Awake()
         {
@@ -40,7 +40,7 @@ namespace BaseConquest.Base
             effects = MakeSource();
             sounds = new[]
             {
-                new Sound(Cue.Grass, .44f, .12f), new Sound(Cue.Stone, .41f, .12f),
+                new Sound(Cue.Grass, .30f, .14f), new Sound(Cue.Stone, .39f, .14f), new Sound(Cue.Dirt, .31f, .14f),
                 new Sound(Cue.Page, .37f, .09f), new Sound(Cue.Assignment, .53f, .16f),
                 new Sound(Cue.Sword, .38f, .12f), new Sound(Cue.Bow, .40f, .12f),
                 new Sound(Cue.WoodHit, .49f, .13f), new Sound(Cue.Hit, .47f, .13f),
@@ -64,7 +64,7 @@ namespace BaseConquest.Base
 
         internal void SetContext(bool opening, bool practice)
         {
-            if (active != opening || inPractice != practice) distance = 0;
+            if (active != opening || inPractice != practice) distance = Stride * .6;
             if (active && !opening) effects.Stop();
             active = opening;
             inPractice = practice;
@@ -72,11 +72,13 @@ namespace BaseConquest.Base
 
         private void LateUpdate()
         {
-            Fade(ambience, active ? (inPractice ? .18f : .30f) : 0);
-            Fade(score, active && !inPractice ? .28f : 0, pauseWhenSilent: active);
+            float sfx = GameAudioVolume.Effects;
+            effects.volume = sfx;
+            Fade(ambience, ref ambienceGain, active ? (inPractice ? .18f : .30f) : 0, sfx);
+            Fade(score, ref scoreGain, active && !inPractice ? .28f : 0, GameAudioVolume.Music, pauseWhenSilent: active);
         }
 
-        private static void Fade(AudioSource source, float target, bool pauseWhenSilent = false)
+        private static void Fade(AudioSource source, ref float gain, float target, float channelVolume, bool pauseWhenSilent = false)
         {
             if (source.clip == null) return;
             if (target > 0 && !source.isPlaying)
@@ -84,8 +86,9 @@ namespace BaseConquest.Base
                 if (source.timeSamples > 0) source.UnPause();
                 else source.Play();
             }
-            source.volume = Mathf.MoveTowards(source.volume, target, Time.unscaledDeltaTime * .55f);
-            if (target == 0 && source.volume <= 0)
+            gain = Mathf.MoveTowards(gain, target, Time.unscaledDeltaTime * .55f);
+            source.volume = gain * channelVolume;
+            if (target == 0 && gain <= 0)
             {
                 if (pauseWhenSilent)
                 {
@@ -95,13 +98,18 @@ namespace BaseConquest.Base
             }
         }
 
-        internal void Footstep(double travelled, GroundSurface surface)
+        internal void Footstep(double travelled, BattleBoardView board, double x, double z)
         {
-            if (!TakingSteps || travelled <= 0) return;
+            if (!active || inPractice || travelled <= 0) return;
             distance += travelled;
             if (distance < Stride) return;
             distance %= Stride;
-            Play(surface == GroundSurface.Road || surface == GroundSurface.Cobble ? Cue.Stone : Cue.Grass);
+            Play(board.FootstepSurfaceAt(x, z) switch
+            {
+                GroundSurface.Cobble => Cue.Stone,
+                GroundSurface.DirtPath or GroundSurface.Sand => Cue.Dirt,
+                _ => Cue.Grass
+            });
         }
 
         internal void Play(Cue cue, float proximity = 1)

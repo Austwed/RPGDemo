@@ -12,16 +12,16 @@ TinyWorlds — Forest Ambience
 https://opengameart.org/content/forest-ambience
 Source: Forest_Ambience_0.mp3. Trimmed and crossfaded the loop, encoded to stereo Vorbis.
 
-Grass/01–02.wav, Assignment/01.wav
+Stone/01.wav, Dirt/01.wav, Assignment/01.wav
 TinyWorlds — Different steps on wood, stone, leaves, gravel and mud
 https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud
-Source members: leaves01.ogg, leaves02.ogg, wood01.ogg.
+Source members: stone01.ogg, mud02.ogg, wood01.ogg.
 
-Grass/03.wav, Stone/01–03.wav
+Grass/01–03.wav, Dirt/02.wav, Stone/02–03.wav
 Fantozzi — Fantozzi's footsteps (grass/sand, stone)
 https://opengameart.org/content/fantozzis-footsteps-grasssand-stone
-Source members: Fantozzi-SandR1.flac, Fantozzi-StoneL1.flac, Fantozzi-StoneR1.flac,
-Fantozzi-StoneL2.flac.
+Source members: Fantozzi-SandL1.flac, Fantozzi-SandR1.flac, Fantozzi-SandL2.flac,
+Fantozzi-SandR2.flac, Fantozzi-StoneR1.flac, Fantozzi-StoneL2.flac.
 
 Page/01–03.wav
 Luckius — Various Paper Sound Effects

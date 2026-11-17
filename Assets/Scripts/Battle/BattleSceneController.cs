@@ -434,7 +434,7 @@ namespace BaseConquest.Battle
                 BoardCell c = battle.Board.Cell(hover.Value);
                 string terrain = c.Terrain == TerrainKind.Ground ? "可通行" : DeveloperTerrain.Name(c.Terrain) + (c.BlocksShots ? " · 阻挡射击" : " · 可射击穿过");
                 if(FortificationInfo.Description(c)!="")terrain=FortificationInfo.Description(c);
-                cellInfo = "列 " + (hover.Value.X + 1) + " / 行 " + (hover.Value.Z + 1) + "：" + terrain + "，" + (c.Zone == DeploymentZone.None ? "无部署权限" : c.Zone == DeploymentZone.A ? "甲方部署区" : "乙方部署区") + "\n";
+                cellInfo = "列 " + (hover.Value.X + 1) + " / 行 " + (hover.Value.Z + 1) + "：" + terrain + "，" + (c.Zone == DeploymentZone.None ? "无部署权限" : c.Zone == DeploymentZone.A ? "我方部署区" : "敌方部署区") + "\n";
             }
             if (!battle.ModernRules) GUI.Label(new Rect(PanelWidth + 20, UiHeight - 80, UiWidth - PanelWidth - 40, 72), cellInfo + feedback, textStyle);
             if (battle.Phase == BattlePhase.Finished && !animating) DrawReport();
@@ -447,7 +447,7 @@ namespace BaseConquest.Battle
             for (int i = 0; i < 2; i++)
             {
                 GUI.backgroundColor = (int)selectedSide == i ? (i == 0 ? new Color(0.35f, 0.75f, 1) : new Color(1, 0.65f, 0.35f)) : Color.white;
-                if (Button(i == 0 ? "甲方" : "乙方")) SelectGroup((BattleSide)i, selectedKind);
+                if (Button(i == 0 ? "我方" : "敌方")) SelectGroup((BattleSide)i, selectedKind);
             }
             GUI.backgroundColor = Color.white; GUILayout.EndHorizontal();
         }
@@ -456,7 +456,7 @@ namespace BaseConquest.Battle
             GUI.enabled = battle.Phase == BattlePhase.Deployment;
             GUILayout.Label("左键拖动涂画；右键恢复地面", smallStyle);
             brushShape = GUILayout.Toolbar(brushShape, new[] { "单格", "3×3", "矩形" }, buttonStyle);
-            string[] labels = { "甲方部署区", "乙方部署区", "清除部署区", "恢复地面", "水域（可射）", "城墙（挡射）", "沼泽", "建筑（挡射）" };
+            string[] labels = { "我方部署区", "敌方部署区", "清除部署区", "恢复地面", "水域（可射）", "城墙（挡射）", "沼泽", "建筑（挡射）" };
             for (int row = 0; row < 4; row++)
             {
                 GUILayout.BeginHorizontal();
@@ -484,11 +484,11 @@ namespace BaseConquest.Battle
         private void LoadBoard(BattleBoard board)
         {
             BattleScenario scenario = battle.Scenario.Clone(); scenario.Board = board; scenario.Placements.Clear();
-            ReplaceSimulation(scenario); feedback = "棋盘已更新，重新投放甲乙双方单位即可测试";
+            ReplaceSimulation(scenario); feedback = "棋盘已更新，重新投放双方单位即可测试";
         }
         private void DrawDeploymentPanel()
         {
-            if (battle.ModernRules) battle.Scenario.TestAutoDeployment = GUILayout.Toggle(battle.Scenario.TestAutoDeployment, "测试重开时布满双方（关闭则手动部署甲方）");
+            if (battle.ModernRules) battle.Scenario.TestAutoDeployment = GUILayout.Toggle(battle.Scenario.TestAutoDeployment, "测试重开时布满双方（关闭则手动部署我方）");
             GUI.enabled = battle.Phase == BattlePhase.Deployment;
             GUILayout.Label("选择兵种，左键点格／拖动下兵。\n右键撤回单位。战中库存可在轮次之间继续部署。", smallStyle);
             for (int i = 0; i < 4; i++)
@@ -516,7 +516,7 @@ namespace BaseConquest.Battle
         {
             GUI.enabled = battle.Phase == BattlePhase.Deployment;
             ArmyDefinition army = battle.Scenario.Army(selectedSide);
-            GUILayout.Label("分别设置甲乙双方。应用后保留合法布兵，数量减少时多出的单位返回备战席。", smallStyle);
+            GUILayout.Label("分别设置双方。应用后保留合法布兵，数量减少时多出的单位返回备战席。", smallStyle);
             GUILayout.BeginHorizontal(); GUILayout.Label("兵种", smallStyle, GUILayout.Width(58)); GUILayout.Label("人数", smallStyle, GUILayout.Width(59)); GUILayout.Label("生命", smallStyle, GUILayout.Width(59)); GUILayout.Label("伤害", smallStyle, GUILayout.Width(59)); GUILayout.Label("射程", smallStyle); GUILayout.EndHorizontal();
             for (int i = 0; i < 4; i++)
             {
@@ -631,7 +631,7 @@ namespace BaseConquest.Battle
             GUILayout.EndScrollView(); GUILayout.EndArea();
         }
         public static string CommandName(SquadCommand c) => c == SquadCommand.Move ? "移动" : c == SquadCommand.Focus ? "攻击" : c == SquadCommand.Retreat ? "撤退" : c == SquadCommand.Hold ? "驻守" : "自动";
-        public static string OutcomeName(BattleOutcome result) => result == BattleOutcome.SideAWin ? "甲方胜利" : result == BattleOutcome.SideBWin ? "乙方胜利" : result == BattleOutcome.Draw ? "双方同时倒下" : result == BattleOutcome.Retreat ? "撤退结束" : result == BattleOutcome.Stalemate ? "僵持，无可执行进展" : "达到轮数上限";
+        public static string OutcomeName(BattleOutcome result) => result == BattleOutcome.SideAWin ? "我方胜利" : result == BattleOutcome.SideBWin ? "敌方胜利" : result == BattleOutcome.Draw ? "双方同时倒下" : result == BattleOutcome.Retreat ? "撤退结束" : result == BattleOutcome.Stalemate ? "僵持，无可执行进展" : "达到轮数上限";
         public void DisposePreview()
         {
             realtime=null;realtimeArrows.Clear();

@@ -127,6 +127,15 @@ namespace BaseConquest.Battle
         }
         private readonly Dictionary<int,BoardCell> appearanceCells=new Dictionary<int,BoardCell>();
         public BoardCell DisplayCell(GridPosition point)=>appearanceCells.TryGetValue(point.Z*board.Width+point.X,out var cell)?cell:board.Cell(point);
+        private GroundSurface DisplaySurface(GridPosition cell, BoardCell data) => GroundSurfaceRules.Resolve(data.Surface, surfaceRegion, cell.X, cell.Z);
+        internal GroundSurface FootstepSurfaceAt(double x, double z)
+        {
+            var cell = new GridPosition((int)System.Math.Floor(x), (int)System.Math.Floor(z));
+            var surface = DisplaySurface(cell, DisplayCell(cell));
+            // The current trail texture paints stone pavers on cells authored as DirtPath.
+            return surface == GroundSurface.Road || homeTerrainTrial && surface == GroundSurface.DirtPath ||
+                ObliqueExploration && board.RampLowEdge(cell) != 0 ? GroundSurface.Cobble : surface;
+        }
         public void SetCombatAppearance(BattleBoard original)
         {
             appearanceCells.Clear();
@@ -364,7 +373,7 @@ namespace BaseConquest.Battle
                 tile.sortingOrder=0;
                 if(cell.Terrain==TerrainKind.Ground)
                 {
-                    var surface=GroundSurfaceRules.Resolve(cell.Surface,surfaceRegion,p.X,p.Z);
+                    var surface=DisplaySurface(p,cell);
                     if(surface!=GroundSurface.Default)
                     {
                         if(!surfaceMaterials.TryGetValue(surface,out var skin)){var texture=(homeTerrainTrial?BaseConquest.Presentation.HomeTerrainTrial.Texture(surface):null)??BaseConquest.Presentation.MapSurfaceView.Texture(surface);if(texture!=null)surfaceMaterials[surface]=skin=MakeMaterial(groundMaterial,texture,"Ground_"+surface);}
@@ -437,7 +446,7 @@ namespace BaseConquest.Battle
                 if (buildingGround.TryGetValue(index, out var ground)) ground.SetActive(liftArt);
                 if(ObliqueExploration&&cell.Terrain==TerrainKind.Ground&&(cell.Elevation>0||cell.Ramp!=RampAxis.None))
                 {
-                    var surface=GroundSurfaceRules.Resolve(cell.Surface,surfaceRegion,p.X,p.Z);
+                    var surface=DisplaySurface(p,cell);
                     bool steps=board.RampLowEdge(p)!=0;
                     var topMaterial=steps&&homeTerrainTrial&&baseStairMaterial!=null ? baseStairMaterial : (steps||surface==GroundSurface.Road)&&baseRaisedRoadMaterial!=null ? baseRaisedRoadMaterial : (surface==GroundSurface.Grass||surface==GroundSurface.Default)&&baseRaisedGrassMaterial!=null ? GrassVariant(baseRaisedGrassMaterial,p.X,p.Z) : tile.sharedMaterial;
                     raisedMeshes[index]=BaseConquest.Presentation.BaseTerrainView.Ground(board,p,steps);
@@ -647,7 +656,7 @@ namespace BaseConquest.Battle
                 marker.transform.SetParent(Root.transform, false); marker.transform.position = World(cell, board) + new Vector3(0, 0.5f, -0.34f); marker.transform.rotation = Quaternion.Euler(90, 0, 0);
                 var text = marker.GetComponent<TextMesh>();
                 if (text == null) text = marker.AddComponent<TextMesh>();
-                text.text = i == 0 ? "甲方撤离" : "乙方撤离"; text.fontSize = 36; text.characterSize = 0.08f; text.anchor = TextAnchor.MiddleCenter; text.color = new Color(0.65f, 1, 0.75f);
+                text.text = i == 0 ? "我方撤离" : "敌方撤离"; text.fontSize = 36; text.characterSize = 0.08f; text.anchor = TextAnchor.MiddleCenter; text.color = new Color(0.65f, 1, 0.75f);
                 if (font != null) { text.font = font; marker.GetComponent<Renderer>().sharedMaterial = font.material; }
             }
         }

@@ -28,7 +28,8 @@ namespace BaseConquest.Battle
         private RectTransform realtimeControls, practiceInstruction;
         private readonly Button[] realtimeStrategies = new Button[3];
         private Button realtimePause, realtimeSpeed;
-        private Text practiceArrow, practiceInstructionText;
+        private GuidanceArrow practiceArrow;
+        private Text practiceInstructionText;
         private readonly BattleResultPanel battleResult;
         private readonly RectTransform draftControls, preparationPanel, fightingPanel, resultPanel;
         private readonly Text[] troopStatus = new Text[3];
@@ -551,7 +552,7 @@ namespace BaseConquest.Battle
             }
             log.text=log.text.Replace("轮","秒");
         }
-        // 顶部目标面板：只读查询，绝不写模型；任务方固定甲方，不代表玩法手感验收。
+        // 顶部目标面板：只读查询，绝不写模型；任务方固定为我方，不代表玩法手感验收。
         private void RefreshObjective(BattleSimulation b)
         {
             var progress = BattleObjectiveView.Current(b, owner.ControlledSide);
@@ -573,16 +574,18 @@ namespace BaseConquest.Battle
             var c = b.Board.Cell(p); string terrain = c.Terrain == TerrainKind.Water ? "水域：不可通行，可透视／射击" : c.Terrain == TerrainKind.Building ? "建筑：不可通行，阻挡视线／射击" : c.Terrain == TerrainKind.Wall ? "城墙：不可通行，阻挡视线／射击" : c.Terrain == TerrainKind.Swamp ? "沼泽：可通行，脚力5，不挡视线／射击" : "地面：可以通行、部署与交战";
             if(FortificationInfo.Description(c)!="")terrain=FortificationInfo.Description(c);
             terrain+="\n"+b.Board.HeightDescription(p);
-            string exit = p == b.ExitCell(BattleSide.A) ? " · 甲方撤离点" : p == b.ExitCell(BattleSide.B) ? " · 乙方撤离点" : "";
-            return "格 " + p + exit + "\n" + terrain + "\n" + (c.Zone == DeploymentZone.None ? "无部署权限" : c.Zone == DeploymentZone.A ? "甲方部署区域" : "乙方部署区域");
+            string exit = p == b.ExitCell(observer) ? " · 我方撤离点" : p == b.ExitCell(observer == BattleSide.A ? BattleSide.B : BattleSide.A) ? " · 敌方撤离点" : "";
+            string deployment = c.Zone == DeploymentZone.None ? "无部署权限" : (c.Zone == (observer == BattleSide.A ? DeploymentZone.A : DeploymentZone.B) ? "我方" : "敌方") + "部署区域";
+            return "格 " + p + exit + "\n" + terrain + "\n" + deployment;
         }
-        public static string RawEvent(BattleSimulation b, BattleEvent e) => e.Message ?? (e.SourceName ?? b.UnitName(b.Soldier(e.SourceId))) + " → " + (e.TargetName ?? b.UnitName(b.Soldier(e.TargetId))) + " " + e.Damage.ToString("0.#") + "伤害" + (e.Critical ? "（暴击）" : "") + "，余血" + e.RemainingHealth.ToString("0.#") + (e.Lethal ? "（致死）" : e.Downed ? "（击倒）" : "");
+        public static string RawEvent(BattleSimulation b, BattleEvent e, BattleSide observer = BattleSide.A) => UnitDisplayNames.ForObserver(
+            e.Message ?? (e.SourceName ?? b.UnitName(b.Soldier(e.SourceId))) + " → " + (e.TargetName ?? b.UnitName(b.Soldier(e.TargetId))) + " " + e.Damage.ToString("0.#") + "伤害" + (e.Critical ? "（暴击）" : "") + "，余血" + e.RemainingHealth.ToString("0.#") + (e.Lethal ? "（致死）" : e.Downed ? "（击倒）" : ""), observer);
         public static string FormatEvent(BattleSimulation b, BattleEvent e, BattleSide observer, bool darkPanel = false)
         {
-            string raw = RawEvent(b, e);
+            string raw = RawEvent(b, e, observer);
             string ally = darkPanel ? "#9AD3FF" : "#275A8A";
             string enemy = darkPanel ? "#FFC59A" : "#924922";
-            return "[" + e.Round + "] " + Regex.Replace(raw, "(甲方|乙方)(?:金冠队长|银冠副队长|铜冠副队长|剑士?#[0-9]+|弓兵#[0-9]+|远程#[0-9]+|骑兵#[0-9]+|指挥者)?", m => "<color=" + ((m.Value.StartsWith("甲方") == (observer == BattleSide.A)) ? ally : enemy) + ">" + m.Value + "</color>");
+            return "[" + e.Round + "] " + Regex.Replace(raw, "(我方|敌方)(?:金冠队长|银冠副队长|铜冠副队长|剑士?#[0-9]+|弓兵#[0-9]+|远程#[0-9]+|骑兵#[0-9]+|指挥者)?", m => "<color=" + (m.Value.StartsWith("我方") ? ally : enemy) + ">" + m.Value + "</color>");
         }
     }
 

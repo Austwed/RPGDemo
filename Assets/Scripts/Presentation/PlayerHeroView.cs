@@ -25,6 +25,7 @@ namespace BaseConquest.Presentation
         public HeroPose Pose {get;private set;}
         public int AtlasFrame {get;private set;}
         public Vector3 HeadPoint=>pixel!=null?pixel.Root.transform.TransformPoint(new Vector3(0,.28f,50f*1.55f/56)):transform.TransformPoint(new Vector3(0,.28f,1.38f));
+        internal Vector3 VisualTop => pixel?.VisualTop ?? HeadPoint;
         public bool Initialize(Material source,string appearance="player")
         {
             if(pixel!=null)return true;
@@ -49,6 +50,11 @@ namespace BaseConquest.Presentation
             if(moving)walkDistance+=groundDelta.magnitude;
             Facing=facing??PlayerHeroFrames.FaceWalking(delta.x,delta.z,Facing);
             Set(moving ? HeroPose.Walk : HeroPose.Idle,moving ? walkDistance/(BattleBoardView.CellSize*4) : Time.unscaledTime,false,false);
+        }
+        internal void HoldSelectionPose()
+        {
+            Facing = HeroFacing.South;
+            Set(HeroPose.Idle, 0, false, false, referenceIdle: true);
         }
         public void Battle(BattleSimulation battle,BattleSoldier unit,float progress,bool carried)
         {
@@ -91,10 +97,10 @@ namespace BaseConquest.Presentation
             realtimeObserved=true;
             Set(pose,time,actor.FlashUntil>seconds,false);
         }
-        private void Set(HeroPose pose,double time,bool hit,bool carried)
+        private void Set(HeroPose pose,double time,bool hit,bool carried,bool referenceIdle=false)
         {
             Pose=pose;AtlasFrame=PlayerHeroFrames.Frame(pose,Facing,time);
-            if(pixel!=null){pixel.Set(Facing,pose,time,hit,carried,false);return;}
+            if(pixel!=null){pixel.Set(Facing,pose,time,hit,carried,false,referenceIdle);return;}
             bool rigged=(pose==HeroPose.Walk||pose==HeroPose.Idle)&&walkRig!=null;if(walkRig!=null){walkRig.Root.SetActive(rigged);if(rigged)walkRig.Set(pose==HeroPose.Walk ? time : 0,Facing,hit);}surface.enabled=!rigged;
             int row=AtlasFrame/8,col=AtlasFrame%8;float left=col/8f,right=(col+1)/8f,bottom=1-(row+1)/8f,top=1-row/8f;
             mesh.uv=new[]{new Vector2(left,bottom),new Vector2(left,top),new Vector2(right,top),new Vector2(right,bottom)};

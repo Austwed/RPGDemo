@@ -116,6 +116,7 @@ namespace BaseConquest.Presentation
         public readonly GameObject Root;
         public readonly Mesh Mesh;
         public readonly Renderer Renderer;
+        internal Vector3 VisualTop => Root.transform.TransformPoint(new Vector3(0, .28f, Mesh.bounds.max.z));
         private readonly Material material;
         private readonly Texture2D atlas,mountedAtlas,idleAtlas,walkAtlas,attackAtlas,downAtlas,mountedIdleAtlas,mountedWalkAtlas,mountedAttackAtlas,mountedDownAtlas;
         private readonly bool bowAttack,alwaysMounted,mountedArt;

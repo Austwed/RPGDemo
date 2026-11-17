@@ -26,10 +26,11 @@ namespace BaseConquest.Base
     public static class BaseDemoIntro
     {
         public const string BattleId="demo:prologue:practice";
-        public const int Select=1, Pause=2, Move=4, Attack=8, Guard=16, Skill=32, Inspect=64, All=127;
+        public const int Select=1, Pause=2, Move=4, Attack=8, Guard=16, Skill=32, All=Select|Pause|Move|Attack|Guard|Skill;
+        private const int LegacyInspect = 64;
         public const int DummyDemo=128, AutoAttack=256;
         public const string DummyId="intro:training-dummy";
-        private static readonly int[] DrillControls={Select,Pause,Move,Guard,Skill,Inspect};
+        private static readonly int[] DrillControls={Select,Pause,Move,Guard,Skill};
         public static bool Active(BaseState s)=>BaseDemo.Active(s)&&s.Demo.Intro!=null;
         public static bool Daily(BaseState s)=>Active(s)&&BaseDemoPrologue.Village(s)&&!new[]{6,7,8}.Contains(s.Demo.Intro.Step);
         public static string PlayerArt(BaseState s)=>Active(s)&&s.Demo.Intro.Hero=="female"?"female":"player";
@@ -245,28 +246,67 @@ namespace BaseConquest.Base
         public static void Configure(RealtimeCampaignBattle run,BaseDemoIntroState intro)
         {
             int Next()=>NextExercise(intro);
-            run.TutorialAction=flag=>{int next=Next();if((flag&next)==0)return;if(next==AutoAttack){intro.DummyPhase=3;run.Issue(new[]{run.Model.Player.Id-1},PrototypeOrder.Auto,run.Model.Player.Position);return;}if(next==Move){intro.MoveOrdered=true;intro.DrillMoveOrigin=run.Model.Player.DistanceTravelled;}else {intro.DrillFlags|=next;if(next!=Attack)intro.TutorialDelay=1;}};
-            run.Model.SetStrategy(run.Model.Player,PrototypeStrategy.Obey);run.Model.DefaultDestination=_=>-1;
-            foreach(var u in run.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))run.Model.SetStrategy(u,PrototypeStrategy.Obey);
-            run.Tactics.ObjectHit=(actor,obj,power)=>{
-                if(obj.Id!=DummyId||power<=0)return;
-                if(intro.DummyPhase==1&&actor.Side==PrototypeSide.Enemy){intro.DummyPhase=2;actor.ObjectOrder=false;actor.ObjectTargetId="";actor.ObjectWindupAt=-1;run.Model.SetStrategy(actor,PrototypeStrategy.Obey);}
-                else if(intro.DummyPhase==3&&actor.Id==run.Model.Player.Id&&!actor.ManualOrder){intro.DummyHits++;if(intro.DummyHits>=3){intro.DummyPhase=4;run.Tactics.Cancel(new[]{actor.Squad});run.Model.SetStrategy(actor,PrototypeStrategy.Obey);intro.TutorialDelay=1;}}
+            var player = run.Model.Player;
+            var partner = run.Model.Units.Single(u => u.Side == PrototypeSide.Enemy);
+            run.TutorialAction = flag =>
+            {
+                int next = Next();
+                if ((flag & next) == 0) return;
+                if (next == AutoAttack)
+                {
+                    if (intro.DummyPhase != 2) return;
+                    intro.DummyPhase = 3;
+                    run.Issue(new[] { player.Id - 1 }, PrototypeOrder.Auto, player.Position);
+                }
+                else if (next == Move)
+                {
+                    intro.MoveOrdered = true;
+                    intro.DrillMoveOrigin = player.DistanceTravelled;
+                }
+                else
+                {
+                    intro.DrillFlags |= next;
+                    if (next != Attack) intro.TutorialDelay = 1;
+                }
+            };
+            run.Model.SetStrategy(player, PrototypeStrategy.Obey);
+            run.Model.SetStrategy(partner, PrototypeStrategy.Obey);
+            run.Model.DefaultDestination = _ => -1;
+            run.Tactics.ObjectHit = (actor, obj, power) =>
+            {
+                if (obj.Id != DummyId || power <= 0 || intro.DummyPhase >= 4) return;
+                if (intro.DummyPhase == 3 && actor.Id == player.Id && !actor.ManualOrder) intro.DummyHits++;
+                if (obj.Health <= 0 || intro.DummyHits >= 3)
+                {
+                    intro.DummyPhase = 4;
+                    run.Tactics.Cancel(new[] { player.Squad });
+                    run.Model.SetStrategy(player, PrototypeStrategy.Obey);
+                    run.Model.SetStrategy(partner, PrototypeStrategy.Obey);
+                    intro.TutorialDelay = 1;
+                }
+                else if (intro.DummyPhase == 1 && actor.Id == partner.Id)
+                {
+                    intro.DummyPhase = 2;
+                    actor.ObjectOrder = false;
+                    actor.ObjectTargetId = "";
+                    actor.ObjectWindupAt = -1;
+                    run.Model.SetStrategy(actor, PrototypeStrategy.Obey);
+                }
             };
             run.PrepareTutorialSkills();run.TutorialSkillGate=()=>Next()==Skill;
             var targeting=run.Model.CanTarget;run.Model.CanTarget=(source,target)=>source.Side==PrototypeSide.Ally&&(intro.DrillFlags&Attack)!=0&&(targeting?.Invoke(source,target)??true);
             run.Model.CanMove=actor=>actor.Side==PrototypeSide.Ally||intro.DummyPhase==1;
             run.OutcomeResolver=current=>{
                 if(intro.MoveOrdered&&current.Model.Player.DistanceTravelled-intro.DrillMoveOrigin>=.49){intro.DrillFlags|=Move;intro.MoveOrdered=false;intro.TutorialDelay=1;}
-                return intro.DrillFlags==All&&current.Model.Hits>0?BattleOutcome.SideAWin:BattleOutcome.None;};
+                return (intro.DrillFlags & All) == All && current.Model.Hits > 0 ? BattleOutcome.SideAWin : BattleOutcome.None;};
         }
         public static bool FinishPractice(BaseState s,bool completed)
-        {if(!Active(s)||s.Demo.Intro.Step!=4||s.SceneBattleId!=BattleId)return false;s.SceneBattleId="";if(completed&&s.Demo.Intro.DrillFlags==All)s.Demo.Intro.Step=6;return true;}
+        {if(!Active(s)||s.Demo.Intro.Step!=4||s.SceneBattleId!=BattleId)return false;s.SceneBattleId="";if(completed&&(s.Demo.Intro.DrillFlags&All)==All)s.Demo.Intro.Step=6;return true;}
         public static void Validate(BaseState s)
         {
             if(!Active(s))return;var i=s.Demo.Intro;var village=s.Demo.StoryScene?.Valid==true?s.Demo.StoryScene.Map("village").Board:null;int width=village?.Width??24,height=village?.Height??14;
             if(i.DummyPhase<0||i.DummyPhase>4||i.DummyHits<0||i.DummyHits>3)throw new ArgumentException("木桩教学进度非法");
-            if(i.Step<0||i.Step>10||i.Step>0&&!new[]{"male","female"}.Contains(i.Hero)||i.Step==0&&i.Hero!=""||i.DrillFlags<0||i.DrillFlags>All||i.FarmWorkers<2||i.FarmWorkers>4||double.IsNaN(i.Walked)||double.IsInfinity(i.Walked)||i.Walked<0||i.CaptainX<0||i.CaptainX>=width||i.CaptainY<0||i.CaptainY>=height)throw new ArgumentException("序章教学进度非法");
+            if(i.Step<0||i.Step>10||i.Step>0&&!new[]{"male","female"}.Contains(i.Hero)||i.Step==0&&i.Hero!=""||(i.DrillFlags&~(All|LegacyInspect))!=0||i.FarmWorkers<2||i.FarmWorkers>4||double.IsNaN(i.Walked)||double.IsInfinity(i.Walked)||i.Walked<0||i.CaptainX<0||i.CaptainX>=width||i.CaptainY<0||i.CaptainY>=height)throw new ArgumentException("序章教学进度非法");
             if(new[]{i.ReporterX,i.ReporterY,i.DrillMoveOrigin,i.TutorialDelay,i.CaptainX,i.CaptainY,i.DepartureWait,i.MilitiaDelay}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||i.ReporterX<0||i.ReporterX>=width||i.ReporterY<0||i.ReporterY>=height||i.DrillMoveOrigin<0||i.TutorialDelay<0||i.TutorialDelay>1)throw new ArgumentException("报信人与演练位置非法");
             if(i.Militia==null||i.MilitiaSpawned<0||i.MilitiaSpawned>4||i.Militia.Count!=i.MilitiaSpawned||i.DepartureWait<0||i.DepartureWait>1.05||i.MilitiaDelay<-.06||i.MilitiaDelay>.4||i.Militia.Any(v=>v==null||new[]{v.MapX,v.MapY}.Any(n=>double.IsNaN(n)||double.IsInfinity(n))||v.MapX<0||v.MapX>=width||v.MapY<0||v.MapY>=height)||i.DeparturePhase<0||i.DeparturePhase>4||i.Militia.Select(v=>v.Id).Distinct().Count()!=i.Militia.Count)throw new ArgumentException("序章民兵离场记录非法");
             if(i.Step>0&&s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).AppearanceId!=PlayerArt(s))throw new ArgumentException("主角选择与形象不一致");

@@ -12,7 +12,7 @@ namespace BaseConquest.Battle
     {
         private GameObject campaignMenu;
         private Font saveMenuFont;
-        private enum CampaignMenuPage { Main, Options, ConfirmMainMenu, ConfirmQuit }
+        private enum CampaignMenuPage { Main, Options, Audio, ConfirmMainMenu, ConfirmQuit }
         internal bool UsesCampaignSystemMenu => DeploymentDraftActive || IsCampaignBattle && !IsStandaloneTest;
         internal bool CampaignMenuOpen => campaignMenu != null && !battleBagOpen;
         public void OpenCampaignSaves(bool loading=false)
@@ -95,7 +95,9 @@ namespace BaseConquest.Battle
             bool canWithdraw = !DeploymentDraftActive && realtime != null && battle?.Phase == BattlePhase.Fighting &&
                 (!IsSecondDefense || realtime.DefensePursuitReady) && !IsStandaloneTest;
             bool demo = BaseBattleGateway.DemoMode && !IsStandaloneTest;
-            panel.sizeDelta = new Vector2(720, compact ? (confirmation ? 334 : canWithdraw ? 370 : 306) : 418);
+            float height = page == CampaignMenuPage.Audio ? 272 : page == CampaignMenuPage.Options ? 370 :
+                compact ? (confirmation ? 334 : canWithdraw ? 370 : 306) : 418;
+            panel.sizeDelta = new Vector2(720, height);
             panel.gameObject.GetOrAdd<Image>();
             DemoUiTheme.Current.Frame(panel);
 
@@ -159,8 +161,9 @@ namespace BaseConquest.Battle
             }
             else if (page == CampaignMenuPage.Options)
             {
-                float y = compact ? 93 : 102;
+                float y = 124;
                 Option("Back", "返回菜单", y, OpenCampaignMenu);
+                Option("Audio", "声音设置", y -= 62, () => BuildCampaignMenu(CampaignMenuPage.Audio));
                 Option("Grid", "战斗格子描边：" + (MapDisplayOptions.BattleGridOutlines ? "开启" : "关闭"), y -= 62, () =>
                 {
                     MapDisplayOptions.BattleGridOutlines = !MapDisplayOptions.BattleGridOutlines;
@@ -175,6 +178,8 @@ namespace BaseConquest.Battle
                     });
                 Option("Continue", back, y - 62, CloseCampaignMenu);
             }
+            else if (page == CampaignMenuPage.Audio)
+                Option("Back", "返回选项", 96, OpenCampaignOptions);
             else
             {
                 bool quit = page == CampaignMenuPage.ConfirmQuit;
@@ -189,6 +194,8 @@ namespace BaseConquest.Battle
                 Option("Cancel", "取消", -76, OpenCampaignMenu);
             }
             UiPrefabBinding.Complete(campaignMenu);
+            if (page == CampaignMenuPage.Audio)
+                GameAudioVolume.AddControls(panel, saveMenuFont, new Vector2(.5f, .5f), new Vector2(0, -12), 620);
             hud?.Refresh();
         }
 

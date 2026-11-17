@@ -39,7 +39,18 @@ namespace BaseConquest.Battle
         }
         public float IncomingAttackMultiplier(BattleSoldier source, BattleSoldier target) => (ModernRules && source.CombatKind == SoldierKind.Ranged && target.ProfessionKind == SoldierKind.Cavalry && target.MovedThisRound ? 0.5f : 1f) * (ModernRules && source.CombatKind==SoldierKind.Ranged && Board.Cell(target.Cell)?.FixedCover==true && Board.Walkable(target.Cell) ? 0.75f : 1f);
         public static string CommanderSkillName(int slot) => slot == 0 ? "鼓舞" : slot == 1 ? "行军" : "治愈";
-        public string CommanderSkillDescription(int slot) => CommanderSkillName(slot) + "：" + (slot == 0 ? "本队攻击＋" + ((Scenario.Effects.InspireMultiplier - 1) * 100).ToString("0") + "%，" + Scenario.Effects.InspireDuration + "轮" : slot == 1 ? "本队速度＋" + Scenario.Effects.MarchSpeedBonus + "，免恶劣地形／解除地形虚弱，" + Scenario.Effects.MarchDuration + "轮" : "伤害后每轮恢复" + Scenario.Effects.HealPerRound.ToString("0") + "生命，" + Scenario.Effects.HealDuration + "轮") + "；CD" + Scenario.Effects.Cooldown;
+        internal string CommanderSkillEffect(int slot, bool realtime = false)
+        {
+            var rules = Scenario.Effects;
+            string unit = realtime ? "秒" : "轮";
+            return slot switch
+            {
+                0 => $"攻击 +{(rules.InspireMultiplier - 1):0%}，持续 {rules.InspireDuration} {unit}",
+                1 => $"速度 +{rules.MarchSpeedBonus}，免地形减速，持续 {rules.MarchDuration} {unit}",
+                _ => $"每{unit}恢复 {rules.HealPerRound:0} 生命，持续 {rules.HealDuration} {unit}"
+            };
+        }
+        public string CommanderSkillDescription(int slot) => $"{CommanderSkillName(slot)} · {CommanderSkillEffect(slot)} · 冷却 {Scenario.Effects.Cooldown} 轮";
         public int CommanderSkillCooldown(BattleSide side, int slot)
         {
             var q = CommanderSquad(side, slot); return q == null ? 0 : Phase == BattlePhase.Deployment ? Scenario.Effects.OpeningCooldowns[slot] : Math.Max(0, q.SkillReadyRound - RoundNumber);
@@ -82,8 +93,7 @@ namespace BaseConquest.Battle
                 else if (slot == 1) { unit.MarchUntil = Math.Max(unit.MarchUntil, RoundNumber + Scenario.Effects.MarchDuration); unit.WeakTerrainUntil = 0; unit.BuffGainSerial++; }
                 else { unit.RegenUntil = Math.Max(unit.RegenUntil, RoundNumber + Scenario.Effects.HealDuration); unit.RegenSourceId = hero.Id; unit.HealGainSerial++; }
             }
-            int duration = slot == 0 ? Scenario.Effects.InspireDuration : slot == 1 ? Scenario.Effects.MarchDuration : Scenario.Effects.HealDuration;
-            Notice(UnitName(hero) + "施放" + CommanderSkillName(slot) + "，影响" + recipients.Count + "人（指挥者" + recipients.Count(s => s.Kind == SoldierKind.Hero) + "／小兵" + recipients.Count(s => s.Kind != SoldierKind.Hero) + "），持续" + duration + "回合（从下一轮起），CD" + Scenario.Effects.Cooldown, hero.Side, hero.Id);
+            Notice($"{UnitName(hero)}施放{CommanderSkillName(slot)}，影响 {recipients.Count} 人 · {CommanderSkillEffect(slot)}（下轮起）", hero.Side, hero.Id);
             return true;
         }
         public int ResolveQueuedCommanderSkills()

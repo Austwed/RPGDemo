@@ -108,7 +108,7 @@ namespace BaseConquest.Base
             for (int i = 0; i < labels.Length; i++)
             {
                 labels[i] = Label(mapLabels, labelObjects[i].Name.Replace("伙伴 · ", ""), Vector2.zero, new Vector2(180, 36), 18, TextAnchor.MiddleCenter).rectTransform;
-                var marker=Label(labels[i],"",new Vector2(0,33),new Vector2(42,42),34,TextAnchor.MiddleCenter);marker.name="NpcStatusMarker";marker.color=new Color(1,.78f,.12f,1);marker.fontStyle=FontStyle.Bold;npcMarkers[i]=marker;
+                npcMarkers[i] = CreateNpcStatusMarker(labels[i]);
             }
             inspection = Box("CellInformation", root, new Vector2(0.5f, 0), new Vector2(0, 123), new Vector2(740, 180), new Color(0.969f, 0.965f, 0.925f, 0.98f));
             inspectionTitle = Label(inspection, "", new Vector2(-30, 64), new Vector2(630, 34), 22);
@@ -174,10 +174,20 @@ namespace BaseConquest.Base
             label.anchoredPosition = local;
             label.gameObject.SetActive(screen.z > 0 && local.y - label.rect.height * .5f >= mapLabels.rect.yMin && local.y + label.rect.height * .5f <= mapLabels.rect.yMax);
         }
-        private void PlaceCompanionLabel(RectTransform label,double x,double y,float raise=1.8f)
+        private Text CreateNpcStatusMarker(RectTransform name)
         {
-            // Anchor to the actual feet, not terrain sampled beyond the character across a ledge.
-            PlaceMapLabel(label,owner.WorldPoint(x,y)+owner.WorldCamera.transform.up*raise,label.rect.height*.5f+6);
+            var marker = Label(name, "", new Vector2(0, 29), new Vector2(36, 38), 30, TextAnchor.MiddleCenter);
+            marker.name = "NpcStatusMarker";
+            StyleMapName(marker);
+            marker.color = new Color(1, .78f, .23f);
+            marker.fontStyle = FontStyle.Bold;
+            return marker;
+        }
+        private void PlaceCompanionLabel(RectTransform label, string id, double x, double y)
+        {
+            var top = owner.TryCharacterTop(id, out var actualTop) ? actualTop :
+                owner.WorldPoint(x, y) + owner.WorldCamera.transform.up * 1.8f;
+            PlaceMapLabel(label, top, label.rect.height * .5f + 4);
         }
         private RectTransform Rect(string name, Transform parent, Vector2 anchor, Vector2 position, Vector2 size)
         {
@@ -267,8 +277,8 @@ namespace BaseConquest.Base
                 if (obj == null) continue;
                 labels[i].GetComponent<Text>().text = obj.Name.Replace("伙伴 · ", "");
                 npcMarkers[i].text=BaseDemoNpcs.StatusMarker(owner.State,obj.Id);npcMarkers[i].gameObject.SetActive(npcMarkers[i].text!=""&&owner.SceneObjectVisible(obj));
-                // 骑马的单位渲染体量放大到 1.42 倍，名牌要跟着抬高，否则会压在马上。
-                if(obj.Kind=="npc"||obj.Id.StartsWith("partner"))PlaceCompanionLabel(labels[i],obj.X,obj.Y,BaseConquest.Presentation.PixelDemoArt.Mounted(obj.AssetId)?2.6f:1.8f);
+                bool person = obj.Kind == "npc" || owner.Companions.Agents.Any(a => a.Id == obj.Id && a.Visible);
+                if(person)PlaceCompanionLabel(labels[i],obj.Id,obj.X,obj.Y);
                 else PlaceMapLabel(labels[i],owner.WorldPoint(obj.X,obj.Y+obj.Height/2+.6));
             }
             RefreshCompanionLabels();

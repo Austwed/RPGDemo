@@ -80,14 +80,7 @@ namespace BaseConquest.Battle
             practiceInstructionText.alignment = TextAnchor.MiddleLeft;
             practiceInstructionText.rectTransform.offsetMin = new Vector2(12, 4);
             practiceInstructionText.rectTransform.offsetMax = new Vector2(-12, -4);
-            practiceArrow = Label("▼", safe, 26, "PracticeArrow");
-            practiceArrow.rectTransform.anchorMin = practiceArrow.rectTransform.anchorMax = new Vector2(.5f, .5f);
-            practiceArrow.rectTransform.pivot = new Vector2(.5f, .5f);
-            practiceArrow.rectTransform.sizeDelta = new Vector2(34, 32);
-            practiceArrow.color = DemoUiTheme.Current.Gold;
-            var outline = practiceArrow.gameObject.GetOrAdd<Outline>();
-            outline.effectColor = DemoUiTheme.Current.Wood;
-            outline.effectDistance = new Vector2(2, -2);
+            practiceArrow = GuidanceArrow.Create(safe, "PracticeArrow", 42);
         }
 
         private void RefreshPracticeControl(BattleSimulation battle)
@@ -100,7 +93,7 @@ namespace BaseConquest.Battle
             practiceInstructionText.text = owner.PracticeText;
             Button target = !visible ? null : step switch
             {
-                BaseDemoIntro.Select or BaseDemoIntro.Inspect => portraits[0],
+                BaseDemoIntro.Select => portraits[0],
                 BaseDemoIntro.Pause => realtimePause,
                 BaseDemoIntro.Skill => skills[0],
                 BaseDemoIntro.AutoAttack when intro?.DummyPhase < 3 => realtimeStrategies[1].interactable ? realtimeStrategies[1] : portraits[0],
@@ -114,28 +107,11 @@ namespace BaseConquest.Battle
                 practiceCue = cue;
                 practiceCue?.SetGuide(true);
             }
-            Vector2 position;
-            if (target != null && target.gameObject.activeInHierarchy)
-            {
-                var rect = (RectTransform)target.transform;
-                position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(new Vector3(rect.rect.center.x, rect.rect.yMax)));
-            }
-            else if (!visible || !owner.TryPracticeMapTarget(step, out position))
-            {
-                practiceArrow.gameObject.SetActive(false);
-                return;
-            }
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(safe, position, null, out var local))
-            {
-                practiceArrow.gameObject.SetActive(false);
-                return;
-            }
-            var area = safe.rect;
-            local.x = Mathf.Clamp(local.x, area.xMin + 20, area.xMax - 20);
-            local.y = Mathf.Clamp(local.y + 19, area.yMin + 18, area.yMax - 18);
-            practiceArrow.rectTransform.localPosition = new Vector3(local.x, local.y);
-            practiceArrow.rectTransform.SetAsLastSibling();
-            practiceArrow.gameObject.SetActive(true);
+            if (target != null && target.gameObject.activeInHierarchy && target.IsInteractable())
+                practiceArrow.PointTo((RectTransform)target.transform);
+            else if (visible && owner.TryPracticeMapTarget(step, out var point))
+                practiceArrow.PointToMap(point, point);
+            else practiceArrow.Hide();
         }
 
         private Text BannerLabel(string name, RectTransform parent, int size, float min, float max, float left, float right)

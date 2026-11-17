@@ -48,8 +48,9 @@ namespace BaseConquest.Editor
             Note("第1天 白桦村："+(sex=="female"?"女主角":"男主角")+"与搭档结伴，步行问候阿禾，粮田2→4，接过并穿戴序章短剑。");
 
             if(saveFixture)SaveRouteCheckpoint(state, "drill");
+            PlayOpeningPractice(state.Copy(), destroyDummy: true);
             PlayOpeningPractice(state);
-            Note("序章演练：显式选人／暂停、实际下达移动与驻守、施放技能、查看增益，等待木桩示范和自动攻击，主动攻击搭档完成演练。");
+            Note("序章演练：选人、暂停、移动、驻守、鼓舞，分别通过进攻策略三次命中和手动打坏木桩，再命中搭档。");
 
             for (int frame = 0; frame < 1200 && !state.Demo.Intro.ReporterArrived; frame++)
                 BaseDemoIntro.AdvanceReporter(state, .05);
@@ -111,7 +112,7 @@ namespace BaseConquest.Editor
             BaseInteraction.Walk(new BasePoint(target.X - state.PlayerX, target.Y - state.PlayerY));
         }
 
-        private static void PlayOpeningPractice(BaseState state)
+        private static void PlayOpeningPractice(BaseState state, bool destroyDummy = false)
         {
             var intro = state.Demo.Intro;
             var explorationStart = new BasePoint(state.PlayerX, state.PlayerY);
@@ -149,13 +150,26 @@ namespace BaseConquest.Editor
                 (intro.DrillFlags & BaseDemoIntro.Guard) != 0, "演练驻守下令失败");
             BaseDemoIntro.AdvanceTutorialDelay(intro, 1);
             Need(practice.CastSkill(BattleSide.A, 0) && (intro.DrillFlags & BaseDemoIntro.Skill) != 0, "演练鼓舞施放失败");
+            Need(practice.Battle.Events.Any(e => e.Message != null && e.Message.Contains("我方") &&
+                e.Message.Contains("影响 1 人") && e.Message.Contains("攻击 +")), "战报未显示鼓舞的实际效果");
             BaseDemoIntro.AdvanceTutorialDelay(intro, 1);
-            NextAfter(BaseDemoIntro.Inspect);
-            BaseDemoIntro.StartDummyDemo(practice, intro);
-            AdvanceUntil(() => intro.DummyPhase >= 2, 480, "搭档攻击木桩示范未完成");
-            Need(practice.Strategy(0, SquadStrategy.Attack), "演练无法切进攻");
-            AdvanceUntil(() => intro.DummyPhase >= 4, 900, "进攻策略未自动砍中木桩三次");
+            Need(BaseDemoIntro.NextExercise(intro) == BaseDemoIntro.DummyDemo, "鼓舞之后应直接指向木桩演示");
+            if (destroyDummy)
+            {
+                Need(practice.Tactics.Issue(selected, BaseDemoIntro.DummyId, leadersOnly: true), "主动攻击木桩失败");
+                AdvanceUntil(() => intro.DummyPhase == 4, 2400, "打坏木桩未通过木桩环节");
+                Need(practice.Tactics.Objects.Single(o => o.Id == BaseDemoIntro.DummyId).Fallen &&
+                    practice.Battle.Phase == BattlePhase.Fighting, "木桩过关需要保留最后的交手");
+            }
+            else
+            {
+                BaseDemoIntro.StartDummyDemo(practice, intro);
+                AdvanceUntil(() => intro.DummyPhase >= 2, 480, "搭档攻击木桩示范未完成");
+                Need(practice.Strategy(0, SquadStrategy.Attack), "演练无法切进攻");
+                AdvanceUntil(() => intro.DummyPhase >= 4, 900, "进攻策略未自动砍中木桩三次");
+            }
             BaseDemoIntro.AdvanceTutorialDelay(intro, 1);
+            Need(BaseDemoIntro.NextExercise(intro) == BaseDemoIntro.Attack, "木桩完成后未指向搭档");
             var opponent = practice.Model.Units.Single(unit => unit.Side == PrototypeSide.Enemy);
             Need(practice.Issue(selected, PrototypeOrder.Focus, opponent.Position, opponent.Id - 1, commanderOnly: true), "演练无法指向搭档");
             AdvanceUntil(() => practice.Battle.Phase == BattlePhase.Finished, 1200, "演练最后一击未结算");

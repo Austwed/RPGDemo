@@ -710,10 +710,16 @@ namespace BaseConquest.Editor
                 return (outline.effectColor, outline.effectDistance, outline.enabled);
             }
 
-            void ExpectCue(Transform target = null)
+            void ExpectCue(Transform target = null, bool mapTarget = false)
             {
-                if (arrow.gameObject.activeInHierarchy != (target != null))
+                if (arrow.gameObject.activeInHierarchy != (target != null || mapTarget))
                     throw new InvalidOperationException("演练没有显示或清除箭头");
+                if (target is RectTransform rect)
+                {
+                    var center = area.InverseTransformPoint(rect.TransformPoint(rect.rect.center));
+                    if (Mathf.Abs(area.InverseTransformPoint(arrow.position).x - center.x) > 1)
+                        throw new InvalidOperationException("演练箭头未对准按钮中心");
+                }
                 foreach (var button in buttons)
                 {
                     var expected = button == target ? (DemoUiTheme.Current.Gold, new Vector2(4, -4), true) : resting[button];
@@ -768,8 +774,6 @@ namespace BaseConquest.Editor
             ExpectCue(skill);
             ClickHudButton(skill);
             ClearDelayCue();
-            ShowStep("状态效果");
-            ExpectCue(portrait);
             HoldPortrait();
             ExpectCue();
             if (!drill.Realtime.Model.Paused || area.Find("CommanderDetails/Strategy_Attack").gameObject.activeInHierarchy)
@@ -794,7 +798,7 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("进攻按钮未接收界面输入");
             Capture("ui-player-route-drill-strategy");
             ClickHudButton(attack);
-            ExpectCue();
+            ExpectCue(mapTarget: true);
             if (intro.DummyPhase != 3 || !drill.Automatic || !drill.WithdrawSceneEncounter())
                 throw new InvalidOperationException("演练策略或返回村庄失败");
             Log.Add("[PASS] 序章演练实际控件有指引箭头，查看详情暂时暂停并恢复，进攻在统一操作栏");

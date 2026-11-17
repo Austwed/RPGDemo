@@ -12,6 +12,8 @@ namespace BaseConquest.Base
         private Vector3 heroChoiceCamera;
         internal void BeginHeroChoice()
         {
+            player.GetComponent<BattlePawn2D>().HoldSelectionPose();
+            if (npcViews.TryGetValue("demo_captain", out var preview)) preview.GetComponent<BattlePawn2D>()?.HoldSelectionPose();
             heroChoiceFocus="";heroChoiceCamera=WorldPoint((State.PlayerX+State.Demo.Intro.CaptainX)*.5,(State.PlayerY+State.Demo.Intro.CaptainY)*.5);
             regionView.Follow(heroChoiceCamera);
         }
@@ -38,19 +40,19 @@ namespace BaseConquest.Base
             var partner=State.Leaders.FirstOrDefault(l=>l.Id=="demo_captain");if(partner!=null){State.Demo.Intro.CaptainX=partner.MapX;State.Demo.Intro.CaptainY=partner.MapY;}
             if(State.Demo.Intro.ReporterLeaving&&!State.Demo.Intro.ReporterGone)
             {
-                bool gone=BaseDemoIntro.AdvanceReporterExit(State,seconds);var messenger=npcViews.FirstOrDefault(v=>v!=null&&v.name.StartsWith("prologue_report ·"));
+                bool gone=BaseDemoIntro.AdvanceReporterExit(State,seconds);npcViews.TryGetValue("prologue_report", out var messenger);
                 messenger?.MoveTo(WorldPoint(State.Demo.Intro.ReporterX,State.Demo.Intro.ReporterY));
                 if(gone){SaveStore.Save(State);RefreshDemoRegion();}
             }
             if(State.Demo.Intro.Step==6)
             {
-                bool reportArrived=BaseDemoIntro.AdvanceReporter(State,seconds);var reporter=npcViews.FirstOrDefault(v=>v!=null&&v.name.StartsWith("prologue_report ·"));
+                bool reportArrived=BaseDemoIntro.AdvanceReporter(State,seconds);npcViews.TryGetValue("prologue_report", out var reporter);
                 reporter?.MoveTo(WorldPoint(State.Demo.Intro.ReporterX,State.Demo.Intro.ReporterY));
                 if(reportArrived){SaveStore.Save(State);RefreshDemoRegion();if(BaseInteraction.At(State,"base","prologue_report"))Hud.OpenDemoStory();}return;
             }
             if(State.Demo.Intro.Step!=7)return;
             bool arrived=BaseDemoIntro.AdvanceDeparture(State,seconds);
-            var actor=npcViews.FirstOrDefault(v=>v!=null&&v.name.StartsWith("demo_captain ·"));
+            npcViews.TryGetValue("demo_captain", out var actor);
             if(actor!=null)actor.MoveTo(WorldPoint(State.Demo.Intro.CaptainX,State.Demo.Intro.CaptainY));
             if(arrived){SaveStore.Save(State);RefreshDemoRegion();}
         }

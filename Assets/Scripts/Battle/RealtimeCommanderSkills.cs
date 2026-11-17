@@ -89,12 +89,18 @@ namespace BaseConquest.Battle
             }
         }
         public string SkillDescription(int slot)=>SkillDescription(BattleSide.A,slot);
-        public string SkillDescription(BattleSide side,int slot)=>Rpg!=null?RpgSkillDescription(side,slot):Battle.CommanderSkillDescription(slot).Replace("轮","秒")+"；立即施放，暂停不计时";
+        public string SkillDescription(BattleSide side,int slot)=>Rpg!=null?RpgSkillDescription(side,slot):
+            $"{BattleSimulation.CommanderSkillName(slot)} · {Battle.CommanderSkillEffect(slot, realtime:true)} · 冷却 {Effects.Cooldown} 秒，暂停不计时";
     }
     public sealed partial class BattleSimulation
     {
         internal void RecordRealtimeSkill(int source,int slot,int recipients)
-        {AbilitiesUsed++;CommandsIssued++;Notice(UnitName(Soldier(source))+"施放"+CommanderSkillName(slot)+"，影响本队"+recipients+"人",Soldier(source).Side,source);}
+        {
+            AbilitiesUsed++;
+            CommandsIssued++;
+            var caster = Soldier(source);
+            Notice($"{UnitName(caster)}施放{CommanderSkillName(slot)}，影响 {recipients} 人 · {CommanderSkillEffect(slot, realtime:true)}", caster.Side, source);
+        }
         internal void RecordRealtimeHealing(int source,int target,float amount,float health)
         {Soldier(target).Health=health;Soldier(source).HealingDone+=amount;Notice(UnitName(Soldier(source))+"的治愈为"+UnitName(Soldier(target))+"恢复"+amount.ToString("0.#")+"生命",Soldier(target).Side,target,source);}
     }

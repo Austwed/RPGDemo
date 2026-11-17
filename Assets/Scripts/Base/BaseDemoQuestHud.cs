@@ -12,7 +12,8 @@ namespace BaseConquest.Base
     {
         // 主菜单任务页按主线和支线列出任务日志。
         private string questTab = "tasks";
-        private Text questInstruction, questArrow;
+        private Text questInstruction;
+        private GuidanceArrow questArrow;
         private Button questBackpackButton;
         private RectTransform questSwordTarget, questFarmTarget;
 
@@ -89,16 +90,13 @@ namespace BaseConquest.Base
             if (!BaseBattleGateway.DemoMode) return;
             if (questInstruction == null)
             {
-                Transform frame = root.Find("游戏显示区域 · 16比9") ?? root;
+                var frame = (RectTransform)(root.Find("游戏显示区域 · 16比9") ?? root);
                 questInstruction = Label(frame, "", new Vector2(288, -ExplorationHudLayout.HeaderHeight - 25),
                     new Vector2(540, 40), 20, TextAnchor.MiddleLeft, new Vector2(0, 1));
                 questInstruction.name = "CurrentQuestInstruction";
                 questInstruction.color = DemoUiTheme.Current.Panel;
                 questInstruction.fontStyle = FontStyle.Bold;
-                questArrow = Label(frame, "▼", Vector2.zero, new Vector2(34, 34), 28, TextAnchor.MiddleCenter);
-                questArrow.name = "CurrentQuestArrow";
-                questArrow.color = DemoUiTheme.Current.Gold;
-                questArrow.fontStyle = FontStyle.Bold;
+                questArrow = GuidanceArrow.Create(frame, "CurrentQuestArrow", 36);
             }
 
             var s = owner.State;
@@ -108,12 +106,9 @@ namespace BaseConquest.Base
             bool showInstruction = show && !hero && !PanelOpen && !owner.ConstructionMode && !owner.HomeRebuildOverview;
             questInstruction.gameObject.SetActive(showInstruction);
             if (showInstruction && questInstruction.text != cue.Instruction) questInstruction.text = cue.Instruction;
-            questArrow.gameObject.SetActive(false);
-            if (!show || heroNameLayer != null && heroNameLayer.gameObject.activeInHierarchy) return;
-            var arrowFrame = (RectTransform)questArrow.rectTransform.parent;
+            if (!show || heroNameLayer != null && heroNameLayer.gameObject.activeInHierarchy)
+            { questArrow.Hide(); return; }
             RectTransform target = null;
-            Vector2? point = null;
-            bool mapTarget = false;
             if (hero)
             {
                 if (heroChoiceConfirm != null && heroChoiceConfirm.interactable) target = (RectTransform)heroChoiceConfirm.transform;
@@ -122,8 +117,10 @@ namespace BaseConquest.Base
                     // Both characters are valid at this stage: point between them until one is selected.
                     var left = (RectTransform)heroChoiceTargets[0].transform;
                     var right = (RectTransform)heroChoiceTargets[1].transform;
-                    point = arrowFrame.InverseTransformPoint((left.TransformPoint(new Vector3(0, left.rect.yMax)) +
-                        right.TransformPoint(new Vector3(0, right.rect.yMax))) / 2f);
+                    var center = (left.TransformPoint(left.rect.center) + right.TransformPoint(right.rect.center)) * .5f;
+                    var screen = RectTransformUtility.WorldToScreenPoint(null, center);
+                    questArrow.PointToMap(screen - Vector2.up * 55, screen + Vector2.up * 55);
+                    return;
                 }
             }
             else if (PanelOpen)
@@ -157,26 +154,22 @@ namespace BaseConquest.Base
                     if (item != null && owner.WorldCamera != null)
                     {
                         var camera = owner.WorldCamera;
-                        var screen = camera.WorldToScreenPoint(owner.WorldPoint(item.X, item.Y) +
-                            camera.transform.up * (item.Kind == "npc" || cue.ObjectId == "demo_captain" ? 2.05f : .8f));
-                        if (screen.z > 0 && RectTransformUtility.ScreenPointToLocalPointInRectangle(arrowFrame, screen, null, out var local))
-                        { point = local; mapTarget = true; }
+                        var feet = owner.WorldPoint(item.X, item.Y);
+                        var head = owner.TryCharacterTop(item.Id, out var actualTop) ? actualTop :
+                            feet + camera.transform.up * .8f;
+                        var bottom = camera.WorldToScreenPoint(feet);
+                        var top = camera.WorldToScreenPoint(head);
+                        if (bottom.z > 0)
+                        {
+                            questArrow.PointToMap(bottom, top, ExplorationHudLayout.HeaderHeight);
+                            return;
+                        }
                     }
                 }
             }
-            if (target != null && target.gameObject.activeInHierarchy)
-                point = arrowFrame.InverseTransformPoint(target.TransformPoint(new Vector3(0, target.rect.yMax)));
-            if (!point.HasValue) return;
-            var rect = arrowFrame.rect;
-            var desired = point.Value + new Vector2(0, 17 + Mathf.Sin(Time.unscaledTime * 5) * 3);
-            var clipped = new Vector2(Mathf.Clamp(desired.x, rect.xMin + 23, rect.xMax - 23),
-                Mathf.Clamp(desired.y, rect.yMin + 23, rect.yMax - (mapTarget ? ExplorationHudLayout.HeaderHeight + 23 : 20)));
-            var offset = desired - clipped;
-            questArrow.rectTransform.anchoredPosition = clipped;
-            questArrow.rectTransform.localRotation = mapTarget && offset.sqrMagnitude > 9
-                ? Quaternion.Euler(0, 0, Mathf.Atan2(offset.y, offset.x) * Mathf.Rad2Deg + 90) : Quaternion.identity;
-            questArrow.transform.SetAsLastSibling();
-            questArrow.gameObject.SetActive(true);
+            if (target != null && (!target.TryGetComponent<Button>(out var button) || button.IsInteractable()))
+                questArrow.PointTo(target);
+            else questArrow.Hide();
         }
 
         // 常驻任务栏：没追踪时整条隐藏；折叠只留标题。

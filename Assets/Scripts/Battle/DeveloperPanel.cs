@@ -170,7 +170,7 @@ namespace BaseConquest.Battle
             }
             else if(page==2)
             {
-                Add("立即强制胜利（甲方）",()=>Battle(b=>b.DeveloperWin(true),"已强制胜利，按正常规则结算"),battle?.Phase==BattlePhase.Fighting);
+                Add("立即强制胜利（我方）",()=>Battle(b=>b.DeveloperWin(true),"已强制胜利，按正常规则结算"),battle?.Phase==BattlePhase.Fighting);
                 Add(realtime?"下一轮 · 仅旧回合验证":"下一轮",()=>{battleOwner?.AdvanceOne();message="已请求推进一轮";Render();},!realtime&&battle?.Phase==BattlePhase.Fighting);
                 Add("所有队长技能立即冷却完毕"+(realtime?" · 待接入":""),()=>Battle(b=>b.DeveloperReadySkills(true),"技能已冷却"),!realtime&&battle?.Phase==BattlePhase.Fighting);
                 Add("战争迷雾："+(battle?.Scenario.FogEnabled==true ? "开启" : "关闭"),()=>Battle(b=>{b.Scenario.FogEnabled=!b.Scenario.FogEnabled;b.Vision.Refresh();return true;},"已切换战争迷雾"),battle!=null);

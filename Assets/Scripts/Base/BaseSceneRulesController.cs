@@ -26,7 +26,9 @@ namespace BaseConquest.Base
             BaseDemoIntro.AdvanceTutorialDelay(State.Demo.Intro,Time.unscaledDeltaTime);
             int step=BaseDemoIntro.NextExercise(State.Demo.Intro);
             if(step==0){combatController.SetPracticeCue(0,"");return;}
-            if(practiceShown==step)return;practiceShown=step;
+            bool attackingDummy = step == BaseDemoIntro.AutoAttack && State.Demo.Intro.DummyPhase == 3;
+            int cue = attackingDummy ? -step : step;
+            if(practiceShown==cue)return;practiceShown=cue;
             string text = step switch
             {
                 BaseDemoIntro.Select => StoryText.Get("story.scene.prologue.drill_select", "先点左下角的头像，也可以点你自己。"),
@@ -35,8 +37,8 @@ namespace BaseConquest.Base
                 BaseDemoIntro.Guard => StoryText.Get("story.scene.prologue.drill_guard", "双击身旁的空地，下令【驻守】。"),
                 BaseDemoIntro.Skill => StoryText.Get("story.scene.prologue.drill_skill", "点头像上方的【{skill}】，把气势提起来！")
                     .Replace("{skill}", combatController.Realtime.SkillName(BattleSide.A, 0)),
-                BaseDemoIntro.Inspect => StoryText.Get("story.scene.prologue.drill_inspect", "长按左下角的头像，在【状态效果】里看技能能维持多久。"),
                 BaseDemoIntro.DummyDemo => StoryText.Get("story.scene.prologue.drill_dummy", "看好了，每次挥砍都有起手空当，算准距离才能刀刀见肉！"),
+                BaseDemoIntro.AutoAttack when attackingDummy => "让队伍继续攻击木桩。战斗暂停时点【继续】。",
                 BaseDemoIntro.AutoAttack => StoryText.Get("story.scene.prologue.drill_auto_attack", "点右下角的【进攻】，让队伍连续攻击木桩。战斗暂停时先继续。"),
                 _ => StoryText.Get("story.scene.prologue.drill_attack", "最后一式，单击我发起进攻。暂停时记得按空格继续！")
             };
@@ -126,9 +128,9 @@ namespace BaseConquest.Base
                 if(obj!=null)node.gameObject.SetActive(sight.TerrainVisible(BattleSide.A,new GridPosition((int)obj.X,(int)obj.Y)));
             }
             string opponent=combatController?.IsDemoPractice==true?"demo_captain":combatController?.IsAzhuDuel==true?"demo_azhu":"";
-            foreach(var npc in npcViews)
+            foreach(var obj in objects)
             {
-                var obj=objects.FirstOrDefault(o=>npc!=null&&npc.name.StartsWith(o.Id+" ·"));if(obj==null)continue;
+                if (!npcViews.TryGetValue(obj.Id, out var npc) || npc == null) continue;
                 bool visible=obj.Id!=opponent&&sight.Visible(BattleSide.A,new GridPosition((int)obj.X,(int)obj.Y));npc.gameObject.SetActive(visible);
             }
             if(force)Hud?.RefreshMovement();
@@ -137,10 +139,10 @@ namespace BaseConquest.Base
         {
             if(!BaseSceneRules.Active(State)||State.Demo.Rescue?.Stage!=2)return;
             bool arrived=BaseSceneRules.TickRescued(State,seconds);
-            if(BaseSceneRules.Entrance(State))foreach(var npc in npcViews)
+            if(BaseSceneRules.Entrance(State))
             {
-                if(npc.name.StartsWith("demo_rescued_1 ·"))npc.MoveTo(WorldPoint(State.Demo.Rescue.FirstX,State.Demo.Rescue.FirstY));
-                if(npc.name.StartsWith("demo_rescued_2 ·"))npc.MoveTo(WorldPoint(State.Demo.Rescue.SecondX,State.Demo.Rescue.SecondY));
+                if(npcViews.TryGetValue("demo_rescued_1",out var first))first.MoveTo(WorldPoint(State.Demo.Rescue.FirstX,State.Demo.Rescue.FirstY));
+                if(npcViews.TryGetValue("demo_rescued_2",out var second))second.MoveTo(WorldPoint(State.Demo.Rescue.SecondX,State.Demo.Rescue.SecondY));
             }
             if(arrived){SaveStore.Save(State);RebuildRegion();RebuildHud();PlacePlayer();}
         }

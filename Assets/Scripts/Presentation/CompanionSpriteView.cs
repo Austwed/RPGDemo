@@ -28,8 +28,15 @@ namespace BaseConquest.Presentation
         private double lookUntil;
         private bool looking,wasNear;
         public HeroFacing Facing=>facing;
+        internal Vector3? VisualTop => pixel?.VisualTop;
         private HeroFacing previewFacing=HeroFacing.South;
         public void Preview(HeroPose pose,double time,HeroFacing? face=null){if(face.HasValue)previewFacing=face.Value;if(pixel!=null)pixel.Set(previewFacing,pose,pose==HeroPose.Attack?time%1:time,false,false,false,true);}
+        internal void HoldSelectionPose()
+        {
+            facing = defaultFacing = HeroFacing.South;
+            if (pixel != null) Preview(HeroPose.Idle, 0, facing);
+            else Set(HeroPose.Idle, 0, false, false, false);
+        }
         /// <summary>
         /// 只把朝向转向观察者（主角），不动正在播放的动作：美术检查台既要看动作循环，也要看四向朝向。
         /// </summary>

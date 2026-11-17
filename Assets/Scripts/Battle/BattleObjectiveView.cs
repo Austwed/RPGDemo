@@ -7,7 +7,7 @@ namespace BaseConquest.Battle
     // 目标进度的一次只读快照；由 BattleObjectiveView 生成，供顶部UI与离线检查共用。
     public sealed class ObjectiveProgress
     {
-        // 任务方固定甲方；显示的目标始终是"甲方任务"，不随观察阵营切换。
+        // 任务方固定我方；显示的目标始终是"我方任务"，不随观察阵营切换。
         public BattleSide MissionSide = BattleSide.A;
         public BattleSide TargetSide = BattleSide.B;
         public string Kind = ObjectiveKinds.Annihilation;
@@ -24,7 +24,7 @@ namespace BaseConquest.Battle
         public bool AllCommandersDown;
         // 已确认满足主要歼灭条件（指挥者全倒 + 普通兵累计阵亡严格过半）。
         public bool Satisfied;
-        // 结束时甲方目标是否未达成。
+        // 结束时我方目标是否未达成。
         public bool Failed;
         public bool Preparing;
         public int HoldRound, HoldTarget;
@@ -49,7 +49,7 @@ namespace BaseConquest.Battle
             p.Title = string.IsNullOrWhiteSpace(battle.Scenario?.Objective?.Title) ? "" : battle.Scenario.Objective.Title;
             var target = p.TargetSide;
             p.Preparing = battle.Phase == BattlePhase.Deployment;
-            // 任务方固定甲方：显示的是甲方任务，不因切换到乙方测试视角而变成灭甲方。
+            // 任务方固定我方：显示的是我方任务，不因切换到敌方测试视角而变成灭我方。
             p.Declared = battle.VictoryDeclared || battle.Report?.Outcome == BattleOutcome.SideAWin;
             var heroOutcome = battle.Vision.Status(observer, target, SoldierKind.Hero);
             // 情报精确需同时满足"是观察方自己的阵营或关闭迷雾"，由 Vision.Status 承担；普通兵同理。
@@ -57,7 +57,7 @@ namespace BaseConquest.Battle
             var troopRanged = battle.Vision.Status(observer, target, SoldierKind.Ranged);
             var troopCavalry = battle.Vision.Status(observer, target, SoldierKind.Cavalry);
             p.Exact = heroOutcome.Exact;
-            // 已入场指挥者总数＝棋盘上出现的乙方指挥者（含已倒地），不是"仍存活"。
+            // 已入场指挥者总数＝棋盘上出现的敌方指挥者（含已倒地），不是"仍存活"。
             p.CommandersTotal = p.Exact ? battle.Soldiers.Count(s => s.Side == target && s.Kind == SoldierKind.Hero) : -1;
             // 指挥者"失能"＝已确认倒地；精确时等于全部非存活，情报不足时只算已确认目击的倒地数。
             p.CommandersDown = heroOutcome.Defeated;
@@ -82,7 +82,7 @@ namespace BaseConquest.Battle
         {
             string title = string.IsNullOrWhiteSpace(p.Title) ? KindDisplayName(p.Kind) : p.Title.Trim();
             if (title.Length > 10) title = title.Substring(0, 9) + "…";
-            string head = title + " · 甲方任务";
+            string head = title + " · 我方任务";
             return head;
         }
 

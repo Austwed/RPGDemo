@@ -22,6 +22,7 @@ namespace BaseConquest.Base
         {
             BeginPanel("游戏选项");
             RowButton("返回",0,800,OpenMenu);row+=60;
+            RowButton("声音设置",0,800,OpenAudioOptions);row+=64;
             RowButton("和平地图格子描边："+(BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines ? "开启" : "关闭"),0,800,()=>{BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines=!BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines;OpenOptions();});row+=64;
             RowButton("战斗格子描边："+(BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines ? "开启" : "关闭"),0,800,()=>{BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines=!BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines;OpenOptions();});row+=64;
             if (RuntimeDeveloperOptions.Available)
@@ -34,6 +35,15 @@ namespace BaseConquest.Base
             string hint = "战斗格线默认开启，和平地图单独设置。";
             if (RuntimeDeveloperOptions.Available) hint += "启用开发者模式后，地图上出现开发者按钮；关闭时恢复临时地形、无敌与禁行，开启所有设施产出。";
             Line(hint,100,19);EndPanel();
+        }
+        private void OpenAudioOptions()
+        {
+            BeginPanel("声音设置", "audio-settings");
+            RowButton("返回选项", 0, 800, OpenOptions);
+            row += 68;
+            BaseConquest.Presentation.GameAudioVolume.AddControls(content, font, new UnityEngine.Vector2(.5f, 1), new UnityEngine.Vector2(0, -row - 58), 780);
+            row += 116;
+            EndPanel();
         }
         public void OpenMainMenu()
         {

@@ -43,17 +43,21 @@ namespace BaseConquest.Battle
             if(!CanCastRpgSkill(side,slot))return false;
             var skill=Skill(side,slot);
             var actor=SkillActor(skill);var d=Rpg.Skills.Single(s=>s.Id==skill.Id);
-            if(skill.Id=="sweep"&&!Model.Units.Any(u=>LegalSkillTarget(actor,u,false)&&(u.BodyCenter-actor.BodyCenter).Length<=d.Radius/PrototypeArena.Subdivision))return false;
+            var sweepTargets = skill.Id == "sweep" ? Model.Units.Where(u => LegalSkillTarget(actor, u, false) &&
+                (u.BodyCenter - actor.BodyCenter).Length <= d.Radius / PrototypeArena.Subdivision).ToArray() : null;
+            if (sweepTargets?.Length == 0) return false;
             skill.Recipients=Model.Units.Where(u=>u.Alive&&u.Side==actor.Side&&u.Squad==slot&&(skill.Id=="inspire"||skill.Id=="march"||skill.Id=="heal"||u.Id==actor.Id)).Select(u=>u.Id).ToList();
             skill.ReadyAt=Model.Elapsed+d.Cooldown;skill.ActiveUntil=Model.Elapsed+d.Duration;skill.NextHealAt=skill.Id=="heal"?Model.Elapsed+1:0;
             if(skill.Id=="charge"){skill.Charged=true;skill.ReadyAt=skill.ActiveUntil+d.Cooldown;}
-            if(skill.Id=="sweep")
+            if (sweepTargets != null)
             {
                 damageBatch++;
-                try{foreach(var target in Model.Units.Where(u=>LegalSkillTarget(actor,u,false)&&(u.BodyCenter-actor.BodyCenter).Length<=d.Radius/PrototypeArena.Subdivision).ToArray())LaunchRpgAttack(actor,target,d.Amount);}
+                try { foreach (var target in sweepTargets) LaunchRpgAttack(actor, target, d.Amount); }
                 finally{damageBatch--;}
             }
-            Battle.RecordRpgSkill(actor.Id-1,d.Name,skill.Recipients.Count);ResolveImmediateVictory();return true;
+            string count = sweepTargets != null ? $"攻击 {sweepTargets.Length} 人" : $"影响 {skill.Recipients.Count} 人";
+            Battle.RecordRpgSkill(actor.Id - 1, d.Name, count, SkillEffect(d));
+            ResolveImmediateVictory();return true;
         }
         private double ConsumeCharge(PrototypeUnit actor)
         {
@@ -95,15 +99,35 @@ namespace BaseConquest.Battle
         private string RpgSkillDescription(BattleSide side,int slot)
         {
             var skill=Skill(side,slot);if(skill==null)return "无主动技能";var d=Rpg.Skills.Single(s=>s.Id==skill.Id);
-            string effect=d.Id=="inspire"?"本队攻击 +"+d.Amount.ToString("0.##%"):d.Id=="march"?"本队移速 +"+d.Amount+"细格／秒，免地形减速":d.Id=="heal"?"本队每秒恢复"+d.Amount+"生命，共"+Math.Floor(d.Duration)+"次":d.Id=="sweep"?"半径"+d.Radius+"细格，"+d.Amount+"倍攻击，逐目标D10":d.Id=="charge"?"移速 +"+d.SpeedBonus.ToString("0.##%")+"，下一击"+d.Amount+"倍":d.Id=="rapid_fire"?"自身攻速 +"+d.Amount.ToString("0.##%"):"效果 "+d.Amount;
-            return d.Name+"："+effect+(d.Duration>0?"；持续"+d.Duration+"秒":"")+"；冷却"+d.Cooldown+"秒；"+("自动施放"+(skill.Auto?"开启":"关闭"))+(skill.ActiveUntil>Model.Elapsed?"\n效果剩余 "+(skill.ActiveUntil-Model.Elapsed).ToString("0.0")+"秒":"");
+            return d.Name + " · " + SkillEffect(d) + $" · 冷却 {d.Cooldown} 秒 · 自动施放" + (skill.Auto ? "开启" : "关闭") +
+                (skill.ActiveUntil > Model.Elapsed ? "\n效果剩余 " + (skill.ActiveUntil - Model.Elapsed).ToString("0.0") + " 秒" : "");
+        }
+
+        private static string SkillEffect(RpgSkillDefinition skill)
+        {
+            string effect = skill.Id switch
+            {
+                "inspire" => $"攻击 +{skill.Amount:0.##%}",
+                "march" => $"移速 +{skill.Amount} 细格／秒，免地形减速",
+                "heal" => $"每秒恢复 {skill.Amount} 生命，共 {Math.Floor(skill.Duration)} 次",
+                "sweep" => $"半径 {skill.Radius} 细格，{skill.Amount} 倍攻击，逐目标掷 D10",
+                "charge" => $"移速 +{skill.SpeedBonus:0.##%}，下一击 {skill.Amount} 倍",
+                "rapid_fire" => $"自身攻速 +{skill.Amount:0.##%}",
+                _ => $"效果 {skill.Amount}"
+            };
+            return skill.Duration > 0 ? effect + $"，持续 {skill.Duration} 秒" : effect;
         }
     }
     public sealed partial class BattleSimulation
     {
         internal void RecordRpgMiss(int source,int target,int die)
         {AddEvent(new BattleEvent {SourceId=source,TargetId=target,Missed=true,Message=UnitName(Soldier(source))+"攻击"+UnitName(Soldier(target))+"：D10="+die+"，失手",SeenByA=Vision.CanSee(BattleSide.A,Soldier(source))||Vision.CanSee(BattleSide.A,Soldier(target)),SeenByB=Vision.CanSee(BattleSide.B,Soldier(source))||Vision.CanSee(BattleSide.B,Soldier(target))});}
-        internal void RecordRpgSkill(int source,string name,int recipients)
-        {AbilitiesUsed++;CommandsIssued++;Notice(UnitName(Soldier(source))+"施放"+name+"，影响本队"+recipients+"人",Soldier(source).Side,source);}
+        internal void RecordRpgSkill(int source, string name, string count, string effect)
+        {
+            AbilitiesUsed++;
+            CommandsIssued++;
+            var caster = Soldier(source);
+            Notice($"{UnitName(caster)}施放{name}，{count} · {effect}", caster.Side, source);
+        }
     }
 }

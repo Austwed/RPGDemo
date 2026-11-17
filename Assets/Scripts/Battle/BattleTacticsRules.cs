@@ -21,7 +21,7 @@ namespace BaseConquest.Battle
             foreach (var s in Soldiers.Where(s => s.Side == BattleSide.B && s.IsActive)) { SetOrder(s, SquadCommand.Retreat); s.RescueTargetId = -1; }
             foreach (var q in Squads.Where(q => q.Side == BattleSide.B)) { q.IssuedCommand = SquadCommand.Retreat; ClearGuardState(q); }
             VictoryDeclared = true;
-            Notice(HoldVictorySatisfied ? "已坚守指定回合，甲方胜利，入侵余兵撤退" : "已满足敌方指挥者失能和兵力损失的胜利条件，甲方胜利，乙方余兵停止攻击并撤离", BattleSide.A);
+            Notice(HoldVictorySatisfied ? "已坚守指定回合，我方胜利，入侵余兵撤退" : "已满足敌方指挥者失能和兵力损失的胜利条件，我方胜利，敌方余兵停止攻击并撤离", BattleSide.A);
         }
         public bool AdvanceRout()
         {

@@ -12,6 +12,12 @@ namespace BaseConquest.Battle
         private BaseConquest.Presentation.CompanionSpriteView companion;
         public bool UprightExploration {get;set;}
         public Vector3 ExplorationHeadPoint=>playerHero!=null?playerHero.HeadPoint:transform.TransformPoint(new Vector3(0,.28f,1.38f));
+        internal Vector3 ExplorationVisualTop => playerHero?.VisualTop ?? companion?.VisualTop ?? ExplorationHeadPoint;
+        internal void HoldSelectionPose()
+        {
+            playerHero?.HoldSelectionPose();
+            companion?.HoldSelectionPose();
+        }
         public bool EnableCompanion(string appearance,bool combatMotion=true,bool walkingMotion=true)
         {
             if(companion==null)
