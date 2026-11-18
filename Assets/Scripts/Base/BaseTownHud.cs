@@ -312,7 +312,7 @@ namespace BaseConquest.Base
                 owner.Change(next=>next.Demo.Flow.RecruitOpened=true,"");
                 NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",new[]{
                     new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),
-                        "手令给我看看。好，剑士、弓兵、骑兵都能拨给断流滩。"),
+                        "手令给我看看。好，你们营地可以来招剑士、弓兵和骑兵了。"),
                     new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),
                         "三种兵各募一个吧。营里缺人，他们也能下地干活。")
                 }),new[]{new NpcReply("开始招募",()=>{ClosePanel();OpenTownRecruit();})});

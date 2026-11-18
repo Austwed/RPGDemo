@@ -53,7 +53,7 @@ namespace BaseConquest.Base
         public const string Profile="demo-new-camp-v1", ReleaseProfile="demo-complete-v2", BalanceTemplate="35_配表驱动验证.json", Assignment="demo:lord:ruins-assignment";
         public static bool Active(BaseState state) => state?.Demo?.Version==1;
         public static bool FacilityAvailable(BaseState state,string id) => !BaseDemoPrologue.Village(state)&&(!Active(state)||id!="workshop"&&id!="barracks"||BaseDemoDefense.Repaired(state,id))&&(id!="caravan"||BaseFacilityLayout.Built(state,"caravan"))&&(!Active(state)||id!="farm"&&id!="workshop"||BaseFacilityLayout.Built(state,id));
-        public static string Objective(BaseState state) => !Active(state) ? "" : BaseDemoIntro.Active(state)&&state.Demo.Stage==BaseDemoStage.PrologueBriefing ? BaseDemoIntro.Objective(state) : BaseDemoPrologue.Village(state) ? state.Demo.Stage==BaseDemoStage.PrologueBriefing?"当前目标：听取村民报告，与队长告别":state.Demo.Stage==BaseDemoStage.PrologueEscape?"当前目标：带村民向东撤离":state.Demo.Stage==BaseDemoStage.ProloguePursuit?"掩护村民离开，击败一名追兵并重创另一名":"序章完成 · 重伤与失踪" : state.Demo.Stage==BaseDemoStage.Waking ? "当前目标：在营帐醒来，了解新营地" : state.Demo.Stage==BaseDemoStage.VisitLord ? "当前目标：从东侧出口前往"+BaseScriptNames.Town+"，拜访领主" : BaseDemoRuins.Objective(state);
+        public static string Objective(BaseState state) => !Active(state) ? "" : BaseDemoIntro.Active(state)&&state.Demo.Stage==BaseDemoStage.PrologueBriefing ? BaseDemoIntro.Objective(state) : BaseDemoPrologue.Village(state) ? state.Demo.Stage==BaseDemoStage.PrologueBriefing?"当前目标：听取村民报告，与队长告别":state.Demo.Stage==BaseDemoStage.PrologueEscape?"当前目标：带村民向东撤离":state.Demo.Stage==BaseDemoStage.ProloguePursuit?"掩护村民离开，击败一名追兵并重创另一名":"序章完成 · 重伤与失踪" : state.Demo.Stage==BaseDemoStage.Waking ? "当前目标：在营帐醒来，了解"+BaseScriptNames.Camp : state.Demo.Stage==BaseDemoStage.VisitLord ? "当前目标：从东侧出口前往"+BaseScriptNames.Town+"，拜访领主" : BaseDemoRuins.Objective(state);
 
         public static BaseScenarioDocument CreateOpening(BaseScenarioDocument balance,string sourceJson,bool includePrologue=false,bool release=false,bool includeIntro=false,RpgRules openingRules=null,string configHash=null,BaseStoryScenePackage story=null)
         {
@@ -116,13 +116,13 @@ namespace BaseConquest.Base
                 player.Health = Math.Min(player.Health, player.MaxHealth);
             }
             BaseEnvironment.Install(state);BaseDevelopment.Allocate(state);
-            var opening=new BaseScenarioDocument {Title="Demo · 序章与新营地",Description="序章→伙伴／"+BaseScriptNames.Ruins+"→修复供军→首防→世界道路攻营→返乡断剑。灰盒流程，非正式美术或难度定稿。",UseOpeningRules=true,Opening=state};
+            var opening=new BaseScenarioDocument {Title="Demo · 序章与"+BaseScriptNames.Camp,Description="序章→伙伴／"+BaseScriptNames.Ruins+"→修复供军→首防→世界道路攻营→返乡断剑。灰盒流程，非正式美术或难度定稿。",UseOpeningRules=true,Opening=state};
             opening.CreateState();return opening;
         }
         public static void InstallCampMap(BaseState state)
         {
             state.Campaign.Layouts=new List<BaseMapLayout> {
-                new BaseMapLayout {Region="base",Title="新营地",SpawnX=4,SpawnY=8.8,Objects=new List<BaseMapPlacement> {
+                new BaseMapLayout {Region="base",Title=BaseScriptNames.Camp,SpawnX=4,SpawnY=8.8,Objects=new List<BaseMapPlacement> {
                     // X/Y 是**中心点**：占地为 X±宽/2、Y±高/2。上半区一条带：营帐／粮田／台面／工坊，
                     // 南边留出 Y<9.2 的通道，保证出生点 (4,8.8) 不被粮田盖住。
                     Placement("home","营帐",1.8,11.6,3,2,"home-small"),
@@ -132,7 +132,7 @@ namespace BaseConquest.Base
                     new BaseMapPlacement {Id="exit_east",Name="拜访领主 →",X=23.3,Y=6.5,Width=1.2,Height=2}
                 }},
                 new BaseMapLayout {Region="town",Title="领主驻地",SpawnX=12,SpawnY=6.5,Objects=new List<BaseMapPlacement> {
-                    new BaseMapPlacement {Id="travel_base",Name="← 返回营地",X=.7,Y=6.5,Width=1.2,Height=2},
+                    new BaseMapPlacement {Id="travel_base",Name="← 返回"+BaseScriptNames.Camp,X=.7,Y=6.5,Width=1.2,Height=2},
                     new BaseMapPlacement {Id="town_quest",Name="领主 · "+BaseScriptNames.Ruins+"调查",X=19,Y=9.5,Width=1,Height=1},
                     // 募兵处贴图是整栋兵营（内容约 205x126，aspect 1.63），2x1.5 太小；按贴图比例放大到 3.2 格宽。
                     new BaseMapPlacement {Id="town_recruit",Name="募兵处 · 普通士兵",X=11,Y=3,Width=3.2,Height=3.2/1.627,Blocks=true,AssetId="barracks",Kind="facility",SourceObjectId="demo:town:recruit"},
@@ -280,6 +280,7 @@ namespace BaseConquest.Base
             if(!BaseDemoDefense.Repaired(state,"workshop")&&(state.Muster.Facilities.Any(facility=>facility.FacilityId=="workshop"&&(facility.Capacity!=0||facility.MinimumWorkers!=0))||state.Leaders.Any(leader=>leader.FacilityId=="workshop")||state.Workers.Any(worker=>worker.FacilityId=="workshop")))throw new ArgumentException("Demo工坊尚未修复，不能提前生产");
             if(state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Any(obj=>new[]{"workshop","barracks"}.Contains(obj.Id)&&obj.VisualOnly==BaseDemoDefense.Repaired(state,obj.Id)))throw new ArgumentException("Demo建筑外观与实际修复状态不一致");
             BaseDemoPrologue.Validate(state);BaseDemoIntro.Validate(state);BaseDemoIntro.CompleteFarmAssignment(state);
+            NormalizeCampLabels(state);
             BaseDemoFinale.Normalize(state);
             BaseDemoRuins.Validate(state);
             BaseRuinsRewards.Validate(state);
@@ -287,6 +288,23 @@ namespace BaseConquest.Base
             BaseDemoFinale.Validate(state);
             BaseDemoRaids.Validate(state);
             BaseQuestLog.NormalizeDemoTrack(state);
+        }
+
+        private static void NormalizeCampLabels(BaseState state)
+        {
+            foreach (var map in state.Campaign.Layouts)
+            {
+                if (map.Region == "base" && map.Title is "新营地" or "断流滩" or "断流滩新营地")
+                    map.Title = BaseScriptNames.Camp;
+                else if (map.Region == "town" || map.Region == "perimeter")
+                {
+                    var exit = map.Objects.Find(obj => obj.Id == (map.Region == "town" ? "travel_base" : "demo_defense_return"));
+                    if (exit?.Name is "← 返回营地" or "返回营地" or "返回营地 →")
+                        exit.Name = exit.Name.Replace("返回营地", "返回" + BaseScriptNames.Camp);
+                }
+            }
+            var campNode = state.Campaign.WorldJourney?.Nodes?.Find(node => node.Id == "camp");
+            if (campNode?.Title == "新领地营地") campNode.Title = BaseScriptNames.Camp;
         }
 
         public static bool AcknowledgeWaking(BaseState state)
@@ -316,7 +334,7 @@ namespace BaseConquest.Base
             if(BaseDemoPrologue.Village(state))return "请先完成村庄撤离与追兵剧情";
             if(state.Demo.Stage==BaseDemoStage.Waking)return "请先在营帐了解当前处境";
             if(BaseDemoRuins.Enabled(state))return BaseDemoRuins.TravelProblem(state,target);
-            if(target!="base"&&target!="town")return "本批只开放新营地与领主驻地，后续区域尚未接入";
+            if(target!="base"&&target!="town")return "本批只开放"+BaseScriptNames.Camp+"与领主驻地，后续区域尚未接入";
             return BaseInteraction.At(state,"base","exit_east")&&target=="town"||BaseInteraction.At(state,"town","travel_base")&&target=="base" ? "" : "请到对应出口同层一格以内通行";
         }
         public static string AutoSaveReason(BaseState previous,BaseState next) => Active(previous)&&Active(next) ? previous.Demo.Stage==BaseDemoStage.VisitLord&&next.Demo.Stage==BaseDemoStage.RuinsAssigned ? "主线节点：接取"+BaseScriptNames.Ruins+"调查" : previous.Demo.Stage==BaseDemoStage.ProloguePursuit&&next.Demo.Stage==BaseDemoStage.PrologueWounded ? "主线节点：序章撤离完成" : previous.Demo.Stage==BaseDemoStage.RuinsAssigned&&next.Demo.Stage==BaseDemoStage.RuinsCleared ? "主线节点："+BaseScriptNames.Ruins+"救助完成" : previous.Demo.Stage==BaseDemoStage.RuinsCleared&&next.Demo.Stage==BaseDemoStage.RuinsDelivered ? "主线节点："+BaseScriptNames.Ruins+"证据交付" : previous.Demo.Stage==BaseDemoStage.DefenseWarned&&next.Demo.Stage==BaseDemoStage.DefenseWon&&!BaseBattleLoot.Pending(next)?"主线节点：首次防守战果处理完成":previous.Demo.Stage==BaseDemoStage.DefenseWon&&next.Demo.Stage==BaseDemoStage.AttackWon&&!BaseBattleLoot.Pending(next)?"主线节点：攻营战果处理完成":previous.Demo.Stage==BaseDemoStage.AttackWon&&next.Demo.Stage==BaseDemoStage.Finished?"主线节点：返乡断剑与Demo结束":null : null;

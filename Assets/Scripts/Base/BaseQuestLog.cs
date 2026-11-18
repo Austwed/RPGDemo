@@ -88,7 +88,7 @@ namespace BaseConquest.Base
                     if (!BaseDemoRuins.Enabled(s) || s.Leaders.Any(l => l.Id == "partner_farm")) return default;
                     return s.Campaign.Location == "base"
                         ? new BaseQuestCue(id, "去营地粮田旁找阿禾，邀请她同行", "demo_ahe")
-                        : ToCamp(s, id, "回营地找阿禾");
+                        : ToCamp(s, id, "回"+BaseScriptNames.Camp+"找阿禾");
                 case "demo:partner_craft":
                     if (!BaseDemoRuins.Enabled(s) || s.Leaders.Any(l => l.Id == "partner_craft")) return default;
                     return ToTown(s, id, "去铁匠铺找阿铸，切磋后邀请他同行", "demo_azhu");
@@ -118,7 +118,7 @@ namespace BaseConquest.Base
                                 ? ToCamp(s,id,"去兵营训练至 Lv2","barracks")
                                 : ToCamp(s,id,"先修复兵营，再训练至 Lv2","demo_fix_barracks");
                         case BaseSideQuestStage.Ready:
-                            return ToCamp(s,id,"回断流滩向老周说明训练成果","demo_rescuer");
+                            return ToCamp(s,id,"回"+BaseScriptNames.Camp+"向老周说明训练成果","demo_rescuer");
                     }
                     break;
                 case "demo:camp_supplies":
@@ -188,7 +188,7 @@ namespace BaseConquest.Base
                     _ => new BaseQuestCue(prologue, "掩护村民撤离")
                 };
             }
-            if (demo.Stage == BaseDemoStage.Waking) return new BaseQuestCue(ruins, "了解在断流滩醒来后的处境", "home");
+            if (demo.Stage == BaseDemoStage.Waking) return new BaseQuestCue(ruins, "了解在"+BaseScriptNames.Camp+"醒来后的处境", "home");
             if (demo.Stage == BaseDemoStage.VisitLord) return ToTown(s, ruins, "拜访霍恩爵士，听取调查委托", "town_quest");
             if (demo.Stage == BaseDemoStage.RuinsAssigned) return ToRuins(s, ruins, "调查古窟并救出村民");
             if (demo.Stage == BaseDemoStage.RuinsCleared)
@@ -256,7 +256,7 @@ namespace BaseConquest.Base
                     list.Add(new BaseQuestEntry { Id = "demo:rebuild", Main = true, Title = "重建营地", Status = rebuilt ? "已修复" : "进行中", Goal = "修复工坊和兵营，安排生产。", Reward = "军需生产与迎战准备", Done = rebuilt, Phase = rebuilt ? QuestPhase.Done : QuestPhase.Active });
                 }
                 if (BaseDemoDefense.Delivered(s))
-                    list.Add(new BaseQuestEntry { Id = "demo:defend", Main = true, Title = "守住新营地", Status = BaseDemoDefense.Won(s) ? "已完成" : "进行中", Goal = BaseDemoDefense.Objective(s), Reward = "攻营与返乡道路线索", Done = BaseDemoDefense.Won(s), Phase = BaseDemoDefense.Won(s) ? QuestPhase.Done : QuestPhase.Active });
+                    list.Add(new BaseQuestEntry { Id = "demo:defend", Main = true, Title = "守住"+BaseScriptNames.Camp, Status = BaseDemoDefense.Won(s) ? "已完成" : "进行中", Goal = BaseDemoDefense.Objective(s), Reward = "攻营与返乡道路线索", Done = BaseDemoDefense.Won(s), Phase = BaseDemoDefense.Won(s) ? QuestPhase.Done : QuestPhase.Active });
                 if (BaseDemoDefense.Won(s))
                     list.Add(new BaseQuestEntry { Id = "demo:attack", Main = true, Title = BaseDemoFinale.OccupiedBySecondDefense(s) ? "返乡调查" : "攻营与返乡", Status = s.Demo.Stage == BaseDemoStage.Finished ? "已完成" : "进行中", Goal = BaseDemoFinale.Objective(s), Reward = "搭档的断剑", Done = s.Demo.Stage == BaseDemoStage.Finished, Phase = s.Demo.Stage == BaseDemoStage.Finished ? QuestPhase.Done : QuestPhase.Active });
             }

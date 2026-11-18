@@ -54,7 +54,7 @@ namespace BaseConquest.Base
             if(!Enabled(state)||!state.Demo.MetCompanions.Contains(id)||!Meet(state,id)||state.Leaders.Any(person=>person.Id==id)||!BaseRpg.HasRoom(state)||state.Muster.Parties.Count>0)return false;
             bool follow=state.Adventure.Members.Count<BaseAdventure.Capacity;
             var person=state.Demo.Candidates.Single(candidate=>candidate.Id==id).Copy();person.FacilityId=person.DesiredFacility=person.PartyId="";person.PostLocked=person.Away=person.Resting=false;
-            person.AcquisitionSource=id=="partner_farm"?"剧情结识 · 新营地邀请":"剧情结识 · "+BaseScriptNames.Town+"邀请";person.AcquisitionDay=state.Day;
+            person.AcquisitionSource=id=="partner_farm"?"剧情结识 · "+BaseScriptNames.Camp+"邀请":"剧情结识 · "+BaseScriptNames.Town+"邀请";person.AcquisitionDay=state.Day;
             person.HasHomePosition=true;person.HomeX=id=="partner_farm"?8:10;person.HomeY=7;person.HasMapPosition=true;person.MapRegion=state.Campaign.Location;
             person.MapId=BaseSceneInstances.Active(state)?state.Campaign.CurrentMapId:null;
             var point=BaseSpatial.Nearest(state,new BasePoint(state.PlayerX,state.PlayerY-.8));person.MapX=point.X;person.MapY=point.Y;person.UnavailableDay=state.Day;

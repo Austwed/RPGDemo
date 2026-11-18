@@ -110,7 +110,7 @@ namespace BaseConquest.Base
             Bind(state,"demo_town","demo_ruins_exit","demo_ruins","demo_ruins_return",2,7.5);Bind(state,"demo_ruins","demo_ruins_return","demo_town","demo_ruins_exit",22.4,6.5);
             Bind(state,"demo_camp","demo_defense_exit","demo_field","demo_defense_return",22,6.5);Bind(state,"demo_field","demo_defense_return","demo_camp","demo_defense_exit",1.6,6.5);
             var world=new BaseWorldJourneyState {Version=1,NodeId="camp"};campaign.WorldJourney=world;
-            world.Nodes.Add(new BaseWorldNode {Id="camp",Title="新领地营地",X=.18,Y=.38,MapIds=new List<string>{"demo_camp","demo_town","demo_field","demo_ruins"}});
+            world.Nodes.Add(new BaseWorldNode {Id="camp",Title=BaseScriptNames.Camp,X=.18,Y=.38,MapIds=new List<string>{"demo_camp","demo_town","demo_field","demo_ruins"}});
             if(BaseSceneRules.Active(state))world.Nodes.Single(n=>n.Id=="camp").MapIds.Add(BaseSceneRules.DungeonId);
             if(BaseBanditHideout.Installed(state))world.Nodes.Single(n=>n.Id=="camp").MapIds.Add(BaseBanditHideout.MapId);
             world.Nodes.Add(new BaseWorldNode {Id="bandit",AreaId="home",Title=BaseScriptNames.Village+"领地 · 敌营",X=.5,Y=.58,MapIds=new List<string>{Camp}});

@@ -30,9 +30,6 @@ namespace BaseConquest.Presentation
             return new Vector3(Mathf.Clamp(center.x, -x, x), 0, Mathf.Clamp(center.z, -z, z));
         }
 
-        private static float RiverBank(float z) => -1.9f - Mathf.Sin(z * .27f) * .65f - Mathf.Sin(z * .095f) * .42f;
-        private static float ShallowLimit(float z) => RiverBank(z) - 1.05f - Mathf.Sin(z * .47f) * .28f;
-
         private static float GroundHeight(float x, float z, BattleBoard board)
         {
             float outside = Mathf.Max(0, Mathf.Max(x - board.Width, Mathf.Min(x, z - board.Height)));
@@ -42,10 +39,9 @@ namespace BaseConquest.Presentation
 
         private void Build(BattleBoard board, Camera camera, Material grass, Material source)
         {
-            Material Terrain(string texture, Color tint)
+            Material GrassTint(Color tint)
             {
-                var material = new Material(source);
-                material.SetTexture("_BaseMap", PixelDemoArt.Load("Terrain", texture));
+                var material = new Material(grass);
                 material.SetColor("_BaseColor", tint);
                 return material;
             }
@@ -53,11 +49,8 @@ namespace BaseConquest.Presentation
             materials = new[]
             {
                 grass,
-                Terrain("grass", new Color(.89f, .95f, .86f)),
-                Terrain("sand", new Color(.77f, .76f, .55f)),
-                Terrain("shallow-water", new Color(.68f, .83f, .79f)),
-                Terrain("deep-water", new Color(.65f, .79f, .76f)),
-                Terrain("grass", new Color(.81f, .9f, .77f))
+                GrassTint(new Color(.89f, .95f, .86f)),
+                GrassTint(new Color(.81f, .9f, .77f))
             };
             var vertices = new List<Vector3>();
             var uv = new List<Vector2>();
@@ -66,13 +59,13 @@ namespace BaseConquest.Presentation
 
             Vector3 Point(float x, float z) => new Vector3((x - board.Width * .5f) * Cell,
                 GroundHeight(x, z, board), (z - board.Height * .5f) * Cell);
-            void Quad(float x0, float x1, float x2, float x3, int z, int terrain)
+            void Quad(int x, int z, int terrain)
             {
                 int first = vertices.Count;
-                vertices.Add(Point(x0, z));
-                vertices.Add(Point(x1, z + 1));
-                vertices.Add(Point(x2, z + 1));
-                vertices.Add(Point(x3, z));
+                vertices.Add(Point(x, z));
+                vertices.Add(Point(x, z + 1));
+                vertices.Add(Point(x + 1, z + 1));
+                vertices.Add(Point(x + 1, z));
                 uv.Add(Vector2.zero);
                 uv.Add(Vector2.up);
                 uv.Add(Vector2.one);
@@ -83,32 +76,16 @@ namespace BaseConquest.Presentation
             }
 
             for (int z = -Padding; z < board.Height + Padding; z++)
-            {
-                float near = RiverBank(z), next = RiverBank(z + 1);
-                float grassEdge = near * .55f + Mathf.Sin(z * 1.23f) * .17f;
-                float nextGrassEdge = next * .55f + Mathf.Sin((z + 1) * 1.23f) * .17f;
-                float shallow = ShallowLimit(z), nextShallow = ShallowLimit(z + 1);
-                Quad(near, next, nextGrassEdge, grassEdge, z, 2);
-                Quad(grassEdge, nextGrassEdge, 0, 0, z, 0);
-                Quad(shallow, nextShallow, next, near, z, 3);
-                for (int depth = 0; depth < 6; depth++)
-                    Quad(shallow - 1 - depth, nextShallow - 1 - depth,
-                        nextShallow - depth, shallow - depth, z, 4);
-                Quad(shallow - 7, nextShallow - 7, nextShallow - 6, shallow - 6, z, 3);
-                for (int x = 0; x < Padding; x++)
-                    Quad(shallow - 8 - x, nextShallow - 8 - x, nextShallow - 7 - x, shallow - 7 - x, z, x == 0 ? 2 : 1);
-
-                for (int x = 0; x < board.Width + Padding; x++)
+                for (int x = -Padding; x < board.Width + Padding; x++)
                 {
-                    if (x < board.Width && z >= 0 && z < board.Height) continue;
-                    float distance = Mathf.Max(x - board.Width, z - board.Height);
-                    float slope = Mathf.PerlinNoise(x * .22f, z * .22f);
-                    int terrain = distance > 1 && slope > .53f ? 5 : distance > 0 || z < -2 ? 1 : 0;
-                    Quad(x, x, x + 1, x + 1, z, terrain);
+                    if (x >= 0 && x < board.Width && z >= 0 && z < board.Height) continue;
+                    int distance = Mathf.Max(Mathf.Max(-x - 1, x - board.Width), Mathf.Max(-z - 1, z - board.Height));
+                    float variation = distance * .11f + (Mathf.PerlinNoise(x * .22f, z * .22f) - .5f) * 1.15f;
+                    int terrain = variation > .8f ? 2 : variation > .3f ? 1 : 0;
+                    Quad(x, z, terrain);
                 }
-            }
 
-            ground = new Mesh { name = "Camp banks and slopes" };
+            ground = new Mesh { name = "Camp grassland and slopes" };
             ground.SetVertices(vertices);
             ground.SetUVs(0, uv);
             ground.subMeshCount = materials.Length;
@@ -129,8 +106,6 @@ namespace BaseConquest.Presentation
             }
             void Tree(float x, float z) => Prop(trees[random.Next(trees.Length)], x, z,
                 Mathf.Lerp(1.65f, 2.65f, (float)random.NextDouble()));
-            for (int z = -8; z < board.Height + 9; z += 2)
-                Tree(RiverBank(z) - 9.4f - (float)random.NextDouble() * 2, z + (float)random.NextDouble());
             for (int x = 1; x < board.Width + 9; x += 2)
             {
                 Tree(x + (float)random.NextDouble(), board.Height + 1f + (float)random.NextDouble() * 2.6f);
@@ -138,11 +113,18 @@ namespace BaseConquest.Presentation
             }
             for (int z = -1; z < board.Height + 3; z += 2)
                 if (Mathf.Abs(z - 6.5f) > 2) Tree(board.Width + 1.7f + (float)random.NextDouble() * 3, z);
-            for (int z = -2; z < board.Height + 2; z += 2)
+            // Open ground continues beyond the west exit, between the trees.
+            Tree(-2.1f, 11.4f);
+            Tree(-4.6f, 9.3f);
+            Tree(-2.8f, 3.4f);
+            Tree(-5.8f, 5f);
+            Tree(-4.5f, 14.2f);
+            Prop("bush-round", -1.7f, 8.7f, .9f);
+            Prop("rock-scatter", -1.9f, 4.4f, .65f);
+            for (int z = -2; z < board.Height + 4; z += 3)
             {
-                float y = z + .35f;
-                Prop("rock-scatter", RiverBank(y) + .24f, y, .7f);
-                if (Mathf.Abs(y - 6.5f) > 1.4f) Prop("grass-tuft", RiverBank(y) * .35f, y + .65f, .65f);
+                Tree(-7.2f - (float)random.NextDouble() * 2.5f, z + (float)random.NextDouble());
+                if (Mathf.Abs(z - 6.5f) > 1.4f) Prop("grass-tuft", -1.45f - (float)random.NextDouble(), z, .65f);
             }
             Prop("rock-large", board.Width + 1.2f, board.Height - 3.3f, 1.35f);
             Prop("bush-round", board.Width + 1.45f, 2.2f, 1.15f);

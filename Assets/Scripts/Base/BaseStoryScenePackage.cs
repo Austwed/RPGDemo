@@ -58,7 +58,7 @@ namespace BaseConquest.Base
             if(state.Demo.Intro!=null){state.Demo.Intro.CaptainX=captain.X;state.Demo.Intro.CaptainY=captain.Y;}
         }
 
-        // 醒来后的新营地及其余四张剧情图：按设计整体替换内置布局。
+        // 醒来后的灰岩营地及其余四张剧情图：按设计整体替换内置布局。
         // 只在 InstallCampMap 之后调用，避免被内置布局或发布模式的固定快照覆盖回去。
         public void InstallCamp(BaseState state)
         {

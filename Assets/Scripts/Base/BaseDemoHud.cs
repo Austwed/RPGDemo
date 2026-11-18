@@ -39,7 +39,7 @@ namespace BaseConquest.Base
                 NpcDialogue(new[]{
                     new NpcLine(BaseScriptNames.ChunShen,BaseScriptNames.Portrait("chunshen"),"醒了！老头子快来看，人可算睁眼了！"),
                     new NpcLine("你","","［按住胸口］嘶……这是哪儿？我睡了多久？",true),
-                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"[摇头] 断流滩，灰岩镇外头。你昏睡了好些日子，水都喂不进去——能睁眼，是你命大。"),
+                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"[摇头] 灰岩镇西边的营地。你昏睡了好些日子，水都喂不进去——能睁眼，是你命大。"),
                     new NpcLine("你","","搭档呢？你回村时，见着西桥头的人了吗？",true),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"西桥断了，满地乱箭。我没见着你搭档，兴许是突围了。"),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"粮仓还有人翻吃的。我牵马绕过去，从东头把你驮了回来。"),
@@ -143,7 +143,7 @@ namespace BaseConquest.Base
             var lordLines=available?new[]{
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"听乡亲说，是你拖住了追兵。伤好些了？"),
                 new NpcLine("你","","多谢爵士接济。您可知道袭村的古裔从哪儿来？",true),
-                new NpcLine("你","","乡亲们在断流滩落脚。我想修工坊、招些人手，得请您给道许可。",true),
+                new NpcLine("你","","乡亲们暂时住在镇外的营地。我想修工坊、招些人手，得请您给道许可。",true),
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"哨探也没摸清他们的底细。工坊和兵源，我得先看你能做什么。"),
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"镇东的沉眠古窟近日在冒黑雾，两个采石的镇民还没回来。"),
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"听说你扛得住瘴气。进去查清楚，找到活人就带回来。"),

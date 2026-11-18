@@ -248,7 +248,7 @@ namespace BaseConquest.Editor
                     if (campSceneryOnly)
                     {
                         if (Object.FindObjectsByType<Transform>().Any(t => t.name == "CampScenery"))
-                            throw new InvalidOperationException("断流滩布景出现在白桦村");
+                            throw new InvalidOperationException("灰岩营地布景出现在白桦村");
                     }
                     else
                     {
@@ -273,13 +273,14 @@ namespace BaseConquest.Editor
                     break;
                 case "camp-scenery-edge":
                     if (Time.frameCount < frameDeadline) return;
-                    Capture("camp-scenery-02-edge");
+                    Capture("grayrock-camp-02-edge");
                     CheckCampSceneryFullView();
                     stage = "camp-scenery-wide"; frameDeadline = Time.frameCount + 4;
                     break;
                 case "camp-scenery-wide":
                     if (Time.frameCount < frameDeadline) return;
-                    Capture("camp-scenery-03-wide");
+                    Capture("grayrock-camp-03-wide");
+                    CheckCampNames();
                     Finish(failed ? 2 : 0, failed ? "截图失败" : "OK");
                     break;
                 case "wake":
@@ -1873,7 +1874,7 @@ namespace BaseConquest.Editor
                     Approach("home");
                     if (!controller.Change(s =>
                     {
-                        if (!BaseDemo.AcknowledgeWaking(s)) throw new InvalidOperationException("没有完成断流滩苏醒");
+                        if (!BaseDemo.AcknowledgeWaking(s)) throw new InvalidOperationException("没有完成灰岩营地苏醒");
                         s.PlayerX = tent.X;
                         s.PlayerY = tent.Y;
                         s.Inventory.Food = s.Inventory.Coins = s.Inventory.Materials = 0;
@@ -2598,7 +2599,10 @@ namespace BaseConquest.Editor
                 view.Board.Width != layout.Columns || view.Board.Height != layout.Rows)
                 throw new InvalidOperationException("布景未建立、含有碰撞体积或修改了正式棋盘");
             Log.Add($"出生点 ({state.PlayerX:F2}, {state.PlayerY:F2})；探索视野 {view.Camera.orthographicSize:F2}");
-            Capture("camp-scenery-01-spawn");
+            if (scenery.GetComponent<MeshRenderer>().sharedMaterials.Any(material =>
+                material.GetTexture("_BaseMap")?.name.StartsWith("grass", StringComparison.Ordinal) != true))
+                throw new InvalidOperationException("灰岩营地外围仍有非草地材质");
+            Capture("grayrock-camp-01-spawn");
 
             var move = typeof(BaseSceneController).GetMethod("MoveExploration", BindingFlags.Instance | BindingFlags.NonPublic);
             for (int i = 0; i < 20; i++) move.Invoke(controller, new object[] { Vector2.left, .05 });
@@ -2610,10 +2614,10 @@ namespace BaseConquest.Editor
             view.Follow(new Vector3(-100, 0, edgeCenter.z));
             if (Vector3.Distance(edgeCenter, (Vector3)Field(view, "panOffset")) > .01f)
                 throw new InvalidOperationException("贴边时相机还能越出西侧视野上限");
-            var river = view.Camera.WorldToScreenPoint(controller.WorldPoint(-3.2, edgeY));
-            if (!view.Camera.pixelRect.Contains(river) || view.Pick(river, out _))
-                throw new InvalidOperationException("地图外河岸未入画或被误判为部署格");
-            Log.Add($"[PASS] 实际向西行走停在 x={edgeX:F2}，相机停止跟随，入画的河岸无可拾取棋盘格");
+            var sceneryPoint = view.Camera.WorldToScreenPoint(controller.WorldPoint(-3.2, edgeY));
+            if (!view.Camera.pixelRect.Contains(sceneryPoint) || view.Pick(sceneryPoint, out _))
+                throw new InvalidOperationException("地图外草地未入画或被误判为部署格");
+            Log.Add($"[PASS] 实际向西行走停在 x={edgeX:F2}，相机停止跟随，入画的草地无可拾取棋盘格");
         }
 
         private static void CheckCampSceneryFullView()
@@ -2625,6 +2629,29 @@ namespace BaseConquest.Editor
             if (((Vector3)Field(view, "panOffset")).sqrMagnitude > .001f)
                 throw new InvalidOperationException("最远缩放时拖动移出了全景中心");
             Log.Add("[PASS] 全景居中，超量拖动保持限位；正式棋盘和布景独立");
+        }
+
+        private static void CheckCampNames()
+        {
+            var strip = (RectTransform)Field(H, "resourceStrip");
+            if (strip.Find("Location").GetComponent<Text>().text != BaseScriptNames.Camp)
+                throw new InvalidOperationException("界面地名未使用灰岩营地");
+
+            var oldState = controller.State.Copy();
+            BaseSpatial.Layout(oldState).Title = "断流滩新营地";
+            BaseSpatial.Layout(oldState, "town").Objects.Single(obj => obj.Id == "travel_base").Name = "← 返回营地";
+            BaseEconomy.Validate(oldState);
+            if (BaseCampaign.LocationName(oldState) != BaseScriptNames.Camp ||
+                BaseSpatial.Layout(oldState, "town").Objects.Single(obj => obj.Id == "travel_base").Name != "← 返回" + BaseScriptNames.Camp)
+                throw new InvalidOperationException("旧地图的营地标签没有随读取更新");
+
+            H.OpenDemoStory();
+            var dialogue = RequirePanel("NpcDialogue");
+            for (int i = 0; i < 5; i++) H.ContinueDialogue();
+            if (dialogue.Find("SpeakerName").GetComponent<Text>().text != "老周" ||
+                !dialogue.Find("DialogueText").GetComponent<Text>().text.Contains("灰岩镇西边的营地。"))
+                throw new InvalidOperationException("苏醒对白未使用老周的口语称呼");
+            Log.Add("[PASS] 实际顶栏为灰岩营地，旧地图标签可读，老周对白用口语称呼");
         }
 
         private static void CaptureViewports(string name, bool mobile = false)
@@ -2750,7 +2777,7 @@ namespace BaseConquest.Editor
         {
             EditorApplication.update -= Tick;
             Log.Insert(0, "exit=" + code + " " + message + " ｜ " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
-            string report = campSceneryOnly ? "ui-camp-scenery-report.txt" : androidTouch ? "ui-android-touch-report.txt" :
+            string report = campSceneryOnly ? "ui-grayrock-camp-report.txt" : androidTouch ? "ui-android-touch-report.txt" :
                 stage == "opening-copy" ? "ui-opening-copy-report.txt" :
                 stage.StartsWith("civilian-", StringComparison.Ordinal) ? "ui-civilian-work-report.txt" :
                 stage.StartsWith("route-", StringComparison.Ordinal) ? "ui-player-route-views-report.txt" : "ui-skin-report.txt";

@@ -7,7 +7,7 @@
     "TodayFoodConsumed": 13,
     "TodayFoodMissing": 0,
     "PlayerLeaderId": "player",
-    "TemplateTitle": "Demo · 序章与新营地",
+    "TemplateTitle": "Demo · 序章与灰岩营地",
     "WorkshopProduct": "supply",
     "PlayerX": 21.0,
     "PlayerY": 6.5,
@@ -202,7 +202,7 @@
             "FacilityId": "",
             "AppearanceId": "",
             "PreferredStrategy": 0,
-            "AcquisitionSource": "剧情结识 · 新营地邀请",
+            "AcquisitionSource": "剧情结识 · 灰岩营地邀请",
             "AcquisitionDay": 1,
             "Rpg": {
                 "Version": 1,
@@ -76730,7 +76730,7 @@
         "Layouts": [
             {
                 "Region": "base",
-                "Title": "新营地",
+                "Title": "灰岩营地",
                 "Columns": 24,
                 "Rows": 14,
                 "ForbidSoldiers": true,
@@ -76920,7 +76920,7 @@
                 "Objects": [
                     {
                         "Id": "travel_base",
-                        "Name": "← 返回营地",
+                        "Name": "← 返回灰岩营地",
                         "SourceObjectId": "",
                         "DefinitionId": "",
                         "AssetId": "",
@@ -77226,7 +77226,7 @@
                 "Objects": [
                     {
                         "Id": "demo_defense_return",
-                        "Name": "返回营地 →",
+                        "Name": "返回灰岩营地 →",
                         "SourceObjectId": "",
                         "DefinitionId": "",
                         "AssetId": "",
@@ -109994,7 +109994,7 @@
                     "Objects": [
                         {
                             "Id": "demo_defense_return",
-                            "Name": "返回营地 →",
+                            "Name": "返回灰岩营地 →",
                             "SourceObjectId": "",
                             "DefinitionId": "",
                             "AssetId": "",

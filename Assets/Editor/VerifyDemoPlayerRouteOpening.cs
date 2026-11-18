@@ -79,7 +79,7 @@ namespace BaseConquest.Editor
             Need(BaseDemoPrologue.BeginPursuit(state), "抵达东侧撤离点未触发追兵");
             CheckPursuitDefeat(state.Copy());
             PlayOpeningPursuit(state);
-            Need(BaseDemoPrologue.Recover(state), "重伤后无法进入断流滩新营地");
+            Need(BaseDemoPrologue.Recover(state), "重伤后无法进入灰岩营地");
             if(story!=null)CheckAuthoredBoard(state,story,"camp");
             else At(state, "home");
             Need(BaseDemo.AcknowledgeWaking(state), "营帐醒来对白无法推进拜访领主");
@@ -87,7 +87,7 @@ namespace BaseConquest.Editor
             Need(BaseQuestLog.ToggleTrack(state, "demo:partner_farm") && BaseQuestLog.Cue(state).ObjectId == "demo_ahe", "手动追踪未指向阿禾");
             Need(BaseQuestLog.ToggleTrack(state, "demo:partner_farm") && BaseQuestLog.Cue(state).ObjectId == "exit_east", "取消追踪没有恢复主线");
             BaseEconomy.Validate(state);
-            Note("追兵：核对伽兰战斗形象、村民撤离与追兵胜负两条路线。均接重伤剧情，可进入断流滩新营地。");
+            Note("追兵：核对伽兰战斗形象、村民撤离与追兵胜负两条路线。均接重伤剧情，可进入灰岩营地。");
             return state;
         }
 
@@ -225,7 +225,7 @@ namespace BaseConquest.Editor
             Need(state.Demo.Stage == BaseDemoStage.PrologueWounded && BaseDemoPrologue.Safe(state) && !BaseDemoPrologue.Resolve(state, pursuit),
                 "追兵败局未保留村民离场或战果重复提交");
             BaseEconomy.Validate(state);
-            Need(BaseDemoPrologue.Recover(state) && state.Demo.Stage == BaseDemoStage.Waking, "追兵败局未进入断流滩");
+            Need(BaseDemoPrologue.Recover(state) && state.Demo.Stage == BaseDemoStage.Waking, "追兵败局未进入灰岩营地");
         }
     }
 }

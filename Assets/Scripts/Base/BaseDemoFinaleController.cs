@@ -252,7 +252,7 @@ namespace BaseConquest.Base
         }
         public void OpenBanditCampBriefing(Action proceed)
         {
-            var lines=new List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"断流滩的还敢上山？弓手，给我看住山道！")};
+            var lines=new List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"镇外营地的人还敢上山？弓手，给我看住山道！")};
             if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"寨主，上回丢的脸，今天我自己挣回来！"));
             else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"你们还敢来？巴图的账，正好在这儿算。"));
             lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"山道窄，他们铺不开。弟兄们，顶住！"));
@@ -300,7 +300,7 @@ namespace BaseConquest.Base
                 if(BaseDemoFinale.OccupiedBySecondDefense(owner.State)){owner.PrepareDemoJourney();return true;}
                 activeObject="demo-roads";interactionObject="";
                 NpcDialogue(new[]{
-                    new NpcLine(BaseScriptNames.Scout,"chenan","大人，断流滩南边的官道能走了，沿路可到黑鸦寨。"),
+                    new NpcLine(BaseScriptNames.Scout,"chenan","大人，营地南边的官道能走了，沿路可到黑鸦寨。"),
                     new NpcLine(BaseScriptNames.Scout,"chenan","大人，营地到寨子、寨子到村，各走一天。攻下寨子、清点完战果，就能返乡。")
                 },new[]{new NpcReply("查看路线并选择出征队",owner.PrepareDemoJourney,!BaseBattleLoot.Pending(owner.State)),new NpcReply("先留营整备",ClosePanel)});return true;
             }

@@ -26,6 +26,8 @@ namespace BaseConquest.Editor
             BuyMarchSupply(state);
             At(state, "demo_march_exit");
             BaseDemoFinale.OpenWorld(state);
+            Need(state.Campaign.WorldJourney.Nodes.Single(node => node.Id == "camp").Title == BaseScriptNames.Camp,
+                "世界地图营地节点未使用灰岩营地");
             BaseAdventure.RecallPaused(state);
             var travel = PrepareRouteRoster(state, BasePrepRoute.Travel);
             var departure = travel.TravelPlan(state);

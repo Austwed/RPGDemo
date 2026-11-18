@@ -2878,7 +2878,7 @@
       "Role": "camp",
       "Layout": {
         "Region": "base",
-        "Title": "断流滩新营地",
+        "Title": "灰岩营地",
         "SourceMapId": "story-camp",
         "Columns": 24,
         "Rows": 14,
@@ -5713,7 +5713,7 @@
         "Objects": [
           {
             "Id": "travel_base",
-            "Name": "返回营地",
+            "Name": "返回灰岩营地",
             "SourceObjectId": "story-town-travel_base",
             "DefinitionId": "story_town_travel_base",
             "AssetId": "notice",
@@ -14687,7 +14687,7 @@
         "Objects": [
           {
             "Id": "demo_defense_return",
-            "Name": "返回营地",
+            "Name": "返回灰岩营地",
             "SourceObjectId": "story-field-demo_defense_return",
             "DefinitionId": "story_field_demo_defense_return",
             "AssetId": "notice",

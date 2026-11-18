@@ -105,7 +105,7 @@ namespace BaseConquest.Base
         public void OpenFirstRaidBriefing(Action proceed, Action back = null)
         {
             NpcDialogue(new[]{
-                new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"新打的军械都留下！断流滩这块地，黑鸦寨也要了！"),
+                new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"新打的军械都留下！这座营地，黑鸦寨也要了！"),
                 new NpcLine("你","","想要军械？先问问我手里这把。",true)
             },new[]{new NpcReply("拔剑迎战",proceed),new NpcReply("先看布防",back ?? OpenDemoDefenseSupply)});
         }
@@ -121,7 +121,7 @@ namespace BaseConquest.Base
         }
         public void OpenSecondRaidBriefing(Action proceed, Action back = null)
         {
-            var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"上回没拿下断流滩。今天我亲自来。")};
+            var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"上回没拿下你们的营地。今天我亲自来。")};
             if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"寨主，就是他们。我说过，我会回来的。"));
             else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"巴图的账，今天一起算！"));
             lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"弟兄们跟紧！别把口子让出来。"));

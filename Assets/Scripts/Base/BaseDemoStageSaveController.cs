@@ -41,7 +41,7 @@ namespace BaseConquest.Base
             BeginPanel("阶段测试档","demo-stages");
             RowButton("返回",0,820,()=>OpenSlots(false));row+=52;
             foreach(string choice in new[]{"male","female"}){string hero=choice;RowButton((stageGender==hero?"● ":"")+(hero=="male"?"男主角":"女主角"),hero=="male"?-210:210,400,()=>{stageGender=hero;OpenDemoStages();});}row+=52;
-            string[] ids={"camp","defense"},names={"新营地 · 醒来与伙伴","巴图袭击当天 · 迎战"},descriptions={"零普通兵，从结识伙伴、拜访领主和遗迹开始。","袭击已到达，三人队与11名普通兵已整备，可在迎敌战场布置工事。"};
+            string[] ids={"camp","defense"},names={BaseScriptNames.Camp+" · 醒来与伙伴","巴图袭击当天 · 迎战"},descriptions={"零普通兵，从结识伙伴、拜访领主和遗迹开始。","袭击已到达，三人队与11名普通兵已整备，可在迎敌战场布置工事。"};
             for(int n=0;n<ids.Length;n++){string id=ids[n];Line(descriptions[n],42,20);RowButton("读取 · "+names[n],0,820,()=>Confirm("读取固定阶段档","切换到该阶段起点。当前进度可先存入手动槽。",()=>owner.LoadDemoStage(id,stageGender)));row+=52;}
             Line("阶段起点固定，反复读取可重新测试；测试进展使用普通手动存档保存。",40,18);EndPanel();
         }

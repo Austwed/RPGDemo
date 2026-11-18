@@ -7,7 +7,7 @@ namespace BaseConquest.Base
     {
         // ===== 地名（规格 2.2）=====
         public const string Village="白桦村";       // 旧泛称：故乡／村子
-        public const string Camp="断流滩";          // 旧泛称：营地
+        public const string Camp="灰岩营地";
         public const string Town="灰岩镇";          // 旧泛称：城镇
         public const string Ruins="沉眠古窟";       // 旧泛称：遗迹
         public const string Bandit="黑鸦寨";        // 旧泛称：匪寨／阻路土匪营地／敌营

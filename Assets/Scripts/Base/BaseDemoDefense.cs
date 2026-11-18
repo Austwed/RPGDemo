@@ -85,7 +85,7 @@ namespace BaseConquest.Base
             // 入口放在左侧边缘正中（Y 取地图半高 6.5），与东侧「拜访领主」同一高度。
             camp.Objects.Add(new BaseMapPlacement {Id="demo_defense_exit",Name="← 迎敌战场 · 尚无入侵",X=.7,Y=6.5,Width=1.2,Height=2,VisualOnly=true});
             state.Campaign.Layouts.Add(new BaseMapLayout {Region="perimeter",Title="营地外围 · 首次防守",SpawnX=22,SpawnY=6.5,Objects=new List<BaseMapPlacement> {
-                new BaseMapPlacement {Id="demo_defense_return",Name="返回营地 →",X=23.3,Y=6.5,Width=1.2,Height=2},
+                new BaseMapPlacement {Id="demo_defense_return",Name="返回"+BaseScriptNames.Camp+" →",X=23.3,Y=6.5,Width=1.2,Height=2},
                 new BaseMapPlacement {Id="demo_defense_start",Name="来袭部队 · 确认迎战",X=21,Y=6.5,Width=1,Height=1}
             }});
         }
