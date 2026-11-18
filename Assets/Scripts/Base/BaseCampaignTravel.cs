@@ -226,7 +226,7 @@ namespace BaseConquest.Base
         public static string RequestedId;
         public static bool MainMenu;
         public static bool ShowPrisoners;
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)] private static void Reset() { sessions.Clear();OpeningProfile=null;designPackage=null;workshopSession=false;editorTestSession=false;editorTestPending=true;CustomMapTestPackageId=null;freshCustomMapTest=false; SessionHud=null;SessionPages=Array.Empty<GameObject>(); RequestedId = null; MainMenu = ShowPrisoners = false; }
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)] private static void Reset() { sessions.Clear();catalogs.Clear();OpeningProfile=null;designPackage=null;workshopSession=false;editorTestSession=false;editorTestPending=true;CustomMapTestPackageId=null;freshCustomMapTest=false; SessionHud=null;SessionPages=Array.Empty<GameObject>(); RequestedId = null; MainMenu = ShowPrisoners = false; }
         public static GameObject SessionHud;
         public static GameObject[] SessionPages=Array.Empty<GameObject>();
         private static bool workshopSession;
@@ -244,7 +244,7 @@ namespace BaseConquest.Base
         {
             if(packageId?.Length!=64||packageId.Any(c=>"0123456789abcdef".IndexOf(c)<0))throw new ArgumentException("自定义地图测试包编号无效");
             UseDemo();OpeningProfile=CustomMapProfile;CustomMapTestPackageId=packageId;MainMenu=false;
-            sessions.Remove(SaveDirectory);freshCustomMapTest=true;
+            ReleaseSession();freshCustomMapTest=true;
         }
 #endif
         public static string ExplorationScene=>DesignMode ? "DesignPackage_Stage3" : "Base_Stage2";
@@ -254,10 +254,25 @@ namespace BaseConquest.Base
         public static bool BeginEditorTest()
         {bool first=editorTestPending;editorTestPending=false;if(!workshopSession)editorTestSession=true;return first;}
         public static void UseWorkshop()=>workshopSession=true;
+#if UNITY_EDITOR || (UNITY_STANDALONE_WIN && DEVELOPMENT_BUILD)
+        private static readonly Lazy<string> benchmarkSaveDirectory = new Lazy<string>(() =>
+        {
+            var args = Environment.GetCommandLineArgs();
+            if (!args.Contains("-slgTransitionPerf") && !args.Contains("-slgScenePerf")) return null;
+            string folder = Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES");
+            if (string.IsNullOrWhiteSpace(folder) || !Path.IsPathRooted(folder) ||
+                !Directory.Exists(folder) || Directory.EnumerateFileSystemEntries(folder).Any())
+                throw new InvalidOperationException("性能测试需要独立、已创建且为空的存档目录。");
+            return Path.GetFullPath(folder);
+        });
+#endif
         public static string PlayerDataDirectory
         {
             get
             {
+#if UNITY_EDITOR || (UNITY_STANDALONE_WIN && DEVELOPMENT_BUILD)
+                if (benchmarkSaveDirectory.Value is string benchmark) return Path.Combine(benchmark, "player-data");
+#endif
                 var path = Application.persistentDataPath;
                 // 保持 Windows 旧版本的存档和本地文本位置，应用显示名可单独更换。
                 return Application.platform is RuntimePlatform.WindowsEditor or RuntimePlatform.WindowsPlayer
@@ -269,6 +284,9 @@ namespace BaseConquest.Base
         {
             get
             {
+#if UNITY_EDITOR || (UNITY_STANDALONE_WIN && DEVELOPMENT_BUILD)
+                if (benchmarkSaveDirectory.Value is string benchmark) return benchmark;
+#endif
 #if UNITY_EDITOR
                 var checkPath = Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES");
                 if (Application.isBatchMode && !string.IsNullOrEmpty(checkPath)) return CustomMapTestMode?Path.Combine(checkPath,CustomMapProfile,CustomMapTestPackageId):checkPath;
@@ -276,7 +294,40 @@ namespace BaseConquest.Base
                 return Path.Combine(PlayerDataDirectory,"BaseConquest","RealtimeCampaignExperiment",CustomMapTestMode ? "Demo/"+CustomMapProfile+"/"+CustomMapTestPackageId : DemoMode ? "Demo/"+OpeningProfile+"/v"+BaseDemo.SaveVersion : DesignMode ? "DesignPackageExperiment/"+designPackage.Id : workshopSession ? "EditorExperiment" : editorTestSession ? "EditorDevelopment/"+Path.GetFileNameWithoutExtension(OpeningProfile??"33_即时格战经营闭环.json") : "");
             }
         }
-        public static BaseSaveCatalog Catalog(bool checkExisting=true) => new BaseSaveCatalog(SaveDirectory, d=>JsonUtility.ToJson(d,true), json=>JsonUtility.FromJson<BaseSaveDocument>(json),DemoMode,checkExisting);
+        private static readonly Dictionary<string,BaseSaveCatalog> catalogs = new Dictionary<string,BaseSaveCatalog>();
+        public static BaseSaveCatalog Catalog(bool checkExisting=true)
+        {
+            string path = SaveDirectory;
+            if(!catalogs.TryGetValue(path,out var catalog) || catalog.DemoMode!=DemoMode)
+            {
+                catalog = new BaseSaveCatalog(path,d=>JsonUtility.ToJson(d),json=>JsonUtility.FromJson<BaseSaveDocument>(json),DemoMode,false,SaveDigest);
+                catalogs[path] = catalog;
+            }
+            if(checkExisting)catalog.RequestCheck();
+            return catalog;
+        }
+        private static string SaveDigest(Stream file)
+        {
+            const int blockSize = 128 * 1024;
+            var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(blockSize);
+            var digest = new Hash128();
+            try
+            {
+                while(true)
+                {
+                    int count = 0;
+                    while(count < blockSize)
+                    {
+                        int read = file.Read(buffer,count,blockSize-count);
+                        if(read==0)break;
+                        count += read;
+                    }
+                    if(count>0)digest.Append(buffer,0,count);
+                    if(count<blockSize)return digest.ToString();
+                }
+            }
+            finally { System.Buffers.ArrayPool<byte>.Shared.Return(buffer); }
+        }
         private static readonly Dictionary<string,BasePlaySession> sessions=new Dictionary<string,BasePlaySession>();
         public static BasePlaySession Session()
         {
@@ -291,10 +342,16 @@ namespace BaseConquest.Base
         }
         internal static void ExitDemoSession(bool quit)
         {
-            sessions.Remove(SaveDirectory);
-            if(CustomMapTestMode&&!quit){UseDemo();sessions.Remove(SaveDirectory);}
+            ReleaseSession();
+            if(CustomMapTestMode&&!quit){UseDemo();ReleaseSession();}
             RequestedId=null;ShowPrisoners=false;MainMenu=true;
             if(quit)Application.Quit();else SceneManager.LoadScene(ExplorationScene);
+        }
+        private static void ReleaseSession()
+        {
+            string path = SaveDirectory;
+            sessions.Remove(path);
+            catalogs.Remove(path);
         }
         public static BaseSaveStore Store()=>Session().Store;
     }

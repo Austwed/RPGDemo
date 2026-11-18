@@ -175,9 +175,51 @@ namespace BaseConquest.Editor
             Need(run.OutcomeResolver(run)==BattleOutcome.SideBWin,"第二波我方全部失能后应失败");
             Directory.CreateDirectory("Logs/checkpoint-verification");File.WriteAllText("Logs/checkpoint-verification/second-outcome.txt","PASS: no timed victory, enemy elimination, ally defeat.\n");
         }
+        public static void VerifySaveCatalog()
+        {
+            string folder = Path.Combine(Path.GetTempPath(),"base-save-check-"+Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            string path = Path.Combine(folder,"slot1.json");
+            BaseSaveCatalog Open() => new BaseSaveCatalog(folder,d=>JsonUtility.ToJson(d),JsonUtility.FromJson<BaseSaveDocument>,true);
+            try
+            {
+                var state = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
+                var document = new BaseSaveDocument {DemoSaveVersion=BaseDemo.SaveVersion,State=state,Label="A"};
+                File.WriteAllText(path,JsonUtility.ToJson(document));
+                File.Copy(path,path+".bak");
+                var catalog = Open();
+                Need(catalog.Entries().Single().Name=="A","初次读取槽位摘要失败");
+                var stamp = File.GetLastWriteTimeUtc(path);
+                long length = new FileInfo(path).Length;
+                document.Label = "B";
+                File.WriteAllText(path,JsonUtility.ToJson(document));
+                File.SetLastWriteTimeUtc(path,stamp);
+                Need(new FileInfo(path).Length==length && catalog.Entries().Single().Name=="B","未识别同长度同修改时间的外部改档");
+
+                File.WriteAllText(path,"{");
+                var reopened = Open();
+                Need(File.Exists(path) && reopened.Entries().Single().Error!=null,"损坏主档应保留在槽位并报告错误");
+                var session = new BasePlaySession(reopened,Path.Combine(folder,"session"),false);
+                session.LoadPlayableSlot("slot1",true);
+                var loaded = session.Store.Load();
+                Need(loaded.Day==state.Day && loaded.PlayerLeaderId==state.PlayerLeaderId,"未恢复该槽位备份");
+                string before = JsonUtility.ToJson(loaded);
+                bool rejected = false;
+                try { session.LoadPlayableSlot("slot1"); }
+                catch(ArgumentException) { rejected=true; }
+                Need(rejected && JsonUtility.ToJson(session.Store.Load())==before,"读取损坏主档后当前会话被修改");
+            }
+            finally
+            {
+                File.Delete(path);
+                File.Delete(path+".bak");
+                Directory.Delete(folder);
+            }
+        }
         [MenuItem("SLG/其他工具/验证/Demo阶段与首防检查点")]
         public static void Run()
         {
+            VerifySaveCatalog();
             var report=new StringBuilder();Directory.CreateDirectory("Logs/checkpoint-verification");
             foreach(string gender in new[]{"male","female"})
             {

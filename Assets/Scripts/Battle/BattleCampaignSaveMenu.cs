@@ -36,7 +36,7 @@ namespace BaseConquest.Battle
                 Button(name,-165,y,550,()=>{},false);
                 Button(loading ? "读取" : "保存",215,y,160,()=>{
                     try {
-                        if(loading){var next=catalog.LoadSlot(id);if(next.Aftermath.GameOver)throw new InvalidOperationException("此档已结束");BaseBattleGateway.Session().Restore(next);BaseBattleGateway.MainMenu=false;BaseBattleGateway.RequestedId=null;campaignBattleId="";SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
+                        if(loading){BaseBattleGateway.Session().LoadPlayableSlot(id);BaseBattleGateway.MainMenu=false;BaseBattleGateway.RequestedId=null;campaignBattleId="";SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
                         else { if(entry!=null){Button("确认覆盖此槽",0,-300,460,()=>{catalog.SaveSlot(id,BaseBattleGateway.Store().Load(),"战斗手动存档"+id);OpenCampaignSaves();});return;}catalog.SaveSlot(id,BaseBattleGateway.Store().Load(),"战斗手动存档"+id);OpenCampaignSaves();}
                     }catch(Exception e){feedback="存读档失败，原状态保留："+e.Message;Button(e.Message,0,-300,780,()=>OpenCampaignSaves(loading));}
                 },loading ? entry!=null&&entry.Error==null&&!entry.GameOver : !CampaignGameOver);

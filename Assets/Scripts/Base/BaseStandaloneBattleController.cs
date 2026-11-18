@@ -8,7 +8,11 @@ namespace BaseConquest.Base
     {
         public void StartStandaloneBattle(BaseStandaloneBattlePreset preset)
         {
-            if(!RuntimeDeveloperOptions.Enabled||State==null||Busy||combatController!=null||State.Campaign.HasActiveBattle||State.Aftermath.GameOver)return;
+            if(RuntimeDeveloperOptions.Enabled)StartStandaloneBattleFixture(preset);
+        }
+        internal void StartStandaloneBattleFixture(BaseStandaloneBattlePreset preset)
+        {
+            if(State==null||Busy||combatController!=null||State.Campaign.HasActiveBattle||State.Aftermath.GameOver)return;
             GameObject host=null;
             try
             {

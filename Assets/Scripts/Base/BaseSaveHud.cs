@@ -9,7 +9,7 @@ namespace BaseConquest.Base
         public void SaveSlot(string id) { try { Companions.Capture(State); BaseBattleGateway.Catalog().SaveSlot(id,State,"手动存档 "+id);BaseBattleGateway.Session().Restore(State); Message="已保存"+id; } catch(Exception e) { Message=e.Message; } Hud.OpenSlots(true); }
         public void LoadSlot(string id, bool backup=false)
         {
-            try { var next=BaseBattleGateway.Catalog().LoadSlot(id,backup); if(next.Aftermath.GameOver) throw new InvalidOperationException("此档已结束，选择其他存档"); BaseBattleGateway.Session().Restore(next); BaseBattleGateway.MainMenu=false; BaseBattleGateway.RequestedId=null; SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); }
+            try { BaseBattleGateway.Session().LoadPlayableSlot(id,backup); BaseBattleGateway.MainMenu=false; BaseBattleGateway.RequestedId=null; SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); }
             catch(Exception e) { Message="读档失败，当前进度保留："+e.Message; Hud.OpenSlots(false); }
         }
         public void ToMainMenu() { if(BaseBattleGateway.DemoMode){BaseBattleGateway.ExitDemoSession(false);return;} BaseBattleGateway.MainMenu=true; BaseBattleGateway.RequestedId=null; SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); }
@@ -65,7 +65,7 @@ namespace BaseConquest.Base
         }
         public void OpenSlots(bool saving)
         {
-            var entries=UnityEngine.Application.isPlaying ? BaseBattleGateway.Catalog().Entries() : new System.Collections.Generic.List<BaseSaveEntry>();
+            var entries=UnityEngine.Application.isPlaying ? BaseBattleGateway.Catalog().Entries(saving) : new System.Collections.Generic.List<BaseSaveEntry>();
             BeginPanel((BaseBattleGateway.CustomMapTestMode ? "地图测试 · " : "") + (saving ? "手动保存 · 3个槽位" : "读取游戏 · 3手动／6自动"));
             RowButton("返回",-210,400,()=>{if(BaseBattleGateway.MainMenu) OpenMainMenu(); else if(owner.State?.Aftermath.GameOver==true) OpenGameOver(); else OpenMenu();});
             RowButton("存档规则 i",210,400,()=>RuleInfo("存档规则",BaseBattleGateway.DemoMode

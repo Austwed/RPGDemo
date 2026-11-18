@@ -16,6 +16,7 @@ namespace BaseConquest.Battle
         private BaseConquest.Presentation.FieldworkArtView fieldworkArt;
         private GameObject gridRoot;
         private bool[] gridKnown;
+        private bool deferInitialRefresh;
         public bool GridOutlinesVisible { get; private set; }
         public void SetGridOutlines(bool visible)
         {
@@ -29,7 +30,7 @@ namespace BaseConquest.Battle
         }
         private void RebuildGridEdges()
         {
-            if(gridMesh==null||!GridOutlinesVisible)return;
+            if(deferInitialRefresh||gridMesh==null||!GridOutlinesVisible)return;
             var vertices=new System.Collections.Generic.List<Vector3>();var indices=new System.Collections.Generic.List<int>();
             foreach(var p in board.Positions())
             {
@@ -180,7 +181,11 @@ namespace BaseConquest.Battle
         private bool visionReveal;
 
         public BattleBoardView(BattleBoard board, Transform parent, Material material, Material lineMaterial)
+            : this(board, parent, material, lineMaterial, false) { }
+
+        internal BattleBoardView(BattleBoard board, Transform parent, Material material, Material lineMaterial, bool deferInitialRefresh)
         {
+            this.deferInitialRefresh = deferInitialRefresh;
             this.board = board;
             translucentFog = BattlePawn2D.Transparent(material);
             groundMaterial = material; swampTexture = MakeSwampTexture(); swampMaterial = MakeMaterial(material, swampTexture, "SwampMudAndReeds"); waterTexture = MakeTexture(true); wallTexture = MakeTexture(false);
@@ -239,6 +244,12 @@ namespace BaseConquest.Battle
             cellSelection = selectedCell.AddComponent<LineRenderer>(); cellSelection.sharedMaterial = lineMaterial;
             cellSelection.widthMultiplier = 0.045f; cellSelection.loop = true; cellSelection.positionCount = 4;
             cellSelection.startColor = cellSelection.endColor = new Color(1, 0.89f, 0.28f); cellSelection.enabled = false;
+            Refresh();
+        }
+        internal void CompleteInitialRefresh()
+        {
+            if (!deferInitialRefresh) return;
+            deferInitialRefresh = false;
             Refresh();
         }
         public static Vector3 World(GridPosition p, BattleBoard board) => new Vector3((p.X - (board.Width - 1) * 0.5f) * CellSize, 0, (p.Z - (board.Height - 1) * 0.5f) * CellSize);
@@ -364,6 +375,10 @@ namespace BaseConquest.Battle
         {authoredBuildings.Clear();foreach(var id in ids)authoredBuildings.Add(id);Refresh();}
         public void Refresh()
         {
+            if (deferInitialRefresh) return;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using var measuredRefresh = BaseConquest.Base.TransitionBenchmark.MeasureBoard();
+#endif
             exitMarkers=false;
             visionRevision = -1;
             Material DungeonSkin(string id)
@@ -628,7 +643,14 @@ namespace BaseConquest.Battle
             }
             texture.SetPixels(colors); texture.Apply(); return texture;
         }
-        public void Dispose() {DestroyObject(heightFogMaterial);DestroyObject(heightFogMesh);foreach(var mesh in rampFogMeshes.Values)DestroyObject(mesh);foreach(var m in dungeonMaterials.Values)DestroyObject(m);elevationView?.Dispose();groundEdges?.Dispose();fieldworkArt?.Dispose();DestroyObject(baseGrassMaterial);DestroyObject(baseRaisedGrassMaterial);DestroyObject(baseRaisedRoadMaterial);DestroyObject(baseCliffMaterial);DestroyObject(baseStairMaterial);foreach(var mesh in buildingMeshes)DestroyObject(mesh);foreach(var mesh in raisedMeshes)DestroyObject(mesh);foreach(var skin in buildingMaterials.Values)DestroyObject(skin);foreach(var skin in surfaceMaterials.Values)DestroyObject(skin);DestroyObject(buildingMaterial);DestroyObject(buildingTexture);DestroyObject(gridMesh); DestroyObject(swampMaterial); DestroyObject(swampTexture); DestroyObject(translucentFog); DestroyObject(waterMaterial); DestroyObject(wallMaterial); DestroyObject(waterTexture); DestroyObject(wallTexture); }
+        public void Dispose()
+        {
+            foreach (var entry in grassVariantCache)
+                foreach (var variant in entry.Value)
+                    if (variant != entry.Key) DestroyObject(variant);
+            grassVariantCache.Clear();
+            DestroyObject(heightFogMaterial);DestroyObject(heightFogMesh);foreach(var mesh in rampFogMeshes.Values)DestroyObject(mesh);foreach(var m in dungeonMaterials.Values)DestroyObject(m);elevationView?.Dispose();groundEdges?.Dispose();fieldworkArt?.Dispose();DestroyObject(baseGrassMaterial);DestroyObject(baseRaisedGrassMaterial);DestroyObject(baseRaisedRoadMaterial);DestroyObject(baseCliffMaterial);DestroyObject(baseStairMaterial);foreach(var mesh in buildingMeshes)DestroyObject(mesh);foreach(var mesh in raisedMeshes)DestroyObject(mesh);foreach(var skin in buildingMaterials.Values)DestroyObject(skin);foreach(var skin in surfaceMaterials.Values)DestroyObject(skin);DestroyObject(buildingMaterial);DestroyObject(buildingTexture);DestroyObject(gridMesh); DestroyObject(swampMaterial); DestroyObject(swampTexture); DestroyObject(translucentFog); DestroyObject(waterMaterial); DestroyObject(wallMaterial); DestroyObject(waterTexture); DestroyObject(wallTexture);
+        }
         public void ShowOutline(GridPosition from, GridPosition to, bool visible)
         {
             outline.enabled = visible; if (!visible) return;

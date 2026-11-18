@@ -217,13 +217,19 @@ namespace BaseConquest.Base
         public Vector3 WorldPoint(double x, double y) => new Vector3(((float)x-regionView.Board.Width*.5f)*BattleBoardView.CellSize,regionView.ExplorationHeight(x,y),((float)y-regionView.Board.Height*.5f)*BattleBoardView.CellSize);
         private void BuildWorld()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using var measuredBuild = TransitionBenchmark.MeasureWorld();
+#endif
             // 布局随存档序列化：旧档读进来先做一次性迁移，否则改过的营地坐标在旧档里看不到。
             if(State!=null)BaseDemo.EnsureCampLayout(State);
             explorationSight=null;nextSightAt=0;BeginEnvironmentVisit();
             var board=State==null ? BattleBoard.CreateDefault(24,14) : BaseBattlefield.Board(State);
             MapSession=new BaseMapSession(board);
             var shader=Shader.Find("Universal Render Pipeline/Unlit");mapMaterial=new Material(shader);mapMaterial.SetColor("_BaseColor",Color.white);
-            regionView=new BattleBoardView(board,runtimeRoot??transform,mapMaterial,mapMaterial) {FlatView=true,ObliqueBaseView=true};regionView.SetSurfaceRegion((State==null?null:BaseSpatial.Layout(State))?.SurfaceStyle=="dungeon"?"dungeon":State?.Campaign.Location??"base");regionView.SetCombatMode(false);
+            regionView = new BattleBoardView(board, runtimeRoot ?? transform, mapMaterial, mapMaterial, deferInitialRefresh: true)
+                { FlatView = true, ObliqueBaseView = true };
+            regionView.SetSurfaceRegion((State==null?null:BaseSpatial.Layout(State))?.SurfaceStyle=="dungeon"?"dungeon":State?.Campaign.Location??"base");
+            regionView.SetCombatMode(false);
             bool exploring = State != null && State.Campaign.Location != "world";
             if (exploring)
             {
@@ -239,6 +245,7 @@ namespace BaseConquest.Base
             regionView.SetAuthoredBuildings(MapObjects.Where(o=>(!string.IsNullOrEmpty(o.AssetId)||!string.IsNullOrEmpty(o.SourceObjectId))&&o.Blocks).Select(o=>o.Id));
             WorldCamera=regionView.Camera; WorldCamera.gameObject.AddComponent<AudioListener>();
             if(BaseConquest.Presentation.HomeTerrainTrial.Enabled&&BaseConquest.Presentation.HomeTerrainTrial.Eligible(State))regionView.SetHomeTerrainTrial(true);
+            regionView.CompleteInitialRefresh();
             // 地标与地形归同一世界根节点，进入战斗时保留，只有自由活动人物隐藏。
             var landmarks=new GameObject("RegionLandmarks").transform;landmarks.SetParent(regionView.Root.transform,false);
             explorationActors=new GameObject("FreeMovementActors").transform;explorationActors.SetParent(regionView.Root.transform,false);
