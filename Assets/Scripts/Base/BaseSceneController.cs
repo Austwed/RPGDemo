@@ -201,6 +201,8 @@ namespace BaseConquest.Base
             MapSession=new BaseMapSession(board);
             var shader=Shader.Find("Universal Render Pipeline/Unlit");mapMaterial=new Material(shader);mapMaterial.SetColor("_BaseColor",Color.white);
             regionView=new BattleBoardView(board,runtimeRoot??transform,mapMaterial,mapMaterial) {FlatView=true,ObliqueBaseView=true};regionView.SetSurfaceRegion((State==null?null:BaseSpatial.Layout(State))?.SurfaceStyle=="dungeon"?"dungeon":State?.Campaign.Location??"base");regionView.SetCombatMode(false);
+            if (BaseDemo.Active(State) && State.Campaign.Location == "base" &&
+                !BaseDemoPrologue.Village(State) && !BaseWorldJourney.OnWorld(State)) regionView.EnableCampScenery();
             if(State!=null&&!BaseWorldJourney.OnWorld(State))regionView.Zoom(.65f);
             regionView.UpdateCamera(0,0);
             if(State!=null&&!BaseWorldJourney.OnWorld(State))regionView.SetViewSize(regionView.Camera.orthographicSize);

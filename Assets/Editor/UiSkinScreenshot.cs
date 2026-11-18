@@ -39,6 +39,7 @@ namespace BaseConquest.Editor
         private static Camera ruinsEntranceCamera;
         private static string ruinsEntranceMap;
         private static bool failed, androidTouch, homeCopyOnly;
+        private static bool campSceneryOnly;
         private static BaseDayPreview civilianDayPreview;
         private static BaseWorkerJourney civilianCrossing;
         private static Transform civilianCrossingView;
@@ -87,6 +88,12 @@ namespace BaseConquest.Editor
         public static void RunCivilianWork()
         {
             CivilianStage("civilian-boot");
+            Run();
+        }
+
+        public static void RunCampScenery()
+        {
+            campSceneryOnly = true;
             Run();
         }
 
@@ -238,8 +245,16 @@ namespace BaseConquest.Editor
                     if (controller?.State == null || Object.FindAnyObjectByType<SceneLoadingCover>() != null)
                     { Note("等待序章进度"); return; }
                     if (!BaseDemoPrologue.Village(controller.State)) throw new InvalidOperationException("新档未进入白桦村");
-                    CaptureViewports("ui-skin-prologue");
-                    VerifyOpeningCopy();
+                    if (campSceneryOnly)
+                    {
+                        if (Object.FindObjectsByType<Transform>().Any(t => t.name == "CampScenery"))
+                            throw new InvalidOperationException("断流滩布景出现在白桦村");
+                    }
+                    else
+                    {
+                        CaptureViewports("ui-skin-prologue");
+                        VerifyOpeningCopy();
+                    }
                     controller.LoadDemoStage("camp", "female");
                     stage = "loading"; stageAt = EditorApplication.timeSinceStartup;
                     break;
@@ -248,7 +263,24 @@ namespace BaseConquest.Editor
                     if (controller?.State == null) { if (EditorApplication.timeSinceStartup - stageAt > 150) Finish(2, "阶段档载入超时"); return; }
                     if (controller.State.Campaign.Location != "base") return;
                     H?.ClosePanel();
-                    stage = "wake"; frameDeadline = Time.frameCount + 5;
+                    stage = campSceneryOnly ? "camp-scenery-shot" : "wake";
+                    frameDeadline = Time.frameCount + (campSceneryOnly ? 45 : 5);
+                    break;
+                case "camp-scenery-shot":
+                    if (Time.frameCount < frameDeadline) return;
+                    CheckCampScenerySpawnAndEdge();
+                    stage = "camp-scenery-edge"; frameDeadline = Time.frameCount + 4;
+                    break;
+                case "camp-scenery-edge":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("camp-scenery-02-edge");
+                    CheckCampSceneryFullView();
+                    stage = "camp-scenery-wide"; frameDeadline = Time.frameCount + 4;
+                    break;
+                case "camp-scenery-wide":
+                    if (Time.frameCount < frameDeadline) return;
+                    Capture("camp-scenery-03-wide");
+                    Finish(failed ? 2 : 0, failed ? "截图失败" : "OK");
                     break;
                 case "wake":
                     // camp 阶段档停在 Waking：Demo 里「先了解处境」之前不许出营地，所以先完成醒来目标。
@@ -2556,6 +2588,45 @@ namespace BaseConquest.Editor
             Debug.Log("[UiSkin] " + message + "（阶段 " + stage + "）");
         }
 
+        private static void CheckCampScenerySpawnAndEdge()
+        {
+            var view = (BattleBoardView)Field(controller, "regionView");
+            var scenery = view.Root.transform.Find("CampScenery");
+            var state = controller.State;
+            var layout = BaseSpatial.Layout(state);
+            if (scenery == null || scenery.GetComponentsInChildren<Collider>().Length > 0 ||
+                view.Board.Width != layout.Columns || view.Board.Height != layout.Rows)
+                throw new InvalidOperationException("布景未建立、含有碰撞体积或修改了正式棋盘");
+            Log.Add($"出生点 ({state.PlayerX:F2}, {state.PlayerY:F2})；探索视野 {view.Camera.orthographicSize:F2}");
+            Capture("camp-scenery-01-spawn");
+
+            var move = typeof(BaseSceneController).GetMethod("MoveExploration", BindingFlags.Instance | BindingFlags.NonPublic);
+            for (int i = 0; i < 20; i++) move.Invoke(controller, new object[] { Vector2.left, .05 });
+            double edgeX = state.PlayerX, edgeY = state.PlayerY;
+            if (edgeX < 0 || edgeX >= .65 || BaseSpatial.Walkable(controller.State, -.5, edgeY) ||
+                view.Board.Cell(new GridPosition(-1, (int)edgeY)) != null)
+                throw new InvalidOperationException($"西边缘的移动或布置边界异常：x={edgeX}");
+            var edgeCenter = (Vector3)Field(view, "panOffset");
+            view.Follow(new Vector3(-100, 0, edgeCenter.z));
+            if (Vector3.Distance(edgeCenter, (Vector3)Field(view, "panOffset")) > .01f)
+                throw new InvalidOperationException("贴边时相机还能越出西侧视野上限");
+            var river = view.Camera.WorldToScreenPoint(controller.WorldPoint(-3.2, edgeY));
+            if (!view.Camera.pixelRect.Contains(river) || view.Pick(river, out _))
+                throw new InvalidOperationException("地图外河岸未入画或被误判为部署格");
+            Log.Add($"[PASS] 实际向西行走停在 x={edgeX:F2}，相机停止跟随，入画的河岸无可拾取棋盘格");
+        }
+
+        private static void CheckCampSceneryFullView()
+        {
+            var view = (BattleBoardView)Field(controller, "regionView");
+            view.SetViewSize(view.FullViewSize);
+            view.Follow(controller.PlayerCameraTarget);
+            view.Pan(new Vector2(5000, 5000));
+            if (((Vector3)Field(view, "panOffset")).sqrMagnitude > .001f)
+                throw new InvalidOperationException("最远缩放时拖动移出了全景中心");
+            Log.Add("[PASS] 全景居中，超量拖动保持限位；正式棋盘和布景独立");
+        }
+
         private static void CaptureViewports(string name, bool mobile = false)
         {
             Capture(name);
@@ -2679,7 +2750,7 @@ namespace BaseConquest.Editor
         {
             EditorApplication.update -= Tick;
             Log.Insert(0, "exit=" + code + " " + message + " ｜ " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
-            string report = androidTouch ? "ui-android-touch-report.txt" :
+            string report = campSceneryOnly ? "ui-camp-scenery-report.txt" : androidTouch ? "ui-android-touch-report.txt" :
                 stage == "opening-copy" ? "ui-opening-copy-report.txt" :
                 stage.StartsWith("civilian-", StringComparison.Ordinal) ? "ui-civilian-work-report.txt" :
                 stage.StartsWith("route-", StringComparison.Ordinal) ? "ui-player-route-views-report.txt" : "ui-skin-report.txt";

@@ -64,6 +64,7 @@ namespace BaseConquest.Battle
         private readonly System.Collections.Generic.Dictionary<string,Material> dungeonMaterials=new System.Collections.Generic.Dictionary<string,Material>();
         private string surfaceRegion="battle";
         private bool homeTerrainTrial;
+        private bool campScenery;
         private readonly Dictionary<Material,(Texture Texture,Vector2 Scale,Vector2 Offset)> originalTrialMaterials=new Dictionary<Material,(Texture,Vector2,Vector2)>();
         public bool SetHomeTerrainTrial(bool enabled)
         {
@@ -238,6 +239,11 @@ namespace BaseConquest.Battle
             Refresh();
         }
         public static Vector3 World(GridPosition p, BattleBoard board) => new Vector3((p.X - (board.Width - 1) * 0.5f) * CellSize, 0, (p.Z - (board.Height - 1) * 0.5f) * CellSize);
+        internal void EnableCampScenery()
+        {
+            BaseConquest.Presentation.CampScenery.Create(Root.transform, board, Camera, baseGrassMaterial, groundMaterial);
+            campScenery = true;
+        }
         public void UpdateCamera(float leftFraction, float bottomFraction)
         {
             bool showGrid=CombatMode ? MapDisplayOptions.BattleGridOutlines : MapDisplayOptions.ShowGridOutlines;
@@ -250,7 +256,8 @@ namespace BaseConquest.Battle
                 float left=Mathf.Clamp(leftFraction,0,.35f);Camera.rect=new Rect(left,0,1-left,1);
             }
             Camera.rect=BaseConquest.Presentation.GameFrameCanvas.Compose(Camera.rect);
-            Camera.orthographicSize = Mathf.Max(board.Height * CellSize * 0.5f + (FlatView ? .15f : 2), (board.Width * CellSize * 0.5f + (FlatView ? .15f : 1.5f)) / Camera.aspect) * zoomFactor;
+            Camera.orthographicSize = FullViewSize * zoomFactor;
+            if (campScenery) panOffset = ClampCampPan(panOffset);
             Camera.transform.position = new Vector3(0, 30, FlatView ? 0 : -12) + panOffset;
             if (FlatView) Camera.transform.rotation = Quaternion.Euler(90, 0, 0);
             if (ObliqueExploration)
@@ -283,7 +290,9 @@ namespace BaseConquest.Battle
         public const float MinZoomFactor=.3f;
         public void Zoom(float ratio,float minimum=MinZoomFactor) { zoomFactor = Mathf.Clamp(zoomFactor * ratio, minimum, 1); }
         // zoomFactor=1 的默认视图即棋盘刚好完整入画；探索视图的绝对尺寸边界由此导出。
-        public float FullViewSize=>Mathf.Max(board.Height*CellSize*.5f+(FlatView?.15f:2f),(board.Width*CellSize*.5f+(FlatView?.15f:1.5f))/Camera.aspect);
+        public float FullViewSize => Mathf.Max(
+            board.Height * CellSize * .5f + (campScenery ? .9f : FlatView ? .15f : 2f),
+            (board.Width * CellSize * .5f + (campScenery ? 3.2f : FlatView ? .15f : 1.5f)) / Camera.aspect);
         public float MinViewSize=>FullViewSize*MinZoomFactor;
         // 统一入口：无论探索还是作战，都夹在同一组绝对边界里，并把 zoomFactor 同步成相对比例。
         public void SetViewSize(float size)
@@ -291,6 +300,7 @@ namespace BaseConquest.Battle
             size=Mathf.Clamp(size,MinViewSize,FullViewSize);
             zoomFactor=Mathf.Clamp(size/FullViewSize,MinZoomFactor,1f);
             Camera.orthographicSize=size;
+            if (campScenery) ApplyPanOffset(panOffset);
         }
         public void Follow(Vector3 feet)=>ApplyPanOffset(feet);
         public void ZoomAt(float ratio,Vector2 screen)
@@ -312,11 +322,14 @@ namespace BaseConquest.Battle
         }
         private void ApplyPanOffset(Vector3 offset)
         {
-            Vector3 previous=panOffset;panOffset=offset;
-            panOffset.x = Mathf.Clamp(panOffset.x, -board.Width * CellSize * 0.6f, board.Width * CellSize * 0.6f);
-            panOffset.z = Mathf.Clamp(panOffset.z, -board.Height * CellSize * 0.6f, board.Height * CellSize * 0.6f);
+            Vector3 previous = panOffset;
+            panOffset = campScenery ? ClampCampPan(offset) : new Vector3(
+                Mathf.Clamp(offset.x, -board.Width * CellSize * .6f, board.Width * CellSize * .6f), offset.y,
+                Mathf.Clamp(offset.z, -board.Height * CellSize * .6f, board.Height * CellSize * .6f));
             Camera.transform.position+=panOffset-previous;
         }
+        private Vector3 ClampCampPan(Vector3 offset) => BaseConquest.Presentation.CampScenery.ClampPan(
+            offset, board, Camera.orthographicSize, Camera.aspect, ObliqueExploration, zoomFactor);
         public bool Pick(Vector2 screen, out GridPosition cell)
         {
             cell = default;
