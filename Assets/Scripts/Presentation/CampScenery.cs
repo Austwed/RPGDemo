@@ -7,27 +7,16 @@ namespace BaseConquest.Presentation
     internal sealed class CampScenery : MonoBehaviour
     {
         private const float Cell = BattleBoardView.CellSize;
-        private const int Padding = 14;
+        private const int Padding = 5;
         private Mesh ground;
         private Material[] materials;
 
-        public static void Create(Transform parent, BattleBoard board, Camera camera, Material grass, Material source)
+        public static GameObject Create(Transform parent, BattleBoard board, Camera camera, Material grass, Material source, bool camp)
         {
-            var root = new GameObject("CampScenery", typeof(MeshFilter), typeof(MeshRenderer));
+            var root = new GameObject(camp ? "CampScenery" : "ExplorationScenery", typeof(MeshFilter), typeof(MeshRenderer));
             root.transform.SetParent(parent, false);
-            root.AddComponent<CampScenery>().Build(board, camera, grass, source);
-        }
-
-        internal static Vector3 ClampPan(Vector3 center, BattleBoard board, float size, float aspect, bool oblique, float zoom)
-        {
-            float horizontal = size * aspect;
-            float vertical = size / (oblique ? .8660254f : 1f);
-            float inset = Mathf.Lerp(.35f, 1f, Mathf.InverseLerp(.65f, 1f, zoom));
-            float Limit(float halfMap, float view) => Mathf.Max(0,
-                Mathf.Min(halfMap - view * inset, halfMap + (Padding - 1) * Cell - view));
-            float x = Limit(board.Width * Cell / 2, horizontal);
-            float z = Limit(board.Height * Cell / 2, vertical);
-            return new Vector3(Mathf.Clamp(center.x, -x, x), 0, Mathf.Clamp(center.z, -z, z));
+            root.AddComponent<CampScenery>().Build(board, camera, grass, source, camp);
+            return root;
         }
 
         private static float GroundHeight(float x, float z, BattleBoard board)
@@ -37,7 +26,7 @@ namespace BaseConquest.Presentation
                 Mathf.Lerp(.2f, 1.4f, Mathf.PerlinNoise(x * .22f, z * .22f)) - .025f;
         }
 
-        private void Build(BattleBoard board, Camera camera, Material grass, Material source)
+        private void Build(BattleBoard board, Camera camera, Material grass, Material source, bool camp)
         {
             Material GrassTint(Color tint)
             {
@@ -106,6 +95,15 @@ namespace BaseConquest.Presentation
             }
             void Tree(float x, float z) => Prop(trees[random.Next(trees.Length)], x, z,
                 Mathf.Lerp(1.65f, 2.65f, (float)random.NextDouble()));
+            if (!camp)
+            {
+                Tree(-2.1f, board.Height * .22f);
+                Tree(-2.5f, board.Height * .77f);
+                Tree(board.Width + 2.3f, board.Height * .7f);
+                Tree(board.Width * .18f, board.Height + 1.8f);
+                Tree(board.Width * .7f, -1.9f);
+                return;
+            }
             for (int x = 1; x < board.Width + 9; x += 2)
             {
                 Tree(x + (float)random.NextDouble(), board.Height + 1f + (float)random.NextDouble() * 2.6f);
@@ -123,7 +121,6 @@ namespace BaseConquest.Presentation
             Prop("rock-scatter", -1.9f, 4.4f, .65f);
             for (int z = -2; z < board.Height + 4; z += 3)
             {
-                Tree(-7.2f - (float)random.NextDouble() * 2.5f, z + (float)random.NextDouble());
                 if (Mathf.Abs(z - 6.5f) > 1.4f) Prop("grass-tuft", -1.45f - (float)random.NextDouble(), z, .65f);
             }
             Prop("rock-large", board.Width + 1.2f, board.Height - 3.3f, 1.35f);

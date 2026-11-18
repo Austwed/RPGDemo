@@ -144,7 +144,6 @@ namespace BaseConquest.Presentation
             Mesh=new Mesh{name="PixelDemo64Frame",vertices=new[]{new Vector3(-32*unit,.28f,-4*unit),new Vector3(-32*unit,.28f,60*unit),new Vector3(32*unit,.28f,60*unit),new Vector3(32*unit,.28f,-4*unit)},triangles=new[]{0,1,2,0,2,3}};
             Mesh.RecalculateNormals();Mesh.RecalculateBounds();Root.GetComponent<MeshFilter>().sharedMesh=Mesh;
             material=BattlePawn2D.Transparent(source);material.SetColor("_BaseColor",Color.white);Renderer=Root.GetComponent<Renderer>();Renderer.sharedMaterial=material;
-            SceneryOcclusion.Track(Renderer);
             Set(HeroFacing.South,HeroPose.Idle,0,false,false,false);
         }
         public void Set(HeroFacing facing,HeroPose pose,double time,bool hit,bool carried,bool mounted,bool referenceIdle=false)
@@ -179,7 +178,9 @@ namespace BaseConquest.Presentation
             // 格子取自图集（四行方形格）：普通角色 64／128，主角按 spec；-v1 静态图集固定 64 格、地线 60。
             float size=motion==null?64:motion.height/4f,pivot=motion==null?60:PixelDemoArt.FootPx(kind,size,spec),scale=1.55f/56;
             Mesh.vertices=new[]{new Vector3(-size*.5f*scale,.28f,(pivot-size)*scale),new Vector3(-size*.5f*scale,.28f,pivot*scale),new Vector3(size*.5f*scale,.28f,pivot*scale),new Vector3(size*.5f*scale,.28f,(pivot-size)*scale)};Mesh.RecalculateBounds();
-            ink.SetTexture("_BaseMap",motion??(riding?mountedAtlas:atlas));ink.SetColor("_BaseColor",hit?new Color(1,.35f,.35f):Color.white);Renderer.SetPropertyBlock(ink);
+            var texture=motion??(riding?mountedAtlas:atlas);
+            SceneryOcclusion.TrackFrame(Renderer,Mesh,texture,uv);
+            ink.SetTexture("_BaseMap",texture);ink.SetColor("_BaseColor",hit?new Color(1,.35f,.35f):Color.white);Renderer.SetPropertyBlock(ink);
             Root.transform.localRotation=carried||pose==HeroPose.Down&&motion==null?Quaternion.Euler(0,90,0):Quaternion.identity;
             // 统一体量规则：
             // ① 每个姿势先归一到该角色 -v1 的身高——图集把同一角色画得忽大忽小（cavalry 待机 48px、攻击 42px），
@@ -201,6 +202,7 @@ namespace BaseConquest.Presentation
             Mesh.vertices=new[]{new Vector3(-halfCell,.28f,-belowFeet),new Vector3(-halfCell,.28f,aboveFeet),
                 new Vector3(halfCell,.28f,aboveFeet),new Vector3(halfCell,.28f,-belowFeet)};
             Mesh.RecalculateBounds();
+            SceneryOcclusion.TrackFrame(Renderer,Mesh,texture,new Rect(left,0,right-left,1));
             ink.SetTexture("_BaseMap",texture);
             ink.SetColor("_BaseColor",Color.white);
             Renderer.SetPropertyBlock(ink);

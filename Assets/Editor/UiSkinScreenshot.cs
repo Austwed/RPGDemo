@@ -273,14 +273,25 @@ namespace BaseConquest.Editor
                     break;
                 case "camp-scenery-edge":
                     if (Time.frameCount < frameDeadline) return;
-                    Capture("grayrock-camp-02-edge");
+                    Capture("exploration-camp-edge");
                     CheckCampSceneryFullView();
                     stage = "camp-scenery-wide"; frameDeadline = Time.frameCount + 4;
                     break;
                 case "camp-scenery-wide":
                     if (Time.frameCount < frameDeadline) return;
-                    Capture("grayrock-camp-03-wide");
+                    Capture("exploration-camp-wide");
                     CheckCampNames();
+                    CheckSceneryOcclusion();
+                    H.ClosePanel();
+                    if (!controller.Change(s => BaseDemo.AcknowledgeWaking(s), "镜头验收"))
+                        throw new InvalidOperationException(controller.Message);
+                    Approach("exit_east");
+                    controller.TravelDemo("town");
+                    stage = "exploration-town-edge"; frameDeadline = Time.frameCount + 12;
+                    break;
+                case "exploration-town-edge":
+                    if (Time.frameCount < frameDeadline) return;
+                    CheckTownFraming();
                     Finish(failed ? 2 : 0, failed ? "截图失败" : "OK");
                     break;
                 case "wake":
@@ -2602,9 +2613,12 @@ namespace BaseConquest.Editor
             if (scenery.GetComponent<MeshRenderer>().sharedMaterials.Any(material =>
                 material.GetTexture("_BaseMap")?.name.StartsWith("grass", StringComparison.Ordinal) != true))
                 throw new InvalidOperationException("灰岩营地外围仍有非草地材质");
-            Capture("grayrock-camp-01-spawn");
+            Capture("exploration-camp-spawn");
 
             var move = typeof(BaseSceneController).GetMethod("MoveExploration", BindingFlags.Instance | BindingFlags.NonPublic);
+            view.SetViewSize(view.MaxExplorationViewSize);
+            view.FollowExplorer(controller.PlayerCameraTarget);
+            var startCamera = view.Camera.transform.position;
             for (int i = 0; i < 20; i++) move.Invoke(controller, new object[] { Vector2.left, .05 });
             double edgeX = state.PlayerX, edgeY = state.PlayerY;
             if (edgeX < 0 || edgeX >= .65 || BaseSpatial.Walkable(controller.State, -.5, edgeY) ||
@@ -2614,7 +2628,9 @@ namespace BaseConquest.Editor
             view.Follow(new Vector3(-100, 0, edgeCenter.z));
             if (Vector3.Distance(edgeCenter, (Vector3)Field(view, "panOffset")) > .01f)
                 throw new InvalidOperationException("贴边时相机还能越出西侧视野上限");
-            var sceneryPoint = view.Camera.WorldToScreenPoint(controller.WorldPoint(-3.2, edgeY));
+            if (Vector3.Distance(startCamera, view.Camera.transform.position) > .01f)
+                throw new InvalidOperationException("最远档在同一个镜头内跟着主角移动");
+            var sceneryPoint = view.Camera.WorldToScreenPoint(controller.WorldPoint(-1.3, edgeY));
             if (!view.Camera.pixelRect.Contains(sceneryPoint) || view.Pick(sceneryPoint, out _))
                 throw new InvalidOperationException("地图外草地未入画或被误判为部署格");
             Log.Add($"[PASS] 实际向西行走停在 x={edgeX:F2}，相机停止跟随，入画的草地无可拾取棋盘格");
@@ -2623,12 +2639,104 @@ namespace BaseConquest.Editor
         private static void CheckCampSceneryFullView()
         {
             var view = (BattleBoardView)Field(controller, "regionView");
-            view.SetViewSize(view.FullViewSize);
-            view.Follow(controller.PlayerCameraTarget);
-            view.Pan(new Vector2(5000, 5000));
-            if (((Vector3)Field(view, "panOffset")).sqrMagnitude > .001f)
-                throw new InvalidOperationException("最远缩放时拖动移出了全景中心");
-            Log.Add("[PASS] 全景居中，超量拖动保持限位；正式棋盘和布景独立");
+            var point = view.Camera.pixelRect.center;
+            controller.ZoomExplorationFactor(point, 100);
+            if (Mathf.Abs(view.Camera.orthographicSize / view.FullViewSize - .512f) > .0001f)
+                throw new InvalidOperationException("最远档未相当于旧上限回三格滚轮");
+            controller.ZoomExplorationFactor(point, .001f);
+            if (Mathf.Abs(view.Camera.orthographicSize / view.FullViewSize - .3f) > .0001f)
+                throw new InvalidOperationException("最近档改变了");
+            controller.ZoomExplorationFactor(point, 100);
+            var west = view.Camera.transform.position;
+            var east = controller.WorldPoint(view.Board.Width - 1.5, view.Board.Height * .5);
+            view.FollowExplorer(east);
+            if (Vector3.Distance(west, view.Camera.transform.position) < .1f ||
+                !view.Camera.pixelRect.Contains(view.Camera.WorldToScreenPoint(east)))
+                throw new InvalidOperationException("越过当前取景后无法继续看到角色");
+            view.FollowExplorer(controller.PlayerCameraTarget);
+            Log.Add("[PASS] 最远档是旧值的 0.512 倍；最近档还是 0.3 倍；取景内固定，越出时切到下一段");
+        }
+
+        private static void CheckTownFraming()
+        {
+            H.ClosePanel();
+            if (controller.State.Campaign.Location != "town") throw new InvalidOperationException(controller.Message);
+            var view = (BattleBoardView)Field(controller, "regionView");
+            Approach("travel_base");
+            view.SetViewSize(view.MaxExplorationViewSize);
+            view.FollowExplorer(controller.PlayerCameraTarget);
+            if (view.Root.transform.Find("ExplorationScenery") == null)
+                throw new InvalidOperationException("灰岩镇缺少外围布景");
+            Capture("exploration-town-west");
+        }
+
+        private static void CheckSceneryOcclusion()
+        {
+            var type = typeof(PixelCharacterSheet).Assembly.GetType("BaseConquest.Presentation.SceneryOcclusion");
+            var root = new GameObject("Occlusion check");
+            var camera = root.AddComponent<Camera>();
+            camera.transform.SetPositionAndRotation(new Vector3(100, 10, 100), Quaternion.Euler(90, 0, 0));
+            camera.orthographic = true;
+            camera.orthographicSize = 2;
+            camera.aspect = 1;
+            camera.cullingMask = 1 << 30;
+            const int size = 16;
+            Texture2D Half(bool right, bool readable)
+            {
+                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                var pixels = new Color32[size * size];
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                        if (right ? x >= 10 : x < 6) pixels[y * size + x] = Color.white;
+                texture.SetPixels32(pixels);
+                texture.Apply(false, !readable);
+                return texture;
+            }
+
+            var actorImage = Half(true, false);
+            var decorImage = Half(false, true);
+            var actorMesh = new Mesh { vertices = new[] { new Vector3(-1, 0, -1), new Vector3(-1, 0, 1),
+                new Vector3(1, 0, 1), new Vector3(1, 0, -1) }, triangles = new[] { 0, 1, 2, 0, 2, 3 } };
+            var actorObject = new GameObject("Actor", typeof(MeshFilter), typeof(MeshRenderer)) { layer = 30 };
+            actorObject.transform.position = new Vector3(100, 0, 100);
+            actorObject.GetComponent<MeshFilter>().sharedMesh = actorMesh;
+            var actor = actorObject.GetComponent<Renderer>();
+            var decorObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            decorObject.transform.SetPositionAndRotation(actorObject.transform.position, camera.transform.rotation);
+            decorObject.transform.localScale = new Vector3(2, 2, 1);
+            var material = new Material(Shader.Find("BaseConquest/SunSprite"));
+            material.SetTexture("_BaseMap", decorImage);
+            var decor = decorObject.GetComponent<Renderer>();
+            decor.sharedMaterial = material;
+            decor.sortingOrder = 1;
+            type.GetMethod("Attach").Invoke(null, new object[] { decor, camera });
+            type.GetMethod("TrackFrame").Invoke(null, new object[] { actor, actorMesh, actorImage, new Rect(0, 0, 1, 1) });
+            try
+            {
+                var fade = decorObject.GetComponent(type);
+                var properties = new MaterialPropertyBlock();
+                int Sample()
+                {
+                    type.GetField("cachedFrame", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, -1);
+                    type.GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(fade, null);
+                    decor.GetPropertyBlock(properties);
+                    return properties.GetInt("_ActorFadeCount");
+                }
+                if (Sample() != 0) throw new InvalidOperationException("只有透明画布交叠也触发了虚化");
+                actorObject.transform.position += Vector3.left * .8f;
+                if (Sample() != 1) throw new InvalidOperationException("可见角色实际被盖住时没有虚化");
+                actor.sortingOrder = 2;
+                if (Sample() != 0) throw new InvalidOperationException("角色处于前景仍触发虚化");
+                actor.sortingOrder = 0;
+                actor.forceRenderingOff = true;
+                if (Sample() != 0) throw new InvalidOperationException("隐藏角色触发了虚化");
+            }
+            finally
+            {
+                type.GetMethod("Untrack").Invoke(null, new object[] { actor });
+                foreach (var item in new Object[] { root, actorObject, decorObject, material, actorMesh, actorImage, decorImage }) Object.DestroyImmediate(item);
+            }
+            Log.Add("[PASS] 画布交叠、角色在前及隐藏均无虚化，真实像素遮挡产生虚化");
         }
 
         private static void CheckCampNames()
@@ -2777,7 +2885,7 @@ namespace BaseConquest.Editor
         {
             EditorApplication.update -= Tick;
             Log.Insert(0, "exit=" + code + " " + message + " ｜ " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
-            string report = campSceneryOnly ? "ui-grayrock-camp-report.txt" : androidTouch ? "ui-android-touch-report.txt" :
+            string report = campSceneryOnly ? "ui-exploration-framing-report.txt" : androidTouch ? "ui-android-touch-report.txt" :
                 stage == "opening-copy" ? "ui-opening-copy-report.txt" :
                 stage.StartsWith("civilian-", StringComparison.Ordinal) ? "ui-civilian-work-report.txt" :
                 stage.StartsWith("route-", StringComparison.Ordinal) ? "ui-player-route-views-report.txt" : "ui-skin-report.txt";
