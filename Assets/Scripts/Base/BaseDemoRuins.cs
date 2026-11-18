@@ -48,18 +48,37 @@ namespace BaseConquest.Base
             if(!Enabled(state)||BaseDemoPrologue.Village(state)||state.Demo.Stage==BaseDemoStage.Waking||!state.Demo.Candidates.Any(person=>person.Id==id)||!(id=="partner_craft"?BaseDemoNpcs.NearAzhu(state):BaseInteraction.At(state,Region(id),Marker(id))))return false;
             if(!state.Demo.MetCompanions.Contains(id))state.Demo.MetCompanions.Add(id);return true;
         }
-        public static bool Join(BaseState state,string id)
+        public static bool Join(BaseState state, string id, bool requestFollow = true)
         {
-            if(state.Adventure.Pauses.Count>0)return false;
-            if(!Enabled(state)||!state.Demo.MetCompanions.Contains(id)||!Meet(state,id)||state.Leaders.Any(person=>person.Id==id)||!BaseRpg.HasRoom(state)||state.Muster.Parties.Count>0)return false;
-            bool follow=state.Adventure.Members.Count<BaseAdventure.Capacity;
-            var person=state.Demo.Candidates.Single(candidate=>candidate.Id==id).Copy();person.FacilityId=person.DesiredFacility=person.PartyId="";person.PostLocked=person.Away=person.Resting=false;
-            person.AcquisitionSource=id=="partner_farm"?"剧情结识 · "+BaseScriptNames.Camp+"邀请":"剧情结识 · "+BaseScriptNames.Town+"邀请";person.AcquisitionDay=state.Day;
-            person.HasHomePosition=true;person.HomeX=id=="partner_farm"?8:10;person.HomeY=7;person.HasMapPosition=true;person.MapRegion=state.Campaign.Location;
-            person.MapId=BaseSceneInstances.Active(state)?state.Campaign.CurrentMapId:null;
-            var point=BaseSpatial.Nearest(state,new BasePoint(state.PlayerX,state.PlayerY-.8));person.MapX=point.X;person.MapY=point.Y;person.UnavailableDay=state.Day;
-            if(!follow){var home=BaseSpatial.Layout(state,"base");var landing=BaseSpatial.Nearest(state,new BasePoint(home.SpawnX,home.SpawnY),"base");person.MapRegion="base";person.MapId=home.SourceMapId;person.MapX=landing.X;person.MapY=landing.Y;}
-            state.Leaders.Add(person);if(follow)state.Adventure.Members.Add(id);state.Campaign.Layouts.Single(map=>map.Region==Region(id)).Objects.RemoveAll(obj=>obj.Id==Marker(id));BaseDevelopment.Allocate(state);BaseAchievements.PartyChanged(state);return true;
+            if (!CanExplore(state) || state.Aftermath.GameOver || state.Campaign.HasActiveBattle || BaseSceneCombat.Active(state) || BaseBattleLoot.Pending(state) ||
+                (id == "partner_craft" && !state.Demo.MetCompanions.Contains(id)) ||
+                state.Leaders.Any(person => person.Id == id) || !Meet(state, id)) return false;
+            var person = state.Demo.Candidates.Single(candidate => candidate.Id == id).Copy();
+            person.FacilityId = person.DesiredFacility = person.PartyId = "";
+            person.PostLocked = person.Away = person.Resting = false;
+            person.AcquisitionSource = "剧情结识 · " + (id == "partner_farm" ? BaseScriptNames.Camp : BaseScriptNames.Town) + "邀请";
+            person.AcquisitionDay = person.UnavailableDay = state.Day;
+            person.HasHomePosition = person.HasMapPosition = true;
+            person.HomeX = id == "partner_farm" ? 8 : 10;
+            person.HomeY = 7;
+            var home = BaseSpatial.Layout(state, "base");
+            var landing = BaseSpatial.Nearest(state, new BasePoint(person.HomeX, person.HomeY), "base");
+            person.MapRegion = "base";
+            person.MapId = home.SourceMapId;
+            person.MapX = landing.X;
+            person.MapY = landing.Y;
+            state.Leaders.Add(person);
+            state.Campaign.Layouts.Single(map => map.Region == Region(id)).Objects.RemoveAll(obj => obj.Id == Marker(id));
+            if (requestFollow && BaseAdventure.FollowInvitation(state, id))
+            {
+                var point = BaseSpatial.Nearest(state, new BasePoint(state.PlayerX, state.PlayerY - .8));
+                person.MapRegion = state.Campaign.Location;
+                person.MapId = BaseSceneInstances.Active(state) ? state.Campaign.CurrentMapId : null;
+                person.MapX = point.X;
+                person.MapY = point.Y;
+            }
+            else BaseDevelopment.Allocate(state);
+            return true;
         }
         public static string TravelProblem(BaseState state,string target)
         {

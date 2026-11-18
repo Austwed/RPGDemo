@@ -47,14 +47,17 @@ namespace BaseConquest.Base
             ValidatePauses(state);
             if(!state.Campaign.HasActiveBattle&&!state.Aftermath.GameOver&&state.Leaders.Any(l=>Alive(l)&&!l.Away&&l.Health<1)) throw new ArgumentException("战外存活队长至少保留1生命");
         }
-        public static string ChangeProblem(BaseState state, string id, bool join)
+        public static string ChangeProblem(BaseState state, string id, bool join) => ChangeProblem(state, id, join, false);
+
+        private static string ChangeProblem(BaseState state, string id, bool join, bool invited)
         {
             var leader = state.Leaders.FirstOrDefault(l => l.Id == id);
             if (leader == null) return "找不到这名伙伴";
             if (id == state.PlayerLeaderId) return "主角固定带队";
             if(PauseFor(state,id)!=null)return "请与暂离伙伴交谈，选择恢复随行";
             if(join&&state.Adventure.Pauses.Count>0&&!Contains(state,id))return "暂离伙伴占位期间不能添加新成员，请先让暂离者归队";
-            if (state.Aftermath.GameOver || state.Campaign.HasActiveBattle || state.Campaign.Location != "base" || state.Muster.Parties.Count != 0) return "请先返回基地并结束外出队伍，再对话调整伙伴";
+            bool local = state.Campaign.Location == "base" || invited && state.Campaign.Location == "town";
+            if (state.Aftermath.GameOver || state.Campaign.HasActiveBattle || !local || state.Muster.Parties.Count != 0) return "请先返回基地并结束外出队伍，再对话调整伙伴";
             if (join && (!Alive(leader) || leader.Health <= 0)) return "阵亡或失联者不能加入";
             if (leader.Away) return "该伙伴尚未返营";
             if (join&&!BaseDevelopment.CanFight(leader))return "该伙伴当前无法行动或正在训练";
@@ -62,9 +65,13 @@ namespace BaseConquest.Base
             if (join && state.Adventure.Members.Count >= Capacity) return "小队已满：主角与最多2名伙伴";
             return "";
         }
-        public static bool SetMember(BaseState state, string id, bool join)
+        public static bool SetMember(BaseState state, string id, bool join) => SetMember(state, id, join, false);
+
+        internal static bool FollowInvitation(BaseState state, string id) => SetMember(state, id, true, true);
+
+        private static bool SetMember(BaseState state, string id, bool join, bool invited)
         {
-            if (ChangeProblem(state, id, join) != "") return false;
+            if (ChangeProblem(state, id, join, invited) != "") return false;
             var leader = state.Leaders.Single(l => l.Id == id);
             if (join) state.Adventure.Members.Add(id); else state.Adventure.Members.Remove(id);
             leader.FacilityId = "";

@@ -1128,9 +1128,9 @@
       "notes": "接取前，老周第1页。"
     },
     {
-      "key": "story.quest.zhou_training.offer.2",
+      "key": "story.quest.zhou_training.offer.camp",
       "group": "支线／老周",
-      "text": "老莫那儿有{0}。买够{1}本去兵营练，练成了回来找我。",
+      "text": "老莫那儿有{0}。买够{1}本去营帐练，练成了回来找我。",
       "notes": "接取前第2页，未开始训练时也作提醒。{0}为所需基础兵书名，{1}为数量。"
     },
     {

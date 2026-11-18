@@ -93,8 +93,11 @@ namespace BaseConquest.Base
             if (activeObject != "barracks" || owner.State == null) return;
             if (UseFacilityPanel) { OpenBarracksFacility(); return; }
             BeginPanel("兵营 · 军队与伤情", "barracks:" + activePage); ManagementTabs(OpenBarracks);
-            BaseConquest.Presentation.DemoUiIcons.Attach(RowButton("角色等级训练",0,820,OpenTraining),"training");row+=60;
             var s = owner.State;
+            if (!BaseDemo.Active(s))
+            {
+                BaseConquest.Presentation.DemoUiIcons.Attach(RowButton("角色等级训练",0,820,OpenTraining),"training");row+=60;
+            }
             Line("全军 " + s.Workers.Sum(w => w.Count) + "兵／" + s.Leaders.Count + "队长。基地与外出共用实际人数和粮草。", 58, 22);
             if(activePage=="composition")CommanderPresets();else if(activePage=="roster")PersonnelRoster();else if (activePage == "recovery") Recovery();
             else
@@ -117,11 +120,13 @@ namespace BaseConquest.Base
         {
             var s = owner.State;
             Line("全员每天自然恢复最大生命的 " + (BaseDevelopment.RecoveryRatio(s) * 100).ToString("0") + "%（营帐 " + (s.Demo?.Rpg?.CampLevel ?? 1) + " 级），满血停止。队长不受血量阈值限制；士兵生命低于 30% 不能工作也不能主动出战，遇袭守家仍可迎战。", 98, 18);
-            foreach (var person in s.Leaders)
+            if (!BaseDemo.Active(s))
             {
-                string id = person.Id;
-                Line(BasePersonnel.LeaderName(person) + " · " + person.Health.ToString("0.#") + "/" + person.MaxHealth.ToString("0.#") + " · " + PersonState(person), 44);
-                Line(BaseAdventure.Alive(person)&&person.Health>0 ? "自然恢复，无需兵营操作" : "阵亡／失联者不自然恢复",44,18);
+                foreach (var person in s.Leaders)
+                {
+                    Line(BasePersonnel.LeaderName(person) + " · " + person.Health.ToString("0.#") + "/" + person.MaxHealth.ToString("0.#") + " · " + PersonState(person), 44);
+                    Line(BaseAdventure.Alive(person)&&person.Health>0 ? "自然恢复，无需兵营操作" : "阵亡／失联者不自然恢复",44,18);
+                }
             }
             for (int i = 0; i < s.Workers.Count; i++)
             {

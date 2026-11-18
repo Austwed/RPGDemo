@@ -62,7 +62,7 @@ namespace BaseConquest.Base
             {
                 ZhouTrainingLine("offer.1", "这一仗是守住了。下回呢？学几招总比多挨几刀强。"),
                 new NpcLine(BaseScriptNames.LaoZhou, BaseScriptNames.Portrait("laozhou"),
-                    string.Format(StoryText.Get("story.quest.zhou_training.offer.2", "老莫那儿有{0}。买够{1}本去兵营练，练成了回来找我。"), book, count))
+                    string.Format(StoryText.Get("story.quest.zhou_training.offer.camp", "老莫那儿有{0}。买够{1}本去营帐练，练成了回来找我。"), book, count))
             };
             if (accepted)
             {

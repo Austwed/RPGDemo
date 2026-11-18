@@ -55,10 +55,10 @@ namespace BaseConquest.Base
             var profile=origin.Clone();float factor=GrowthFactor(level);
             profile.Level=level;profile.Health=origin.Health*factor;profile.Damage=origin.Damage*factor;profile.Defense=origin.Defense*factor;return profile;
         }
-        private static bool AtBarracks(BaseState s)=>BasePartyInventory.Peaceful(s)&&!s.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(s)&&BaseInteraction.At(s,"base","barracks");
+        private static bool AtTrainingSite(BaseState s)=>BasePartyInventory.Peaceful(s)&&!s.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(s)&&BaseInteraction.At(s,"base",BaseDemo.Active(s)?"home":"barracks");
         public static string LeaderProblem(BaseState s,BaseLeader l)
         {
-            if(!AtBarracks(s))return "请在非战斗时接近基地兵营";
+            if(!AtTrainingSite(s))return BaseDemo.Active(s)?"请在非战斗时接近营帐":"请在非战斗时接近基地兵营";
             if(l==null||l.Away||!BaseAdventure.Alive(l)||l.Health<=0||Busy(l.Training))return "人物不可训练或正在训练";
             if(l.Training.Level>=9)return "已达9级";
             if(!BaseAftermath.ValidStats(l.Rpg?.Version==1?l.Rpg.Rules.Bare(l.Rpg,l.Training.Level+1):Growth(l.Training.Level==1?l.PersonalEquipment.BaseStats:l.Training.Origin,l.Training.Level+1)))return "成长属性超过当前支持上限";
@@ -72,7 +72,7 @@ namespace BaseConquest.Base
             if(l.Training.Level==1)l.Training.Origin=l.PersonalEquipment.BaseStats.Clone();l.Training.Target=target;l.Training.EndDay=s.Day+Days(l,target);l.FacilityId="";l.UnavailableDay=s.Day;BaseDevelopment.Allocate(s);return true;
         }
         public static bool CancelLeader(BaseState s,string id)
-        {var l=s.Leaders.SingleOrDefault(x=>x.Id==id);if(!AtBarracks(s)||l==null||!Busy(l.Training))return false;l.Training.Target=l.Training.EndDay=0;l.UnavailableDay=s.Day;BaseDevelopment.Allocate(s);return true;}
+        {var l=s.Leaders.SingleOrDefault(x=>x.Id==id);if(!AtTrainingSite(s)||l==null||!Busy(l.Training))return false;l.Training.Target=l.Training.EndDay=0;l.UnavailableDay=s.Day;BaseDevelopment.Allocate(s);return true;}
         public static void AdvanceDay(BaseState s)
         {
             foreach(var l in s.Leaders.Where(l=>Busy(l.Training)&&l.Training.EndDay<=s.Day))

@@ -154,8 +154,8 @@ namespace BaseConquest.Base
 
         internal void RequestExitCampPlacement()
         {
-            if (CampLayoutChanged) Hud.OpenDiscardCampLayout();
-            else { StopConstruction(); Hud.RefreshSummary(); }
+            StopConstruction();
+            Hud.RefreshSummary();
         }
 
         public void ArmConstruction()

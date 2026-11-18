@@ -69,7 +69,7 @@ namespace BaseConquest.Base
             BeginPanel((BaseBattleGateway.CustomMapTestMode ? "地图测试 · " : "") + (saving ? "手动保存 · 3个槽位" : "读取游戏 · 3手动／6自动"));
             RowButton("返回",-210,400,()=>{if(BaseBattleGateway.MainMenu) OpenMainMenu(); else if(owner.State?.Aftermath.GameOver==true) OpenGameOver(); else OpenMenu();});
             RowButton("存档规则 i",210,400,()=>RuleInfo("存档规则",BaseBattleGateway.DemoMode
-                ?"确认姓名后建立新档，存档文件名以主角姓名开头。3 个手动槽覆盖前确认。6 个自动槽在进图、开战前及剧情节点轮换。回主菜单或退出后，继续游戏会读取最近的磁盘进度。"
+                ?"确认姓名后建立新档，存档文件名以主角姓名开头。手动槽覆盖时保留一份备份。6 个自动槽在进图、开战前及剧情节点轮换。回主菜单或退出后，继续游戏会读取最近的磁盘进度。"
                 :"3 个手动槽需主动保存，覆盖前确认。6 个自动槽在新游戏、完整推进一天及关卡奖励处理完成后轮换。回主菜单或退出后，继续游戏会读取最近的磁盘进度。",()=>OpenSlots(saving))); row+=66;
             if(!saving&&BaseBattleGateway.DemoMode&&!BaseBattleGateway.CustomMapTestMode&&BaseConquest.Battle.RuntimeDeveloperOptions.Enabled){RowButton("阶段测试档",0,800,OpenDemoStages);row+=64;}
             foreach(string key in saving ? BaseSaveCatalog.Slots : BaseSaveCatalog.Slots.Concat(BaseSaveCatalog.AutoSlots))
@@ -77,7 +77,11 @@ namespace BaseConquest.Base
                 string id=key; var e=entries.FirstOrDefault(x=>x.Id==id);
                 string label=BaseSaveCatalog.AutoSlots.Contains(id) ? "自动 "+id+" · "+(e?.Name??"") : "手动 "+id;
                 Line(label+" · "+(e==null ? "空" : e.Error!=null ? "无法读取" : (string.IsNullOrEmpty(e.PlayerName)?"":e.PlayerName+" · ")+"第"+e.Day+"天"+(e.InBattle ? " · "+e.CombatProgress : " · "+(e.SceneTitle??BaseCampaign.LocationName(e.Location)))+(e.GameOver ? " · 已结束" : "")+" · "+e.TimeLabel),42,19);
-                if(saving) RowButton("保存到此槽",0,800,()=>{if(e==null) owner.SaveSlot(id); else Confirm("覆盖"+label,"只替换此槽，原内容保留一份备份。",()=>owner.SaveSlot(id));},owner.State!=null&&!owner.State.Aftermath.GameOver&&!owner.State.Campaign.HasActiveBattle);
+                if(saving) RowButton(BaseBattleGateway.DemoMode&&e!=null?"覆盖此槽（保留备份）":"保存到此槽",0,800,()=>
+                {
+                    if(e==null||BaseBattleGateway.DemoMode)owner.SaveSlot(id);
+                    else Confirm("覆盖"+label,"只替换此槽，原内容保留一份备份。",()=>owner.SaveSlot(id));
+                },owner.State!=null&&!owner.State.Aftermath.GameOver&&!owner.State.Campaign.HasActiveBattle);
                 else { RowButton("读取",-210,400,()=>owner.LoadSlot(id),e!=null&&e.Error==null&&!e.GameOver); RowButton("读取此槽备份",210,400,()=>owner.LoadSlot(id,true),e!=null); }
                 row+=60;
             }

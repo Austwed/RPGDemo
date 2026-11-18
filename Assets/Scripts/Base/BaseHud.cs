@@ -590,7 +590,7 @@ namespace BaseConquest.Base
 
         private void AddTemplates()
         {
-            if(BaseBattleGateway.DemoMode){RowButton("开始新游戏",0,830,()=>Confirm("开始新游戏","从白桦村序章开始。选择主角后填写姓名。",()=>owner.NewTemplate(BaseDemo.Profile)));row+=60;return;}
+            if(BaseBattleGateway.DemoMode){RowButton("开始新游戏",0,830,()=>owner.NewTemplate(BaseDemo.Profile));row+=60;return;}
             if(BaseDesignRoutes.Active(owner.State)){RowButton("重新开始当前设计组合",0,830,()=>Confirm("重开设计组合","只替换当前设计的隔离实验进度？",()=>owner.NewTemplate(owner.RecommendedTemplate)));row+=60;return;}
             foreach(var entry in BaseSceneController.TemplateEntries)
             {
@@ -606,7 +606,7 @@ namespace BaseConquest.Base
             BeginPanel(title); Line(text, 110);
             RowButton("确认", -155, 270, yes); RowButton("取消", 155, 270, OpenMenu); row += 60; EndPanel();
         }
-        // 营帐的请离基地面板：只列非剧情角色，资格用 DismissProblem 统一判，确认后永久移除。
+        // 营帐的旧布局只列可请离的非剧情角色。
         private void OpenDismiss()
         {
             var s=owner.State;
@@ -617,19 +617,16 @@ namespace BaseConquest.Base
             {
                 string id=person.Id;string problem=BaseRpg.DismissProblem(s,id);
                 var record = BasePersonnel.Units(s).First(u => u.LeaderId == id);
-                AddPersonnelRow(content, record, problem == "" ? RosterText("dismiss", "点击办理请离") : problem, () => ConfirmDismiss(id), problem == "");
+                AddPersonnelRow(content, record, problem == "" ? "永久请离基地" : problem, () =>
+                {
+                    if (owner.Change(next =>
+                    {
+                        if (!BaseRpg.Dismiss(next, id)) throw new InvalidOperationException(BaseRpg.DismissProblem(next, id));
+                    }, "已请离基地，物品已返仓")) OpenDismiss();
+                }, problem == "");
             }
             if(people.Length==0)Line("营地暂无可以请离基地的角色。",48,19);
             RowButton("返回",0,270,OpenHome);row+=60;EndPanel();
-        }
-        private void ConfirmDismiss(string id)
-        {
-            var person=owner.State.Leaders.FirstOrDefault(l=>l.Id==id);
-            if(person==null){OpenHome();return;}
-            BeginPanel("确认请离基地 · "+person.Name);
-            Line("永久离开：所有装备与背包物品退回基地仓库，普通兵保留；此人不能再次加入。",92,19);
-            RowButton("确认请离基地",-210,400,()=>{owner.Change(next=>{if(!BaseRpg.Dismiss(next,id))throw new InvalidOperationException(BaseRpg.DismissProblem(next,id));},"已请离基地，物品已返仓");OpenHome();});
-            RowButton("取消",210,400,OpenDismiss);row+=60;EndPanel();
         }
         public void OpenHome()
         {
@@ -644,10 +641,11 @@ namespace BaseConquest.Base
                 RowButton("休息至明天",-290,270,()=>owner.Rest(day));
                 RowButton("关闭",290,270,ClosePanel);row+=65;
                 RowButton("仓库",0,800,OpenWarehouse,BasePartyInventory.AtWarehouse(s));row+=60;
+                RowButton("等级训练",0,800,OpenTraining);row+=60;
                 if(BaseDeputy.Unlocked(s)){var deputy=BaseDeputy.Leader(s);RowButton("副手："+(deputy==null?"未指定":BasePersonnel.LeaderName(deputy))+" · 更换",0,800,OpenDeputy);row+=60;}
                 // 请离基地只在营帐办理（2026-11-06 裁决）：兵营名册不再提供这个入口。
                 if(s.Leaders.Any(l=>l.Id!=s.PlayerLeaderId&&l.Rpg!=null&&!l.Rpg.Story)){RowButton("请离基地 · 请人永久离开",0,800,OpenDismiss);row+=60;}
-                if(BaseRpg.Active(s)){var rules=s.Demo.Rpg;Line("营帐 "+rules.CampLevel+"级 · 队长名额 "+BaseRpg.Population(s)+" / "+BaseRpg.Capacity(s)+"（含主角、伙伴与外出队长）",60,20);if(rules.CampLevel<3){Line("升级：原料 "+rules.CampMaterials[rules.CampLevel-1]+"、钱币 "+rules.CampCoins[rules.CampLevel-1]+"；容量 "+rules.Capacity[rules.CampLevel],48,19);RowButton("升级营帐",0,800,()=>{owner.Change(next=>{if(!BaseRpg.UpgradeCamp(next))throw new InvalidOperationException(BaseRpg.CampUpgradeProblem(next));},"营帐已升级");OpenHome();},BaseRpg.CampUpgradeProblem(s)=="");row+=60;}}
+                if(BaseRpg.Active(s)){var rules=s.Demo.Rpg;Line("营帐 "+rules.CampLevel+"级 · 队长 "+BaseRpg.Population(s)+" · 招降空位 "+BaseRpg.RecruitingSlots(s),60,20);if(rules.CampLevel<3){Line("升级：原料 "+rules.CampMaterials[rules.CampLevel-1]+"、钱币 "+rules.CampCoins[rules.CampLevel-1]+"；容量 "+rules.Capacity[rules.CampLevel],48,19);RowButton("升级营帐",0,800,()=>{owner.Change(next=>{if(!BaseRpg.UpgradeCamp(next))throw new InvalidOperationException(BaseRpg.CampUpgradeProblem(next));},"营帐已升级");OpenHome();},BaseRpg.CampUpgradeProblem(s)=="");row+=60;}}
             }
             else
             {
@@ -680,17 +678,6 @@ namespace BaseConquest.Base
             Line("昨日恢复生命：" + r.PeopleRecovered + "人（全员自动恢复）");
             CampaignReports();
             Line(r.FoodMissing > 0 ? "今天缺粮会降低产能，人员不会直接死亡。增加粮田人数可恢复供给。" : "今天粮草充足。关闭报告可继续安排工作。", 78);
-        }
-        private void ConfirmAdventure(string id,bool join)
-        {
-            var s=owner.State;var copy=s.Copy();var before=BaseEconomy.ProjectDay(s);
-            if(!BaseAdventure.SetMember(copy,id,join)){OpenPartner(id);return;}
-            var after=BaseEconomy.ProjectDay(copy);
-            BeginPanel(join ? "确认邀请伙伴" : "确认留在营地","adventure-confirm:"+id);
-            RowButton("确认",-210,400,()=>{owner.Change(next=>{if(!BaseInteraction.CanReach(next,owner.PresentedObject(id))||!BaseAdventure.SetMember(next,id,join))throw new InvalidOperationException("伙伴状态或距离已变化，请重新对话");},join ? "伙伴已随行，实际岗位已释放" : "伙伴已留在营地，可安排岗位");OpenPartner(id);});
-            RowButton("取消",210,400,()=>OpenPartner(id));row+=65;
-            Line(join ? "加入后跟随主角，暂不担任设施管理员。" : "离队后仍保留本人状态；今日有实际外出记录则今天不生产。",85,20);
-            Line("预计日产量变化：粮 "+(after.FoodProduced-before.FoodProduced).ToString("+0;-0;0")+"／军需 "+(after.ProductsMade-before.ProductsMade).ToString("+0;-0;0"),65,20);EndPanel();
         }
         private void OpenGovernment()
         {
@@ -856,21 +843,16 @@ namespace BaseConquest.Base
         private void ConfirmManager(string leaderId,string facility,Action refresh)
         {
             var leader=owner.State.Leaders.Single(l=>l.Id==leaderId);
-            string extra=facility!=""&&BaseAdventure.Contains(owner.State,leaderId)?"；任职后退出随行小队":"";
-            BeginPanel("岗位安排", "manager-confirmation");
-            Line(leader.Name+" → "+BaseEconomy.FacilityName(facility)+extra,78,21);
-            RowButton("确认方案",-210,400,()=>{
-                bool aheNewFarmPost=BaseDemo.Active(owner.State)&&leaderId=="partner_farm"&&facility=="farm"&&leader.FacilityId!="farm";
-                bool assigned=owner.Change(next=>{
-                    if(!BaseEconomy.AssignLeader(next,leaderId,facility))throw new InvalidOperationException("设施或人员状态已变化，请重新安排");
-                },"已确认管理员安排"+extra);
-                if(assigned&&aheNewFarmPost)
-                    OpenAheResponse("这片田就交给我。明早我先去看看地里缺不缺水。",refresh);
-                else refresh();
-            });
-            RowButton("取消",210,400,refresh);
-            row+=65;
-            EndPanel();
+            string extra = facility != "" && BaseAdventure.Contains(owner.State,leaderId) ? "；任职后退出随行小队" : "";
+            bool aheNewFarmPost = BaseDemo.Active(owner.State) && leaderId == "partner_farm" && facility == "farm" && leader.FacilityId != "farm";
+            bool assigned = owner.Change(next =>
+            {
+                if (!BaseEconomy.AssignLeader(next, leaderId, facility))
+                    throw new InvalidOperationException("设施或人员状态已变化，请重新安排");
+            }, "已确认管理员安排" + extra);
+            if (assigned && aheNewFarmPost)
+                OpenAheResponse("这片田就交给我。明早我先去看看地里缺不缺水。", refresh);
+            else refresh();
         }
         private void Production()
         {

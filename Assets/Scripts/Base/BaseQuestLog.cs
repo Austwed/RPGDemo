@@ -115,7 +115,7 @@ namespace BaseConquest.Base
                             var missing=BaseTraining.Books(player,2)-BasePartyInventory.AvailableMaterial(s,book);
                             if(missing>0) return ToTown(s,id,"找老莫买 "+missing+" 本"+BaseDemoSideQuests.ZhouBookName(s,2),"town_peddler");
                             return BaseDemoDefense.Repaired(s,"barracks")
-                                ? ToCamp(s,id,"去兵营训练至 Lv2","barracks")
+                                ? ToCamp(s,id,"去营帐训练至 Lv2","home")
                                 : ToCamp(s,id,"先修复兵营，再训练至 Lv2","demo_fix_barracks");
                         case BaseSideQuestStage.Ready:
                             return ToCamp(s,id,"回"+BaseScriptNames.Camp+"向老周说明训练成果","demo_rescuer");
@@ -265,7 +265,7 @@ namespace BaseConquest.Base
                 "到铁匠铺完成一次重铸。","锻造石 ×"+BaseDemoSideQuests.RewardStones);
             if (BaseDemoSideQuests.Zhou(s) != BaseSideQuestStage.Hidden)
                 AddHiddenSideQuest(BaseDemoSideQuests.ZhouId,BaseDemoSideQuests.ZhouTitle,BaseDemoSideQuests.Zhou(s),
-                    "在兵营完成主角的等级训练，再向老周回报。",BaseDemoSideQuests.ZhouBookName(s,3)+" ×1");
+                    "在营帐完成主角的等级训练，再向老周回报。",BaseDemoSideQuests.ZhouBookName(s,3)+" ×1");
             foreach (var id in BaseDemoRuins.Enabled(s) ? new[] { "partner_farm", "partner_craft" } : Array.Empty<string>())
             {
                 bool joined = s.Leaders.Any(leader => leader.Id == id);

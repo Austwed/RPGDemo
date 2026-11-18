@@ -63,7 +63,8 @@ namespace BaseConquest.Base
             Label(card,d.Name,new Vector2(97,-10),new Vector2(170,20),DemoUiMetrics.FontBody,TextAnchor.MiddleLeft,new Vector2(0,1)).fontStyle=FontStyle.Bold;
             var tag=Label(card,claimed?"已领取":record!=null?"可领取":"未解锁",new Vector2(-52,-10),new Vector2(80,20),DemoUiMetrics.FontCaption,TextAnchor.MiddleRight,new Vector2(1,1));
             tag.color=claimable?theme.Ink:theme.Muted;
-            var condition=Label(card,d.Category=="hidden"&&record==null?"隐藏条件，解锁后揭示":d.Condition,new Vector2(142,-39),new Vector2(261,34),DemoUiMetrics.FontCaption,TextAnchor.UpperLeft,new Vector2(0,1));
+            string currentCondition = d.Id == BaseAchievements.Caution ? BaseAchievements.CautionCondition : d.Condition;
+            var condition=Label(card,d.Category=="hidden"&&record==null?"隐藏条件，解锁后揭示":currentCondition,new Vector2(142,-39),new Vector2(261,34),DemoUiMetrics.FontCaption,TextAnchor.UpperLeft,new Vector2(0,1));
             condition.color=DemoUiTheme.Current.Muted;
             var reward=Label(card,"奖励："+BaseAchievements.RewardName(d),new Vector2(142,-76),new Vector2(261,16),DemoUiMetrics.FontCaption,TextAnchor.MiddleLeft,new Vector2(0,1));
             reward.color=DemoUiTheme.Current.Muted;

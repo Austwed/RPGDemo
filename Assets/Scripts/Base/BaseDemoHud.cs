@@ -187,7 +187,7 @@ namespace BaseConquest.Base
                 new NpcLine("阿铸","azhu","是我的。我叫阿铸，巴隆是我爹。来过两招？")
             };
             NpcDialogue(WithInjury(state,met?"INJ_CAMP_AZHU":"",baseLines),new[]{
-                new NpcReply(met?"邀请加入小队":"原地切磋",()=>{if(met)owner.JoinDemoPartner(id);else if(BaseSceneRules.Active(state))owner.BeginAzhuDuel();else owner.MeetDemoPartner(id);}),
+                new NpcReply(met?"欢迎加入":"原地切磋",()=>{if(met)owner.JoinDemoPartner(id);else if(BaseSceneRules.Active(state))owner.BeginAzhuDuel();else owner.MeetDemoPartner(id);}),
                 new NpcReply("暂不邀请",ClosePanel)
             },guide:BaseQuestLog.Cue(state).ObjectId==id);
         }
@@ -201,8 +201,9 @@ namespace BaseConquest.Base
                 new NpcLine("阿禾","ahe","都安顿好啦。我那张猎弓还算准，出去探路带上我呗？")
             };
             NpcDialogue(WithInjury(state,met?"INJ_CAMP_AHE":"",lines),new[]{
-                new NpcReply(met?"好，一起走":"交谈，了解阿禾",()=>{if(met)owner.JoinDemoPartner(id);else owner.MeetDemoPartner(id);}),
-                new NpcReply("先在营地照看父母",()=>OpenAheResponse("成，我就在田边。要搭手，喊我一声就行。"))
+                new NpcReply("好，一起走",()=>owner.JoinDemoPartner(id)),
+                new NpcReply("先在营地照看父母",()=>owner.JoinDemoPartner(id, false)),
+                new NpcReply("暂不邀请",ClosePanel)
             },guide:BaseQuestLog.Cue(state).ObjectId==id);
         }
         internal void OpenAheResponse(string text,Action after=null) =>

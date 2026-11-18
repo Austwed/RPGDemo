@@ -45,7 +45,13 @@ namespace BaseConquest.Base
                 host.transform.SetParent(transform, false);
                 deploymentController = host.AddComponent<BattleSceneController>();
                 deploymentController.UseCurrentMap(regionView, MapSession);
-                deploymentController.ConfigureDeploymentDraft(draft, () => State, back, exit, () => BeginPreparedBattle(draft));
+                deploymentController.ConfigureDeploymentDraft(draft, () => State, () =>
+                {
+                    if (draft.Route == BasePrepRoute.Ruins && BaseAchievements.Active(State) && BaseRuinsRewards.RequiresWarning(State, draft) &&
+                        BaseAchievements.Record(State, BaseAchievements.Caution) == null)
+                        Change(state => BaseAchievements.Unlock(state, BaseAchievements.Caution), "");
+                    back?.Invoke();
+                }, exit, () => BeginPreparedBattle(draft));
                 host.SetActive(true);
                 if (Application.isPlaying && (deploymentController.PreviewSimulation == null || deploymentController.PreviewHud == null))
                     throw new InvalidOperationException("战斗部署界面未能启动");

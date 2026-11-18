@@ -151,7 +151,7 @@ namespace BaseConquest.Base
             bool dungeon = BaseRuinsRewards.IsDungeon(route);
             Ui<Button>(view, "Sweep").gameObject.SetActive(dungeon && BaseRuinsRewards.Cleared(state, route));
             Ui<Button>(view, "Reward").gameObject.SetActive(dungeon && BaseRuinsRewards.PendingBattle(state, route) != "");
-            PrepButton(view, "Sweep", null, ShowPreparedSweep);
+            PrepButton(view, "Sweep", "扫荡预览", ShowPreparedSweep);
             PrepButton(view, "Reward", null, () => { ClearBattlePreparation(); OpenRuinsReward(route); });
             var supply = view.Find("Supply");
             supply.gameObject.SetActive(!travel);
@@ -677,7 +677,7 @@ namespace BaseConquest.Base
             try { preview = battleDraft.PreviewSweep(state); }
             catch (ArgumentException error) { prepFeedback = error.Message; RefreshPreparationFields(); return; }
             catch (InvalidOperationException error) { prepFeedback = error.Message; RefreshPreparationFields(); return; }
-            BeginPanel(BaseRuinsRewards.DungeonName(battleDraft.Route) + " · 扫荡确认", SweepView);
+            BeginPanel(BaseRuinsRewards.DungeonName(battleDraft.Route) + " · 扫荡预览", SweepView);
             string ratio = preview.EnemyPower > 0 ? (preview.AllyPower / preview.EnemyPower).ToString("0.00") : "—";
             Line($"我方战力 {preview.AllyPower:0.00} / 敌方 {preview.EnemyPower:0.00} ≈ {ratio} 倍 · 需严格超过 1.5 倍", 64, 21);
             Line($"体力 {BaseRuinsRewards.Energy(state)} / {BaseRuinsRewards.Maximum(state)} · 领奖消耗 {BaseRuinsRewards.Cost(state)}", 52, 18);
@@ -687,7 +687,7 @@ namespace BaseConquest.Base
                 PrepText("supply_required", "本次所需军需") + $" {required} · {grade}", 42, 18);
             if (preview.Problem != "") Line(preview.Problem, 66, 18);
             RowButton("返回备战", -205, 390, ShowBattlePreparation);
-            RowButton("确认扫荡", 205, 390, () => owner.SweepPreparedRuins(battleDraft), preview.Problem == "");
+            RowButton("开始扫荡", 205, 390, () => owner.SweepPreparedRuins(battleDraft), preview.Problem == "");
             row += 60;
             EndPanel();
         }

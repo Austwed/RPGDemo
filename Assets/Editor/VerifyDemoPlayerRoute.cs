@@ -230,12 +230,34 @@ namespace BaseConquest.Editor
             finally{PlayerPrefs.SetString(difficultyKey,previous);}
             Need(grown.Demo.Stage==BaseDemoStage.RuinsCleared&&grown.Demo.AcceptedDay==0,
                 "先救人分支在交付前提前接取了委托");
+            if (grown.Demo.StoryScene?.Version != 2) VerifyFullCampInvitation(grown.Copy());
             ResolveLoot(grown);
             Travel(grown,"demo_ruins_return","town");
             At(grown,"town_quest");
             Need(BaseDemoRuins.Deliver(grown)&&grown.Demo.AcceptedDay==grown.Day&&BaseDemoDefense.Delivered(grown)&&
                 !BaseDemoRuins.Deliver(grown),"先救人交差未能补记委托，或可重复发放许可");
             Note("沉眠古窟旁支：未领委托，简单难度二级主角独自实战取胜。返镇交差时补记委托，许可仅发一次。");
+        }
+
+        private static void VerifyFullCampInvitation(BaseState state)
+        {
+            Need(BaseDemoStories.AcceptController(state, state.Demo.Flow.FirstControllerId), "满队样本无法接纳迦兰");
+            ResolveLoot(state);
+            Travel(state, "demo_ruins_return", "town");
+            RecruitAzhu(state);
+            Travel(state, "travel_base", "base");
+            At(state, "demo_ahe");
+            var following = state.Adventure.Members.ToArray();
+            Need(following.Length == BaseAdventure.Capacity && !BaseRpg.HasRoom(state), "满队样本应同时用完营帐和随行名额");
+            SaveRouteCheckpoint(state, "full-camp-before-ahe");
+            Need(BaseDemoRuins.Meet(state, "partner_farm") && BaseDemoRuins.Join(state, "partner_farm") &&
+                state.Leaders.Any(leader => leader.Id == "partner_farm" && leader.MapRegion == "base") &&
+                state.Adventure.Members.SequenceEqual(following), "满队邀请阿禾没有入营，或挤走了现有队友");
+            BaseEconomy.Validate(state);
+            At(state, "farm");
+            Need(BaseEconomy.AssignLeader(state, "partner_farm", "farm") && state.Adventure.Members.SequenceEqual(following),
+                "入营的阿禾不能担任粮田负责人，或影响了随行队伍");
+            Note("满队邀请旁支：主角、迦兰、阿铸已随行且营帐满额。接受邀请后阿禾留营，随后可直接任职粮田。");
         }
 
         private static void VerifyRuinsAutosaves(BaseState entrance,BaseState active,BaseState retreated)

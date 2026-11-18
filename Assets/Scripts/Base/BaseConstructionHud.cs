@@ -12,7 +12,7 @@ namespace BaseConquest.Base
         private UnityEngine.UI.Button demolishProject,trapProject,sandbagProject;
         private Text constructionResources,constructionStatus;
         private RectTransform campConstructionPalette;
-        private Button campConstructionResume, campStore, campConfirm;
+        private Button campConstructionResume, campStore, campConfirm, campExit;
         private Button[] campProjectButtons;
         private Text campBuildStatus, campReturnReminder;
         private (BaseState Draft, int Revision, string Project, string Status) campPaletteContent;
@@ -48,7 +48,8 @@ namespace BaseConquest.Base
             campConfirm = MakeButton(campConstructionPalette, "确认布局", new Vector2(349, 34), new Vector2(146, 40),
                 () => owner.ConfirmCampLayout());
             campConfirm.name = "ConfirmLayout";
-            MakeButton(campConstructionPalette, "退出", new Vector2(490, 34), new Vector2(116, 40), owner.RequestExitCampPlacement).name = "ExitLayout";
+            campExit = MakeButton(campConstructionPalette, "退出", new Vector2(490, 34), new Vector2(116, 40), owner.RequestExitCampPlacement);
+            campExit.name = "ExitLayout";
             var projects = BaseFacilityLayout.Catalog.Where(def => !def.Required).ToArray();
             campProjectButtons = new Button[projects.Length];
             for (int i = 0; i < projects.Length; i++)
@@ -103,16 +104,9 @@ namespace BaseConquest.Base
                     $" {BaseFacilityLayout.Count(draft, id)}/{project.MaxCount}\n收存 {(BaseFacilityLayout.Stored(draft, id) ? 1 : 0)} · 原料 {cost}";
             }
             campConfirm.interactable = owner.CampLayoutChanged;
+            campExit.GetComponentInChildren<Text>().text = owner.CampLayoutChanged ? "放弃布局" : "退出";
             campStore.interactable = BaseFacilityLayout.Built(draft, owner.CampProject);
             campBuildStatus.text = $"营地建设 · 原料 {owner.State.Inventory.Materials - draft.Inventory.Materials}/{owner.State.Inventory.Materials}    {owner.CampPlacementMessage}";
-        }
-        internal void OpenDiscardCampLayout()
-        {
-            BeginPanel("退出营地建设", "camp-construction-discard");
-            RowButton("放弃布局", -210, 400, () => { ClosePanel(); owner.StopConstruction(); RefreshSummary(); });
-            RowButton("继续建设", 210, 400, ClosePanel);
-            row += 60;
-            EndPanel();
         }
         public void RefreshConstructionPalette()
         {

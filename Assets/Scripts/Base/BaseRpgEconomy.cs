@@ -7,7 +7,8 @@ namespace BaseConquest.Base
     {
         public static int Capacity(BaseState s)=>Active(s)?s.Demo.Rpg.Capacity[s.Demo.Rpg.CampLevel-1]:100;
         public static int Population(BaseState s)=>s.Leaders.Count(l=>l.Fate!="dead"&&l.Fate!="missing");
-        public static bool HasRoom(BaseState s)=>Population(s)<Capacity(s);
+        public static int RecruitingSlots(BaseState s)=>Math.Max(0,Capacity(s)-Population(s));
+        public static bool HasRoom(BaseState s)=>RecruitingSlots(s)>0;
         public static string CampUpgradeProblem(BaseState s)
         {
             if(!Active(s)||s.Campaign.Location!="base"||!BasePartyInventory.Peaceful(s)||BaseSceneCombat.Active(s))return "请在安全营地升级";

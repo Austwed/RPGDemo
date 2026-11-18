@@ -491,8 +491,16 @@ namespace BaseConquest.Base
             primaryButton.gameObject.SetActive(act != null);
             if (act != null && !entry.Worn && BaseDemoIntro.Daily(owner.State) && entry.Id == owner.State.Demo.Intro.PracticeId)
                 questSwordTarget = (RectTransform)primaryButton.transform;
-            InventoryButton(details, "Destroy", null, () => InventoryDestroyConfirm(entry))
-                .gameObject.SetActive(!entry.Worn && !entry.Protected);
+            bool directDestroy = BaseDemo.Active(owner.State);
+            var destroy = InventoryButton(details, "Destroy", directDestroy ? "销毁 · 不可恢复" : null, () =>
+            {
+                if (directDestroy)
+                    InventoryChange(state => BasePartyInventory.Destroy(state, entry.Id, inventoryQuantity), "已销毁物品");
+                else InventoryDestroyConfirm(entry);
+            });
+            destroy.gameObject.SetActive(!entry.Worn && !entry.Protected);
+            var destroyLabel = directDestroy && entry.Count > 1 && destroy.gameObject.activeSelf
+                ? destroy.GetComponentInChildren<Text>() : null;
             Button down = null, up = null;
             down = InventoryButton(details, "QuantityDown", null, () => UpdateQuantity(inventoryQuantity - 1));
             up = InventoryButton(details, "QuantityUp", null, () => UpdateQuantity(inventoryQuantity + 1));
@@ -515,6 +523,7 @@ namespace BaseConquest.Base
                 var quantity = entry.Count > 1 ? inventoryQuantity + " / " + entry.Count : entry.Count.ToString();
                 meta.text = "数量 " + quantity + (entry.Gear != null
                     ? " · " + BasePersonalEquipment.SlotName(BasePersonalEquipment.Definition(entry.Gear.Template).Slot) : "");
+                if (destroyLabel != null) destroyLabel.text = "销毁 ×" + inventoryQuantity;
                 down.interactable = inventoryQuantity > 1;
                 up.interactable = inventoryQuantity < entry.Count;
                 if (primary == "拆分") primaryButton.interactable = inventoryQuantity < entry.Count;

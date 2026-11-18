@@ -11,18 +11,23 @@ namespace BaseConquest.Base
         private BaseState beforeDemoRuins;
         public void MeetDemoPartner(string id)
         {if(Change(next=>{if(!BaseDemoRuins.Meet(next,id))throw new InvalidOperationException("请完成醒来并在伙伴旁交谈");},"已了解伙伴背景；是否同行由你决定"))Hud.OpenDemoPartner(id);}
-        public void JoinDemoPartner(string id)
+        public void JoinDemoPartner(string id, bool requestFollow = true)
         {
-            bool toBase=State.Adventure.Members.Count>=BaseAdventure.Capacity;
-            bool ahe=id=="partner_farm";
-            if(!Change(next=>{if(!BaseDemoRuins.Join(next,id))throw new InvalidOperationException(!BaseRpg.HasRoom(next)?"营帐队长名额已满，请先扩建营帐或腾出名额":"请先交谈，并确认伙伴可加入、没有未返营的队伍");},toBase?"小队已满，伙伴已加入基地":"伙伴已加入小队"))
+            if (!Change(next =>
             {
-                if(ahe&&!BaseRpg.HasRoom(State))Hud.OpenAheResponse("等营里腾出位置，再来叫我吧。",()=>Hud.OpenDemoPartner(id));
-                return;
+                if (!BaseDemoRuins.Join(next, id, requestFollow))
+                    throw new InvalidOperationException("请完成醒来并在伙伴旁交谈");
+            }, "")) return;
+            RefreshDemoRegion();
+            Hud.ClosePanel();
+            bool following = BaseAdventure.Following(State, id);
+            if (id == "partner_farm")
+            {
+                Hud.OpenAheResponse(following ? "成，你走前头。我带着弓，替你看住背后。" :
+                    requestFollow && State.Adventure.Members.Count >= BaseAdventure.Capacity ? "队里满了？那我留营，你有事就来叫我。" :
+                    "成，我就在田边。要搭手，喊我一声就行。");
             }
-            RefreshDemoRegion();Hud.ClosePanel();
-            if(ahe)Hud.OpenAheResponse(BaseAdventure.Contains(State,id)?"成，你走前头。我带着弓，替你看住背后。":"队里满了？那我留营，你有事就来叫我。");
-            else if(id=="partner_craft")Hud.OpenSmithFather();
+            else if (id == "partner_craft") Hud.OpenSmithFather();
         }
         public void TravelDemo(string target)
         {
@@ -61,8 +66,8 @@ namespace BaseConquest.Base
 
         public void BeginDemoRuins(string mode,bool confirmed=false,bool confrontationConfirmed=false,BaseBattlePreparation prepared=null)
         {
-            if(!confirmed && BaseRuinsRewards.RequiresWarning(State, prepared))
-            {if(prepared!=null)ShowDeploymentBriefing();Hud.OpenRuinsWarning(()=>BeginDemoRuins(mode,true,prepared:prepared));return;}
+            if(!confirmed && prepared == null && BaseRuinsRewards.RequiresWarning(State, null))
+            {Hud.OpenRuinsWarning(()=>BeginDemoRuins(mode,true));return;}
             if(State.Demo.RuinsDay==0&&!confrontationConfirmed)
             {if(prepared!=null)ShowDeploymentBriefing();Hud.OpenRuinsConfrontation(()=>BeginDemoRuins(mode,true,true,prepared));return;}
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;

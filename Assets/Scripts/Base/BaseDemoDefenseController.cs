@@ -95,11 +95,20 @@ namespace BaseConquest.Base
                 if(BaseDemoDefense.AnyDue(owner.State))OpenBattlePreparation(BaseDemoDefense.SecondDue(owner.State) ? BasePrepRoute.Second : BasePrepRoute.Defense);else OpenDemoStory();return true;
             }
             if(id!="demo_fix_workshop"&&id!="demo_fix_barracks")return false;
-            string facility=id=="demo_fix_workshop"?"workshop":"barracks",problem=BaseDemoDefense.RepairProblem(owner.State,facility);
-            activeObject="demo-repair";interactionObject="";BeginPanel(facility=="workshop"?"工坊 · 固定修复":"兵营 · 固定修复");
-            Line("建设许可已取得。每座只付一次：原料"+BaseDemoDefense.RepairMaterialCost(owner.State)+"、钱币"+BaseDemoDefense.RepairCoinCost(owner.State)+"；不消耗图册，不推进日期，不提升设施等级。",115,22);
-            Line(facility=="workshop"?"修复后可安排岗位，日结制作已有一级军需；岗位／耗料使用35号开局保存的规则。":"修复后开放现有招募与军事整备入口；首次防守仍需真实选兵、军需整备。",115,21);
-            if(problem!="")Line(problem,65,20);RowButton("确认修复",-210,400,()=>owner.RepairDemoFacility(facility),problem=="");RowButton("暂不修复",210,400,ClosePanel);row+=60;EndPanel();return true;
+            var state = owner.State;
+            string facility = id == "demo_fix_workshop" ? "workshop" : "barracks";
+            string name = BaseEconomy.FacilityName(facility);
+            string problem = BaseDemoDefense.RepairProblem(state, facility);
+            activeObject = "demo-repair";
+            interactionObject = "";
+            BeginPanel(name + "修复");
+            Line(facility == "workshop" ? "修复后可安排工人生产一级军需。" : "修复后开放军事整备。", 54, 21);
+            if (problem != "") Line(problem, 65, 20);
+            RowButton("修复" + name + " · 原料 " + BaseDemoDefense.RepairMaterialCost(state) + "／钱币 " +
+                BaseDemoDefense.RepairCoinCost(state), 0, 800, () => owner.RepairDemoFacility(facility), problem == "");
+            row += 60;
+            EndPanel();
+            return true;
         }
         // DEF_01_START_01/02：首次防守开战前巴图叫阵，主角拔剑回应。
         public void OpenFirstRaidBriefing(Action proceed, Action back = null)

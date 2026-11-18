@@ -26,32 +26,34 @@ namespace BaseConquest.Base
             var replies=new List<NpcReply>{new NpcReply("聊天对话",()=>RenderPartner(id,dialogue.Chat(leader)))};
             if(joined)
             {
-                replies.Add(new NpcReply(paused?"恢复随行":"在这里等候",()=>ConfirmPartnerDisposition(id,paused),nearby&&problem==""));
+                replies.Add(new NpcReply(paused?"恢复随行":"在这里等候",()=>SetPartnerWaiting(id,paused),nearby&&problem==""));
                 if(s.Campaign.Location=="base"&&BaseAdventure.ChangeProblem(s,id,false)=="")
-                    replies.Add(new NpcReply("留在营地",()=>ConfirmAdventure(id,false),nearby));
+                    replies.Add(new NpcReply("留在营地",()=>SetPartnerFollowing(id,false),nearby));
             }
-            else replies.Add(new NpcReply("邀请加入冒险小队",()=>ConfirmAdventure(id,true),nearby&&problem==""));
+            else replies.Add(new NpcReply("邀请随行",()=>SetPartnerFollowing(id,true),nearby&&problem==""));
             replies.Add(new NpcReply("退出对话",ClosePanel));
             NpcDialogue(new[]{new NpcLine(BasePersonnel.LeaderName(leader),BaseCommanderIdentity.Appearance(leader),BasePartnerDialogue.Resolve(leader,key),leader.Id==s.PlayerLeaderId)},replies.ToArray());
         }
-        private void ConfirmPartnerDisposition(string id,bool resume)
+        private void SetPartnerWaiting(string id, bool resume)
         {
-            string title=resume?"确认恢复随行":"确认暂离队伍";
-            BeginPanel(title,"partner-disposition:"+id);
-            Line(resume?"伙伴与本队士兵恢复随行。":"伙伴和本队士兵留在这里等候，保留随行名额。",78,21);
-            RowButton("确认",-210,400,()=>
+            if (owner.Change(next =>
             {
-                bool changed=owner.Change(next=>
-                {
-                    if(!BaseInteraction.CanReach(next,owner.PresentedObject(id)))throw new InvalidOperationException("请在伙伴旁交谈");
-                    bool ok=resume?BaseAdventure.Resume(next,id):BaseAdventure.Pause(next,id);
-                    if(!ok)throw new InvalidOperationException(BaseAdventure.PauseProblem(next,id,resume));
-                },"");
-                if(!changed){OpenPartner(id);return;}
-                if(!resume){OpenPartner(id);return;}
-                var leader=owner.State.Leaders.Single(l=>l.Id==id);
-                NpcDialogue(new[]{new NpcLine(BasePersonnel.LeaderName(leader),BaseCommanderIdentity.Appearance(leader),"歇够了骨头都快生锈了，咱们这就出发！")},new[]{new NpcReply("出发",()=>{ClosePanel();OpenPartner(id);})});
-            });RowButton("取消",210,400,()=>OpenPartner(id));row+=65;EndPanel();
+                if (!BaseInteraction.CanReach(next, owner.PresentedObject(id)))
+                    throw new InvalidOperationException("请在伙伴旁交谈");
+                bool changed = resume ? BaseAdventure.Resume(next,id) : BaseAdventure.Pause(next,id);
+                if (!changed) throw new InvalidOperationException(BaseAdventure.PauseProblem(next,id,resume));
+            }, "")) ClosePanel();
+        }
+
+        private void SetPartnerFollowing(string id, bool follow)
+        {
+            if (owner.Change(next =>
+            {
+                if (!BaseInteraction.CanReach(next, owner.PresentedObject(id)))
+                    throw new InvalidOperationException("请在伙伴旁交谈");
+                if (!BaseAdventure.SetMember(next, id, follow))
+                    throw new InvalidOperationException(BaseAdventure.ChangeProblem(next, id, follow));
+            }, "")) ClosePanel();
         }
     }
 }

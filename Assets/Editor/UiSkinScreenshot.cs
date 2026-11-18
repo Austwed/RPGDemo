@@ -78,6 +78,12 @@ namespace BaseConquest.Editor
             Run();
         }
 
+        public static void RunFullCampInvitation()
+        {
+            stage = "full-camp-boot";
+            Run();
+        }
+
         public static void RunHomeCopy()
         {
             homeCopyOnly = true;
@@ -115,6 +121,17 @@ namespace BaseConquest.Editor
                     if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
                     VerifyOpeningCopy();
                     VerifyRuinsConfrontationCopy();
+                    Finish(0, "OK");
+                    break;
+                case "full-camp-boot":
+                    controller = C;
+                    if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    LoadRouteView("full-camp-before-ahe");
+                    break;
+                case "route-full-camp-before-ahe":
+                    if (!RouteViewReady(state => state.Campaign.Location == "base" && !BaseRpg.HasRoom(state) &&
+                        state.Adventure.Members.Count == BaseAdventure.Capacity)) return;
+                    VerifyFullCampInvitation();
                     Finish(0, "OK");
                     break;
                 case "route-boot":
@@ -1805,7 +1822,7 @@ namespace BaseConquest.Editor
             Approach("demo_azhu");
             H.OpenObject("demo_azhu");
             FinishDialogue();
-            Click("邀请加入小队");
+            Click("欢迎加入");
             FinishDialogue();
             var receipt = RequirePanel("CommonPanel");
             var receiptLabels = receipt.GetComponentsInChildren<Text>();
@@ -1840,37 +1857,34 @@ namespace BaseConquest.Editor
 
         private static void VerifyRuinsWarning()
         {
-            foreach (bool accept in new[] { true, false })
+            Approach("demo_ruins_investigate");
+            H.OpenObject("demo_ruins_investigate");
+            var preparation = RequirePanel("BattlePreparation");
+            var draft = (BaseBattlePreparation)Field(H, "battleDraft");
+            if (draft.RequiredSupply(false) == 0)
             {
-                Approach("demo_ruins_investigate");
-                H.OpenObject("demo_ruins_investigate");
-                var preparation = RequirePanel("BattlePreparation");
-                var draft = (BaseBattlePreparation)Field(H, "battleDraft");
-                if (draft.RequiredSupply(false) == 0)
-                {
-                    Press(preparation.Find("Teams").GetChild(0), "Melee/Plus");
-                    preparation = RequirePanel("BattlePreparation");
-                }
-                Press(preparation, "Supply/Grade1");
-                Press(RequirePanel("BattlePreparation"), "Continue");
-                var deployed = RequireBattleDraft();
-                var field = BattleSafeArea(deployed);
-                Press(field, "DraftPreparationControls/Auto");
-                Press(field, "DraftPreparationControls/Start");
-                FinishDialogue();
-                if (accept)
-                {
-                    Capture("ui-skin-ruins-vulnerable-warning");
-                    Click("知晓危险，仍让当前队伍进入");
-                    FinishDialogue();
-                    Click("暂不交战");
-                }
-                else Click("暂不进入，先调整随行");
-                if (H.PanelOpen || RequireBattleDraft() != deployed || controller.State.Campaign.HasActiveBattle)
-                    throw new InvalidOperationException("古窟危险确认取消后没有回到原部署");
-                Press(field, "DraftPreparationControls/Back");
-                H.ClosePanel();
+                Press(preparation.Find("Teams").GetChild(0), "Melee/Plus");
+                preparation = RequirePanel("BattlePreparation");
             }
+            Press(preparation, "Supply/Grade1");
+            Press(RequirePanel("BattlePreparation"), "Continue");
+            var deployed = RequireBattleDraft();
+            var field = BattleSafeArea(deployed);
+            Press(field, "DraftPreparationControls/Auto");
+            if (!field.Find("BottomInformation").GetComponentsInChildren<Text>().Any(label =>
+                label.text.Contains("普通参战成员") && label.text.Contains("每秒")))
+                throw new InvalidOperationException("普通士兵实际落位后，部署内未显示侵蚀影响");
+            Capture("ui-skin-ruins-vulnerable-warning");
+            Press(field, "DraftPreparationControls/Start");
+            FinishDialogue();
+            Click("暂不交战");
+            if (H.PanelOpen || RequireBattleDraft() != deployed || controller.State.Campaign.HasActiveBattle)
+                throw new InvalidOperationException("拒绝交战后未保留当前部署");
+            Press(field, "DraftPreparationControls/Back");
+            RequirePanel("BattlePreparation");
+            if (BaseAchievements.Record(controller.State, BaseAchievements.Caution) == null)
+                throw new InvalidOperationException("从受侵蚀阵容返回备战未记入谨慎为上");
+            H.ClosePanel();
         }
 
         private static PartyInventoryCell InventoryCell(Transform view, string id) =>
@@ -2348,6 +2362,95 @@ namespace BaseConquest.Editor
             VerifyLordConstruction();
         }
 
+        private static void VerifyFullCampInvitation()
+        {
+            const string ahe = "partner_farm";
+            H.ClosePanel();
+            var priorParty = controller.State.Adventure.Members.ToArray();
+            Approach("demo_ahe");
+            H.OpenObject("demo_ahe");
+            FinishDialogue();
+            Click("好，一起走");
+            if (!H.DialogueOpen || !controller.State.Adventure.Members.SequenceEqual(priorParty) ||
+                !controller.State.Leaders.Any(leader => leader.Id == ahe && leader.MapRegion == "base"))
+                throw new InvalidOperationException("满队邀请阿禾没有直接登记为驻营队长");
+            var response = RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>();
+            H.ContinueDialogue();
+            if (!response.text.Contains("留营")) throw new InvalidOperationException("满队邀请未用对白交代去向");
+            Capture("ui-skin-ahe-full-following");
+            FinishDialogue();
+            H.ClosePanel();
+
+            Approach("farm");
+            H.OpenObject("farm");
+            var farm = RequirePanel("FacilityPanel");
+            Press(farm, "PortraitColumn/Manage");
+            Press(farm.Find("PortraitColumn/ManagerOptions").GetComponent<ScrollRect>().content, ahe);
+            if (H.DialogueOpen) FinishDialogue();
+            RequirePanel("FacilityPanel");
+            if (controller.State.Leaders.Single(leader => leader.Id == ahe).FacilityId != "farm" ||
+                !controller.State.Adventure.Members.SequenceEqual(priorParty))
+                throw new InvalidOperationException("营地满队时阿禾没有直接任职粮田");
+            H.ClosePanel();
+            Log.Add("[PASS] 实际对白满队邀请阿禾后入营，保留原随行队伍，点名即可任命粮田负责人");
+
+            Approach("home");
+            H.OpenObject("home");
+            var tent = RequirePanel("FacilityPanel");
+            var roster = tent.Find("Right/List").GetComponent<ScrollRect>();
+            IEnumerable<Transform> RosterRows() => roster.content.Cast<Transform>().Where(row => row.name == "PersonnelRosterRow");
+            Transform Captain(string name) => RosterRows().Single(row => row.GetComponentInChildren<Text>().text.Contains(name));
+            Button FollowButton() => tent.Find("Left/List").GetComponent<ScrollRect>().content
+                .GetComponentsInChildren<Button>().Single(button => button.name == "CaptainFollow");
+            if (tent.Find("Right/Title").GetComponent<Text>().text != "队长名册" || RosterRows().Count() != controller.State.Leaders.Count)
+                throw new InvalidOperationException("营帐没有显示完整的队长名册");
+            ClickHudButton(Captain("阿禾"));
+            if (RequirePanel("FacilityPanel") != tent || FollowButton().interactable)
+                throw new InvalidOperationException("满队时营帐不应允许阿禾加入随行");
+            CaptureViewports("ui-skin-tent-captains-full");
+            ClickHudButton(Captain("迦兰"));
+            ClickHudButton(FollowButton().transform);
+            if (RequirePanel("FacilityPanel") != tent || controller.State.Adventure.Members.Count != priorParty.Length - 1)
+                throw new InvalidOperationException("点留在营地后没有直接腾出随行位或打断了当前名册");
+            ClickHudButton(Captain("阿禾"));
+            ClickHudButton(FollowButton().transform);
+            if (!BaseAdventure.Contains(controller.State, ahe) || controller.State.Adventure.Members.Count != priorParty.Length ||
+                controller.State.Leaders.Single(leader => leader.Id == ahe).FacilityId != "")
+                throw new InvalidOperationException("腾出位置后未从营帐正确邀请阿禾随行并释放岗位");
+            Log.Add("[PASS] 营帐管理满队名册，在同一页更换随行队长");
+            Press(tent.Find("Left/List").GetComponent<ScrollRect>().content, "Training");
+            Click("返回营帐");
+            RequirePanel("FacilityPanel");
+            H.ClosePanel();
+
+            H.OpenBackpack();
+            string player = controller.State.PlayerLeaderId;
+            var stone = BasePartyInventory.Entries(controller.State).First(item =>
+                item.Holder == player && item.Stack?.ItemId == BaseEquipmentCrafting.Stone);
+            ClickHudButton(InventoryCell(RequirePanel("PartyInventory"), stone.Id).transform);
+            var itemMenu = RequirePanel("PartyInventory").Find("InventoryItemMenu");
+            for (int count = stone.Count; count > 1; count--) Press(itemMenu, "QuantityDown");
+            if (stone.Count > 1 && itemMenu.Find("Destroy").GetComponentInChildren<Text>().text != "销毁 ×1")
+                throw new InvalidOperationException("销毁按钮没有标明将销毁的数量");
+            Press(itemMenu, "Destroy");
+            if ((BasePartyInventory.Find(controller.State, stone.Id)?.Count ?? 0) != stone.Count - 1)
+                throw new InvalidOperationException("销毁选定数量仍需额外确认或数量错误");
+            H.ClosePanel();
+
+            H.OpenSlots(true);
+            Click("保存到此槽");
+            var catalog = BaseBattleGateway.Catalog();
+            string slot = BaseSaveCatalog.Slots[0];
+            int coins = catalog.LoadSlot(slot).Inventory.Coins;
+            H.ClosePanel();
+            if (!controller.Change(state => state.Inventory.Coins++, "")) throw new InvalidOperationException(controller.Message);
+            H.OpenSlots(true);
+            Click("覆盖此槽（保留备份）");
+            if (catalog.LoadSlot(slot).Inventory.Coins != coins + 1 || catalog.LoadSlot(slot, true).Inventory.Coins != coins)
+                throw new InvalidOperationException("手动槽直接覆盖未写入新档或未保留原档备份");
+            Log.Add("[PASS] 从营帐打开训练，销毁直接提交，手动槽覆盖保留旧内容备份");
+        }
+
         private static void VerifyFacilityPortrait(Transform view)
         {
             Canvas.ForceUpdateCanvases();
@@ -2401,7 +2504,6 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("预览移动时提前提交了营地布局或未能生成草案");
             CaptureViewports("ui-skin-camp-construction");
             ClickHudButton(palette.GetComponentsInChildren<Button>().Single(button => button.name == "ExitLayout").transform);
-            Click("放弃布局");
             if (controller.CampPlacementMode || !controller.State.Demo.Flow.CampConstructionOrdered ||
                 BaseFacilityLayout.Snapshot(controller.State) != original || controller.State.Inventory.Materials != materials)
                 throw new InvalidOperationException("放弃布局后仍改变了建设位置或资源");

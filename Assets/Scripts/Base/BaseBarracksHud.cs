@@ -13,7 +13,7 @@ namespace BaseConquest.Base
         private static string RosterText(string key, string fallback) => StoryText.Get("story.ui.roster." + key, fallback);
         private RectTransform AddPersonnelRow(Transform list, BasePersonnelUnit unit, string status, Action select,
             bool available = true, bool selected = false, bool warning = false, bool useCurrentStats = false,
-            Action details = null, bool showStats = true)
+            Action details = null, bool showStats = true, bool showFacility = true)
         {
             var card = CloneSceneUi("PersonnelRosterRow", list);
             bool touch = Application.platform == RuntimePlatform.Android;
@@ -22,7 +22,7 @@ namespace BaseConquest.Base
             var button = Ui<Button>(card, "");
             var label = Ui<Text>(card, "Label");
             if (touch) label.fontSize = Mathf.Max(label.fontSize, 19);
-            label.text = PersonnelRowLabel(unit, status, useCurrentStats, showStats);
+            label.text = PersonnelRowLabel(unit, status, useCurrentStats, showStats, showFacility);
             button.interactable = available && select != null;
             if (select != null) button.onClick.AddListener(() => { if (!owner.Busy) select(); });
             else button.transition = Selectable.Transition.None;
@@ -45,11 +45,12 @@ namespace BaseConquest.Base
             }
             return card;
         }
-        private static string PersonnelRowLabel(BasePersonnelUnit unit, string status, bool useCurrentStats, bool showStats)
+        private static string PersonnelRowLabel(BasePersonnelUnit unit, string status, bool useCurrentStats, bool showStats, bool showFacility = true)
         {
             var stats = useCurrentStats ? unit.Current : unit.Basic;
             string combat = showStats ? $" · 攻 {stats.Damage:0.#} 防 {stats.Defense:0.#}" : "";
-            return $"{unit.Name} · 生命 {unit.Health:0.#}/{unit.MaxHealth:0.#}{combat}\n{unit.Facility} · {status}";
+            string location = showFacility ? unit.Facility + " · " + status : status;
+            return $"{unit.Name} · 生命 {unit.Health:0.#}/{unit.MaxHealth:0.#}{combat}\n{location}";
         }
         private void PersonnelRoster()
         {
@@ -70,20 +71,28 @@ namespace BaseConquest.Base
         private void OpenHeldPrisoners()
         {
             var s=owner.State;BeginPanel("保留俘虏 · 待招降");RowButton("返回名册",0,800,()=>{activePage="roster";OpenBarracks();});row+=60;
-            Line("队长名额 "+BaseRpg.Population(s)+" / "+BaseRpg.Capacity(s)+"；随行满时返回营地，队长名额已满时保留俘虏。",62,19);
+            Line("队长 "+BaseRpg.Population(s)+" · 招降空位 "+BaseRpg.RecruitingSlots(s)+"。释放后无法再招降。",62,19);
             foreach(var prisoner in s.Aftermath.Prisoners.Where(p=>p.Status=="held").ToArray())
             {
                 string id=prisoner.Id;Line(prisoner.Name+" · 生命 "+prisoner.Health.ToString("0.#")+"/"+prisoner.Stats.Health.ToString("0.#"),48,20);
                 if(prisoner.Rpg?.Version==1)Line(BaseRpg.Describe(prisoner.Rpg),120,18);
                 RowButton("招降",-210,400,()=>RecruitPrisoner(id,OpenHeldPrisoners),prisoner.Kind!=SoldierKind.Hero||BaseAftermath.CanRecruitLeader(s));
-                RowButton("释放",210,400,()=>{BeginPanel("确认释放 · "+prisoner.Name);Line("释放后离开名单，无法再招降。",64);RowButton("确认释放",-210,400,()=>{owner.Change(next=>{if(!BaseAftermath.Decide(next,id,"release"))throw new InvalidOperationException("俘虏状态已变化");},"俘虏已释放");OpenHeldPrisoners();});RowButton("取消",210,400,OpenHeldPrisoners);row+=60;EndPanel();});row+=60;
+                RowButton("释放",210,400,() =>
+                {
+                    owner.Change(next =>
+                    {
+                        if (!BaseAftermath.Decide(next, id, "release")) throw new InvalidOperationException("俘虏状态已变化");
+                    }, "俘虏已释放");
+                    OpenHeldPrisoners();
+                });row+=60;
             }
             EndPanel();
         }
         private void OpenPersonnelDetail(string key,string stamp,Action back=null,string backLabel="返回对话")
         {
             var s=owner.State;var u=BaseMuster.Snapshot(s)==stamp ? BasePersonnel.Units(s).FirstOrDefault(u=>u.Key==key) : null;
-            BeginPanel("兵营 · 单位详情","personnel:"+key);
+            string title = u?.IsLeader == true && BaseDemo.Active(s) ? "队长详情" : "兵营 · 单位详情";
+            BeginPanel(title,"personnel:"+key);
             RowButton(back==null?"返回名册":backLabel,-210,400,back??(()=>{activePage="roster";OpenBarracks();}));
             if(u==null){row+=60;Line("人员安排已变化，请从名册重新选择。",80);EndPanel();return;}
             Line(u.Name+" · "+BattleSimulation.KindName(u.Kind),52,24);Line("生命 "+u.Health.ToString("0.#")+" / "+u.MaxHealth.ToString("0.#"),46);

@@ -27,6 +27,17 @@ namespace BaseConquest.Battle
         internal SoldierKind? DraftArmedKind => draftArmedUnit?.Kind;
         internal bool DraftCanConfirm => DeploymentDraftActive && !DraftInputBlocked && deploymentDraft.Positions.ContainsKey(deploymentDraft.PlayerId) &&
             deploymentDraft.Problem(deploymentState(), true) == "";
+        internal string DraftErosionWarning
+        {
+            get
+            {
+                if (!DeploymentDraftActive || deploymentDraft.Route != BasePrepRoute.Ruins) return "";
+                var state = deploymentState();
+                return BaseRuinsRewards.RequiresWarning(state, deploymentDraft)
+                    ? $"普通参战成员每秒损失最大生命的 {BaseRuinsRewards.Exposure(state):P0} · 可返回备战调整"
+                    : "";
+            }
+        }
         internal bool DraftTeamPlaced(int slot) => deploymentDraft.Positions.ContainsKey(draftTeams[slot].Id);
         internal int DraftRemaining(int slot, SoldierKind kind) => deploymentDraft.Units.Count(u => u.Selected &&
             u.TeamId == draftTeams[slot].Id && u.Kind == kind && !deploymentDraft.Positions.ContainsKey(u.Id));

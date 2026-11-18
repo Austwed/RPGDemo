@@ -135,6 +135,7 @@ namespace BaseConquest.Base
             var held=state.Aftermath.Prisoners.Where(p=>p.BattleId==battle&&p.Status=="held").ToArray();
             if(held.Length==0){ClosePanel();return;}
             BeginPanel(StoryText.Get("ui.reward.prisoners","处理俘虏"),"reward-prisoners:"+battle);
+            Line("释放后无法再招降，处死将永久移除。",42,18);
             RowButton("一键招募",0,800,()=>
             {
                 var special=owner.State.Aftermath.Prisoners.FirstOrDefault(p=>p.BattleId==battle&&BaseDemoStories.ControllerDialogue(owner.State,p.Id));
@@ -146,16 +147,14 @@ namespace BaseConquest.Base
                 string id=p.Id;
                 Line(UnitDisplayNames.Mark(p.Name,true)+" · 生命 "+p.Health.ToString("0.#")+" / "+p.Stats.Health.ToString("0.#"),46,19);
                 RowButton("招降",-290,270,()=>RecruitPrisoner(id,()=>OpenRewardPrisoners(battle)),p.Kind!=BaseConquest.Battle.SoldierKind.Hero||BaseAftermath.CanRecruitLeader(state));
-                RowButton("释放",0,270,()=>Confirm("release",p.Name,id));
-                RowButton("处死",290,270,()=>Confirm("execute",p.Name,id));row+=54;
+                RowButton("释放",0,270,()=>DisposePrisoner(id,"release"));
+                RowButton("处死",290,270,()=>DisposePrisoner(id,"execute"));row+=54;
             }
             EndPanel();
-            void Confirm(string action,string name,string id)
+            void DisposePrisoner(string id, string action)
             {
-                string verb=action=="execute"?"处死":"释放";
-                BeginPanel(verb+" · "+name,"reward-prisoner-confirm");
-                RowButton("确认"+verb,-210,400,()=>{owner.Change(next=>{if(!BaseAftermath.Decide(next,id,action))throw new InvalidOperationException("俘虏状态已变化");},"");OpenRewardPrisoners(battle);});
-                RowButton("取消",210,400,()=>OpenRewardPrisoners(battle));row+=60;EndPanel();
+                owner.Change(next=>{if(!BaseAftermath.Decide(next,id,action))throw new InvalidOperationException("俘虏状态已变化");},"");
+                OpenRewardPrisoners(battle);
             }
         }
         private void RenderTradeSale(RectTransform details)

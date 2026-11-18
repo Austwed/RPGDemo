@@ -479,7 +479,8 @@ namespace BaseConquest.Battle
             draftStart.interactable = owner.DraftCanConfirm;
             draftControls.gameObject.SetActive(placing);
             armyPanel.gameObject.SetActive(false);
-            status.text = owner.Feedback;
+            string erosion = owner.DraftErosionWarning;
+            status.text = erosion == "" ? owner.Feedback : owner.Feedback + "\n" + erosion;
             for (int i = 0; i < portraits.Length; i++)
             {
                 bool exists = i < teams.Count;

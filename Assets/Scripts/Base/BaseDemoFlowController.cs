@@ -155,7 +155,7 @@ namespace BaseConquest.Base
                 new NpcLine("阿禾","ahe","我从小跟庄稼打交道。你肯让我管这片田，收成还能好些。")
             };
             NpcDialogue(lines,new[]{
-                new NpcReply(recruited?"知道了":"邀请阿禾加入",()=>{if(recruited)ClosePanel();else owner.JoinDemoPartner("partner_farm");}),
+                new NpcReply(recruited?"知道了":"邀请阿禾加入",()=>{if(recruited)ClosePanel();else owner.JoinDemoPartner("partner_farm", false);}),
                 new NpcReply("这次先不安排",()=>OpenAheResponse("成，先照旧安排。往后田里缺人，再来叫我。"))
             });
         }
