@@ -14,8 +14,9 @@ namespace BaseConquest.Presentation
         public static Result For(string id,bool playerHero=false)
         {
             id=playerHero&&string.IsNullOrEmpty(id)?"player":id??"";
+            if(id=="mounted-azhu")id="azhu";
             id=BaseDemoNpcs.ResolveNpcArt(id,true);
-            var portrait=PixelDemoArt.Load("Portraits","portrait-"+id);
+            var portrait=PixelDemoArt.Load("DialoguePortraits",id)??PixelDemoArt.Load("Portraits","portrait-"+id);
             if(portrait!=null)return new Result(portrait,new Rect(0,0,1,1),Source.Portrait,id);
             if(!playerHero)
             {
@@ -31,14 +32,5 @@ namespace BaseConquest.Presentation
             return new Result(null,default,Source.Missing,id);
         }
 
-        public static Result ForDialogue(string id, bool playerHero = false)
-        {
-            id = playerHero && string.IsNullOrEmpty(id) ? "player" : id ?? "";
-            if (id == "mounted-azhu") id = "azhu";
-            id = BaseDemoNpcs.ResolveNpcArt(id, true);
-            var portrait = PixelDemoArt.Load("DialoguePortraits", id);
-            return portrait == null ? For(id, playerHero) :
-                new Result(portrait, new Rect(0, 0, 1, 1), Source.Portrait, id);
-        }
     }
 }

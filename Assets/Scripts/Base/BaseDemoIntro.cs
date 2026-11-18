@@ -17,6 +17,9 @@ namespace BaseConquest.Base
         public double DrillMoveOrigin;
         public double ReporterX=.6,ReporterY=7.2;
         public bool ReporterArrived,ReporterLeaving,ReporterGone;
+        [NonSerialized] internal List<BasePoint> ReporterRoute;
+        [NonSerialized] internal BasePoint ReporterTarget;
+        [NonSerialized] internal int ReporterWaypoint;
         public List<BaseVillageReportMember> ReportGroup = new List<BaseVillageReportMember>();
         public double TutorialDelay;
         // 村民闲聊过的 NPC id（PRO_02 首次／再次两套台词；旧档读进来为 null，按空处理）。
@@ -33,7 +36,7 @@ namespace BaseConquest.Base
         public const string DummyId="intro:training-dummy";
         private static readonly int[] DrillControls={Select,Pause,Move,Guard,Skill};
         public static bool Active(BaseState s)=>BaseDemo.Active(s)&&s.Demo.Intro!=null;
-        public static bool Daily(BaseState s)=>Active(s)&&BaseDemoPrologue.Village(s)&&!new[]{6,7,8}.Contains(s.Demo.Intro.Step);
+        public static bool Daily(BaseState s)=>Active(s)&&BaseDemoPrologue.Village(s)&&s.Demo.Intro.Step is not (6 or 7 or 8);
         public static string PlayerArt(BaseState s)=>Active(s)&&s.Demo.Intro.Hero=="female"?"female":"player";
         public static string CaptainArt(BaseState s)=>PlayerArt(s)=="female"?"player":"female";
         public static string Address(BaseState s)=>PlayerArt(s)=="female"?"姑娘":"少侠";
@@ -206,8 +209,14 @@ namespace BaseConquest.Base
         public static bool AdvanceReporter(BaseState s,double seconds)
         {
             if(!Active(s)||s.Demo.Intro.Step!=6||s.Demo.Intro.ReporterArrived)return false;var i=s.Demo.Intro;
-            var target=BaseVillageReport.Target(s);
-            if(!BaseStageWalk.Advance(s,ref i.ReporterX,ref i.ReporterY,target,Math.Max(0,seconds)*3.2/2.5))return false;
+            if (i.ReporterRoute == null)
+            {
+                i.ReporterTarget = BaseVillageReport.Target(s);
+                i.ReporterRoute = BaseStageWalk.Route(s, new BasePoint(i.ReporterX, i.ReporterY), i.ReporterTarget);
+            }
+            if(!BaseStageWalk.Advance(ref i.ReporterX,ref i.ReporterY,i.ReporterTarget,seconds*1.28,i.ReporterRoute,ref i.ReporterWaypoint))return false;
+            i.ReporterRoute = null;
+            i.ReporterWaypoint = 0;
             i.ReporterArrived=true;BaseDemoPrologue.GatherVillagers(s);BaseVillageReport.Prepare(s);return true;
         }
         public static bool Depart(BaseState s)
@@ -218,7 +227,13 @@ namespace BaseConquest.Base
         public static bool AdvanceReporterExit(BaseState s,double seconds)
         {
             var i=s.Demo.Intro;if(!i.ReporterLeaving||i.ReporterGone)return false;
-            if(!BaseStageWalk.Advance(s,ref i.ReporterX,ref i.ReporterY,new BasePoint(23.4,7.2),Math.Max(0,seconds)*3.2/2.5))return false;i.ReporterGone=true;return true;
+            var target = new BasePoint(23.4, 7.2);
+            i.ReporterRoute ??= BaseStageWalk.Route(s, new BasePoint(i.ReporterX, i.ReporterY), target);
+            if(!BaseStageWalk.Advance(ref i.ReporterX,ref i.ReporterY,target,seconds*1.28,i.ReporterRoute,ref i.ReporterWaypoint))return false;
+            i.ReporterRoute = null;
+            i.ReporterWaypoint = 0;
+            i.ReporterGone = true;
+            return true;
         }
         public static void AdvanceTutorialDelay(BaseDemoIntroState i,double seconds)=>i.TutorialDelay=Math.Max(0,i.TutorialDelay-Math.Max(0,seconds));
         public static bool AdvanceDeparture(BaseState s,double seconds)

@@ -172,9 +172,25 @@ namespace BaseConquest.Base
         public static BasePoint Nearest(BaseState s,BasePoint origin,string region=null,IEnumerable<BaseMapObject> occupants=null)
         {
             var blockers=occupants?.ToArray();
-            if(Walkable(s,origin.X,origin.Y,region)&&BaseMap.Walkable(origin.X,origin.Y,blockers,false,BaseBattlefield.Board(s,region).Width,BaseBattlefield.Board(s,region).Height))return origin;
-            var candidates=BaseBattlefield.Board(s,region).Positions().Select(p=>new BasePoint(p.X+.5,p.Z+.5)).Where(p=>Walkable(s,p.X,p.Y,region)&&BaseMap.Walkable(p.X,p.Y,blockers,false,BaseBattlefield.Board(s,region).Width,BaseBattlefield.Board(s,region).Height)).OrderBy(p=>p.Distance(origin)).ToArray();
-            if(candidates.Length==0)throw new ArgumentException("地图没有可站立的位置");return candidates[0];
+            var board = BaseBattlefield.Board(s, region);
+            var objects = Objects(s, region);
+            bool Available(BasePoint p) => Geometry(objects, p.X, p.Y, board.Width, board.Height) &&
+                TerrainWalkable(board, p.X, p.Y, objects) &&
+                (blockers == null || BaseMap.Walkable(p.X, p.Y, blockers, false, board.Width, board.Height));
+            if (Available(origin)) return origin;
+
+            BasePoint nearest = default;
+            double bestDistance = double.PositiveInfinity;
+            foreach (var cell in board.Positions())
+            {
+                var candidate = new BasePoint(cell.X + .5, cell.Z + .5);
+                double distance = candidate.Distance(origin);
+                if (distance.CompareTo(bestDistance) >= 0 || !Available(candidate)) continue;
+                nearest = candidate;
+                bestDistance = distance;
+            }
+            if (double.IsPositiveInfinity(bestDistance)) throw new ArgumentException("地图没有可站立的位置");
+            return nearest;
         }
         public static BasePoint WorkPost(BaseState s,string id)
         {

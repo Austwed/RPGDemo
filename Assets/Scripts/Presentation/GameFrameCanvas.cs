@@ -19,6 +19,22 @@ namespace BaseConquest.Presentation
         {
             var a=Area;return new Rect((a.x+local.x*a.width)/Mathf.Max(1,Screen.width),(a.y+local.y*a.height)/Mathf.Max(1,Screen.height),local.width*a.width/Mathf.Max(1,Screen.width),local.height*a.height/Mathf.Max(1,Screen.height));
         }
+
+        internal static void SealHeaderEdge(RectTransform header, Color color)
+        {
+            var edge = new GameObject("HeaderTopEdge", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+            var rect = (RectTransform)edge.transform;
+            rect.SetParent(header, false);
+            rect.SetAsFirstSibling();
+            rect.anchorMin = Vector2.up;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(-1, -3);
+            rect.offsetMax = new Vector2(1, 3);
+            var fill = edge.GetComponent<UnityEngine.UI.Image>();
+            fill.color = color;
+            fill.maskable = false;
+            fill.raycastTarget = false;
+        }
         public void Apply()
         {
             if(!Application.isPlaying)return;

@@ -1247,6 +1247,13 @@ namespace BaseConquest.Editor
             Click("我们去粮田安排");
             Approach("intro_farm");
             H.OpenObject("intro_farm");
+            var villageFarm = RequirePanel("FacilityPanel");
+            var villageActions = villageFarm.Find("Left/List").GetComponent<ScrollRect>().content;
+            if (((RectTransform)villageFarm).rect.height > 400 || villageActions.Find("VillageFarmWorkers/Unlock").gameObject.activeSelf)
+                throw new InvalidOperationException("村庄派工没有使用紧凑布局，或显示了尚未开放的解锁操作");
+            Canvas.ForceUpdateCanvases();
+            typeof(BaseHud).GetMethod("RefreshQuestCue", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(H, null);
+            Capture("ui-village-farm-compact");
             for (int i = 0; i < 2; i++)
             {
                 var actions = RequirePanel("FacilityPanel").Find("Left/List").GetComponent<ScrollRect>().content;
@@ -1629,6 +1636,17 @@ namespace BaseConquest.Editor
             if (duel?.Realtime == null || !duel.IsAzhuDuel)
                 throw new InvalidOperationException("原地比武未开战");
             duel.ResumeAfterDialogue(true);
+            duel.AdvanceRealtime(.001);
+            var footprints = duel.GetComponentsInChildren<Renderer>().Where(renderer => renderer.name == "GroundOccupation" && renderer.enabled).ToArray();
+            var ink = new MaterialPropertyBlock();
+            Color FootprintColor(Renderer renderer) { renderer.GetPropertyBlock(ink); return ink.GetColor("_BaseColor"); }
+            if (!footprints.Any(renderer => FootprintColor(renderer).b > .8f) ||
+                !footprints.Any(renderer => FootprintColor(renderer).r > .8f && Mathf.Abs(renderer.transform.localScale.x - renderer.transform.localScale.z) > .1f))
+                throw new InvalidOperationException("战斗占用未显示我方蓝色与敌方骑兵红色占用");
+            var debuffRing = duel.GetComponentsInChildren<LineRenderer>(true).First(ring => ring.name == "DebuffPurpleAura");
+            if (Mathf.Abs((debuffRing.GetPosition(0).z + debuffRing.GetPosition(16).z) * .5f) > .01f)
+                throw new InvalidOperationException("战斗状态圈没有对齐单位落脚点");
+            Capture("ui-battle-occupation");
             var opponent = duel.Realtime.Model.Units.Single(u => u.Side == PrototypeSide.Enemy);
             opponent.Health = opponent.MaxHealth * .5;
             duel.AdvanceRealtime(.04);
@@ -1647,14 +1665,27 @@ namespace BaseConquest.Editor
             Click("邀请加入小队");
             FinishDialogue();
             var receipt = RequirePanel("CommonPanel");
+            var receiptLabels = receipt.GetComponentsInChildren<Text>();
+            var shortSword = receiptLabels.FirstOrDefault(label => label.text.Contains("新手短剑"));
+            var destination = receiptLabels.FirstOrDefault(label => label.text.EndsWith("的背包", StringComparison.Ordinal));
             if ((string)Field(H, "panelViewKey") != "reward-receipt" ||
-                !receipt.GetComponentsInChildren<Text>().Any(label => label.text.Contains("新手短剑")) ||
-                !receipt.GetComponentsInChildren<Text>().Any(label => label.text.Contains("锻造石")) ||
+                shortSword == null || destination == null || destination.alignment != TextAnchor.MiddleRight ||
+                destination.rectTransform.anchoredPosition.x <= shortSword.rectTransform.anchoredPosition.x ||
+                !receiptLabels.Any(label => label.text.Contains("锻造石")) ||
                 receipt.GetComponentsInChildren<Button>().Any(button => button.interactable && button.GetComponentInChildren<Text>()?.text.Contains("领取") == true))
                 throw new InvalidOperationException("老铁匠的赠礼没有自动入包并显示简明奖励小窗");
             CaptureViewports("ui-skin-reward-receipt", mobile: true);
             H.ClosePanel();
             Log.Add("[PASS] 阿铸入队后完成赠礼对白，奖励自动入包并在小窗显示");
+            H.OpenObject("partner_craft");
+            FinishDialogue();
+            var partnerChoices = RequirePanel("NpcDialogue").Find("Replies").GetComponentsInChildren<Button>()
+                .Select(button => button.GetComponentInChildren<Text>().text).ToArray();
+            if (!partnerChoices.Contains("聊天对话") ||
+                partnerChoices.Any(text => text is "原地比武" or "任职安排" or "查看角色详情" or "留在营地" || text.Contains("带本队士兵")))
+                throw new InvalidOperationException("灰岩镇伙伴对话仍有旧功能或营地专用选项");
+            H.ClosePanel();
+            Log.Add("[PASS] 阿铸初次切磋可招募，入队后对话精简，镇内不显示留营操作");
         }
 
         private static void VerifyRuinsWarning()
@@ -2616,7 +2647,7 @@ namespace BaseConquest.Editor
             Capture("exploration-camp-spawn");
 
             var move = typeof(BaseSceneController).GetMethod("MoveExploration", BindingFlags.Instance | BindingFlags.NonPublic);
-            view.SetViewSize(view.MaxExplorationViewSize);
+            view.SetViewSize(view.FullViewSize * BattleBoardView.DefaultExplorationZoom);
             view.Follow(controller.PlayerCameraTarget);
             var startCamera = view.Camera.transform.position;
             for (int i = 0; i < 20; i++)
@@ -2641,15 +2672,16 @@ namespace BaseConquest.Editor
             var view = (BattleBoardView)Field(controller, "regionView");
             var point = view.Camera.pixelRect.center;
             controller.ZoomExplorationFactor(point, 100);
-            if (Mathf.Abs(view.Camera.orthographicSize / view.FullViewSize - .512f) > .0001f)
-                throw new InvalidOperationException("最远档未相当于旧上限回三格滚轮");
+            if (Mathf.Abs(view.Camera.orthographicSize / view.FullViewSize - 1f) > .0001f)
+                throw new InvalidOperationException("未恢复原来的最远探索范围");
+            RequireCentered(view, controller.PlayerCameraTarget);
             controller.ZoomExplorationFactor(point, .001f);
             if (Mathf.Abs(view.Camera.orthographicSize / view.FullViewSize - .3f) > .0001f)
                 throw new InvalidOperationException("最近档改变了");
             RequireCentered(view, controller.PlayerCameraTarget);
-            controller.ZoomExplorationFactor(point, 100);
+            view.SetViewSize(view.FullViewSize * BattleBoardView.DefaultExplorationZoom);
             CheckOuterCorners(view, view.Root.transform.Find("CampScenery"));
-            Log.Add("[PASS] 最远档 .512、最近档 .3 保持原值；最大视野下四个边角均有外围地表覆盖");
+            Log.Add("[PASS] 复原最远档 1、最近档 .3，两个极限保持居中；默认视野下四个边角有外围地表覆盖");
         }
 
         private static void CheckTownFraming()
@@ -2658,7 +2690,7 @@ namespace BaseConquest.Editor
             if (controller.State.Campaign.Location != "town") throw new InvalidOperationException(controller.Message);
             var view = (BattleBoardView)Field(controller, "regionView");
             Approach("travel_base");
-            view.SetViewSize(view.MaxExplorationViewSize);
+            view.SetViewSize(view.FullViewSize * BattleBoardView.DefaultExplorationZoom);
             view.Follow(controller.PlayerCameraTarget);
             var scenery = view.Root.transform.Find("ExplorationScenery");
             if (scenery == null)

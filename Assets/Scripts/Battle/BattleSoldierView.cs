@@ -44,9 +44,9 @@ namespace BaseConquest.Battle
             line.startColor = line.endColor = new Color(1, 0.9f, 0.35f); return line;
         }
         public static Vector3 Position(BattleSimulation battle, BattleSoldier s) => BattleBoardView.World(s.Cell, battle.Board) + (battle.UnitsAt(s.Cell).Count > 1 ? Vector3.right * (s.IsTransit ? 0.32f : -0.32f) : Vector3.zero);
-        public void Sync(BattleSimulation battle, int selectedSquad, float presentation, int selectedUnit = -1, bool? selected = null)
+        public void Sync(BattleSimulation battle, int selectedSquad, float presentation, int selectedUnit = -1, bool? selected = null, bool draft = false)
         {
-            if (pawn != null) { pawn.Sync(battle, selected ?? selectedUnit == Soldier.Id, presentation); return; }
+            if (pawn != null) { pawn.Sync(battle, selected ?? selectedUnit == Soldier.Id, presentation, draft: draft); return; }
             bool showingAction = presentation < 1 && Soldier.LastAction != RoundAction.Wait;
             Root.SetActive(!Soldier.Escaped || showingAction);
             Vector3 previous = BattleBoardView.World(Soldier.PreviousCell, battle.Board) + (Soldier.PreviousShared ? Vector3.right * (Soldier.PreviousTransit ? 0.32f : -0.32f) : Vector3.zero);

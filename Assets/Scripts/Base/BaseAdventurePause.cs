@@ -30,8 +30,7 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(s))return "demo-local";
             return region=="base"||region=="town"||region=="perimeter"?"base-local":region;
         }
-        public static string PauseProblem(BaseState s,string id,bool resume=false)=>LegacyPauseProblem(s,id,resume);
-        private static string LegacyPauseProblem(BaseState s,string id,bool resume=false)
+        public static string PauseProblem(BaseState s,string id,bool resume=false)
         {
             var l=s.Leaders.FirstOrDefault(p=>p.Id==id);
             if(l==null||id==s.PlayerLeaderId||!Contains(s,id))return "只能调整随行伙伴，主角固定带队";
@@ -52,7 +51,7 @@ namespace BaseConquest.Base
         public static bool Pause(BaseState s,string id)=>DetachForPause(s,id);
         private static bool DetachForPause(BaseState s,string id)
         {
-            if(LegacyPauseProblem(s,id)!="")return false;var l=s.Leaders.Single(p=>p.Id==id);
+            if(PauseProblem(s,id)!="")return false;var l=s.Leaders.Single(p=>p.Id==id);
             var p=new BaseAdventurePause {LeaderId=id,Region=s.Campaign.Location,MapId=BaseSceneInstances.Active(s)?s.Campaign.CurrentMapId:null,AreaId=Area(s),X=l.HasMapPosition?l.MapX:s.PlayerX,Y=l.HasMapPosition?l.MapY:s.PlayerY};
             var party=s.Muster.Parties.FirstOrDefault(t=>t.Id==l.PartyId);
             if(party!=null)
@@ -78,12 +77,12 @@ namespace BaseConquest.Base
         }
         public static bool Resume(BaseState s,string id)
         {
-            if(PauseProblem(s,id,true)!="")return false;bool outside=PauseFor(s,id).Region!="base";RestorePaused(s,PauseFor(s,id),true);BaseDevelopment.Allocate(s);BaseAchievements.PartyChanged(s);if(outside)BaseAchievements.Unlock(s,BaseAchievements.Reunion);return true;
+            if(PauseProblem(s,id,true)!="")return false;var paused=PauseFor(s,id);bool outside=paused.Region!="base";RestorePaused(s,paused);BaseDevelopment.Allocate(s);BaseAchievements.PartyChanged(s);if(outside)BaseAchievements.Unlock(s,BaseAchievements.Reunion);return true;
         }
-        private static void RestorePaused(BaseState s,BaseAdventurePause p,bool rejoin)
+        private static void RestorePaused(BaseState s,BaseAdventurePause p)
         {
             var l=s.Leaders.Single(person=>person.Id==p.LeaderId);
-            var party=rejoin?s.Muster.Parties.FirstOrDefault(t=>t.Id==p.PartyId)??s.Muster.Parties.FirstOrDefault(t=>(t.Purpose==p.Purpose||string.IsNullOrEmpty(p.Purpose)&&t.Purpose=="expedition")&&t.Leaders.Any(r=>r.LeaderId==s.PlayerLeaderId)):null;
+            var party=s.Muster.Parties.FirstOrDefault(t=>t.Id==p.PartyId)??s.Muster.Parties.FirstOrDefault(t=>(t.Purpose==p.Purpose||string.IsNullOrEmpty(p.Purpose)&&t.Purpose=="expedition")&&t.Leaders.Any(r=>r.LeaderId==s.PlayerLeaderId));
             var rows=party==null?null:BaseMuster.CurrentFormation(s,party)??BaseMuster.Distribute(party.Leaders.Select(r=>new BaseCommanderAllocation {LeaderId=r.LeaderId,Requested=s.Leaders.Single(person=>person.Id==r.LeaderId).DefaultTroops.Copy()}),k=>s.Workers.Where(w=>w.PartyId==party.Id&&w.Kind==k).Sum(w=>w.Count),true);
             foreach(var worker in s.Workers.Where(w=>w.HeldBy==p.LeaderId))
             {
@@ -105,19 +104,7 @@ namespace BaseConquest.Base
             s.Adventure.Pauses.Remove(p);
         }
         public static void RecallPaused(BaseState s)
-        {foreach(var p in s.Adventure.Pauses.ToArray())RestorePaused(s,p,true);}
-        public static string ReturnHomeProblem(BaseState s,string id)
-        {
-            string problem=PauseFor(s,id)==null?LegacyPauseProblem(s,id):LegacyPauseProblem(s,id,true);if(problem!="")return problem;
-            if(Area(s)!=Area(s,"base"))return "此领地没有我方基地，不能直接回营";
-            return "";
-        }
-        public static bool SendHome(BaseState s,string id)
-        {
-            if(ReturnHomeProblem(s,id)!="")return false;if(PauseFor(s,id)==null&&!DetachForPause(s,id))return false;
-            RestorePaused(s,PauseFor(s,id),false);s.Adventure.Members.Remove(id);var l=s.Leaders.Single(person=>person.Id==id);var home=BaseSpatial.Layout(s,"base");
-            var point=BaseSpatial.Nearest(s,new BasePoint(home.SpawnX,home.SpawnY),"base");l.HasMapPosition=true;l.MapX=point.X;l.MapY=point.Y;l.MapRegion="base";l.MapId=home.SourceMapId;BaseDevelopment.Allocate(s);return true;
-        }
+        {foreach(var p in s.Adventure.Pauses.ToArray())RestorePaused(s,p);}
         private static void ValidatePauses(BaseState s)
         {
             var pauses=s.Adventure.Pauses;

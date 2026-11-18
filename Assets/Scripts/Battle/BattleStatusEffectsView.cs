@@ -17,10 +17,9 @@ namespace BaseConquest.Battle
         public BattleStatusEffectsView(Transform parent, Material material, BattleSoldier unit)
         {
             soldier=unit; Root=new GameObject("StatusEffects");Root.transform.SetParent(parent,false);
-            float foot = unit.Kind==SoldierKind.Cavalry ? -0.5f : -0.30f;
             for(int type=0;type<3;type++)
             {
-                var points=new Vector3[33]; for(int i=0;i<points.Length;i++){float a=i*Mathf.PI*2/32;points[i]=new Vector3(Mathf.Cos(a)*(0.42f+type*0.09f),0.12f+type*0.012f,foot+Mathf.Sin(a)*(0.12f+type*0.035f));}
+                var points=new Vector3[33]; for(int i=0;i<points.Length;i++){float a=i*Mathf.PI*2/32;points[i]=new Vector3(Mathf.Cos(a)*(0.42f+type*0.09f),0.12f+type*0.012f,Mathf.Sin(a)*(0.12f+type*0.035f));}
                 auras[type]=Line(new[]{"BuffYellowAura","HealingGreenAura","DebuffPurpleAura"}[type],material,points,0.032f); Paint(auras[type],colors[type]);
                 particles[type]=new LineRenderer[3];
                 for(int i=0;i<3;i++)

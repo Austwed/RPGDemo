@@ -82,21 +82,24 @@ namespace BaseConquest.Base
             if(!owner.Change(next=>receipt=BaseBattleLoot.ConsumeReceipt(next,battle),""))return;
             bool held=owner.State.Aftermath.Prisoners.Any(p=>p.BattleId==battle&&p.Status=="held");
             if(!receipt.HasReceipt){if(held)OpenRewardPrisoners(battle);else ClosePanel();return;}
-            var lines=receipt.Items.Where(i=>!string.IsNullOrEmpty(i.ReceiptDestination)).Select(i=>BaseBattleLoot.Name(owner.State,i)+"  ·  "+
-                (i.ReceiptDestination==BaseBattleLoot.WarehouseReceipt?StoryText.Get("ui.reward.warehouse","仓库"):
+            var lines=receipt.Items.Where(i=>!string.IsNullOrEmpty(i.ReceiptDestination)).Select(i=>(
+                Item: BaseBattleLoot.Name(owner.State,i),
+                Destination: i.ReceiptDestination==BaseBattleLoot.WarehouseReceipt?StoryText.Get("ui.reward.warehouse","仓库"):
                     (owner.State.Leaders.FirstOrDefault(l=>l.Id==i.ReceiptDestination)?.Name??"")+StoryText.Get("ui.reward.backpack","的背包"))).ToList();
-            if(receipt.ReceiptFood>0)lines.Insert(0,StoryText.Get("ui.reward.food","粮食")+" +"+receipt.ReceiptFood);
-            if(receipt.ReceiptMaterials>0)lines.Insert(0,StoryText.Get("ui.reward.materials","原料")+" +"+receipt.ReceiptMaterials);
-            if(receipt.ReceiptCoins>0)lines.Insert(0,StoryText.Get("ui.reward.coins","钱币")+" +"+receipt.ReceiptCoins);
+            if(receipt.ReceiptFood>0)lines.Insert(0,(StoryText.Get("ui.reward.food","粮食")+" +"+receipt.ReceiptFood,""));
+            if(receipt.ReceiptMaterials>0)lines.Insert(0,(StoryText.Get("ui.reward.materials","原料")+" +"+receipt.ReceiptMaterials,""));
+            if(receipt.ReceiptCoins>0)lines.Insert(0,(StoryText.Get("ui.reward.coins","钱币")+" +"+receipt.ReceiptCoins,""));
             OpenRewardReceipt(receipt.Title,lines.ToArray(),held?()=>OpenRewardPrisoners(battle):(Action)null);
         }
-        private void OpenRewardReceipt(string title,string[] lines,Action prisoners)
+        private void OpenRewardReceipt(string title,(string Item,string Destination)[] lines,Action prisoners)
         {
             activeObject="reward-receipt";
             BeginPanel(StoryText.Get("ui.reward.received","获得奖励")+" · "+title,"reward-receipt");
             var view=panel;
             var viewport=panelScroll.viewport;
-            const float width=536f;
+            const float itemWidth = 314f;
+            float destinationWidth = Mathf.Max(156f, lines.Select(line => line.Destination.Length * 18f).DefaultIfEmpty(0).Max());
+            float width = itemWidth + destinationWidth + 66;
             float listHeight=Mathf.Clamp(lines.Length*34+12,56,240),height=listHeight+(prisoners!=null?110:66);
             view.sizeDelta=new Vector2(width,height);
             var header=view.Find("Header") as RectTransform;
@@ -111,7 +114,13 @@ namespace BaseConquest.Base
             content.sizeDelta=new Vector2(width-28,Mathf.Max(listHeight,lines.Length*34+8));
             panelScroll.vertical=lines.Length*34+8>listHeight;
             for(int i=0;i<lines.Length;i++)
-                Label(content,lines[i],new Vector2(0,-21-i*34),new Vector2(width-54,34),18,TextAnchor.MiddleLeft,new Vector2(.5f,1));
+            {
+                var y = -21 - i * 34;
+                var line = lines[i];
+                Label(content,line.Item,new Vector2(27-width*.5f+itemWidth*.5f,y),new Vector2(itemWidth,34),18,TextAnchor.MiddleLeft,new Vector2(.5f,1));
+                if (!string.IsNullOrEmpty(line.Destination))
+                    Label(content,line.Destination,new Vector2(width*.5f-27-destinationWidth*.5f,y),new Vector2(destinationWidth,34),18,TextAnchor.MiddleRight,new Vector2(.5f,1));
+            }
             if(prisoners!=null)MakeButton(view,StoryText.Get("ui.reward.prisoners","处理俘虏"),new Vector2(0,29),new Vector2(160,38),prisoners,new Vector2(.5f,0));
             RefreshSummary();
             void Pin(RectTransform node,Vector2 min,Vector2 max,Vector2 low,Vector2 high)

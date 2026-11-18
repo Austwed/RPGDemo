@@ -248,7 +248,7 @@ namespace BaseConquest.Battle
             campScenery = camp;
         }
         internal void BuildExplorationScenery() => explorationScenery = BaseConquest.Presentation.CampScenery.Create(
-            Root.transform, board, Camera, baseGrassMaterial, groundMaterial, MaxExplorationViewSize, campScenery, surfaceRegion == "dungeon");
+            Root.transform, board, Camera, baseGrassMaterial, groundMaterial, FullViewSize * DefaultExplorationZoom, campScenery, surfaceRegion == "dungeon");
         public void UpdateCamera(float leftFraction, float bottomFraction)
         {
             bool showGrid=CombatMode ? MapDisplayOptions.BattleGridOutlines : MapDisplayOptions.ShowGridOutlines;
@@ -298,9 +298,8 @@ namespace BaseConquest.Battle
             board.Height * CellSize * .5f + (campScenery ? .9f : FlatView ? .15f : 2f),
             (board.Width * CellSize * .5f + (campScenery ? 3.2f : FlatView ? .15f : 1.5f)) / Camera.aspect);
         public float MinViewSize=>FullViewSize*MinZoomFactor;
-        // Exploration removes three outward wheel steps. The old closest and tactical bounds remain absolute.
         public const float ExplorationWheelFactor = .8f;
-        public float MaxExplorationViewSize => FullViewSize * ExplorationWheelFactor * ExplorationWheelFactor * ExplorationWheelFactor;
+        public const float DefaultExplorationZoom = .65f;
         // 统一入口：无论探索还是作战，都夹在同一组绝对边界里，并把 zoomFactor 同步成相对比例。
         public void SetViewSize(float size)
         {

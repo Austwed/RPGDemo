@@ -88,13 +88,13 @@ namespace BaseConquest.Presentation
     }
     public sealed class SunInfluence:MonoBehaviour
     {
-        private Renderer surface;private DemoSunlight sun;private Transform anchor;private Vector3 fixedPoint;private bool moving;private Material blobMaterial;private GameObject blob;private Mesh blobMesh;private MaterialPropertyBlock block;
+        private Renderer surface;private DemoSunlight sun;private Transform anchor;private BattlePawn2D pawn;private Vector3 fixedPoint;private bool moving;private Material blobMaterial;private GameObject blob;private Mesh blobMesh;private MaterialPropertyBlock block;
         public static void Attach(Renderer surface,DemoSunlight sun,Transform anchor,bool moving,Vector3 fixedPoint)
         {
             var existing=surface.GetComponent<SunInfluence>();if(existing!=null){existing.Refresh();return;}var component=surface.gameObject.AddComponent<SunInfluence>();component.surface=surface;component.sun=sun;component.anchor=anchor;component.moving=moving;component.fixedPoint=fixedPoint;
             // With lighting off there is nothing to shade, so leave the sprite on its plain unlit material.
             if(sun.Settings.Enabled)surface.sharedMaterial.shader=Resources.Load<Shader>("Presentation/SunSprite");
-            if(moving)component.CreateBlob();component.Refresh();
+            if(moving){component.pawn=anchor.GetComponent<BattlePawn2D>();component.CreateBlob();}component.Refresh();
         }
         private void CreateBlob()
         {
@@ -104,14 +104,15 @@ namespace BaseConquest.Presentation
                 verts.Add(new Vector3(Mathf.Cos(n * Mathf.PI / 16) * r, 0, Mathf.Sin(n * Mathf.PI / 16) * r * .58f));
             for (int n = 1; n <= 32; n++) tris.AddRange(new[] { 0, n, n + 1 });
             blobMesh.SetVertices(verts);blobMesh.SetTriangles(tris,0);blobMesh.RecalculateBounds();blob.GetComponent<MeshFilter>().sharedMesh=blobMesh;
-            blobMaterial=DemoSunlight.MakeTransparent(new Material(Shader.Find("Universal Render Pipeline/Unlit")));blobMaterial.SetColor("_BaseColor",new Color(.13f,.12f,.1f,sun.Settings.FeetShadowOpacity));blob.GetComponent<Renderer>().sharedMaterial=blobMaterial;
+            blobMaterial=DemoSunlight.MakeTransparent(new Material(Shader.Find("Universal Render Pipeline/Unlit")));blobMaterial.SetColor("_BaseColor",new Color(.13f,.12f,.1f,sun.Settings.FeetShadowOpacity));
+            var renderer=blob.GetComponent<Renderer>();renderer.sharedMaterial=blobMaterial;renderer.sortingOrder=-28000;
         }
         public void Refresh()
         {
-            if(sun==null||surface==null)return;block??=new MaterialPropertyBlock();var point=moving?anchor.position:fixedPoint;
+            if(sun==null||surface==null)return;block??=new MaterialPropertyBlock();var point=moving?pawn.GroundContact:fixedPoint;
             if(sun.Settings.Enabled){surface.GetPropertyBlock(block);block.SetFloat("_SunFactor",sun.Brightness(point));block.SetColor("_SunTint",sun.DayColor);surface.SetPropertyBlock(block);}
             // Contact shadow is a readability convention, not lighting: it stays on when the sun is off.
-            if(blob!=null){blob.SetActive(sun.Outdoors&&sun.Settings.FeetShadow&&surface.enabled&&surface.gameObject.activeInHierarchy);blob.transform.position=anchor.position+new Vector3(0,.025f,-.13f);blob.transform.rotation=Quaternion.identity;blob.transform.localScale=Vector3.one;blob.GetComponent<Renderer>().sortingOrder=-28000;}
+            if(blob!=null){blob.SetActive(sun.Outdoors&&sun.Settings.FeetShadow&&surface.enabled&&surface.gameObject.activeInHierarchy);blob.transform.SetPositionAndRotation(point+Vector3.up*.025f,Quaternion.identity);}
         }
         private void LateUpdate(){if(moving)Refresh();}
         private void OnDestroy(){BattleBoardView.DestroyObject(blobMaterial);BattleBoardView.DestroyObject(blobMesh);if(blob!=null)BattleBoardView.DestroyObject(blob);}

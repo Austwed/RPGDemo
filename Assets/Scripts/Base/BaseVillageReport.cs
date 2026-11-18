@@ -10,8 +10,19 @@ namespace BaseConquest.Base
         public string Id;
         public double X, Y, TargetX, TargetY;
 
+        [NonSerialized] private List<BasePoint> route;
+        [NonSerialized] private int waypoint;
+
         public BasePoint Target => new BasePoint(TargetX, TargetY);
         public BaseVillageReportMember Copy() => (BaseVillageReportMember)MemberwiseClone();
+        internal void SetRoute(List<BasePoint> path) => route = path;
+        internal void Advance(BaseState state, double seconds)
+        {
+            var position = new BasePoint(X, Y);
+            if (position.Distance(Target) < .08) return;
+            route ??= BaseStageWalk.Route(state, position, Target);
+            BaseStageWalk.Advance(ref X, ref Y, Target, seconds, route, ref waypoint);
+        }
     }
 
     internal static class BaseVillageReport
@@ -61,14 +72,17 @@ namespace BaseConquest.Base
                 var nearest = available.Count == 0 ? center : available.OrderBy(point => point.Distance(person.Origin)).First();
                 available.Remove(nearest);
                 var goal = BaseSpatial.Nearest(state, nearest, occupants: occupied);
-                if (person.Origin.Distance(goal) >= .08 && BaseStageWalk.Route(state, person.Origin, goal).Count == 0)
+                var route = BaseStageWalk.Route(state, person.Origin, goal);
+                if (route.Count == 0 && person.Origin.Distance(goal) >= .08)
                     goal = person.Origin;
                 occupied.Add(new BaseMapObject(person.Id, "", goal.X, goal.Y, .44, .44));
-                intro.ReportGroup.Add(new BaseVillageReportMember
+                var member = new BaseVillageReportMember
                 {
                     Id = person.Id, X = person.Origin.X, Y = person.Origin.Y,
                     TargetX = goal.X, TargetY = goal.Y
-                });
+                };
+                member.SetRoute(route);
+                intro.ReportGroup.Add(member);
             }
         }
 

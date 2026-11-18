@@ -52,8 +52,8 @@ namespace BaseConquest.Base
             var leader = state.Leaders.FirstOrDefault(l => l.Id == id);
             if (leader == null) return "找不到这名伙伴";
             if (id == state.PlayerLeaderId) return "主角固定带队";
-            if(PauseFor(state,id)!=null)return "请与暂离伙伴交谈，选择恢复随行或回到基地";
-            if(join&&state.Adventure.Pauses.Count>0&&!Contains(state,id))return "暂离伙伴占位期间不能添加新成员，请先让暂离者归队或回营";
+            if(PauseFor(state,id)!=null)return "请与暂离伙伴交谈，选择恢复随行";
+            if(join&&state.Adventure.Pauses.Count>0&&!Contains(state,id))return "暂离伙伴占位期间不能添加新成员，请先让暂离者归队";
             if (state.Aftermath.GameOver || state.Campaign.HasActiveBattle || state.Campaign.Location != "base" || state.Muster.Parties.Count != 0) return "请先返回基地并结束外出队伍，再对话调整伙伴";
             if (join && (!Alive(leader) || leader.Health <= 0)) return "阵亡或失联者不能加入";
             if (leader.Away) return "该伙伴尚未返营";

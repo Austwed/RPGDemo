@@ -18,6 +18,9 @@ namespace BaseConquest.Editor
             string[] ids={"player","female","ahe","azhu","galan","chief","batu","huoya","saber","archer","rider","laozhou","chunshen","merchant","villager","horn","baron","chenan","guard","survivor","villager-girl","rescued-villager","recruiter","ancient-saber"};
             foreach(string id in new[]{"chenan","recruiter","ancient-saber"})
                 Need(DemoPortraits.For(id).Origin==DemoPortraits.Source.Portrait,"缺少专属头像："+id);
+            foreach(string id in new[]{"baron","azhu","villager-girl"})
+                Need(DemoPortraits.For(id).Texture==PixelDemoArt.Load("DialoguePortraits",id),"肖像未使用共用原图裁片："+id);
+            Need(DemoPortraits.For("azhu").Texture==DemoPortraits.For("mounted-azhu").Texture,"阿铸骑乘形象变成不同肖像");
             var report=new StringBuilder("# Demo 头像来源\n\n");
             foreach(string id in ids)
             {

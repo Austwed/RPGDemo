@@ -137,6 +137,7 @@ namespace BaseConquest.Battle
                 foreach (var label in new[] { formalMap, formalGoal, formalStatus, formalAlly, formalEnemy, formalSupply })
                     label.color = DemoUiTheme.Current.Panel;
             }
+            GameFrameCanvas.SealHeaderEdge(formalBanner, formalBanner.GetComponent<UnityEngine.UI.Image>().color);
         }
 
         private void ApplySystemMenuLayout(RectTransform source)

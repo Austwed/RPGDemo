@@ -41,7 +41,7 @@ namespace BaseConquest.Base
             if (armyPage == "parties") { OutsideParties(OpenGovernment); return; }
             var s = owner.State; var preset = ArmyPreset(s);
             Line("预设仅保存希望编制；确认抽调前不会占用人物、兵力或产能。", 56, 18);
-            Line("队长沿用常驻冒险小队，通过伙伴对话暂离／归队或回营。",56,18);
+            Line("队长沿用常驻冒险小队。可让伙伴原地等候或归队，回营后可调整随行人选。",56,18);
             Line("默认带兵组成已移至兵营·队长编组；这里保留军需与留守设置。",58,18);
             foreach(var leader in BaseAdventure.Members(s))Line(BasePersonnel.LeaderName(leader)+" · "+TroopsText(leader.DefaultTroops),48,19);
             Line("当前冒险小队 "+s.Adventure.Members.Count+"/3 · 暂离占位 "+s.Adventure.Pauses.Count,48,20);

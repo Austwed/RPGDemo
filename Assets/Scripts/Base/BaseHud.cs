@@ -124,14 +124,7 @@ namespace BaseConquest.Base
             if (Application.isPlaying && EventSystem.current == null) { var eventSystem = new GameObject("BaseEventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule)); eventSystem.transform.SetParent(owner.transform, false); eventSystem.GetComponent<InputSystemUIInputModule>().AssignDefaultActions(); }
             UiPrefabBinding.Complete(canvas);
             BindResourceStrip(header);
-            var headerEdge = Solid("HeaderTopEdge", header, new Vector2(.5f, 1), new Vector2(0, 1),
-                new Vector2(0, 4), header.GetComponent<Image>().color);
-            headerEdge.anchorMin = Vector2.up;
-            headerEdge.anchorMax = Vector2.one;
-            headerEdge.SetAsFirstSibling();
-            var edgeGraphic = headerEdge.GetComponent<Image>();
-            edgeGraphic.maskable = false;
-            edgeGraphic.raycastTarget = false;
+            GameFrameCanvas.SealHeaderEdge(header, header.GetComponent<UnityEngine.UI.Image>().color);
             if (Application.platform == RuntimePlatform.Android)
             {
                 stick.sizeDelta = new Vector2(158, 158);
@@ -669,8 +662,8 @@ namespace BaseConquest.Base
             var s=owner.State;var copy=s.Copy();var before=BaseEconomy.Preview(s);
             if(!BaseAdventure.SetMember(copy,id,join)){OpenPartner(id);return;}
             var after=BaseEconomy.Preview(copy);
-            BeginPanel(join ? "确认邀请伙伴" : "确认留在基地","adventure-confirm:"+id);
-            RowButton("确认",-210,400,()=>{owner.Change(next=>{if(owner.Nearby?.Id!=id||!BaseAdventure.SetMember(next,id,join))throw new InvalidOperationException("伙伴状态或距离已变化，请重新对话");},join ? "伙伴已随行，实际岗位已释放" : "伙伴已留在基地，恢复按策略安排");OpenPartner(id);});
+            BeginPanel(join ? "确认邀请伙伴" : "确认留在营地","adventure-confirm:"+id);
+            RowButton("确认",-210,400,()=>{owner.Change(next=>{if(!BaseInteraction.CanReach(next,owner.PresentedObject(id))||!BaseAdventure.SetMember(next,id,join))throw new InvalidOperationException("伙伴状态或距离已变化，请重新对话");},join ? "伙伴已随行，实际岗位已释放" : "伙伴已留在营地，可安排岗位");OpenPartner(id);});
             RowButton("取消",210,400,()=>OpenPartner(id));row+=65;
             Line(join ? "加入后跟随主角，暂不担任设施管理员。" : "离队后仍保留本人状态；今日有实际外出记录则今天不生产。",85,20);
             Line("预计日产量变化：粮 "+(after.FoodProduced-before.FoodProduced).ToString("+0;-0;0")+"／军需 "+(after.ProductsMade-before.ProductsMade).ToString("+0;-0;0"),65,20);EndPanel();

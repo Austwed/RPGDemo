@@ -23,9 +23,29 @@ namespace BaseConquest.Base
         public static bool Advance(BaseState s,ref double x,ref double y,BasePoint target,double seconds)
         {
             var at=new BasePoint(x,y);if(at.Distance(target)<.08)return true;
-            var route=Route(s,at,target);if(route.Count==0)return false;
+            int waypoint = 0;
+            return Advance(ref x, ref y, target, seconds, Route(s, at, target), ref waypoint);
+        }
+        internal static bool Advance(ref double x, ref double y, BasePoint target, double seconds,
+            List<BasePoint> route, ref int waypoint)
+        {
+            if (new BasePoint(x, y).Distance(target) < .08) return true;
             double remaining=Math.Max(0,seconds)*2.5;
-            foreach(var next in route){double d=new BasePoint(x,y).Distance(next);if(d<=remaining){x=next.X;y=next.Y;remaining-=d;}else{if(d>0){x+=(next.X-x)*remaining/d;y+=(next.Y-y)*remaining/d;}break;}}
+            while (remaining > 0 && waypoint < route.Count)
+            {
+                var next = route[waypoint];
+                double distance = new BasePoint(x, y).Distance(next);
+                if (distance > remaining)
+                {
+                    x += (next.X - x) * remaining / distance;
+                    y += (next.Y - y) * remaining / distance;
+                    break;
+                }
+                x = next.X;
+                y = next.Y;
+                remaining -= distance;
+                waypoint++;
+            }
             return new BasePoint(x,y).Distance(target)<.08;
         }
     }

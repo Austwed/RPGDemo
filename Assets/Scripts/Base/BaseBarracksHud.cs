@@ -79,7 +79,6 @@ namespace BaseConquest.Base
             BeginPanel("兵营 · 单位详情","personnel:"+key);
             RowButton(back==null?"返回名册":"返回对话",-210,400,back??(()=>{activePage="roster";OpenBarracks();}));
             if(u==null){row+=60;Line("人员安排已变化，请从名册重新选择。",80);EndPanel();return;}
-            if(u.IsLeader){RowButton("管理员安排",0,800,()=>OpenPartner(u.LeaderId),!u.Away&&u.Health>0);row+=60;}
             Line(u.Name+" · "+BattleSimulation.KindName(u.Kind),52,24);Line("生命 "+u.Health.ToString("0.#")+" / "+u.MaxHealth.ToString("0.#"),46);
             if(u.IsLeader){bool following=BaseAdventure.Contains(s,u.LeaderId);RowButton(following?"人物与背包":"到基地仓库管理此人背包",0,800,()=>{gearLeader=u.LeaderId;OpenPersonalEquipment();},following);row+=56;}
             Line("当前攻击 "+u.Current.Damage.ToString("0.##")+" · 防御 "+u.Current.Defense.ToString("0.##")+"；基础攻击 "+u.Basic.Damage.ToString("0.##")+" · 防御 "+u.Basic.Defense.ToString("0.##"),62,19);

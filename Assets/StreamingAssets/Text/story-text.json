@@ -26,12 +26,6 @@
       "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
     },
     {
-      "key": "story.partner_farm.jobs",
-      "group": "伙伴／阿禾",
-      "text": "要安排岗位吗？先看看现在的人员和产量。",
-      "notes": "任职子页开场；实际资格仍由经营规则判定。"
-    },
-    {
       "key": "story.partner_craft.greeting",
       "group": "伙伴／阿铸",
       "text": "来了。接下来怎么安排？",
@@ -54,12 +48,6 @@
       "group": "伙伴／阿铸",
       "text": "需要我同行，招呼一声就行。",
       "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
-    },
-    {
-      "key": "story.partner_craft.jobs",
-      "group": "伙伴／阿铸",
-      "text": "要安排岗位吗？先看看现在的人员和产量。",
-      "notes": "任职子页开场；实际资格仍由经营规则判定。"
     },
     {
       "key": "story.partner_test.greeting",
@@ -86,12 +74,6 @@
       "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
     },
     {
-      "key": "story.partner_test.jobs",
-      "group": "伙伴／陈安",
-      "text": "要安排岗位吗？先看看现在的人员和产量。",
-      "notes": "任职子页开场；实际资格仍由经营规则判定。"
-    },
-    {
       "key": "story.partner_default.greeting",
       "group": "伙伴／通用伙伴",
       "text": "你好，有什么安排？",
@@ -114,12 +96,6 @@
       "group": "伙伴／通用伙伴",
       "text": "需要同行时告诉我。",
       "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
-    },
-    {
-      "key": "story.partner_default.jobs",
-      "group": "伙伴／通用伙伴",
-      "text": "要安排岗位吗？先看看现在的人员和产量。",
-      "notes": "任职子页开场；实际资格仍由经营规则判定。"
     },
     {
       "key": "story.partner.invite_nearby",

@@ -190,20 +190,28 @@ namespace BaseConquest.Base
             if(activeObject!=id||!PanelOpen)introFarmDraft=i.FarmWorkers;
             activeObject=id;
             var (actions,filters,list)=OpenFacilityPanel(id,farm?"村庄粮田":"小铁匠铺","岗位与生产","村庄工人");
+            const float height = 370;
+            float shrink = panel.rect.height - height;
+            panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            foreach (string path in new[] { "Left", "Left/List", "Right", "Right/List" })
+            {
+                var rect = (RectTransform)panel.Find(path);
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, rect.rect.height - shrink);
+            }
+            var feedbackPosition = panelFeedback.rectTransform.anchoredPosition;
+            panelFeedback.rectTransform.anchoredPosition = feedbackPosition + Vector2.up * shrink;
             questFarmTarget=null;
             int food=(int)Math.Floor(introFarmDraft*s.Rules.FarmPerWorker),need=BaseDemoIntro.VillageFood(s);
             int onsite=farm?introFarmDraft:4-introFarmDraft;
             var manager = BaseDemoIntro.VillageManager(id);
-            var managerCard = CloneSceneUi("FacilityManagerCard", actions);
-            Ui<Text>(managerCard, "Name").text = "负责人 · " + manager.Name;
-            Ui<Text>(managerCard, "Effect").text = "村庄固定岗位";
-            FacilityText(actions,$"本设施岗位 {onsite}/4 · 当前在岗 {(farm?i.FarmWorkers:4-i.FarmWorkers)} 人");
-            FacilityText(actions,$"粮食预计 +{food} · 村庄口粮 {need} · 净增 {(food-need):+0;-0;0}");
+            FacilityText(actions,$"负责人 · {manager.Name}     岗位 · {onsite}/4");
+            FacilityText(actions,$"粮食预计 +{food} · 口粮 {need} · 净增 {(food-need):+0;-0;0}");
             FacilityText(actions,$"铁匠铺预计 {(4-introFarmDraft)*s.Rules.WorkshopPerWorker:0.#} 工作点／日");
             if(canAssign)
             {
                 var counter=FacilityCounter(actions,"VillageFarmWorkers",$"粮田工人  {introFarmDraft}",
                     ()=>{introFarmDraft--;OpenIntroProduction(id);},()=>{introFarmDraft++;OpenIntroProduction(id);},introFarmDraft>2,introFarmDraft<4);
+                counter.Find("Unlock").gameObject.SetActive(false);
                 bool pending=introFarmDraft!=i.FarmWorkers;
                 var apply=FacilityButton(actions,"Apply","确认方案",()=>{
                     int before=owner.State.Demo.Intro.FarmWorkers,step=owner.State.Demo.Intro.Step,workers=introFarmDraft;
@@ -225,12 +233,11 @@ namespace BaseConquest.Base
             }
             else FacilityText(actions,BaseDemoIntro.Daily(s)?"先到田埂边听阿禾说说今天的人手安排。":"村民正准备撤离，暂时不派工。");
             FacilityText(filters,$"粮田 {introFarmDraft} 人 · 铁匠铺 {4-introFarmDraft} 人",true);
-            var stats=new ArmyDefinition().Melee;
             for(int n=1;n<=4;n++)
             {
                 bool onFarm=n<=introFarmDraft;
-                AddPersonnelRow(list,new BasePersonnelUnit {Name="村庄剑士 "+n,Facility=onFarm?"粮田":"铁匠铺",Health=stats.Health,MaxHealth=stats.Health},
-                    onFarm==(n<=i.FarmWorkers)?"在岗":"待调配",null,selected:onFarm==farm,showStats:false);
+                string post=onFarm?"粮田":"铁匠铺";
+                FacilityText(list,$"村庄剑士 {n} · {post}"+(onFarm==(n<=i.FarmWorkers)?"":" · 待调配"));
             }
             FinishFacilityPanel();
         }

@@ -54,7 +54,22 @@ namespace BaseConquest.Base
             {
                 bool reportArrived=BaseDemoIntro.AdvanceReporter(State,seconds);npcViews.TryGetValue("prologue_report", out var reporter);
                 reporter?.MoveTo(WorldPoint(State.Demo.Intro.ReporterX,State.Demo.Intro.ReporterY));
-                if(reportArrived){SaveStore.Save(State);RefreshDemoRegion();if(BaseInteraction.At(State,"base","prologue_report"))Hud.OpenDemoStory();}return;
+                if (reportArrived)
+                {
+                    SaveStore.Save(State);
+                    if (npcViews.TryGetValue("intro_villager", out var ahe))
+                    {
+                        npcViews.Remove("intro_villager");
+                        ahe.gameObject.SetActive(false);
+                        BattleBoardView.DestroyObject(ahe.gameObject);
+                    }
+                    Companions.Synchronize(State);
+                    PlaceCompanions();
+                    ClearSelection();
+                    Hud.RefreshSummary();
+                    if (BaseInteraction.At(State, "base", "prologue_report")) Hud.OpenDemoStory();
+                }
+                return;
             }
             if(State.Demo.Intro.Step!=7)return;
             bool arrived=BaseDemoIntro.AdvanceDeparture(State,seconds);
@@ -71,7 +86,7 @@ namespace BaseConquest.Base
             {
                 if (!npcViews.TryGetValue(member.Id, out var actor)) continue;
                 double x = member.X, y = member.Y;
-                BaseStageWalk.Advance(State, ref member.X, ref member.Y, member.Target, seconds * 1.28);
+                member.Advance(State, seconds * 1.28);
                 if (x == member.X && y == member.Y) continue;
                 if (member.Id == "demo_captain")
                 {

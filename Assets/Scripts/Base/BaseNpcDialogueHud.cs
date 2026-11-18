@@ -56,7 +56,6 @@ namespace BaseConquest.Base
             interactionObject = "";
             var portrait = Ui<RectTransform>(view, "PortraitFrame");
             var avatar = Ui<RectTransform>(portrait, "SpeakerPortrait").gameObject.GetOrAdd<BattleAvatarGraphic>();
-            avatar.DialoguePortrait = true;
             avatar.raycastTarget = false;
             var name = Ui<Text>(view, "SpeakerName");
             var speech = Ui<Text>(view, "DialogueText");

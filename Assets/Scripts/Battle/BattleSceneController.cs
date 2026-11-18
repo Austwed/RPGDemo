@@ -161,7 +161,7 @@ namespace BaseConquest.Battle
             boardView.RefreshVision(battle.Vision, selectedSide, !battle.ModernRules && drawerOpen && tab == 0 && battle.Phase == BattlePhase.Deployment, battle.ModernRules && battle.Scenario.ShowEnemiesThroughFog);
             foreach (BattleSoldierView view in views.Values)
             {
-                view.Sync(battle, -1, presentation, selectedUnitId, selection.Contains(view.Soldier.Id) || (battle.Scenario.CommanderControl && selection.Contains(battle.CommanderFor(view.Soldier)?.Id ?? -1)));
+                view.Sync(battle, -1, presentation, selectedUnitId, selection.Contains(view.Soldier.Id) || (battle.Scenario.CommanderControl && selection.Contains(battle.CommanderFor(view.Soldier)?.Id ?? -1)), DeploymentDraftActive);
                 view.ApplyVisibility(battle, selectedSide, presentation);
             }
             if (inspectionTracksUnit)
