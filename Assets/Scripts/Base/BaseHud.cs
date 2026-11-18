@@ -104,7 +104,6 @@ namespace BaseConquest.Base
             construction = MakeButton(controls, "战前建造", new Vector2(-360, 118), new Vector2(180, 64), owner.ArmConstruction, new Vector2(1, 0));
             construction.gameObject.SetActive(false);
             hint = Label(controls, "", new Vector2(0, 30), new Vector2(730, 50), 18, TextAnchor.MiddleCenter, new Vector2(0.5f, 0));
-            RefreshMapLabels();
             inspection = Box("CellInformation", root, new Vector2(0.5f, 0), new Vector2(0, 123), new Vector2(740, 180), new Color(0.969f, 0.965f, 0.925f, 0.98f));
             inspectionTitle = Label(inspection, "", new Vector2(-30, 64), new Vector2(630, 34), 22);
             inspectionDetails = Label(inspection, "", new Vector2(0, -7), new Vector2(695, 120), 18, TextAnchor.UpperLeft);
@@ -118,6 +117,7 @@ namespace BaseConquest.Base
             // （世界地图隐藏主 HUD 后所有按钮失效即由此引起）。挂在 canvas 之外的父级上。
             if (Application.isPlaying && EventSystem.current == null) { var eventSystem = new GameObject("BaseEventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule)); eventSystem.transform.SetParent(owner.transform, false); eventSystem.GetComponent<InputSystemUIInputModule>().AssignDefaultActions(); }
             UiPrefabBinding.Complete(canvas);
+            RefreshMapLabels();
             BindResourceStrip(header);
             GameFrameCanvas.SealHeaderEdge(header, header.GetComponent<UnityEngine.UI.Image>().color);
             if (Application.platform == RuntimePlatform.Android)
@@ -141,6 +141,7 @@ namespace BaseConquest.Base
                         stat.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 66);
                 }
             }
+            BindDeveloperModeButton(questBackpackButton, authoredResources);
         }
         internal void RefreshMapLabels()
         {

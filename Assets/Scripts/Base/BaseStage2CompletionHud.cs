@@ -37,7 +37,7 @@ namespace BaseConquest.Base
             foreach(var offer in s.PersonalEquipment.Supplies)
             {
                 var item=s.Backpack.Catalog.Single(d=>d.Id==offer.Item);
-                TradeOffer(offers,item.Id,item.Name+" · "+BaseProgressSupplies.Price(s,item.Id)+"币 · 余 "+offer.Remaining);
+                TradeStockOffer(offers,item.Id,item.Name,BaseProgressSupplies.Price(s,item.Id),offer.Remaining);
             }
         }
 
@@ -45,12 +45,11 @@ namespace BaseConquest.Base
         {
             var s = owner.State;
             var chosen=s.Backpack.Catalog.Single(d=>d.Id==selected.Item);
-            int price=BaseProgressSupplies.Price(s,chosen.Id),revision=s.Backpack.Revision;
-            TradeLine(details,chosen.Name+" · 单价 "+price+"币 · 今日剩余 "+selected.Remaining);
-            TradeQuantity(details,BaseProgressSupplies.MaxBuy(s,chosen.Id));
-            int count=tradeQuantity;
-            TradeButton(details,"确认买入 · "+count*price+"币",()=>TradeCommit(next=>
-                BaseProgressSupplies.Price(next,chosen.Id)==price&&BaseProgressSupplies.Buy(next,chosen.Id,count,revision),"已购入补给"),count>0);
+            int price=BaseProgressSupplies.Price(s,chosen.Id),revision=s.Backpack.Revision,day=s.Day;
+            TradeStockDetails(details,chosen.Name,price,selected.Remaining,BaseProgressSupplies.Stock(chosen.Id),
+                BaseProgressSupplies.PreviewMaxBuy(s,chosen.Id),"买入",
+                (next,count)=>next.Day==day&&BaseProgressSupplies.Price(next,chosen.Id)==price&&BaseProgressSupplies.Buy(next,chosen.Id,count,revision),
+                "已购入补给",PurchaseProblem(selected.Remaining,price,"随行背包空间不足"));
         }
 
         private void OpenWine(string selected="")

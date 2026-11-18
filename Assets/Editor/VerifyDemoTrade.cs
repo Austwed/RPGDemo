@@ -36,6 +36,7 @@ namespace BaseConquest.Editor
                 Need(BaseDemoRuins.Meet(state,"partner_farm")&&BaseDemoRuins.Join(state,"partner_farm"),"阿禾未加入");
                 At(state,"exit_east");
                 Need(BaseCampaign.Travel(state,"town"),"无法前往灰岩镇");
+                VerifyMerchantBeforeCommission(state.Copy());
                 var smith=BaseSpatial.Objects(state).First(o=>o.Id=="town_smith"||o.Id=="town_blacksmith");
                 At(state,smith.Id);
                 Need(BasePersonalEquipment.AtSmith(state),"未在铁匠交互范围");
@@ -106,6 +107,50 @@ namespace BaseConquest.Editor
                 Debug.Log("[VerifyDemoTrade] 指定收货、满包／报价拒绝、开局短剑拦截、旧档保留、城镇重铸与属性变化 PASS");
             }
             finally{BaseInteraction.Facing=originalFacing;}
+        }
+
+        private static void VerifyMerchantBeforeCommission(BaseState state)
+        {
+            Need(state.Demo.AcceptedDay==0,"老莫交易检查需在接取领主委托之前");
+            var oldFacing=BaseInteraction.Facing;
+            try
+            {
+                var merchant=BaseSpatial.Objects(state).Single(o=>o.Id=="town_peddler");
+                state.PlayerX=merchant.X;
+                state.PlayerY=merchant.Y-1.2;
+                BaseInteraction.Walk(new BasePoint(0,1));
+                Need(BaseSpatial.Walkable(state,state.PlayerX,state.PlayerY)
+                    && BaseInteraction.At(state,"town","town_peddler") && !BaseInteraction.At(state,"town","town_market"),
+                    "复现点需要够得着老莫而够不到摊位");
+                foreach(var good in state.Town.Goods.ToArray())
+                {
+                    int owned=BaseTown.Owned(state,good.Id), remaining=good.Remaining, coins=state.Inventory.Coins;
+                    var quote=BaseTown.QuoteTrade(state,good.Id,true,1);
+                    Need(BaseTown.Confirm(state,quote)&&BaseTown.Owned(state,good.Id)==owned+1&&good.Remaining==remaining-1&&
+                        state.Inventory.Coins==coins-quote.Total,"从老莫本人买入资源失败："+good.Id);
+                    Unchanged(state,()=>BaseTown.Confirm(state,quote),"同一资源报价不能重复扣款");
+                }
+                int stones=BasePartyInventory.AvailableMaterial(state,BaseEquipmentCrafting.Stone);
+                int stonePrice=BaseEquipmentCrafting.BuyPrice(state), purse=state.Inventory.Coins;
+                Need(BaseEquipmentCrafting.Buy(state,1,state.Backpack.Revision)&&state.Inventory.Coins==purse-stonePrice&&
+                    BasePartyInventory.AvailableMaterial(state,BaseEquipmentCrafting.Stone)==stones+1,"从老莫本人购买锻造石失败");
+                foreach(string id in new[]{BaseWine.Strong,BaseWine.Sake})
+                {
+                    purse=state.Inventory.Coins;
+                    int owned=BasePartyInventory.AvailableMaterial(state,id), price=BaseProgressSupplies.Price(state,id);
+                    Need(BaseProgressSupplies.Buy(state,id,1,state.Backpack.Revision)&&state.Inventory.Coins==purse-price&&
+                        BasePartyInventory.AvailableMaterial(state,id)==owned+1,"从老莫本人购买酒失败："+id);
+                }
+                var pending=BaseTown.QuoteTrade(state,"food",true,1);
+                At(state,"travel_base");
+                Need(BaseCampaign.Travel(state,"base"),"离开商铺检查未能回营");
+                BaseEconomy.Validate(state);
+                Unchanged(state,()=>BaseTown.Confirm(state,pending),"离开灰岩镇不得使用旧资源报价");
+                Unchanged(state,()=>BaseEquipmentCrafting.Buy(state,1,state.Backpack.Revision),"离开灰岩镇不得继续购买锻造石");
+                Unchanged(state,()=>BaseProgressSupplies.Buy(state,BaseWine.Sake,1,state.Backpack.Revision),"离开灰岩镇不得继续购买酒");
+                Debug.Log("[VerifyDemoTrade] 老莫本人且够不到摊位、领主委托前资源和随身补给交易、离场拒绝 PASS");
+            }
+            finally { BaseInteraction.Facing=oldFacing; }
         }
 
         private static void Unchanged(BaseState state,Func<bool> operation,string reason)

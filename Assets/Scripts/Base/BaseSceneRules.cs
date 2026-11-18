@@ -36,6 +36,16 @@ namespace BaseConquest.Base
                 north > front - BaseMap.Radius && north < EntranceBack + BaseMap.Radius;
         }
 
+        internal static IEnumerable<BaseObjectRect> EntranceCollisionParts(BaseMapObject portal)
+        {
+            if (portal.Id != EntranceId || portal.AssetId != "dungeon-entrance") yield break;
+            double sideWidth = EntranceHalfWidth - DoorHalfWidth;
+            double postY = portal.Y + (PostFront + EntranceBack) * .5;
+            yield return new BaseObjectRect(portal.X - DoorHalfWidth - sideWidth * .5, postY, sideWidth, EntranceBack - PostFront);
+            yield return new BaseObjectRect(portal.X + DoorHalfWidth + sideWidth * .5, postY, sideWidth, EntranceBack - PostFront);
+            yield return new BaseObjectRect(portal.X, portal.Y + (DoorSill + EntranceBack) * .5, DoorHalfWidth * 2, EntranceBack - DoorSill);
+        }
+
         private static BasePoint EntranceApproach(BaseState s, BaseMapObject portal, string map = null) =>
             BaseSpatial.Nearest(s, new BasePoint(portal.X, portal.Y + DoorSill - BaseMap.Radius - .05), map);
 

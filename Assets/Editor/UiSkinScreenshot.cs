@@ -379,12 +379,10 @@ namespace BaseConquest.Editor
                     if (Time.frameCount < frameDeadline) return;
                     Capture("ui-skin-mainmenu");
                     H.ClosePanel();
-                    if (!controller.Change(s =>
-                    {
-                        var exit = BaseSpatial.Objects(s).Single(o => o.Id == "exit_east");
-                        s.PlayerX = exit.X; s.PlayerY = exit.Y; BaseAdventure.Arrive(s);
-                        if (!BaseCampaign.Travel(s, "town")) throw new InvalidOperationException("前往城镇失败");
-                    }, "截图：前往城镇")) { Finish(2, "前往城镇被拒：" + controller.Message); return; }
+                    Approach("exit_east");
+                    controller.TravelDemo("town");
+                    if (controller.State.Campaign.Location != "town")
+                        throw new InvalidOperationException("前往城镇被拒：" + controller.Message);
                     stage = "to-town"; frameDeadline = Time.frameCount + 90; stageAt = EditorApplication.timeSinceStartup;
                     break;
                 case "to-town":
@@ -401,6 +399,13 @@ namespace BaseConquest.Editor
                     break;
                 case "town-arrive":
                     if (Time.frameCount < frameDeadline) return;
+                    var mapLabels = (RectTransform[])Field(H, "labels");
+                    var authoredLabels = (BaseMapObject[])Field(H, "labelObjects");
+                    int lordLabel = Array.FindIndex(authoredLabels, label => label.Id == "town_quest");
+                    if (lordLabel < 0) throw new InvalidOperationException("缺少领主名牌：" + string.Join(",", authoredLabels.Select(label => label.Id)));
+                    var lordLabelText = mapLabels[lordLabel].GetComponent<Text>();
+                    if (lordLabelText.color.grayscale < .72f)
+                        throw new InvalidOperationException("场景人物名牌被面板主题改成了深色：" + lordLabelText.color);
                     H.OpenObject("town_quest");
                     VerifySavedDialogueColor(RequirePanel("NpcDialogue"));
                     if (!H.DialogueExitLocked) throw new InvalidOperationException("首次领主对白没有锁定退出");
@@ -415,7 +420,7 @@ namespace BaseConquest.Editor
                     RequirePanel("NpcDialogue");
                     CaptureViewports("ui-skin-dialogue", mobile: true);
                     H.ClosePanel();
-                    Approach("town_peddler");
+                    ApproachMerchantAwayFromStall();
                     H.OpenObject("town_peddler");
                     var merchantDialogue = RequirePanel("NpcDialogue");
                     VerifySavedDialogueColor(merchantDialogue);
@@ -433,12 +438,7 @@ namespace BaseConquest.Editor
                     var merchantMarket = RequirePanel("TownTrade");
                     if (merchantMarket.Find("Tabs").gameObject.activeInHierarchy)
                         throw new InvalidOperationException("交易面板仍显示业务页签");
-                    var stoneOffer = merchantMarket.Find("OfferList").GetComponentsInChildren<Button>()
-                        .SingleOrDefault(button => button.GetComponentInChildren<Text>().text.StartsWith("锻造石 · "));
-                    if (stoneOffer == null) throw new InvalidOperationException("普通物资货架缺少锻造石商品");
-                    stoneOffer.onClick.Invoke();
-                    if (!RequirePanel("TownTrade").Find("Details").GetComponentsInChildren<Text>().Any(label => label.text.StartsWith("锻造石 · 单价 ")))
-                        throw new InvalidOperationException("从货架选中锻造石后未显示数量与报价");
+                    VerifyMerchantCommonGoods();
                     BuySelectedForgeStone();
                     stage = "trade-shot"; frameDeadline = Time.frameCount + 30;
                     break;
@@ -1524,6 +1524,76 @@ namespace BaseConquest.Editor
             Log.Add("[PASS] 古窟对峙追问两页，播完可暂缓或从原入口开战");
         }
 
+        private static void ApproachMerchantAwayFromStall()
+        {
+            if (!controller.Change(state =>
+            {
+                var objects = BaseSpatial.Objects(state);
+                var merchant = objects.Single(item => item.Id == "town_peddler");
+                var stall = objects.Single(item => item.Id == "town_market");
+                var board = BaseBattlefield.Board(state);
+                var approach = Enumerable.Range(0, 16).Select(i =>
+                {
+                    double angle = Math.PI * i / 8;
+                    return new BasePoint(merchant.X + 1.1 * Math.Cos(angle), merchant.Y + 1.1 * Math.Sin(angle));
+                }).First(point => BaseSpatial.Walkable(state, point.X, point.Y) &&
+                    BaseInteraction.WithinReach(board, merchant, point.X, point.Y) &&
+                    !BaseInteraction.WithinReach(board, stall, point.X, point.Y));
+                state.PlayerX = approach.X;
+                state.PlayerY = approach.Y;
+                BaseInteraction.Walk(new BasePoint(merchant.X - approach.X, merchant.Y - approach.Y));
+                BaseAdventure.Arrive(state);
+            }, "")) throw new InvalidOperationException(controller.Message);
+        }
+
+        private static void VerifyMerchantCommonGoods()
+        {
+            var opening = controller.State;
+            if (opening.Demo.AcceptedDay != 0) throw new InvalidOperationException("商店回归必须在接取领主委托前完成");
+            foreach (string id in new[] { "food", "materials", "supply1", "supply2", BaseWine.Strong, BaseWine.Sake, BaseEquipmentCrafting.Stone })
+            {
+                var state = controller.State;
+                bool stone = id == BaseEquipmentCrafting.Stone, wine = id == BaseWine.Strong || id == BaseWine.Sake;
+                string name = wine || stone ? state.Backpack.Catalog.Single(item => item.Id == id).Name : BaseTown.Name(id);
+                int price = stone ? BaseEquipmentCrafting.BuyPrice(state) : wine ? BaseProgressSupplies.Price(state, id) : BaseTown.TradePrice(state, id, true);
+                var offer = RequirePanel("TownTrade").Find("OfferList").GetComponentsInChildren<Button>()
+                    .Single(button => button.GetComponentInChildren<Text>().text.StartsWith(name + " · ", StringComparison.Ordinal));
+                if (!offer.GetComponentInChildren<Text>().text.Contains(price + "币"))
+                    throw new InvalidOperationException(name + "的货架行没有显示单价");
+                offer.onClick.Invoke();
+                var shop = RequirePanel("TownTrade");
+                var details = shop.Find("Details");
+                var label = details.GetComponentsInChildren<Text>().Single(text => text.text.StartsWith(name + " · 单价 ", StringComparison.Ordinal));
+                Button Control(string text) => details.GetComponentsInChildren<Button>()
+                    .Single(button => button.GetComponentInChildren<Text>().text == text);
+                if (!label.text.Contains(price + "币") || !Control($"确认买入 · {price}币").interactable)
+                    throw new InvalidOperationException(name + "的单价或买入状态与报价不同");
+                var plus = Control("＋");
+                var minus = Control("−");
+                Control("最多");
+                if (id == "food")
+                {
+                    plus.onClick.Invoke();
+                    plus.onClick.Invoke();
+                    if (RequirePanel("TownTrade") != shop || !Control($"确认买入 · {3 * price}币").interactable)
+                        throw new InvalidOperationException("连续加量没有在同一面板更新报价");
+                    minus.onClick.Invoke();
+                    minus.onClick.Invoke();
+                    Click($"确认买入 · {price}币");
+                    if (controller.State.Inventory.Food != state.Inventory.Food + 1 || controller.State.Inventory.Coins != state.Inventory.Coins - price)
+                        throw new InvalidOperationException("接委托前未能在老莫处购买粮草");
+                }
+                if (wine)
+                {
+                    Click($"确认买入 · {price}币");
+                    if (BaseBackpack.Count(controller.State, id) != BaseBackpack.Count(state, id) + 1 ||
+                        controller.State.Inventory.Coins != state.Inventory.Coins - price)
+                        throw new InvalidOperationException("接委托前未能在老莫处购买" + name);
+                }
+            }
+            Log.Add("[PASS] 接领主委托前在老莫本人旁打开商店，物资、锻造石与两种酒使用共用单价和买入控件，连续加量原位更新");
+        }
+
         private static void BuySelectedForgeStone()
         {
             var before = controller.State;
@@ -1677,6 +1747,13 @@ namespace BaseConquest.Editor
             CaptureViewports("ui-skin-reward-receipt", mobile: true);
             H.ClosePanel();
             Log.Add("[PASS] 阿铸入队后完成赠礼对白，奖励自动入包并在小窗显示");
+            var partner = controller.PresentedObject("partner_craft");
+            if (partner == null) throw new InvalidOperationException("入队后找不到当前随行的阿铸");
+            var fromPartner = new BasePoint(controller.State.PlayerX - partner.X, controller.State.PlayerY - partner.Y);
+            BaseInteraction.Walk(fromPartner);
+            if (BaseInteraction.CanReach(controller.State, partner))
+                throw new InvalidOperationException("背后的阿铸仍在可交互范围");
+            BaseInteraction.Walk(new BasePoint(-fromPartner.X, -fromPartner.Y));
             H.OpenObject("partner_craft");
             FinishDialogue();
             var partnerChoices = RequirePanel("NpcDialogue").Find("Replies").GetComponentsInChildren<Button>()

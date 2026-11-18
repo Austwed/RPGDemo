@@ -44,10 +44,12 @@ namespace BaseConquest.Base
             for(int i=0;i<thresholds.Length;i++)if(roll<thresholds[i]/100.0)return i;
             throw new InvalidOperationException("品质概率不完整");
         }
-        private static bool At(BaseState s,string region,string id)=>!s.Campaign.HasActiveBattle&&!s.Aftermath.GameOver&&!BaseBattleLoot.Pending(s)&&BaseInteraction.At(s,region,id);
         public static int MaxBuy(BaseState s)
+            => (BaseTown.CanOpenMarket(s) || BasePersonalEquipment.AtSmith(s) && BasePartyInventory.Peaceful(s) && !BaseBattleLoot.Pending(s))
+                ? PreviewMaxBuy(s) : 0;
+        internal static int PreviewMaxBuy(BaseState s)
         {
-            if(!(At(s,"town","town_market")||BasePersonalEquipment.AtSmith(s))||s.Backpack.Revision>=int.MaxValue-1||s.Backpack.NextId>=int.MaxValue-1)return 0;
+            if(s.Backpack.Revision>=int.MaxValue-1||s.Backpack.NextId>=int.MaxValue-1)return 0;
             int room=0;foreach(var l in BaseAdventure.Members(s).Where(l=>BasePartyInventory.AccessibleLeader(s,l)))
             {room+=s.Backpack.Items.Where(i=>i.Holder==l.Id&&i.ItemId==Stone).Sum(i=>99-i.Count);if(BasePartyInventory.FreeCell(s,l.Id)>=0)room+=99;}
             return Math.Min(room,Math.Min(s.PersonalEquipment.StonesRemaining,s.Inventory.Coins/BuyPrice(s)));

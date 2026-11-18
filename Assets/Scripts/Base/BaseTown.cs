@@ -164,22 +164,28 @@ namespace BaseConquest.Base
             var r=s.Town.Recruits.Single(x=>x.Kind==kind);
             return Math.Min(r.Remaining,Math.Min(s.Inventory.Coins/HirePrice(s,kind),10000-s.Workers.Sum(w=>w.Count)));
         }
+        public static bool AtMerchant(BaseState s) => s.Campaign.Location=="town" &&
+            BaseSpatial.Objects(s,"town").Any(o=>(o.Id=="town_peddler"||o.Id=="town_market")&&BaseInteraction.CanReach(s,o));
+        internal static bool CanOpenMarket(BaseState s)=>AtCounter(s,false);
         private static bool AtCounter(BaseState s,bool hire)
         {
-            if(s.Aftermath.GameOver || s.Campaign.HasActiveBattle || s.Campaign.Location!="town" || s.Muster.Parties.Any(p=>p.InCombat))return false;
+            if(s.Aftermath.GameOver || BaseSceneCombat.Active(s) || s.Campaign.Location!="town" ||
+                BaseBattleLoot.Pending(s) || s.Muster.Parties.Any(p=>p.InCombat))return false;
             var player=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId);
-            return player.Health>0 && BaseInteraction.At(s,"town",hire ? "town_recruit" : "town_market");
+            return player.Health>0 && (hire ? BaseInteraction.At(s,"town","town_recruit") : AtMerchant(s));
         }
         private static string StatsKey(SoldierStats p) => string.Join(":",new double[]{p.Health,p.Damage,p.Defense,p.Range,p.MoveDistance,p.CritChance,p.CritMultiplier,p.Penetration,p.Resistance,(p.HasCombatKind ? 1 : 0),(int)p.CombatKind,(p.HasProfessionKind?1:0),(int)p.ProfessionKind}.Select(n=>n.ToString("R",CultureInfo.InvariantCulture)));
-        private static string Stamp(BaseState s) => BaseMuster.Snapshot(s)+"|trade:"+(BaseRpg.Active(s)?BaseRpg.TradeModifier(s):0)+"|baselines:"+(BaseRpg.Active(s)?string.Join(",",s.Demo.Rpg.TroopBaseline):"")+"|town:"+s.Town.Revision+":"+s.Town.StockDay+":"+s.Town.RecruitRulesVersion+"|"+string.Join("|",s.Town.Goods.Select(g=>g.Id+":"+g.BuyPrice+":"+g.SellPrice+":"+g.DailyStock+":"+g.Remaining))+"|"+string.Join("|",s.Town.Recruits.Select(r=>r.Kind+":"+r.Price+":"+r.DailyCount+":"+r.Remaining+":"+StatsKey(r.Stats)));
+        internal static string Stamp(BaseState s) => BaseMuster.Snapshot(s)+"|trade:"+(BaseRpg.Active(s)?BaseRpg.TradeModifier(s):0)+"|baselines:"+(BaseRpg.Active(s)?string.Join(",",s.Demo.Rpg.TroopBaseline):"")+"|town:"+s.Town.Revision+":"+s.Town.StockDay+":"+s.Town.RecruitRulesVersion+"|"+string.Join("|",s.Town.Goods.Select(g=>g.Id+":"+g.BuyPrice+":"+g.SellPrice+":"+g.DailyStock+":"+g.Remaining))+"|"+string.Join("|",s.Town.Recruits.Select(r=>r.Kind+":"+r.Price+":"+r.DailyCount+":"+r.Remaining+":"+StatsKey(r.Stats)));
         public static BaseTownQuote QuoteTrade(BaseState s,string id,bool buy,int count)
         {
             BaseEconomy.Validate(s);
             if(!AtCounter(s,false))throw new InvalidOperationException("请在城镇接近交易摊位后交易");
-            var g=s.Town.Goods.SingleOrDefault(x=>x.Id==id);
-            if(g==null || count<1 || count>MaxTrade(s,id,buy))throw new InvalidOperationException("数量超出钱币、今日供货或可用库存；已锁装备不能出售");
-            return new BaseTownQuote(id,buy,false,count,checked(count*TradePrice(s,id,buy)),s,Stamp(s));
+            return PreviewTrade(s,id,buy,count) ??
+                throw new InvalidOperationException("数量超出钱币、今日供货或可用库存；已锁装备不能出售");
         }
+        private static BaseTownQuote PreviewTrade(BaseState s,string id,bool buy,int count,string stamp=null) =>
+            count<1 || !s.Town.Goods.Any(g=>g.Id==id) || count>MaxTrade(s,id,buy)
+                ? null : new BaseTownQuote(id,buy,false,count,checked(count*TradePrice(s,id,buy)),s,stamp??Stamp(s));
         public static BaseTownQuote QuoteHire(BaseState s,BaseTroopKind kind,int count)
         {
             BaseEconomy.Validate(s);
@@ -194,9 +200,9 @@ namespace BaseConquest.Base
             BaseEconomy.Validate(s);
             if(q==null || q.Day!=s.Day || q.Revision!=s.Town.Revision || s.Town.Revision>=int.MaxValue-1 || !AtCounter(s,q.Hire) || q.Stamp!=Stamp(s))return false;
             BaseTownQuote actual;
-            try { actual=q.Hire ? QuoteHire(s,(BaseTroopKind)Enum.Parse(typeof(BaseTroopKind),q.Item),q.Count) : QuoteTrade(s,q.Item,q.Buy,q.Count); }
+            try { actual=q.Hire ? QuoteHire(s,(BaseTroopKind)Enum.Parse(typeof(BaseTroopKind),q.Item),q.Count) : PreviewTrade(s,q.Item,q.Buy,q.Count,q.Stamp); }
             catch(ArgumentException){return false;}catch(InvalidOperationException){return false;}
-            if(actual.Total!=q.Total)return false;
+            if(actual?.Total!=q.Total)return false;
             if(q.Hire)
             {
                 var r=s.Town.Recruits.Single(x=>x.Kind.ToString()==q.Item);

@@ -20,6 +20,9 @@ namespace BaseConquest.Battle
         private Button opener;
         private ScrollRect scroll;
         private Text targetText,resultText,pickingCaption,instructionText;
+        private RectTransform liveReadout;
+        private Text liveText;
+        private float nextLiveRefresh;
         private RectTransform pickingPrompt;
         private int page,unitId=-1;
         private GridPosition? cell;
@@ -48,7 +51,20 @@ namespace BaseConquest.Battle
             var shade=Box(canvas.transform,"DeveloperInputShield",Vector2.one*.5f,Vector2.zero,Vector2.zero,new Color(0,0,0,.08f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;shield=shade.gameObject;shield.SetActive(false);
             pickingPrompt=Box(canvas.transform,"TargetPrompt",new Vector2(.5f,0),new Vector2(0,32),new Vector2(1220,56),new Color(.06f,.10f,.13f,1));
             pickingCaption=Text(pickingPrompt,"",Vector2.zero,new Vector2(1200,48),18);pickingCaption.alignment=TextAnchor.MiddleCenter;pickingPrompt.gameObject.SetActive(false);
-            opener=Button(canvas.transform,"开发者",new Vector2(-90,-88),new Vector2(140,32),()=>{if(open){Close();return;}Open();},new Vector2(1,1));
+            if (baseOwner != null)
+            {
+                liveReadout = Box(canvas.transform, "ExplorationDiagnosticsReadout", Vector2.up, new Vector2(247, -200),
+                    new Vector2(470, 130), new Color(.06f, .10f, .13f, .94f));
+                liveReadout.GetComponent<Image>().raycastTarget = false;
+                liveText = Text(liveReadout, "", new Vector2(0, 15), new Vector2(448, 93), 16);
+                opener = Button(liveReadout, "工具", new Vector2(184, -43), new Vector2(85, 33), Open);
+                nextLiveRefresh = 0;
+            }
+            else
+            {
+                liveReadout = null;
+                opener=Button(canvas.transform,"开发者",new Vector2(-90,-88),new Vector2(140,32),Open,new Vector2(1,1));
+            }
             panel=Box(canvas.transform,"开发者面板",new Vector2(1,.5f),new Vector2(-300,0),new Vector2(580,650),new Color(.06f,.10f,.13f,.99f));
             Text(panel,"开发者工具",new Vector2(-120,290),new Vector2(300,40),24);
             Button(panel,"关闭",new Vector2(220,290),new Vector2(100,42),Close);
@@ -65,7 +81,7 @@ namespace BaseConquest.Battle
         }
         private void ModeChanged(bool enabled)
         {
-            if(!enabled){target.Cancel();open=picking=false;if(panel!=null)panel.gameObject.SetActive(false);if(shield!=null)shield.SetActive(false);if(battleOwner!=null)battleOwner.ClearDeveloperEffects();else baseOwner?.ClearDeveloperEffects();}
+            if(!enabled){target.Cancel();open=picking=false;if(panel!=null)panel.gameObject.SetActive(false);if(shield!=null)shield.SetActive(false);if(battleOwner!=null)battleOwner.ClearDeveloperEffects();else{baseOwner?.RemoveDeveloperDiagnostics();baseOwner?.ClearDeveloperEffects();}}
             RefreshVisibility();
         }
         private void Open()
@@ -98,6 +114,21 @@ namespace BaseConquest.Battle
             if(canvas==null)return false;bool active=RuntimeDeveloperOptions.Enabled&&Available;canvas.SetActive(active);
             bool uiBlocked=battleOwner!=null ? battleOwner.DeveloperUiBlocked : baseOwner.DeveloperUiBlocked;
             opener.gameObject.SetActive(active&&!open&&!picking&&!uiBlocked);
+            if (liveReadout != null)
+            {
+                bool show = active && !uiBlocked && !open && !picking && !BaseWorldJourney.OnWorld(baseOwner.State);
+                if (!show)
+                {
+                    liveReadout.gameObject.SetActive(false);
+                    baseOwner.HideDeveloperDiagnostics();
+                }
+                else if (!liveReadout.gameObject.activeSelf || Time.unscaledTime >= nextLiveRefresh)
+                {
+                    liveReadout.gameObject.SetActive(true);
+                    nextLiveRefresh = Time.unscaledTime + .1f;
+                    liveText.text = baseOwner.RefreshDeveloperDiagnostics();
+                }
+            }
             if(battleOwner!=null) // 战斗的小信息占右上角，开发入口移到左侧军队栏下方。
             {
                 var r=opener.GetComponent<RectTransform>();r.anchorMin=r.anchorMax=new Vector2(0,1);
@@ -108,7 +139,7 @@ namespace BaseConquest.Battle
                 label.rectTransform.offsetMin=new Vector2(6,2)*ratio;label.rectTransform.offsetMax=new Vector2(-6,-2)*ratio;
             }
             shield.SetActive(active&&(open||picking));
-            pickingPrompt.gameObject.SetActive(active&&picking);pickingCaption.text=message+"（Esc取消）";
+            pickingPrompt.gameObject.SetActive(active&&picking);if(picking)pickingCaption.text=message+"（Esc取消）";
             if(!active){target.Cancel();open=picking=false;panel.gameObject.SetActive(false);return false;}
             return true;
         }

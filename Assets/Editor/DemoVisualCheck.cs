@@ -1,10 +1,12 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using BaseConquest.Base;
 using BaseConquest.Battle;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace BaseConquest.Editor
@@ -178,11 +180,26 @@ namespace BaseConquest.Editor
                     frameDeadline = Time.frameCount + 10;
                     break;
                 case "camp-motion":
+                    controller.Hud.ClosePanel();
                     previousDeveloperMode = RuntimeDeveloperOptions.Enabled;
                     RuntimeDeveloperOptions.Enabled = false;
                     if (controller.DisplayObjects.Any(o => o.Id.StartsWith("motion-check:", StringComparison.Ordinal)))
                     { Finish(2, "关闭开发者模式后检查人偶仍可交互"); return; }
-                    RuntimeDeveloperOptions.Enabled = true;
+                    const BindingFlags bindings = BindingFlags.Instance | BindingFlags.NonPublic;
+                    var toggle = (Button)typeof(BaseHud).GetField("developerModeButton", bindings)?.GetValue(controller.Hud);
+                    var backpack = (Button)typeof(BaseHud).GetField("questBackpackButton", bindings)?.GetValue(controller.Hud);
+                    if (toggle == null || backpack == null || toggle.transform.parent != backpack.transform.parent)
+                    { Finish(2, "开发者模式开关与背包不在同一顶栏"); return; }
+                    Canvas.ForceUpdateCanvases();
+                    var corners = new Vector3[4];
+                    ((RectTransform)toggle.transform).GetWorldCorners(corners);
+                    float toggleRight = corners[2].x;
+                    ((RectTransform)backpack.transform).GetWorldCorners(corners);
+                    if (toggleRight >= corners[0].x)
+                    { Finish(2, $"开发者模式开关未对齐背包左边：{toggleRight} ≥ {corners[0].x}"); return; }
+                    if (!controller.DeveloperAvailable || controller.DeveloperUiBlocked)
+                    { Finish(2, "当前营地画面仍被打开的面板或其他操作占用"); return; }
+                    toggle.onClick.Invoke();
                     if (!controller.DisplayObjects.Any(o => o.Id.StartsWith("motion-check:", StringComparison.Ordinal)))
                     { Finish(2, "开发者模式未在当前营地刷新检查人偶"); return; }
                     if (!controller.Change(s => { s.PlayerX = 6; s.PlayerY = 3; BaseAdventure.Arrive(s); }, "视觉自检：走向检查台")) { Finish(2, "移动被拒：" + controller.Message); return; }
@@ -191,7 +208,15 @@ namespace BaseConquest.Editor
                     break;
                 case "camp-motion-settle":
                     if (Time.frameCount < frameDeadline) return;
+                    var diagnostics = GameObject.Find("DeveloperDiagnostics");
+                    if (diagnostics == null || !diagnostics.GetComponentsInChildren<MeshFilter>().Any(filter => filter.name == "InteractionReach" && filter.sharedMesh?.vertexCount > 0) ||
+                        !diagnostics.GetComponentsInChildren<MeshFilter>().Any(filter => filter.name == "CollisionFootprints" && filter.sharedMesh?.vertexCount > 0))
+                    { Finish(2, "当前场景缺少实际交互或碰撞诊断图形"); return; }
                     Capture("camp-motion-checks");
+                    ((Button)typeof(BaseHud).GetField("developerModeButton", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .GetValue(controller.Hud)).onClick.Invoke();
+                    if (GameObject.Find("DeveloperDiagnostics") != null || controller.DisplayObjects.Any(o => o.Id.StartsWith("motion-check:", StringComparison.Ordinal)))
+                    { Finish(2, "关闭开关后诊断画面和检查人偶未一并收起"); return; }
                     stage = "done";
                     // 截图是异步写盘，多等几十帧再退出进程。
                     frameDeadline = Time.frameCount + 60;

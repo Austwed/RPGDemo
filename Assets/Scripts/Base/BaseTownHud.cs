@@ -46,6 +46,16 @@ namespace BaseConquest.Base
 
         private void StartTrade(TradeVendor vendor,TradeShelf shelf)
         {
+            if (vendor == TradeVendor.Merchant)
+            {
+                if (!BaseTown.CanOpenMarket(owner.State))
+                {
+                    ClosePanel();
+                    return;
+                }
+                // Town transactions validate the same stall or merchant that opened this panel.
+                interactionObject = "";
+            }
             tradeVendor=vendor;
             tradePerson=owner.State.PlayerLeaderId;
             tradeRosterPage=0;
@@ -101,6 +111,7 @@ namespace BaseConquest.Base
                 tradeSelection=id;
                 tradeSale=tradeFeedback="";
                 tradeQuantity=1;
+                if (tradeShelf == TradeShelf.Goods) tradeBuying = true;
                 RenderTownTrade();
             }, selected:tradeSale==""&&tradeSelection==id);
             InventoryItemIcons.LeadLabel(button.GetComponentInChildren<Text>(true), itemIcon ?? InventoryItemIcons.Load(id), 26);
@@ -258,6 +269,44 @@ namespace BaseConquest.Base
             TradeButton(controls,"最多",()=>{tradeQuantity=maximum;RenderTownTrade();},tradeQuantity<maximum,"TradeTab");
         }
 
+        private void TradeStockOffer(Transform offers,string id,string name,int price,int remaining)
+            => TradeOffer(offers,id,name+" · "+price+"币 · 余 "+remaining);
+
+        private string PurchaseProblem(int remaining,int price,string capacityProblem)
+            => remaining==0 ? "今日售罄" : owner.State.Inventory.Coins<price ? "钱币不足" : capacityProblem;
+
+        private void TradeStockDetails(RectTransform details,string name,int price,int remaining,int dailyStock,int maximum,
+            string verb,Func<BaseState,int,bool> submit,string message,string blocked)
+        {
+            TradeLine(details,name+" · 单价 "+price+"币");
+            TradeLine(details,"今日剩余 "+remaining+"/"+dailyStock);
+
+            var controls = CloneSceneUi("TradeQuantity",details);
+            Action<int> update = null;
+            var decrease = TradeButton(controls,"−",()=>update(tradeQuantity-1),template:"TradeTab");
+            var amount = TradeLine(controls,"").GetComponent<Text>();
+            var increase = TradeButton(controls,"＋",()=>update(tradeQuantity+1),template:"TradeTab");
+            var most = TradeButton(controls,"最多",()=>update(maximum),template:"TradeTab");
+            var confirm = TradeButton(details,"",()=>
+            {
+                int count=tradeQuantity;
+                if (count>0) TradeCommit(next=>submit(next,count),message);
+            });
+            var confirmText = confirm.GetComponentInChildren<Text>(true);
+
+            update = requested =>
+            {
+                tradeQuantity = maximum==0 ? 0 : Mathf.Clamp(requested,1,maximum);
+                amount.text = tradeQuantity.ToString();
+                decrease.interactable = tradeQuantity>1;
+                increase.interactable = most.interactable = tradeQuantity<maximum;
+                confirm.interactable = tradeQuantity>0;
+                confirmText.text = "确认"+verb+" · "+(long)price*tradeQuantity+"币";
+            };
+            update(tradeQuantity);
+            if (maximum==0) TradeLine(details,blocked);
+        }
+
         private void RenderGoodsTrade(RectTransform offers,RectTransform details)
         {
             var s=owner.State;
@@ -266,35 +315,31 @@ namespace BaseConquest.Base
             if(tradeSelection!=BaseEquipmentCrafting.Stone && supply == null)
                 tradeSelection=good?.Id??BaseEquipmentCrafting.Stone;
             foreach(var g in s.Town.Goods)
-                TradeOffer(offers,g.Id,BaseTown.Name(g.Id)+" · 今日余 "+g.Remaining);
+                TradeStockOffer(offers,g.Id,BaseTown.Name(g.Id),BaseTown.TradePrice(s,g.Id,true),g.Remaining);
             RenderStoneOffer(offers);
             RenderSupplyOffers(offers);
             if(details==null)return;
             if (supply != null)
             {
                 RenderSupplyDetails(details, supply);
-                return;
             }
-            if(tradeSelection==BaseEquipmentCrafting.Stone)
+            else if(tradeSelection==BaseEquipmentCrafting.Stone)
             {
                 RenderStoneDetails(details);
-                return;
             }
-
-            string id=good.Id;
-            int max=BaseTown.MaxTrade(s,id,tradeBuying);
-            int price=BaseTown.TradePrice(s,id,tradeBuying);
-            TradeLine(details,BaseTown.Name(id)+" · 库存 "+BaseTown.Owned(s,id)+" · 可卖 "+BaseTown.Available(s,id));
-            var direction=CloneSceneUi("TradeQuantity",details);
-            TradeButton(direction,"买入",()=>{tradeBuying=true;tradeQuantity=1;RenderTownTrade();},!tradeBuying,"TradeTab",tradeBuying);
-            TradeButton(direction,"卖出",()=>{tradeBuying=false;tradeQuantity=1;RenderTownTrade();},tradeBuying,"TradeTab",!tradeBuying);
-            TradeQuantity(details,max);
-            var quote=max>0?BaseTown.QuoteTrade(s,id,tradeBuying,tradeQuantity):null;
-            string verb=tradeBuying?"买入":"卖出";
-            TradeButton(details,"确认"+verb+" · "+(long)price*tradeQuantity+"币",
-                ()=>TradeCommit(next=>BaseTown.Confirm(next,quote),"已"+verb+" "+BaseTown.Name(id)),quote!=null);
-            TradeLine(details,"单价 "+price+"币 · 今日可购 "+good.Remaining+"/"+good.DailyStock);
-            if(max==0)TradeLine(details,tradeBuying?"当前无法买入":"当前无可卖库存");
+            else
+            {
+                string id=good.Id, name=BaseTown.Name(id);
+                bool buy=tradeBuying;
+                int price=BaseTown.TradePrice(s,id,buy), available=BaseTown.Available(s,id);
+                string stamp=BaseTown.Stamp(s);
+                string verb=buy ? "买入" : "卖出";
+                TradeStockDetails(details,name,price,good.Remaining,good.DailyStock,BaseTown.MaxTrade(s,id,buy),
+                    verb,(next,count)=>BaseTown.Confirm(next,new BaseTownQuote(id,buy,false,count,checked(count*price),s,stamp)),
+                    "已"+verb+" "+name, buy ? PurchaseProblem(good.Remaining,price,"库存已满") : available==0 ? "当前无可卖库存" : "钱币已达上限");
+                TradeLine(details,name+" · 库存 "+BaseTown.Owned(s,id)+" · 可卖 "+available);
+                TradeButton(details,buy ? "卖出" : "买入",()=>{tradeBuying=!buy;tradeQuantity=1;RenderTownTrade();});
+            }
             TradeButton(details,"规则 i",()=>TownRules(()=>RenderTownTrade(false)));
         }
 

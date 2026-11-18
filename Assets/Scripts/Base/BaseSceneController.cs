@@ -135,12 +135,17 @@ namespace BaseConquest.Base
             RuntimeDeveloperOptions.Changed+=OnMotionChecksModeChanged;
             OnMotionChecksModeChanged(RuntimeDeveloperOptions.Enabled);
         }
-        private void OnDisable()=>RuntimeDeveloperOptions.Changed-=OnMotionChecksModeChanged;
+        private void OnDisable()
+        {
+            RuntimeDeveloperOptions.Changed-=OnMotionChecksModeChanged;
+            HideDeveloperDiagnostics();
+        }
         private bool RuntimeMissing() => Hud == null || Companions == null || SaveStore == null || WorldCamera == null || player == null || selectionFrame == null;
         private void BeginSession()
         {
             if (SceneUiSource != null) SceneUiSource.gameObject.SetActive(false);
             if(initializedSession>=0&&initializedSession!=session)realtimeProfile=null;
+            RemoveDeveloperDiagnostics();
             regionView?.Dispose(); if(mapMaterial!=null)BattleBoardView.DestroyObject(mapMaterial); combatController=null;
             initializedSession = session; constructionOpen=false;constructionBrush.Cancel();constructionTouch=-1; StopAllCoroutines(); State = null; Busy = loadingTemplate = false;
             ClearWorkerTravel();
@@ -261,6 +266,7 @@ namespace BaseConquest.Base
         }
         private void OnMotionChecksModeChanged(bool enabled)
         {
+            Hud?.RefreshDeveloperModeButton(enabled);
             if(explorationActors==null||motionChecksEnabled==enabled)return;
             int previousCount=motionObjects.Length;
             BuildMotionChecks(enabled);
@@ -307,6 +313,7 @@ namespace BaseConquest.Base
         {
             ClearBenchSeat();
             InvalidateObjects();
+            RemoveDeveloperDiagnostics();
             if(regionView!=null) {regionView.Root.SetActive(false);regionView.Dispose();BattleBoardView.DestroyObject(regionView.Root);}
             if(mapMaterial!=null)BattleBoardView.DestroyObject(mapMaterial);companionViews.Clear();BuildWorld();
         }
@@ -817,6 +824,6 @@ namespace BaseConquest.Base
             Save();
         }
         private void OnApplicationQuit() => Save();
-        private void OnDestroy() { EndDeploymentWorld(false); regionView?.Dispose(); BattleBoardView.DestroyObject(mapMaterial); BattleBoardView.DestroyObject(font); }
+        private void OnDestroy() { EndDeploymentWorld(false); RemoveDeveloperDiagnostics(); regionView?.Dispose(); BattleBoardView.DestroyObject(mapMaterial); BattleBoardView.DestroyObject(font); }
     }
 }

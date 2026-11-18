@@ -206,7 +206,7 @@ namespace BaseConquest.Base
         }
         public static int BuyPrice(BaseState s,string template)=>BaseRpg.Active(s)?BaseRpg.Price(s,BaseRpg.Value(s,template),true):Definition(template).Price;
         public static bool AtSmith(BaseState s)=>BaseInteraction.At(s,"town","town_smith")||BaseInteraction.At(s,"town","town_blacksmith");
-        public static bool AtShop(BaseState s)=>BaseInteraction.At(s,"town","town_market")||AtSmith(s);
+        public static bool AtShop(BaseState s)=>BaseTown.CanOpenMarket(s)||AtSmith(s);
         public static bool CanBuy(BaseState s,string template,string recipient)
         {
             var d=Definition(template);var offer=s.PersonalEquipment.Offers.SingleOrDefault(o=>o.Template==template);

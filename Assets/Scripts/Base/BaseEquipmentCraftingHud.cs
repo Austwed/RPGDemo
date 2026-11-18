@@ -10,22 +10,17 @@ namespace BaseConquest.Base
         private void RenderStoneOffer(RectTransform offers)
         {
             var s=owner.State;
-            TradeOffer(offers,BaseEquipmentCrafting.Stone,
-                "锻造石 · "+BaseEquipmentCrafting.BuyPrice(s)+"币 · 余 "+s.PersonalEquipment.StonesRemaining);
+            TradeStockOffer(offers,BaseEquipmentCrafting.Stone,"锻造石",BaseEquipmentCrafting.BuyPrice(s),s.PersonalEquipment.StonesRemaining);
         }
 
         private void RenderStoneDetails(RectTransform details)
         {
             var s=owner.State;
             int price=BaseEquipmentCrafting.BuyPrice(s);
-            int max=BaseEquipmentCrafting.MaxBuy(s),revision=s.Backpack.Revision;
-            TradeLine(details,"锻造石 · 单价 "+price+"币");
-            TradeLine(details,"今日剩余 "+s.PersonalEquipment.StonesRemaining+"/"+BaseEquipmentCrafting.StockLimit(s));
-            TradeQuantity(details,max);
-            int count=tradeQuantity;
-            TradeButton(details,"确认买入 · "+count*price+"币",
-                ()=>TradeCommit(next=>BaseEquipmentCrafting.BuyPrice(next)==price&&BaseEquipmentCrafting.Buy(next,count,revision),"已购买锻造石"),count>0);
-            if(max==0)TradeLine(details,"当前无法购买，请检查钱币、今日余量或背包空间");
+            int remaining=s.PersonalEquipment.StonesRemaining, revision=s.Backpack.Revision, day=s.Day;
+            TradeStockDetails(details,"锻造石",price,remaining,BaseEquipmentCrafting.StockLimit(s),BaseEquipmentCrafting.PreviewMaxBuy(s),
+                "买入",(next,count)=>next.Day==day&&BaseEquipmentCrafting.BuyPrice(next)==price&&BaseEquipmentCrafting.Buy(next,count,revision),
+                "已购买锻造石",PurchaseProblem(remaining,price,"随行背包空间不足"));
         }
 
         private void RenderReforgeTrade(RectTransform offers,RectTransform details,BaseLeader person)

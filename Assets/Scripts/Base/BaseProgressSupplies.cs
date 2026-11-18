@@ -33,9 +33,11 @@ namespace BaseConquest.Base
         {var g=s.PersonalEquipment;var items=StockItems(s);if(g.SuppliesVersion!=1||g.Supplies==null||g.Supplies.Count!=items.Length||g.Supplies.Any(o=>o==null||!items.Contains(o.Item)||o.Remaining<0||o.Remaining>Stock(o.Item))||g.Supplies.Select(o=>o.Item).Distinct().Count()!=items.Length)throw new ArgumentException("补给库存非法");}
         public static void Refill(BaseState s){if(s.PersonalEquipment.Supplies!=null)foreach(var o in s.PersonalEquipment.Supplies)o.Remaining=Stock(o.Item);}
         public static int MaxBuy(BaseState s,string id)
+            => BaseTown.CanOpenMarket(s) ? PreviewMaxBuy(s,id) : 0;
+        internal static int PreviewMaxBuy(BaseState s,string id)
         {
             var offer=s.PersonalEquipment.Supplies.FirstOrDefault(o=>o.Item==id);
-            if(offer==null||s.Campaign.HasActiveBattle||s.Aftermath.GameOver||BaseBattleLoot.Pending(s)||!BaseInteraction.At(s,"town","town_market")||s.Backpack.Revision>=int.MaxValue-1||s.Backpack.NextId>=int.MaxValue-1)return 0;
+            if(offer==null||s.Backpack.Revision>=int.MaxValue-1||s.Backpack.NextId>=int.MaxValue-1)return 0;
             int limit=s.Backpack.Catalog.Single(d=>d.Id==id).MaxStack;
             int room=0;foreach(var l in BaseAdventure.Members(s).Where(l=>BasePartyInventory.AccessibleLeader(s,l))){room+=s.Backpack.Items.Where(i=>i.ItemId==id&&i.Holder==l.Id).Sum(i=>limit-i.Count);if(BasePartyInventory.FreeCell(s,l.Id)>=0)room+=limit;}
             return Math.Min(room,Math.Min(s.Inventory.Coins/Price(s,id),offer.Remaining));

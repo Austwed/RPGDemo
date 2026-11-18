@@ -77,7 +77,7 @@ namespace BaseConquest.Editor
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();
-            VerifyBattleAppearances();VerifyRuinsEntranceCollision();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyTemporaryBattleDialogue();VerifyHeightSight();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();VerifyBaseFacilities.Run();VerifyDeputy.Run();
+            VerifyBattleAppearances();VerifyRuinsEntranceCollision();VerifyRuinsFirstClear();VerifyInjuredLines();VerifyTemporaryBattleDialogue();VerifyHeightSight();VerifyExplorationInteraction();VerifyLandMap();VerifyTopBar();VerifyQuestTrack();VerifyInjuryTiers();VerifyStrategyTiers();VerifyBaseFacilities.Run();VerifyDeputy.Run();
             Debug.Log("[VerifyChenanAndRuins] regression PASS");
         }
         // 带伤应答对每位 NPC 按游戏日记录，保留读档当天的播放次数。
@@ -165,6 +165,32 @@ namespace BaseConquest.Editor
             Need(Math.Abs(BattleHeightSight.ArcherBonus(board,3.5,3.5,5.5,5.5))<1e-9,"从低处打高处不应有加成");
             Need(Math.Abs(BattleHeightSight.ArcherBonus(board,5.5,5.5,1.5,1.5)-6)<1e-9,"高差 3 级应封顶 +6 细格（合 +3 粗格）");
             Debug.Log("[Height] 视野 14（高度2）、平射 0、高差2 +4细格、低打高 0、高差3 封顶 +6细格");
+        }
+
+        public static void VerifyExplorationInteraction()
+        {
+            var state = new BaseState { Campaign = new BaseCampaignState() };
+            state.Leaders.Add(new BaseLeader { Id = "partner_craft" });
+            var companion = new BaseMapObject("partner_craft", "阿铸", 6.5, 6.5, .45, .45);
+            var north = new BasePoint(0, 1);
+            var south = new BasePoint(0, -1);
+            Need(!BaseInteraction.CanReach(state, companion, 6.5, 7.25, north), "身后的伙伴不应成为附近目标");
+            Need(!BaseInteraction.CanReach(state, companion, 6.5, 6.65, north), "贴身背后的伙伴不应绕过朝向");
+            Need(BaseInteraction.CanReach(state, companion, 6.5, 7.25, south), "原地转向伙伴后应可交互");
+            Need(!BaseInteraction.CanReach(state, companion, 6.5, 8.2, south), "伙伴应保持原有交互半径");
+
+            var board = BattleBoard.CreateDefault(12, 12);
+            var lord = new BaseMapObject("town_quest", "领主", 6.5, 6.5, .5, .5, false, kind: "npc");
+            board.Cell(new GridPosition(6, 3)).Elevation = 1;
+            var stairs = board.Cell(new GridPosition(6, 4));
+            stairs.Elevation = 2;
+            stairs.Ramp = RampAxis.NorthSouth;
+            for (int y = 5; y <= 9; y++) board.Cell(new GridPosition(6, y)).Elevation = 2;
+            Need(BaseInteraction.CanReach(board, lord, 6.5, 8.5, south), "高台上应可在扩大的范围内与领主交谈");
+            Need(BaseInteraction.CanReach(board, lord, 6.5, 4.75, north), "面向领主走到相连楼梯顶部时应可交谈");
+            Need(!BaseInteraction.CanReach(board, lord, 6.5, 4.25, north), "楼梯下半段与领主仍隔层");
+            Need(!BaseInteraction.CanReach(board, lord, 7.4, 6.5, new BasePoint(-1, 0)), "高台外即使很近也不能隔层交谈");
+            Debug.Log("[ExplorationInteraction] 伙伴朝向、领主高台距离与楼梯判定 PASS");
         }
         // P38（2026-11-04 最新裁决，取代伤员三档的 50%／20%）：
         // 士兵生命 <30% 不能工作也不能主动出战；≥30% 两者都可以。遇袭守家例外：还能行动就能迎战。
