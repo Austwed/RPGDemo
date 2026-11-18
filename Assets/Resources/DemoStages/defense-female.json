@@ -7921,9 +7921,9 @@
                     3.0
                 ],
                 "Capacity": [
-                    3,
-                    5,
-                    8
+                    6,
+                    10,
+                    10
                 ],
                 "CampMaterials": [
                     20,
@@ -77900,6 +77900,7 @@
         "AcceptedDay": 1,
         "ReleaseVersion": 1,
         "CaptainRationsUpdated": true,
+        "CampCapacityUpdated": true,
         "Rpg": {
             "GenerationSeed": 1615048403,
             "SceneRulesVersion": 1,
@@ -78012,9 +78013,9 @@
                 3.0
             ],
             "Capacity": [
-                3,
-                5,
-                8
+                6,
+                10,
+                10
             ],
             "CampMaterials": [
                 20,
@@ -78711,7 +78712,7 @@
         "Stage": 9,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "75e4f75404b1c09e958998337f19a396cf336bf82b9527c2716a4fb3b28c566f",
-        "ConfigHash": "fd4be6e60cb4e1036bf7e9765ef3710f1eec5f0a9d2cff35bcbb30c317504b94",
+        "ConfigHash": "e3af2c75d1c06036414bd13a88672fd1db4135b612502444946083546c8eb634",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,

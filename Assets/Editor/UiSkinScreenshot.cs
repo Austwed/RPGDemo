@@ -129,7 +129,7 @@ namespace BaseConquest.Editor
                     LoadRouteView("full-camp-before-ahe");
                     break;
                 case "route-full-camp-before-ahe":
-                    if (!RouteViewReady(state => state.Campaign.Location == "base" && !BaseRpg.HasRoom(state) &&
+                    if (!RouteViewReady(state => state.Campaign.Location == "base" && BaseRpg.Capacity(state) == 6 &&
                         state.Adventure.Members.Count == BaseAdventure.Capacity)) return;
                     VerifyFullCampInvitation();
                     Finish(0, "OK");
@@ -2420,7 +2420,16 @@ namespace BaseConquest.Editor
             Log.Add("[PASS] 营帐管理满队名册，在同一页更换随行队长");
             Press(tent.Find("Left/List").GetComponent<ScrollRect>().content, "Training");
             Click("返回营帐");
-            RequirePanel("FacilityPanel");
+            tent = RequirePanel("FacilityPanel");
+            var tentActions = tent.Find("Left/List").GetComponent<ScrollRect>().content;
+            if (!tentActions.GetComponentsInChildren<Text>().Any(label => label.text.StartsWith("营帐 1级", StringComparison.Ordinal)) ||
+                !tentActions.GetComponentsInChildren<Text>().Any(label => label.text.Contains("容量 10") && label.text.Contains("每日恢复")))
+                throw new InvalidOperationException("营帐未显示当前等级、下一级容量和恢复变化");
+            Press(tentActions, "Upgrade");
+            tent = RequirePanel("FacilityPanel");
+            if (controller.State.Demo.Rpg.CampLevel != 2 || !tent.GetComponentsInChildren<Text>().Any(label =>
+                label.text.StartsWith("营帐 2级", StringComparison.Ordinal) && label.text.Contains("招降空位 6")))
+                throw new InvalidOperationException("营帐升至二级后，招降空位未正确更新");
             H.ClosePanel();
 
             H.OpenBackpack();

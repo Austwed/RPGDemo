@@ -12,7 +12,7 @@ namespace BaseConquest.Base
     [Serializable] public sealed class BaseDemoProgress
     {
         public int Version, WakeDay, AcceptedDay, ReleaseVersion;
-        public bool CaptainRationsUpdated;
+        public bool CaptainRationsUpdated, CampCapacityUpdated;
         public RpgRules Rpg;
         public BaseDemoStage Stage;
         public string BalanceSource, BalanceHash, ConfigHash;
@@ -43,7 +43,7 @@ namespace BaseConquest.Base
         public List<BaseDemoDesignMap> ReleaseMaps=new List<BaseDemoDesignMap>();
         public List<BaseLeader> SceneFollowers=new List<BaseLeader>();
         public List<string> Evidence = new List<string>();
-        public BaseDemoProgress Copy() => new BaseDemoProgress { CaptainRationsUpdated=CaptainRationsUpdated,StoryScene=StoryScene?.Copy(),Raid=Raid?.Copy(),Flow=Flow?.Copy(),EnvironmentVersion=EnvironmentVersion,CampLayoutVersion=CampLayoutVersion,Rpg=Rpg?.Copy(),Version=Version,ReleaseVersion=ReleaseVersion, WakeDay=WakeDay, AcceptedDay=AcceptedDay, Stage=Stage, TerrainMemories=TerrainMemories?.Select(m=>m.Copy()).ToList(),Rescue=Rescue?.Copy(),Intro=Intro?.Copy(),BalanceSource=BalanceSource, BalanceHash=BalanceHash,ConfigHash=ConfigHash, Evidence=Evidence?.ToList(),PrologueVersion=PrologueVersion,PrologueAttempts=PrologueAttempts,PrologueCompleted=PrologueCompleted,AzhuInvitationSeen=AzhuInvitationSeen,SceneFollowers=SceneFollowers?.Select(person=>person.Copy()).ToList(),RuinsVersion=RuinsVersion,RuinsDay=RuinsDay,DeliveredDay=DeliveredDay,Candidates=Candidates?.Select(person=>person.Copy()).ToList(),MetCompanions=MetCompanions?.ToList(),RuinsArmy=RuinsArmy?.Clone(),RuinsReward=RuinsReward?.Copy(),Defense=Defense?.Copy(),Finale=Finale?.Copy(),Deputy=Deputy?.Copy(),Encounters=Encounters?.Copy(),TacticalRules=TacticalRules?.Copy(),RuinsRewards=RuinsRewards?.Copy(),ReleaseMaps=(ReleaseMaps??new List<BaseDemoDesignMap>()).Select(m=>m.Copy()).ToList() };
+        public BaseDemoProgress Copy() => new BaseDemoProgress { CaptainRationsUpdated=CaptainRationsUpdated,CampCapacityUpdated=CampCapacityUpdated,StoryScene=StoryScene?.Copy(),Raid=Raid?.Copy(),Flow=Flow?.Copy(),EnvironmentVersion=EnvironmentVersion,CampLayoutVersion=CampLayoutVersion,Rpg=Rpg?.Copy(),Version=Version,ReleaseVersion=ReleaseVersion, WakeDay=WakeDay, AcceptedDay=AcceptedDay, Stage=Stage, TerrainMemories=TerrainMemories?.Select(m=>m.Copy()).ToList(),Rescue=Rescue?.Copy(),Intro=Intro?.Copy(),BalanceSource=BalanceSource, BalanceHash=BalanceHash,ConfigHash=ConfigHash, Evidence=Evidence?.ToList(),PrologueVersion=PrologueVersion,PrologueAttempts=PrologueAttempts,PrologueCompleted=PrologueCompleted,AzhuInvitationSeen=AzhuInvitationSeen,SceneFollowers=SceneFollowers?.Select(person=>person.Copy()).ToList(),RuinsVersion=RuinsVersion,RuinsDay=RuinsDay,DeliveredDay=DeliveredDay,Candidates=Candidates?.Select(person=>person.Copy()).ToList(),MetCompanions=MetCompanions?.ToList(),RuinsArmy=RuinsArmy?.Clone(),RuinsReward=RuinsReward?.Copy(),Defense=Defense?.Copy(),Finale=Finale?.Copy(),Deputy=Deputy?.Copy(),Encounters=Encounters?.Copy(),TacticalRules=TacticalRules?.Copy(),RuinsRewards=RuinsRewards?.Copy(),ReleaseMaps=(ReleaseMaps??new List<BaseDemoDesignMap>()).Select(m=>m.Copy()).ToList() };
     }
 
     public static class BaseDemo

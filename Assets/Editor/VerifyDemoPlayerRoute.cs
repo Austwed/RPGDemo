@@ -37,6 +37,13 @@ namespace BaseConquest.Editor
                 VerifyInstalledStoryText();
                 PlayerPrefs.SetString(difficultyKey, "normal");
                 var config = DemoBalanceRuntime.Load();
+                foreach (string stage in new[] { "camp-male", "camp-female", "defense-male", "defense-female" })
+                {
+                    var stageState = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/" + stage).text);
+                    BaseEconomy.Validate(stageState);
+                    Need(stageState.Demo.Rpg.Capacity.SequenceEqual(config.Rules.Capacity) &&
+                        stageState.Demo.ConfigHash == config.WorkbookSha256, "阶段档营帐容量或配表来源不同：" + stage);
+                }
                 string raw = File.ReadAllText(Path.Combine(Application.streamingAssetsPath, "BaseScenarios", BaseDemo.BalanceTemplate));
                 var parsedRules=DemoBalanceTableReader.ReadVerifiedTables(DemoBalanceImporter.WorkbookPath);
                 Need(parsedRules.RuinsFirstControllerTemplate==config.Rules.RuinsFirstControllerTemplate,"古窟首通配表与运行包不一致");
@@ -248,7 +255,9 @@ namespace BaseConquest.Editor
             Travel(state, "travel_base", "base");
             At(state, "demo_ahe");
             var following = state.Adventure.Members.ToArray();
-            Need(following.Length == BaseAdventure.Capacity && !BaseRpg.HasRoom(state), "满队样本应同时用完营帐和随行名额");
+            Need(following.Length == BaseAdventure.Capacity && BaseRpg.Capacity(state) == 6 && BaseRpg.RecruitingSlots(state) == 3,
+                "一级营帐应该有六个名额，满队时仍有三个招降空位");
+            VerifyCampCapacity(state);
             SaveRouteCheckpoint(state, "full-camp-before-ahe");
             Need(BaseDemoRuins.Meet(state, "partner_farm") && BaseDemoRuins.Join(state, "partner_farm") &&
                 state.Leaders.Any(leader => leader.Id == "partner_farm" && leader.MapRegion == "base") &&
@@ -257,7 +266,38 @@ namespace BaseConquest.Editor
             At(state, "farm");
             Need(BaseEconomy.AssignLeader(state, "partner_farm", "farm") && state.Adventure.Members.SequenceEqual(following),
                 "入营的阿禾不能担任粮田负责人，或影响了随行队伍");
-            Note("满队邀请旁支：主角、迦兰、阿铸已随行且营帐满额。接受邀请后阿禾留营，随后可直接任职粮田。");
+            Note("满队邀请旁支：主角、迦兰、阿铸已随行。接受邀请后阿禾留营，随后可直接任职粮田。");
+        }
+
+        private static void VerifyCampCapacity(BaseState sample)
+        {
+            var state = sample.Copy();
+            var rules = state.Demo.Rpg;
+            state.Inventory.Materials += rules.CampMaterials.Sum();
+            state.Inventory.Coins += rules.CampCoins.Sum();
+            Need(BaseRpg.UpgradeCamp(state) && BaseRpg.Capacity(state) == 10 && BaseRpg.RecruitingSlots(state) == 7,
+                "二级营帐升级后应该有十个名额");
+            double recovery = BaseDevelopment.RecoveryRatio(state);
+            Need(BaseRpg.UpgradeCamp(state) && BaseRpg.Capacity(state) == 10 && BaseDevelopment.RecoveryRatio(state) > recovery &&
+                state.Adventure.Members.SequenceEqual(sample.Adventure.Members), "满级营帐不应减少容量，升级只影响营地而不扩充随行位");
+
+            var legacy = sample.Copy();
+            legacy.Demo.CampCapacityUpdated = false;
+            legacy.Demo.Rpg.CampLevel = 2;
+            legacy.Demo.Rpg.Capacity = new[] { 3, 5, 8 };
+            string path = Path.Combine("Logs", "camp-capacity", "legacy-save.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllText(path, JsonUtility.ToJson(new BaseSaveDocument { DemoSaveVersion = BaseDemo.SaveVersion, State = legacy }));
+            var store = new BaseSaveStore(path, document => JsonUtility.ToJson(document), JsonUtility.FromJson<BaseSaveDocument>, true);
+            var loaded = store.Load();
+            Need(BaseRpg.Capacity(loaded) == 10 && loaded.Demo.Rpg.CampLevel == 2 && loaded.Day == legacy.Day &&
+                loaded.Inventory.Coins == legacy.Inventory.Coins && loaded.Adventure.Members.SequenceEqual(legacy.Adventure.Members),
+                "旧档容量更新应保留营帐等级、资源和队伍");
+
+            legacy.Demo.Rpg.Capacity = new[] { 4, 7, 9 };
+            BaseEconomy.Validate(legacy);
+            Need(BaseRpg.Capacity(legacy) == 7, "旧自定义容量不应被标准配置覆盖");
+            Note("营帐容量：升级 6 → 10 → 10，三级恢复提高，旧档更新后保留等级和进度，自定义容量及随行人数保持。");
         }
 
         private static void VerifyRuinsAutosaves(BaseState entrance,BaseState active,BaseState retreated)

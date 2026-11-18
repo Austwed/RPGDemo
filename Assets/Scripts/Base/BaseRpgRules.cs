@@ -80,7 +80,8 @@ namespace BaseConquest.Base
         public float EquipmentScale(float value,int quality)=>(float)(value>=0?value*EquipmentQuality[quality]:value/EquipmentQuality[quality]);
         public double EquipmentAttack(BasePersonalDefinition definition,int quality)=>EquipmentScale(definition.Damage,quality)*(definition.Slot=="weapon"?WeaponAttackScale:AttackEquipmentScale);
         public double[] Hit={10,7,8},Evasion={1,0,3};
-        public int[] Capacity={3,5,8},CampMaterials={20,40},CampCoins={60,150};
+        internal static int[] DefaultCampCapacity() => new[] { 6, 10, 10 };
+        public int[] Capacity=DefaultCampCapacity(),CampMaterials={20,40},CampCoins={60,150};
         public int[] TroopBaseline={10,8,4},RecruitBasePrices={30,40,60};
         public int[] TrainingDays=DefaultTraining(true),TrainingBooks=DefaultTraining(false);
         public double[] Range={2,12,3},Speed={4,3,6},Growth={1,1.18,1.5,1.85,2.25,3,3.7,4.5,6},QualityValue={.5,.75,1,1.3,1.8,2.5};
@@ -247,6 +248,13 @@ namespace BaseConquest.Base
                 if (rules.OpeningEconomy != null) rules.OpeningEconomy.LeaderFood = 0;
                 s.Demo.CaptainRationsUpdated = true;
             }
+            if (!s.Demo.CampCapacityUpdated)
+            {
+                // Only migrate the former standard schedule. Custom balance keeps its own snapshot.
+                if (rules.Capacity[0] == 3 && rules.Capacity[1] == 5 && rules.Capacity[2] == 8)
+                    rules.Capacity = RpgRules.DefaultCampCapacity();
+                s.Demo.CampCapacityUpdated = true;
+            }
             s.Rules.LeaderFood = rules.LeaderFood;
             foreach(var site in s.Campaign.EnemySites)PrepareEnemies(s,site.Garrison,site.AttackEventId);
             foreach(var mission in s.Campaign.Events)PrepareEnemies(s,mission.EnemyArmy,mission.Id);
@@ -269,6 +277,7 @@ namespace BaseConquest.Base
             if(r==null)throw new ArgumentException("开局RPG规则快照缺版本");
             r.Validate();s.Demo.Rpg=r;
             s.Demo.CaptainRationsUpdated = true;
+            s.Demo.CampCapacityUpdated = true;
             s.Rules.LeaderFood = r.LeaderFood;
             if(r.ForgeDailyStock>0)s.PersonalEquipment.StonesRemaining=r.ForgeDailyStock;
             foreach(var l in s.Leaders.Concat(s.Demo.Candidates))

@@ -679,7 +679,9 @@ namespace BaseConquest.Base
                 if (rules.CampLevel < rules.Capacity.Length)
                 {
                     int index = rules.CampLevel - 1;
-                    FacilityText(actions, $"升级所需 · 原料 {rules.CampMaterials[index]} · 钱币 {rules.CampCoins[index]} · 容量 {rules.Capacity[index + 1]}");
+                    FacilityText(actions, $"升级所需 · 原料 {rules.CampMaterials[index]} · 钱币 {rules.CampCoins[index]}");
+                    double recovery = Math.Min(BaseDevelopment.CampRecoveryStep, 1 - BaseDevelopment.RecoveryRatio(state));
+                    FacilityText(actions, $"升级后 · 容量 {rules.Capacity[index + 1]} · 每日恢复 +{recovery * 100:0.#} 个百分点");
                     FacilityButton(actions, "Upgrade", "升级营帐", () => FacilityChange(next =>
                     {
                         if (!BaseRpg.UpgradeCamp(next)) throw new InvalidOperationException(BaseRpg.CampUpgradeProblem(next));

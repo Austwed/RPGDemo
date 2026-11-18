@@ -1,6 +1,6 @@
 {
     "Version": 1,
-    "WorkbookSha256": "fd4be6e60cb4e1036bf7e9765ef3710f1eec5f0a9d2cff35bcbb30c317504b94",
+    "WorkbookSha256": "e3af2c75d1c06036414bd13a88672fd1db4135b612502444946083546c8eb634",
     "Rules": {
         "GenerationSeed": 0,
         "SceneRulesVersion": 0,
@@ -115,9 +115,9 @@
             3.0
         ],
         "Capacity": [
-            3,
-            5,
-            8
+            6,
+            10,
+            10
         ],
         "CampMaterials": [
             20,
