@@ -3,6 +3,7 @@ using UnityEngine.UI;
 
 namespace BaseConquest.Presentation
 {
+    [RequireComponent(typeof(CanvasRenderer))]
     internal sealed class GuidanceArrow : MaskableGraphic
     {
         private RectTransform frame, target;

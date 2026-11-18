@@ -714,6 +714,8 @@ namespace BaseConquest.Editor
             {
                 if (arrow.gameObject.activeInHierarchy != (target != null || mapTarget))
                     throw new InvalidOperationException("演练没有显示或清除箭头");
+                if (arrow.gameObject.activeInHierarchy && arrow.GetComponent<CanvasRenderer>() == null)
+                    throw new InvalidOperationException("演练箭头缺少 CanvasRenderer");
                 if (target is RectTransform rect)
                 {
                     var center = area.InverseTransformPoint(rect.TransformPoint(rect.rect.center));
@@ -1125,6 +1127,12 @@ namespace BaseConquest.Editor
             var state = controller.State;
             if (!BaseDemoPrologue.Village(state) || state.Demo.Intro.Step != 0)
                 throw new InvalidOperationException("新档未停在白桦村选角");
+
+            var arrow = Field(H, "questArrow") as MaskableGraphic;
+            if (arrow == null || !arrow.isActiveAndEnabled || arrow.GetComponent<CanvasRenderer>() == null)
+                throw new InvalidOperationException("选角任务箭头未显示或缺少 CanvasRenderer");
+            Canvas.ForceUpdateCanvases();
+            Log.Add("[PASS] 开局选角任务箭头进入画布渲染");
 
             var choice = Field(H, "heroChoiceLayer") as RectTransform;
             if (choice == null) throw new InvalidOperationException("新档未打开选角界面");
