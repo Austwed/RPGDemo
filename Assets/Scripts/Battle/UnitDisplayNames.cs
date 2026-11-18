@@ -3,7 +3,7 @@ namespace BaseConquest.Battle
 {
     public static class UnitDisplayNames
     {
-        public const string RecruitmentColor="<color=#FFD84D>";
+        public const string RecruitmentColor="<color=#8B512F>";
         private static readonly Regex SideWords = new Regex("甲方|乙方|我方|敌方");
         public static string Mark(string name,bool recruited)=>recruited ? RecruitmentColor+Plain(name)+"</color>" : name;
         public static string Plain(string name)=>Regex.Replace(name??"","<[^>]*>","").TrimStart('●',' ');

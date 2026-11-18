@@ -18,7 +18,7 @@ namespace BaseConquest.Base
             if(BaseRpg.Active(owner.State)){Line(BaseRpg.GearDescription(owner.State,item)+BaseRpg.GearComparison(owner.State,item),145,18);return;}
             var d=BasePersonalEquipment.Definition(item.Template);int q=item.Quality;
             Line("攻击 "+BasePersonalEquipment.Scale(d.Damage,q).ToString("+0.##;-0.##;0")+" · 防御 "+BasePersonalEquipment.Scale(d.Defense,q).ToString("+0.##;-0.##;0")+" · 生命 "+BasePersonalEquipment.Scale(d.Health,q).ToString("+0.##;-0.##;0"),48,18);
-            Line("暴击+"+BasePersonalEquipment.Scale(d.CritChance,q).ToString("P1")+" · 暴伤+"+BasePersonalEquipment.Scale(d.CritMultiplier,q).ToString("P1")+(d.Slot=="weapon" ? " · 武器射程 "+BasePersonalEquipment.RealtimeRange(item)+"细格" : "")+" · 移动 "+BasePersonalEquipment.Scale(d.Movement,q).ToString("+0.##;-0.##;0")+"（未启用）",48,18);
+            Line("暴击+"+BasePersonalEquipment.Scale(d.CritChance,q).ToString("P1")+" · 暴伤+"+BasePersonalEquipment.Scale(d.CritMultiplier,q).ToString("P1")+(d.Slot=="weapon" ? " · 攻击距离 "+BasePersonalEquipment.RealtimeRange(item)+"细格" : "")+" · 移动 "+BasePersonalEquipment.Scale(d.Movement,q).ToString("+0.##;-0.##;0")+"（未启用）",48,18);
         }
         private void RenderEquipmentTrade(RectTransform offers,RectTransform details,BaseLeader recipient)
         {
@@ -29,12 +29,15 @@ namespace BaseConquest.Base
             bool hasStone=tradeVendor==TradeVendor.Smith;
             if(!hasStone||tradeSelection!=BaseEquipmentCrafting.Stone)
                 tradeSelection=selected?.Id??(hasStone?BaseEquipmentCrafting.Stone:"");
-            foreach(var gear in goods)
+            if (offers != null)
             {
-                var offer=s.PersonalEquipment.Offers.Single(o=>o.Template==gear.Id);
-                TradeOffer(offers,gear.Id,gear.Name+" · "+BasePersonalEquipment.BuyPrice(s,gear.Id)+"币 · 余 "+offer.Remaining);
+                foreach(var gear in goods)
+                {
+                    var offer=s.PersonalEquipment.Offers.Single(o=>o.Template==gear.Id);
+                    TradeStockOffer(offers,gear.Id,gear.Name,BasePersonalEquipment.BuyPrice(s,gear.Id),offer.Remaining);
+                }
+                if(hasStone)RenderStoneOffer(offers);
             }
-            if(hasStone)RenderStoneOffer(offers);
             if(details==null)return;
             if(tradeSelection==BaseEquipmentCrafting.Stone)
             {
@@ -44,17 +47,21 @@ namespace BaseConquest.Base
             if(selected==null)return;
 
             string id=selected.Id,holder=recipient?.Id??"";
-            int price=BasePersonalEquipment.BuyPrice(s,id);
+            int price=BasePersonalEquipment.BuyPrice(s,id),remaining=s.PersonalEquipment.Offers.Single(o=>o.Template==id).Remaining;
             bool full=recipient!=null&&BasePartyInventory.FreeCell(s,holder)<0;
-            TradeLine(details,selected.Name+" · "+price+"币");
+            TradeLine(details,selected.Name+" · 单价 "+price+"币");
+            TradeLine(details,"今日剩余 "+remaining+"/1");
             if(recipient!=null)TradeLine(details,StoryText.Get("story.ui.trade.recipient","收货人：{name}").Replace("{name}",recipient.Name));
-            if(full)TradeLine(details,StoryText.Get("story.ui.trade.recipient_full","所选角色背包已满，请切换角色"));
-            if(recipient==null)TradeLine(details,StoryText.Get("story.ui.trade.recipient_missing","当前没有可收货的随行角色"));
-            TradeButton(details,"确认买入",()=>TradeCommit(next=>BasePersonalEquipment.Buy(next,id,holder,price),"已购入 "+selected.Name),
+            if(remaining==0)TradeLine(details,"今日售罄");
+            else if(recipient==null)TradeLine(details,StoryText.Get("story.ui.trade.recipient_missing","当前没有可收货的随行角色"));
+            else if(full)TradeLine(details,StoryText.Get("story.ui.trade.recipient_full","所选角色背包已满，请切换角色"));
+            else if(s.Inventory.Coins<price)TradeLine(details,"钱币不足");
+            TradeButton(details,"确认买入 · "+price+"币",()=>TradeCommit(next=>BasePersonalEquipment.Buy(next,id,holder,price),"已购入 "+selected.Name),
                 BasePersonalEquipment.CanBuy(s,id,holder));
             var sample=new BasePersonalItem {Template=id,Quality=2};
-            if(BaseRpg.Active(s))TradeLine(details,BaseRpg.GearDescription(s,sample)+BaseRpg.GearComparison(s,sample));
-            else TradeLine(details,"攻击 "+selected.Damage.ToString("0.##")+" · 防御 "+selected.Defense.ToString("0.##")+" · 生命 "+selected.Health.ToString("0.##"));
+            if(BaseRpg.Active(s))TradeLine(details,BaseRpg.GearDescription(s,sample,includeName:false));
+            else TradeLine(details,"攻击 "+selected.Damage.ToString("0.##")+" · 防御 "+selected.Defense.ToString("0.##")+" · 生命 "+selected.Health.ToString("0.##")
+                +(selected.Slot=="weapon"?" · 攻击距离 "+BasePersonalEquipment.RealtimeRange(sample)+"细格":""));
         }
 
     }

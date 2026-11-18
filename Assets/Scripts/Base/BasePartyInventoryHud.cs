@@ -15,7 +15,8 @@ namespace BaseConquest.Base
         private readonly InventoryClickTracker inventoryClicks = new InventoryClickTracker();
         private string inventoryPerson = "", inventorySelected = "";
         private int inventoryQuantity = 1, warehousePage;
-        private RectTransform inventorySelectedCell, inventoryChoice;
+        private RectTransform inventorySelectedCell, inventoryPracticeCell, inventoryItemMenu, inventoryChoice;
+        private Action resetInventoryHighlight;
         private readonly Dictionary<string, string> inventoryFilters = new Dictionary<string, string>();
         private static readonly string[] InventoryCategories =
             { "all", "weapon", "armor", "accessory", "consumable", "quest", "material", "exclusive" };
@@ -57,7 +58,9 @@ namespace BaseConquest.Base
                 inventoryQuantity = 1;
             }
             inventoryWarehouse = warehouse;
-            inventorySelectedCell = null;
+            inventorySelectedCell = inventoryPracticeCell = null;
+            inventoryItemMenu = null;
+            resetInventoryHighlight = null;
             questSwordTarget = null;
             inventoryChoice = null;
             OpenScenePanel(warehouse ? "PartyWarehouse" : "PartyInventory", viewKey);
@@ -76,7 +79,7 @@ namespace BaseConquest.Base
                 foreach (var person in people)
                     BuildInventoryCard(cards, person, entries, inventorySelected, true, null);
             }
-            if (inventorySelectedCell != null) ShowInventoryItemMenu();
+            if (inventorySelectedCell != null) ShowInventoryItemMenu(settleLayout: true);
             if (BaseDemoIntro.Daily(state)) state.Demo.Intro.BackpackOpened = true;
             RefreshSummary();
         }
@@ -143,7 +146,7 @@ namespace BaseConquest.Base
             var card = CloneSceneUi("PartyMemberCard", parent);
             card.name = "人物与背包_" + person.Id;
             var title = InventoryButton(card, "Name", BasePersonnel.LeaderName(person) + " · " + BasePersonalEquipment.ClassName(person),
-                editable ? (Action)(() => { inventoryPerson = person.Id; inventorySelected = ""; OpenInventory(inventoryWarehouse); }) : null);
+                editable ? (Action)(() => { inventoryPerson = person.Id; ClearInventorySelection(); RefreshQuestCue(); }) : null);
             if (editable) BindInventoryDrop(title.gameObject, null, person.Id, -2, "");
             Ui<Text>(card, "Vitals").text = "生命 " + person.Health.ToString("0.#") + " / " + person.MaxHealth.ToString("0.#");
 
@@ -246,26 +249,20 @@ namespace BaseConquest.Base
                 colors.disabledColor = Color.white;
                 button.colors = colors;
             }
-            if (editable) button.onClick.AddListener(() => SelectInventoryCell(visible ? entry : null, holder, slot));
+            if (editable) button.onClick.AddListener(() => SelectInventoryCell(button, qualityFrame, visible ? entry : null, holder, slot));
             else if (visible && select != null) button.onClick.AddListener(() => select(entry));
 
             if (visible && entry.Id == selectedItemId)
             {
-                if (qualityFrame != null)
+                var reset = HighlightInventoryCell(button, qualityFrame);
+                if (editable)
                 {
-                    qualityFrame.color = DemoUiTheme.Current.Copper;
-                    qualityFrame.pixelsPerUnitMultiplier = .5f;
+                    resetInventoryHighlight = reset;
+                    inventorySelectedCell = (RectTransform)button.transform;
                 }
-                else
-                {
-                    var outline = button.gameObject.GetOrAdd<Outline>();
-                    outline.effectColor = DemoUiTheme.Current.Copper;
-                    outline.effectDistance = new Vector2(2, -2);
-                }
-                if (editable) inventorySelectedCell = button.GetComponent<RectTransform>();
             }
             if (visible && editable && !entry.Worn && BaseDemoIntro.Daily(owner.State) &&
-                entry.Id == owner.State.Demo.Intro.PracticeId) questSwordTarget = (RectTransform)button.transform;
+                entry.Id == owner.State.Demo.Intro.PracticeId) questSwordTarget = inventoryPracticeCell = (RectTransform)button.transform;
             if (editable) BindInventoryDrop(button.gameObject, visible ? entry : null, holder, index, slot, !visible && entry != null);
             else
             {
@@ -285,8 +282,31 @@ namespace BaseConquest.Base
             return InventoryItemIcons.Load(key, entry.Gear?.Quality ?? 2, entry.Category);
         }
 
-        private void SelectInventoryCell(BaseInventoryEntry entry, string holder, string slot)
+        private static Action HighlightInventoryCell(Button button, Image qualityFrame)
         {
+            if (qualityFrame != null)
+            {
+                var color = qualityFrame.color;
+                var width = qualityFrame.pixelsPerUnitMultiplier;
+                qualityFrame.color = DemoUiTheme.Current.Copper;
+                qualityFrame.pixelsPerUnitMultiplier = .5f;
+                return () => { qualityFrame.color = color; qualityFrame.pixelsPerUnitMultiplier = width; };
+            }
+
+            var outline = button.GetComponent<Outline>();
+            bool wasEnabled = outline != null && outline.enabled;
+            if (outline == null) outline = button.gameObject.AddComponent<Outline>();
+            var effectColor = outline.effectColor;
+            var distance = outline.effectDistance;
+            outline.effectColor = DemoUiTheme.Current.Copper;
+            outline.effectDistance = new Vector2(2, -2);
+            outline.enabled = true;
+            return () => { outline.effectColor = effectColor; outline.effectDistance = distance; outline.enabled = wasEnabled; };
+        }
+
+        private void SelectInventoryCell(Button button, Image qualityFrame, BaseInventoryEntry entry, string holder, string slot)
+        {
+            CloseInventoryChoice();
             bool twice = inventoryClicks.Click(entry?.Id, Time.unscaledTime);
             if (twice && inventoryWarehouse && slot == "")
             {
@@ -294,9 +314,15 @@ namespace BaseConquest.Base
                 return;
             }
             if (holder != "") inventoryPerson = holder;
-            inventorySelected = entry == null || (!inventoryWarehouse && inventorySelected == entry.Id) ? "" : entry.Id;
+            bool select = entry != null && (inventoryWarehouse || inventorySelected != entry.Id);
+            ClearInventorySelection();
+            if (!select) { RefreshQuestCue(); return; }
+            inventorySelected = entry.Id;
             inventoryQuantity = entry?.Count ?? 1;
-            OpenInventory(inventoryWarehouse);
+            inventorySelectedCell = (RectTransform)button.transform;
+            resetInventoryHighlight = HighlightInventoryCell(button, qualityFrame);
+            ShowInventoryItemMenu();
+            RefreshQuestCue();
         }
 
         private void BindInventoryDrop(GameObject obj, BaseInventoryEntry entry, string holder, int cell, string slot, bool hidden = false)
@@ -337,14 +363,14 @@ namespace BaseConquest.Base
             OpenInventory(inventoryWarehouse);
         }
 
-        private void ShowInventoryItemMenu()
+        private void ShowInventoryItemMenu(bool settleLayout = false)
         {
             var entry = BasePartyInventory.Find(owner.State, inventorySelected);
             if (entry == null) return;
-            var popup = CloneSceneUi("InventoryItemMenu", panel);
+            var popup = inventoryItemMenu = CloneSceneUi("InventoryItemMenu", panel);
             InventoryButton(popup, "Close", null, () => CloseInventoryItemMenu());
             BindInventoryDetails(popup, entry, owner.State.Leaders.Single(person => person.Id == inventoryPerson), inventoryWarehouse);
-            Canvas.ForceUpdateCanvases();
+            if (settleLayout) Canvas.ForceUpdateCanvases();
 
             var selected = inventorySelectedCell;
             var corners = new Vector3[4];
@@ -374,15 +400,32 @@ namespace BaseConquest.Base
 
         internal bool CloseInventoryItemMenu()
         {
-            if (!PanelOpen || (panelViewKey != "party-inventory" && panelViewKey != "party-warehouse")
-                || panel.Find("InventoryItemMenu") == null) return false;
-            if (inventoryChoice == null)
-            {
-                inventoryClicks.Reset();
-                inventorySelected = "";
-            }
-            OpenInventory(inventoryWarehouse);
+            if (!PanelOpen || (panelViewKey != "party-inventory" && panelViewKey != "party-warehouse")) return false;
+            if (inventoryChoice != null) { CloseInventoryChoice(); return true; }
+            if (inventoryItemMenu == null) return false;
+            inventoryClicks.Reset();
+            ClearInventorySelection();
+            RefreshQuestCue();
             return true;
+        }
+
+        private void ClearInventorySelection()
+        {
+            resetInventoryHighlight?.Invoke();
+            resetInventoryHighlight = null;
+            inventorySelected = "";
+            inventorySelectedCell = null;
+            questSwordTarget = inventoryPracticeCell;
+            RemoveInventoryOverlay(ref inventoryItemMenu);
+        }
+
+        private static void RemoveInventoryOverlay(ref RectTransform overlay)
+        {
+            if (overlay == null) return;
+            overlay.gameObject.SetActive(false);
+            overlay.SetParent(null, false);
+            UiPrefabBinding.DestroyView(overlay.gameObject);
+            overlay = null;
         }
 
         private void BindInventoryDetails(RectTransform details, BaseInventoryEntry entry, BaseLeader recipient, bool warehouse)
@@ -393,9 +436,7 @@ namespace BaseConquest.Base
             var title = Ui<Text>(details, "Title");
             title.text = entry.Name + (entry.Count > 1 ? " ×" + entry.Count : "");
             InventoryItemIcons.LeadLabel(title, InventoryIcon(entry), 25);
-            string quantity = entry.Count > 1 ? inventoryQuantity + " / " + entry.Count : entry.Count.ToString();
-            Ui<Text>(details, "Meta").text = "数量 " + quantity + (entry.Gear != null
-                ? " · " + BasePersonalEquipment.SlotName(BasePersonalEquipment.Definition(entry.Gear.Template).Slot) : "");
+            var meta = Ui<Text>(details, "Meta");
             string description=entry.Description;
             if(entry.Gear!=null)description=(string.IsNullOrEmpty(description)?"":description+"\n")+InventoryGearDescription(entry,recipient);
             Ui<Text>(details, "Description").text=description;
@@ -430,11 +471,12 @@ namespace BaseConquest.Base
                 questSwordTarget = (RectTransform)primaryButton.transform;
             InventoryButton(details, "Destroy", null, () => InventoryDestroyConfirm(entry))
                 .gameObject.SetActive(!entry.Worn && !entry.Protected);
-            InventoryButton(details, "QuantityDown", null, () => { inventoryQuantity--; OpenInventory(inventoryWarehouse); },
-                inventoryQuantity > 1).gameObject.SetActive(entry.Count > 1);
-            InventoryButton(details, "QuantityUp", null,
-                () => { inventoryQuantity++; OpenInventory(inventoryWarehouse); }, inventoryQuantity < entry.Count)
-                .gameObject.SetActive(entry.Count > 1);
+            Button down = null, up = null;
+            down = InventoryButton(details, "QuantityDown", null, () => UpdateQuantity(inventoryQuantity - 1));
+            up = InventoryButton(details, "QuantityUp", null, () => UpdateQuantity(inventoryQuantity + 1));
+            down.gameObject.SetActive(entry.Count > 1);
+            up.gameObject.SetActive(entry.Count > 1);
+            UpdateQuantity(inventoryQuantity);
             InventoryButton(details, "Store", entry.Holder == "" ? "取出给" + recipient.Name : "存入仓库", () =>
                 InventoryChange(next => BasePartyInventory.Move(next, entry.Id, entry.Holder == "" ? inventoryPerson : "",
                     entry.Holder == "" ? BasePartyInventory.FreeCell(next, inventoryPerson) : -1, "", inventoryQuantity), "已完成仓库存取"))
@@ -444,6 +486,17 @@ namespace BaseConquest.Base
                     person.Id != (entry.Holder == "" ? inventoryPerson : entry.Holder));
             InventoryButton(details, "Transfer", null, () => InventoryTransferMenu(entry))
                 .gameObject.SetActive(transferable);
+
+            void UpdateQuantity(int requested)
+            {
+                inventoryQuantity = Mathf.Clamp(requested, 1, entry.Count);
+                var quantity = entry.Count > 1 ? inventoryQuantity + " / " + entry.Count : entry.Count.ToString();
+                meta.text = "数量 " + quantity + (entry.Gear != null
+                    ? " · " + BasePersonalEquipment.SlotName(BasePersonalEquipment.Definition(entry.Gear.Template).Slot) : "");
+                down.interactable = inventoryQuantity > 1;
+                up.interactable = inventoryQuantity < entry.Count;
+                if (primary == "拆分") primaryButton.interactable = inventoryQuantity < entry.Count;
+            }
         }
 
         private void EquipInventoryEntry(BaseInventoryEntry entry, string itemSlot)
@@ -479,21 +532,19 @@ namespace BaseConquest.Base
                 + "\n攻击 " + damage.ToString("+0.##;-0.##;0")
                 + "／防御 " + BasePersonalEquipment.Scale(definition.Defense, quality).ToString("+0.##;-0.##;0")
                 + "／生命 " + BasePersonalEquipment.Scale(definition.Health, quality).ToString("+0.##;-0.##;0")
-                + (weapon ? "／射程 " + BasePersonalEquipment.RealtimeRange(entry.Gear) + "细格"
+                + (weapon ? "／攻击距离 " + BasePersonalEquipment.RealtimeRange(entry.Gear) + "细格"
                     + (definition.Weapon != person.PersonalEquipment.Weapon ? "\n非本职业武器：无法装备此武器" : "") : "");
         }
 
         private RectTransform OpenInventoryChoice(string title)
         {
-            if (inventoryChoice != null)
-            {
-                inventoryChoice.gameObject.SetActive(false);
-                UiPrefabBinding.DestroyView(inventoryChoice.gameObject);
-            }
+            CloseInventoryChoice();
             inventoryChoice = CloneSceneUi("InventoryChoice", panel);
             Ui<Text>(inventoryChoice, "Title").text = title;
             return Ui<RectTransform>(inventoryChoice, "Actions");
         }
+
+        private void CloseInventoryChoice() => RemoveInventoryOverlay(ref inventoryChoice);
 
         private void AddInventoryChoice(RectTransform actions, string title, Action select)
         {
@@ -511,7 +562,7 @@ namespace BaseConquest.Base
                     inventorySelected = "";
                     OpenInventory(inventoryWarehouse);
                 });
-            AddInventoryChoice(actions, "取消", () => OpenInventory(inventoryWarehouse));
+            AddInventoryChoice(actions, "取消", CloseInventoryChoice);
         }
 
         private void InventoryTransferMenu(BaseInventoryEntry entry)
@@ -520,7 +571,7 @@ namespace BaseConquest.Base
             foreach (var person in BasePartyInventory.People(owner.State, inventoryWarehouse).Where(candidate => candidate.Id != entry.Holder))
                 AddInventoryChoice(actions, "转交给 " + person.Name, () => InventoryChange(state =>
                     BasePartyInventory.Move(state, entry.Id, person.Id, BasePartyInventory.FreeCell(state, person.Id), "", inventoryQuantity), "已转交物品"));
-            AddInventoryChoice(actions, "取消", () => OpenInventory(inventoryWarehouse));
+            AddInventoryChoice(actions, "取消", CloseInventoryChoice);
         }
 
         private void InventoryDestroyConfirm(BaseInventoryEntry entry)
@@ -528,7 +579,7 @@ namespace BaseConquest.Base
             var actions = OpenInventoryChoice("销毁 " + entry.Name + " ×" + inventoryQuantity + "？\n此操作不可恢复。");
             AddInventoryChoice(actions, "确认销毁", () => InventoryChange(state =>
                 BasePartyInventory.Destroy(state, entry.Id, inventoryQuantity), "已销毁物品"));
-            AddInventoryChoice(actions, "取消", () => OpenInventory(inventoryWarehouse));
+            AddInventoryChoice(actions, "取消", CloseInventoryChoice);
         }
     }
 }

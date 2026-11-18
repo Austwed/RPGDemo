@@ -201,19 +201,21 @@ namespace BaseConquest.Base
             var feedbackPosition = panelFeedback.rectTransform.anchoredPosition;
             panelFeedback.rectTransform.anchoredPosition = feedbackPosition + Vector2.up * shrink;
             questFarmTarget=null;
-            int food=(int)Math.Floor(introFarmDraft*s.Rules.FarmPerWorker),need=BaseDemoIntro.VillageFood(s);
-            int onsite=farm?introFarmDraft:4-introFarmDraft;
             var manager = BaseDemoIntro.VillageManager(id);
-            FacilityText(actions,$"负责人 · {manager.Name}     岗位 · {onsite}/4");
-            FacilityText(actions,$"粮食预计 +{food} · 口粮 {need} · 净增 {(food-need):+0;-0;0}");
-            FacilityText(actions,$"铁匠铺预计 {(4-introFarmDraft)*s.Rules.WorkshopPerWorker:0.#} 工作点／日");
+            var managerLabel = FacilityText(actions,"");
+            var foodLabel = FacilityText(actions,"");
+            var smithLabel = FacilityText(actions,"");
+            var rosterHeading = FacilityText(filters,"",true);
+            var workerLabels = new Text[4];
+            for (int n=0;n<workerLabels.Length;n++) workerLabels[n]=FacilityText(list,"");
+            RectTransform counter = null;
+            Button apply = null, cancel = null;
             if(canAssign)
             {
-                var counter=FacilityCounter(actions,"VillageFarmWorkers",$"粮田工人  {introFarmDraft}",
-                    ()=>{introFarmDraft--;OpenIntroProduction(id);},()=>{introFarmDraft++;OpenIntroProduction(id);},introFarmDraft>2,introFarmDraft<4);
+                counter=FacilityCounter(actions,"VillageFarmWorkers","",
+                    ()=>{introFarmDraft--;RefreshStaffing();},()=>{introFarmDraft++;RefreshStaffing();},false,false);
                 counter.Find("Unlock").gameObject.SetActive(false);
-                bool pending=introFarmDraft!=i.FarmWorkers;
-                var apply=FacilityButton(actions,"Apply","确认方案",()=>{
+                apply=FacilityButton(actions,"Apply","确认方案",()=>{
                     int before=owner.State.Demo.Intro.FarmWorkers,step=owner.State.Demo.Intro.Step,workers=introFarmDraft;
                     if(!owner.Change(next=>{if(!BaseDemoIntro.AssignFarm(next,workers))throw new InvalidOperationException("请靠近粮田或铁匠铺再安排岗位");},""))return;
                     if (workers != before)
@@ -226,20 +228,42 @@ namespace BaseConquest.Base
                             new NpcLine("阿禾","ahe","人齐了！趁地还润着，这就把晚麦种下。"),
                             new NpcLine("搭档",BaseDemoIntro.CaptainArt(owner.State),"田里的事妥了。来找我拿剑，咱们过两招。")
                         },Array.Empty<NpcReply>(),onCompleted:ClosePanel,guide:true);
-                    else OpenIntroProduction(id);
-                },pending,pending);
-                questFarmTarget=introFarmDraft<4?(RectTransform)counter.Find("Plus"):(RectTransform)apply.transform;
-                FacilityButton(actions,"Cancel","取消方案",()=>{introFarmDraft=owner.State.Demo.Intro.FarmWorkers;OpenIntroProduction(id);},pending);
+                    else RefreshStaffing();
+                },false);
+                cancel=FacilityButton(actions,"Cancel","取消方案",()=>{introFarmDraft=owner.State.Demo.Intro.FarmWorkers;RefreshStaffing();},false);
             }
             else FacilityText(actions,BaseDemoIntro.Daily(s)?"先到田埂边听阿禾说说今天的人手安排。":"村民正准备撤离，暂时不派工。");
-            FacilityText(filters,$"粮田 {introFarmDraft} 人 · 铁匠铺 {4-introFarmDraft} 人",true);
-            for(int n=1;n<=4;n++)
-            {
-                bool onFarm=n<=introFarmDraft;
-                string post=onFarm?"粮田":"铁匠铺";
-                FacilityText(list,$"村庄剑士 {n} · {post}"+(onFarm==(n<=i.FarmWorkers)?"":" · 待调配"));
-            }
+            RefreshStaffing();
             FinishFacilityPanel();
+
+            void RefreshStaffing()
+            {
+                var current=owner.State;
+                int actual=current.Demo.Intro.FarmWorkers;
+                introFarmDraft=Mathf.Clamp(introFarmDraft,2,4);
+                int smithWorkers=4-introFarmDraft, onsite=farm?introFarmDraft:smithWorkers;
+                int food=(int)Math.Floor(introFarmDraft*current.Rules.FarmPerWorker),need=BaseDemoIntro.VillageFood(current);
+                managerLabel.text=$"负责人 · {manager.Name}     岗位 · {onsite}/4";
+                foodLabel.text=$"粮食预计 +{food} · 口粮 {need} · 净增 {(food-need):+0;-0;0}";
+                smithLabel.text=$"铁匠铺预计 {smithWorkers*current.Rules.WorkshopPerWorker:0.#} 工作点／日";
+                rosterHeading.text=$"粮田 {introFarmDraft} 人 · 铁匠铺 {smithWorkers} 人";
+                for (int n=0;n<workerLabels.Length;n++)
+                {
+                    bool onFarm=n<introFarmDraft;
+                    string post=onFarm?"粮田":"铁匠铺";
+                    workerLabels[n].text=$"村庄剑士 {n+1} · {post}"+(onFarm==(n<actual)?"":" · 待调配");
+                }
+                if(counter==null)return;
+                Ui<Text>(counter,"Label").text=$"粮田工人  {introFarmDraft}";
+                Ui<Button>(counter,"Minus").interactable=introFarmDraft>2;
+                var plus=Ui<Button>(counter,"Plus");
+                plus.interactable=introFarmDraft<4;
+                bool pending=introFarmDraft!=actual;
+                apply.interactable=cancel.interactable=pending;
+                apply.targetGraphic.color=pending ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;
+                questFarmTarget=(RectTransform)(plus.interactable ? plus.transform : apply.transform);
+                RefreshQuestCue();
+            }
         }
         private void IntroReminder(string text)=>NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(owner.State),text)},new[]{new NpcReply("明白了",ClosePanel)});
         internal bool OpenIntroStory()

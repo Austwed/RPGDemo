@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
+using BaseConquest.Battle;
 using BaseConquest.Presentation;
 using BaseConquest.Story;
 
@@ -28,7 +29,7 @@ namespace BaseConquest.Base
             panel.GetComponent<UnityEngine.UI.Image>().color=new Color(.07f,.13f,.15f,.92f);
             RowButton("处理完毕 · 继续",-290,270,()=>{if(owner.Change(next=>{if(!BaseBattleLoot.Finish(next,m.BattleId))throw new InvalidOperationException("请先处理全部道具和俘虏");},"战利品已处理"))ClosePanel();},BaseBattleLoot.CanFinish(s,m));
             RowButton("整理小队背包 · B",0,270,OpenBackpack);
-            RowButton("规则 i",290,270,()=>RuleInfo("战利品处理规则",(BaseRpg.Active(s)?"处理完全部道具后可保留俘虏继续，俘虏不会丢失；营帐满员可回营升级后再招降。\n":"")+"必须处理全部道具后才能离开。可打开B背包拖放、换装、整理或确认销毁；关闭背包回到本清单。领取失败不会丢失奖励。\n\n普通道具进入随行队员背包，不远程送仓库；放弃不可恢复。战略物资已一次计入库存，只在此展示。\n\n招降加入己方，姓名为黄色，规则与其他单位一致。测试招降100%；非测试可能拒绝，拒绝也结束本次处置。处死永久移除；释放离开名单但不记为死亡，特殊剧情以后设计。",OpenLoot));row+=62;
+            RowButton("规则 i",290,270,()=>RuleInfo("战利品处理规则",(BaseRpg.Active(s)?"处理完全部道具后可保留俘虏继续，俘虏不会丢失；营帐满员可回营升级后再招降。\n":"")+"必须处理全部道具后才能离开。可打开B背包拖放、换装、整理或确认销毁；关闭背包回到本清单。领取失败不会丢失奖励。\n\n普通道具进入随行队员背包，不远程送仓库；放弃不可恢复。战略物资已一次计入库存，只在此展示。\n\n招降加入己方，姓名为棕色，规则与其他单位一致。测试招降100%；非测试可能拒绝，拒绝也结束本次处置。处死永久移除；释放离开名单但不记为死亡，特殊剧情以后设计。",OpenLoot));row+=62;
             int held=s.Aftermath.Prisoners.Count(p=>p.BattleId==m.BattleId&&p.Status=="held");
             RowButton("奖励 · 待领取 "+m.Items.Count(i=>i.Status=="pending"),-210,400,()=>{lootTab="items";lootConfirmation="";OpenLoot();});
             RowButton("俘虏 · 待处理 "+held,210,400,()=>{lootTab="prisoners";lootConfirmation="";OpenLoot();});row+=62;
@@ -55,7 +56,7 @@ namespace BaseConquest.Base
             {
                 foreach(var p in s.Aftermath.Prisoners.Where(p=>p.BattleId==m.BattleId&&p.Status=="held").ToArray())
                 {
-                    string id=p.Id;Line(p.Name+" · "+(p.Kind==BaseConquest.Battle.SoldierKind.Hero?"指挥者":"士兵")+" · 生命 "+p.Health.ToString("0.#")+"/"+p.Stats.Health.ToString("0.#"),50,20);
+                    string id=p.Id;Line(UnitDisplayNames.Mark(p.Name,true)+" · "+(p.Kind==BaseConquest.Battle.SoldierKind.Hero?"指挥者":"士兵")+" · 生命 "+p.Health.ToString("0.#")+"/"+p.Stats.Health.ToString("0.#"),50,20);
                     RowButton("招降",-290,270,()=>RecruitPrisoner(id,OpenLoot));
                     RowButton("释放",0,270,()=>{lootConfirmation="release:"+id;OpenLoot();});
                     RowButton("处死",290,270,()=>{lootConfirmation="execute:"+id;OpenLoot();});row+=56;
@@ -143,7 +144,7 @@ namespace BaseConquest.Base
             foreach(var p in held)
             {
                 string id=p.Id;
-                Line(p.Name+" · 生命 "+p.Health.ToString("0.#")+" / "+p.Stats.Health.ToString("0.#"),46,19);
+                Line(UnitDisplayNames.Mark(p.Name,true)+" · 生命 "+p.Health.ToString("0.#")+" / "+p.Stats.Health.ToString("0.#"),46,19);
                 RowButton("招降",-290,270,()=>RecruitPrisoner(id,()=>OpenRewardPrisoners(battle)),p.Kind!=BaseConquest.Battle.SoldierKind.Hero||BaseAftermath.CanRecruitLeader(state));
                 RowButton("释放",0,270,()=>Confirm("release",p.Name,id));
                 RowButton("处死",290,270,()=>Confirm("execute",p.Name,id));row+=54;

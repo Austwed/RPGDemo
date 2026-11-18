@@ -108,7 +108,7 @@ namespace BaseConquest.Base
             string Change(string name,double from,double to,string format="0.####")=>from==to?null:
                 name+" "+from.ToString(format)+" → "+to.ToString(format);
             var changes=new[]{Change("攻击",before.Attack,after.Attack),Change("防御",before.Defense,after.Defense),
-                Change("生命上限",before.Health,after.Health),Change("射程",before.Range,after.Range),
+                Change("生命上限",before.Health,after.Health),Change("攻击距离",before.Range,after.Range),
                 Change("暴击率",before.CritChance,after.CritChance,"0.####%"),
                 Change("暴伤",before.CritDamage,after.CritDamage,"0.####%"),Change("移速",before.Speed,after.Speed)};
             string delta=string.Join(" · ",changes.Where(change=>change!=null));
@@ -133,7 +133,7 @@ namespace BaseConquest.Base
                 var l=s.Leaders.Single(x=>x.Id==e.Holder);var item=l.PersonalEquipment.Items.Single(i=>i.Id==id);
                 foreach(int quality in new[]{e.Quality-1,e.Quality+1}.Where(q=>q>=0&&q<=5))
                 {
-                    if(!BasePersonalEquipment.WeaponRangeAllowed(l,item,quality))return "重铸后的射程可能超过当前上限";
+                    if(!BasePersonalEquipment.WeaponRangeAllowed(l,item,quality))return "重铸后的攻击距离可能超过当前上限";
                     var preview=l.Copy();if(preview.Rpg!=null)preview.Rpg.Rules=l.Rpg.Rules;
                     preview.PersonalEquipment.Items.Single(i=>i.Id==id).Quality=quality;
                     if(!BasePersonalEquipment.ValidEffectiveStats(preview))return "重铸结果可能使穿戴者属性或移动速度非法，请先卸下装备";

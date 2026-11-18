@@ -269,12 +269,90 @@ namespace BaseConquest.Editor
             if(three!=Math.Truncate(three)||five!=Math.Truncate(five))throw new InvalidOperationException(sheet+"!B63:B64：消息价格须为整数");
             rules.ThreeDayIntelPrice=(int)three;rules.FiveDayIntelPrice=(int)five;rules.IntelPricingConfigured=true;
         }
+
+        private static ZipArchive OpenWorkbook(string path)
+        {
+            byte[] bytes=File.ReadAllBytes(path);
+            if(bytes.Length>16*1024*1024)throw new InvalidOperationException("配表超过16MB");
+            var archive=new ZipArchive(new MemoryStream(bytes),ZipArchiveMode.Read);
+            try
+            {
+                if(archive.Entries.Count>1024||archive.Entries.Sum(e=>e.Length)>64L*1024*1024)
+                    throw new InvalidOperationException("XLSX解压体积或条目数越界");
+                return archive;
+            }
+            catch { archive.Dispose(); throw; }
+        }
+
+        public static RpgRules ReadEquipmentTables(string path,RpgRules baseline)
+        {
+            var rules=baseline.Copy();
+            using(var archive=OpenWorkbook(path))
+            {
+                ApplyPersonalEquipment(archive,rules);
+                ApplyEquipmentPrices(archive,rules);
+            }
+            rules.Validate();
+            return rules;
+        }
+
+        private static void ApplyPersonalEquipment(ZipArchive archive,RpgRules rules)
+        {
+            const string equipment="05a 个人装备";
+            var eq=BattleBalanceImporter.Section(archive,equipment,6,19,"ABCDEFGHIJKLSW");
+            var eqHeaders=new Dictionary<string,string>{{"A6","装备ID"},{"B6","名称"},{"C6","槽位"},{"D6","职业限制"},{"E6","攻击加值"},{"F6","生命加值"},{"G6","防御加值"},{"H6","暴击倍率加值"},{"I6","移速加值"},{"J6","命中加值"},{"K6","闪避加值"},{"L6","套装ID"},{"S6","启用"},{"W6","价值阶段"}};
+            foreach(var pair in eqHeaders)Header(eq,equipment,pair.Key,pair.Value);
+            var seen=new HashSet<string>();
+            for(int row=7;row<=19;row++)
+            {
+                string id=Need(eq,equipment,"A"+row);var original=BasePersonalEquipment.Definition(id);var item=rules.Equipment.SingleOrDefault(x=>x.Id==id);
+                if(original==null||item==null||!seen.Add(id))throw new InvalidOperationException(equipment+"!A"+row+"：装备ID不存在或重复："+id);
+                string slot=original.Slot=="weapon"?"武器":original.Slot=="helmet"?"头盔":original.Slot=="armor"?"护甲":"饰品";
+                string profession=original.Weapon=="sword"?"saber":original.Weapon=="bow"?"archer":original.Weapon=="spear"?"rider":"";
+                string set=original.Set=="light"?"set_light":original.Set=="heavy"?"set_heavy":"";
+                string Get(string col)=>eq.TryGetValue(col+row,out var value)?value:"";
+                if(Need(eq,equipment,"B"+row)!=original.Name||Need(eq,equipment,"C"+row)!=slot||Get("D")!=profession||Get("L")!=set)throw new InvalidOperationException(equipment+" 第"+row+"行：名称、槽位、职业或套装与固定装备定义不符");
+                if(Get("J")!=""||Get("K")!="")throw new InvalidOperationException(equipment+"!J"+row+"/K"+row+"：Demo装备不使用命中或闪避加值，请留空");
+                if(Need(eq,equipment,"S"+row)!="1"||!eq.TryGetValue("#type:S"+row,out var enabledType)||enabledType!="b")throw new InvalidOperationException(equipment+"!S"+row+"：实际使用的装备须启用（布尔值）");
+                item.Damage=(float)Number(eq,equipment,"E"+row,-10000,10000);item.Health=(float)Number(eq,equipment,"F"+row,0,100000);item.Defense=(float)Number(eq,equipment,"G"+row,0,100000);
+                item.CritMultiplier=(float)Number(eq,equipment,"H"+row,0,5);item.Movement=(float)Number(eq,equipment,"I"+row,-3,3);
+                double stage=Number(eq,equipment,"W"+row,0,4);if(stage!=Math.Truncate(stage))throw new InvalidOperationException(equipment+"!W"+row+"：价值阶段须为整数");item.Stage=(int)stage;
+            }
+        }
+
+        private static void ApplyEquipmentPrices(ZipArchive archive,RpgRules rules)
+        {
+            const string prices="05c 装备价格";
+            var values=BattleBalanceImporter.Section(archive,prices,26,31,"ABCDE");
+            Header(values,prices,"A26","装备阶段");Header(values,prices,"B26","武器基础价值");Header(values,prices,"C26","头盔基础价值");Header(values,prices,"D26","护甲基础价值");Header(values,prices,"E26","饰品基础价值");
+            for(int stage=0;stage<5;stage++)
+            {
+                int row=stage+27;
+                Number(values,prices,"A"+row,stage,stage);
+                var targets=new[]{rules.WeaponValues,rules.HelmetValues,rules.ArmorValues,rules.AccessoryValues};
+                for(int col=0;col<targets.Length;col++)
+                {
+                    string address=((char)('B'+col))+row.ToString(CultureInfo.InvariantCulture);
+                    double value=Number(values,prices,address,1,1000000);
+                    if(value!=Math.Truncate(value))throw new InvalidOperationException(prices+"!"+address+"：基础价值须为整数");
+                    targets[col][stage]=(int)value;
+                }
+            }
+            var qualityValues=BattleBalanceImporter.Section(archive,prices,34,40,"AB");
+            Header(qualityValues,prices,"A34","品质ID");Header(qualityValues,prices,"B34","价值倍率");var seen=new HashSet<string>();
+            for(int row=35;row<=40;row++)
+            {
+                string id=Need(qualityValues,prices,"A"+row);
+                int index=Array.IndexOf(new[]{"quality_0","quality_1","quality_2","quality_3","quality_4","quality_5"},id);
+                if(index<0||!seen.Add(id))throw new InvalidOperationException(prices+"!A"+row+"：品质ID无效或重复");
+                rules.QualityValue[index]=Number(qualityValues,prices,"B"+row,.0001,100);
+            }
+        }
+
         public static RpgRules ReadVerifiedTables(string path)
         {
-            byte[] bytes=File.ReadAllBytes(path);if(bytes.Length>16*1024*1024)throw new InvalidOperationException("配表超过16MB");
-            using(var archive=new ZipArchive(new MemoryStream(bytes),ZipArchiveMode.Read))
+            using(var archive=OpenWorkbook(path))
             {
-                if(archive.Entries.Count>1024||archive.Entries.Sum(e=>e.Length)>64L*1024*1024)throw new InvalidOperationException("XLSX解压体积或条目数越界");
                 var rules=RpgRules.Defaults();
                 const string professions="03a 职业规则",templates="03b 九类模板";
                 var p=BattleBalanceImporter.Section(archive,professions,6,9,"ADEFGM");
@@ -329,26 +407,7 @@ namespace BaseConquest.Editor
                     item.Health=Number(t,templates,"E"+row,1,1000000);item.Attack=Number(t,templates,"F"+row,0,1000000);item.Defense=Number(t,templates,"G"+row,0,1000000);
                     if(runtime=="soldier_warrior"&&item.Attack<.001)throw new InvalidOperationException(templates+"!F"+row+"：剑士是战力公式的参照，攻击须至少为0.001；其他模板可为0");
                 }
-                const string equipment="05a 个人装备";
-                var eq=BattleBalanceImporter.Section(archive,equipment,6,19,"ABCDEFGHIJKLSW");
-                var eqHeaders=new Dictionary<string,string>{{"A6","装备ID"},{"B6","名称"},{"C6","槽位"},{"D6","职业限制"},{"E6","攻击加值"},{"F6","生命加值"},{"G6","防御加值"},{"H6","暴击倍率加值"},{"I6","移速加值"},{"J6","命中加值"},{"K6","闪避加值"},{"L6","套装ID"},{"S6","启用"},{"W6","价值阶段"}};
-                foreach(var pair in eqHeaders)Header(eq,equipment,pair.Key,pair.Value);
-                seen.Clear();
-                for(int row=7;row<=19;row++)
-                {
-                    string id=Need(eq,equipment,"A"+row);var original=BasePersonalEquipment.Definition(id);var item=rules.Equipment.SingleOrDefault(x=>x.Id==id);
-                    if(original==null||item==null||!seen.Add(id))throw new InvalidOperationException(equipment+"!A"+row+"：装备ID不存在或重复："+id);
-                    string slot=original.Slot=="weapon"?"武器":original.Slot=="helmet"?"头盔":original.Slot=="armor"?"护甲":"饰品";
-                    string profession=original.Weapon=="sword"?"saber":original.Weapon=="bow"?"archer":original.Weapon=="spear"?"rider":"";
-                    string set=original.Set=="light"?"set_light":original.Set=="heavy"?"set_heavy":"";
-                    string Get(string col)=>eq.TryGetValue(col+row,out var value)?value:"";
-                    if(Need(eq,equipment,"B"+row)!=original.Name||Need(eq,equipment,"C"+row)!=slot||Get("D")!=profession||Get("L")!=set)throw new InvalidOperationException(equipment+" 第"+row+"行：名称、槽位、职业或套装与固定装备定义不符");
-                    if(Get("J")!=""||Get("K")!="")throw new InvalidOperationException(equipment+"!J"+row+"/K"+row+"：Demo装备不使用命中或闪避加值，请留空");
-                    if(Need(eq,equipment,"S"+row)!="1"||!eq.TryGetValue("#type:S"+row,out var enabledType)||enabledType!="b")throw new InvalidOperationException(equipment+"!S"+row+"：实际使用的装备须启用（布尔值）");
-                    item.Damage=(float)Number(eq,equipment,"E"+row,-10000,10000);item.Health=(float)Number(eq,equipment,"F"+row,0,100000);item.Defense=(float)Number(eq,equipment,"G"+row,0,100000);
-                    item.CritMultiplier=(float)Number(eq,equipment,"H"+row,0,5);item.Movement=(float)Number(eq,equipment,"I"+row,-3,3);
-                    double stage=Number(eq,equipment,"W"+row,0,4);if(stage!=Math.Truncate(stage))throw new InvalidOperationException(equipment+"!W"+row+"：价值阶段须为整数");item.Stage=(int)stage;
-                }
+                ApplyPersonalEquipment(archive,rules);
                 const string economy="07a 经营参数";
                 var eco=BattleBalanceImporter.Section(archive,economy,6,15,"ACDG");
                 Header(eco,economy,"A6","参数ID");Header(eco,economy,"C6","值");Header(eco,economy,"D6","类型");Header(eco,economy,"G6","启用");
@@ -653,31 +712,8 @@ namespace BaseConquest.Editor
                     double weight=Number(pool,qualityPool,"D"+row,0,100);rules.DropQuality[index]=weight/100;totalQuality+=weight;
                 }
                 if(Math.Abs(totalQuality-100)>1e-8)throw new InvalidOperationException(qualityPool+"!D14:D19：品质概率合计必须为100");
+                ApplyEquipmentPrices(archive,rules);
                 const string prices="05c 装备价格";
-                var values=BattleBalanceImporter.Section(archive,prices,26,31,"ABCDE");
-                Header(values,prices,"A26","装备阶段");Header(values,prices,"B26","武器基础价值");Header(values,prices,"C26","头盔基础价值");Header(values,prices,"D26","护甲基础价值");Header(values,prices,"E26","饰品基础价值");
-                for(int stage=0;stage<5;stage++)
-                {
-                    int row=stage+27;
-                    Number(values,prices,"A"+row,stage,stage);
-                    var targets=new[]{rules.WeaponValues,rules.HelmetValues,rules.ArmorValues,rules.AccessoryValues};
-                    for(int col=0;col<targets.Length;col++)
-                    {
-                        string address=((char)('B'+col))+row.ToString(CultureInfo.InvariantCulture);
-                        double value=Number(values,prices,address,1,1000000);
-                        if(value!=Math.Truncate(value))throw new InvalidOperationException(prices+"!"+address+"：基础价值须为整数");
-                        targets[col][stage]=(int)value;
-                    }
-                }
-                var qualityValues=BattleBalanceImporter.Section(archive,prices,34,40,"AB");
-                Header(qualityValues,prices,"A34","品质ID");Header(qualityValues,prices,"B34","价值倍率");seen.Clear();
-                for(int row=35;row<=40;row++)
-                {
-                    string id=Need(qualityValues,prices,"A"+row);
-                    int index=Array.IndexOf(new[]{"quality_0","quality_1","quality_2","quality_3","quality_4","quality_5"},id);
-                    if(index<0||!seen.Add(id))throw new InvalidOperationException(prices+"!A"+row+"：品质ID无效或重复");
-                    rules.QualityValue[index]=Number(qualityValues,prices,"B"+row,.0001,100);
-                }
                 var goods=BattleBalanceImporter.Section(archive,prices,43,51,"ABC");
                 Header(goods,prices,"A43","商品价值ID");Header(goods,prices,"B43","基础价值");Header(goods,prices,"C43","单位");
                 var goodsKeys=new Dictionary<string,(string unit,Action<int> apply)>{

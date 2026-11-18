@@ -31,17 +31,35 @@ namespace BaseConquest.Editor
     public static class CoreBalanceImporter
     {
         public const string WorkbookPath="../策划/DEMO/DEMO核心数值表.xlsx";
+        private const string EquipmentPatch = "EquipmentPatch";
+        private const string CorePatch = "SixSheetPatch";
+        private static string SourcePath(string output,bool equipmentOnly)
+            =>Path.ChangeExtension(output,equipmentOnly?"equipment-source.json":"core-source.json");
+        private static string EffectiveHash(string workbookHash,string baselineHash,bool equipmentOnly)
+            =>PlanningBalanceImporter.Hash(Encoding.UTF8.GetBytes((equipmentOnly?"EquipmentWorkbook/v1\n":"CoreWorkbook/v1\n")+workbookHash+"\n"+baselineHash));
+        private static RpgRules ReadTables(string workbook,RpgRules baseline,bool equipmentOnly)
+            =>equipmentOnly?DemoBalanceTableReader.ReadEquipmentTables(workbook,baseline):DemoBalanceTableReader.ReadCoreTables(workbook,baseline);
+
         private sealed class Difference
         {
             public string Path,Pointer,Sheet;
             public object Before,After;
         }
 
-        private static Dictionary<string,string> Allowed(RpgRules before)
+        private static Dictionary<string,string> Allowed(RpgRules before,bool equipmentOnly)
         {
             var allowed=new Dictionary<string,string>(StringComparer.Ordinal);
             void Fields(string sheet,string prefix,params string[] names){foreach(string name in names)allowed.Add(prefix+"/"+name,sheet);}
             void Array(string sheet,string name,int count){for(int i=0;i<count;i++)allowed.Add("/"+name+"/"+i,sheet);}
+            if(equipmentOnly)
+            {
+                for(int i=0;i<before.Equipment.Count;i++)
+                    Fields("05a","/Equipment/"+i,"Damage","Health","Defense","CritMultiplier","Movement","Stage");
+                foreach(string name in new[]{"WeaponValues","HelmetValues","ArmorValues","AccessoryValues"})
+                    Array("05c",name,5);
+                Array("05c","QualityValue",6);
+                return allowed;
+            }
             Fields("02a","","BuyFactor","SellFactor","ArmorK","ArmorCap","OpeningSupplyWearVersion","OpeningReturnedWear","OpeningLostWear","CriticalMultiplier","BaseInterval","MinimumInterval","ArrowSpeed","HeightAdvantage","HealThreshold","WeaponAttackScale","AttackEquipmentScale","HealthEquipmentScale","DefenseEquipmentScale","AwakenedChance","EnemyLeaderDeath","SweepLossAtParity","SweepSecondsAtParity","SweepMinimumSeconds","SoldierDeathBase","SoldierDeathSensitivity","HideoutEnemyCount");
             var ids=new HashSet<string>(from category in new[]{"soldier","captain_normal","captain_awakened"} from profession in Enumerable.Range(0,3) select RpgRules.Template(category,profession));
             for(int i=0;i<before.Templates.Count;i++)if(ids.Contains(before.Templates[i].Id))Fields("03b","/Templates/"+i,"Health","Attack","Defense");
@@ -76,25 +94,25 @@ namespace BaseConquest.Editor
                 Compare(field.GetValue(before),field.GetValue(after),path.Length==0?field.Name:path+"."+field.Name,pointer+"/"+EscapePointer(field.Name),differences);
         }
 
-        private static List<Difference> CheckedDifferences(RpgRules before,RpgRules after)
+        private static List<Difference> CheckedDifferences(RpgRules before,RpgRules after,bool equipmentOnly)
         {
-            if(before==null||after==null)throw new InvalidOperationException("六页差异检查缺少规则");
-            var allowed=Allowed(before);var differences=new List<Difference>();Compare(before,after,"","",differences);
+            if(before==null||after==null)throw new InvalidOperationException("局部导入差异检查缺少规则");
+            var allowed=Allowed(before,equipmentOnly);var differences=new List<Difference>();Compare(before,after,"","",differences);
             foreach(var change in differences)
             {
-                if(!allowed.TryGetValue(change.Pointer,out change.Sheet))throw new InvalidOperationException("六页导入越界："+change.Path+" 不属于六页已接入字段，原配置保留");
+                if(!allowed.TryGetValue(change.Pointer,out change.Sheet))throw new InvalidOperationException("局部导入越界："+change.Path+" 不属于本次可更新字段");
             }
             return differences;
         }
         private static string Display(object value)=>value==null?"null":Convert.ToString(value,CultureInfo.InvariantCulture);
-        public static string[] Changes(RpgRules before,RpgRules after)=>CheckedDifferences(before,after).Select(c=>c.Sheet+" · "+c.Path+"："+Display(c.Before)+" → "+Display(c.After)).ToArray();
+        public static string[] Changes(RpgRules before,RpgRules after,bool equipmentOnly=false)=>CheckedDifferences(before,after,equipmentOnly).Select(c=>c.Sheet+" · "+c.Path+"："+Display(c.Before)+" → "+Display(c.After)).ToArray();
 
-        public static string PatchJson(string baselineJson,DemoBalancePackage before,DemoBalancePackage after,Func<DemoBalancePackage,string> serialize,Func<string,DemoBalancePackage> deserialize)
+        public static string PatchJson(string baselineJson,DemoBalancePackage before,DemoBalancePackage after,Func<DemoBalancePackage,string> serialize,Func<string,DemoBalancePackage> deserialize,bool equipmentOnly=false)
         {
-            if(before==null||after==null||before.Version!=after.Version)throw new InvalidOperationException("六页导入不能更改快照版本");
+            if(before==null||after==null||before.Version!=after.Version)throw new InvalidOperationException("局部导入不能更改快照版本");
             var decoded=deserialize(baselineJson.TrimStart('\ufeff'));
             if(decoded==null||serialize(decoded)!=serialize(before))throw new InvalidOperationException("局部导入基底与原JSON不一致");
-            var differences=CheckedDifferences(before.Rules,after.Rules);after.Validate();
+            var differences=CheckedDifferences(before.Rules,after.Rules,equipmentOnly);after.Validate();
             var original=CoreJsonSpans.Parse(baselineJson);string generatedJson=serialize(after);var generated=CoreJsonSpans.Parse(generatedJson);
             var pointers=differences.Select(c=>"/Rules"+c.Pointer).ToList();
             if(before.WorkbookSha256!=after.WorkbookSha256)pointers.Add("/WorkbookSha256");
@@ -112,29 +130,31 @@ namespace BaseConquest.Editor
             return json;
         }
 
-        public static CoreBalanceImport Read(string workbookPath,string seedPath,string outputPath,Func<string,DemoBalancePackage> deserializePackage,Func<string,BaseScenarioDocument> deserializeSeed)
+        public static CoreBalanceImport Read(string workbookPath,string seedPath,string outputPath,Func<string,DemoBalancePackage> deserializePackage,Func<string,BaseScenarioDocument> deserializeSeed,bool equipmentOnly=false)
         {
             string workbook=Path.GetFullPath(workbookPath),seed=Path.GetFullPath(seedPath),output=Path.GetFullPath(outputPath);
-            if(!File.Exists(output))throw new InvalidOperationException("请先提供当前有效的Demo数值快照；六页表不从默认值生成其他规则");
+            if(!File.Exists(output))throw new InvalidOperationException("请先提供当前有效的Demo数值快照");
             byte[] workbookBytes=File.ReadAllBytes(workbook),baselineBytes=File.ReadAllBytes(output),seedBytes=File.ReadAllBytes(seed);
             string workbookHash=PlanningBalanceImporter.Hash(workbookBytes),baselineHash=PlanningBalanceImporter.Hash(baselineBytes),seedHash=PlanningBalanceImporter.Hash(seedBytes);
             string baselineJson=Encoding.UTF8.GetString(baselineBytes),seedJson=Encoding.UTF8.GetString(seedBytes).TrimStart('\ufeff');
             var baseline=deserializePackage(baselineJson.TrimStart('\ufeff'));if(baseline==null)throw new InvalidOperationException("当前Demo数值快照为空");baseline.Validate();
-            var rules=DemoBalanceTableReader.ReadCoreTables(workbook,baseline.Rules);
+            var rules=ReadTables(workbook,baseline.Rules,equipmentOnly);
             if(PlanningBalanceImporter.Hash(File.ReadAllBytes(workbook))!=workbookHash||PlanningBalanceImporter.Hash(File.ReadAllBytes(output))!=baselineHash||PlanningBalanceImporter.Hash(File.ReadAllBytes(seed))!=seedHash)
-                throw new InvalidOperationException("六页表、基底快照或开局基底在读取期间发生变化，请重新校验");
-            string effectiveHash=PlanningBalanceImporter.Hash(Encoding.UTF8.GetBytes("CoreWorkbook/v1\n"+workbookHash+"\n"+baselineHash));
+                throw new InvalidOperationException("配表、基底快照或开局基底在读取期间发生变化，请重新校验");
+            string effectiveHash=EffectiveHash(workbookHash,baselineHash,equipmentOnly);
             var package=new DemoBalancePackage{Version=baseline.Version,WorkbookSha256=effectiveHash,Rules=rules};package.Validate();
             BaseDemo.CreateOpening(deserializeSeed(seedJson),seedJson,true,true,true,rules).CreateState();
-            string sourcePath=Path.ChangeExtension(output,"core-source.json");
+            string sourcePath=SourcePath(output,equipmentOnly);
             string[] stages={"camp-male","camp-female","defense-male","defense-female"};
             var hashes=stages.ToDictionary(n=>n,n=>{string p=Path.GetFullPath("Assets/Resources/DemoStages/"+n+".json");return File.Exists(p)?PlanningBalanceImporter.Hash(File.ReadAllBytes(p)):null;});
-            var source=new CoreBalanceSource{CoreWorkbook=Path.GetFileName(workbook),CoreWorkbookSha256=workbookHash,BaselineSnapshotSha256=baselineHash,BaselineConfigurationHash=baseline.WorkbookSha256,EffectiveConfigurationHash=effectiveHash};
-            var changes=Changes(baseline.Rules,rules);
-            var lines=new List<string>{"六页独立导入："+workbook,"基底快照："+output,"六页表 SHA-256："+workbookHash,"基底文件 SHA-256："+baselineHash,"基底来源标识："+baseline.WorkbookSha256,"组合来源标识："+effectiveHash,"组合标识由六页表与本次基底文件共同计算，不是原30页工作簿SHA。","来源记录："+sourcePath,"六页已接入字段变更："+changes.Length+"项"};
+            var source=new CoreBalanceSource{Kind=equipmentOnly?EquipmentPatch:CorePatch,CoreWorkbook=Path.GetFileName(workbook),CoreWorkbookSha256=workbookHash,BaselineSnapshotSha256=baselineHash,BaselineConfigurationHash=baseline.WorkbookSha256,EffectiveConfigurationHash=effectiveHash};
+            var changes=Changes(baseline.Rules,rules,equipmentOnly);
+            string title=equipmentOnly?"个人装备与价格":"核心六页表";
+            var lines=new List<string>{title+"导入："+workbook,"基底快照："+output,"配表 SHA-256："+workbookHash,"基底文件 SHA-256："+baselineHash,"基底来源标识："+baseline.WorkbookSha256,"组合来源标识："+effectiveHash,"来源记录："+sourcePath,"数值字段变更："+changes.Length+"项"};
             lines.AddRange(changes);if(changes.Length==0)lines.Add("已接入数值与当前运行快照一致。");
-            lines.Add("其余规则字段保持原值；JSON中的未知字段和未改内容保留原文。数值的派生效果会随六页参数变化。");
-            lines.Add("02a试算和未接入区域仅作参考；06b工作量及二级原料数只校验，招降、奖品池、遗迹每日体力恢复未新增接入。");
+            lines.Add("其余规则字段保持原值；JSON中的未知字段和未改内容保留原文。");
+            lines.Add(equipmentOnly?"本次读取 05a 的装备数值与价值阶段，05c 的槽位基础价与品质价值倍率。"
+                :"02a试算和未接入区域仅作参考；06b工作量及二级原料数只校验，招降、奖品池、遗迹每日体力恢复未新增接入。");
             lines.Add("确认后更新数值快照、来源记录及四份阶段档；当前玩家存档不被改写。");
             lines.Add("来源记录中的组合标识须与当前快照一致；全量导入后标识不一致的记录只作历史参考。");
             string preview=string.Join("\n",lines);
@@ -146,20 +166,21 @@ namespace BaseConquest.Editor
         public static void WriteWithStages(CoreBalanceImport core)
         {
             var import=core?.Import;
-            if(import==null||Path.GetFullPath(import.OutputPath)!=Path.GetFullPath(DemoBalanceImporter.OutputPath)||import.StageHashes?.Count!=4)throw new InvalidOperationException("请先校验六页独立表与当前快照");
+            bool equipmentOnly=core?.Source?.Kind==EquipmentPatch;
+            if(import==null||Path.GetFullPath(import.OutputPath)!=Path.GetFullPath(DemoBalanceImporter.OutputPath)||import.StageHashes?.Count!=4)throw new InvalidOperationException("请先校验配表与当前快照");
             string[] stageNames={"camp-male","camp-female","defense-male","defense-female"};
-            if(stageNames.Any(n=>!import.StageHashes.ContainsKey(n))||Path.GetFullPath(core.SourcePath)!=Path.ChangeExtension(Path.GetFullPath(import.OutputPath),"core-source.json"))throw new InvalidOperationException("关联输出路径与预览不一致");
-            string expectedSource=PlanningBalanceImporter.Hash(Encoding.UTF8.GetBytes("CoreWorkbook/v1\n"+import.WorkbookHash+"\n"+import.OutputHash));
-            if(core.Source==null||core.Source.Version!=1||core.Source.Kind!="SixSheetPatch"||core.Source.CoreWorkbook!=Path.GetFileName(import.WorkbookPath)||import.Package.WorkbookSha256!=expectedSource||import.ConfigurationHash!=expectedSource||core.Source.EffectiveConfigurationHash!=expectedSource||core.Source.CoreWorkbookSha256!=import.WorkbookHash||core.Source.BaselineSnapshotSha256!=import.OutputHash||core.Source.BaselineConfigurationHash!=core.BaselinePackage.WorkbookSha256||PlanningBalanceImporter.Hash(Encoding.UTF8.GetBytes(core.BaselineJson))!=import.OutputHash)
-                throw new InvalidOperationException("六页导入来源记录与基底不一致，请重新校验");
-            var expectedRules=DemoBalanceTableReader.ReadCoreTables(import.WorkbookPath,core.BaselinePackage.Rules);
-            if(JsonUtility.ToJson(expectedRules)!=JsonUtility.ToJson(import.Package.Rules))throw new InvalidOperationException("待写规则与六页预览不一致，请重新校验");
+            if(stageNames.Any(n=>!import.StageHashes.ContainsKey(n))||Path.GetFullPath(core.SourcePath)!=SourcePath(Path.GetFullPath(import.OutputPath),equipmentOnly))throw new InvalidOperationException("关联输出路径与预览不一致");
+            string expectedSource=EffectiveHash(import.WorkbookHash,import.OutputHash,equipmentOnly);
+            if(core.Source==null||core.Source.Version!=1||core.Source.Kind!=(equipmentOnly?EquipmentPatch:CorePatch)||core.Source.CoreWorkbook!=Path.GetFileName(import.WorkbookPath)||import.Package.WorkbookSha256!=expectedSource||import.ConfigurationHash!=expectedSource||core.Source.EffectiveConfigurationHash!=expectedSource||core.Source.CoreWorkbookSha256!=import.WorkbookHash||core.Source.BaselineSnapshotSha256!=import.OutputHash||core.Source.BaselineConfigurationHash!=core.BaselinePackage.WorkbookSha256||PlanningBalanceImporter.Hash(Encoding.UTF8.GetBytes(core.BaselineJson))!=import.OutputHash)
+                throw new InvalidOperationException("局部导入来源记录与基底不一致，请重新校验");
+            var expectedRules=ReadTables(import.WorkbookPath,core.BaselinePackage.Rules,equipmentOnly);
+            if(JsonUtility.ToJson(expectedRules)!=JsonUtility.ToJson(import.Package.Rules))throw new InvalidOperationException("待写规则与预览不一致，请重新校验");
             string seedJson=File.ReadAllText(import.SeedPath,Encoding.UTF8).TrimStart('\ufeff');
-            string Serialize(DemoBalancePackage p)=>PatchJson(core.BaselineJson,core.BaselinePackage,p,x=>JsonUtility.ToJson(x,true),JsonUtility.FromJson<DemoBalancePackage>);
+            string Serialize(DemoBalancePackage p)=>PatchJson(core.BaselineJson,core.BaselinePackage,p,x=>JsonUtility.ToJson(x,true),JsonUtility.FromJson<DemoBalancePackage>,equipmentOnly);
             string configJson=Serialize(import.Package);
             Dictionary<string,string> stages;
             try{stages=DemoStageSaveTools.Generate(seedJson,import.Package.Rules,import.ConfigurationHash);}
-            catch(Exception error){throw new InvalidOperationException("四份阶段档无法按当前六页参数生成："+error.Message+"。原配置与阶段档保留。",error);}
+            catch(Exception error){throw new InvalidOperationException("四份阶段档无法按当前参数生成："+error.Message+"。原配置与阶段档保留。",error);}
             if(stages.Count!=4||import.StageHashes.Keys.Any(k=>!stages.ContainsKey(k)))throw new InvalidOperationException("阶段档生成不完整");
             var contents=new Dictionary<string,string>();var expected=new Dictionary<string,string>();
             foreach(var pair in import.StageHashes)
@@ -182,43 +203,56 @@ namespace BaseConquest.Editor
         private string workbookPath,error="";
         private CoreBalanceImport imported;
         private Vector2 scroll;
+        [SerializeField] private bool equipmentOnly;
         [MenuItem("SLG/其他工具/导入/Demo核心六页表（局部覆盖）")]
-        public static void Open()
+        public static void Open()=>Open(false);
+
+        [MenuItem("SLG/其他工具/导入/Demo个人装备与价格（局部覆盖）")]
+        public static void OpenEquipment()=>Open(true);
+
+        private static void Open(bool equipmentOnly)
         {
-            var window=GetWindow<CoreBalanceWindow>("Demo核心六页表");window.workbookPath=Path.GetFullPath(CoreBalanceImporter.WorkbookPath);window.minSize=new Vector2(680,480);window.Show();
+            var window=GetWindow<CoreBalanceWindow>(equipmentOnly?"Demo个人装备与价格":"Demo核心六页表");
+            window.equipmentOnly=equipmentOnly;
+            window.workbookPath=Path.GetFullPath(equipmentOnly?DemoBalanceImporter.WorkbookPath:CoreBalanceImporter.WorkbookPath);
+            window.imported=null;
+            window.error="";
+            window.minSize=new Vector2(680,480);
+            window.Show();
         }
         private void OnGUI()
         {
-            EditorGUILayout.HelpBox("以当前Demo数值快照为基底，只覆盖六页已接入字段。先校验差异，确认后统一更新快照、来源记录和四份阶段档。",MessageType.Info);
+            string scope=equipmentOnly?"05a 装备属性与价值阶段、05c 装备基础价与品质倍率":"六页已接入字段";
+            EditorGUILayout.HelpBox("以当前Demo数值快照为基底，可更新"+scope+"。确认后更新快照、来源记录与四份阶段档。",MessageType.Info);
             using(new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode||EditorApplication.isCompiling||EditorApplication.isUpdating))
             {
                 using(new EditorGUILayout.HorizontalScope())
                 {
-                    string next=EditorGUILayout.TextField("独立六页表",workbookPath);
+                    string next=EditorGUILayout.TextField(equipmentOnly?"Demo数值配置表":"独立六页表",workbookPath);
                     if(next!=workbookPath){workbookPath=next;imported=null;}
                     if(GUILayout.Button("选择",GUILayout.Width(55)))
                     {
-                        string selected=EditorUtility.OpenFilePanel("选择Demo核心六页表",Path.GetDirectoryName(workbookPath),"xlsx");
+                        string selected=EditorUtility.OpenFilePanel(equipmentOnly?"选择Demo数值配置表":"选择Demo核心六页表",Path.GetDirectoryName(workbookPath),"xlsx");
                         if(selected!=""){workbookPath=selected;imported=null;}
                     }
                 }
-                if(GUILayout.Button("校验并预览六页差异",GUILayout.Height(28)))
+                if(GUILayout.Button("校验并预览差异",GUILayout.Height(28)))
                 {
-                    try{imported=CoreBalanceImporter.Read(workbookPath,PlanningBalanceImporter.OutputPath,DemoBalanceImporter.OutputPath,JsonUtility.FromJson<DemoBalancePackage>,JsonUtility.FromJson<BaseScenarioDocument>);error="";}
+                    try{imported=CoreBalanceImporter.Read(workbookPath,PlanningBalanceImporter.OutputPath,DemoBalanceImporter.OutputPath,JsonUtility.FromJson<DemoBalancePackage>,JsonUtility.FromJson<BaseScenarioDocument>,equipmentOnly);error="";}
                     catch(Exception exception){imported=null;error=exception.Message;}
                 }
                 if(error!="")EditorGUILayout.HelpBox(error,MessageType.Error);
                 scroll=EditorGUILayout.BeginScrollView(scroll);
                 if(imported!=null)EditorGUILayout.LabelField(imported.Preview,EditorStyles.wordWrappedLabel);
                 EditorGUILayout.EndScrollView();
-                using(new EditorGUI.DisabledScope(imported==null))if(GUILayout.Button("确认应用六页变更并重建阶段档",GUILayout.Height(30)))
+                using(new EditorGUI.DisabledScope(imported==null))if(GUILayout.Button("确认应用并重建阶段档",GUILayout.Height(30)))
                 {
                     try
                     {
-                        if(Path.GetFullPath(workbookPath)!=imported.Import.WorkbookPath)throw new InvalidOperationException("六页表路径已改变，请重新校验");
+                        if(Path.GetFullPath(workbookPath)!=imported.Import.WorkbookPath)throw new InvalidOperationException("配表路径已改变，请重新校验");
                         CoreBalanceImporter.WriteWithStages(imported);
                         AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);imported=null;error="";
-                        Debug.Log("六页数值变更已应用，来源记录与四份阶段档已一并更新。");
+                        Debug.Log("数值变更已应用，来源记录与四份阶段档已一并更新。");
                     }
                     catch(Exception exception){error=exception.Message;}
                 }

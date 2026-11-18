@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using BaseConquest.Battle;
 using BaseConquest.Presentation;
@@ -18,7 +19,7 @@ namespace BaseConquest.Base
             {
                 RuleInfo("Demo招兵规则","普通兵满血加入基地，进入既有岗位、编队、军需与战损流程，不自动补进在外队伍。新兵"+production+"，从明日计入口粮。\n\n第1日固定每兵种 2 人（合计 6）；之后每日兵源总量=floor(B×兵源系数×(1-p))，B＝合计基准 12，在日初按全体实际兵力算一次，再把总量随机分到剑士／弓兵／骑兵三种（可能三个同兵种，也可能缺某个兵种）。只要兵力不超过基准的 150%（12 人基准就是 18 人），当天至少保 1 人可买，超过则断货。某个兵种连续两天没出现在兵源里，第三天必给 1 个。当天招走后不补货，重进或读档不刷新。\n\n单价以基准原价为原点：兵力高于基准每 1% 涨 2%（高出 50%、也就是 18 人时翻倍），低于基准每 1% 降 1%，最低打到五折。每次只能招 1 人，招完立即按新兵力重算报价；人员、日期、钱币或库存改变后旧报价失效。兵力越富余，价格越高、供应越少；打空了则货足价低，靠招兵与俘虏把人补回基准。\n\nB＝剑士 4＋弓兵 4＋骑兵 4＝合计 12，基础价沿用当前快照。p是双方共用的普通兵即死率，N是三种普通兵的合计，包含基地与所有外出队伍，同一士兵只计一次；编队不影响概率，只影响战术。出征调岗不会降低N或全军口粮；只有真实死亡、招募／收编等人员变化才改变兵力。",back);return;
             }
-            RuleInfo(BaseScriptNames.Town+"交易与招募规则","交易摊位买卖粮草、原料和两级剑／弓／甲。卖出价低于买入价，价格固定；仅可出售库存中未被军需配额锁定的部分。出售由商人单独回收，不增加今日可购数量。\n\n商品与三种普通兵源每天限量补满；仅在经营日过夜后刷新，重复进出、查看页面和存读档均不补货。买卖与招募不推进日期。\n\n新募士兵满血加入基地普通兵源，按正常单位参与编队、军需、伤亡与岗位管理，不自动追加到在外队伍，也不带劝降的黄色姓名。招募当天即可按现有策略排班生产。今天的口粮已经结清，不重复扣粮，新增人员从明天开始计入口粮；今日缺粮效果不会被购物重算。\n\n招募确定成功并消耗钱币；难度中的劝降概率用于俘虏，不影响付费招募。本版先接普通兵，居民、队长雇佣及动态物价后续再做。",back);
+            RuleInfo(BaseScriptNames.Town+"交易与招募规则","交易摊位买卖粮草、原料和两级剑／弓／甲。卖出价低于买入价，价格固定；仅可出售库存中未被军需配额锁定的部分。出售由商人单独回收，不增加今日可购数量。\n\n商品与三种普通兵源每天限量补满；仅在经营日过夜后刷新，重复进出、查看页面和存读档均不补货。买卖与招募不推进日期。\n\n新募士兵满血加入基地普通兵源，按正常单位参与编队、军需、伤亡与岗位管理，不自动追加到在外队伍，也不带劝降姓名标记。招募当天即可按现有策略排班生产。今天的口粮已经结清，不重复扣粮，新增人员从明天开始计入口粮；今日缺粮效果不会被购物重算。\n\n招募确定成功并消耗钱币；难度中的劝降概率用于俘虏，不影响付费招募。本版先接普通兵，居民、队长雇佣及动态物价后续再做。",back);
         }
         private const string TradeViewKey="town-trade";
         private enum TradeVendor { Merchant, Smith, Recruiter }
@@ -28,6 +29,7 @@ namespace BaseConquest.Base
         private string tradePerson="",tradeSelection="",tradeSale="",tradeFeedback="";
         private int tradeQuantity=1,tradeRosterPage;
         private bool tradeBuying=true;
+        private readonly Dictionary<string,(Button Button,Color Fill,bool SoldOut)> tradeOffers = new();
 
         private void OpenTownMarket()=>OpenTownChat("town_peddler");
 
@@ -105,16 +107,37 @@ namespace BaseConquest.Base
             return line;
         }
 
-        private void TradeOffer(Transform list,string id,string title,InventoryItemIcons.Icon? itemIcon=null)
+        private void TradeOffer(Transform list,string id,string title,InventoryItemIcons.Icon? itemIcon=null,bool soldOut=false)
         {
-            var button = TradeButton(list,title,()=>{
-                tradeSelection=id;
-                tradeSale=tradeFeedback="";
-                tradeQuantity=1;
-                if (tradeShelf == TradeShelf.Goods) tradeBuying = true;
-                RenderTownTrade();
-            }, selected:tradeSale==""&&tradeSelection==id);
+            var button = TradeButton(list,title,()=>SelectTradeOffer(id));
+            tradeOffers[id] = (button,button.targetGraphic.color,soldOut);
+            StyleTradeOffer(id,tradeSale==""&&tradeSelection==id);
             InventoryItemIcons.LeadLabel(button.GetComponentInChildren<Text>(true), itemIcon ?? InventoryItemIcons.Load(id), 26);
+        }
+
+        private void StyleTradeOffer(string id,bool selected)
+        {
+            if (!tradeOffers.TryGetValue(id,out var row)) return;
+            var theme = DemoUiTheme.Current;
+            Color fill = selected ? theme.Gold : row.Fill;
+            row.Button.targetGraphic.color = row.SoldOut ? Color.Lerp(fill,theme.Muted,.5f) : fill;
+        }
+
+        private void SelectTradeOffer(string id)
+        {
+            string previous = tradeSelection;
+            bool fromBag = tradeSale != "";
+            tradeSelection = id;
+            tradeSale = tradeFeedback = "";
+            tradeQuantity = 1;
+            if (tradeShelf == TradeShelf.Goods) tradeBuying = true;
+            if (!fromBag && (tradeShelf is TradeShelf.Goods or TradeShelf.Equipment or TradeShelf.Reforge))
+            {
+                StyleTradeOffer(previous,false);
+                StyleTradeOffer(id,true);
+                RefreshTradeDetails();
+            }
+            else RenderTownTrade();
         }
 
         private void TradeCommit(Func<BaseState, bool> action, string message, bool recruitment = false)
@@ -156,14 +179,26 @@ namespace BaseConquest.Base
             var people=BaseAdventure.Members(state).Where(l=>BasePartyInventory.AccessibleLeader(state,l)).ToArray();
             var person=people.FirstOrDefault(l=>l.Id==tradePerson)??people.FirstOrDefault();
             tradePerson=person?.Id??"";
-            var sameView=keepScroll&&panel!=null&&panelViewKey==TradeViewKey;
-            float listPosition=sameView?Ui<ScrollRect>(panel,"OfferList").verticalNormalizedPosition:1;
-            float bagPosition=sameView?Ui<ScrollRect>(panel,"RightBody").verticalNormalizedPosition:1;
-            var view=OpenScenePanel("TownTrade",TradeViewKey);
+            bool sameView=PanelOpen&&panel!=null&&panelViewKey==TradeViewKey;
+            var view=sameView?panel:OpenScenePanel("TownTrade",TradeViewKey);
+            var offers=Ui<ScrollRect>(view,"OfferList");
+            var details=Ui<ScrollRect>(view,"Details");
+            var right=Ui<ScrollRect>(view,"RightBody");
+            var rightTabs=Ui<RectTransform>(view,"RightTabs");
+            float listPosition=sameView&&keepScroll?offers.verticalNormalizedPosition:1;
+            float bagPosition=sameView&&keepScroll?right.verticalNormalizedPosition:1;
+            if(sameView)
+            {
+                ClearPanelChildren(offers.content);
+                ClearPanelChildren(details.content);
+                ClearPanelChildren(right.content);
+                ClearPanelChildren(rightTabs);
+            }
+            tradeOffers.Clear();
             var vendor=tradeVendor==TradeVendor.Recruiter?BaseScriptNames.Recruiter
                 :tradeVendor==TradeVendor.Smith?BaseScriptNames.Blacksmith:BaseScriptNames.Peddler;
             string portrait=tradeVendor==TradeVendor.Recruiter?"recruiter":tradeVendor==TradeVendor.Smith?"blacksmith":"merchant";
-            string shelfTitle=tradeVendor==TradeVendor.Smith&&tradeShelf==TradeShelf.Equipment?"商品":TradeShelfName(tradeShelf);
+            string shelfTitle=CurrentTradeShelfTitle();
             Ui<Text>(view,"Title").text=BaseScriptNames.Town+" · "+shelfTitle;
             Ui<Text>(view,"Wallet").text="钱币 "+state.Inventory.Coins;
             Ui<Text>(view,"SellerName").text=vendor;
@@ -175,11 +210,9 @@ namespace BaseConquest.Base
             BindTradeButton(Ui<Button>(view,"Close"),"关闭",()=>{if(!owner.Busy)ClosePanel();});
 
             Ui<RectTransform>(view,"Tabs").gameObject.SetActive(false);
-
-            var offers=Ui<ScrollRect>(view,"OfferList");
-            var details=Ui<ScrollRect>(view,"Details");
-            var right=Ui<ScrollRect>(view,"RightBody");
-            var rightTabs=Ui<RectTransform>(view,"RightTabs");
+            bool showParty=tradeShelf!=TradeShelf.Intel;
+            rightTabs.gameObject.SetActive(showParty);
+            right.gameObject.SetActive(showParty);
             if(tradeShelf==TradeShelf.Recruits)
             {
                 RenderRecruitTrade(offers.content,details.content,rightTabs,right.content);
@@ -187,12 +220,7 @@ namespace BaseConquest.Base
             else
             {
                 RenderTradeShelf(offers.content,details.content,person);
-                if(tradeShelf==TradeShelf.Intel)
-                {
-                    rightTabs.gameObject.SetActive(false);
-                    right.gameObject.SetActive(false);
-                }
-                else
+                if(showParty)
                 {
                     BuildInventoryPersonTabs(rightTabs,people,tradePerson,member=>{
                         tradePerson=member.Id;
@@ -213,6 +241,21 @@ namespace BaseConquest.Base
             Canvas.ForceUpdateCanvases();
             offers.verticalNormalizedPosition=listPosition;
             right.verticalNormalizedPosition=bagPosition;
+            details.verticalNormalizedPosition=1;
+        }
+
+        private string CurrentTradeShelfTitle()
+            => tradeVendor==TradeVendor.Smith&&tradeShelf==TradeShelf.Equipment?"商品":TradeShelfName(tradeShelf);
+
+        private void RefreshTradeDetails()
+        {
+            var details=Ui<ScrollRect>(panel,"Details");
+            ClearPanelChildren(details.content);
+            var recipient=owner.State.Leaders.FirstOrDefault(l=>l.Id==tradePerson);
+            RenderTradeShelf(null,details.content,recipient);
+            Ui<Text>(panel,"SellerSpeech").text=tradeShelf==TradeShelf.Reforge||tradeFeedback==""?CurrentTradeShelfTitle():tradeFeedback;
+            details.StopMovement();
+            details.verticalNormalizedPosition=1;
         }
 
         private void ReturnToTradeDialogue()
@@ -263,14 +306,14 @@ namespace BaseConquest.Base
         {
             tradeQuantity=maximum==0?0:Mathf.Clamp(tradeQuantity,1,maximum);
             var controls=CloneSceneUi("TradeQuantity",parent);
-            TradeButton(controls,"−",()=>{tradeQuantity--;RenderTownTrade();},tradeQuantity>1,"TradeTab");
+            TradeButton(controls,"−",()=>{tradeQuantity--;RefreshTradeDetails();},tradeQuantity>1,"TradeTab");
             TradeLine(controls,tradeQuantity.ToString());
-            TradeButton(controls,"＋",()=>{tradeQuantity++;RenderTownTrade();},tradeQuantity<maximum,"TradeTab");
-            TradeButton(controls,"最多",()=>{tradeQuantity=maximum;RenderTownTrade();},tradeQuantity<maximum,"TradeTab");
+            TradeButton(controls,"＋",()=>{tradeQuantity++;RefreshTradeDetails();},tradeQuantity<maximum,"TradeTab");
+            TradeButton(controls,"最多",()=>{tradeQuantity=maximum;RefreshTradeDetails();},tradeQuantity<maximum,"TradeTab");
         }
 
         private void TradeStockOffer(Transform offers,string id,string name,int price,int remaining)
-            => TradeOffer(offers,id,name+" · "+price+"币 · 余 "+remaining);
+            => TradeOffer(offers,id,name+" · "+price+"币",soldOut:remaining==0);
 
         private string PurchaseProblem(int remaining,int price,string capacityProblem)
             => remaining==0 ? "今日售罄" : owner.State.Inventory.Coins<price ? "钱币不足" : capacityProblem;
@@ -314,10 +357,13 @@ namespace BaseConquest.Base
             var good=s.Town.Goods.FirstOrDefault(g=>g.Id==tradeSelection)??s.Town.Goods.FirstOrDefault();
             if(tradeSelection!=BaseEquipmentCrafting.Stone && supply == null)
                 tradeSelection=good?.Id??BaseEquipmentCrafting.Stone;
-            foreach(var g in s.Town.Goods)
-                TradeStockOffer(offers,g.Id,BaseTown.Name(g.Id),BaseTown.TradePrice(s,g.Id,true),g.Remaining);
-            RenderStoneOffer(offers);
-            RenderSupplyOffers(offers);
+            if(offers!=null)
+            {
+                foreach(var g in s.Town.Goods)
+                    TradeStockOffer(offers,g.Id,BaseTown.Name(g.Id),BaseTown.TradePrice(s,g.Id,true),g.Remaining);
+                RenderStoneOffer(offers);
+                RenderSupplyOffers(offers);
+            }
             if(details==null)return;
             if (supply != null)
             {
@@ -338,7 +384,7 @@ namespace BaseConquest.Base
                     verb,(next,count)=>BaseTown.Confirm(next,new BaseTownQuote(id,buy,false,count,checked(count*price),s,stamp)),
                     "已"+verb+" "+name, buy ? PurchaseProblem(good.Remaining,price,"库存已满") : available==0 ? "当前无可卖库存" : "钱币已达上限");
                 TradeLine(details,name+" · 库存 "+BaseTown.Owned(s,id)+" · 可卖 "+available);
-                TradeButton(details,buy ? "卖出" : "买入",()=>{tradeBuying=!buy;tradeQuantity=1;RenderTownTrade();});
+                TradeButton(details,buy ? "卖出" : "买入",()=>{tradeBuying=!buy;tradeQuantity=1;RefreshTradeDetails();});
             }
             TradeButton(details,"规则 i",()=>TownRules(()=>RenderTownTrade(false)));
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using BaseConquest.Battle;
 namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
@@ -46,7 +47,7 @@ namespace BaseConquest.Base
         private void RecruitPrisoner(string id,Action back)
         {
             if(!BaseDemoStories.ControllerDialogue(owner.State,id)){owner.Change(s=>{if(!BaseAftermath.Decide(s,id,"recruit"))throw new InvalidOperationException("无法安置队长，俘虏仍保留");},"已尝试招降");back();return;}
-            string galan=BaseScriptNames.Galan,portrait=BaseScriptNames.Portrait("galan");
+            string galan=UnitDisplayNames.Mark(BaseScriptNames.Galan,true),portrait=BaseScriptNames.Portrait("galan");
             NpcDialogue(new[]{
                 new NpcLine(galan,portrait,"我来找失散的族人。那两个人能活着出去，我出了力。"),
                 new NpcLine("你","","你护了他们，也把他们推出来挡刀。这笔账我记着。",true),

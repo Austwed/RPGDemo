@@ -49,6 +49,17 @@ namespace BaseConquest.Base
             return panel = CloneSceneUi(key, modal);
         }
 
+        private static void ClearPanelChildren(Transform node)
+        {
+            for (int index = node.childCount - 1; index >= 0; index--)
+            {
+                var child = node.GetChild(index);
+                child.gameObject.SetActive(false);
+                child.SetParent(null, false);
+                UiPrefabBinding.DestroyView(child.gameObject);
+            }
+        }
+
         private void ResetScenePanel(string viewKey)
         {
             CloseResourcePopover();

@@ -62,7 +62,7 @@ namespace BaseConquest.Battle
             Root.SetActive(show);Description="";if(!show)return;
             bool guard=unit.Role==PrototypeRole.Leader&&run.Model.CommanderDoctrine;
             HighlightedRange=2;
-            Description="范围："+run.Battle.UnitName(run.Battle.Soldier(unit.Id-1))+"\n蓝：武器射程 "+(unit.Reach*2).ToString("0.#")+"细格（高度／墙体遮挡处截断，高处最多＋6细格）";
+            Description="范围："+run.Battle.UnitName(run.Battle.Soldier(unit.Id-1))+"\n蓝：攻击距离 "+(unit.Reach*2).ToString("0.#")+"细格（高度／墙体遮挡处截断，高处最多＋6细格）";
             if(guard)Description+="\n绿：驻守 "+(unit.GuardRadius*2).ToString("0.#")+"；橙：威胁 "+(unit.ThreatRadius*2).ToString("0.#")+"；红：主动攻击 "+(unit.CommandRadius*2).ToString("0.#")+"细格\n士兵围绕队长，守护／驻守队长围绕驻守点。策略："+BattleSimulation.StrategyName((SquadStrategy)(int)unit.Strategy);
             string key="rt|"+unit.Id+"|"+unit.Position.X+"|"+unit.Position.Z+"|"+unit.Anchor.X+"|"+unit.Anchor.Z+"|"+guard+"|"+unit.Strategy+"|"+unit.Order+"|"+unit.Reach+"|"+unit.Cell+"|"+run.Battle.Vision.Revision+"|"+run.Battle.TerrainRevision+"|"+run.Tactics.Revision;
             if(geometryKey==key)return;geometryKey=key;

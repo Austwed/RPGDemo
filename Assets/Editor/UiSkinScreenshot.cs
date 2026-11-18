@@ -603,13 +603,27 @@ namespace BaseConquest.Editor
                     if (((BaseBattlePreparation)Field(H, "battleDraft")).SupplyGrade != 1)
                         throw new InvalidOperationException("一级军需未作为整场档位保存");
                     var teamRows = preparation.Find("Teams");
-                    ClickHudButton(teamRows.GetChild(1));
-                    preparation = RequirePanel("BattlePreparation");
-                    teamRows = preparation.Find("Teams");
+                    var secondTeam = teamRows.GetChild(1);
+                    ClickHudButton(secondTeam);
+                    if (RequirePanel("BattlePreparation") != preparation || teamRows.GetChild(1) != secondTeam)
+                        throw new InvalidOperationException("点击队长时整页或队长行被重建");
                     if (teamRows.GetChild(1).Find("Portrait").GetComponent<Image>().color != DemoUiTheme.Current.Gold)
                         throw new InvalidOperationException("点击队长整行后，分配目标没有变为金色");
                     ClickHudButton(teamRows.GetChild(0));
-                    preparation = RequirePanel("BattlePreparation");
+                    var firstTeam = teamRows.GetChild(0);
+                    var role = new[] { "Melee", "Ranged", "Cavalry" }.FirstOrDefault(kind =>
+                        firstTeam.Find(kind + "/Minus").GetComponent<Button>().interactable);
+                    if (role != null)
+                    {
+                        var field = firstTeam.Find(role + "/Input").GetComponent<InputField>();
+                        string initial = field.text;
+                        Press(firstTeam, role + "/Minus");
+                        if (RequirePanel("BattlePreparation") != preparation || field.text == initial)
+                            throw new InvalidOperationException("备战减兵未原位更新");
+                        Press(firstTeam, role + "/Plus");
+                        if (RequirePanel("BattlePreparation") != preparation || field.text != initial)
+                            throw new InvalidOperationException("备战连续加减没有保留原数量控件");
+                    }
                     var guide = (Graphic)Field(H, "questArrow");
                     var continueButton = (RectTransform)preparation.Find("Continue");
                     if (((RectTransform)Field(H, "questBar")).gameObject.activeSelf || !guide.gameObject.activeInHierarchy ||
@@ -1254,10 +1268,12 @@ namespace BaseConquest.Editor
             Canvas.ForceUpdateCanvases();
             typeof(BaseHud).GetMethod("RefreshQuestCue", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(H, null);
             Capture("ui-village-farm-compact");
+            var villagePlus = villageActions.Find("VillageFarmWorkers/Plus");
             for (int i = 0; i < 2; i++)
             {
-                var actions = RequirePanel("FacilityPanel").Find("Left/List").GetComponent<ScrollRect>().content;
-                Press(actions, "VillageFarmWorkers/Plus");
+                Press(villageActions, "VillageFarmWorkers/Plus");
+                if (RequirePanel("FacilityPanel") != villageFarm || villageActions.Find("VillageFarmWorkers/Plus") != villagePlus)
+                    throw new InvalidOperationException("白桦村加派工人时重建了面板");
             }
             Click("确认方案");
             H.ContinueDialogue();
@@ -1556,12 +1572,14 @@ namespace BaseConquest.Editor
                 bool stone = id == BaseEquipmentCrafting.Stone, wine = id == BaseWine.Strong || id == BaseWine.Sake;
                 string name = wine || stone ? state.Backpack.Catalog.Single(item => item.Id == id).Name : BaseTown.Name(id);
                 int price = stone ? BaseEquipmentCrafting.BuyPrice(state) : wine ? BaseProgressSupplies.Price(state, id) : BaseTown.TradePrice(state, id, true);
-                var offer = RequirePanel("TownTrade").Find("OfferList").GetComponentsInChildren<Button>()
-                    .Single(button => button.GetComponentInChildren<Text>().text.StartsWith(name + " · ", StringComparison.Ordinal));
-                if (!offer.GetComponentInChildren<Text>().text.Contains(price + "币"))
-                    throw new InvalidOperationException(name + "的货架行没有显示单价");
-                offer.onClick.Invoke();
                 var shop = RequirePanel("TownTrade");
+                var offer = shop.Find("OfferList").GetComponentsInChildren<Button>()
+                    .Single(button => button.GetComponentInChildren<Text>().text.StartsWith(name + " · ", StringComparison.Ordinal));
+                if (offer.GetComponentInChildren<Text>().text != name + " · " + price + "币")
+                    throw new InvalidOperationException(name + "的货架行应只显示名称及单价");
+                offer.onClick.Invoke();
+                if (RequirePanel("TownTrade") != shop || !offer.gameObject.activeInHierarchy)
+                    throw new InvalidOperationException("切换货架商品时重建了商店或货架行");
                 var details = shop.Find("Details");
                 var label = details.GetComponentsInChildren<Text>().Single(text => text.text.StartsWith(name + " · 单价 ", StringComparison.Ordinal));
                 Button Control(string text) => details.GetComponentsInChildren<Button>()
@@ -1590,6 +1608,20 @@ namespace BaseConquest.Editor
                         controller.State.Inventory.Coins != state.Inventory.Coins - price)
                         throw new InvalidOperationException("接委托前未能在老莫处购买" + name);
                 }
+                if (id == "supply2" && state.Town.Goods.Single(good => good.Id == id).Remaining == 1)
+                {
+                    var originalFill = offer.targetGraphic.color;
+                    Click($"确认买入 · {price}币");
+                    var soldOut = RequirePanel("TownTrade").Find("OfferList").GetComponentsInChildren<Button>()
+                        .Single(button => button.GetComponentInChildren<Text>().text == name + " · " + price + "币");
+                    soldOut.onClick.Invoke();
+                    details = RequirePanel("TownTrade").Find("Details");
+                    if (!soldOut.interactable || soldOut.targetGraphic.color.grayscale >= originalFill.grayscale ||
+                        !details.GetComponentsInChildren<Text>().Any(text => text.text.StartsWith("今日剩余 0/", StringComparison.Ordinal)) ||
+                        Control("确认买入 · 0币").interactable)
+                        throw new InvalidOperationException("售罄项未变暗，或无法查看已售罄详情");
+                    Capture("ui-skin-merchant-sold-out");
+                }
             }
             Log.Add("[PASS] 接领主委托前在老莫本人旁打开商店，物资、锻造石与两种酒使用共用单价和买入控件，连续加量原位更新");
         }
@@ -1611,6 +1643,18 @@ namespace BaseConquest.Editor
         private static void VerifyTownReforge()
         {
             Approach("town_blacksmith");
+            H.OpenObject("town_blacksmith");
+            FinishDialogue();
+            Click(BaseConquest.Story.StoryText.Get("story.ui.trade.smith_goods_entry", "看看商品"));
+            var equipment = RequirePanel("TownTrade");
+            string weaponName = BasePersonalEquipment.Definition("basic_sword").Name;
+            equipment.Find("OfferList").GetComponentsInChildren<Button>().Single(button =>
+                button.GetComponentInChildren<Text>().text.StartsWith(weaponName + " · ", StringComparison.Ordinal)).onClick.Invoke();
+            var weaponDetails = equipment.Find("Details").GetComponentsInChildren<Text>();
+            if (!weaponDetails.Any(label => label.text.Contains("攻击距离")) || weaponDetails.Any(label => label.text.Contains("换装")))
+                throw new InvalidOperationException("装备商品详情应显示攻击距离和自身属性");
+            Capture("ui-skin-smith-weapon-details");
+            H.ClosePanel();
             H.OpenObject("town_blacksmith");
             FinishDialogue();
             Click(BaseConquest.Story.StoryText.Get("story.ui.trade.reforge_entry", "重铸"));
@@ -1889,12 +1933,12 @@ namespace BaseConquest.Editor
             string player = controller.State.PlayerLeaderId;
             var before = BasePartyInventory.Entries(controller.State).Select(entry => entry.Id).ToHashSet();
             ClickHudButton(InventoryCell(view, stored.Id).transform);
-            view = RequirePanel("PartyWarehouse");
+            if (RequirePanel("PartyWarehouse") != view) throw new InvalidOperationException("点物品时重建了仓库");
             var popup = RequireInventoryPopup(view, InventoryCell(view, stored.Id).transform, false);
             CaptureViewports("ui-skin-warehouse-take-popup");
             Press(popup, "QuantityDown");
-            view = RequirePanel("PartyWarehouse");
-            popup = RequireInventoryPopup(view, InventoryCell(view, stored.Id).transform, false);
+            if (RequirePanel("PartyWarehouse") != view || RequireInventoryPopup(view, InventoryCell(view, stored.Id).transform, false) != popup)
+                throw new InvalidOperationException("减少取出数量时重建了仓库或详情小窗");
             Press(popup, "Store");
             var withdrawn = BasePartyInventory.Entries(controller.State).Single(entry =>
                 !before.Contains(entry.Id) && entry.Holder == player && entry.Stack?.ItemId == BaseEquipmentCrafting.Stone);
@@ -1907,8 +1951,8 @@ namespace BaseConquest.Editor
             popup = RequireInventoryPopup(view, InventoryCell(view, withdrawn.Id).transform, true);
             Capture("ui-skin-warehouse-store-popup");
             Press(popup, "Close");
-            view = RequirePanel("PartyWarehouse");
-            if (view.Find("InventoryItemMenu") != null) throw new InvalidOperationException("关闭物品小窗没有回到仓库");
+            if (RequirePanel("PartyWarehouse") != view || view.Find("InventoryItemMenu") != null)
+                throw new InvalidOperationException("关闭物品小窗时未保留现有仓库");
             ClickHudButton(InventoryCell(view, withdrawn.Id).transform);
             ClickHudButton(InventoryCell(RequirePanel("PartyWarehouse"), withdrawn.Id).transform);
             if (BasePartyInventory.Find(controller.State, withdrawn.Id).Holder != "")
@@ -2196,14 +2240,16 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("粮田名册没有独立滚动");
             list.verticalNormalizedPosition = 1;
             int assigned = BaseEconomy.WorkersAt(controller.State, "farm");
+            var farmAdjuster = actions.Find("Melee/Plus");
             ClickHudButton(rows.First(row => row.GetComponent<Button>().interactable));
             if (BaseEconomy.WorkersAt(controller.State, "farm") != assigned)
                 throw new InvalidOperationException("点名调配未确认就写入了岗位");
             var draft = (BaseState)Field(H, "workerDraft");
             if (BaseEconomy.WorkersAt(draft, "farm") == assigned)
                 throw new InvalidOperationException("点名没有更新设施草案");
-            view = RequirePanel("FacilityPanel");
-            actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
+            if (RequirePanel("FacilityPanel") != view || farmAdjuster == null ||
+                actions.Find("Melee/Plus") != farmAdjuster || view.Find("Right/List").GetComponent<ScrollRect>() != list)
+                throw new InvalidOperationException("粮田点名时重建了窗口或固定控件");
             Press(actions, "FacilityActionRow/Cancel");
             if (BaseEconomy.WorkersAt(controller.State, "farm") != assigned ||
                 BaseEconomy.WorkersAt((BaseState)Field(H, "workerDraft"), "farm") != assigned)
@@ -2224,16 +2270,20 @@ namespace BaseConquest.Editor
             H.ClosePanel();
             Approach("barracks");
             H.OpenObject("barracks");
-            Press(RequirePanel("FacilityPanel"), "Right/Filters/Melee");
             view = RequirePanel("FacilityPanel");
+            var rangeDraft = view.Find("Left").GetComponentsInChildren<InputField>().First();
+            rangeDraft.text = "17";
+            Press(view, "Right/Filters/Melee");
+            if (RequirePanel("FacilityPanel") != view || rangeDraft == null || rangeDraft.text != "17")
+                throw new InvalidOperationException("兵营切筛选时丢失左侧范围草案");
             list = view.Find("Right/List").GetComponent<ScrollRect>();
             var soldier = list.content.Cast<RectTransform>().First(node => node.name == "PersonnelRosterRow");
             VerifyRosterRow(soldier, false);
             CaptureViewports("ui-skin-facility-barracks");
             list.verticalNormalizedPosition = 0;
             ClickHudButton(soldier);
-            view = RequirePanel("FacilityPanel");
-            if (view.Find("Right/Title").GetComponent<Text>().text != "单位详情")
+            if (RequirePanel("FacilityPanel") != view || rangeDraft == null || rangeDraft.text != "17" ||
+                view.Find("Right/Title").GetComponent<Text>().text != "单位详情")
                 throw new InvalidOperationException("兵营名册无法在右侧打开对应士兵详情");
             Press(view, "Right/Filters/Back");
             H.ClosePanel();
