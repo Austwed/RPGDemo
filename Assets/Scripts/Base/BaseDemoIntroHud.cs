@@ -193,7 +193,7 @@ namespace BaseConquest.Base
             const float height = 370;
             float shrink = panel.rect.height - height;
             panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-            foreach (string path in new[] { "Left", "Left/List", "Right", "Right/List" })
+            foreach (string path in new[] { "PortraitColumn", "Left", "Left/List", "Right", "Right/List" })
             {
                 var rect = (RectTransform)panel.Find(path);
                 rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, rect.rect.height - shrink);
@@ -202,7 +202,8 @@ namespace BaseConquest.Base
             panelFeedback.rectTransform.anchoredPosition = feedbackPosition + Vector2.up * shrink;
             questFarmTarget=null;
             var manager = BaseDemoIntro.VillageManager(id);
-            var managerLabel = FacilityText(actions,"");
+            ShowFacilityPortrait(Ui<RectTransform>(panel, "PortraitColumn"), manager.Name, "负责人", manager.Art);
+            var posts = FacilityText(actions,"");
             var foodLabel = FacilityText(actions,"");
             var smithLabel = FacilityText(actions,"");
             var rosterHeading = FacilityText(filters,"",true);
@@ -243,7 +244,7 @@ namespace BaseConquest.Base
                 introFarmDraft=Mathf.Clamp(introFarmDraft,2,4);
                 int smithWorkers=4-introFarmDraft, onsite=farm?introFarmDraft:smithWorkers;
                 int food=(int)Math.Floor(introFarmDraft*current.Rules.FarmPerWorker),need=BaseDemoIntro.VillageFood(current);
-                managerLabel.text=$"负责人 · {manager.Name}     岗位 · {onsite}/4";
+                posts.text=$"岗位 · {onsite}/4";
                 foodLabel.text=$"粮食预计 +{food} · 口粮 {need} · 净增 {(food-need):+0;-0;0}";
                 smithLabel.text=$"铁匠铺预计 {smithWorkers*current.Rules.WorkshopPerWorker:0.#} 工作点／日";
                 rosterHeading.text=$"粮田 {introFarmDraft} 人 · 铁匠铺 {smithWorkers} 人";

@@ -98,7 +98,12 @@ namespace BaseConquest.Base
                     new Vector2(256, 34), new Color(theme.Panel.r, theme.Panel.g, theme.Panel.b, .94f));
                 questBar.pivot = Vector2.up;
                 var background = questBar.GetComponent<Image>();
-                background.raycastTarget = false;
+                background.raycastTarget = true;
+                var taskLink = questBar.gameObject.GetOrAdd<Button>();
+                taskLink.targetGraphic = background;
+                taskLink.navigation = new Navigation { mode = Navigation.Mode.None };
+                theme.ApplyButtonFeedback(taskLink);
+                taskLink.onClick.AddListener(() => { if (!owner.Busy && !PanelOpen) OpenQuests(); });
                 var border = questBar.gameObject.AddComponent<Outline>();
                 border.effectColor = theme.Line;
                 border.effectDistance = new Vector2(1, -1);
@@ -117,7 +122,7 @@ namespace BaseConquest.Base
 
             var s = owner.State;
             var cue = BaseQuestLog.Cue(s);
-            bool show = !BaseBattleGateway.MainMenu && !owner.DeploymentWorldActive && cue.Id != null;
+            bool show = !BaseBattleGateway.MainMenu && !owner.DeploymentWorldActive && !owner.CampPlacementMode && cue.Id != null;
             bool hero = show && cue.Control == "hero" && heroChoiceLayer != null && heroChoiceLayer.gameObject.activeInHierarchy;
             bool showInstruction = show && !hero && !PanelOpen && !owner.ConstructionMode && !owner.HomeRebuildOverview;
             questBar.gameObject.SetActive(showInstruction);

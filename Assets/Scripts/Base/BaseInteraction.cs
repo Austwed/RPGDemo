@@ -38,7 +38,7 @@ namespace BaseConquest.Base
             double playerLevel = board.SurfaceLevel(positionX, positionY);
             if (Math.Abs(playerLevel - targetLevel) >= 1e-6 &&
                 !(lord && NearTopOfStair(board, positionX, positionY, playerLevel, targetLevel))) return false;
-            return gap <= FacingSlack || InFront(closestX - positionX, closestY - positionY, facing);
+            return target.Id == "farm" || gap <= FacingSlack || InFront(closestX - positionX, closestY - positionY, facing);
         }
         public static bool CanReach(BaseState state,BaseMapObject target)
             => state != null && CanReach(state, target, state.PlayerX, state.PlayerY, Facing);

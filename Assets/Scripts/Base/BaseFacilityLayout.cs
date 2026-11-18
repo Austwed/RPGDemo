@@ -79,6 +79,12 @@ namespace BaseConquest.Base
         public static bool Owned(BaseState s, string id) => Built(s, id) || Stored(s, id);
         public static int Count(BaseState s, string id) => BaseLayout(s)?.Objects.Count(obj => obj != null && obj.Id == id) ?? 0;
         public static bool Editable(BaseState s) => s != null && !s.Aftermath.GameOver && !s.Campaign.HasActiveBattle && !s.Muster.Parties.Any(p => p.InCombat) && !BaseSceneCombat.Active(s) && s.Campaign.Location == "base";
+        internal static bool CanOrder(BaseState s) => BaseDemoFlow.Active(s) && BaseDemoDefense.Delivered(s) &&
+            !BaseBattleLoot.Pending(s) && !BaseDemoPrologue.Village(s);
+        internal static IEnumerable<BaseFacilityDef> CampProjects(BaseState s) => Catalog.Where(def => !def.Required &&
+            (def.Id != "workshop" || BaseDemoDefense.Repaired(s, def.Id)) &&
+            (def.Id != "office" || !BaseDemo.ExperimentalManagementHidden(s) || Built(s, def.Id)) &&
+            (def.Id != "office" && def.Id != "caravan" || Owned(s, def.Id) || s.Layout.OfficeGift));
         public static bool OfficeBuilt(BaseState s) => Built(s, "office");
         private static bool Overlaps(BaseMapPlacement obj, double x, double y, double width, double height)
             => Math.Abs(obj.X - x) < (obj.Width + width) / 2 - 1e-6 && Math.Abs(obj.Y - y) < (obj.Height + height) / 2 - 1e-6;
@@ -95,16 +101,20 @@ namespace BaseConquest.Base
             if (!Snapped(x) || !Snapped(y)) return "位置需按半格吸附";
             var layout = BaseLayout(s);
             if (layout == null) return "缺少营地布局";
-            double halfW = def.Width / 2, halfH = def.Height / 2;
+            var existing = layout.Objects.FirstOrDefault(obj => obj.Id == id);
+            double halfW = (existing?.Object.BoundsWidth ?? def.Width) / 2, halfH = (existing?.Object.BoundsHeight ?? def.Height) / 2;
             if (x - halfW < -.001 || y - halfH < -.001 || x + halfW > layout.Columns + .001 || y + halfH > layout.Rows + .001) return "超出营地边界";
+            if (!string.IsNullOrEmpty(existing?.Shape) &&
+                (Math.Abs(x - halfW - Math.Round(x - halfW)) > 1e-6 || Math.Abs(y - halfH - Math.Round(y - halfH)) > 1e-6))
+                return "位置需对齐地格";
             if (Math.Abs(x - layout.SpawnX) < halfW + .5 && Math.Abs(y - layout.SpawnY) < halfH + .5) return "不能压在营地出生点";
             if (Math.Abs(x - s.PlayerX) < halfW + .5 && Math.Abs(y - s.PlayerY) < halfH + .5) return "不能压在角色身上";
             var others = layout.Objects.Where(obj => obj != null && obj.Id != id && (obj.Blocks || !obj.VisualOnly)).ToArray();
-            if (others.Any(obj => Overlaps(obj, x, y, def.Width, def.Height))) return "与其他设施或人物占地重叠";
+            if (others.Any(obj => Overlaps(obj, x, y, halfW * 2, halfH * 2))) return "与其他设施或人物占地重叠";
             var board = BaseBattlefield.Board(s, "base");
             var cells = board.Positions().Where(p => Math.Abs(p.X + .5 - x) < halfW + .5 - 1e-6 && Math.Abs(p.Z + .5 - y) < halfH + .5 - 1e-6).Select(p => board.Cell(p)).ToArray();
             if (cells.Length == 0) return "脚下没有可用地块";
-            if (cells.Any(cell => !cell.Walkable || cell.Ramp != RampAxis.None)) return "需要平整可通行地块";
+            if (cells.Any(cell => (!cell.Walkable && (cell.Terrain != TerrainKind.Building || cell.BuildingId != id)) || cell.Ramp != RampAxis.None)) return "需要平整可通行地块";
             if (cells.Select(cell => cell.Elevation).Distinct().Count() > 1) return "设施地基需同高";
             if (!Owned(s, id) && (s.Inventory.Materials < def.Materials || s.Inventory.Coins < def.Coins)) return "材料不足：需要原料" + def.Materials + "、钱币" + def.Coins;
             return "";
@@ -119,12 +129,13 @@ namespace BaseConquest.Base
             var obj = layout.Objects.FirstOrDefault(item => item != null && item.Id == id);
             if (obj == null)
             {
-                obj = new BaseMapPlacement { Id = id, AssetId = def.Asset, Kind = "facility", Blocks = true, Width = def.Width, Height = def.Height };
+                obj = new BaseMapPlacement { Id = id, SourceObjectId = "camp-layout-" + id, AssetId = def.Asset, Kind = "facility", Blocks = true, Width = def.Width, Height = def.Height };
                 layout.Objects.Add(obj);
             }
             // 未修复的工坊／兵营必须保持占位外观，否则会绕过修复流程。
             obj.Name = def.Name; obj.X = x; obj.Y = y;
             obj.VisualOnly = BaseDemo.Active(s) && (id == "workshop" || id == "barracks") && !BaseDemoDefense.Repaired(s, id);
+            if (BaseDemo.Active(s)) RefreshFootprint(s, id, obj);
             s.Layout.Stored.Remove(id);
             if (!owned) { s.Inventory.Materials -= def.Materials; s.Inventory.Coins -= def.Coins; }
             s.Layout.Revision++;
@@ -145,6 +156,7 @@ namespace BaseConquest.Base
             var obj = layout?.Objects.FirstOrDefault(item => item != null && item.Id == id);
             if (obj == null) { message = "该设施不在营地上"; return false; }
             layout.Objects.Remove(obj);
+            if (BaseDemo.Active(s)) RefreshFootprint(s, id, null);
             if (!s.Layout.Stored.Contains(id)) s.Layout.Stored.Add(id);
             s.Layout.Revision++;
             // 收存办公设施：暂停策略但保留设置，其他岗位保持现状（先落成手动意向再重排）。
@@ -155,6 +167,23 @@ namespace BaseConquest.Base
             BaseDevelopment.Allocate(s);
             message = def.Name + "已收存";
             return true;
+        }
+        private static void RefreshFootprint(BaseState state, string id, BaseMapPlacement placement)
+        {
+            var board = BaseBattlefield.Board(state, "base");
+            foreach (var cell in board.Cells.Where(c => c.Terrain == TerrainKind.Building && c.BuildingId == id))
+            {
+                cell.Terrain = TerrainKind.Ground;
+                cell.BuildingId = "";
+            }
+            if (placement == null) return;
+            foreach (var position in BaseObjectFootprint.Cells(placement.Object))
+            {
+                var cell = board.Cell(position);
+                cell.Terrain = TerrainKind.Building;
+                cell.BuildingId = id;
+                cell.Zone = DeploymentZone.None;
+            }
         }
         // 临时入口：按固定顺序找第一个合法位置。正式建设界面等原型定稿后再改成玩家拖放。
         public static bool AutoPlace(BaseState s, string id, out string message, out double x, out double y)

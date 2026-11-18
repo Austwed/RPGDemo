@@ -1243,6 +1243,24 @@ namespace BaseConquest.Editor
             Log.Add("[PASS] 选角后填写姓名，拒绝空白与非法符号，取消零写入，中文姓名保存并可重读");
 
             H.ClosePanel();
+            H.OpenQuests("achievement");
+            H.ClosePanel();
+            Canvas.ForceUpdateCanvases();
+            var taskBar = (RectTransform)Field(H, "questBar");
+            var pointer = new PointerEventData(EventSystem.current)
+            {
+                position = RectTransformUtility.WorldToScreenPoint(null, taskBar.TransformPoint(taskBar.rect.center)),
+                button = PointerEventData.InputButton.Left
+            };
+            var taskBackground = taskBar.GetComponent<Image>();
+            if (!taskBackground.isActiveAndEnabled || !taskBackground.raycastTarget ||
+                !RectTransformUtility.RectangleContainsScreenPoint(taskBar, pointer.position) ||
+                !taskBackground.Raycast(pointer.position, null) ||
+                !ExecuteEvents.Execute(taskBar.gameObject, pointer, ExecuteEvents.pointerClickHandler) ||
+                (string)Field(H, "questTab") != "tasks" || RequirePanel("CommonPanel").Find("Title").GetComponent<Text>().text != "任务与成就")
+                throw new InvalidOperationException("点探索任务栏没有直接进入任务页");
+            H.ClosePanel();
+            Log.Add("[PASS] 点击探索任务栏直达任务，即使此前查看的是成就");
             VerifyBenchInteraction();
             Approach("demo_captain");
             H.OpenObject("demo_captain");
@@ -1383,6 +1401,17 @@ namespace BaseConquest.Editor
                 if (!string.IsNullOrEmpty(cell.ItemId) && cell.transform.Find("ItemIcon") != null &&
                     cell.GetComponentInChildren<Text>(true).text != "")
                     throw new InvalidOperationException("有物品时只显示图标和堆叠数量：" + cell.name);
+            }
+            foreach (var person in controller.State.Leaders.Where(leader => BaseCommanderIdentity.Appearance(leader) == "azhu"))
+            {
+                var card = group.Find("人物与背包_" + person.Id);
+                if (card == null) continue;
+                var image = card.Find("Portrait/全身像/骑乘取景")?.GetComponent<RawImage>();
+                if (image == null || Mathf.Abs((1 - image.uvRect.yMax) * image.texture.height - 14) > .01f ||
+                    Mathf.Abs((1 - image.uvRect.yMin) * image.texture.height - 60) > .01f ||
+                    Mathf.Abs(image.rectTransform.rect.height / ((RectTransform)image.transform.parent).rect.height - .875f) > .01f)
+                    throw new InvalidOperationException("阿铸背包全身像应从头巾裁到马蹄，并与步行人物使用相同的可见高度");
+                Log.Add("[PASS] 阿铸背包取景从头巾到马蹄，枪尖不占人物显示高度");
             }
             Log.Add("[PASS] 背包 " + count + " 人，外窗与角色卡尺寸从场景读取，卡组居中");
         }
@@ -2222,8 +2251,9 @@ namespace BaseConquest.Editor
             controller.TravelDemo("base");
             if (controller.State.Campaign.Location != "base") throw new InvalidOperationException(controller.Message);
             Approach("farm");
-            H.OpenObject("farm");
+            controller.Interact();
             var view = RequirePanel("FacilityPanel");
+            VerifyFacilityPortrait(view);
             var actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
             var list = view.Find("Right/List").GetComponent<ScrollRect>();
             if (actions.GetComponentsInChildren<Button>().Any(button => button.name == "Unlock" || button.name == "ManagerLock"))
@@ -2254,13 +2284,22 @@ namespace BaseConquest.Editor
             if (BaseEconomy.WorkersAt(controller.State, "farm") != assigned ||
                 BaseEconomy.WorkersAt((BaseState)Field(H, "workerDraft"), "farm") != assigned)
                 throw new InvalidOperationException("取消点名后岗位未恢复");
-            Press(RequirePanel("FacilityPanel"), "Right/Filters/Managers");
-            if (RequirePanel("FacilityPanel").Find("Right/Title").GetComponent<Text>().text != "负责人名册")
-                throw new InvalidOperationException("生产设施负责人名册无法切换");
+            if (view.Find("Right/Filters").gameObject.activeSelf)
+                throw new InvalidOperationException("生产设施的右栏应只显示工人名册");
+            var manage = view.Find("PortraitColumn/Manage").GetComponent<Button>();
+            var managerOptions = view.Find("PortraitColumn/ManagerOptions");
+            if (managerOptions != null && manage.gameObject.activeInHierarchy && manage.interactable)
+            {
+                ClickHudButton(manage.transform);
+                if (!managerOptions.gameObject.activeInHierarchy ||
+                    view.Find("Right/List").GetComponent<ScrollRect>() != list)
+                    throw new InvalidOperationException("任免负责人应在左侧肖像栏操作，并保留工人名册");
+            }
             H.ClosePanel();
             Approach("workshop");
             H.OpenObject("workshop");
             view = RequirePanel("FacilityPanel");
+            VerifyFacilityPortrait(view);
             actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
             var workshop = controller.State.Muster.Facilities.Single(f => f.FacilityId == "workshop");
             if (!actions.GetComponentsInChildren<Button>().Any(b => b.name == "Grade1") ||
@@ -2271,6 +2310,7 @@ namespace BaseConquest.Editor
             Approach("barracks");
             H.OpenObject("barracks");
             view = RequirePanel("FacilityPanel");
+            VerifyFacilityPortrait(view);
             var rangeDraft = view.Find("Left").GetComponentsInChildren<InputField>().First();
             rangeDraft.text = "17";
             Press(view, "Right/Filters/Melee");
@@ -2290,29 +2330,95 @@ namespace BaseConquest.Editor
             Approach("home");
             H.OpenObject("home");
             view = RequirePanel("FacilityPanel");
+            VerifyFacilityPortrait(view);
             actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
             list = view.Find("Right/List").GetComponent<ScrollRect>();
             if (actions.Find("Rest") == null || !list.content.GetComponentsInChildren<Text>().Any(t =>
                 t.text.Contains("扣粮后库存 " + BaseEconomy.Preview(controller.State).NextFood)))
                 throw new InvalidOperationException("营帐休息操作或日结预估缺失");
-            if (actions.Find("Warehouse") == null || actions.Find("Deputy") != null)
-                throw new InvalidOperationException("营帐缺少正式仓库入口，或仍显示副手");
-            Press(actions, "Government");
-            var building = RequirePanel("CommonPanel");
-            if (building.Find("Title").GetComponent<Text>().text != "营地建设" ||
-                building.GetComponentsInChildren<Button>().Any(button =>
-                    button.GetComponentInChildren<Text>()?.text is "库存" or "管理员" or "工人" or "发展策略"))
-                throw new InvalidOperationException("营地建设仍显示旧管理页的重复操作");
-            Click("返回营帐");
-            actions = RequirePanel("FacilityPanel").Find("Left/List").GetComponent<ScrollRect>().content;
-            Log.Add("[PASS] 普通试玩的负责人和派工在对应设施，营帐只提供建设、休息与本设施操作");
+            if (actions.Find("Warehouse") == null || actions.Find("Deputy") != null || actions.Find("Government") != null)
+                throw new InvalidOperationException("营帐应保留仓库入口，建设移回领主");
             CaptureViewports("ui-skin-facility-home");
             int day = controller.State.Day;
             Press(actions, "Rest");
             if (!H.DialogueOpen || controller.State.Day != day)
                 throw new InvalidOperationException("来袭时营帐休息没有接入对白拦截");
             H.ClosePanel();
-            Log.Add("[PASS] 四个设施三种横屏，粮田局部滚动、草案可取消和切负责人，工坊按解锁显示，兵营详情，营帐日结预估与来袭拦截");
+            Log.Add("[PASS] 四个设施三种横屏，独立肖像栏，粮田局部滚动和取消草案，工坊解锁，兵营详情，营帐预估与来袭拦截");
+            VerifyLordConstruction();
+        }
+
+        private static void VerifyFacilityPortrait(Transform view)
+        {
+            Canvas.ForceUpdateCanvases();
+            var root = (RectTransform)view;
+            var portrait = view.Find("PortraitColumn");
+            var image = portrait?.Find("Portrait");
+            if (((RectTransform)Field(H, "questBar")).gameObject.activeSelf || image == null ||
+                (image.gameObject.activeInHierarchy && image.GetComponent<BattleAvatarGraphic>() == null) ||
+                SceneRect(portrait, root).xMax > SceneRect(view.Find("Left"), root).xMin + .1f ||
+                view.GetComponentsInChildren<Button>().Any(button => button.name == "Rules"))
+                throw new InvalidOperationException("设施应有独立的左侧肖像栏，并移除重复的规则按钮");
+        }
+
+        private static void VerifyLordConstruction()
+        {
+            Approach("exit_east");
+            controller.TravelDemo("town");
+            if (controller.State.Campaign.Location != "town") throw new InvalidOperationException(controller.Message);
+            Approach("town_quest");
+            H.OpenObject("town_quest");
+            FinishDialogue();
+            var reply = RequirePanel("NpcDialogue");
+            if (reply.Find("DialogueText").GetComponent<Text>().text.Contains("调查奖赏"))
+                throw new InvalidOperationException("领主对白末页不应重复播报资源数字");
+            Capture("ui-skin-lord-construction-entry");
+            Click("营地建设");
+            if (!controller.State.Demo.Flow.CampConstructionOrdered)
+                throw new InvalidOperationException("领主未登记营地建设");
+            Approach("travel_base");
+            controller.TravelDemo("base");
+            if (controller.State.Campaign.Location != "base") throw new InvalidOperationException(controller.Message);
+
+            var hudRoot = (RectTransform)Field(H, "root");
+            var resume = hudRoot.GetComponentsInChildren<Button>().Single(button => button.name == "CampConstructionResume");
+            ClickHudButton(resume.transform);
+            var palette = hudRoot.GetComponentsInChildren<RectTransform>().Single(node => node.name == "CampConstructionPalette");
+            var moveFarm = palette.GetComponentsInChildren<Button>().Single(button => button.name == "Project-farm");
+            ClickHudButton(moveFarm.transform);
+            var state = controller.State;
+            string original = BaseFacilityLayout.Snapshot(state);
+            int materials = state.Inventory.Materials;
+            var farm = BaseFacilityLayout.BaseLayout(state).Objects.Single(item => item.Id == "farm");
+            double offsetX = string.IsNullOrEmpty(farm.Shape) ? .5 : farm.Object.BoundsWidth / 2 % 1;
+            double offsetY = string.IsNullOrEmpty(farm.Shape) ? .5 : farm.Object.BoundsHeight / 2 % 1;
+            var landing = BaseBattlefield.Board(state).Positions().First(cell =>
+                (cell.X + offsetX != farm.X || cell.Z + offsetY != farm.Y) &&
+                BaseFacilityLayout.Problem(state, "farm", cell.X + offsetX, cell.Z + offsetY) == "");
+            controller.SelectCell(landing.X, landing.Z);
+            var confirm = palette.GetComponentsInChildren<Button>().Single(button => button.name == "ConfirmLayout");
+            if (!confirm.interactable || BaseFacilityLayout.Snapshot(controller.State) != original || controller.State.Inventory.Materials != materials)
+                throw new InvalidOperationException("预览移动时提前提交了营地布局或未能生成草案");
+            CaptureViewports("ui-skin-camp-construction");
+            ClickHudButton(palette.GetComponentsInChildren<Button>().Single(button => button.name == "ExitLayout").transform);
+            Click("放弃布局");
+            if (controller.CampPlacementMode || !controller.State.Demo.Flow.CampConstructionOrdered ||
+                BaseFacilityLayout.Snapshot(controller.State) != original || controller.State.Inventory.Materials != materials)
+                throw new InvalidOperationException("放弃布局后仍改变了建设位置或资源");
+            ClickHudButton(resume.transform);
+            ClickHudButton(moveFarm.transform);
+            controller.SelectCell(landing.X, landing.Z);
+            ClickHudButton(confirm.transform);
+            var placed = BaseFacilityLayout.BaseLayout(controller.State).Objects.Single(item => item.Id == "farm");
+            if (controller.CampPlacementMode || controller.State.Demo.Flow.CampConstructionOrdered ||
+                placed.X != landing.X + offsetX || placed.Y != landing.Z + offsetY ||
+                controller.State.Inventory.Materials != materials)
+                throw new InvalidOperationException("确认布局未在实际地图应用移动后的粮田");
+            Approach("farm");
+            controller.Interact();
+            VerifyFacilityPortrait(RequirePanel("FacilityPanel"));
+            H.ClosePanel();
+            Log.Add("[PASS] 与领主谈建设后回营，预览和放弃零扣费，确认后可在新位置使用粮田");
         }
 
         private static void VerifyRecruitRoster()
@@ -2325,8 +2431,11 @@ namespace BaseConquest.Editor
             H.OpenObject("town_recruit");
             if (H.DialogueOpen) { FinishDialogue(); Click("开始招募"); }
             var trade = RequirePanel("TownTrade");
-            var rows = trade.Find("RightBody").GetComponentsInChildren<RectTransform>().Where(node => node.name == "PersonnelRosterRow").ToArray();
-            if (rows.Length == 0) throw new InvalidOperationException("军官处没有显示现役士兵名册");
+            var roster = trade.Find("RightBody").GetComponent<ScrollRect>();
+            var rows = roster.GetComponentsInChildren<RectTransform>().Where(node => node.name == "PersonnelRosterRow").ToArray();
+            if (rows.Length == 0 || rows.Length != BasePersonnel.Units(controller.State).Count(unit => !unit.IsLeader) ||
+                !roster.vertical || trade.Find("RightTabs").gameObject.activeSelf)
+                throw new InvalidOperationException("军官处没有在单一滚动列表中显示现役士兵");
             foreach (var row in rows)
             {
                 VerifyRosterRow(row, false);
@@ -2340,26 +2449,52 @@ namespace BaseConquest.Editor
             ClickHudButton(offerButton.transform);
             var quote = BaseTown.QuoteHire(state, kind, 1);
             Click("招募 1 人 · " + quote.Total + "币");
-            if (!controller.State.Demo.Flow.HideoutRecruitClueSeen || !H.DialogueOpen)
-                throw new InvalidOperationException("首次成功招募后未触发雷恩的窝点线索");
+            if (H.DialogueOpen || !controller.State.Demo.Flow.HideoutRecruitCluePending || controller.State.Demo.Flow.HideoutRecruitClueSeen ||
+                BaseTown.TroopTotal(controller.State) != BaseTown.TroopTotal(state) + 1 ||
+                controller.State.Inventory.Coins != state.Inventory.Coins - quote.Total ||
+                !RequirePanel("TownTrade").Find("Details").GetComponentsInChildren<Text>().Any(text =>
+                    text.text == "招募 1 人 · " + BaseTown.HirePrice(controller.State, kind) + "币"))
+                throw new InvalidOperationException("首次购兵未等待退出，或逐人招募未结算重报价");
+            Press(trade, "Close");
+            if (!H.DialogueOpen || controller.State.Demo.Flow.HideoutRecruitCluePending || !controller.State.Demo.Flow.HideoutRecruitClueSeen)
+                throw new InvalidOperationException("关闭招募时未显示一次窝点线索");
             H.ContinueDialogue();
             if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("土匪营地"))
                 throw new InvalidOperationException("雷恩没有介绍断壁后的窝点");
             Capture("ui-skin-recruit-clue");
             FinishDialogue();
-            if (BaseTown.TroopTotal(controller.State) != BaseTown.TroopTotal(state) + 1 ||
-                controller.State.Inventory.Coins != state.Inventory.Coins - quote.Total ||
-                !RequirePanel("TownTrade").Find("Details").GetComponentsInChildren<Text>().Any(text =>
-                    text.text == "招募 1 人 · " + BaseTown.HirePrice(controller.State, kind) + "币"))
-                throw new InvalidOperationException("逐人招募未结算、更新名册或重新报价");
+            if (H.PanelOpen) throw new InvalidOperationException("关闭招募后，读完线索应返回探索");
+            H.OpenObject("town_recruit");
             var secondKind = controller.State.Town.Recruits.First(offer => BaseTown.MaxHire(controller.State, offer.Kind) > 0).Kind;
             var secondOffer = RequirePanel("TownTrade").Find("OfferList").GetComponentsInChildren<Button>().Single(button =>
                 button.GetComponentInChildren<Text>().text.TrimStart('●', ' ').StartsWith(BaseEconomy.TroopName(secondKind) + " · 今日余 "));
             ClickHudButton(secondOffer.transform);
             Click("招募 1 人 · " + BaseTown.QuoteHire(controller.State, secondKind, 1).Total + "币");
-            if (H.DialogueOpen || BaseTown.TroopTotal(controller.State) != BaseTown.TroopTotal(state) + 2)
-                throw new InvalidOperationException("同一存档第二次购兵重复播出了窝点线索");
-            Log.Add("[PASS] 军官共用只读名册，逐人招募、首次介绍窝点并回到交易重报价");
+            if (H.DialogueOpen || BaseTown.TroopTotal(controller.State) != BaseTown.TroopTotal(state) + 2 ||
+                controller.State.Demo.Flow.HideoutRecruitCluePending)
+                throw new InvalidOperationException("同一存档第二次购兵重复登记了窝点线索");
+            Press(RequirePanel("TownTrade"), "Return");
+            H.ContinueDialogue();
+            if (!H.DialogueOpen || RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("土匪营地"))
+                throw new InvalidOperationException("再次退出招募时重播了窝点线索");
+            H.ClosePanel();
+
+            // Restore the same saved pre-close flag pair to exercise the alternate exit button.
+            if (!controller.Change(next =>
+                {
+                    next.Demo.Flow.HideoutRecruitClueSeen = false;
+                    next.Demo.Flow.HideoutRecruitCluePending = true;
+                }, "")) throw new InvalidOperationException(controller.Message);
+            H.OpenObject("town_recruit");
+            Press(RequirePanel("TownTrade"), "Return");
+            H.ContinueDialogue();
+            if (!controller.State.Demo.Flow.HideoutRecruitClueSeen ||
+                !RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("土匪营地"))
+                throw new InvalidOperationException("返回对话时未先播放待播的窝点线索");
+            FinishDialogue();
+            if (!H.DialogueOpen) throw new InvalidOperationException("返回对话读完线索后应保留雷恩交谈入口");
+            H.ClosePanel();
+            Log.Add("[PASS] 军官名册单列表滚动，逐人招募后重报价，关闭和返回对话时各自交付待播线索");
         }
 
         private static void OpenWarehouseShot()

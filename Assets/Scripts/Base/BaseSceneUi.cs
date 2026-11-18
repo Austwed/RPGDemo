@@ -76,6 +76,8 @@ namespace BaseConquest.Base
             dialogueContinue = null;
             modal.GetComponent<Image>().color = DemoUiTheme.Current.Shade;
             modal.gameObject.SetActive(true);
+            questBar?.gameObject.SetActive(false);
+            questArrow?.Hide();
             Joystick.ResetInput();
             Joystick.gameObject.SetActive(false);
         }

@@ -104,7 +104,7 @@ namespace BaseConquest.Base
             return true;
         }
         public void DeliverDemoRuins()
-        {if(Change(next=>{if(!BaseDemoRuins.Deliver(next))throw new InvalidOperationException("请带真实救助证据到领主同层一格以内，且库存未达上限");},"遗迹证据已交付，奖赏与建设许可只发放一次"))Hud.OpenObject("town_quest");}
+        {if(Change(next=>{if(!BaseDemoRuins.Deliver(next))throw new InvalidOperationException("请带真实救助证据到领主同层一格以内，且库存未达上限");},""))Hud.ClosePanel();}
         public void CancelRuinsEntry()
         {if(Change(s=>BaseAchievements.Unlock(s,BaseAchievements.Caution),"已暂缓进入遗迹"))Hud.CloseRuinsBriefing();}
         public void ClaimRuinsReward(BasePrepRoute route)

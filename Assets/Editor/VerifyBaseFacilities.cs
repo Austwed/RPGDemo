@@ -84,10 +84,22 @@ namespace BaseConquest.Editor
 
             // 收存生产设施：立即停产、不能继续派人，重新放置后恢复。
             Need(BaseFacilityLayout.Store(s, "farm", out _), "粮田应能收存");
+            Need(!BaseBattlefield.Board(s, "base").Cells.Any(cell => cell.BuildingId == "farm"), "收存后旧粮田占地仍阻挡");
             BaseDevelopment.Allocate(s);
             Need(BaseEconomy.Preview(s).FoodProduced == 0, "粮田收存后不应继续产粮");
             Need(!BaseEconomy.MoveWorkers(s, BaseTroopKind.Melee, "", "farm", 1), "粮田收存后不应还能派人");
             Need(BaseFacilityLayout.AutoPlace(s, "farm", out string farmProblem, out _, out _), "粮田重新放置失败：" + farmProblem);
+            var field = BaseSpatial.Objects(s, "base").Single(item => item.Id == "farm");
+            Need(!string.IsNullOrEmpty(field.SourceObjectId) && BaseBattlefield.Board(s, "base").Cells.Any(cell => cell.BuildingId == "farm"),
+                "重新放置的粮田缺少持久对象标识或占地");
+            var board = BaseBattlefield.Board(s, "base");
+            for (int side = -1; side <= 1; side += 2)
+            {
+                double x = field.X + side * (field.Width / 2 + .35);
+                if (x <= BaseMap.Radius || x >= board.Width - BaseMap.Radius) continue;
+                Need(BaseInteraction.CanReach(board, field, x, field.Y, new BasePoint(side, 0)), "粮田边缘交互被人物朝向拦截");
+            }
+            BaseEconomy.Validate(s);
             Need(BaseEconomy.Preview(s).FoodProduced >= 0, "粮田重新放置后应恢复生产入口");
             // 商队：建成后才有岗位；出发要备足往返口粮；黑鸦寨按三天往返取料，满载看当前库存。
             s.Inventory.Materials = 60;

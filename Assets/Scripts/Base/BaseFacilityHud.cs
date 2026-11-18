@@ -59,6 +59,27 @@ namespace BaseConquest.Base
             return label;
         }
 
+        private static void ShowFacilityPortrait(Transform column, string name, string description, string appearance, bool player = false)
+        {
+            Ui<Text>(column, "Name").text = name;
+            Ui<Text>(column, "Effect").text = description;
+            var portrait = Ui<RectTransform>(column, "Portrait");
+            bool visible = player || !string.IsNullOrEmpty(appearance);
+            portrait.gameObject.SetActive(visible);
+            if (!visible) return;
+            var avatar = portrait.gameObject.GetOrAdd<BattleAvatarGraphic>();
+            avatar.PlayerHero = player;
+            avatar.AppearanceId = appearance;
+            avatar.raycastTarget = false;
+        }
+
+        private void ShowFacilityLeader(Transform column, BaseLeader leader, string description)
+        {
+            bool player = leader.Id == owner.State.PlayerLeaderId;
+            ShowFacilityPortrait(column, BasePersonnel.LeaderName(leader), description,
+                player ? BaseDemoIntro.PlayerArt(owner.State) : BaseCommanderIdentity.Appearance(leader), player);
+        }
+
         private static string FacilityCopy(string key, string fallback) => StoryText.Get("story.ui.facility." + key, fallback);
 
         private Button FacilityButton(Transform parent, string name, string title, Action action,
@@ -133,11 +154,10 @@ namespace BaseConquest.Base
         private sealed class ProductionFacilityView
         {
             public string FacilityId;
-            public RectTransform Panel, Actions, List;
+            public RectTransform Panel, Actions, List, Portrait;
             public BaseState State;
-            public bool HidePostLock, ShowingManagers;
-            public Image WorkersTab, ManagersTab;
-            public Color DefaultTabColor;
+            public bool HidePostLock;
+            public Action<bool> UpdateManagerAvailability;
             public Action<BaseState, BaseDayPreview, int, bool> RefreshActions;
         }
 
@@ -146,35 +166,31 @@ namespace BaseConquest.Base
         private void OpenProductionFacility()
         {
             string id = activeObject;
-            bool managers = activePage == "administrators";
             var state = owner.State;
             EnsureWorkerDraft();
             bool pending = workerMoves.Count > 0;
             var draft = workerDraft;
             var facility = state.Muster.Facilities.Single(x => x.FacilityId == id);
-            string key = id + ":" + activePage;
+            string key = id + ":workers";
             string title = BaseEconomy.FacilityName(id) + " · " + facility.Level + "级";
-            string rosterTitle = managers ? FacilityCopy("managers", "负责人名册") : FacilityCopy("workers", "工人名册");
             bool reuse = PanelOpen && productionView != null && productionView.Panel == panel && productionView.FacilityId == id;
             if (!reuse)
             {
-                var (actions, filters, list) = OpenFacilityPanel(key, title, FacilityCopy("production", "生产与岗位"), rosterTitle);
-                var workersTab = FacilityButton(filters, "Workers", "工人", () => ShowRoster("workers")).GetComponent<Image>();
-                var managersTab = FacilityButton(filters, "Managers", "负责人", () => ShowRoster("administrators")).GetComponent<Image>();
+                var (actions, filters, list) = OpenFacilityPanel(key, title, FacilityCopy("production", "生产与岗位"), FacilityCopy("workers", "工人名册"));
+                filters.gameObject.SetActive(false);
+                var roster = (RectTransform)panelScroll.transform;
+                float reclaimed = filters.anchoredPosition.y - roster.anchoredPosition.y;
+                roster.anchoredPosition += Vector2.up * reclaimed;
+                roster.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, roster.rect.height + reclaimed);
                 productionView = new ProductionFacilityView
                 {
-                    FacilityId = id, Panel = panel, Actions = actions, List = list,
-                    WorkersTab = workersTab, ManagersTab = managersTab, DefaultTabColor = workersTab.color
+                    FacilityId = id, Panel = panel, Actions = actions, List = list, Portrait = Ui<RectTransform>(panel, "PortraitColumn")
                 };
             }
 
             var view = productionView;
-            panelViewKey = key;
             panelFeedback.gameObject.SetActive(false);
             Ui<Text>(panel, "Title").text = title;
-            Ui<Text>(panel, "Right/Title").text = rosterTitle;
-            view.WorkersTab.color = managers ? view.DefaultTabColor : DemoUiTheme.Current.Gold;
-            view.ManagersTab.color = managers ? DemoUiTheme.Current.Gold : view.DefaultTabColor;
 
             bool hidePostLock = BaseDemo.ExperimentalManagementHidden(state);
             bool rebuildActions = view.State != state || view.HidePostLock != hidePostLock;
@@ -182,27 +198,73 @@ namespace BaseConquest.Base
             if (rebuildActions)
             {
                 ClearPanelChildren(view.Actions);
-                view.RefreshActions = BuildProductionActions(view.Actions, id, state, facility, hidePostLock);
+                var manager = state.Leaders.FirstOrDefault(leader => leader.FacilityId == id);
+                view.UpdateManagerAvailability = BindFacilityManager(view.Portrait, state, id, manager);
+                view.RefreshActions = BuildProductionActions(view.Actions, id, state, facility, manager, hidePostLock);
                 view.State = state;
                 view.HidePostLock = hidePostLock;
             }
             int count = BaseEconomy.WorkersAt(draft, id);
+            view.UpdateManagerAvailability(pending);
             view.RefreshActions(draft, BaseEconomy.ProjectDay(draft), count, pending);
 
-            float rosterOffset = view.ShowingManagers == managers ? view.List.anchoredPosition.y : 0;
-            view.ShowingManagers = managers;
+            float rosterOffset = view.List.anchoredPosition.y;
             ClearPanelChildren(view.List);
-            if (managers) FillFacilityManagers(view.List, state, id, pending);
-            else FillFacilityWorkers(view.List, draft, id, count < facility.Capacity);
+            FillFacilityWorkers(view.List, draft, id, count < facility.Capacity);
             if (rebuildActions) RestoreProductionScroll(facilityControls, actionOffset);
             RestoreProductionScroll(panelScroll, rosterOffset);
+        }
 
-            void ShowRoster(string page)
+        private Action<bool> BindFacilityManager(RectTransform column, BaseState state, string facility, BaseLeader manager)
+        {
+            foreach (var name in new[] { "Manage", "ManagerOptions" })
             {
-                if (activePage == page) return;
-                activePage = page;
-                OpenFacility();
+                var old = column.Find(name);
+                if (old == null) continue;
+                old.gameObject.SetActive(false);
+                old.SetParent(null);
+                UiPrefabBinding.DestroyView(old.gameObject);
             }
+            var effect = Ui<RectTransform>(column, "Effect");
+            if (manager != null)
+                ShowFacilityLeader(column, manager, "产能 +" + BaseDevelopment.Bonus(manager, facility).ToString("P0"));
+            else ShowFacilityPortrait(column, "负责人 · 未安排", "", "");
+
+            var candidates = manager == null
+                ? state.Leaders.Where(leader => BaseEconomy.CanAssignLeader(state, leader.Id, facility)).ToArray()
+                : Array.Empty<BaseLeader>();
+            var permissions = manager == null ? candidates.Length > 0 : BaseEconomy.CanAssignLeader(state, manager.Id, "");
+            var options = manager == null && permissions ? CloneSceneUi("FacilityPanel/Left/List", column) : null;
+            if (options != null)
+            {
+                options.name = "ManagerOptions";
+                var list = options.GetComponent<ScrollRect>().content;
+                foreach (var leader in candidates)
+                    FacilityButton(list, leader.Id, BasePersonnel.LeaderName(leader), () => ConfirmManager(leader.Id, facility, OpenFacility));
+                options.gameObject.SetActive(false);
+            }
+
+            var change = FacilityButton(column, "Manage", manager == null ? "调整管理员" : "解除任职", () =>
+            {
+                if (manager != null) ConfirmManager(manager.Id, "", OpenFacility);
+                else options.gameObject.SetActive(!options.gameObject.activeSelf);
+            }, permissions);
+            var changeRect = (RectTransform)change.transform;
+            changeRect.anchorMin = changeRect.anchorMax = changeRect.pivot = Vector2.up;
+            changeRect.anchoredPosition = new Vector2(effect.anchoredPosition.x, effect.anchoredPosition.y - effect.rect.height - 8);
+            changeRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, effect.rect.width);
+            if (options != null)
+            {
+                options.anchorMin = Vector2.zero;
+                options.anchorMax = Vector2.one;
+                options.offsetMin = new Vector2(effect.anchoredPosition.x, 8);
+                options.offsetMax = new Vector2(-effect.anchoredPosition.x, changeRect.anchoredPosition.y - changeRect.rect.height - 6);
+            }
+            return pending =>
+            {
+                change.interactable = permissions && !pending;
+                if (pending && options != null) options.gameObject.SetActive(false);
+            };
         }
 
         private static void RestoreProductionScroll(ScrollRect scroll, float offset)
@@ -214,14 +276,9 @@ namespace BaseConquest.Base
         }
 
         private Action<BaseState, BaseDayPreview, int, bool> BuildProductionActions(Transform actions, string id, BaseState state,
-            BaseFacilityProtection facility, bool hidePostLock)
+            BaseFacilityProtection facility, BaseLeader manager, bool hidePostLock)
         {
             bool workshop = id == "workshop";
-            var manager = state.Leaders.FirstOrDefault(x => x.FacilityId == id);
-            var card = CloneSceneUi("FacilityManagerCard", actions);
-            Ui<Text>(card, "Name").text = manager == null ? "负责人 · 未安排" : "负责人 · " + BasePersonnel.LeaderName(manager);
-            Ui<Text>(card, "Effect").text = manager == null ? "从右侧名册安排负责人" : "产能 +" + BaseDevelopment.Bonus(manager, id).ToString("P0");
-            if (manager != null) BindInventoryPortrait(Ui<RectTransform>(card, "Portrait"), manager);
 
             var staff = FacilityText(actions, "");
             var output = FacilityText(actions, "");
@@ -269,7 +326,6 @@ namespace BaseConquest.Base
                 else draftLocks.Add(managerLock);
             }
             if (workshop) BuildWorkshopControls(actions, state, facility, draftLocks);
-            FacilityButton(actions, "Rules", "设施规则", () => FacilityRules(OpenFacility));
 
             return (draft, preview, count, pending) =>
             {
@@ -339,19 +395,6 @@ namespace BaseConquest.Base
 
         private static string CivilianRosterLabel(int count) => $"村民 ×{count} · 补位";
 
-        private void FillFacilityManagers(Transform list, BaseState state, string id, bool pending)
-        {
-            foreach (var unit in BasePersonnel.Units(state).Where(x => x.IsLeader))
-            {
-                var leader = state.Leaders.Single(x => x.Id == unit.LeaderId);
-                bool assigned = leader.FacilityId == id;
-                string target = assigned ? "" : id;
-                bool available = !pending && BaseEconomy.CanAssignLeader(state, leader.Id, target);
-                string label = available ? assigned ? RosterText("unassign_manager", "点击解除任职") : RosterText("assign_manager", "点击任命为管理员") : unit.State;
-                AddPersonnelRow(list, unit, label, () => ConfirmManager(leader.Id, target, OpenFacility), available, assigned, showStats: false);
-            }
-        }
-
         private RectTransform FacilityCounter(Transform actions, string name, string title, Action lower, Action raise,
             bool canLower, bool canRaise)
         {
@@ -373,6 +416,7 @@ namespace BaseConquest.Base
             var (actions, filters, list) = OpenFacilityPanel("barracks:facility",
                 "兵营", FacilityCopy("barracks", "军队与编队"), "单位名册");
             var rosterHeading = Ui<Text>(panel, "Right/Title");
+            var portrait = Ui<RectTransform>(panel, "PortraitColumn");
             var rosterScroll = panelScroll;
             var tally = BaseDevelopment.Tally(state);
             FacilityText(actions, $"士兵 {tally[0]} · 队长 {state.Leaders.Count} · 可主动出战 {tally[2]} · 重伤 {tally[3]}");
@@ -412,6 +456,7 @@ namespace BaseConquest.Base
                 var current = owner.State;
                 var leader = Commander(current);
                 bool available = !leader.Away && !current.Campaign.HasActiveBattle;
+                ShowFacilityLeader(portrait, leader, "队长");
                 commanderHeading.text = BasePersonnel.LeaderName(leader) + " · 默认带兵";
                 foreach (var (kind, counter) in counters)
                 {
@@ -482,7 +527,6 @@ namespace BaseConquest.Base
                     fields[i].SetTextWithoutNotify(owner.State.Muster.Ranges[i].ToString());
                 rosterStamp = BaseMuster.Snapshot(owner.State);
             }), !state.Campaign.HasActiveBattle);
-            FacilityButton(actions, "Rules", "兵营规则", () => FacilityRules(OpenBarracks));
 
             float listOffset = 0;
             var choices = new (SoldierKind? Kind, Button Button, Color Color)[5];
@@ -601,15 +645,12 @@ namespace BaseConquest.Base
             int day = state.Day;
             var preview = BaseEconomy.ProjectDay(state);
             var raids = BaseCampaign.Due(state).ToArray();
-            string restProblem = BaseDemoFlow.RestProblem(state, preview);
+            string restAdvice = BaseDemoFlow.RestAdvice(state, preview);
             var (actions, filters, list) = OpenFacilityPanel("facility:home", "营帐", "休息与管理", FacilityCopy("forecast", "日结预览"));
+            ShowFacilityLeader(Ui<RectTransform>(panel, "PortraitColumn"), state.Leaders.Single(leader => leader.Id == state.PlayerLeaderId), "");
             FacilityText(filters, $"第{day}天 → 第{day + 1}天", true);
-            FacilityButton(actions, "Rest", "休息至明天", () => owner.Rest(day), restProblem == "" || BaseDemoDefense.AnyDue(state), true);
-            if (restProblem != "" && raids.Length == 0) FacilityText(actions, restProblem);
-            if (BaseDemo.ExperimentalManagementHidden(state))
-                FacilityButton(actions, "Government", "营地建设", OpenCampConstruction);
-            else
-                FacilityButton(actions, "Government", "营地管理", () => { activeObject = "government"; activePage = "workers"; OpenGovernment(); });
+            FacilityButton(actions, "Rest", "休息至明天", () => owner.Rest(day), selected: true);
+            if (restAdvice != "" && raids.Length == 0) FacilityText(actions, restAdvice);
             if (BasePartyInventory.AtWarehouse(state)) FacilityButton(actions, "Warehouse", "仓库", OpenWarehouse);
             if (BaseDeputy.Unlocked(state)) FacilityButton(actions, "Deputy", "副手 · " + (BaseDeputy.Leader(state)?.Name ?? "未指定"), OpenDeputy);
             if (state.Leaders.Any(l => l.Id != state.PlayerLeaderId && l.Rpg != null && !l.Rpg.Story))

@@ -32,7 +32,7 @@ namespace BaseConquest.Base
             }
             else replies.Add(new NpcReply("邀请加入冒险小队",()=>ConfirmAdventure(id,true),nearby&&problem==""));
             replies.Add(new NpcReply("退出对话",ClosePanel));
-            NpcDialogue(new[]{new NpcLine(BasePersonnel.LeaderName(leader),BaseCommanderIdentity.Appearance(leader),BasePartnerDialogue.Resolve(leader,key)+(paused?"\n我会在这里等你，队伍名额仍为我保留。":"")+(problem!=""?"\n"+problem:""),leader.Id==s.PlayerLeaderId)},replies.ToArray());
+            NpcDialogue(new[]{new NpcLine(BasePersonnel.LeaderName(leader),BaseCommanderIdentity.Appearance(leader),BasePartnerDialogue.Resolve(leader,key),leader.Id==s.PlayerLeaderId)},replies.ToArray());
         }
         private void ConfirmPartnerDisposition(string id,bool resume)
         {

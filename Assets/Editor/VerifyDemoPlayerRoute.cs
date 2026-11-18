@@ -399,12 +399,15 @@ namespace BaseConquest.Editor
         {
             Travel(branch, "travel_base", "base");
             RepairAndAssign(branch);
-            Need(BaseDemoFlow.Recruited(branch), "第2天未买齐三种职业，休息规则尚未生效");
+            Need(BaseDemoFlow.Recruited(branch), "第2天未买齐三种职业，休息提示尚未生效");
             var unstaffed = branch.Copy();
             At(unstaffed, "workshop");
             foreach (var group in unstaffed.Workers.Where(person => person.FacilityId == "workshop").GroupBy(person => person.Kind).ToArray())
                 Need(BaseEconomy.MoveWorkers(unstaffed, group.Key, "workshop", "", group.Sum(person => person.Count)), "无法清空工坊岗位样本");
-            Need(BaseDemoFlow.RestProblem(unstaffed).Contains("工坊"), "未保留工坊值守门槛");
+            At(unstaffed, "home");
+            int unstaffedDay = unstaffed.Day;
+            Need(BaseDemoFlow.RestAdvice(unstaffed).Contains("工坊") && BaseEconomy.Rest(unstaffed, unstaffedDay) &&
+                unstaffed.Day == unstaffedDay + 1 && unstaffed.LastReport.ProductsMade == 0, "工坊无人时未正确提示并完成零产出日结");
             branch.Inventory.Food = 0;
             At(branch, "farm");
             while (BaseEconomy.Preview(branch).NextMissing == 0)
@@ -415,24 +418,19 @@ namespace BaseConquest.Editor
             At(branch, "home");
             int gap = BaseEconomy.Preview(branch).NextMissing;
             int day = branch.Day;
-            string blocked = BaseDemoFlow.RestProblem(branch);
-            Need(blocked.Contains($"缺粮 {gap} 份"), "休息未显示准确缺口");
-            try
-            {
-                BaseEconomy.Rest(branch, day);
-                throw new InvalidOperationException("缺粮时没有拦住开局休息");
-            }
-            catch (InvalidOperationException error) when (error.Message == blocked) { }
-            Need(branch.Day == day, "被拒休息仍推进了日期");
+            Need(BaseDemoFlow.RestAdvice(branch).Contains($"缺粮 {gap} 份"), "休息未显示准确缺口");
+            var shortage = branch.Copy();
+            Need(BaseEconomy.Rest(shortage, day) && shortage.Day == day + 1 && shortage.LastReport.FoodMissing == gap,
+                "缺粮时未按真实日结产生对应缺口");
             Travel(branch, "exit_east", "town");
             At(branch, "town_market");
             Need(BaseTown.Confirm(branch, BaseTown.QuoteTrade(branch, "food", true, gap)), "缺粮测试无法买到恰好够用的粮");
             Travel(branch, "travel_base", "base");
             At(branch, "home");
             var preview = BaseEconomy.Preview(branch);
-            Need(preview.NextMissing == 0 && preview.NextFood == 0 && BaseDemoFlow.RestProblem(branch) == "" &&
+            Need(preview.NextMissing == 0 && preview.NextFood == 0 && BaseDemoFlow.RestAdvice(branch) == "" &&
                 BaseEconomy.Rest(branch, day) && branch.Day == day + 1, "买到恰好够用的粮后仍无法日结");
-            Note($"第{day}天旁支：工坊缺人时拦住，短缺 {gap} 份时显示精确缺口，实付补足后日结到第{branch.Day}天，结余为 0。");
+            Note($"第{day}天旁支：工坊缺人时完成零产出日结，短缺 {gap} 份时提示且照常日结，实付补足后结余为 0。");
         }
 
         private static void TryHideoutRoute(BaseState state)
@@ -469,7 +467,7 @@ namespace BaseConquest.Editor
         {
             At(state, "home");
             int day = state.Day;
-            Need(BaseEconomy.Rest(state, day), "营帐休息失败：" + BaseDemoFlow.RestProblem(state));
+            Need(BaseEconomy.Rest(state, day), "营帐休息失败");
             Note($"第{day}天 日结产粮{state.LastReport.FoodProduced}，产军需{state.LastReport.ProductsMade}，次日粮食{state.Inventory.Food}。");
         }
 

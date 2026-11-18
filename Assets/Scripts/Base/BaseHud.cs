@@ -453,7 +453,7 @@ namespace BaseConquest.Base
             if (ClosePreparationHelp()) return;
             if (DialogueExitLocked) return;
             if(owner.State?.Aftermath.GameOver==true || BaseBattleGateway.MainMenu || BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) return;
-            if (OfferSmithLessonOnTradeExit()) return;
+            if (OfferSmithLessonOnTradeExit() || OfferRecruiterHideoutClueOnExit()) return;
             if(!BaseDemo.Active(owner.State)&&BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             workerDraft=null;workerMoves.Clear();ClearPanelSelection();
             if (PanelOpen) PanelClosedFrame = Time.frameCount;
@@ -532,6 +532,7 @@ namespace BaseConquest.Base
         }
         public void OpenMenu()
         {
+            if (owner.CampPlacementMode) { owner.RequestExitCampPlacement(); return; }
             interactionObject="";
             owner.StopConstruction();
             if (owner.State == null) { OpenRecovery(); return; }
@@ -641,8 +642,6 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(s))
             {
                 RowButton("休息至明天",-290,270,()=>owner.Rest(day));
-                if (BaseDemo.ExperimentalManagementHidden(s)) RowButton("营地建设",0,270,OpenCampConstruction);
-                else RowButton("营地管理",0,270,()=>{activeObject="government";activePage="workers";OpenGovernment();});
                 RowButton("关闭",290,270,ClosePanel);row+=65;
                 RowButton("仓库",0,800,OpenWarehouse,BasePartyInventory.AtWarehouse(s));row+=60;
                 if(BaseDeputy.Unlocked(s)){var deputy=BaseDeputy.Leader(s);RowButton("副手："+(deputy==null?"未指定":BasePersonnel.LeaderName(deputy))+" · 更换",0,800,OpenDeputy);row+=60;}
@@ -696,10 +695,9 @@ namespace BaseConquest.Base
         private void OpenGovernment()
         {
             if (owner.State == null || activeObject != "government") return;
-            if (BaseDemo.ExperimentalManagementHidden(owner.State)) { OpenCampConstruction(); return; }
+            if (BaseDemo.ExperimentalManagementHidden(owner.State)) return;
             BeginPanel(BaseDemo.Active(owner.State)?"营地管理 · 库存与人员":"据点管理所 · 库存与人员", "government:" + activePage + (activePage == "army" ? ":" + armyPurpose + ":" + armyPage : ""));
             ManagementTabs(OpenGovernment);
-            if(!BaseDemo.Active(owner.State)){RowButton("规则 i",0,800,()=>FacilityRules(OpenGovernment));row+=60;}
             if (activePage == "report") DailyReportContent(); else if (activePage == "administrators") Administrators(); else if (activePage == "workers") Workers(BaseDemo.Active(owner.State)?(BaseFacilityLayout.Built(owner.State,"caravan")?new[]{"farm","caravan"}:new[]{"farm"}):new[] { "farm", "workshop", "caravan" }, OpenGovernment); else if (activePage == "army") Army(); else if (activePage == "development") Development(); else Inventory(); EndPanel();
         }
         private void ManagementTabs(Action refresh)
@@ -720,7 +718,6 @@ namespace BaseConquest.Base
             if (UseFacilityPanel) { OpenProductionFacility(); return; }
             string facility = activeObject;
             BeginPanel(BaseEconomy.FacilityName(facility), facility + ":" + activePage); ManagementTabs(OpenFacility);
-            RowButton("规则 i",0,800,()=>FacilityRules(OpenFacility));row+=60;
             if (activePage == "administrators") FacilityAdministrators(facility);
             else if (activePage == "workers") Workers(new[] { facility }, OpenFacility);
             else if (activePage == "production" && facility == "workshop") Production();
@@ -778,7 +775,6 @@ namespace BaseConquest.Base
         private string workerDraftStamp;
         private readonly System.Collections.Generic.List<(BaseTroopKind kind,string from,string to,int? bucket)> workerMoves =
             new System.Collections.Generic.List<(BaseTroopKind,string,string,int?)>();
-        private int workerRosterPage;
         private static void LockCurrentPosts(BaseState state)
         {
             foreach (var worker in state.Workers)
@@ -798,7 +794,7 @@ namespace BaseConquest.Base
             foreach (string facility in facilities)
             {
                 Line(BaseEconomy.FacilityName(facility) + "：今日生产人数 " + BaseEconomy.ProductionWorkersAt(s, facility) + "/" + s.Muster.Facilities.Single(f => f.FacilityId == facility).Capacity, 42);
-                RowButton(RosterText("open", "点名调配"), 0, 800, () => { workerRosterPage = 0; OpenWorkerRoster(facility, refresh); });row += 56;
+                RowButton(RosterText("open", "点名调配"), 0, 800, () => OpenWorkerRoster(facility, refresh));row += 56;
                 foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
                 {
                     string target = facility; BaseTroopKind troop = kind;
@@ -836,13 +832,10 @@ namespace BaseConquest.Base
             var available = BasePersonnel.Units(state).Where(u => !u.IsLeader && !u.Away &&
                 (state.Workers[u.BucketIndex].FacilityId == facility || state.Workers[u.BucketIndex].FacilityId == ""))
                 .OrderByDescending(u => state.Workers[u.BucketIndex].FacilityId == facility).ThenBy(u => u.Kind).ToArray();
-            const int pageSize = 8;
-            int pages = Math.Max(1, (available.Length + pageSize - 1) / pageSize);
-            workerRosterPage = Mathf.Clamp(workerRosterPage, 0, pages - 1);
             int capacity = state.Muster.Facilities.Single(f => f.FacilityId == facility).Capacity;
             bool room = BaseEconomy.WorkersAt(state, facility) < capacity;
             Action refresh = () => OpenWorkerRoster(facility, back);
-            foreach (var unit in available.Skip(workerRosterPage * pageSize).Take(pageSize))
+            foreach (var unit in available)
             {
                 var worker = state.Workers[unit.BucketIndex];
                 bool assigned = worker.FacilityId == facility;
@@ -853,12 +846,6 @@ namespace BaseConquest.Base
                     assigned || (unit.Effective && room), assigned);
             }
             if (available.Length == 0) Line("当前没有可调人员。", 52, 18);
-            if (pages > 1)
-            {
-                RowButton("上一页", -210, 400, () => { workerRosterPage--; refresh(); }, workerRosterPage > 0);
-                RowButton((workerRosterPage + 1) + "/" + pages + " 下一页", 210, 400,
-                    () => { workerRosterPage++; refresh(); }, workerRosterPage + 1 < pages); row += 60;
-            }
             EndPanel();
         }
         private void Adjust(BaseTroopKind kind, string from, string to, Action refresh, int? bucket = null)
@@ -870,18 +857,20 @@ namespace BaseConquest.Base
         {
             var leader=owner.State.Leaders.Single(l=>l.Id==leaderId);
             string extra=facility!=""&&BaseAdventure.Contains(owner.State,leaderId)?"；任职后退出随行小队":"";
-            NpcDialogue(new[]{new NpcLine("岗位安排","",leader.Name+" → "+BaseEconomy.FacilityName(facility)+extra)},new[]{
-                new NpcReply("确认方案",()=>{
-                    bool aheNewFarmPost=BaseDemo.Active(owner.State)&&leaderId=="partner_farm"&&facility=="farm"&&leader.FacilityId!="farm";
-                    bool assigned=owner.Change(next=>{
-                        if(!BaseEconomy.AssignLeader(next,leaderId,facility))throw new InvalidOperationException("设施或人员状态已变化，请重新安排");
-                    },"已确认管理员安排"+extra);
-                    if(assigned&&aheNewFarmPost)
-                        OpenAheResponse("这片田就交给我。明早我先去看看地里缺不缺水。",refresh);
-                    else refresh();
-                }),
-                new NpcReply("取消",refresh)
+            BeginPanel("岗位安排", "manager-confirmation");
+            Line(leader.Name+" → "+BaseEconomy.FacilityName(facility)+extra,78,21);
+            RowButton("确认方案",-210,400,()=>{
+                bool aheNewFarmPost=BaseDemo.Active(owner.State)&&leaderId=="partner_farm"&&facility=="farm"&&leader.FacilityId!="farm";
+                bool assigned=owner.Change(next=>{
+                    if(!BaseEconomy.AssignLeader(next,leaderId,facility))throw new InvalidOperationException("设施或人员状态已变化，请重新安排");
+                },"已确认管理员安排"+extra);
+                if(assigned&&aheNewFarmPost)
+                    OpenAheResponse("这片田就交给我。明早我先去看看地里缺不缺水。",refresh);
+                else refresh();
             });
+            RowButton("取消",210,400,refresh);
+            row+=65;
+            EndPanel();
         }
         private void Production()
         {

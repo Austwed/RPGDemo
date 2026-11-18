@@ -107,7 +107,11 @@ namespace BaseConquest.Base
             }
         }
         public void SetMotionCheck(string id,HeroPose pose){if(motionViews.TryGetValue(id,out var view))view.Preview(pose);}
-        public BaseMapObject Nearby => State == null || PlayerAway ? null : NearbyBenchSeat(DisplayObjects.Where(o=>!State.Leaders.Any(l=>l.Id==o.Id)).Concat(Companions.Footprints).Where(o=>SceneObjectVisible(o)&&BaseInteraction.CanReach(State,o)).OrderBy(o => o.Distance(State.PlayerX, State.PlayerY)).FirstOrDefault());
+        public BaseMapObject Nearby => State == null || PlayerAway ? null : NearbyBenchSeat(
+            DisplayObjects.Where(o=>!State.Leaders.Any(l=>l.Id==o.Id)).Concat(Companions.Footprints)
+                .Where(o=>SceneObjectVisible(o)&&BaseInteraction.CanReach(State,o))
+                .OrderByDescending(o => o.Id == "farm" && o.Contains(State.PlayerX, State.PlayerY, .45))
+                .ThenBy(o => o.Distance(State.PlayerX, State.PlayerY)).FirstOrDefault());
         public BaseMapObject PresentedObject(string id) => (State?.Leaders.Any(l=>l.Id==id)==true||BaseDemoPrologue.Followers(State).Any(l=>l.Id==id)) ? Companions.Agents.FirstOrDefault(a => a.Id == id && a.Visible)?.Footprint : DisplayObjects.FirstOrDefault(o => o.Id == id&&SceneObjectVisible(o));
         internal bool TryCharacterTop(string id, out Vector3 top)
         {
@@ -333,7 +337,7 @@ namespace BaseConquest.Base
             if (RuntimeMissing()) { BeginSession(); return; }
             RefreshOpeningAudio();
             if (DeploymentWorldActive) { UpdateDeploymentWorld(); return; }
-            if(combatController==null) regionView?.UpdateCamera(HomeRebuildOverview ? 0 : RebuildPlacementMode ? Hud.HomeRebuildMapInset : ConstructionMode ? 190f/1280 : 0,0);
+            if(combatController==null) regionView?.UpdateCamera(HomeRebuildOverview || CampPlacementMode ? 0 : RebuildPlacementMode ? Hud.HomeRebuildMapInset : ConstructionMode ? 190f/1280 : 0,0);
             if(State!=null&&!Busy&&runtimeRoot!=null&&runtimeRoot.gameObject.activeInHierarchy)Hud.RefreshAchievementNotice(Time.unscaledDeltaTime);
             if(State!=null&&!Busy)
             {
@@ -375,6 +379,11 @@ namespace BaseConquest.Base
             if(Hud.DialogueExitLocked&&escape)return;
             if (Hud.ResourcePopoverOpen && escape) { Hud.CloseResourcePopover(); escape = false; }
             if (escape && Hud.CloseInventoryItemMenu()) return;
+            if (CampPlacementMode && escape)
+            {
+                if (Hud.PanelOpen) Hud.ClosePanel(); else RequestExitCampPlacement();
+                return;
+            }
             if(keyboard!=null&&HandlePanelShortcuts(keyboard.bKey.wasPressedThisFrame,keyboard.nKey.wasPressedThisFrame,keyboard.mKey.wasPressedThisFrame))return;
             if(HomeRebuildOverview&&escape&&!Hud.PanelOpen){ReturnToHomeRebuild();return;}
             if(ConstructionMode&&escape){StopConstruction();if(Hud.PanelOpen)Hud.ClosePanel();Message="已退出营造";Hud.RefreshSummary();return;}
@@ -386,6 +395,7 @@ namespace BaseConquest.Base
             // A UI click may close its modal before this Update sees the same input sample.
             if (Hud.PanelClosedFrame == Time.frameCount) { touches.Clear(); mouseTap = null; explorationPinchSpan = 0; }
             else if(ConstructionMode)UpdateConstructionPointer();else ReadPointer();
+            if (CampPlacementMode) return;
             Vector2 input = Hud.Joystick.Direction;
             if (keyboard != null)
             {
@@ -430,11 +440,12 @@ namespace BaseConquest.Base
         private bool HandlePanelShortcuts(bool backpackPressed,bool questsPressed,bool mapPressed=false)
         {
             if((!backpackPressed&&!questsPressed&&!mapPressed)||Hud.DialogueOpen||Hud.DemoCompletionOpen)return false;
+            if (CampPlacementMode) return true;
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==0)return true;
             var selected=EventSystem.current!=null?EventSystem.current.currentSelectedGameObject:null;
             // Unity destroyed objects pass ?. checks; use Unity's null comparison before GetComponent.
             if(selected!=null&&selected.GetComponent<UnityEngine.UI.InputField>()?.isFocused==true)return false;
-            if(Hud.OfferSmithLessonOnTradeExit())return true;
+            if(Hud.OfferSmithLessonOnTradeExit()||Hud.OfferRecruiterHideoutClueOnExit())return true;
             if(Hud.HandleBattlePreparationShortcut(backpackPressed))return true;
             if(!BaseBattleGateway.MainMenu&&!State.Aftermath.GameOver&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State)&&mapPressed){StopConstruction();Hud.ToggleLandMap();return true;}
             if(!BaseBattleGateway.MainMenu&&!State.Aftermath.GameOver&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State)&&questsPressed){StopConstruction();Hud.ToggleQuests();return true;}
@@ -533,8 +544,16 @@ namespace BaseConquest.Base
                     touches[second.touchId.ReadValue()].Pinched = true;
                     bool onMap = WorldCamera.pixelRect.Contains(a) && WorldCamera.pixelRect.Contains(b) &&
                         !IsUiPoint(a) && !IsUiPoint(b);
-                    if (onMap && explorationPinchSpan > 0)
-                        ZoomExplorationFactor((a + b) * .5f, explorationPinchSpan / Mathf.Max(1, span));
+                    if (onMap)
+                    {
+                        var center = (a + b) * .5f;
+                        if (explorationPinchSpan > 0)
+                        {
+                            ZoomExplorationFactor(center, explorationPinchSpan / Mathf.Max(1, span));
+                            if (CampPlacementMode) regionView.Pan(center - campPinchCenter);
+                        }
+                        campPinchCenter = center;
+                    }
                     explorationPinchSpan = onMap ? span : 0;
                 }
                 else explorationPinchSpan = 0;
@@ -578,7 +597,13 @@ namespace BaseConquest.Base
         public bool ZoomExplorationFactor(Vector2 screen,float factor)
         {
             if(State==null||combatController!=null||Hud.PanelOpen||BaseWorldJourney.OnWorld(State)||!WorldCamera.pixelRect.Contains(screen)||IsUiPoint(screen)||float.IsNaN(factor)||float.IsInfinity(factor)||factor<=0)return false;
-            float before=WorldCamera.orthographicSize;regionView.SetViewSize(before*factor);
+            float before=WorldCamera.orthographicSize;
+            if (CampPlacementMode)
+            {
+                regionView.ZoomAt(factor, screen);
+                return Mathf.Abs(before - WorldCamera.orthographicSize) >= .0001f;
+            }
+            regionView.SetViewSize(before*factor);
             explorationViewSize=WorldCamera.orthographicSize;regionView.Follow(PlayerCameraTarget);
             if(Mathf.Abs(before-WorldCamera.orthographicSize)<.0001f)return false;
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==2)State.Demo.Intro.Zoomed=true;Hud.RefreshIntroObjective();return true;
@@ -586,7 +611,14 @@ namespace BaseConquest.Base
         private void SelectScreenPoint(Vector2 screen)
         {
             if (!WorldCamera.pixelRect.Contains(screen)) return;
-            if(regionView.Pick(screen,out var cell)) SelectCell(cell.X,cell.Z); else ClearSelection();
+            if(!regionView.Pick(screen,out var cell)) { ClearSelection(); return; }
+            if (!ConstructionMode && PresentedObject("farm") is BaseMapObject field &&
+                field.Parts.Any(part => part.Touches(cell.X, cell.Z)) && BaseInteraction.CanReach(State, field))
+            {
+                Hud.OpenObject(field.Id);
+                return;
+            }
+            SelectCell(cell.X,cell.Z);
         }
         public void SelectCell(int x, int y)
         {

@@ -591,8 +591,8 @@
     {
       "key": "story.ui.rest.workshop_shortage",
       "group": "界面／营帐与旅店",
-      "text": "工坊缺 1 名工人。请先安排人手打制军需。",
-      "notes": "开局首次休息、工坊无人值守时的功能占位。"
+      "text": "工坊无人值守，今日不生产军需。",
+      "notes": "首次休息预估中工坊无人时提示零产出。"
     },
     {
       "key": "story.ui.rest.food_shortage",

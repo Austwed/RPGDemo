@@ -40,20 +40,6 @@ namespace BaseConquest.Base
             Line("随行队长不管理设施；队长按日自然回血，不影响任职资格，也不受兵力阈值限制。士兵生命低于 30% 既不能工作也不能主动出战；遇袭守家例外，还能行动就上。全员每天自动恢复，满血停止。", 98, 18);
             Line("管理员当前每设施一席，工人位有限；以后升级可扩容和解锁配方。手动调配会锁定意向，解锁后恢复自动安排。", 85, 18);
         }
-        private void OpenCampConstruction()
-        {
-            var s = owner.State;
-            bool nearHome = BaseInteraction.At(s, "base", "home");
-            if (!nearHome && !BaseInteraction.At(s, "base", "government") && !BaseInteraction.At(s, "base", "office"))
-            {
-                if (panelViewKey == "camp-building") ClosePanel();
-                return;
-            }
-            BeginPanel("营地建设", "camp-building");
-            if (nearHome) { RowButton("返回营帐", 0, 800, OpenHome); row += 58; }
-            ConstructionFacilities(OpenCampConstruction);
-            EndPanel();
-        }
         private void ConstructionFacilities(Action refresh)
         {
             var s = owner.State;
@@ -107,7 +93,6 @@ namespace BaseConquest.Base
             if (activeObject != "barracks" || owner.State == null) return;
             if (UseFacilityPanel) { OpenBarracksFacility(); return; }
             BeginPanel("兵营 · 军队与伤情", "barracks:" + activePage); ManagementTabs(OpenBarracks);
-            RowButton("规则 i",0,800,()=>FacilityRules(OpenBarracks));row+=60;
             BaseConquest.Presentation.DemoUiIcons.Attach(RowButton("角色等级训练",0,820,OpenTraining),"training");row+=60;
             var s = owner.State;
             Line("全军 " + s.Workers.Sum(w => w.Count) + "兵／" + s.Leaders.Count + "队长。基地与外出共用实际人数和粮草。", 58, 22);

@@ -152,11 +152,10 @@ namespace BaseConquest.Base
         {
             var lines=new[]{
                 new NpcLine("阿禾","ahe","田里来了人手。我想跟你讨件差事。"),
-                new NpcLine("阿禾","ahe","我从小跟庄稼打交道。你肯让我管这片田，收成还能好些。"),
-                new NpcLine("角色特性","","可在角色详情页查看阿禾特性【种植专精：粮田产出 +10%】。任命管事将退出随行小队，次日结算起生效。")
+                new NpcLine("阿禾","ahe","我从小跟庄稼打交道。你肯让我管这片田，收成还能好些。")
             };
             NpcDialogue(lines,new[]{
-                new NpcReply(recruited?"我会查看你的特性":"邀请阿禾加入",()=>{if(recruited)ClosePanel();else owner.JoinDemoPartner("partner_farm");}),
+                new NpcReply(recruited?"知道了":"邀请阿禾加入",()=>{if(recruited)ClosePanel();else owner.JoinDemoPartner("partner_farm");}),
                 new NpcReply("这次先不安排",()=>OpenAheResponse("成，先照旧安排。往后田里缺人，再来叫我。"))
             });
         }

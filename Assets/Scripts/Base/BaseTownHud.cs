@@ -27,7 +27,7 @@ namespace BaseConquest.Base
         private TradeVendor tradeVendor;
         private TradeShelf tradeShelf;
         private string tradePerson="",tradeSelection="",tradeSale="",tradeFeedback="";
-        private int tradeQuantity=1,tradeRosterPage;
+        private int tradeQuantity=1;
         private bool tradeBuying=true;
         private readonly Dictionary<string,(Button Button,Color Fill,bool SoldOut)> tradeOffers = new();
 
@@ -60,7 +60,6 @@ namespace BaseConquest.Base
             }
             tradeVendor=vendor;
             tradePerson=owner.State.PlayerLeaderId;
-            tradeRosterPage=0;
             tradeShelf=shelf;
             tradeSelection=tradeSale=tradeFeedback="";
             tradeQuantity=1;
@@ -142,23 +141,32 @@ namespace BaseConquest.Base
 
         private void TradeCommit(Func<BaseState, bool> action, string message, bool recruitment = false)
         {
-            bool showHideoutClue = false;
             bool ok = owner.Change(next =>
             {
                 if (!action(next)) throw new InvalidOperationException(
                     StoryText.Get("story.ui.trade.changed", "交易条件已变化，请重新确认"));
                 if (recruitment && BaseDemoFlow.Active(next) && BaseBanditHideout.Installed(next) && !next.Demo.Flow.HideoutRecruitClueSeen)
-                {
-                    next.Demo.Flow.HideoutRecruitClueSeen = true;
-                    showHideoutClue = true;
-                }
+                    next.Demo.Flow.HideoutRecruitCluePending = true;
             }, message);
             tradeFeedback = ok ? message : owner.Message;
-            if (ok && showHideoutClue) OpenRecruiterHideoutClue();
-            else RenderTownTrade();
+            RenderTownTrade();
         }
 
-        private void OpenRecruiterHideoutClue()
+        internal bool OfferRecruiterHideoutClueOnExit(Action after = null)
+        {
+            if (!PanelOpen || panelViewKey != TradeViewKey || tradeShelf != TradeShelf.Recruits) return false;
+            var flow = owner.State.Demo?.Flow;
+            if (flow?.HideoutRecruitCluePending != true || flow.HideoutRecruitClueSeen) return false;
+            if (!owner.Change(next =>
+            {
+                next.Demo.Flow.HideoutRecruitCluePending = false;
+                next.Demo.Flow.HideoutRecruitClueSeen = true;
+            }, "")) return false;
+            OpenRecruiterHideoutClue(after ?? ClosePanel);
+            return true;
+        }
+
+        private void OpenRecruiterHideoutClue(Action after)
         {
             string name = BaseScriptNames.Recruiter;
             string portrait = BaseScriptNames.Portrait("recruiter");
@@ -170,7 +178,7 @@ namespace BaseConquest.Base
                     "你要是有心，就去跟他们碰一碰。营地里都是他们搜刮来的不义之财，你能帮我们处理掉他们，那些东西就算你的辛苦酬劳。")),
                 new NpcLine(name, portrait, StoryText.Get("story.ui.hideout.recruiter_clue_3",
                     "要是能打服他们，也能把肯归顺的人招来做事。坏是坏了点，可有了正经差事，或许能帮你的营地早点站稳。"))
-            }, Array.Empty<NpcReply>(), onCompleted: () => RenderTownTrade(false));
+            }, Array.Empty<NpcReply>(), onCompleted: after);
         }
 
         private void RenderTownTrade(bool keepScroll=true)
@@ -211,11 +219,11 @@ namespace BaseConquest.Base
 
             Ui<RectTransform>(view,"Tabs").gameObject.SetActive(false);
             bool showParty=tradeShelf!=TradeShelf.Intel;
-            rightTabs.gameObject.SetActive(showParty);
+            rightTabs.gameObject.SetActive(showParty && tradeShelf != TradeShelf.Recruits);
             right.gameObject.SetActive(showParty);
             if(tradeShelf==TradeShelf.Recruits)
             {
-                RenderRecruitTrade(offers.content,details.content,rightTabs,right.content);
+                RenderRecruitTrade(offers.content,details.content,right.content);
             }
             else
             {
@@ -260,18 +268,18 @@ namespace BaseConquest.Base
 
         private void ReturnToTradeDialogue()
         {
-            if(OfferSmithLessonOnTradeExit()) return;
+            if(OfferSmithLessonOnTradeExit() || OfferRecruiterHideoutClueOnExit(OpenRecruiterDialogue)) return;
             switch(tradeVendor)
             {
                 case TradeVendor.Merchant: OpenTownChat("town_peddler"); break;
                 case TradeVendor.Smith: OpenSmithFather(); break;
-                default:
-                    NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",
-                        new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"还缺哪一队的人？接着挑，我把名册拿给你。")),
-                        new[]{new NpcReply("开始招募",OpenTownRecruit),new NpcReply("离开",ClosePanel)});
-                    break;
+                default: OpenRecruiterDialogue(); break;
             }
         }
+
+        private void OpenRecruiterDialogue() => NpcDialogue(WithInjury(owner.State,"INJ_TOWN_LEIEN",
+            new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"还缺哪一队的人？接着挑，我把名册拿给你。")),
+            new[]{new NpcReply("开始招募",OpenTownRecruit),new NpcReply("离开",ClosePanel)});
 
         private void SelectTradeBagItem(BaseInventoryEntry item)
         {
@@ -412,7 +420,7 @@ namespace BaseConquest.Base
             StartTrade(TradeVendor.Recruiter,TradeShelf.Recruits);
         }
 
-        private void RenderRecruitTrade(RectTransform offers,RectTransform details,RectTransform rosterTabs,RectTransform roster)
+        private void RenderRecruitTrade(RectTransform offers,RectTransform details,RectTransform roster)
         {
             var s=owner.State;
             var offer=s.Town.Recruits.FirstOrDefault(r=>r.Kind.ToString()==tradeSelection)??s.Town.Recruits.First();
@@ -432,14 +440,9 @@ namespace BaseConquest.Base
             if(maximum==0)TradeLine(details,"当前无法招募");
             TradeButton(details,"规则 i",()=>TownRules(()=>RenderTownTrade(false)));
 
-            const int pageSize=18;
-            int count=s.Workers.Sum(w=>w.Count),pages=Math.Max(1,(count+pageSize-1)/pageSize);
-            tradeRosterPage=Mathf.Clamp(tradeRosterPage,0,pages-1);
-            TradeButton(rosterTabs,"上一页",()=>{tradeRosterPage--;RenderTownTrade(false);},tradeRosterPage>0,"TradeTab");
-            TradeButton(rosterTabs,(tradeRosterPage+1)+"/"+pages+" 下一页",()=>{tradeRosterPage++;RenderTownTrade(false);},tradeRosterPage+1<pages,"TradeTab");
-            foreach(var unit in BasePersonnel.Units(s).Where(u=>!u.IsLeader).Skip(tradeRosterPage*pageSize).Take(pageSize))
+            foreach(var unit in BasePersonnel.Units(s).Where(u=>!u.IsLeader))
                 AddPersonnelRow(roster,unit,unit.State,null,available:false,useCurrentStats:true);
-            if(count==0)Ui<LayoutElement>(TradeLine(roster,"暂无士兵"),"").flexibleWidth=1;
+            if(roster.childCount==0)Ui<LayoutElement>(TradeLine(roster,"暂无士兵"),"").flexibleWidth=1;
         }
 
     }

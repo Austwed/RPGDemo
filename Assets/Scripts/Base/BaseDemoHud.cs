@@ -106,8 +106,8 @@ namespace BaseConquest.Base
             var state=owner.State;activeObject="demo-lord";interactionObject="town_quest";
             if(state.Demo.Stage==BaseDemoStage.RuinsCleared||BaseDemoDefense.Delivered(state))
             {
-                bool deliver=state.Demo.Stage==BaseDemoStage.RuinsCleared;bool unassigned=deliver&&state.Demo.AcceptedDay==0;var reward=state.Demo.RuinsReward;
-                // TOWN_03_B（没接委托就先把人救回来）／TOWN_03_C（接了委托正常交付）／未交付时的日常催促。
+                bool deliver=state.Demo.Stage==BaseDemoStage.RuinsCleared;bool unassigned=deliver&&state.Demo.AcceptedDay==0;
+                // TOWN_03_B（没接委托就先把人救回来）／TOWN_03_C（接了委托正常交付）／交付后的日常。
                 var questLines=new List<NpcLine>();
                 if(unassigned)
                 {
@@ -123,20 +123,25 @@ namespace BaseConquest.Base
                     questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"这是答应你的赏金和许可。工坊、兵营都准修。"));
                     questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"去募兵处。剑士、弓兵、骑兵各募一名，守好南边。"));
                 }
-                else
+                else if (!BaseDemoDefense.Won(state))
                 {
-                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"先把工坊和兵营修好。"));
-                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"带手令去募兵处找雷恩。"));
-                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"回营先分好人手。修起来以后，总得有人做事。"));
+                    bool repaired = state.Demo.Defense.WorkshopRepaired && state.Demo.Defense.BarracksRepaired;
+                    if (!repaired)
+                        questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"先把工坊和兵营修好。"));
+                    if (!BaseDemoFlow.Recruited(state))
+                        questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"带手令去募兵处找雷恩。"));
+                    if (repaired && BaseEconomy.ProductionWorkersAt(state,"workshop")==0)
+                        questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"回营先分好人手。修起来以后，总得有人做事。"));
                 }
-                questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"调查奖赏：粮草 "+reward.Food+"，原料 "+reward.Materials+"，钱币 "+reward.Coins+"。修复各需原料"+BaseDemoDefense.RepairMaterialCost(state)+"、钱币"+BaseDemoDefense.RepairCoinCost(state)+"。"));
                 bool gift = BaseDemoDefense.Won(state) && !BaseFacilityLayout.Owned(state, "caravan") && state.Layout?.OfficeGift != true;
                 string construction = BaseDemo.ExperimentalManagementHidden(state) ? "商队" : "办公设施和商队";
                 if (gift) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"营地守住了。再给你一道手令，回去建" + construction + "。"));
                 var replies = new List<NpcReply>();
-                if (gift) replies.Add(new NpcReply("领取建设许可", () => { if (owner.Change(next => { next.Layout.OfficeGift = true; }, "已领取建设许可 · 回营地放置" + construction)) ClosePanel(); }));
+                if (gift) replies.Add(new NpcReply("领取建设许可", () => owner.OrderCampConstruction(true)));
                 if (deliver) replies.Add(new NpcReply("交付证据并领取许可", owner.DeliverDemoRuins));
+                else if (!gift && BaseFacilityLayout.CanOrder(state)) replies.Add(new NpcReply("营地建设", () => owner.OrderCampConstruction()));
                 replies.Add(new NpcReply("告辞", ClosePanel));
+                if (questLines.Count==0) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"守好南边。"));
                 NpcDialogue(questLines.ToArray(), replies.ToArray(), guide:deliver&&BaseQuestLog.Cue(state).ObjectId=="town_quest"); return;
             }
             bool available=state.Demo.Stage==BaseDemoStage.VisitLord;

@@ -24,14 +24,6 @@ namespace BaseConquest.Base
             }
             row+=750;EndPanel();
         }
-        private void FacilityRules(Action back)
-        {
-            string title=activeObject=="barracks"?"兵营规则":activeObject=="government"?"管理与仓库规则":"生产规则";
-            string text = BaseExperienceRules.Personnel;
-            if (!BaseDemo.ExperimentalManagementHidden(owner.State)) text += "手动调配锁定岗位意向，解锁后由发展策略安排。";
-            text += "\n\n" + (activeObject == "government" ? BaseExperienceRules.Storage : BaseExperienceRules.Production);
-            RuleInfo(title,text,back);
-        }
         private bool CompanionAdvice(string location,string eventId,string mode,bool bypass)
         {
             var candidates=BaseDepartureAdvice.Candidates(owner.State,location,DepartureAdviceOptions.Disabled);

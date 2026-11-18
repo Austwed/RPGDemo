@@ -67,12 +67,12 @@ namespace BaseConquest.Editor
                 }
                 if(s.Workers.Sum(w=>w.Count)>=11||BaseDemoDefense.Due(s))break;
                 At(s,"travel_base");Need(BaseCampaign.Travel(s,"base"),"返回基地");AssignFarm(s);
-                At(s,"home");Need(BaseEconomy.Rest(s,s.Day),"真实休息日结："+BaseDemoFlow.RestProblem(s));
+                At(s,"home");Need(BaseEconomy.Rest(s,s.Day),"真实休息日结失败");
                 At(s,"exit_east");Need(BaseCampaign.Travel(s,"town"),"返回城镇");At(s,"town_recruit");
             }
             Need(s.Workers.Sum(w=>w.Count)==11,"阶段档11名普通兵");s.Demo.Flow.RecruitmentNotice=true;
             At(s,"travel_base");Need(BaseCampaign.Travel(s,"base"),"返回基地");At(s,"demo_fix_workshop");Need(BaseDemoDefense.Repair(s,"workshop"),"修复工坊");At(s,"demo_fix_barracks");Need(BaseDemoDefense.Repair(s,"barracks"),"修复兵营");AssignFarm(s);
-            At(s,"home");s.Demo.Flow.RestLessonDone=true;for(int n=0;n<20&&!BaseDemoDefense.Due(s);n++)Need(BaseEconomy.Rest(s,s.Day),"真实休息日结："+BaseDemoFlow.RestProblem(s));
+            At(s,"home");s.Demo.Flow.RestLessonDone=true;for(int n=0;n<20&&!BaseDemoDefense.Due(s);n++)Need(BaseEconomy.Rest(s,s.Day),"真实休息日结失败");
             At(s,"home");
             Need(BaseDemoDefense.Due(s),"首防到达");s.Demo.Flow.RestLessonDone=true;s.Demo.Flow.FarmOfferShown=true;s.Demo.Flow.NoviceShop=true;
             At(s,"demo_defense_exit");Need(BaseCampaign.Travel(s,"perimeter"),"进入迎敌战场");At(s,"demo_defense_start");

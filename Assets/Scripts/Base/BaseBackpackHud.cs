@@ -23,8 +23,7 @@ namespace BaseConquest.Base
         {
             var s=owner.State;string problem=BaseConstruction.UpgradeProblem(s,id);
             BaseUpgradeQuote q=null;if(problem=="")try{q=BaseConstruction.Preview(s,id);}catch(Exception e){problem=e.Message;}
-            RowButton(id=="fieldworks" ? "解锁固定工事" : "升级至2级",-210,400,()=>{owner.Change(next=>{if(!BaseConstruction.Confirm(next,q))throw new InvalidOperationException("条件已变化，请重新查看升级");},"升级／解锁完成，营造图册消耗1本");owner.RefreshConstructionMap();refresh();},q!=null);
-            RowButton("规则 i",210,400,()=>ConstructionRules(refresh));row+=62;
+            RowButton(id=="fieldworks" ? "解锁固定工事" : "升级至2级",0,800,()=>{owner.Change(next=>{if(!BaseConstruction.Confirm(next,q))throw new InvalidOperationException("条件已变化，请重新查看升级");},"升级／解锁完成，营造图册消耗1本");owner.RefreshConstructionMap();refresh();},q!=null);row+=62;
             if(id=="fieldworks")
             {
                 RowButton("开启建造模式",0,820,owner.ArmConstruction,s.Construction.FieldworksUnlocked);row+=62;

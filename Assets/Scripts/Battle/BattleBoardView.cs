@@ -638,6 +638,17 @@ namespace BaseConquest.Battle
             outline.SetPosition(2, new Vector3(b.x, 0.85f, b.z)); outline.SetPosition(3, new Vector3(b.x, 0.85f, a.z));
         }
         public void TintSelection(Color color){cellSelection.startColor=cellSelection.endColor=color;properties.Clear();properties.SetColor("_BaseColor",color);properties.SetColor("_Color",color);cellSelection.SetPropertyBlock(properties);}
+        public void ShowFacilitySelection(Vector3 center, float width, float height, Color color)
+        {
+            float halfW = width * CellSize / 2, halfH = height * CellSize / 2;
+            cellSelection.enabled = true;
+            TintSelection(color);
+            cellSelection.SetPositions(new[]
+            {
+                center + new Vector3(-halfW, 0, -halfH), center + new Vector3(-halfW, 0, halfH),
+                center + new Vector3(halfW, 0, halfH), center + new Vector3(halfW, 0, -halfH)
+            });
+        }
         public void SelectCell(GridPosition? cell)
         {
             SelectedCell = cell; cellSelection.enabled = cell.HasValue; if (!cell.HasValue) return;
