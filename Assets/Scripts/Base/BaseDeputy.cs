@@ -28,6 +28,7 @@ namespace BaseConquest.Base
         public const int Version = 1;
 
         public static bool Enabled(BaseState s) => BaseDemo.Active(s);
+        public static bool CanUse(BaseState s) => Enabled(s) && !BaseDemo.ExperimentalManagementHidden(s);
         public static BaseDeputyState State(BaseState s) => s?.Demo?.Deputy;
 
         public static void PrepareOpening(BaseState s)
@@ -44,11 +45,12 @@ namespace BaseConquest.Base
             return s.Demo.Deputy;
         }
 
-        public static bool Unlocked(BaseState s) => Enabled(s) && s.Demo.Deputy != null && s.Demo.Deputy.Unlocked;
+        public static bool Unlocked(BaseState s) => CanUse(s) && s.Demo.Deputy?.Unlocked == true;
 
         // 首次出发讨伐黑鸦寨时调用；重复调用无副作用。
         public static void Unlock(BaseState s)
         {
+            if (!CanUse(s)) return;
             var d = Ensure(s);
             if (d == null || d.Unlocked) return;
             d.Unlocked = true;
@@ -67,7 +69,7 @@ namespace BaseConquest.Base
         // 为什么现在没有可用副手；空串表示可用。
         public static string Problem(BaseState s)
         {
-            if (!Enabled(s)) return "本局没有副手";
+            if (!CanUse(s)) return "本局没有副手";
             if (!Unlocked(s)) return "讨伐黑鸦寨出发前还没有副手";
             var deputy = Leader(s);
             if (deputy == null) return "还没有指定副手";
@@ -81,7 +83,7 @@ namespace BaseConquest.Base
         // 可选副手：留在领地的已加入角色（不含主角、随行队伍与外出人员）。
         public static IEnumerable<BaseLeader> Candidates(BaseState s)
         {
-            if (!Enabled(s)) yield break;
+            if (!CanUse(s)) yield break;
             foreach (var leader in s.Leaders)
             {
                 if (leader.Id == s.PlayerLeaderId) continue;

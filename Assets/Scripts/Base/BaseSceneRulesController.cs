@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using BaseConquest.Battle;
 using BaseConquest.Story;
@@ -10,6 +11,13 @@ namespace BaseConquest.Base
     {
         private BattleVision explorationSight;
         private double nextSightAt;
+        private BattleBoard explorationProjection;
+        private (TerrainKind Terrain, int Elevation, RampAxis Ramp, bool HasSightHeight, double SightHeight)[] explorationTerrain;
+        private BaseMapObject[] explorationBlockers;
+        private bool? explorationFog;
+        private bool[] explorationKnown;
+        private readonly HashSet<GridPosition> sightObservers = new HashSet<GridPosition>();
+        private readonly HashSet<GridPosition> previousSightObservers = new HashSet<GridPosition>();
         private BaseState beforeAzhuDuel;
         private int practiceShown=-1;
         private void TickPracticeGuide()
@@ -75,18 +83,11 @@ namespace BaseConquest.Base
             combatController.PauseForDialogue();
             return combatController.WithdrawSceneEncounter();
         }
-        public void BeginAzhuDuel()=>BeginAzhuDuelAt(false);
-        public void BeginAzhuFieldDuel()=>BeginAzhuDuelAt(true);
-        private void BeginAzhuDuelAt(bool battlefield)
+        public void BeginAzhuDuel()
         {
             BaseCampaignSession encounter;
-            try{encounter=BaseLocalDuel.Create(State,battlefield);}catch(Exception e){ReportMessage(e.Message);return;}
+            try{encounter=BaseLocalDuel.Create(State);}catch(Exception e){ReportMessage(e.Message);return;}
             beforeAzhuDuel=State.Copy();SaveStore.Save(State);
-            if(battlefield)
-            {
-                var field=BaseSpatial.Layout(State,"perimeter");State.Campaign.Location="perimeter";if(BaseSceneInstances.Active(State))State.Campaign.CurrentMapId=field.SourceMapId;
-                var start=encounter.Battle.Commander(BattleSide.A,0).Cell;State.PlayerX=start.X+.25;State.PlayerY=start.Z+.25;BaseAdventure.Arrive(State);RefreshDemoRegion();
-            }
             State.SceneBattleId=BaseLocalDuel.Id;
             try{BeginSceneEncounter(encounter,run=>{run.OutcomeResolver=r=>r.Model.Player.Health<=r.Model.Player.MaxHealth*.5?BattleOutcome.SideBWin:r.Model.Units.Any(u=>u.Side==RealtimePrototype.PrototypeSide.Enemy&&u.Health<=u.MaxHealth*.5)?BattleOutcome.SideAWin:BattleOutcome.None;},null,FinishAzhuDuel,"阿铸 · 点到为止（半血结束）");}
             catch(Exception e){State=beforeAzhuDuel;beforeAzhuDuel=null;FinishLocalScene(false);ReportMessage("比武未开始："+e.Message);}
@@ -113,27 +114,90 @@ namespace BaseConquest.Base
             if(force)InvalidateObjects();
             if(!BaseSceneRules.Active(State)||BaseWorldJourney.OnWorld(State))return;
             if(!force&&Time.unscaledTimeAsDouble<nextSightAt)return;nextSightAt=Time.unscaledTimeAsDouble+.1;
+            var objects=MapObjects;
             BattleVision sight=combatController?.Realtime?.Battle.Vision;
+            var memory=BaseSceneRules.Memory(State);
             if(sight==null)
             {
-                if(explorationSight==null){explorationSight=new BattleVision(BaseSceneCombat.Project(State));explorationSight.RememberTerrain(BattleSide.A,BaseSceneRules.Memory(State).Known);}
-                var points=new[]{new GridPosition((int)State.PlayerX,(int)State.PlayerY)}.Concat(Companions.Agents.Where(a=>a.Visible&&BaseAdventure.Following(State,a.Id)).Select(a=>new GridPosition((int)a.Position.X,(int)a.Position.Y)));
-                explorationSight.RefreshExploration(points,BaseSceneRules.FogEnabled(State));sight=explorationSight;regionView.RefreshVision(sight,BattleSide.A,false);
+                sight=RefreshExplorationSight(objects,memory);
+                regionView.RefreshVision(sight,BattleSide.A,false);
             }
-            BaseSceneRules.Memory(State).Known=sight.KnownTerrain(BattleSide.A);
-            var objects=MapObjects;var scenery=regionView.Root.transform.Find("RegionLandmarks");
+            else memory.Known=sight.KnownTerrain(BattleSide.A);
+            // Actors can cross the current visibility boundary without moving the observers.
+            var scenery=regionView.Root.transform.Find("RegionLandmarks");
             if(scenery!=null)foreach(Transform node in scenery)
             {
                 var obj=objects.FirstOrDefault(o=>node.name==o.Id||node.name.StartsWith(o.Id+" ·"));
-                if(obj!=null)node.gameObject.SetActive(sight.TerrainVisible(BattleSide.A,new GridPosition((int)obj.X,(int)obj.Y)));
+                if(obj==null)continue;
+                bool known=sight.TerrainVisible(BattleSide.A,new GridPosition((int)obj.X,(int)obj.Y));
+                if(node.gameObject.activeSelf!=known)node.gameObject.SetActive(known);
             }
             string opponent=combatController?.IsDemoPractice==true?"demo_captain":combatController?.IsAzhuDuel==true?"demo_azhu":"";
             foreach(var obj in objects)
             {
                 if (!npcViews.TryGetValue(obj.Id, out var npc) || npc == null) continue;
-                bool visible=obj.Id!=opponent&&sight.Visible(BattleSide.A,new GridPosition((int)obj.X,(int)obj.Y));npc.gameObject.SetActive(visible);
+                bool visible=obj.Id!=opponent&&sight.Visible(BattleSide.A,new GridPosition((int)obj.X,(int)obj.Y));
+                if(npc.gameObject.activeSelf!=visible)npc.gameObject.SetActive(visible);
             }
             if(force)Hud?.RefreshMovement();
+        }
+        private BattleVision RefreshExplorationSight(BaseMapObject[] objects,BaseTerrainMemory memory)
+        {
+            bool fog=BaseSceneRules.FogEnabled(State),demo=BaseDemo.Active(State);
+            var board=BaseBattlefield.Board(State);
+            // A legacy camp UI substitutes its warehouse marker, which is not part of the sight projection.
+            if(fog&&!demo&&State.Campaign.Location=="base")objects=BaseSpatial.Objects(State);
+            if(explorationSight==null||explorationFog!=fog||fog&&!ExplorationGeometryMatches(board,objects))
+            {
+                explorationFog=null;
+                explorationProjection=fog?ProjectExploration(board,objects,demo):board;
+                explorationSight=new BattleVision(explorationProjection);
+                explorationKnown=null;
+            }
+            bool memoryChanged=memory.Known!=explorationKnown&&(explorationKnown==null||!memory.Known.SequenceEqual(explorationKnown));
+            if(memoryChanged)explorationSight.RememberTerrain(BattleSide.A,memory.Known);
+            sightObservers.Clear();
+            if(fog)
+            {
+                sightObservers.Add(new GridPosition((int)State.PlayerX,(int)State.PlayerY));
+                foreach(var agent in Companions.Agents)
+                    if(agent.Visible&&BaseAdventure.Following(State,agent.Id))
+                        sightObservers.Add(new GridPosition((int)agent.Position.X,(int)agent.Position.Y));
+            }
+            bool sightChanged=explorationFog!=fog||!previousSightObservers.SetEquals(sightObservers);
+            if(sightChanged)
+            {
+                explorationSight.RefreshExploration(sightObservers,fog);
+                previousSightObservers.Clear();
+                previousSightObservers.UnionWith(sightObservers);
+                explorationFog=fog;
+            }
+            if(memoryChanged||sightChanged)memory.Known=explorationSight.KnownTerrain(BattleSide.A);
+            explorationKnown=memory.Known;
+            return explorationSight;
+        }
+        private static (TerrainKind Terrain,int Elevation,RampAxis Ramp,bool HasSightHeight,double SightHeight) SightTerrain(BoardCell cell)
+            =>(cell.Terrain,cell.Elevation,cell.Ramp,cell.HasSightHeight,cell.HasSightHeight?cell.SightHeight:0);
+        private bool ExplorationGeometryMatches(BattleBoard board,BaseMapObject[] objects)
+        {
+            if(board.Width!=explorationProjection.Width||board.Height!=explorationProjection.Height)return false;
+            for(int i=0;i<board.Cells.Length;i++)if(SightTerrain(board.Cells[i])!=explorationTerrain[i])return false;
+            int index=0;
+            foreach(var obj in objects)
+            {
+                if(!BaseSceneCombat.BlocksSight(obj))continue;
+                if(index>=explorationBlockers.Length)return false;
+                var previous=explorationBlockers[index++];
+                if(obj.Id!=previous.Id||obj.X!=previous.X||obj.Y!=previous.Y||obj.Width!=previous.Width||obj.Height!=previous.Height
+                    ||obj.Shape!=previous.Shape||obj.Rotation!=previous.Rotation||obj.AssetId!=previous.AssetId||obj.Kind!=previous.Kind)return false;
+            }
+            return index==explorationBlockers.Length;
+        }
+        private BattleBoard ProjectExploration(BattleBoard board,BaseMapObject[] objects,bool demo)
+        {
+            explorationTerrain=board.Cells.Select(SightTerrain).ToArray();
+            explorationBlockers=objects.Where(BaseSceneCombat.BlocksSight).ToArray();
+            return BaseSceneCombat.Project(board,explorationBlockers,demo);
         }
         private void TickRescueJourney(double seconds)
         {

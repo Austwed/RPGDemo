@@ -111,6 +111,10 @@ namespace BaseConquest.Base
         public static BaseDayPreview Preview(BaseState s)
         {
             Validate(s);
+            return ProjectDay(s);
+        }
+        internal static BaseDayPreview ProjectDay(BaseState s)
+        {
             double factor = ProductionFactor(s);
             double food = s.FarmFraction + Work(s, "farm", factor) * s.Rules.FarmPerWorker * Bonus(s, "farm");
             double work = BaseConstruction.Progress(s,s.WorkshopProduct).Fraction + Work(s, "workshop", factor) * s.Rules.WorkshopPerWorker * Bonus(s, "workshop") / BaseConstruction.ProductLevel(s);
@@ -142,8 +146,10 @@ namespace BaseConquest.Base
         {
             if(advanceThreats&&BaseDemoFinale.Rebuilding(s))throw new InvalidOperationException("返乡重建期间不能推进日程");
             if(s.Day>=1000000)throw new InvalidOperationException("已达日期上限");
+            BaseCaravan.RecallHiddenRoute(s);
             BaseDevelopment.Allocate(s);
-            var p = Preview(s);
+            if (advanceThreats) Validate(s);
+            var p = ProjectDay(s);
             var report = new BaseDayReport { CompletedDay = s.Day, NewDay = s.Day + 1, FoodBefore = s.Inventory.Food,
                 FoodProduced = p.FoodProduced, Product = p.Product, ProductLevel=p.ProductLevel, ProductsMade = p.ProductsMade, MaterialsSpent = p.MaterialsSpent, ProductionFactor = p.ProductionFactor };
             int food = checked(s.Inventory.Food + p.FoodProduced);

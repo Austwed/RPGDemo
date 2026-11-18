@@ -94,7 +94,18 @@ namespace BaseConquest.Base
         }
         private readonly Dictionary<string,BaseConquest.Presentation.AuthoredMapView> motionViews=new Dictionary<string,BaseConquest.Presentation.AuthoredMapView>();
         private BaseMapObject[] motionObjects=Array.Empty<BaseMapObject>();
-        public BaseMapObject[] DisplayObjects=>motionObjects.Length==0?MapObjects:MapObjects.Concat(motionObjects).ToArray();
+        private BaseMapObject[] authoredMotionObjects=Array.Empty<BaseMapObject>();
+        private Transform motionChecksRoot;
+        private bool motionChecksEnabled;
+        public BaseMapObject[] DisplayObjects
+        {
+            get
+            {
+                var objects=MapObjects;
+                if(authoredMotionObjects.Length>0)objects=objects.Where(o=>!BaseDemoNpcs.IsStoryShell(o)).ToArray();
+                return motionObjects.Length==0?objects:objects.Concat(motionObjects).ToArray();
+            }
+        }
         public void SetMotionCheck(string id,HeroPose pose){if(motionViews.TryGetValue(id,out var view))view.Preview(pose);}
         public BaseMapObject Nearby => State == null || PlayerAway ? null : NearbyBenchSeat(DisplayObjects.Where(o=>!State.Leaders.Any(l=>l.Id==o.Id)).Concat(Companions.Footprints).Where(o=>SceneObjectVisible(o)&&BaseInteraction.CanReach(State,o)).OrderBy(o => o.Distance(State.PlayerX, State.PlayerY)).FirstOrDefault());
         public BaseMapObject PresentedObject(string id) => (State?.Leaders.Any(l=>l.Id==id)==true||BaseDemoPrologue.Followers(State).Any(l=>l.Id==id)) ? Companions.Agents.FirstOrDefault(a => a.Id == id && a.Visible)?.Footprint : DisplayObjects.FirstOrDefault(o => o.Id == id&&SceneObjectVisible(o));
@@ -118,9 +129,13 @@ namespace BaseConquest.Base
         private void Awake() { if (Application.isPlaying) BeginSession(); }
         private void OnEnable()
         {
+            if(!Application.isPlaying)return;
             // Play中脚本重载不再调用Awake；从已保存进度重建新HUD和实际伙伴位置。
-            if (Application.isPlaying && (RuntimeMissing() || initializedSession != session)) BeginSession();
+            if(RuntimeMissing()||initializedSession!=session)BeginSession();
+            RuntimeDeveloperOptions.Changed+=OnMotionChecksModeChanged;
+            OnMotionChecksModeChanged(RuntimeDeveloperOptions.Enabled);
         }
+        private void OnDisable()=>RuntimeDeveloperOptions.Changed-=OnMotionChecksModeChanged;
         private bool RuntimeMissing() => Hud == null || Companions == null || SaveStore == null || WorldCamera == null || player == null || selectionFrame == null;
         private void BeginSession()
         {
@@ -195,7 +210,6 @@ namespace BaseConquest.Base
         {
             // 布局随存档序列化：旧档读进来先做一次性迁移，否则改过的营地坐标在旧档里看不到。
             if(State!=null)BaseDemo.EnsureCampLayout(State);
-            motionObjects=BaseDemoNpcs.MotionChecks(State);
             explorationSight=null;nextSightAt=0;BeginEnvironmentVisit();
             var board=State==null ? BattleBoard.CreateDefault(24,14) : BaseBattlefield.Board(State);
             MapSession=new BaseMapSession(board);
@@ -219,11 +233,13 @@ namespace BaseConquest.Base
             // 地标与地形归同一世界根节点，进入战斗时保留，只有自由活动人物隐藏。
             var landmarks=new GameObject("RegionLandmarks").transform;landmarks.SetParent(regionView.Root.transform,false);
             explorationActors=new GameObject("FreeMovementActors").transform;explorationActors.SetParent(regionView.Root.transform,false);
-            npcViews.Clear();motionViews.Clear();
+            npcViews.Clear();motionChecksRoot=null;
             BuildBenchTargets();
             BaseConquest.Presentation.EnvironmentRoadEdges.Build(State,regionView.Board,regionView.Root.transform,regionView.ObliqueExploration);
-            bool hasSwordProp=MapObjects.Any(o=>o.Id=="demo_sword_prop");
-            foreach(var obj in MapObjects.Where(o=>!o.Id.StartsWith("partner")&&(!o.Blocks||!string.IsNullOrEmpty(o.SourceObjectId)||!string.IsNullOrEmpty(o.AssetId))))
+            var objects=MapObjects;
+            authoredMotionObjects=objects.Where(BaseDemoNpcs.IsStoryShell).ToArray();
+            bool hasSwordProp=objects.Any(o=>o.Id=="demo_sword_prop");
+            foreach(var obj in objects.Where(o=>!BaseDemoNpcs.IsStoryShell(o)&&!o.Id.StartsWith("partner")&&(!o.Blocks||!string.IsNullOrEmpty(o.SourceObjectId)||!string.IsNullOrEmpty(o.AssetId))))
             {
                 if(hasSwordProp&&obj.Id=="demo_broken_sword")continue;
                 if(!string.IsNullOrEmpty(obj.SourceObjectId)||!string.IsNullOrEmpty(obj.AssetId))
@@ -231,8 +247,6 @@ namespace BaseConquest.Base
                     var feet=WorldPoint(obj.X,obj.Y);if(!string.IsNullOrEmpty(obj.Shape))feet.y=WorldPoint(obj.Parts[0].X,obj.Parts[0].Y).y;
                     var authored=BaseConquest.Presentation.AuthoredMapView.Create(obj.Kind=="npc"?explorationActors:landmarks,obj,feet,mapMaterial,regionView.ObliqueExploration);
                     if(obj.Kind=="npc")npcViews[obj.Id]=authored;
-                    // 剧情人偶与美术检查台同规格：原地待机、可被交互切动作，顺带把视图登记进 motionViews。
-                    if(BaseDemoNpcs.IsStoryShell(obj)){authored.Preview(HeroPose.Idle);motionViews[obj.Id]=authored;}
                 }
                 else
                 {
@@ -240,11 +254,39 @@ namespace BaseConquest.Base
                     if(regionView.ObliqueExploration)notice.transform.localRotation=BattleBoardView.BaseArtTilt;
                 }
             }
-            foreach(var obj in motionObjects)
-            {var view=BaseConquest.Presentation.AuthoredMapView.Create(explorationActors,obj,WorldPoint(obj.X,obj.Y),mapMaterial,regionView.ObliqueExploration);view.Preview(HeroPose.Idle);motionViews.Add(obj.Id,view);}
+            BuildMotionChecks(RuntimeDeveloperOptions.Enabled);
             player=Person(explorationActors,"Player",new Vector2((float)(State?.PlayerX??12),(float)(State?.PlayerY??6.5)),new Color(.32f,.73f,.92f));
             selectionFrame=new GameObject("FreeCellSelection").transform;selectionFrame.SetParent(explorationActors,false);selectionFrame.gameObject.SetActive(false);
             Sunlight=BaseConquest.Presentation.DemoSunlight.Create(this,regionView.Root.transform);
+        }
+        private void OnMotionChecksModeChanged(bool enabled)
+        {
+            if(explorationActors==null||motionChecksEnabled==enabled)return;
+            int previousCount=motionObjects.Length;
+            BuildMotionChecks(enabled);
+            if(previousCount!=motionObjects.Length)Hud?.RefreshMapLabels();
+        }
+        private void BuildMotionChecks(bool enabled)
+        {
+            motionChecksEnabled=enabled;
+            motionViews.Clear();
+            if(motionChecksRoot!=null)
+            {
+                motionChecksRoot.gameObject.SetActive(false);
+                BattleBoardView.DestroyObject(motionChecksRoot.gameObject);
+                motionChecksRoot=null;
+            }
+            motionObjects=BaseDemoNpcs.MotionChecks(State,enabled);
+            if(enabled&&authoredMotionObjects.Length>0)motionObjects=motionObjects.Concat(authoredMotionObjects).ToArray();
+            if(motionObjects.Length==0)return;
+            motionChecksRoot=new GameObject("DeveloperMotionChecks").transform;
+            motionChecksRoot.SetParent(explorationActors,false);
+            foreach(var obj in motionObjects)
+            {
+                var view=AuthoredMapView.Create(motionChecksRoot,obj,WorldPoint(obj.X,obj.Y),mapMaterial,regionView.ObliqueExploration);
+                view.Preview(HeroPose.Idle);
+                motionViews.Add(obj.Id,view);
+            }
         }
         private Transform Person(Transform parent,string name,Vector2 feet,Color color)
         {
@@ -306,7 +348,16 @@ namespace BaseConquest.Base
                 return;
             }
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==0&&!BaseBattleGateway.MainMenu&&!Hud.PanelOpen){TickHeroChoice(Time.deltaTime);return;}
-            AdvanceExplorationCompanions(Time.deltaTime);PlaceCompanions();Hud.RefreshMovement();Hud.RefreshInspection(false);
+            AdvanceExplorationCompanions(Time.deltaTime);PlaceCompanions();
+            UpdateExplorationInput();
+            if (combatController == null && !BaseWorldJourney.OnWorld(State))
+            {
+                Hud.RefreshMovement();
+                Hud.RefreshInspection(false);
+            }
+        }
+        private void UpdateExplorationInput()
+        {
             if(BaseBattleLoot.ShouldPresent(State)&&!Hud.PanelOpen){Hud.OpenLoot();return;}
             if(Hud.TryOpenHomeArrival())return;
             TickDemoFlow();TickAzhuInvitation();
@@ -352,7 +403,7 @@ namespace BaseConquest.Base
                 BaseDemoIntro.Walk(State, travelled);
                 OpeningAudio?.Footstep(travelled, regionView, x, y);
             }
-            State.PlayerX = x; State.PlayerY = y; PlacePlayer(cardinal?BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(input.x,input.y,BaseConquest.Presentation.HeroFacing.South):null); Hud.RefreshMovement();CheckPrologueTrigger();
+            State.PlayerX = x; State.PlayerY = y; PlacePlayer(cardinal?BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(input.x,input.y,BaseConquest.Presentation.HeroFacing.South):null);CheckPrologueTrigger();
         }
         private void RefreshOpeningAudio()
         {
@@ -555,7 +606,7 @@ namespace BaseConquest.Base
             if (State.Campaign.HasActiveBattle&&(preparationInventoryClosed==null||!BasePartyInventory.Peaceful(State))) { Message = "先恢复并结束当前战斗"; Hud.RefreshSummary(); return false; }
             try
             {
-                Companions.Capture(State); var next = State.Copy(); edit(next); BaseDemoIntro.CheckEquipment(next); BaseDevelopment.Allocate(next); BaseEconomy.Validate(next); SaveStore.Save(next,beforeChange:State);
+                Companions.Capture(State); var next = State.Copy(); edit(next); BaseDemoIntro.CheckEquipment(next); BaseDevelopment.Allocate(next); SaveStore.Save(next,beforeChange:State);
                 if(!deploymentChangedMap&&State.Campaign.Location==next.Campaign.Location&&State.Campaign.CurrentMapId==next.Campaign.CurrentMapId)BaseBattlefield.KeepLiveBoard(next,MapSession.Board);
                 State = next; Message = message;
                 Companions.Synchronize(State);

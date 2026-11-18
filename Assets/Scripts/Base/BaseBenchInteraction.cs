@@ -83,7 +83,6 @@ namespace BaseConquest.Base
             benchSitProgress = Mathf.MoveTowards(benchSitProgress, leavingBench ? 0 : 1, (float)(seconds / .36));
             if (leavingBench && benchSitProgress == 0) ClearBenchSeat();
             PlacePlayer();
-            Hud.RefreshMovement();
             return true;
         }
 

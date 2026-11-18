@@ -310,7 +310,7 @@ namespace BaseConquest.Editor
         private static void RecruitAzhu(BaseState state)
         {
             At(state, "demo_azhu");
-            var duel = new RealtimeCampaignBattle(BaseLocalDuel.Create(state, false));
+            var duel = new RealtimeCampaignBattle(BaseLocalDuel.Create(state));
             var opponent = duel.Model.Units.Single(unit => unit.Side == PrototypeSide.Enemy);
             duel.OutcomeResolver = run => run.Model.Player.Health <= run.Model.Player.MaxHealth * .5 ? BattleOutcome.SideBWin
                 : opponent.Health <= opponent.MaxHealth * .5 ? BattleOutcome.SideAWin : BattleOutcome.None;
@@ -319,7 +319,7 @@ namespace BaseConquest.Editor
             bool liveWin = duel.Battle.Report?.Outcome == BattleOutcome.SideAWin;
             if (!liveWin)
             {
-                duel = new RealtimeCampaignBattle(BaseLocalDuel.Create(state, false));
+                duel = new RealtimeCampaignBattle(BaseLocalDuel.Create(state));
                 var sample = duel.Model.Units.Single(unit => unit.Side == PrototypeSide.Enemy);
                 duel.OutcomeResolver = _ => sample.Health <= sample.MaxHealth * .5 ? BattleOutcome.SideAWin : BattleOutcome.None;
                 sample.Health = sample.MaxHealth * .5;
@@ -327,6 +327,12 @@ namespace BaseConquest.Editor
             }
             Need(duel.Battle.Report?.Outcome == BattleOutcome.SideAWin && BaseDemoRuins.Meet(state, "partner_craft"), "阿铸比武没有开放邀请");
             state.Demo.Flow.AzhuDuelWon = true;
+            try
+            {
+                BaseLocalDuel.Create(state);
+                throw new InvalidOperationException("首次切磋完成后仍能重复开战");
+            }
+            catch (InvalidOperationException error) when (error.Message == "阿铸的切磋已经完成") { }
             Need(BaseDemoRuins.Join(state, "partner_craft") && BaseDemoStories.Gift(state), "阿铸加入或铁匠赠礼失败");
             ResolveLoot(state);
             Note("回镇主动找阿铸比武，" + (liveWin ? "实战" : "受控半血样本") + "胜利后邀请同行，领取巴隆赠礼。");

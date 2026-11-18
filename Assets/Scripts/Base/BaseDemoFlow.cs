@@ -93,12 +93,14 @@ namespace BaseConquest.Base
         public static string RecruitProgress(BaseState s)=>string.Join("  ",new[]{BaseTroopKind.Melee,BaseTroopKind.Ranged,BaseTroopKind.Cavalry}.Select((k,n)=>((s.Demo.Flow.HiredKinds&(1<<n))!=0?"■ ":"□ ")+(n==0?"剑士":n==1?"弓兵":"骑兵")+"×1"));
         public static void Hired(BaseState s,BaseTroopKind kind){if(Active(s)&&BaseDemoDefense.Delivered(s)){s.Demo.Flow.HiredKinds|=1<<(int)kind;s.Demo.Flow.FirstIntelEligible=true;}}
         public static string RestProblem(BaseState s)
+            => RestProblem(s, null);
+        internal static string RestProblem(BaseState s, BaseDayPreview preview)
         {
             // 只在开局教学窗口（第 1～2 日）拦一次，过了窗口或已经歇过一晚就永不触发；缺粮本身由产能／攻击惩罚承担。
             if(!Active(s)||s.Demo.Flow.RestLessonDone||s.Day>2||!Recruited(s)||!s.Demo.Defense.WorkshopRepaired||!s.Demo.Defense.BarracksRepaired)return "";
             if(BaseEconomy.ProductionWorkersAt(s,"workshop")<1)
                 return StoryText.Get("story.ui.rest.workshop_shortage","工坊缺 1 名工人。请先安排人手打制军需。");
-            int missing=BaseEconomy.Preview(s).NextMissing;
+            int missing=(preview??BaseEconomy.Preview(s)).NextMissing;
             return missing==0?"":StoryText.Get("story.ui.rest.food_shortage","明日缺粮 {missing} 份。请增派粮田工人，或到灰岩镇买粮。")
                 .Replace("{missing}",missing.ToString());
         }

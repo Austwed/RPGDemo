@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using BaseConquest.Base;
+using BaseConquest.Battle;
 using UnityEngine;
 
 namespace BaseConquest.Editor
@@ -14,6 +15,17 @@ namespace BaseConquest.Editor
             => Need(BaseEconomy.MoveWorkers(s, kind, "", to, count), "调配 " + count + " 名" + BaseEconomy.TroopName(kind) + "到" + BaseEconomy.FacilityName(to) + "失败");
         private static void Day(BaseState s){s.Day++;s.TodayFoodMissing=0;BaseCaravan.AdvanceDay(s);}
         public static void Run()
+        {
+            bool wasEnabled = RuntimeDeveloperOptions.Enabled;
+            try
+            {
+                RuntimeDeveloperOptions.Enabled = true;
+                VerifyFacilitySystems();
+            }
+            finally { RuntimeDeveloperOptions.Enabled = wasEnabled; }
+        }
+
+        private static void VerifyFacilitySystems()
         {
             var s = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
             BaseEconomy.Validate(s);
@@ -112,6 +124,7 @@ namespace BaseConquest.Editor
             var trip = s.Copy();
             Day(trip);
             Need(trip.Caravan.Phase == "back" && trip.Caravan.Cargo == 5, "抵达日应按当前库存装料（库存 1＋当日产 4）");
+            VerifyFormalManagement(trip);
             trip.Campaign.EnemySites.First().Stock = 100;
             Day(trip);
             Need(trip.Caravan.Route == "" && trip.Caravan.Cargo == 0 && trip.Caravan.TotalDelivered == 5, "回营日应卸货并结束事务");
@@ -146,6 +159,37 @@ namespace BaseConquest.Editor
             Need(legacy.Layout.Version == BaseFacilityLayout.Version && legacy.Caravan.Version == BaseCaravan.Version, "旧档缺布局／商队字段时应补默认");
             BaseEconomy.Validate(legacy);
             Debug.Log("[BaseFacilities] 办公门禁、策略迁移、设施收存、自动分配、商队往返与存档往返 PASS");
+        }
+
+        private static void VerifyFormalManagement(BaseState legacy)
+        {
+            var s = legacy.Copy();
+            s.Workers.Add(new BaseWorkerBucket { Kind = BaseTroopKind.Melee, Count = 1, MaxHealth = 100, Health = 100,
+                FarmEfficiency = 1, WorkshopEfficiency = 1, FacilityId = "farm" });
+            int materials = s.Inventory.Materials, cargo = s.Caravan.Cargo;
+            RuntimeDeveloperOptions.Enabled = false;
+            try
+            {
+                Need(!BaseDevelopment.AutoAssign(s), "正式 Demo 不应执行旧自动策略");
+                Need(!BaseFacilityLayout.AutoPlace(s, "office", out _, out _, out _), "正式 Demo 不应放置办公设施");
+                bool rejected = false;
+                try { BaseDevelopment.SetPolicy(s, "auto"); } catch (InvalidOperationException) { rejected = true; }
+                Need(rejected, "正式 Demo 不应切换到自动策略");
+                BaseDevelopment.Normalize(s);
+                BaseDevelopment.Allocate(s);
+                Need(s.Layout.PausedPolicy == "equipment" && s.Development.Policy == "manual" && Workers(s, "farm") == 1,
+                    "停用旧策略时应保留已在岗人员");
+                BaseCaravan.Validate(s);
+                Need(s.Caravan.Route == "" && s.Caravan.Phase == "" && Workers(s, "caravan") == 0,
+                    "正式 Demo 应结束旧远途事务并让商队人员回营");
+                Need(s.Inventory.Materials == materials + cargo && s.Caravan.TotalDelivered == cargo, "旧商队已装货物应入仓");
+                BaseCaravan.Validate(s);
+                Need(s.Inventory.Materials == materials + cargo, "重复校验不能再次卸货");
+                Assign(s, BaseTroopKind.Melee, "caravan", 2);
+                Need(!BaseCaravan.Start(s, "crow", out _) && BaseCaravan.Start(s, "local", out _),
+                    "正式 Demo 保留领地内跑商，拒绝远途出发");
+            }
+            finally { RuntimeDeveloperOptions.Enabled = true; }
         }
 
         private static void VerifyCaptainRations(BaseState camp)

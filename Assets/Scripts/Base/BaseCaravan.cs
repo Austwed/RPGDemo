@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace BaseConquest.Base
 {
-    // 商队（P41，2026-11-06）：Demo 只做两条线路——领地内跑商（粮换钱）与黑鸦寨单目的地固定往返（取原料）。
+    // 商队线路：领地内跑商（粮换钱），以及开发者可测试的黑鸦寨往返（取原料）。
     // 人员占用"商队"设施的岗位，与军营战斗编制分开计算；每日口粮按双倍计。
     [Serializable] public sealed class BaseCaravanState
     {
@@ -37,6 +37,17 @@ namespace BaseConquest.Base
             if (c.Version != Version || c.DepartDay < 0 || c.DepartDay > s.Day || c.Cargo < 0 || c.Cargo > 100000 || c.TotalDelivered < 0 || (c.Phase != "" && c.Route == "")) throw new ArgumentException("商队事务状态非法");
             if (c.Phase == "" && (c.Cargo != 0 || c.DepartDay != 0)) throw new ArgumentException("商队驻留时不应带在途货物");
             if (c.Route == "crow" && !BaseFacilityLayout.Built(s, "caravan")) throw new ArgumentException("未建成商队设施不能跑运输线");
+            if (c.Route == "crow" && BaseDemo.ExperimentalManagementHidden(s))
+            {
+                int received = Math.Min(c.Cargo, 100000000 - s.Inventory.Materials);
+                s.Inventory.Materials += received;
+                c.TotalDelivered += Math.Min(received, int.MaxValue - c.TotalDelivered);
+                Stop(s, received > 0 ? "商队已回营，卸下原料 " + received : "商队已回营，人员回到营地空闲");
+            }
+        }
+        internal static void RecallHiddenRoute(BaseState s)
+        {
+            if (s.Caravan?.Route == "crow" && BaseDemo.ExperimentalManagementHidden(s)) Validate(s);
         }
         public static int Crew(BaseState s) => BaseEconomy.WorkersAt(s, "caravan");
         public static int Capacity(BaseState s) => Crew(s) * LoadPerCrew;
@@ -47,6 +58,7 @@ namespace BaseConquest.Base
         public static BaseEnemySite Site(BaseState s) => s?.Campaign?.EnemySites?.FirstOrDefault(site => site != null && site.Owner == "player");
         public static string Problem(BaseState s, string route)
         {
+            if (route == "crow" && BaseDemo.ExperimentalManagementHidden(s)) return "该商队线路暂未开放";
             if (!BaseFacilityLayout.Built(s, "caravan")) return "商队设施尚未建成";
             if (s.Campaign.HasActiveBattle || BaseSceneCombat.Active(s)) return "战斗中不能安排商队";
             if (s.Caravan.Phase != "" || s.Caravan.Route != "") return "商队事务进行中，返回或召回后才能再安排";
@@ -87,6 +99,7 @@ namespace BaseConquest.Base
         // 日结：本地跑商直接结算金币；黑鸦寨线按"出发日／抵达日／回营日"推进。
         public static void AdvanceDay(BaseState s)
         {
+            RecallHiddenRoute(s);
             var c = s.Caravan;
             if (c.Phase == "" && c.Route == "") return;
             if (c.Route == "local")
@@ -120,6 +133,7 @@ namespace BaseConquest.Base
             var c = s.Caravan;
             if (!BaseFacilityLayout.Built(s, "caravan")) return "未建成商队设施";
             if (c.Route == "local") return "领地内跑商 · " + Crew(s) + "人 · 每日金币 +" + Crew(s) * LocalCoinsPerCrew;
+            if (BaseDemo.ExperimentalManagementHidden(s)) return "待命";
             if (c.Route == "crow")
                 return c.Phase == "out" ? "前往" + BaseScriptNames.Bandit + " · 第" + (c.DepartDay + 1) + "天抵达"
                     : "返程 · 载原料 " + c.Cargo + "／" + Capacity(s) + " · 第" + (c.DepartDay + 2) + "天回营";

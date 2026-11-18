@@ -127,9 +127,9 @@ namespace BaseConquest.Base
         // 两排陈列（2026-11-02，用户指定）：战斗（角色+士兵）与非战斗（NPC），全部在横向土路（y=6）下方。
         // 步长按实际横向占位分配：骑乘 64px×1.45 约 1.45 单位宽，给 2.8；其余 2.0。
         // 战斗排 11 人按 2.0/2.8 步长合计 24.4，起点压到 1.2 才不顶出东边界（24）。
-        public static BaseMapObject[] MotionChecks(BaseState state)
+        public static BaseMapObject[] MotionChecks(BaseState state,bool developerMode)
         {
-            if(!BaseDemo.Active(state)||BaseDemoPrologue.Village(state)||state.Campaign.Location!="base")return Array.Empty<BaseMapObject>();
+            if(!developerMode||!BaseDemo.Active(state)||BaseDemoPrologue.Village(state)||state.Campaign.Location!="base")return Array.Empty<BaseMapObject>();
             var rows=new List<BaseMapObject>();
             double x=1.2;
             void Place(string id,double y,double step)

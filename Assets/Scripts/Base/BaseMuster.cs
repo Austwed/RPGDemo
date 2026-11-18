@@ -178,6 +178,16 @@ namespace BaseConquest.Base
             if(s.Campaign.HasActiveBattle)throw new InvalidOperationException("战斗中不能修改军营默认范围");
             s.Muster.Ranges[slot*3]=guard;s.Muster.Ranges[slot*3+1]=alert;s.Muster.Ranges[slot*3+2]=attack;
         }
+        internal static void SetRanges(BaseState s, int[] values)
+        {
+            if (s.Campaign.HasActiveBattle) throw new InvalidOperationException("战斗中不能修改军营默认范围");
+            if (values.Length != s.Muster.Ranges.Count) throw new ArgumentException("位次或范围非法");
+            for (int index = 0; index < values.Length; index += 3)
+                if (!ValidRanges(values[index], values[index + 1], values[index + 2]))
+                    throw new ArgumentException("位次或范围非法");
+            for (int index = 0; index < values.Length; index++)
+                s.Muster.Ranges[index] = values[index];
+        }
         public static string Snapshot(BaseState s)
         {
             string N(double n) => n.ToString("R", CultureInfo.InvariantCulture);

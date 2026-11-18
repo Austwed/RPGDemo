@@ -31,8 +31,6 @@ namespace BaseConquest.Base
                     replies.Add(new NpcReply("留在营地",()=>ConfirmAdventure(id,false),nearby));
             }
             else replies.Add(new NpcReply("邀请加入冒险小队",()=>ConfirmAdventure(id,true),nearby&&problem==""));
-            if(id=="partner_craft"&&BaseSceneRules.Active(s))
-                replies.Add(new NpcReply("去迎敌战场演练",owner.BeginAzhuFieldDuel,nearby&&!paused,unlocked:BaseDemoDefense.Won(s)));
             replies.Add(new NpcReply("退出对话",ClosePanel));
             NpcDialogue(new[]{new NpcLine(BasePersonnel.LeaderName(leader),BaseCommanderIdentity.Appearance(leader),BasePartnerDialogue.Resolve(leader,key)+(paused?"\n我会在这里等你，队伍名额仍为我保留。":"")+(problem!=""?"\n"+problem:""),leader.Id==s.PlayerLeaderId)},replies.ToArray());
         }

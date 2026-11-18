@@ -23,12 +23,12 @@ namespace BaseConquest.Base
         public static bool Delegable(BaseState s, string eventId)
         {
             var e = Event(s, eventId);
-            return BaseDemo.Active(s) && e != null && e.Kind == "defense" && e.Status == "pending" && !Story(s, eventId);
+            return BaseDeputy.CanUse(s) && e != null && e.Kind == "defense" && e.Status == "pending" && !Story(s, eventId);
         }
 
         public static string Problem(BaseState s, string eventId)
         {
-            if (!BaseDemo.Active(s)) return "本局没有副手";
+            if (!BaseDeputy.CanUse(s)) return "本局没有副手";
             var e = Event(s, eventId);
             if (e == null || e.Kind != "defense") return "这不是袭击防守";
             if (Story(s, eventId)) return "首防与第二波是剧情防守，必须玩家亲自指挥";

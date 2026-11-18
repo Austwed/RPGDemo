@@ -130,11 +130,11 @@ namespace BaseConquest.Base
                     questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"回营先分好人手。修起来以后，总得有人做事。"));
                 }
                 questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"调查奖赏：粮草 "+reward.Food+"，原料 "+reward.Materials+"，钱币 "+reward.Coins+"。修复各需原料"+BaseDemoDefense.RepairMaterialCost(state)+"、钱币"+BaseDemoDefense.RepairCoinCost(state)+"。"));
-                // P40：首防结束后领主赠送建设许可；回营地后在营地管理里放置办公设施与商队。
-                bool gift = BaseDemoDefense.Won(state) && !BaseFacilityLayout.Owned(state, "office") && state.Layout?.OfficeGift != true;
-                if (gift) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"营地守住了。再给你一道手令，回去建办公设施和商队。"));
+                bool gift = BaseDemoDefense.Won(state) && !BaseFacilityLayout.Owned(state, "caravan") && state.Layout?.OfficeGift != true;
+                string construction = BaseDemo.ExperimentalManagementHidden(state) ? "商队" : "办公设施和商队";
+                if (gift) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"营地守住了。再给你一道手令，回去建" + construction + "。"));
                 var replies = new List<NpcReply>();
-                if (gift) replies.Add(new NpcReply("领取建设许可", () => { if (owner.Change(next => { next.Layout.OfficeGift = true; }, "已领取建设许可 · 回营地放置办公设施与商队")) ClosePanel(); }));
+                if (gift) replies.Add(new NpcReply("领取建设许可", () => { if (owner.Change(next => { next.Layout.OfficeGift = true; }, "已领取建设许可 · 回营地放置" + construction)) ClosePanel(); }));
                 if (deliver) replies.Add(new NpcReply("交付证据并领取许可", owner.DeliverDemoRuins));
                 replies.Add(new NpcReply("告辞", ClosePanel));
                 NpcDialogue(questLines.ToArray(), replies.ToArray(), guide:deliver&&BaseQuestLog.Cue(state).ObjectId=="town_quest"); return;
@@ -181,7 +181,10 @@ namespace BaseConquest.Base
                 new NpcLine("你","","门边那杆长枪是你的？",true),
                 new NpcLine("阿铸","azhu","是我的。我叫阿铸，巴隆是我爹。来过两招？")
             };
-            NpcDialogue(WithInjury(state,met?"INJ_CAMP_AZHU":"",baseLines),new[]{new NpcReply(met?"邀请加入小队":"原地切磋",()=>{if(met)owner.JoinDemoPartner(id);else if(BaseSceneRules.Active(state))owner.BeginAzhuDuel();else owner.MeetDemoPartner(id);}),new NpcReply("再次比武",owner.BeginAzhuDuel,unlocked:BaseSceneRules.Active(state)&&met),new NpcReply("去迎敌战场演练",owner.BeginAzhuFieldDuel,unlocked:BaseSceneRules.Active(state)&&BaseDemoDefense.Won(state)),new NpcReply("暂不邀请",ClosePanel)},guide:BaseQuestLog.Cue(state).ObjectId==id);
+            NpcDialogue(WithInjury(state,met?"INJ_CAMP_AZHU":"",baseLines),new[]{
+                new NpcReply(met?"邀请加入小队":"原地切磋",()=>{if(met)owner.JoinDemoPartner(id);else if(BaseSceneRules.Active(state))owner.BeginAzhuDuel();else owner.MeetDemoPartner(id);}),
+                new NpcReply("暂不邀请",ClosePanel)
+            },guide:BaseQuestLog.Cue(state).ObjectId==id);
         }
         private void OpenAheInvitation(bool met)
         {

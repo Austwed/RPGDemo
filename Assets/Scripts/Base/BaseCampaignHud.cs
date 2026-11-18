@@ -38,7 +38,7 @@ namespace BaseConquest.Base
                 var source=BaseThreats.Site(owner.State,e.SourceSiteId);
                 bool unopposed=e.Kind=="attack"&&source?.Owner=="enemy"&&!source.Garrison.Any(u=>u.Kind==SoldierKind.Hero);
                 RowButton(source?.Owner=="player"&&e.Kind=="attack" ? "已占领" : unopposed ? "接管无指挥者的据点" : kind == "defense" ? "预览迎战" : "预览进攻", 0, 800, () => {if(unopposed)owner.ClaimOutpost(source.Id);else OpenCampaignPreview(id, "full");}, e.Status == "pending" && e.AvailableDay <= owner.State.Day && !owner.State.Campaign.HasActiveBattle); row += 60;
-                if (e.Kind == "defense" && e.Status == "pending") DeputyRows(e,id);
+                if (e.Kind == "defense" && e.Status == "pending" && BaseDeputy.CanUse(owner.State)) DeputyRows(id);
             }
             CampaignReports(); EndPanel();
         }
@@ -62,7 +62,7 @@ namespace BaseConquest.Base
             var f=s.Aftermath.Difficulty.RewardFactor;Line("胜利奖励：粮 "+(int)(e.FoodReward*f)+"／原料 "+(int)(e.MaterialReward*f)+"／币 "+(int)(e.CoinReward*f),64,19);EndPanel();
         }
         // 副手迎战入口（P43）：剧情防守不给按钮，其余袭击给出后台模拟与观战两条路。
-        private void DeputyRows(BaseCampaignEvent e, string id)
+        private void DeputyRows(string id)
         {
             var s = owner.State;
             if (BaseDeputyBattle.Story(s, id))

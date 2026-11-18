@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using BaseConquest.Base;
+using BaseConquest.Battle;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -24,6 +25,7 @@ namespace BaseConquest.Editor
         private static double nextLog;
 
         private static bool campMode;
+        private static bool? previousDeveloperMode;
 
         public static void CaptureCamp()
         {
@@ -176,7 +178,13 @@ namespace BaseConquest.Editor
                     frameDeadline = Time.frameCount + 10;
                     break;
                 case "camp-motion":
-                    // 检查台三排（士兵／角色／NPC）在营地南半区。
+                    previousDeveloperMode = RuntimeDeveloperOptions.Enabled;
+                    RuntimeDeveloperOptions.Enabled = false;
+                    if (controller.DisplayObjects.Any(o => o.Id.StartsWith("motion-check:", StringComparison.Ordinal)))
+                    { Finish(2, "关闭开发者模式后检查人偶仍可交互"); return; }
+                    RuntimeDeveloperOptions.Enabled = true;
+                    if (!controller.DisplayObjects.Any(o => o.Id.StartsWith("motion-check:", StringComparison.Ordinal)))
+                    { Finish(2, "开发者模式未在当前营地刷新检查人偶"); return; }
                     if (!controller.Change(s => { s.PlayerX = 6; s.PlayerY = 3; BaseAdventure.Arrive(s); }, "视觉自检：走向检查台")) { Finish(2, "移动被拒：" + controller.Message); return; }
                     stage = "camp-motion-settle";
                     frameDeadline = Time.frameCount + 45;
@@ -222,6 +230,7 @@ namespace BaseConquest.Editor
         private static void Finish(int code, string note)
         {
             EditorApplication.update -= Tick;
+            if (previousDeveloperMode.HasValue) RuntimeDeveloperOptions.Enabled = previousDeveloperMode.Value;
             File.WriteAllText(Path.Combine(OutDir, "result.log"), "exit=" + code + " " + note + "\n");
             if (code != 0) Debug.LogError("[VisualCheck] " + note); else Debug.Log("[VisualCheck] " + note);
             failed = code != 0;

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using BaseConquest.Battle;
 
 namespace BaseConquest.Base
 {
@@ -21,12 +22,13 @@ namespace BaseConquest.Base
         public string FacilityId, Name, Administrator, Workers, Production, Status;
         public static BaseFacilityInfo Read(BaseState state, string id)
         {
-            // 美术检查台的人偶不在存档布局里，只在运行时注入；这里一并认，否则会被当成未知设施抛异常。
-            var obj = BaseSpatial.Objects(state).FirstOrDefault(o => o.Id == id && !o.Id.StartsWith("partner"))
-                ?? BaseDemoNpcs.MotionChecks(state).FirstOrDefault(o => o.Id == id);
+            bool motionCheck = id?.StartsWith("motion-check:", StringComparison.Ordinal) == true;
+            var obj = motionCheck
+                ? BaseDemoNpcs.MotionChecks(state, RuntimeDeveloperOptions.Enabled).FirstOrDefault(o => o.Id == id)
+                : BaseSpatial.Objects(state).FirstOrDefault(o => o.Id == id && !o.Id.StartsWith("partner"));
             if (obj == null) return new BaseFacilityInfo { FacilityId = id, Name = id, Administrator = "", Workers = "", Production = "", Status = "场景对象 · 无可用交互" };
             var info = new BaseFacilityInfo { FacilityId = id, Name = obj.Name, Administrator = "", Workers = "", Production = "", Status = "" };
-            if (id.StartsWith("motion-check:"))
+            if (motionCheck)
             {
                 string figure = id.Substring("motion-check:".Length);
                 info.Production = "美术测试人偶 · " + BaseDemoNpcs.MotionClass(figure) + "\n角色图集：" + figure;
@@ -34,13 +36,14 @@ namespace BaseConquest.Base
                 return info;
             }
             if (id.StartsWith("exit_")) { info.Production = id == "exit_west" ? "前往基地外围迎敌战场" : id == "exit_east" ? "前往城镇" : id == "exit_south" ? "前往世界地图并选择敌点进攻" : "北侧预留"; info.Status = "接近入口后交互"; return info; }
-            if (id == "government") { info.Production = "统一管理设施管理员、工人和仓库"; info.Status = "接近管理所后交互，进入全局管理"; return info; }
+            bool hidden = BaseDemo.ExperimentalManagementHidden(state);
+            if (id == "government") { info.Production = hidden ? "放置或收存营地设施" : "统一管理设施管理员、工人和仓库"; info.Status = hidden ? "接近后打开营地建设" : "接近管理所后交互，进入全局管理"; return info; }
             if (id == "home") { info.Production = "休息一天：结算生产，推进至下一天"; info.Status = "第" + state.Day + "天 · " + (state.TodayFoodMissing > 0 ? "今天缺粮" : "今天口粮充足"); return info; }
             if (id == "barracks") { info.Production = "全军 " + state.Workers.Sum(w => w.Count) + "兵／" + state.Leaders.Count + "队长；重伤闲置 " + state.Workers.Where(w => w.Resting).Sum(w => w.Count) + "人"; info.Status = "查看名册与伤情；全员每日自动恢复"; return info; }
-            if (id == "office") { info.Production = "集中设置发展策略与手动岗位"; info.Status = BaseFacilityLayout.OfficeBuilt(state) ? "可切换自动策略" : "未建成"; return info; }
-            if (id == "caravan") { info.Production = "商队人员 " + BaseCaravan.Crew(state) + " 人 · 运力 " + BaseCaravan.Capacity(state); info.Status = BaseCaravan.Status(state); return info; }
+            if (id == "office") { info.Production = hidden ? "放置或收存营地设施" : "集中设置发展策略与手动岗位"; info.Status = hidden ? "接近后打开营地建设" : BaseFacilityLayout.OfficeBuilt(state) ? "可切换自动策略" : "未建成"; return info; }
+            if (id == "caravan") { info.Production = "商队人员 " + BaseCaravan.Crew(state) + " 人" + (hidden ? "" : " · 运力 " + BaseCaravan.Capacity(state)); info.Status = BaseCaravan.Status(state); return info; }
             if(id!="farm"&&id!="workshop"){info.Status=obj.Kind=="npc"?"人物 · 接近后交谈":obj.VisualOnly?"场景装饰":"接近后交互";return info;}
-            var manager = BaseEconomy.Manager(state, id); var preview = BaseEconomy.Preview(state);
+            var manager = BaseEconomy.Manager(state, id); var preview = BaseEconomy.ProjectDay(state);
             info.Administrator = manager == null ? "无可生产的管理员" : BasePersonnel.LeaderName(manager) + "（产能+" + (BaseDevelopment.Bonus(manager, id) * 100).ToString("0.#") + "%）";
             int producing = BaseEconomy.ProductionWorkersAt(state, id);
             info.Workers = producing + " 人在岗（其中近战" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Melee) +

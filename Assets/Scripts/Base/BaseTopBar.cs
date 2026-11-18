@@ -47,7 +47,7 @@ namespace BaseConquest.Base
     {
         public static string[] Food(BaseState s)
         {
-            var preview = BaseEconomy.Preview(s);
+            var preview = BaseEconomy.ProjectDay(s);
             int soldiers = s.Workers.Sum(w => w.Count);
             int leaders = s.Leaders.Count(l => BaseAdventure.Alive(l));
             var farm = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == "farm");
@@ -60,7 +60,7 @@ namespace BaseConquest.Base
         }
         public static string[] Materials(BaseState s)
         {
-            var preview = BaseEconomy.Preview(s);
+            var preview = BaseEconomy.ProjectDay(s);
             return new[]
             {
                 "工坊在岗 " + BaseEconomy.ProductionWorkersAt(s, "workshop") + " 人 · 当前产品 " + BaseEconomy.ProductName(s.WorkshopProduct) + "（" + BaseConstruction.ProductLevel(s) + " 级）",
@@ -70,7 +70,7 @@ namespace BaseConquest.Base
         }
         public static string[] Supply(BaseState s)
         {
-            var preview = BaseEconomy.Preview(s);
+            var preview = BaseEconomy.ProjectDay(s);
             int low = s.Inventory.Equipment.Where(e => e.Product == "supply" && e.Level <= 1).Sum(e => e.Count);
             int high = s.Inventory.Equipment.Where(e => e.Product == "supply" && e.Level >= 2).Sum(e => e.Count);
             bool making = s.WorkshopProduct == "supply";

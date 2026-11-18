@@ -2105,6 +2105,8 @@ namespace BaseConquest.Editor
             var view = RequirePanel("FacilityPanel");
             var actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
             var list = view.Find("Right/List").GetComponent<ScrollRect>();
+            if (actions.GetComponentsInChildren<Button>().Any(button => button.name == "Unlock" || button.name == "ManagerLock"))
+                throw new InvalidOperationException("正式粮田界面仍显示自动调工专用的岗位锁");
             var rows = list.content.Cast<RectTransform>().Where(node => node.name == "PersonnelRosterRow").ToArray();
             if (rows.Length == 0) throw new InvalidOperationException("粮田点名名册没有显示可调士兵");
             foreach (var row in rows) VerifyRosterRow(row, false);
@@ -2166,6 +2168,17 @@ namespace BaseConquest.Editor
             if (actions.Find("Rest") == null || !list.content.GetComponentsInChildren<Text>().Any(t =>
                 t.text.Contains("扣粮后库存 " + BaseEconomy.Preview(controller.State).NextFood)))
                 throw new InvalidOperationException("营帐休息操作或日结预估缺失");
+            if (actions.Find("Warehouse") == null || actions.Find("Deputy") != null)
+                throw new InvalidOperationException("营帐缺少正式仓库入口，或仍显示副手");
+            Press(actions, "Government");
+            var building = RequirePanel("CommonPanel");
+            if (building.Find("Title").GetComponent<Text>().text != "营地建设" ||
+                building.GetComponentsInChildren<Button>().Any(button =>
+                    button.GetComponentInChildren<Text>()?.text is "库存" or "管理员" or "工人" or "发展策略"))
+                throw new InvalidOperationException("营地建设仍显示旧管理页的重复操作");
+            Click("返回营帐");
+            actions = RequirePanel("FacilityPanel").Find("Left/List").GetComponent<ScrollRect>().content;
+            Log.Add("[PASS] 普通试玩的负责人和派工在对应设施，营帐只提供建设、休息与本设施操作");
             CaptureViewports("ui-skin-facility-home");
             int day = controller.State.Day;
             Press(actions, "Rest");

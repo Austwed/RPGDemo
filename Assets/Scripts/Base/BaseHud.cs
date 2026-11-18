@@ -22,9 +22,9 @@ namespace BaseConquest.Base
         private readonly Button interact;
         private readonly UnityEngine.UI.Button construction;
         private readonly Button reserveRules;
-        private readonly RectTransform[] labels;
-        private readonly Text[] npcMarkers;
-        private readonly BaseMapObject[] labelObjects;
+        private RectTransform[] labels=Array.Empty<RectTransform>();
+        private Text[] npcMarkers;
+        private BaseMapObject[] labelObjects;
         private RectTransform panel, content;
         private ScrollRect panelScroll;
         private string panelViewKey;
@@ -104,12 +104,7 @@ namespace BaseConquest.Base
             construction = MakeButton(controls, "战前建造", new Vector2(-360, 118), new Vector2(180, 64), owner.ArmConstruction, new Vector2(1, 0));
             construction.gameObject.SetActive(false);
             hint = Label(controls, "", new Vector2(0, 30), new Vector2(730, 50), 18, TextAnchor.MiddleCenter, new Vector2(0.5f, 0));
-            labelObjects = owner.DisplayObjects.Where(o=>!BaseEnvironment.Decorative(o)&&o.Id!="demo_sword_prop").ToArray(); labels = new RectTransform[labelObjects.Length];npcMarkers=new Text[labels.Length];
-            for (int i = 0; i < labels.Length; i++)
-            {
-                labels[i] = Label(mapLabels, labelObjects[i].Name.Replace("伙伴 · ", ""), Vector2.zero, new Vector2(180, 36), 18, TextAnchor.MiddleCenter).rectTransform;
-                npcMarkers[i] = CreateNpcStatusMarker(labels[i]);
-            }
+            RefreshMapLabels();
             inspection = Box("CellInformation", root, new Vector2(0.5f, 0), new Vector2(0, 123), new Vector2(740, 180), new Color(0.969f, 0.965f, 0.925f, 0.98f));
             inspectionTitle = Label(inspection, "", new Vector2(-30, 64), new Vector2(630, 34), 22);
             inspectionDetails = Label(inspection, "", new Vector2(0, -7), new Vector2(695, 120), 18, TextAnchor.UpperLeft);
@@ -146,7 +141,24 @@ namespace BaseConquest.Base
                         stat.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 66);
                 }
             }
-            foreach (var label in labels) StyleMapName(label.GetComponent<Text>());
+        }
+        internal void RefreshMapLabels()
+        {
+            foreach(var label in labels)
+            {
+                label.gameObject.SetActive(false);
+                BattleBoardView.DestroyObject(label.gameObject);
+            }
+            labelObjects=owner.DisplayObjects.Where(o=>!BaseEnvironment.Decorative(o)&&o.Id!="demo_sword_prop").ToArray();
+            labels=new RectTransform[labelObjects.Length];
+            npcMarkers=new Text[labelObjects.Length];
+            for(int i=0;i<labels.Length;i++)
+            {
+                var label=Label(mapLabels,labelObjects[i].Name.Replace("伙伴 · ",""),Vector2.zero,new Vector2(180,36),18,TextAnchor.MiddleCenter);
+                StyleMapName(label);
+                labels[i]=label.rectTransform;
+                npcMarkers[i]=CreateNpcStatusMarker(labels[i]);
+            }
         }
         private static void ResizeTouchButton(Button button, float height, int fontSize)
         {
@@ -242,22 +254,27 @@ namespace BaseConquest.Base
             int raids = s.Campaign.Events.Count(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= s.Day);
             regionStatus.text = BaseDemo.Active(s) ? (raids>0 ? "入侵已到达" : "") : s.Campaign.ThreatVersion>0 ? BaseThreats.Warning(s) : raids > 0 ? "入侵 " + raids + "：左侧迎战／过夜自动处理" : "";
             Joystick.gameObject.SetActive(Application.isMobilePlatform && !PanelOpen && !owner.Busy && !owner.PlayerAway && !s.Campaign.HasActiveBattle);
-            if(BaseDemoPrologue.Village(s)){introObjectiveKey=-1;RefreshIntroObjective();}
+            if (BaseDemoPrologue.Village(s) && BaseDemoIntro.Active(s))
+            {
+                if (resourceStrip != null) introObjectiveKey = IntroObjectiveKey(s.Demo.Intro);
+                else { introObjectiveKey = -1; RefreshIntroObjective(); }
+            }
             if (!owner.DeploymentWorldActive) RefreshTrackedQuest();
             nearbyId = null; RefreshMovement(); RefreshInspection();
         }
         private int introObjectiveKey=-1;
+        private static int IntroObjectiveKey(BaseDemoIntroState i) => i.Step * 100 + i.FarmWorkers * 4 + (i.Walked > 0 ? 1 : 0) + (i.Zoomed ? 2 : 0);
         public void RefreshIntroObjective()
         {
             var s=owner.State;if(!BaseDemoPrologue.Village(s)||!BaseDemoIntro.Active(s))return;
-            var i=s.Demo.Intro;int key=i.Step*100+i.FarmWorkers*4+(i.Walked>0?1:0)+(i.Zoomed?2:0);if(key==introObjectiveKey)return;introObjectiveKey=key;
+            int key=IntroObjectiveKey(s.Demo.Intro);if(key==introObjectiveKey)return;introObjectiveKey=key;
             if (resourceStrip != null) { RefreshResourceStrip(s); return; }
             int food=BaseDemoIntro.FarmOutput(s),need=BaseDemoIntro.VillageFood(s),net=food-need;string color=net>0?"#a96354":net<0?"#426b50":"#718078";
             summary.text=BaseScriptNames.Village+" · "+(BaseDemoIntro.Daily(s)?"清晨巡村":"风起村头")+"   粮食 "+s.Inventory.Food+"（<color="+color+">"+net.ToString("+0;-0;0")+"</color>） 日产 "+food+"／口粮 "+need+"  工坊 "+BaseDemoIntro.SmithWork(s)+"工点";
         }
         public void RefreshMovement()
         {
-            RefreshIntroObjective();var nearby = owner.Nearby;
+            RefreshIntroObjective();var nearby = !PanelOpen && !owner.ConstructionMode ? owner.Nearby : null;
             interact.gameObject.SetActive(!owner.ConstructionMode&&nearby!=null&&!PanelOpen);
             bool canBuild=owner.State!=null&&BaseDemoFlow.Active(owner.State)&&owner.State.Campaign.Location=="perimeter"&&!owner.State.Campaign.HasActiveBattle&&!owner.State.Aftermath.GameOver&&!owner.Busy&&!PanelOpen&&!owner.ConstructionMode;
             construction.gameObject.SetActive(canBuild);
@@ -274,6 +291,12 @@ namespace BaseConquest.Base
                     ? touch ? "拖动左侧摇杆移动，靠近人物或设施后点按右侧按钮" : "设施需在边缘一格内且同层；伙伴靠近对话\n电脑：WASD／方向键移动，E交互 · B背包 · N任务 · M地图"
                     : "附近：" + nearby.Name + (touch ? "\n点按右侧按钮交互" : "\n点击右侧交互，或按 E");
             }
+            if (mapLabels.gameObject.activeSelf) RefreshWorldLabels();
+            hint.gameObject.SetActive(owner.SelectedCell == null && !PanelOpen && !owner.ConstructionMode);RefreshConstructionPalette();
+            RefreshQuestCue();
+        }
+        private void RefreshWorldLabels()
+        {
             for (int i = 0; i < labels.Length; i++)
             {
                 var obj = owner.PresentedObject(labelObjects[i].Id); labels[i].gameObject.SetActive(obj != null);
@@ -293,8 +316,6 @@ namespace BaseConquest.Base
                 else PlaceMapLabel(labels[i],owner.WorldPoint(obj.X,obj.Y+obj.Height/2+.6));
             }
             RefreshCompanionLabels();
-            hint.gameObject.SetActive(owner.SelectedCell == null && !PanelOpen && !owner.ConstructionMode);RefreshConstructionPalette();
-            RefreshQuestCue();
         }
         public void RefreshInspection(bool force = true)
         {
@@ -614,11 +635,14 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(owner.State)&&owner.State.Demo.Stage==BaseDemoStage.Waking){OpenDemoStory();return;}
             if (UseFacilityPanel) { OpenHomeFacility(); return; }
             activeObject=interactionObject="home";
-            var s = owner.State; var p = BaseEconomy.Preview(s); int day = s.Day;
+            var s = owner.State; var p = BaseEconomy.ProjectDay(s); int day = s.Day;
             BeginPanel(BaseDemo.Active(s)?"营帐 · 休息与管理":"家 · 休息一天");
             if(BaseDemo.Active(s))
             {
-                RowButton("休息至明天",-290,270,()=>owner.Rest(day));RowButton("营地管理",0,270,()=>{activeObject="government";activePage="workers";OpenGovernment();});RowButton("关闭",290,270,ClosePanel);row+=65;
+                RowButton("休息至明天",-290,270,()=>owner.Rest(day));
+                if (BaseDemo.ExperimentalManagementHidden(s)) RowButton("营地建设",0,270,OpenCampConstruction);
+                else RowButton("营地管理",0,270,()=>{activeObject="government";activePage="workers";OpenGovernment();});
+                RowButton("关闭",290,270,ClosePanel);row+=65;
                 RowButton("仓库",0,800,OpenWarehouse,BasePartyInventory.AtWarehouse(s));row+=60;
                 if(BaseDeputy.Unlocked(s)){var deputy=BaseDeputy.Leader(s);RowButton("副手："+(deputy==null?"未指定":BasePersonnel.LeaderName(deputy))+" · 更换",0,800,OpenDeputy);row+=60;}
                 // 请离基地只在营帐办理（2026-11-06 裁决）：兵营名册不再提供这个入口。
@@ -659,9 +683,9 @@ namespace BaseConquest.Base
         }
         private void ConfirmAdventure(string id,bool join)
         {
-            var s=owner.State;var copy=s.Copy();var before=BaseEconomy.Preview(s);
+            var s=owner.State;var copy=s.Copy();var before=BaseEconomy.ProjectDay(s);
             if(!BaseAdventure.SetMember(copy,id,join)){OpenPartner(id);return;}
-            var after=BaseEconomy.Preview(copy);
+            var after=BaseEconomy.ProjectDay(copy);
             BeginPanel(join ? "确认邀请伙伴" : "确认留在营地","adventure-confirm:"+id);
             RowButton("确认",-210,400,()=>{owner.Change(next=>{if(!BaseInteraction.CanReach(next,owner.PresentedObject(id))||!BaseAdventure.SetMember(next,id,join))throw new InvalidOperationException("伙伴状态或距离已变化，请重新对话");},join ? "伙伴已随行，实际岗位已释放" : "伙伴已留在营地，可安排岗位");OpenPartner(id);});
             RowButton("取消",210,400,()=>OpenPartner(id));row+=65;
@@ -671,6 +695,7 @@ namespace BaseConquest.Base
         private void OpenGovernment()
         {
             if (owner.State == null || activeObject != "government") return;
+            if (BaseDemo.ExperimentalManagementHidden(owner.State)) { OpenCampConstruction(); return; }
             BeginPanel(BaseDemo.Active(owner.State)?"营地管理 · 库存与人员":"据点管理所 · 库存与人员", "government:" + activePage + (activePage == "army" ? ":" + armyPurpose + ":" + armyPage : ""));
             ManagementTabs(OpenGovernment);
             if(!BaseDemo.Active(owner.State)){RowButton("规则 i",0,800,()=>FacilityRules(OpenGovernment));row+=60;}
@@ -725,7 +750,7 @@ namespace BaseConquest.Base
         }
         private void Inventory()
         {
-            var s = owner.State; var p = BaseEconomy.Preview(s);
+            var s = owner.State; var p = BaseEconomy.ProjectDay(s);
             Line("粮草 " + s.Inventory.Food + "    统一原料 " + s.Inventory.Materials + "    钱币 " + s.Inventory.Coins, 52, 23);
             Line("今天已供口粮 " + s.TodayFoodConsumed + "／" + s.TodayFoodRequired + "；预计产粮 " + p.FoodProduced + "；明天需要 " + p.FoodRequired);
 
@@ -765,7 +790,8 @@ namespace BaseConquest.Base
         {
             EnsureWorkerDraft();
             var s = workerDraft;
-            Line("安排方案：确认后实际调动并固定工人岗位；解锁岗位可恢复自动安排。", 58, 22);
+            bool manualOnly = BaseDemo.ExperimentalManagementHidden(s);
+            Line(manualOnly ? "确认后工人按方案调动。" : "安排方案：确认后实际调动并固定工人岗位；解锁岗位可恢复自动安排。", 58, 22);
             RowButton("确认方案",-210,400,()=>CommitWorkerDraft(refresh),workerMoves.Count>0);
             RowButton("取消方案",210,400,()=>{ResetWorkerDraft();refresh();});row+=60;
             foreach (string facility in facilities)
@@ -779,7 +805,8 @@ namespace BaseConquest.Base
                     Label(content, BaseEconomy.TroopName(kind) + " " + BaseEconomy.WorkersAt(s, target, kind) + "人 · 闲置 · 今日可生产 " + available, new Vector2(-230, -row - 26), new Vector2(430, 48), 19, TextAnchor.MiddleLeft, new Vector2(0.5f, 1));
                     RowButton("−1", 70, 90, () => Adjust(troop, target, "", refresh), BaseEconomy.WorkersAt(s, target, kind) > 0);
                     RowButton("+1", 180, 90, () => Adjust(troop, "", target, refresh), available > 0 && BaseEconomy.WorkersAt(s, target) < s.Muster.Facilities.Single(f => f.FacilityId == target).Capacity);
-                    RowButton("解锁岗位", 310, 140, () => {workerDraft=null;workerMoves.Clear();owner.Change(next => { foreach (var w in next.Workers.Where(w => w.Kind == troop && (w.FacilityId == target || w.DesiredFacility == target))) w.PostLocked = false; }, "已解锁工人，由策略安排"); refresh(); }); row += 56;
+                    if (!manualOnly) RowButton("解锁岗位", 310, 140, () => {workerDraft=null;workerMoves.Clear();owner.Change(next => { foreach (var w in next.Workers.Where(w => w.Kind == troop && (w.FacilityId == target || w.DesiredFacility == target))) w.PostLocked = false; }, "已解锁工人，由策略安排"); refresh(); });
+                    row += 56;
                 }
             }
             foreach (string facility in facilities) Line(BaseEconomy.FacilityName(facility) + "：" + BaseFacilityInfo.Read(s, facility).Production, 56);
@@ -857,7 +884,7 @@ namespace BaseConquest.Base
         }
         private void Production()
         {
-            var s = owner.State; var p = BaseEconomy.Preview(s);
+            var s = owner.State; var p = BaseEconomy.ProjectDay(s);
             RowButton("一级军需",-210,400,()=>{owner.Change(next=>{if(!BaseConstruction.SelectLevel(next,1))throw new InvalidOperationException("当前不能改配方");},"已选一级生产");OpenFacility();});
             if (s.Muster.Facilities.Single(f=>f.FacilityId=="workshop").MaxProductLevel>=2)
                 RowButton("二级军需",210,400,()=>{owner.Change(next=>{if(!BaseConstruction.SelectLevel(next,2))throw new InvalidOperationException("工坊未解锁二级生产");},"已选二级生产");OpenFacility();});

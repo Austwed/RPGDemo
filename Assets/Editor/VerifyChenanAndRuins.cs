@@ -236,19 +236,14 @@ namespace BaseConquest.Editor
             var defend=BaseMuster.Preview(s,"defense",true,preset);
             Need(defend.Takes.Sum(t=>t.Count)==3,"守家迎战应放宽到还能行动的伤兵（含 10%），实际 "+defend.Takes.Sum(t=>t.Count));
             Need(plan.Takes.Sum(t=>t.Count)==2,"出征不应把 10% 伤兵编进队");
-            // 生产补位与四分类：重伤不占岗位，可工作的闲置兵自动补空。
+            // 生产岗位和四分类：重伤不占岗位，手动调入健康士兵。
             s.Workers.Clear();
             s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=2,MaxHealth=100,Health=100,FarmEfficiency=1,WorkshopEfficiency=1});
             s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,MaxHealth=100,Health=25,FarmEfficiency=1,WorkshopEfficiency=1});
-            // P40：办公设施未建成时只能手动；先证红，再放置办公设施转绿。
-            bool officeRejected=false;
-            try{BaseDevelopment.SetPolicy(s,"auto");}catch(InvalidOperationException){officeRejected=true;}
-            Need(officeRejected,"办公设施未建成时不应允许自动策略");
-            s.Layout.OfficeGift=true;
-            Need(BaseFacilityLayout.AutoPlace(s,"office",out string officeProblem,out _,out _),"办公设施放置："+officeProblem);
-            BaseDevelopment.SetPolicy(s,"auto");
+            BaseDevelopment.SetPolicy(s,"manual");
+            Need(BaseEconomy.MoveWorkers(s,BaseTroopKind.Melee,"","farm",2),"健康士兵能调入粮田");
             Need(s.Workers.Where(x=>!x.Away&&x.Health<30).All(x=>x.FacilityId==""),"重伤士兵不应占生产岗位");
-            Need(s.Workers.Where(x=>!x.Away&&x.Health>=30).Sum(x=>x.FacilityId==""?0:x.Count)>0,"可工作士兵应自动补上空岗");
+            Need(s.Workers.Where(x=>!x.Away&&x.Health>=30&&x.FacilityId=="farm").Sum(x=>x.Count)==2,"粮田应保留两名手动调入的健康士兵");
             var tally=BaseDevelopment.Tally(s);
             Need(tally[0]==3&&tally[1]==2&&tally[2]==2&&tally[3]==1,
                 "兵力四分类不符：总数"+tally[0]+"／可工作"+tally[1]+"／可出战"+tally[2]+"／重伤"+tally[3]);
@@ -486,12 +481,11 @@ namespace BaseConquest.Editor
             Need(new BattleSimulation(scenario).CommanderAppearance(BattleSide.B,0)=="","空队长外观列表生成了兜底形象");
             Need(PixelDemoArt.AtlasId("wilderness")=="enemy-captain"&&!PixelDemoArt.IsCast("wilderness"),"wilderness 旧档回退口径变化");
             // ④ 行为／表现解耦：村民贴图带攻击图是「能力」，NPC 身份不变且不进战斗编组。
-            // 村民只有 villager-attack-v2、没有 walk-v2：按「缺动作集＝表现退化，行为不缺」是允许的。
-            Need(PixelDemoArt.HasAttack("villager")&&!PixelDemoArt.HasWalk("villager"),"村民临时士兵攻击图缺失或意外出现行走图");
+            Need(PixelDemoArt.HasAttack("villager")&&PixelDemoArt.HasWalk("villager"),"村民攻击图或补岗行走图缺失");
             Need(BaseDemoNpcs.IsMotionNpc("villager")&&BaseDemoNpcs.MotionClass("villager").StartsWith("交互 NPC"),"村民 NPC 分类丢失");
             Need(BaseDemoNpcs.MotionClass("villager").Contains("攻击"),"村民攻击能力被类别门控关掉了");
             var camp=JsonUtility.FromJson<BaseState>(male);
-            Need(BaseDemoNpcs.MotionChecks(camp).All(o=>o.Kind=="npc"),"检查台对象混入了战斗编组");
+            Need(BaseDemoNpcs.MotionChecks(camp,true).All(o=>o.Kind=="npc"),"检查台对象混入了战斗编组");
             Debug.Log("[VerifyBattleAppearances] 序章搭档、7 场景外观白名单、wilderness 旧档回退、村民攻击图与 NPC 行为入口 PASS");
         }
         public static void VerifyRuinsEntranceCollision()

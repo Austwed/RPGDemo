@@ -48,7 +48,7 @@ namespace BaseConquest.Editor
             Need(BaseDemoNpcs.Present(state,new BaseMapObject("town_girl",BaseScriptNames.Girl,15,11.5,.6,.6,false,"","villager","npc")).AssetId=="villager-girl","小芸场景外观未接线");
             Need(BaseDemoNpcs.DialogueArt(BaseScriptNames.Girl,"villager")=="villager-girl","小芸对话头像未接线");
             var reserved=ids.Concat(new[]{"villager-girl"}).ToArray();
-            Need(BaseDemoNpcs.MotionChecks(state).Count(x=>reserved.Contains(x.Id.Substring("motion-check:".Length)))==reserved.Length,"检查台缺少预留 NPC（含小芸）");
+            Need(BaseDemoNpcs.MotionChecks(state,true).Count(x=>reserved.Contains(x.Id.Substring("motion-check:".Length)))==reserved.Length,"检查台缺少预留 NPC（含小芸）");
             Debug.Log("[VerifyNpcFallback] PASS");
         }
     }

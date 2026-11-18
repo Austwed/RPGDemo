@@ -137,7 +137,7 @@ namespace BaseConquest.Base
             EnsureWorkerDraft();
             var draft = workerDraft;
             var facility = state.Muster.Facilities.Single(x => x.FacilityId == id);
-            var preview = BaseEconomy.Preview(draft);
+            var preview = BaseEconomy.ProjectDay(draft);
             var (actions, filters, list) = OpenFacilityPanel(id + ":" + activePage,
                 BaseEconomy.FacilityName(id) + " · " + facility.Level + "级", FacilityCopy("production", "生产与岗位"),
                 managers ? FacilityCopy("managers", "负责人名册") : FacilityCopy("workers", "工人名册"));
@@ -172,16 +172,20 @@ namespace BaseConquest.Base
                     () => Adjust(kind, id, "", OpenFacility), () => Adjust(kind, "", id, OpenFacility),
                     assigned > 0, free && count < facility.Capacity);
                 var unlock = Ui<Button>(counter, "Unlock");
-                unlock.interactable = !pending && state.Workers.Any(w => w.Kind == kind && w.PostLocked &&
-                    (w.FacilityId == id || w.DesiredFacility == id));
-                unlock.onClick.AddListener(() => FacilityChange(next =>
+                if (BaseDemo.ExperimentalManagementHidden(state)) unlock.gameObject.SetActive(false);
+                else
                 {
-                    foreach (var worker in next.Workers.Where(w => w.Kind == kind && (w.FacilityId == id || w.DesiredFacility == id)))
-                        worker.PostLocked = false;
-                }, "已解锁工人，由策略安排", OpenFacility));
+                    unlock.interactable = !pending && state.Workers.Any(w => w.Kind == kind && w.PostLocked &&
+                        (w.FacilityId == id || w.DesiredFacility == id));
+                    unlock.onClick.AddListener(() => FacilityChange(next =>
+                    {
+                        foreach (var worker in next.Workers.Where(w => w.Kind == kind && (w.FacilityId == id || w.DesiredFacility == id)))
+                            worker.PostLocked = false;
+                    }, "已解锁工人，由策略安排", OpenFacility));
+                }
             }
 
-            if (manager != null)
+            if (manager != null && !BaseDemo.ExperimentalManagementHidden(state))
                 FacilityButton(actions, "ManagerLock", manager.PostLocked ? "解锁负责人岗位" : "锁定负责人岗位", () =>
                     FacilityChange(next =>
                     {
@@ -342,7 +346,7 @@ namespace BaseConquest.Base
             FacilityButton(actions, "SaveRanges", "保存位次范围", () => FacilityChange(next =>
             {
                 var values = fields.Select(field => int.TryParse(field.text, out int value) ? value : 0).ToArray();
-                for (int slot = 0; slot < 3; slot++) BaseMuster.SetRanges(next, slot, values[slot * 3], values[slot * 3 + 1], values[slot * 3 + 2]);
+                BaseMuster.SetRanges(next, values);
             }, "已保存位次范围", OpenBarracks), !state.Campaign.HasActiveBattle);
             FacilityButton(actions, "Rules", "兵营规则", () => FacilityRules(OpenBarracks));
 
@@ -396,14 +400,17 @@ namespace BaseConquest.Base
             activeObject = interactionObject = "home";
             var state = owner.State;
             int day = state.Day;
-            var preview = BaseEconomy.Preview(state);
+            var preview = BaseEconomy.ProjectDay(state);
             var raids = BaseCampaign.Due(state).ToArray();
-            string restProblem = BaseDemoFlow.RestProblem(state);
+            string restProblem = BaseDemoFlow.RestProblem(state, preview);
             var (actions, filters, list) = OpenFacilityPanel("facility:home", "营帐", "休息与管理", FacilityCopy("forecast", "日结预览"));
             FacilityText(filters, $"第{day}天 → 第{day + 1}天", true);
             FacilityButton(actions, "Rest", "休息至明天", () => owner.Rest(day), restProblem == "" || BaseDemoDefense.AnyDue(state), true);
             if (restProblem != "" && raids.Length == 0) FacilityText(actions, restProblem);
-            FacilityButton(actions, "Government", "营地管理", () => { activeObject = "government"; activePage = "workers"; OpenGovernment(); });
+            if (BaseDemo.ExperimentalManagementHidden(state))
+                FacilityButton(actions, "Government", "营地建设", OpenCampConstruction);
+            else
+                FacilityButton(actions, "Government", "营地管理", () => { activeObject = "government"; activePage = "workers"; OpenGovernment(); });
             if (BasePartyInventory.AtWarehouse(state)) FacilityButton(actions, "Warehouse", "仓库", OpenWarehouse);
             if (BaseDeputy.Unlocked(state)) FacilityButton(actions, "Deputy", "副手 · " + (BaseDeputy.Leader(state)?.Name ?? "未指定"), OpenDeputy);
             if (state.Leaders.Any(l => l.Id != state.PlayerLeaderId && l.Rpg != null && !l.Rpg.Story))

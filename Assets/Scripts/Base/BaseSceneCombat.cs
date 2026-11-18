@@ -9,11 +9,12 @@ namespace BaseConquest.Base
     public static class BaseSceneCombat
     {
         public static bool Active(BaseState state)=>state?.Campaign?.HasActiveBattle==true||!string.IsNullOrEmpty(state?.SceneBattleId);
-        public static BattleBoard Project(BaseState state,string map=null)
+        internal static bool BlocksSight(BaseMapObject item)=>item.Blocks&&!item.Id.StartsWith("tactic:");
+        public static BattleBoard Project(BaseState state,string map=null)=>Project(BaseBattlefield.Board(state,map),BaseSpatial.Objects(state,map).Where(BlocksSight).ToArray(),BaseDemo.Active(state));
+        internal static BattleBoard Project(BattleBoard source,IReadOnlyList<BaseMapObject> objects,bool demo)
         {
-            var board=BaseBattlefield.Board(state,map).Clone();
-            if(BaseDemo.Active(state))foreach(var cell in board.Cells)cell.FixedCover=false;
-            var objects=BaseSpatial.Objects(state,map).Where(item=>item.Blocks&&!item.Id.StartsWith("tactic:")).ToArray();
+            var board=source.Clone();
+            if(demo)foreach(var cell in board.Cells)cell.FixedCover=false;
             foreach(var position in board.Positions())
             {
                 var placement=objects.FirstOrDefault(item=>item.Parts.Any(part=>part.Contains(position.X+.5,position.Z+.5)));

@@ -26,7 +26,7 @@ namespace BaseConquest.Base
                 }
                 row+=56;
             }
-            RowButton("保存九项范围",0,800,()=>{if(owner.Change(next=>{var values=fields.Select(f=>int.TryParse(f.text,out int n)?n:0).ToArray();for(int slot=0;slot<3;slot++)BaseMuster.SetRanges(next,slot,values[slot*3],values[slot*3+1],values[slot*3+2]);},"已保存位次范围"))OpenBarracks();});row+=56;
+            RowButton("保存九项范围",0,800,()=>{if(owner.Change(next=>BaseMuster.SetRanges(next,fields.Select(f=>int.TryParse(f.text,out int n)?n:0).ToArray()),"已保存位次范围"))OpenBarracks();});row+=56;
             if(!all.Any(l=>l.Id==compositionLeader))compositionLeader=s.PlayerLeaderId;
             Line("保存期望编制，不提前占用士兵。出征按常驻小队顺序补兵。",60,18);
             foreach(var leader in all.Skip(compositionPage*5).Take(5))

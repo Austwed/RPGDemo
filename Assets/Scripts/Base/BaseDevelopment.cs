@@ -21,7 +21,7 @@ namespace BaseConquest.Base
         // P40（2026-11-06）：办公设施建成前只能逐人手动；建成后四档策略。旧 balanced／custom 迁移为自动／手动。
         public static readonly string[] Policies = { "food", "equipment", "auto", "manual" };
         public static bool OfficeBuilt(BaseState s) => BaseFacilityLayout.OfficeBuilt(s);
-        public static string EffectivePolicy(BaseState s) => OfficeBuilt(s) ? (s?.Development?.Policy ?? "manual") : "manual";
+        public static string EffectivePolicy(BaseState s) => OfficeBuilt(s) && !BaseDemo.ExperimentalManagementHidden(s) ? (s?.Development?.Policy ?? "manual") : "manual";
         public static bool AutoAssign(BaseState s) => EffectivePolicy(s) != "manual";
         // 策略顺序：粮草优先／军需优先按固定顺序填满；自动分配另行试算配额；手动不自动补位。
         public static string[] PolicyOrder(BaseState s) => EffectivePolicy(s) == "equipment"
@@ -91,7 +91,12 @@ namespace BaseConquest.Base
                 if (d.Policy == "balanced") d.Policy = "auto";
                 else if (d.Policy == "custom" || string.IsNullOrEmpty(d.Policy) || !Policies.Contains(d.Policy)) d.Policy = "manual";
             }
-            if (d != null && d.Version != 0) return;
+            if (d != null && d.Version != 0)
+            {
+                if (d.Version == 3 && d.Policy != "manual" && Policies.Contains(d.Policy) && BaseDemo.ExperimentalManagementHidden(s))
+                    PausePolicy(s);
+                return;
+            }
             // 旧进度保留手动意向，不在读档时偷偷把伙伴和工作兵全部重排。
             s.Development = new BaseDevelopmentState { Version = 3, Automatic = false, Policy = "manual" };
             foreach (var l in s.Leaders.Where(x => x != null))
@@ -126,7 +131,7 @@ namespace BaseConquest.Base
         public static void SetPolicy(BaseState s, string policy)
         {
             if (!Policies.Contains(policy)) throw new ArgumentException("未知发展策略");
-            // 办公设施未建成时只允许手动；门禁放在这里，不靠界面隐藏按钮。
+            if (policy != "manual" && BaseDemo.ExperimentalManagementHidden(s)) throw new InvalidOperationException("当前只能手动安排岗位");
             if (policy != "manual" && !OfficeBuilt(s)) throw new InvalidOperationException("办公设施未建成，只能逐人手动安排");
             s.Development.Policy = policy;
             if (s.Layout != null) s.Layout.PausedPolicy = "";
@@ -137,6 +142,15 @@ namespace BaseConquest.Base
             Allocate(s);
         }
         public static void SetAutomatic(BaseState s, bool enabled) => SetPolicy(s, enabled ? "auto" : "manual");
+        internal static void PausePolicy(BaseState s)
+        {
+            if (s.Development.Policy == "manual") return;
+            if (s.Layout != null) s.Layout.PausedPolicy = s.Development.Policy;
+            s.Development.Policy = "manual";
+            s.Development.Automatic = false;
+            foreach (var worker in s.Workers.Where(w => !w.Away && !w.PostLocked)) worker.DesiredFacility = worker.FacilityId;
+            foreach (var leader in s.Leaders.Where(l => !l.Away && !l.PostLocked)) leader.DesiredFacility = leader.FacilityId;
+        }
         public static void Allocate(BaseState s)
         {
             Normalize(s);

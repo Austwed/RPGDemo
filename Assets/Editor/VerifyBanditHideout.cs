@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using BaseConquest.Base;
 using BaseConquest.Battle;
@@ -260,8 +261,61 @@ namespace BaseConquest.Editor
             restored.RememberTerrain(BattleSide.A, vision.KnownTerrain(BattleSide.A));
             restored.RefreshExploration(new[] { west });
             Need(!restored.Visible(BattleSide.A, target) && restored.TerrainVisible(BattleSide.A, target), "已发现窝点没有在薄雾中保留");
+            VerifyExplorationCache(state.Copy(), target);
             At(state, BaseBanditHideout.EntryId);
             return state;
+        }
+
+        private static void VerifyExplorationCache(BaseState state, GridPosition target)
+        {
+            var host = new GameObject("ExplorationSightCheck");
+            try
+            {
+                var controller = host.AddComponent<BaseSceneController>();
+                var companions = new BaseCompanionMovement();
+                var type = typeof(BaseSceneController);
+                type.GetProperty(nameof(controller.State)).GetSetMethod(true).Invoke(controller, new object[] { state });
+                type.GetProperty(nameof(controller.Companions)).GetSetMethod(true).Invoke(controller, new object[] { companions });
+                var method = type.GetMethod("RefreshExplorationSight", BindingFlags.Instance | BindingFlags.NonPublic);
+                var memory = BaseSceneRules.Memory(state);
+                Array.Clear(memory.Known, 0, memory.Known.Length);
+                var objects = BaseSpatial.Objects(state);
+                BattleVision Refresh() => (BattleVision)method.Invoke(controller, new object[] { objects, memory });
+
+                state.PlayerX = 14.5;
+                state.PlayerY = 12.5;
+                var west = Refresh();
+                int revision = west.Revision;
+                var sameMemory = (bool[])memory.Known.Clone();
+                memory.Known = sameMemory;
+                state.PlayerX = 14.7;
+                Need(Refresh() == west && west.Revision == revision && memory.Known == sameMemory && !west.TerrainVisible(BattleSide.A, target),
+                    "原地／格内移动或复制存档记忆时重复计算迷雾，或浓雾提前露出窝点");
+
+                var follower = companions.Agents.First();
+                state.Adventure.Members.Add(follower.Id);
+                follower.Position = new BasePoint(16.5, 12.5);
+                follower.Visible = true;
+                Need(Refresh() == west && west.Revision > revision && west.Visible(BattleSide.A, target), "跟随者跨墙后未刷新实时视野");
+                follower.Visible = false;
+                Need(Refresh() == west && !west.Visible(BattleSide.A, target) && west.TerrainVisible(BattleSide.A, target), "跟随者退出视野后未恢复薄雾");
+
+                var wall = BaseBattlefield.Board(state).Cell(new GridPosition(15, 12));
+                wall.Terrain = TerrainKind.Ground;
+                var clear = Refresh();
+                Need(clear != west && clear.Visible(BattleSide.A, target), "地形改变后仍使用旧视线");
+                objects = objects.Append(new BaseMapObject("sight-test-blocker", "验收遮挡", 15.5, 12.5, 1, 1)).ToArray();
+                var blocked = Refresh();
+                Need(blocked != clear && !blocked.Visible(BattleSide.A, target) && blocked.TerrainVisible(BattleSide.A, target), "新增障碍未遮住实时视野");
+
+                BaseSpatial.Layout(state).Safety = "safe";
+                var safe = Refresh();
+                revision = safe.Revision;
+                state.PlayerX = 10.5;
+                Need(safe.Visible(BattleSide.A, target) && Refresh() == safe && safe.Revision == revision, "安全区未全显示或移动时重复计算迷雾");
+                Debug.Log("[VerifyBanditHideout] PASS exploration sight cache, observer movement, map blockers and safe-area fog");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(host); }
         }
 
         private static void VerifyVictory(BaseState fixture)

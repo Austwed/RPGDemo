@@ -26,6 +26,17 @@ namespace BaseConquest.Editor
 
         public static void Run()
         {
+            bool wasEnabled = RuntimeDeveloperOptions.Enabled;
+            try
+            {
+                RuntimeDeveloperOptions.Enabled = true;
+                VerifyDeveloperDeputy();
+            }
+            finally { RuntimeDeveloperOptions.Enabled = wasEnabled; }
+        }
+
+        private static void VerifyDeveloperDeputy()
+        {
             var s = WorldOpened();
             Need(BaseDemoFinale.Opened(s), "探针需要世界道路已开放的状态");
 
@@ -69,6 +80,15 @@ namespace BaseConquest.Editor
             // 5) 普通袭击：可以委托，编队不含玩家队伍。
             string eventId = AddRaid(s);
             BaseEconomy.Validate(s);
+            RuntimeDeveloperOptions.Enabled = false;
+            try
+            {
+                Need(!BaseDeputy.Unlocked(s) && !BaseDeputyBattle.Delegable(s, eventId) && BaseDeputyBattle.Problem(s, eventId) != "",
+                    "正式 Demo 即使已任命副手也不能委托防守");
+                BaseEconomy.Validate(s);
+                Need(s.Demo.Deputy.Unlocked && s.Demo.Deputy.LeaderId == "partner_farm", "隐藏入口不应删除已有任职记录");
+            }
+            finally { RuntimeDeveloperOptions.Enabled = true; }
             Need(string.IsNullOrEmpty(BaseDeputyBattle.Problem(s, eventId)), "普通袭击应可交给副手：" + BaseDeputyBattle.Problem(s, eventId));
             var selection = BaseDeputyBattle.Selection(s);
             Need(selection.Candidates.Count >= 1 && selection.Candidates[0] == "partner_farm", "副手应排在 A 位");

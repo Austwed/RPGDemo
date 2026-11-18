@@ -19,13 +19,12 @@ namespace BaseConquest.Editor
             var asset=Resources.Load<TextAsset>("DemoStages/camp-male");Need(asset!=null,"缺少营地阶段档");
             var state=JsonUtility.FromJson<BaseState>(asset.text);BaseDemo.InstallCampMap(state);BaseEconomy.Validate(state);
             var board=BaseBattlefield.Board(state,"base");var layout=BaseSpatial.Layout(state,"base");
-            var samples=BaseDemoNpcs.MotionChecks(state);Need(samples.Length==22&&samples.Select(o=>o.Id).Distinct().Count()==22&&samples.All(o=>o.Y<7&&BaseConquest.Presentation.PixelDemoArt.Load("Characters",o.AssetId)!=null),"动作检查角色数量、位置或图集错误");
-            // 行为／表现解耦（2026-11-02 定）：能力由贴图有无动作图集决定。检查台 22 个样本的实测能力清单：
-            // 有 walk 图集 14 个、有 attack 图集 16 个——chenan 带 attack，村民类经 ResolveNpcArt 回退共用图。
-            // 2026-11-02 22:5x：小芸 villager-girl 专属图入库（ResolveNpcArt 不再回退 villager），
-            // 她带 walk-v2、不带 attack-v2，故该样本从「有攻击无行走」变成「有行走无攻击」：walk 13→14、attack 17→16。
-            // 以后每次新增/替换 NPC 专属动作图集，都要回来核对这两个数，别照抄旧值。
-            Need(samples.Count(o=>BaseConquest.Presentation.PixelDemoArt.HasWalk(o.AssetId))==14&&samples.Count(o=>BaseConquest.Presentation.PixelDemoArt.HasAttack(o.AssetId))==16,"动作图集能力清单不符");
+            Need(BaseDemoNpcs.MotionChecks(state,false).Length==0,"关闭开发者模式时不应生成动作检查角色");
+            var samples=BaseDemoNpcs.MotionChecks(state,true);Need(samples.Length==22&&samples.Select(o=>o.Id).Distinct().Count()==22&&samples.All(o=>o.Y<7&&BaseConquest.Presentation.PixelDemoArt.Load("Characters",o.AssetId)!=null),"动作检查角色数量、位置或图集错误");
+            foreach(string id in new[]{"player","female","ahe","mounted-azhu","galan","chief","batu","huoya","saber","archer","rider"})
+                Need(samples.Any(o=>o.AssetId==id)&&BaseConquest.Presentation.PixelDemoArt.HasWalk(id)&&BaseConquest.Presentation.PixelDemoArt.HasAttack(id),"战斗角色缺少行走或攻击图集："+id);
+            foreach(string id in new[]{"villager-girl","chunshen","laozhou"})
+                Need(samples.Any(o=>o.AssetId==id)&&BaseConquest.Presentation.PixelDemoArt.HasWalk(id),"常驻人物缺少行走图集："+id);
             Need(!BaseSpatial.Objects(state,"base").Any(o=>o.Id.StartsWith("motion-check:")),"动作检查对象混入正式地图");
             Need(layout.Objects.Where(o=>o.Kind=="facility").All(o=>o.Y>=8),"设施未移到上半区");
             Need(samples.All(o=>BaseSpatial.Geometry(state,o.X,o.Y)),"动作检查角色被设施遮挡");
@@ -82,7 +81,9 @@ namespace BaseConquest.Editor
                 BaseBackpack.Validate(state);BasePartyInventory.Validate(state);
                 var store=new BaseSaveStore(Path.GetFullPath("Logs/checkpoint-verification/quest-sword-"+full+".json"),d=>JsonUtility.ToJson(d),json=>JsonUtility.FromJson<BaseSaveDocument>(json),true);
                 store.Save(state);var restored=store.Load();Need(BaseBackpack.Count(restored,sword)==1&&restored.Backpack.Items.Single(i=>i.ItemId==sword).Holder==item.Holder,"任务道具存读后变化");
-                restored.Backpack.Catalog.Single(d=>d.Id==sword).Description="待写";BaseBackpack.Normalize(restored);Need(restored.Backpack.Catalog.Single(d=>d.Id==sword).Description==BaseBackpack.RoyalSwordDescription,"旧存档长剑说明未更新");
+                restored.Backpack.Catalog.Single(d=>d.Id==sword).Description="待写";
+                var displayedSword=BasePartyInventory.Entries(restored).Single(entry=>entry.Stack?.ItemId==sword);
+                Need(displayedSword.Description==BaseBackpack.RoyalSwordDescription,"旧存档长剑未显示当前说明");
                 if(!full)
                 {
                     Need(BasePartyInventory.Move(state,item.Id,"",-1),"任务道具不能存入仓库");

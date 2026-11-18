@@ -52,6 +52,7 @@ namespace BaseConquest.Base
         public const int SaveVersion=19;
         public const string Profile="demo-new-camp-v1", ReleaseProfile="demo-complete-v2", BalanceTemplate="35_配表驱动验证.json", Assignment="demo:lord:ruins-assignment";
         public static bool Active(BaseState state) => state?.Demo?.Version==1;
+        public static bool ExperimentalManagementHidden(BaseState state) => Active(state) && !RuntimeDeveloperOptions.Enabled;
         public static bool FacilityAvailable(BaseState state,string id) => !BaseDemoPrologue.Village(state)&&(!Active(state)||id!="workshop"&&id!="barracks"||BaseDemoDefense.Repaired(state,id))&&(id!="caravan"||BaseFacilityLayout.Built(state,"caravan"))&&(!Active(state)||id!="farm"&&id!="workshop"||BaseFacilityLayout.Built(state,id));
         public static string Objective(BaseState state) => !Active(state) ? "" : BaseDemoIntro.Active(state)&&state.Demo.Stage==BaseDemoStage.PrologueBriefing ? BaseDemoIntro.Objective(state) : BaseDemoPrologue.Village(state) ? state.Demo.Stage==BaseDemoStage.PrologueBriefing?"当前目标：听取村民报告，与队长告别":state.Demo.Stage==BaseDemoStage.PrologueEscape?"当前目标：带村民向东撤离":state.Demo.Stage==BaseDemoStage.ProloguePursuit?"掩护村民离开，击败一名追兵并重创另一名":"序章完成 · 重伤与失踪" : state.Demo.Stage==BaseDemoStage.Waking ? "当前目标：在营帐醒来，了解"+BaseScriptNames.Camp : state.Demo.Stage==BaseDemoStage.VisitLord ? "当前目标：从东侧出口前往"+BaseScriptNames.Town+"，拜访领主" : BaseDemoRuins.Objective(state);
 

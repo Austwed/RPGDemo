@@ -8,19 +8,13 @@ namespace BaseConquest.Base
     public static class BaseLocalDuel
     {
         public const string Id="demo:duel:azhu";
-        public static BaseCampaignSession Create(BaseState state,bool battlefield=false)
+        public static BaseCampaignSession Create(BaseState state)
         {
-            var target=state.Leaders.Concat(state.Demo.Candidates).First(l=>l.Id=="partner_craft");
+            if(!BaseSceneRules.Active(state)||!BaseDemoNpcs.NearAzhu(state))throw new InvalidOperationException("请走近阿铸再开始切磋");
+            if(state.Demo.Flow?.AzhuDuelWon==true||state.Demo.MetCompanions.Contains("partner_craft")||state.Leaders.Any(l=>l.Id=="partner_craft"))
+                throw new InvalidOperationException("阿铸的切磋已经完成");
+            var target=state.Demo.Candidates.Single(l=>l.Id=="partner_craft");
             var marker=BaseSpatial.Objects(state).FirstOrDefault(o=>o.Id=="demo_azhu")??new BaseMapObject(target.Id,target.Name,target.MapX,target.MapY,.5,.5,false);
-            if(!BaseSceneRules.Active(state)||!BaseInteraction.CanReach(state,marker)&&!BaseDemoNpcs.NearAzhu(state))throw new InvalidOperationException("请走近阿铸再开始比武");
-            if(battlefield)
-            {
-                if(!BaseDemoDefense.Won(state))throw new InvalidOperationException("完成首次防守后可选择迎敌战场演练");
-                state=state.Copy();var field=BaseSpatial.Layout(state,"perimeter");state.Campaign.Location="perimeter";
-                if(BaseSceneInstances.Active(state))state.Campaign.CurrentMapId=field.SourceMapId;
-                state.PlayerX=field.SpawnX;state.PlayerY=field.SpawnY;
-                marker=new BaseMapObject(target.Id,target.Name,state.PlayerX-2,state.PlayerY,.5,.5,false);
-            }
             var player=state.Leaders.Single(l=>l.Id==state.PlayerLeaderId).Copy();player.Health=player.MaxHealth;
             var enemy=target.Copy();enemy.Health=enemy.MaxHealth;
             var board=BaseSceneCombat.Project(state);foreach(var c in board.Cells)c.Zone=DeploymentZone.None;
