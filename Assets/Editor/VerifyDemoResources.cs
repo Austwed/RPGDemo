@@ -39,11 +39,10 @@ namespace BaseConquest.Editor
             {
                 string atlas=PixelDemoArt.AtlasId(id);Add("PixelDemo/Characters/"+atlas+"-v1","动态角色 "+id);
                 foreach(string motion in new[]{"idle","walk","attack","down"}){string path="PixelDemo/Characters/"+atlas+"-"+motion+"-v2";if(Resources.Load<Texture2D>(path)!=null)Add(path,"可选动作 "+id,false);}
-                string portrait="PixelDemo/Portraits/portrait-"+id+"-v1";if(Resources.Load<Texture2D>(portrait)!=null)Add(portrait,"可选头像 "+id,false);
             }
             Add("PixelDemo/Characters/ancient-saber-v1","古裔剑士四向图");
-            foreach(string id in new[]{"chenan","recruiter","ancient-saber"})
-                Add("PixelDemo/Portraits/portrait-"+id+"-v1","剧情专属头像");
+            foreach (string file in Directory.GetFiles("Assets/Resources/PixelDemo/DialoguePortraits", "*-v1.png"))
+                Add("PixelDemo/DialoguePortraits/" + Path.GetFileNameWithoutExtension(file), "共用半身像");
             foreach(string id in new[]{"player","female","ahe","azhu","galan","chief","batu","huoya","saber","archer","rider","villager"})
             {
                 string path="PixelDemo/Characters/"+PixelDemoArt.AtlasId(id)+"-down-v2";

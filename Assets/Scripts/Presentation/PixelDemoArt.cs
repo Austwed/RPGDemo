@@ -56,8 +56,7 @@ namespace BaseConquest.Presentation
             id=TroopId(id);
             // 随机敌营已作废（2026-11-02），别名仅供旧数据读取。
             if(id=="wilderness")id="enemy-captain";
-            else if(id=="portrait-wilderness")id="portrait-enemy-captain";
-            // 阿铸只保留骑乘一套图集：所有调用方（含头像兜底、BattlePawn2D 的可用性判断）统一解析到 mounted-azhu，不再有站立版。
+            // 阿铸的动作图集统一解析到 mounted-azhu。
             else if(category=="Characters"&&id=="azhu")id="mounted-azhu";
             // 骑兵同理：cavalry-v1 画的是持矛步战，探索态与检查台只读 -v1，会把这个兵种显示成步兵。
             else if(category=="Characters"&&id=="cavalry")id="mounted-cavalry";

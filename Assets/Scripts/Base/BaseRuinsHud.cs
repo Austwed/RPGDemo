@@ -21,13 +21,13 @@ namespace BaseConquest.Base
             var defer=new NpcReply("暂不交战",CloseRuinsBriefing);
             NpcDialogue(new[]{
                 new NpcLine("迦兰","galan","站住。他们吸了瘴气，全靠我护着。"),
-                new NpcLine("迦兰","galan","我这点织魂……这点手段一松，他们就撑不住了。"),
-                new NpcLine("你","","他们连一步都挪不了。先制住他，别伤镇民。",true)
+                new NpcLine("迦兰","galan","我一收手，他们就撑不住了。"),
+                new NpcLine("你","","他们怎么连一步都挪不了？",true)
             },new[]{
                 fight,
                 new NpcReply("追问他们为何不能动",()=>NpcDialogue(new[]{
-                    new NpcLine("你","","你说在救他们。那他们怎么连手脚都动不了？",true),
-                    new NpcLine("迦兰","galan","［杖尖点地，两人挪上前］再走一步，他们就得拦你。")
+                    new NpcLine("你","","他们自己能走？还是得你发话？",true),
+                    new NpcLine("迦兰","galan","再走一步，我就叫他们拦你。")
                 },new[]{fight,defer})),
                 defer
             });

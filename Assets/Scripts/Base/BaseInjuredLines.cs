@@ -13,13 +13,13 @@ namespace BaseConquest.Base
         }
         private static readonly Dictionary<string,InjuredLine> InjuredLines=new Dictionary<string,InjuredLine>
         {
-            {"INJ_TOWN_GUARD",new InjuredLine{Speaker=BaseScriptNames.Guard,Art="villager",Text="甲片都裂了。人能站着回来就好，先去包扎。"}},
+            {"INJ_TOWN_GUARD",new InjuredLine{Speaker=BaseScriptNames.Guard,Art="villager",Text="伤成这样还在外头走？先找地方包扎。"}},
             {"INJ_TOWN_MO",new InjuredLine{Speaker=BaseScriptNames.Peddler,Art=BaseScriptNames.Portrait("merchant"),Text="脸都白了！钱币没了还能挣，人可赔不起。"}},
             {"INJ_TOWN_XIAOYUN",new InjuredLine{Speaker=BaseScriptNames.Girl,Art="villager",Text="你的袖子在滴血！先按住伤口，别再走了。"}},
             {"INJ_TOWN_BALONG",new InjuredLine{Speaker=BaseScriptNames.Blacksmith,Art=BaseScriptNames.Portrait("blacksmith"),Text="铁甲破了还能换。你这伤，得老老实实躺一晚。"}},
             {"INJ_TOWN_LEIEN",new InjuredLine{Speaker=BaseScriptNames.Recruiter,Art=BaseScriptNames.Portrait("recruiter"),Text="挂彩了？能回来就能再整队。先把伤养好。"}},
             {"INJ_CAMP_ZHOU",new InjuredLine{Speaker=BaseScriptNames.LaoZhou,Art=BaseScriptNames.Portrait("laozhou"),Text="又是一身伤。进帐躺下，天塌了也等明早。"}},
-            {"INJ_CAMP_CHUN",new InjuredLine{Speaker=BaseScriptNames.ChunShen,Art=BaseScriptNames.Portrait("chunshen"),Text="旧伤还没好，又添新的。锅里有麦粥，喝完就睡。"}},
+            {"INJ_CAMP_CHUN",new InjuredLine{Speaker=BaseScriptNames.ChunShen,Art=BaseScriptNames.Portrait("chunshen"),Text="锅里有麦粥。你进去坐下，我给你盛一碗。"}},
             {"INJ_CAMP_AHE",new InjuredLine{Speaker="阿禾",Art="ahe",Text="你流了这么多血。下回叫上我，我能帮你盯后头。"}},
             {"INJ_CAMP_AZHU",new InjuredLine{Speaker="阿铸",Art="azhu",Text="谁把你伤成这样？今晚先歇着，下回叫上我。"}},
             // 迦兰在 Demo 里只是遗迹战队长／收编对话，没有营地点击入口；文案先登记，等有交互位再接。

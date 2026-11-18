@@ -4,8 +4,9 @@
     {
       "key": "story.partner_farm.greeting",
       "group": "伙伴／阿禾",
-      "text": "我在这里。要一起看看周围吗？",
-      "notes": "可编辑测试台词；不新增身世或剧情事实。未知新角色使用通用伙伴。"
+      "text": "来啦！找我有事？",
+      "notes": "可编辑测试台词；不新增身世或剧情事实。未知新角色使用通用伙伴。",
+      "revision": 1
     },
     {
       "key": "story.partner_farm.chat.1",
@@ -16,14 +17,16 @@
     {
       "key": "story.partner_farm.chat.2",
       "group": "伙伴／阿禾",
-      "text": "停下来看看四周，总能找到合适的落脚点。",
-      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+      "text": "弓弦受了潮就发软。歇脚时我得先擦一遍。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。",
+      "revision": 1
     },
     {
       "key": "story.partner_farm.chat.3",
       "group": "伙伴／阿禾",
-      "text": "准备好了再出发，我会照看附近。",
-      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+      "text": "你去忙吧。我把弓收拾好，等你来喊。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。",
+      "revision": 1
     },
     {
       "key": "story.partner_craft.greeting",
@@ -40,14 +43,44 @@
     {
       "key": "story.partner_craft.chat.2",
       "group": "伙伴／阿铸",
-      "text": "走一段，停一停，也好看看前面的路。",
-      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+      "text": "等我紧一下马肚带。跑起来可就顾不上了。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。",
+      "revision": 1
     },
     {
       "key": "story.partner_craft.chat.3",
       "group": "伙伴／阿铸",
-      "text": "需要我同行，招呼一声就行。",
-      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+      "text": "炉子边待久了，闻着自己都像捆湿柴。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_galan.greeting",
+      "group": "伙伴／迦兰",
+      "text": "有话直说。",
+      "notes": "仅沉眠古窟首通接纳的迦兰本人。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_galan.chat.1",
+      "group": "伙伴／迦兰",
+      "text": "我答应跟你说古窟的事。你想问什么？",
+      "notes": "仅沉眠古窟首通接纳的迦兰本人。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_galan.chat.2",
+      "group": "伙伴／迦兰",
+      "text": "那两个采石的已经回镇上了吧？",
+      "notes": "仅沉眠古窟首通接纳的迦兰本人。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_galan.chat.3",
+      "group": "伙伴／迦兰",
+      "text": "失散的族人还没找到。别的事，我眼下没心思说。",
+      "notes": "仅沉眠古窟首通接纳的迦兰本人。",
+      "revision": 1
     },
     {
       "key": "story.partner_test.greeting",
@@ -180,9 +213,9 @@
     {
       "key": "story.ui.trade.market_greeting",
       "group": "界面／交易",
-      "text": "要添补给，还是出手些装备？物资也能买卖。",
+      "text": "粮草在这边。要卖战利品，拿来我瞧瞧。",
       "notes": "老莫在商店的普通问候。",
-      "revision": 2
+      "revision": 3
     },
     {
       "key": "story.ui.trade.recipient",
@@ -584,9 +617,9 @@
     {
       "key": "story.ui.intel.first_claimed",
       "group": "剧情／免费首防消息",
-      "text": "黑鸦寨第 {day} 天来袭。回去看看日历，趁早备好粮食和军需。",
+      "text": "黑鸦寨第{day}天就到。这几天赶紧备些粮和军需。",
       "notes": "{day} 是本档实际来袭日期。",
-      "revision": 2
+      "revision": 3
     },
     {
       "key": "story.ui.rest.workshop_shortage",
@@ -609,15 +642,23 @@
     {
       "key": "story.scene.defense.merchant_bandit_lead",
       "group": "剧情／首防后行商上门",
-      "text": "带人来的是黑鸦寨的巴图。寨里吃了亏，多半还会派人来。",
-      "notes": "老莫上门第二句，适用于巴图两种结局。",
-      "revision": 2
+      "text": "巴图没能拿下营地。黑鸦寨吃了亏，多半还会派人过来。",
+      "notes": "首防后老莫上门，第1页提到巴图和寨里可能报复。",
+      "revision": 3
     },
     {
-      "key": "story.scene.defense.second_victory_report",
+      "key": "story.scene.defense.second_victory_report.1",
       "group": "剧情／第二波胜利",
-      "text": "匪营那边的残兵都跑了。我们现在可以直接去白桦村，也可以看看匪营有没有剩下的物资。",
-      "notes": "陈安在第二波守胜后报告，55 字以内。"
+      "text": "大人，守寨的匪兵都跑散了，往白桦村的路通了。",
+      "notes": "陈安在第二波守胜后报告，第1页。",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.defense.second_victory_report.2",
+      "group": "剧情／第二波胜利",
+      "text": "咱们也能先去寨里看看，还有没有物资留下。",
+      "notes": "陈安在第二波守胜后报告，第2页。",
+      "revision": 1
     },
     {
       "key": "story.ui.defense.second_report_continue",
@@ -634,8 +675,9 @@
     {
       "key": "story.ui.finale.camp_supplies_collected",
       "group": "界面／黑鸦寨",
-      "text": "已找到黑鸦寨剩余的物资。",
-      "notes": "在黑鸦寨搜查成功后显示，20 字以内。"
+      "text": "他们走得急，这些东西都没带走。",
+      "notes": "在黑鸦寨搜查成功后显示，20 字以内。",
+      "revision": 1
     },
     {
       "key": "story.ui.finale.camp_supplies_unavailable",
@@ -952,34 +994,37 @@
     {
       "key": "story.scene.home_rebuild.survivor",
       "group": "剧情／返乡断剑",
-      "text": "去西桥头看看吧，那天动静全在那边。",
+      "text": "那天西桥那头响过一阵兵刃声。你去桥头看看。",
       "notes": "返乡后、调查断剑前与幸存村民交谈。对白结束后回到原地探索，保留西桥头指向，24 字以内。",
-      "revision": 2
+      "revision": 3
     },
     {
       "key": "story.scene.home_rebuild.finished",
       "group": "剧情／返乡断剑",
-      "text": "白桦村安顿下来了。带上这把断剑，下一步沿车辙进西山。",
+      "text": "乡亲们总算有地方落脚了。搭档，等我。我去西山找你。",
       "notes": "三项设施修好后，确认结束 Demo 时的主角独白。",
-      "revision": 2
+      "revision": 3
     },
     {
       "key": "story.ui.hideout.recruiter_clue_1",
       "group": "剧情／灰岩镇募兵处",
-      "text": "野外那截破旧城墙背后，藏着个小土匪营地。那帮人隔三岔五就袭扰路过的百姓。",
-      "notes": "第一次成功购买任一兵种后的线索。用户给出内容，待回稿。"
+      "text": "镇外那截破墙背后有个匪窝。过路人常在那里遭劫。",
+      "notes": "第一次成功购买任一兵种后的线索。用户给出内容，待回稿。",
+      "revision": 1
     },
     {
       "key": "story.ui.hideout.recruiter_clue_2",
       "group": "剧情／灰岩镇募兵处",
-      "text": "你要是有心，就去跟他们碰一碰。营地里都是他们搜刮来的不义之财，你能帮我们处理掉他们，那些东西就算你的辛苦酬劳。",
-      "notes": "承接土匪窝点线索，用户给出内容，待回稿。"
+      "text": "你要是肯去清剿，他们抢来的东西就归你。",
+      "notes": "承接土匪窝点线索，用户给出内容，待回稿。",
+      "revision": 1
     },
     {
       "key": "story.ui.hideout.recruiter_clue_3",
       "group": "剧情／灰岩镇募兵处",
-      "text": "要是能打服他们，也能把肯归顺的人招来做事。坏是坏了点，可有了正经差事，或许能帮你的营地早点站稳。",
-      "notes": "承接土匪窝点线索，用户给出内容，待回稿。"
+      "text": "把他们打服了，肯归顺的也能招来替营地做事。",
+      "notes": "承接土匪窝点线索，用户给出内容，待回稿。",
+      "revision": 1
     },
     {
       "key": "story.ui.battle.group_no_space",
@@ -1068,8 +1113,9 @@
     {
       "key": "story.scene.camp.civilian_work",
       "group": "剧情／灰岩营地",
-      "text": "乡亲先补粮田的空位，田里人手齐了再去工坊。你照常调兵就好。",
-      "notes": "苏醒后与营地春婶交谈。单页，只交代补位顺序与士兵调配。"
+      "text": "田里缺人时，我们先去搭把手。田里忙得过来，再去工坊。你要调兵，照常安排就是。",
+      "notes": "苏醒后与营地春婶交谈。单页，只交代补位顺序与士兵调配。",
+      "revision": 1
     },
     {
       "key": "story.item.royal_sword.description",
@@ -1100,20 +1146,23 @@
     {
       "key": "story.quest.smith_lesson.offer.2",
       "group": "支线／巴隆",
-      "text": "桌上那几颗锻造石送你。拿件武器或护具来，重铸一次，我再跟你说这里头的门道。",
-      "notes": "接取前，巴隆第2页，确认后发试用锻造石。"
+      "text": "这几颗锻造石给你。挑件武器或护具，先试着重铸一回。",
+      "notes": "接取前，巴隆第2页，确认后发试用锻造石。",
+      "revision": 1
     },
     {
       "key": "story.quest.smith_lesson.finish.1",
       "group": "支线／巴隆",
-      "text": "这炉算你亲手试过了。添石能让升档更有把握，可火候没人说得准。",
-      "notes": "接取后完成一次重铸并退出界面，巴隆第1页。升档、留级和降档均使用。"
+      "text": "石头用得多，炼出好货的把握就大些。出炉前，谁也不敢打包票。",
+      "notes": "接取后完成一次重铸并退出界面，巴隆第1页。升档、留级和降档均使用。",
+      "revision": 1
     },
     {
       "key": "story.quest.smith_lesson.finish.2",
       "group": "支线／巴隆",
-      "text": "手上只有一件趁手家伙，就先留着打仗。这颗石头等你有了备用的，再拿来练。",
-      "notes": "结果对话第2页，确认后发完成奖励。"
+      "text": "趁手的家伙只有一件，就先留着。等手里有备用的，再拿这颗石头试。",
+      "notes": "结果对话第2页，确认后发完成奖励。",
+      "revision": 1
     },
     {
       "key": "story.quest.zhou_training.title",
@@ -1130,8 +1179,9 @@
     {
       "key": "story.quest.zhou_training.offer.camp",
       "group": "支线／老周",
-      "text": "老莫那儿有{0}。买够{1}本去营帐练，练成了回来找我。",
-      "notes": "接取前第2页，未开始训练时也作提醒。{0}为所需基础兵书名，{1}为数量。"
+      "text": "老莫那儿有{0}。凑齐{1}本，就去营帐练。练完来找我。",
+      "notes": "接取前第2页，未开始训练时也作提醒。{0}为所需基础兵书名，{1}为数量。",
+      "revision": 1
     },
     {
       "key": "story.quest.zhou_training.wait",
@@ -1148,8 +1198,9 @@
     {
       "key": "story.quest.zhou_training.finish.2",
       "group": "支线／老周",
-      "text": "我箱子角上还压着一本旧书，是早年留下的。给你吧，搁我那儿也只剩垫箱子的用处。",
-      "notes": "主角达到2级后回报第2页，确认后发本职业高阶兵书。"
+      "text": "我箱角下压着本旧兵书。你拿去，我换块木头垫就是。",
+      "notes": "主角达到2级后回报第2页，确认后发本职业高阶兵书。",
+      "revision": 1
     }
   ]
 }

@@ -15,7 +15,12 @@ namespace BaseConquest.Base
             }:new[]{new NpcLine("阿铸","azhu","［收枪］到这儿吧。歇口气，想再练就来找我。")},
                 new[]{new NpcReply(won?"欢迎加入":"再切磋一次",()=>{if(won)owner.JoinDemoPartner("partner_craft");else owner.BeginAzhuDuel();}),new NpcReply("暂缓邀请",ClosePanel)});
         }
-        private void OpenPartner(string id){var leader=owner.State.Leaders.FirstOrDefault(l=>l.Id==id);if(leader!=null)RenderPartner(id,BasePartnerDialogue.Greeting(leader));}
+        private void OpenPartner(string id)
+        {
+            var state = owner.State;
+            var leader = state.Leaders.FirstOrDefault(l => l.Id == id);
+            if (leader != null) RenderPartner(id, BasePartnerDialogue.Greeting(state, leader));
+        }
         private void RenderPartner(string id,string key)
         {
             var s=owner.State;var leader=s.Leaders.FirstOrDefault(l=>l.Id==id);if(leader==null)return;
@@ -23,7 +28,7 @@ namespace BaseConquest.Base
             bool joined=BaseAdventure.Contains(s,id),nearby=BaseInteraction.CanReach(s,owner.PresentedObject(id));
             bool paused=BaseAdventure.PauseFor(s,id)!=null;
             string problem=joined?BaseAdventure.PauseProblem(s,id,paused):BaseAdventure.ChangeProblem(s,id,true);
-            var replies=new List<NpcReply>{new NpcReply("聊天对话",()=>RenderPartner(id,dialogue.Chat(leader)))};
+            var replies=new List<NpcReply>{new NpcReply("聊天对话",()=>RenderPartner(id,dialogue.Chat(owner.State, leader)))};
             if(joined)
             {
                 replies.Add(new NpcReply(paused?"恢复随行":"在这里等候",()=>SetPartnerWaiting(id,paused),nearby&&problem==""));

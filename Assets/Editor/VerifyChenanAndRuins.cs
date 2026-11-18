@@ -600,10 +600,8 @@ namespace BaseConquest.Editor
             Need(BaseDemoStories.AcceptController(state,prisoner.Id),"首通控制者接纳失败");
             Need(state.Demo.Flow.ControllerAccepted&&state.Demo.Flow.ControllerPledged,"首通接纳标记未落地");
             var recruited=state.Leaders.Single(l=>l.Id=="partner_recruit:"+prisoner.Id);
-            // BasePartnerDialogue.Prefix 目前只识别 ahe／azhu／chenan，迦兰落 partner_default。
-            // W11 旧工单要求「不是 partner_default」，与当前实现不符，如实锁住现状，不擅自改文案映射。
-            Need(BasePartnerDialogue.Prefix(recruited)=="story.partner_default","首通控制者对话前缀口径变化（需同步 W11 描述）");
-            Debug.Log("[VerifyRuinsFirstClear] 首通标记、控制者外观、接纳前置、ControllerAccepted/Pledged 与对白前缀现状 PASS");
+            Need(BasePartnerDialogue.Prefix(state,recruited)=="story.partner_galan","首通迦兰未使用专属对白");
+            Debug.Log("[VerifyRuinsFirstClear] 首通标记、控制者外观、接纳前置、ControllerAccepted/Pledged 与专属对白 PASS");
         }
         public static void Run()
         {
@@ -649,7 +647,7 @@ namespace BaseConquest.Editor
                 var prisoner=state.Aftermath.Prisoners.Single(p=>p.BattleId==session.Opening.Id&&p.Kind==SoldierKind.Hero);
                 Need(prisoner.AppearanceId=="galan"&&BaseAftermath.Decide(state,prisoner.Id,"recruit"),"遗迹俘虏外观或招降失败："+seed);
                 var recruited=state.Leaders.Single(l=>l.Id=="partner_recruit:"+prisoner.Id);
-                Need(BasePartnerDialogue.Prefix(recruited)=="story.partner_default","遗迹角色未使用通用对白");
+                Need(BasePartnerDialogue.Prefix(state,recruited)=="story.partner_default","重打招降的同外观队长未使用通用对白");
                 Need(state.Demo.Flow.FirstControllerId==first&&state.Demo.Flow.ControllerAccepted==accepted&&state.Demo.Flow.ControllerPledged==pledged,"重刷招降改动了首次控制者剧情标记");
             }
             Debug.Log("[VerifyChenanAndRuins] NPC, scene validation and three ruins setups PASS");

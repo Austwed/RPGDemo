@@ -23,7 +23,7 @@ namespace BaseConquest.Editor
             for(int i=0;i<ids.Length;i++)
             {
                 string id=ids[i],expected=fallback[i],target="Assets/Resources/PixelDemo/Characters/"+id+"-v1.png";
-                string portrait="Assets/Resources/PixelDemo/Portraits/portrait-"+id+"-v1.png";
+                string portrait="Assets/Resources/PixelDemo/DialoguePortraits/"+id+"-v1.png";
                 Need(!File.Exists(target)&&!File.Exists(portrait),"正式资源已存在，不可覆盖："+id);
                 Need(BaseDemoNpcs.ResolveNpcArt(id)==expected&&BaseDemoNpcs.ResolveNpcArt(id,true)==expected,"缺图回退错误："+id);
                 string source=AssetDatabase.GetAssetPath(Resources.Load<Texture2D>("PixelDemo/Characters/"+expected+"-v1"));Need(!string.IsNullOrEmpty(source),"缺少回退图："+expected);
@@ -32,7 +32,8 @@ namespace BaseConquest.Editor
                     File.Copy(source,target);AssetDatabase.ImportAsset(target,ImportAssetOptions.ForceSynchronousImport);
                     Need(BaseDemoNpcs.ResolveNpcArt(id)==id&&BaseDemoNpcs.ResolveNpcArt(id,true)==expected,"专属角色图切换错误："+id);
                     Need(BaseDemoNpcs.Present(state,new BaseMapObject(objects[i],names[i],4,4,.5,.5,false,"",expected,"npc")).AssetId==id,"场景对象未切换："+id);
-                    File.Copy(source,portrait);AssetDatabase.ImportAsset(portrait,ImportAssetOptions.ForceSynchronousImport);
+                    File.Copy("Assets/Resources/PixelDemo/DialoguePortraits/"+expected+"-v1.png",portrait);
+                    AssetDatabase.ImportAsset(portrait,ImportAssetOptions.ForceSynchronousImport);
                     Need(BaseDemoNpcs.ResolveNpcArt(id,true)==id&&BaseDemoNpcs.DialogueArt(names[i],expected)==id,"专属头像切换错误："+id);
                 }
                 finally{AssetDatabase.DeleteAsset(target);AssetDatabase.DeleteAsset(portrait);}
@@ -42,7 +43,7 @@ namespace BaseConquest.Editor
             // 小芸（villager-girl）专属图接线：图集/头像/场景外观/对话框四处都指向自己，不再回退 villager。
             // 2026-11-02 定：她是可动 NPC（静态四向待机 + 四向行走），不是站桩 NPC。
             Need(File.Exists("Assets/Resources/PixelDemo/Characters/villager-girl-v1.png"),"小芸专属图集缺失");
-            Need(File.Exists("Assets/Resources/PixelDemo/Portraits/portrait-villager-girl-v1.png"),"小芸专属头像缺失");
+            Need(File.Exists("Assets/Resources/PixelDemo/DialoguePortraits/villager-girl-v1.png"),"小芸专属半身像缺失");
             Need(BaseDemoNpcs.ResolveNpcArt("villager-girl")=="villager-girl","小芸图集未接线（仍在回退）");
             Need(BaseDemoNpcs.ResolveNpcArt("villager-girl",true)=="villager-girl","小芸头像未接线（仍在回退）");
             Need(BaseDemoNpcs.Present(state,new BaseMapObject("town_girl",BaseScriptNames.Girl,15,11.5,.6,.6,false,"","villager","npc")).AssetId=="villager-girl","小芸场景外观未接线");

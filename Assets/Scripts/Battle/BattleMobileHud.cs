@@ -381,7 +381,6 @@ namespace BaseConquest.Battle
                 var chargeText = b.CommanderSkillQueued(owner.ControlledSide, i) ? "本轮后" : b.CommanderSkillCooldown(owner.ControlledSide, i) > 0 ? b.CommanderSkillCooldown(owner.ControlledSide, i).ToString() : "";
                 skills[i].GetComponentInChildren<Text>().text = BattleSimulation.CommanderSkillName(i) + (chargeText == "" ? "" : "\n" + chargeText);
                 portraitLabels[i].text = c == null ? slotExists ? b.CommanderDisplayName(owner.ControlledSide, i) + "\n待部署" : "空位" : b.CommanderDisplayName(c.Side, c.OriginCommanderSlot) + "\n" + (c.Rescued ? "已救出" : c.IsDowned ? "倒地·双击救援" : c.Escaped ? "已撤离" : c.Health.ToString("0") + "/" + c.Stats.Health.ToString("0"));
-                portraitGraphics[i].GetComponent<BattleAvatarGraphic>().Crown = BattlePawn2D.CrownColor(b, owner.ControlledSide, i);
                 portraitGraphics[i].GetComponent<BattleAvatarGraphic>().PlayerHero=(b.Scenario.CampaignRules||b.Scenario.PlayerHeroAppearance)&&PlayerHeroFrames.IsPlayer(true,owner.ControlledSide==BattleSide.A,i,b.Scenario.PlayerLeaderSlot);
                 portraitGraphics[i].GetComponent<BattleAvatarGraphic>().AppearanceId=b.CommanderAppearance(owner.ControlledSide,i);
                 portraitGraphics[i].localRotation = c?.IsDowned == true
@@ -428,11 +427,8 @@ namespace BaseConquest.Battle
                 var leader = b.CommanderFor(unit);
                 details.sizeDelta = new Vector2(detailsSize.x, commanderDetails ? detailsSize.y : detailsSize.y * (300f / 540f));
                 detailsPortrait.Kind = unit?.Kind ?? SoldierKind.Hero;
-                detailsPortrait.AppearanceId=detailsPortrait.Kind==SoldierKind.Hero ? unit?.AppearanceId??b.CommanderAppearance(side,owner.DetailsSlot) : "";
+                detailsPortrait.AppearanceId = unit?.AppearanceId ?? b.CommanderAppearance(side, owner.DetailsSlot);
                 detailsPortrait.PlayerHero=(b.Scenario.CampaignRules||b.Scenario.PlayerHeroAppearance)&&PlayerHeroFrames.IsPlayer(detailsPortrait.Kind==SoldierKind.Hero,side==BattleSide.A,unit?.OriginCommanderSlot??owner.DetailsSlot,b.Scenario.PlayerLeaderSlot);
-                detailsPortrait.BodyColor = side == owner.ControlledSide ? new Color(0.35f, 0.72f, 1) : new Color(1, 0.55f, 0.3f);
-                detailsPortrait.Crown = BattlePawn2D.CrownColor(b, side, unit?.OriginCommanderSlot ?? owner.DetailsSlot);
-                detailsPortrait.SetVerticesDirty();
                 detailsInfo.text = (unit == null ? b.CommanderDisplayName(side, owner.DetailsSlot) : b.UnitName(unit))
                     + "\n归属队长：" + (leader == null ? "无" : b.UnitName(leader))
                     + "\n生命 " + (unit?.Health ?? stats.Health).ToString("0") + "/" + stats.Health.ToString("0")
@@ -488,7 +484,6 @@ namespace BaseConquest.Battle
                 if (!exists) continue;
                 var team = teams[i];
                 var avatar = portraitGraphics[i].GetComponent<BattleAvatarGraphic>();
-                avatar.Crown = BattlePawn2D.CrownColor(battle, BattleSide.A, i);
                 avatar.PlayerHero = i == battle.Scenario.PlayerLeaderSlot;
                 avatar.AppearanceId = battle.CommanderAppearance(BattleSide.A, i);
                 portraitLabels[i].text = team.Name + $"\n{team.Health:0}/{team.MaxHealth:0}" + (owner.DraftTeamPlaced(i) ? "" : " · 待部署");

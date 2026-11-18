@@ -192,52 +192,48 @@ namespace BaseConquest.Base
         {
             bool player = person.Id == owner.State.PlayerLeaderId;
             string appearance = player ? BaseDemoIntro.PlayerArt(owner.State) : BaseCommanderIdentity.Appearance(person);
+            var atlas = PixelDemoArt.Load("Characters", appearance);
+            if (atlas == null)
+            {
+                appearance = person.Rpg?.Profession switch { 1 => "archer", 2 => "mounted-cavalry", _ => "enemy-captain" };
+                atlas = PixelDemoArt.Load("Characters", appearance);
+            }
+            if (atlas == null) return;
             var image = new GameObject("全身像", typeof(RectTransform));
             var art = image.GetComponent<RectTransform>();
             art.SetParent(portrait, false);
             art.anchorMin = Vector2.zero;
             art.anchorMax = Vector2.one;
             art.offsetMin = art.offsetMax = Vector2.zero;
-            var atlas = PixelDemoArt.Load("Characters", appearance);
-            if (atlas != null)
+            var aspect = image.AddComponent<AspectRatioFitter>();
+            aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            aspect.aspectRatio = 1;
+            var frame = PixelDemoArt.Frame(HeroFacing.South, HeroPose.Idle, 0);
+            int head = PixelDemoArt.AtlasId(appearance) switch
             {
-                var aspect = image.AddComponent<AspectRatioFitter>();
-                aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-                aspect.aspectRatio = 1;
-                var frame = PixelDemoArt.Frame(HeroFacing.South, HeroPose.Idle, 0);
-                int head = PixelDemoArt.AtlasId(appearance) switch
-                {
-                    "mounted-azhu" => 14,
-                    "mounted-cavalry" => 11,
-                    "chief" => 16,
-                    _ => 0
-                };
-                if (head > 0)
-                {
-                    // In the south-facing 64 px frame the hooves end at row 59.
-                    const float cell = 64, foot = 60, padding = 4 / cell;
-                    float size = (foot - head) / cell;
-                    frame = new Rect(frame.x + frame.width * (1 - size) / 2,
-                        frame.y + frame.height * padding, frame.width * size, frame.height * size);
-                    image = new GameObject("骑乘取景", typeof(RectTransform));
-                    var crop = (RectTransform)image.transform;
-                    crop.SetParent(art, false);
-                    crop.anchorMin = Vector2.one * padding;
-                    crop.anchorMax = Vector2.one * (1 - padding);
-                    crop.offsetMin = crop.offsetMax = Vector2.zero;
-                }
-                var raw = image.AddComponent<RawImage>();
-                raw.texture = atlas;
-                raw.uvRect = frame;
-                raw.raycastTarget = false;
-            }
-            else
+                "mounted-azhu" => 14,
+                "mounted-cavalry" => 11,
+                "chief" => 16,
+                _ => 0
+            };
+            if (head > 0)
             {
-                var fallback = image.GetOrAdd<BattleAvatarGraphic>();
-                fallback.PlayerHero = player;
-                fallback.AppearanceId = appearance;
-                fallback.raycastTarget = false;
+                // In the south-facing 64 px frame the hooves end at row 59.
+                const float cell = 64, foot = 60, padding = 4 / cell;
+                float size = (foot - head) / cell;
+                frame = new Rect(frame.x + frame.width * (1 - size) / 2,
+                    frame.y + frame.height * padding, frame.width * size, frame.height * size);
+                image = new GameObject("骑乘取景", typeof(RectTransform));
+                var crop = (RectTransform)image.transform;
+                crop.SetParent(art, false);
+                crop.anchorMin = Vector2.one * padding;
+                crop.anchorMax = Vector2.one * (1 - padding);
+                crop.offsetMin = crop.offsetMax = Vector2.zero;
             }
+            var raw = image.AddComponent<RawImage>();
+            raw.texture = atlas;
+            raw.uvRect = frame;
+            raw.raycastTarget = false;
         }
 
         private void BindInventoryCell(Button button, BaseInventoryEntry entry, string holder, int index, string slot,

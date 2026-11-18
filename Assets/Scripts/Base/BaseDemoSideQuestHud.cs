@@ -18,7 +18,7 @@ namespace BaseConquest.Base
             NpcDialogue(new[]
             {
                 SmithLessonLine("offer.1", "阿铸会给枪换杆，可一碰上炉火就心急。你来，我教你看一回火候。"),
-                SmithLessonLine("offer.2", "桌上那几颗锻造石送你。拿件武器或护具来，重铸一次，我再跟你说这里头的门道。")
+                SmithLessonLine("offer.2", "这几颗锻造石给你。挑件武器或护具，先试着重铸一回。")
             }, new[]
             {
                 new NpcReply("收下锻造石", () => CollectSideQuestReward(BaseDemoSideQuests.AcceptSmith, BaseDemoSideQuests.SmithStonesId)),
@@ -30,8 +30,8 @@ namespace BaseConquest.Base
         {
             NpcDialogue(new[]
             {
-                SmithLessonLine("finish.1", "这炉算你亲手试过了。添石能让升档更有把握，可火候没人说得准。"),
-                SmithLessonLine("finish.2", "手上只有一件趁手家伙，就先留着打仗。这颗石头等你有了备用的，再拿来练。")
+                SmithLessonLine("finish.1", "石头用得多，炼出好货的把握就大些。出炉前，谁也不敢打包票。"),
+                SmithLessonLine("finish.2", "趁手的家伙只有一件，就先留着。等手里有备用的，再拿这颗石头试。")
             }, new[] { new NpcReply("记下了", () => CollectSideQuestReward(BaseDemoSideQuests.FinishSmith, BaseDemoSideQuests.SmithId)) });
         }
 
@@ -62,7 +62,7 @@ namespace BaseConquest.Base
             {
                 ZhouTrainingLine("offer.1", "这一仗是守住了。下回呢？学几招总比多挨几刀强。"),
                 new NpcLine(BaseScriptNames.LaoZhou, BaseScriptNames.Portrait("laozhou"),
-                    string.Format(StoryText.Get("story.quest.zhou_training.offer.camp", "老莫那儿有{0}。买够{1}本去营帐练，练成了回来找我。"), book, count))
+                    string.Format(StoryText.Get("story.quest.zhou_training.offer.camp", "老莫那儿有{0}。凑齐{1}本，就去营帐练。练完来找我。"), book, count))
             };
             if (accepted)
             {
@@ -76,7 +76,7 @@ namespace BaseConquest.Base
             {
                 NpcDialogue(WithInjury(s, "INJ_CAMP_ZHOU", lines), new[]
                 {
-                    new NpcReply("我去兵营练一回", () =>
+                    new NpcReply("我去营帐练练", () =>
                     {
                         if (!CommitSideQuest(BaseDemoSideQuests.AcceptZhou)) return;
                         if (BaseDemoSideQuests.Zhou(owner.State) == BaseSideQuestStage.Ready) ShowZhouTrainingResult();
@@ -93,7 +93,7 @@ namespace BaseConquest.Base
             NpcDialogue(new[]
             {
                 ZhouTrainingLine("finish.1", "这架势稳了。书上的招肯下功夫练，到了阵前才使得出来。"),
-                ZhouTrainingLine("finish.2", "我箱子角上还压着一本旧书，是早年留下的。给你吧，搁我那儿也只剩垫箱子的用处。")
+                ZhouTrainingLine("finish.2", "我箱角下压着本旧兵书。你拿去，我换块木头垫就是。")
             }, new[] { new NpcReply("收下旧兵书", () => CollectSideQuestReward(BaseDemoSideQuests.FinishZhou, BaseDemoSideQuests.ZhouId)) });
         }
 

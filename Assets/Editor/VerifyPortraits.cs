@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using System.Text;
+using System.Linq;
 using BaseConquest.Battle;
 using BaseConquest.Base;
 using BaseConquest.Presentation;
@@ -10,35 +10,43 @@ namespace BaseConquest.Editor
 {
     public static class VerifyPortraits
     {
-        private static void Need(bool ok,string message){if(!ok)throw new InvalidOperationException(message);}
+        private static void Need(bool ok, string message)
+        {
+            if (!ok) throw new InvalidOperationException(message);
+        }
+
         public static void Run()
         {
-            foreach(string path in new[]{"Assets/Scripts/Battle/BattleMobileHud.cs","Assets/Scripts/Base/BaseNpcDialogueHud.cs","Assets/Scripts/Base/BasePartyInventoryHud.cs"})
-                Need(File.ReadAllText(path).Contains("GetOrAdd<BattleAvatarGraphic>"),"头像入口未使用统一组件："+path);
-            string[] ids={"player","female","ahe","azhu","galan","chief","batu","huoya","saber","archer","rider","laozhou","chunshen","merchant","villager","horn","baron","chenan","guard","survivor","villager-girl","rescued-villager","recruiter","ancient-saber"};
-            foreach(string id in new[]{"chenan","recruiter","ancient-saber"})
-                Need(DemoPortraits.For(id).Origin==DemoPortraits.Source.Portrait,"缺少专属头像："+id);
-            foreach(string id in new[]{"baron","azhu","villager-girl"})
-                Need(DemoPortraits.For(id).Texture==PixelDemoArt.Load("DialoguePortraits",id),"肖像未使用共用原图裁片："+id);
-            Need(DemoPortraits.For("azhu").Texture==DemoPortraits.For("mounted-azhu").Texture,"阿铸骑乘形象变成不同肖像");
-            var report=new StringBuilder("# Demo 头像来源\n\n");
-            foreach(string id in ids)
+            string[] ids = { "player", "female", "ahe", "azhu", "galan", "chief", "batu", "huoya", "infantry", "archer",
+                "mounted-cavalry", "laozhou", "chunshen", "merchant", "villager", "horn", "baron", "chenan", "villager-girl",
+                "recruiter", "ancient-saber", "enemy-captain" };
+            var textures = Resources.LoadAll<Texture2D>("PixelDemo/DialoguePortraits");
+            Need(textures.Select(texture => texture.name).OrderBy(name => name)
+                .SequenceEqual(ids.Select(id => id + "-v1").OrderBy(name => name)), "半身像目录存在缺项或重复外观");
+            Need(Resources.LoadAll<Texture2D>("PixelDemo/Portraits").Length == 0, "旧头像仍在运行资源中");
+            var fixture = new GameObject("PortraitFixture", typeof(RectTransform), typeof(CanvasRenderer));
+            try
             {
-                bool hero=id=="player"||id=="female";var expected=DemoPortraits.For(id,hero);
-                Need(expected.Texture!=null,"无法解析头像："+id);
-                var views=new GameObject[3];
-                try
+                var avatar = fixture.AddComponent<BattleAvatarGraphic>();
+                foreach (string id in ids)
                 {
-                    for(int i=0;i<views.Length;i++)
-                    {views[i]=new GameObject("PortraitFixture",typeof(RectTransform),typeof(CanvasRenderer));var avatar=views[i].AddComponent<BattleAvatarGraphic>();avatar.PlayerHero=hero;avatar.AppearanceId=id;Need(avatar.mainTexture==expected.Texture,"头像入口不一致："+id+"/"+i);}
-                    var t=expected.Texture;report.AppendLine("- "+id+" → "+expected.Id+" / "+expected.Origin+" / "+t.width+"×"+t.height+(expected.Origin==DemoPortraits.Source.Portrait&&t.width==128&&t.height==128?"（128×128）":"（图集或其他尺寸）"));
+                    avatar.AppearanceId = id;
+                    var expected = PixelDemoArt.Load("DialoguePortraits", id);
+                    Need(avatar.mainTexture == expected && expected.width == 256 && expected.height == 256 &&
+                        expected.filterMode == FilterMode.Point, "半身像格式或共用路径错误：" + id);
                 }
-                finally{foreach(var view in views)if(view!=null)UnityEngine.Object.DestroyImmediate(view);}
+                Need(DemoPortraits.HalfBody("azhu") == DemoPortraits.HalfBody("mounted-azhu"), "骑乘切换生成了第二张阿铸半身像");
+                foreach (string role in new[] { "guard", "survivor", "rescued-villager" })
+                    Need(DemoPortraits.HalfBody(BaseScriptNames.Portrait(role)) == DemoPortraits.HalfBody("villager"), "通用村民半身像未复用：" + role);
+                foreach (var (kind, id) in new[] { (SoldierKind.Melee, "infantry"), (SoldierKind.Ranged, "archer"), (SoldierKind.Cavalry, "mounted-cavalry") })
+                {
+                    avatar.AppearanceId = "";
+                    avatar.Kind = kind;
+                    Need(avatar.mainTexture == DemoPortraits.HalfBody(id), "普通兵详情缺少兵种半身像：" + id);
+                }
             }
-            foreach(string role in new[]{"recruiter","innkeeper","peddler","lord","blacksmith","scout","guard","girl","survivor","rescued-villager"})
-            {string id=BaseScriptNames.Portrait(role);var result=DemoPortraits.For(id);Need(result.Texture!=null,"NPC 头像角色无法解析："+role);report.AppendLine("- 角色键 "+role+" → "+id+" / "+result.Origin+" / "+result.Texture.width+"×"+result.Texture.height);}
-            report.AppendLine("\n- 旧头像 `portrait-player-front-v2` 不再由头像入口加载；保留资源。\n");
-            Directory.CreateDirectory("Logs");File.WriteAllText("Logs/verify-portraits.md",report.ToString(),Encoding.UTF8);Debug.Log("[VerifyPortraits] PASS");
+            finally { UnityEngine.Object.DestroyImmediate(fixture); }
+            Debug.Log($"[VerifyPortraits] PASS · {ids.Length} 张 256×256 半身像与身份复用");
         }
     }
 }

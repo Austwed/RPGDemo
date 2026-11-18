@@ -252,15 +252,16 @@ namespace BaseConquest.Base
         }
         public void OpenBanditCampBriefing(Action proceed)
         {
-            var lines=new List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"镇外营地的人还敢上山？弓手，给我看住山道！")};
-            if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"寨主，上回丢的脸，今天我自己挣回来！"));
-            else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"你们还敢来？巴图的账，正好在这儿算。"));
+            bool batuEscaped = owner.State.Demo.Defense.BatuFate == "escaped";
+            var lines = new List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),
+                batuEscaped ? "镇外营地的人还敢上山？弓手，给我看住山道！" : "巴图就折在你们手里？弓手，守住山道！")};
+            if (batuEscaped) lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"寨主，上回丢的脸，今天我自己挣回来！"));
             lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"山道窄，他们铺不开。弟兄们，顶住！"));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备攻营",proceed),new NpcReply("暂不进攻",ClosePanel)});
         }
         internal void OpenDemoCampSuppliesFound()
         {
-            NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.ui.finale.camp_supplies_collected","已找到黑鸦寨剩余的物资。"),true)},
+            NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.ui.finale.camp_supplies_collected","他们走得急，这些东西都没带走。"),true)},
                 Array.Empty<NpcReply>(),onCompleted:ClosePanel);
         }
 
@@ -280,7 +281,7 @@ namespace BaseConquest.Base
                 lines.Add(new NpcLine("阿铸","azhu","门口的石台都磕掉了一角。走，去西桥头看看。"));
             string controllerId=state.Demo.Flow.FirstControllerId;
             if(!string.IsNullOrEmpty(controllerId)&&BaseAdventure.Following(state,"partner_recruit:"+controllerId))
-                lines.Add(new NpcLine(BaseScriptNames.Galan,BaseScriptNames.Portrait("galan"),"你看这些脚印，散开了还走得齐。来的人受过操练。"));
+                lines.Add(new NpcLine(BaseScriptNames.Galan,BaseScriptNames.Portrait("galan"),"看这几列脚印。散开的时候，间距还是一样。来的人练过。"));
             NpcDialogue(lines.ToArray(),Array.Empty<NpcReply>(),lockExitUntilFinished:true,onCompleted:FinishArrival,guide:true);
             return true;
 
@@ -300,8 +301,8 @@ namespace BaseConquest.Base
                 if(BaseDemoFinale.OccupiedBySecondDefense(owner.State)){owner.PrepareDemoJourney();return true;}
                 activeObject="demo-roads";interactionObject="";
                 NpcDialogue(new[]{
-                    new NpcLine(BaseScriptNames.Scout,"chenan","大人，营地南边的官道能走了，沿路可到黑鸦寨。"),
-                    new NpcLine(BaseScriptNames.Scout,"chenan","大人，营地到寨子、寨子到村，各走一天。攻下寨子、清点完战果，就能返乡。")
+                    new NpcLine(BaseScriptNames.Scout,"chenan","大人，从南口上官道，一天就到黑鸦寨。"),
+                    new NpcLine(BaseScriptNames.Scout,"chenan","清点完寨里的战果，再往南走一天，就是白桦村。")
                 },new[]{new NpcReply("查看路线并选择出征队",owner.PrepareDemoJourney,!BaseBattleLoot.Pending(owner.State)),new NpcReply("先留营整备",ClosePanel)});return true;
             }
             if(id=="demo_camp_attack")
@@ -313,7 +314,7 @@ namespace BaseConquest.Base
             if(owner.State.Campaign.CurrentMapId==BaseDemoFinale.Home&&BaseDemoFinale.IsReturnField(id))
             {
                 activeObject=id;
-                NpcDialogue(new[]{new NpcLine("你","","阿禾那天还催着下种。田埂上怎么只剩马蹄印了。",true)},
+                NpcDialogue(new[]{new NpcLine("你","","那天阿禾还怕来不及下种。如今田埂上全是马蹄印。",true)},
                     Array.Empty<NpcReply>(),onCompleted:ClosePanel);
                 return true;
             }
@@ -325,7 +326,7 @@ namespace BaseConquest.Base
             {
                 activeObject=id;
                 NpcDialogue(new[]{new NpcLine("幸存村民",BaseScriptNames.Portrait("survivor"),
-                    StoryText.Get("story.scene.home_rebuild.survivor","去西桥头看看吧，那天动静全在那边。"))},
+                    StoryText.Get("story.scene.home_rebuild.survivor","那天西桥那头响过一阵兵刃声。你去桥头看看。"))},
                     Array.Empty<NpcReply>(),onCompleted:ClosePanel);
                 return true;
             }
@@ -333,8 +334,8 @@ namespace BaseConquest.Base
             NpcDialogue(new[]{
                 new NpcLine("旁白","","断桥旁散着乱箭，一截断剑斜插在泥地里。"),
                 new NpcLine("你","","拨开泥，还是那个青绳结。这是搭档的剑。",true),
-                new NpcLine("你","","这断口像是秘银重剑斩的。地上没见着血泊，车辙往西进了山。",true),
-                new NpcLine("你","","搭档会不会在车上？沿着车辙进西山，也许能找到线索。",true)
+                new NpcLine("你","","断口这么齐……像是东口那把王室秘银剑留下的。",true),
+                new NpcLine("你","","这车辙一直往西。搭档会不会在车上？",true)
             },new[]{new NpcReply("记录断剑 · 开始重建",owner.InvestigateDemoSword),new NpcReply("稍后调查",ClosePanel)});return true;
         }
     }

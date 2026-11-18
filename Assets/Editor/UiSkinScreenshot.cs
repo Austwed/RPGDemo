@@ -154,10 +154,11 @@ namespace BaseConquest.Editor
                     H.ClosePanel();
                     H.OpenDemoMerchant();
                     var merchantLine = RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>();
-                    if (!H.ContinueDialogue() || !H.ContinueDialogue() || !H.ContinueDialogue() ||
-                        !merchantLine.text.Contains("巴图") || !merchantLine.text.Contains("黑鸦寨") ||
-                        merchantLine.text.Contains("待写"))
-                        throw new InvalidOperationException("首防后老莫对白未播放到第二句");
+                    if (!H.ContinueDialogue() || !merchantLine.text.Contains("巴图") || !merchantLine.text.Contains("黑鸦寨"))
+                        throw new InvalidOperationException("首防后老莫的第一句缺少来袭线索");
+                    if (!H.ContinueDialogue() || !H.ContinueDialogue() ||
+                        !merchantLine.text.Contains("南口") || !merchantLine.text.Contains("一天"))
+                        throw new InvalidOperationException("首防后老莫的第二句未交代寨址走法");
                     CaptureViewports("ui-player-route-merchant-after-defense");
                     Log.Add("[PASS] 首防后老莫在对白交代巴图、黑鸦寨与出征线索");
                     H.ClosePanel();
@@ -166,12 +167,14 @@ namespace BaseConquest.Editor
                 case "route-second-occupation":
                     if (!RouteViewReady(state => BaseDemoFinale.SecondRaidReportPending(state) && H.DialogueOpen)) return;
                     var report = RequirePanel("NpcDialogue");
-                    if (!report.Find("Replies").GetComponentsInChildren<Button>().Any(button => button.interactable))
-                        H.ContinueDialogue();
-                    var reportLine = report.Find("DialogueText").GetComponent<Text>().text;
+                    var reportLine = report.Find("DialogueText").GetComponent<Text>();
+                    if (!reportLine.text.EndsWith("路通了。")) H.ContinueDialogue();
                     if (report.Find("SpeakerName").GetComponent<Text>().text != "陈安" ||
-                        !reportLine.Contains("残兵都跑了") || !reportLine.Contains("白桦村") || !reportLine.Contains("剩下的物资"))
-                        throw new InvalidOperationException("第二波胜利存档未接陈安的占领报告");
+                        !reportLine.text.Contains("匪兵都跑散了") || !reportLine.text.Contains("白桦村") ||
+                        report.Find("Replies").GetComponentsInChildren<Button>().Any(button => button.interactable))
+                        throw new InvalidOperationException("陈安的第一句缺少寨中残兵或返乡通路，或推进按钮提前可用");
+                    if (!H.ContinueDialogue() || !H.ContinueDialogue() || !reportLine.text.Contains("物资留下"))
+                        throw new InvalidOperationException("陈安的第二句未交代可搜查遗留物资");
                     CaptureViewports("ui-player-route-second-occupation");
                     Click("知道了");
                     if (BaseDemoFinale.SecondRaidReportPending(controller.State))
@@ -185,7 +188,7 @@ namespace BaseConquest.Editor
                     H.OpenObject(BaseDemoFinale.CampSuppliesMarker);
                     H.ContinueDialogue();
                     if (!controller.State.Demo.Finale.CampSuppliesTaken ||
-                        !RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("剩余的物资"))
+                        !RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("这些东西都没带走"))
                         throw new InvalidOperationException("已占领黑鸦寨的搜查入口未领取或显示反馈");
                     CaptureViewports("ui-player-route-camp-remnants");
                     Log.Add("[PASS] 已占领黑鸦寨的地标可搜查一次并显示领取反馈");
@@ -577,6 +580,10 @@ namespace BaseConquest.Editor
                         ((RectTransform)preparation.Find("Close")).anchoredPosition != new Vector2(1025, -9))
                         throw new InvalidOperationException("启动后备战关闭按钮未读取保存的位置");
                     var defenseDraft = (BaseBattlePreparation)Field(H, "battleDraft");
+                    var preparedPortraits = preparation.GetComponentsInChildren<BattleAvatarGraphic>();
+                    if (preparedPortraits.Length == 0 || preparedPortraits.Any(avatar => avatar.mainTexture.width != 256) ||
+                        preparation.GetComponentsInChildren<RawImage>().Any(image => image.transform.parent.name == "全身像" || image.name == "全身像"))
+                        throw new InvalidOperationException("战前编队未统一使用半身像");
                     if (defenseDraft.RequiredSupply(false) <= 0 || preparation.Find("Continue").GetComponent<Button>().interactable)
                         throw new InvalidOperationException("编入士兵后仍可未选军需进场");
                     Press(preparation, "Help");
@@ -1402,6 +1409,9 @@ namespace BaseConquest.Editor
             var authoredCard = (RectTransform)source.Find("PartyMemberCard");
             var group = (RectTransform)view.Find("Cards");
             Canvas.ForceUpdateCanvases();
+            if (group.GetComponentsInChildren<BattleAvatarGraphic>().Length != 0 || group.GetComponentsInChildren<RawImage>().Count(image =>
+                    image.name == "全身像" || image.name == "骑乘取景") != count)
+                throw new InvalidOperationException("背包人物卡未统一使用角色全身像");
             var cards = group.Cast<RectTransform>().Select(card => SceneRect(card, view)).ToArray();
             if (view.rect.size != authoredView.rect.size || cards.Length != count ||
                 cards.Any(card => Vector2.Distance(card.size, authoredCard.rect.size) > .1f) ||
@@ -1566,10 +1576,10 @@ namespace BaseConquest.Editor
             Click("追问他们为何不能动");
             H.ContinueDialogue();
             var view = RequirePanel("NpcDialogue");
-            if (!view.Find("DialogueText").GetComponent<Text>().text.Contains("手脚都动不了") || battleStarts != 0)
+            if (!view.Find("DialogueText").GetComponent<Text>().text.Contains("还是得你发话") || battleStarts != 0)
                 throw new InvalidOperationException("古窟追问未切入主角的追问页");
             FinishDialogue();
-            if (!view.Find("DialogueText").GetComponent<Text>().text.Contains("他们就得拦你") ||
+            if (!view.Find("DialogueText").GetComponent<Text>().text.Contains("我就叫他们拦你") ||
                 view.Find("Replies").GetComponentsInChildren<Button>().Count(button => button.interactable) != 2 ||
                 battleStarts != 0)
                 throw new InvalidOperationException("古窟追问没有回到开战或暂缓");
@@ -2542,6 +2552,9 @@ namespace BaseConquest.Editor
             H.OpenObject("town_recruit");
             if (H.DialogueOpen) { FinishDialogue(); Click("开始招募"); }
             var trade = RequirePanel("TownTrade");
+            var recruitmentPortrait = trade.Find("SellerPortrait").GetComponent<BattleAvatarGraphic>();
+            if (recruitmentPortrait.mainTexture != DemoPortraits.HalfBody("recruiter"))
+                throw new InvalidOperationException("募兵处未使用雷恩的共用半身像");
             var roster = trade.Find("RightBody").GetComponent<ScrollRect>();
             var rows = roster.GetComponentsInChildren<RectTransform>().Where(node => node.name == "PersonnelRosterRow").ToArray();
             if (rows.Length == 0 || rows.Length != BasePersonnel.Units(controller.State).Count(unit => !unit.IsLeader) ||
@@ -2570,8 +2583,13 @@ namespace BaseConquest.Editor
             if (!H.DialogueOpen || controller.State.Demo.Flow.HideoutRecruitCluePending || !controller.State.Demo.Flow.HideoutRecruitClueSeen)
                 throw new InvalidOperationException("关闭招募时未显示一次窝点线索");
             H.ContinueDialogue();
-            if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("土匪营地"))
+            var clue = RequirePanel("NpcDialogue");
+            const string hideoutClue = "破墙背后有个匪窝";
+            if (!clue.Find("DialogueText").GetComponent<Text>().text.Contains(hideoutClue))
                 throw new InvalidOperationException("雷恩没有介绍断壁后的窝点");
+            if (clue.Find("PortraitFrame/SpeakerPortrait").GetComponent<BattleAvatarGraphic>().mainTexture !=
+                DemoPortraits.HalfBody("recruiter"))
+                throw new InvalidOperationException("雷恩对白与募兵处没有使用同一张半身像");
             Capture("ui-skin-recruit-clue");
             FinishDialogue();
             if (H.PanelOpen) throw new InvalidOperationException("关闭招募后，读完线索应返回探索");
@@ -2586,7 +2604,7 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("同一存档第二次购兵重复登记了窝点线索");
             Press(RequirePanel("TownTrade"), "Return");
             H.ContinueDialogue();
-            if (!H.DialogueOpen || RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("土匪营地"))
+            if (!H.DialogueOpen || RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains(hideoutClue))
                 throw new InvalidOperationException("再次退出招募时重播了窝点线索");
             H.ClosePanel();
 
@@ -2600,7 +2618,7 @@ namespace BaseConquest.Editor
             Press(RequirePanel("TownTrade"), "Return");
             H.ContinueDialogue();
             if (!controller.State.Demo.Flow.HideoutRecruitClueSeen ||
-                !RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("土匪营地"))
+                !RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains(hideoutClue))
                 throw new InvalidOperationException("返回对话时未先播放待播的窝点线索");
             FinishDialogue();
             if (!H.DialogueOpen) throw new InvalidOperationException("返回对话读完线索后应保留雷恩交谈入口");

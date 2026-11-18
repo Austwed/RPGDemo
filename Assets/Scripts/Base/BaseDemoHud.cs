@@ -22,7 +22,7 @@ namespace BaseConquest.Base
         public void OpenDemoScoutWarning()
         {
             activeObject="demo-scout-warning";interactionObject="";
-            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Scout,BaseScriptNames.Portrait("chenan"),"大人，匪众已到营门外了。快从西口去迎敌战场！")},
+            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Scout,BaseScriptNames.Portrait("chenan"),"大人，匪兵到了！快从西口过去！")},
                 new[]{new NpcReply("这就去迎敌",ClosePanel)});
         }
         public void OpenDemoStory(bool showCompletion = false)
@@ -38,12 +38,13 @@ namespace BaseConquest.Base
             {
                 NpcDialogue(new[]{
                     new NpcLine(BaseScriptNames.ChunShen,BaseScriptNames.Portrait("chunshen"),"醒了！老头子快来看，人可算睁眼了！"),
-                    new NpcLine("你","","［按住胸口］嘶……这是哪儿？我睡了多久？",true),
-                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"[摇头] 灰岩镇西边的营地。你昏睡了好些日子，水都喂不进去——能睁眼，是你命大。"),
+                    new NpcLine("你","","嘶……这是哪儿？我睡了多久？",true),
+                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"灰岩镇西边的营地。你昏过去好些天了。"),
+                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"水都喂不进去，还能醒，你是真命大。"),
                     new NpcLine("你","","搭档呢？你回村时，见着西桥头的人了吗？",true),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"西桥断了，满地乱箭。我没见着你搭档，兴许是突围了。"),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"粮仓还有人翻吃的。我牵马绕过去，从东头把你驮了回来。"),
-                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"这柄剑是从你胸口拔出来的，我一直替你收着。拿好，别再攥这么紧了。"),
+                    new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"这剑是从你胸口拔出来的。我替你收着，拿好。"),
                     new NpcLine("你","","禁卫军的秘银剑……得查查它怎么到了古裔手里。",true),
                     new NpcLine(BaseScriptNames.ChunShen,BaseScriptNames.Portrait("chunshen"),"你伤刚好，别急着动气。阿禾就在外头麦田里忙活呢。"),
                     new NpcLine(BaseScriptNames.LaoZhou,BaseScriptNames.Portrait("laozhou"),"霍恩爵士接济过乡亲。你去灰岩镇问问，他兴许知道那队古裔。")
@@ -51,7 +52,7 @@ namespace BaseConquest.Base
             }
             if(state.Demo.Stage==BaseDemoStage.Finished)
             {
-                NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.scene.home_rebuild.finished", "白桦村安顿下来了。带上这把断剑，下一步沿车辙进西山。"),true)},
+                NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.scene.home_rebuild.finished", "乡亲们总算有地方落脚了。搭档，等我。我去西山找你。"),true)},
                     Array.Empty<NpcReply>(),lockExitUntilFinished:showCompletion,
                     onCompleted:showCompletion ? OpenDemoCompletion : ClosePanel);
                 return;
@@ -89,7 +90,8 @@ namespace BaseConquest.Base
             string text=id=="town_guard"?"爵士话说得硬。卫队守城墙都缺人，哪还顾得上外头？"
                 :id=="town_peddler"?(BaseDemo.Active(state)&&!BaseDemoFinale.Later(state)
                     ?"黑鸦寨堵了去白桦村的官道。粮草器械我这儿有，战利品也收。"
-                    :StoryText.Get("story.ui.trade.market_greeting","要添补给，还是出手些装备？物资也能买卖。"))
+                    :StoryText.Get("story.ui.trade.market_greeting","粮草在这边。要卖战利品，拿来我瞧瞧。"))
+                :state.Demo?.RuinsDay>0?"听说采石的那两个人救出来了？太好了。"
                 :"我家狗一到林子边就夹尾巴。沉眠古窟底下，怕是有东西。";
             var replies=new List<NpcReply>{new NpcReply("点点头走开",ClosePanel)};
             // 2026-11-01 韦德拍板：撤掉独立的「商人」，行商老莫接管补给摊位，交易入口并进他的对话。
@@ -119,7 +121,7 @@ namespace BaseConquest.Base
                 else if(deliver)
                 {
                     questLines.Add(new NpcLine("你","","爵士，两个镇民都救出来了，控制他们的古裔也已制住。",true));
-                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"古裔敢在灰岩镇眼皮底下动人，往后得多留个心眼。"));
+                    questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"原来窟里有古裔。往后得让哨探多留意。"));
                     questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"这是答应你的赏金和许可。工坊、兵营都准修。"));
                     questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"去募兵处。剑士、弓兵、骑兵各募一名，守好南边。"));
                 }
@@ -138,7 +140,7 @@ namespace BaseConquest.Base
                 if (gift) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"营地守住了。再给你一道手令，回去建" + construction + "。"));
                 var replies = new List<NpcReply>();
                 if (gift) replies.Add(new NpcReply("领取建设许可", () => owner.OrderCampConstruction(true)));
-                if (deliver) replies.Add(new NpcReply("交付证据并领取许可", owner.DeliverDemoRuins));
+                if (deliver) replies.Add(new NpcReply("领赏，接下手令", owner.DeliverDemoRuins));
                 else if (!gift && BaseFacilityLayout.CanOrder(state)) replies.Add(new NpcReply("营地建设", () => owner.OrderCampConstruction()));
                 replies.Add(new NpcReply("告辞", ClosePanel));
                 if (questLines.Count==0) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"守好南边。"));
@@ -149,9 +151,10 @@ namespace BaseConquest.Base
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"听乡亲说，是你拖住了追兵。伤好些了？"),
                 new NpcLine("你","","多谢爵士接济。您可知道袭村的古裔从哪儿来？",true),
                 new NpcLine("你","","乡亲们暂时住在镇外的营地。我想修工坊、招些人手，得请您给道许可。",true),
-                new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"哨探也没摸清他们的底细。工坊和兵源，我得先看你能做什么。"),
+                new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"哨探也没摸清他们的底细。"),
+                new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"你想修工坊、招兵？先帮我办件事。"),
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"镇东的沉眠古窟近日在冒黑雾，两个采石的镇民还没回来。"),
-                new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"听说你扛得住瘴气。进去查清楚，找到活人就带回来。"),
+                new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"听说你扛得住瘴气。进窟查查，他们要是还活着，就带回来。"),
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"事办妥，赏金和建设许可归你，募兵处也会放行。")
             }:new[]{
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"古窟走东口。若嫌人手少，可以去铁匠铺问问。"),

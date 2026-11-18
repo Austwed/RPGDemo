@@ -503,7 +503,7 @@ namespace BaseConquest.Base
                 bool zhou = id == "demo_rescuer";
                 if (zhou && OpenZhouTraining()) return;
                 string campGreeting = zhou ? "留得青山在，总能寻回你那位同伴的。" :
-                    BaseConquest.Story.StoryText.Get("story.scene.camp.civilian_work", "乡亲先补粮田的空位，田里人手齐了再去工坊。你照常调兵就好。");
+                    BaseConquest.Story.StoryText.Get("story.scene.camp.civilian_work", "田里缺人时，我们先去搭把手。田里忙得过来，再去工坊。你要调兵，照常安排就是。");
                 NpcDialogue(WithInjury(owner.State, zhou ? "INJ_CAMP_ZHOU" : "INJ_CAMP_CHUN",
                     new NpcLine(zhou ? BaseScriptNames.LaoZhou : BaseScriptNames.ChunShen,
                         BaseScriptNames.Portrait(zhou ? "laozhou" : "chunshen"), campGreeting)),

@@ -184,7 +184,16 @@ namespace BaseConquest.Base
                         ResizeTouchButton(plus, 49, 22);
                     }
                 var portrait = Ui<RectTransform>(card, "Portrait");
-                BindInventoryPortrait(portrait, team.Leader);
+                var figure = new GameObject("队长半身像", typeof(RectTransform), typeof(CanvasRenderer));
+                var figureRect = (RectTransform)figure.transform;
+                figureRect.SetParent(portrait, false);
+                figureRect.anchorMin = Vector2.zero;
+                figureRect.anchorMax = Vector2.one;
+                figureRect.offsetMin = figureRect.offsetMax = Vector2.zero;
+                var avatar = figure.AddComponent<BattleAvatarGraphic>();
+                avatar.PlayerHero = team.Id == state.PlayerLeaderId;
+                avatar.AppearanceId = avatar.PlayerHero ? BaseDemoIntro.PlayerArt(state) : BaseCommanderIdentity.Appearance(team.Leader);
+                avatar.raycastTarget = false;
                 prepCards.Add(team.Id, (card, portrait.GetComponent<Image>().color));
                 var rowSelect = card.gameObject.GetOrAdd<Button>();
                 rowSelect.transition = Selectable.Transition.None;

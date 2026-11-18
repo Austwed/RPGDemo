@@ -173,11 +173,11 @@ namespace BaseConquest.Base
             NpcDialogue(new[]
             {
                 new NpcLine(name, portrait, StoryText.Get("story.ui.hideout.recruiter_clue_1",
-                    "野外那截破旧城墙背后，藏着个小土匪营地。那帮人隔三岔五就袭扰路过的百姓。")),
+                    "镇外那截破墙背后有个匪窝。过路人常在那里遭劫。")),
                 new NpcLine(name, portrait, StoryText.Get("story.ui.hideout.recruiter_clue_2",
-                    "你要是有心，就去跟他们碰一碰。营地里都是他们搜刮来的不义之财，你能帮我们处理掉他们，那些东西就算你的辛苦酬劳。")),
+                    "你要是肯去清剿，他们抢来的东西就归你。")),
                 new NpcLine(name, portrait, StoryText.Get("story.ui.hideout.recruiter_clue_3",
-                    "要是能打服他们，也能把肯归顺的人招来做事。坏是坏了点，可有了正经差事，或许能帮你的营地早点站稳。"))
+                    "把他们打服了，肯归顺的也能招来替营地做事。"))
             }, Array.Empty<NpcReply>(), onCompleted: after);
         }
 

@@ -2,7 +2,7 @@ namespace BaseConquest.Base
 {
     // 剧本专名与人物名的唯一来源（P3 标识迁移，依据《DEMO剧情文案落地规格》2.1／2.2／2.3）。
     // 规则：禁止在别处硬写人名与地名，一律从这里取；改名字只改本文件。
-    // 美术未到位前，Portrait() 一律映射到现有可用头像资源；新美术到位后只改 Portrait() 一处。
+    // 剧情称谓映射到统一半身像外观键。
     public static class BaseScriptNames
     {
         // ===== 地名（规格 2.2）=====
@@ -53,10 +53,10 @@ namespace BaseConquest.Base
                 case "survivor":return BaseDemoNpcs.ResolveNpcArt("survivor",true);
                 case "rescued-villager":return BaseDemoNpcs.ResolveNpcArt("rescued-villager",true);
                 case "lord":return "horn";
-                case "blacksmith":return "baron";    // 2026-11-02 老铁匠专属四向静态图入库（baron-v1 / portrait-baron-v1）
+                case "blacksmith":return "baron";
                 case "galan":return "galan";
                 case "batu":return "batu";
-                case "azhu":return "azhu";           // 骑乘阿铸的头像（portrait-azhu-v1，已换新骑乘版）
+                case "azhu":return "azhu";
                 case "chief":return "chief";
                 case "huoya":return "huoya";
                 default:return "villager";

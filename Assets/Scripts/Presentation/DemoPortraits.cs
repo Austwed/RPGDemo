@@ -1,36 +1,24 @@
 using BaseConquest.Base;
+using BaseConquest.Battle;
 using UnityEngine;
 
 namespace BaseConquest.Presentation
 {
     public static class DemoPortraits
     {
-        public enum Source { Portrait, CharacterSheet, LegacyCompanion, LegacyHero, Missing }
-        public readonly struct Result
+        public static Texture2D HalfBody(string appearance, bool player = false, SoldierKind kind = SoldierKind.Hero)
         {
-            public readonly Texture2D Texture;public readonly Rect Uv;public readonly Source Origin;public readonly string Id;
-            public Result(Texture2D texture,Rect uv,Source origin,string id){Texture=texture;Uv=uv;Origin=origin;Id=id;}
-        }
-        public static Result For(string id,bool playerHero=false)
-        {
-            id=playerHero&&string.IsNullOrEmpty(id)?"player":id??"";
-            if(id=="mounted-azhu")id="azhu";
-            id=BaseDemoNpcs.ResolveNpcArt(id,true);
-            var portrait=PixelDemoArt.Load("DialoguePortraits",id)??PixelDemoArt.Load("Portraits","portrait-"+id);
-            if(portrait!=null)return new Result(portrait,new Rect(0,0,1,1),Source.Portrait,id);
-            if(!playerHero)
+            string art = BaseDemoNpcs.ResolveNpcArt(appearance ?? "", portrait: true);
+            if (art == "mounted-azhu") art = "azhu";
+            if (PixelDemoArt.TroopId(art) == "cavalry") art = "mounted-cavalry";
+            string fallback = player ? "player" : kind switch
             {
-                var character=PixelDemoArt.Load("Characters",id);
-                if(character!=null)return new Result(character,PixelDemoArt.Frame(HeroFacing.South,HeroPose.Idle,0),Source.CharacterSheet,id);
-                var art=CommanderArt.For(id);var legacy=art==null?null:Resources.Load<Texture2D>("Characters/"+art.TextureName);
-                if(legacy!=null)return new Result(legacy,CommanderArt.UV(art.Clips[0],legacy),Source.LegacyCompanion,id);
-            }
-            else
-            {
-                var hero=Resources.Load<Texture2D>("Characters/PlayerHero-v1");if(hero!=null)return new Result(hero,new Rect(0,7/8f,1/8f,1/8f),Source.LegacyHero,id);
-            }
-            return new Result(null,default,Source.Missing,id);
+                SoldierKind.Melee => "infantry",
+                SoldierKind.Ranged => "archer",
+                SoldierKind.Cavalry => "mounted-cavalry",
+                _ => "enemy-captain"
+            };
+            return PixelDemoArt.Load("DialoguePortraits", art) ?? PixelDemoArt.Load("DialoguePortraits", fallback);
         }
-
     }
 }

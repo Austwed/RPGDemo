@@ -72,7 +72,7 @@ namespace BaseConquest.Base
             NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),offer)},new[]{
                 new NpcReply("领取免费首防消息",()=>{
                     if(!owner.Change(next=>{if(!BaseRaidIntel.ClaimFirst(next))throw new InvalidOperationException("首防消息不可用");},"已记录首防日期"))return;
-                    string text=StoryText.Get("story.ui.intel.first_claimed","黑鸦寨第 {day} 天来袭。回去看看日历，趁早备好粮食和军需。")
+                    string text=StoryText.Get("story.ui.intel.first_claimed","黑鸦寨第{day}天就到。这几天赶紧备些粮和军需。")
                         .Replace("{day}",owner.State.Demo.Flow.FreeFirstRaidDay.ToString());
                     NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),text)},new[]{new NpcReply("知道了",ClosePanel)});
                 }),new NpcReply("离开",ClosePanel)});
@@ -135,11 +135,10 @@ namespace BaseConquest.Base
         public void OpenDemoMerchant()
         {
             string warning=StoryText.Get("story.scene.defense.merchant_bandit_lead",
-                "带人来的是黑鸦寨的巴图。寨里吃了亏，多半还会派人来。");
+                "巴图没能拿下营地。黑鸦寨吃了亏，多半还会派人过来。");
             NpcDialogue(new[]{
-                new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"东家，我走南路回来，听说你们刚打了一仗。"),
                 new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),warning),
-                new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"黑鸦寨在霍恩辖地外。走营地南口上官道，一天就到。")},
+                new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"从南口上官道，一天就到寨子。那边可不归霍恩管。")},
                 new[]{new NpcReply("记下敌营位置",()=>{if(owner.Change(next=>{next.Demo.Defense.MerchantDone=true;next.Campaign.Layouts.Single(map=>map.Region=="base").Objects.RemoveAll(obj=>obj.Id=="demo_merchant");},"已记录敌营位置与道路")){ClosePanel();owner.RefreshDemoRegion();}})});
         }
         public void OpenRecruitmentComplete()=>NpcDialogue(new[]{
@@ -151,8 +150,7 @@ namespace BaseConquest.Base
         public void OpenAheFarmOffer(bool recruited)
         {
             var lines=new[]{
-                new NpcLine("阿禾","ahe","田里来了人手。我想跟你讨件差事。"),
-                new NpcLine("阿禾","ahe","我从小跟庄稼打交道。你肯让我管这片田，收成还能好些。")
+                new NpcLine("阿禾","ahe","我在田埂上长大的。这块地让我管吧，什么时候浇水我心里有数。")
             };
             NpcDialogue(lines,new[]{
                 new NpcReply(recruited?"知道了":"邀请阿禾加入",()=>{if(recruited)ClosePanel();else owner.JoinDemoPartner("partner_farm", false);}),

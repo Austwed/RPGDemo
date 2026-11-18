@@ -14,8 +14,7 @@ namespace BaseConquest.Base
         public static string ResolveNpcArt(string id,bool portrait=false,string fallback=null)
         {
             if(!NpcFallbacks.TryGetValue(id,out var defaultArt))return id;
-            string path=portrait?"PixelDemo/Portraits/portrait-"+id+"-v1":"PixelDemo/Characters/"+id+"-v1";
-            return UnityEngine.Resources.Load<UnityEngine.Texture2D>(path)!=null?id:fallback??defaultArt;
+            return Presentation.PixelDemoArt.Load(portrait ? "DialoguePortraits" : "Characters", id) != null ? id : fallback ?? defaultArt;
         }
         public static string DialogueArt(string name,string fallback)
         {

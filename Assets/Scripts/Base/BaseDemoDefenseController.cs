@@ -123,7 +123,7 @@ namespace BaseConquest.Base
         {
             root.GetComponent<UnityEngine.Canvas>().sortingOrder=300;
             NpcDialogue(new[]{
-                new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","别杀我！寨子里就剩些老弱，大当家已经带人下山了。"),
+                new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","别杀我！是巴图带我们来的，我知道寨子在哪儿。"),
                 new NpcLine("你","","你们的寨子在哪儿？",true),
                 new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","南边官道拐口的山坳里。山道两边都是枯树和大石。")
             },new[]{new NpcReply("继续战斗",proceed)});
@@ -131,9 +131,9 @@ namespace BaseConquest.Base
         public void OpenSecondRaidBriefing(Action proceed, Action back = null)
         {
             var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"上回没拿下你们的营地。今天我亲自来。")};
-            if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"寨主，就是他们。我说过，我会回来的。"));
+            if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"寨主，就是这伙人。上回是我没拿下，今儿让我打头阵。"));
             else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"巴图的账，今天一起算！"));
-            lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"弟兄们跟紧！别把口子让出来。"));
+            lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"弟兄们，跟紧我！别让他们冲散了！"));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备迎战",proceed),new NpcReply("暂缓迎战",back ?? OpenDemoDefenseSupply)});
         }
         public void OpenDemoDefenseAftermath()
@@ -148,10 +148,13 @@ namespace BaseConquest.Base
         {
             if(!BaseDemoFinale.SecondRaidReportPending(owner.State))return;
             activeObject="demo-second-victory-report";
-            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Scout,BaseScriptNames.Portrait("chenan"),
-                    StoryText.Get("story.scene.defense.second_victory_report","匪营那边的残兵都跑了。我们现在可以直接去白桦村，也可以看看匪营有没有剩下的物资。"))},
+            NpcDialogue(new[]{
+                    new NpcLine(BaseScriptNames.Scout,BaseScriptNames.Portrait("chenan"),
+                        StoryText.Get("story.scene.defense.second_victory_report.1","大人，守寨的匪兵都跑散了，往白桦村的路通了。")),
+                    new NpcLine(BaseScriptNames.Scout,BaseScriptNames.Portrait("chenan"),
+                        StoryText.Get("story.scene.defense.second_victory_report.2","咱们也能先去寨里看看，还有没有物资留下。"))},
                 new[]{new NpcReply(StoryText.Get("story.ui.defense.second_report_continue","知道了"),()=>ContinueDialogue())},
-                onCompleted:FinishReport,quietAdvance:true);
+                lockExitUntilFinished:true,onCompleted:FinishReport);
 
             void FinishReport()
             {

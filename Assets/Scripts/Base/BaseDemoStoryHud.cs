@@ -13,8 +13,8 @@ namespace BaseConquest.Base
             {
                 var giftLines = new[]
                 {
-                    new NpcLine(smith, portrait, "这小子闲不住。跟着你，也好过整天闷在铁匠铺。"),
-                    new NpcLine("阿铸", "azhu", "爹，我跟着去是帮忙。你就放心吧。"),
+                    new NpcLine(smith, portrait, "这小子闲不住。在营里有活干，总比整天守着炉子强。"),
+                    new NpcLine("阿铸", "azhu", "爹，我去营里搭把手。您放心。"),
                     new NpcLine(smith, portrait, "这把新手短剑和一块锻造石给你。阿铸性子急，多担待。")
                 };
                 NpcDialogue(WithInjury(owner.State, "INJ_TOWN_BALONG", giftLines), Array.Empty<NpcReply>(), onCompleted: CompleteSmithGift);
@@ -53,11 +53,11 @@ namespace BaseConquest.Base
                 new NpcLine("你","","你护了他们，也把他们推出来挡刀。这笔账我记着。",true),
                 new NpcLine(galan,portrait,"这座窟我比你熟。留我做事，古窟的事我知道多少说多少。")
             },new[]{
-                new NpcReply("接纳他，给他证明的机会",()=>{
+                new NpcReply("接纳迦兰",()=>{
                     if(!owner.Change(s=>{if(!BaseDemoStories.AcceptController(s,id))throw new InvalidOperationException("队长名额已满，俘虏仍保留");},"")){back();return;}
-                    NpcDialogue(new[]{new NpcLine(galan,portrait,"我记住了。古窟的事，我会把知道的说清楚。")},new[]{new NpcReply("从现在开始，用行动证明",back)});
+                    NpcDialogue(new[]{new NpcLine(galan,portrait,"那就先从这座窟说起。")},Array.Empty<NpcReply>(),onCompleted:back);
                 }),
-                new NpcReply("暂缓接纳，留在俘虏栏",()=>NpcDialogue(
+                new NpcReply("先不接纳",()=>NpcDialogue(
                     new[]{new NpcLine(galan,portrait,"等你想谈了，再来找我。")},
                     Array.Empty<NpcReply>(),onCompleted:back))
             });

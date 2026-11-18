@@ -10,7 +10,7 @@ namespace BaseConquest.Story
 {
     public static class StoryTextFiles
     {
-        private const int InstalledRevision=2;
+        private const int InstalledRevision=3;
         public static string SourcePath=>Path.Combine(Application.streamingAssetsPath,"Text/story-text.json");
         public static string EditablePath=>Application.isEditor ? SourcePath : Path.Combine(ExchangeDirectory,"story-text-v"+InstalledRevision+".json");
         public static string ExchangeDirectory=>Application.isEditor ? Path.GetFullPath(Path.Combine(Application.dataPath,"../Logs/StoryTextExports")) : Path.Combine(BaseConquest.Base.BaseBattleGateway.PlayerDataDirectory,"StoryText");
@@ -45,11 +45,12 @@ namespace BaseConquest.Story
         }
         private static void InstallPackaged(StoryTextDocument packaged)
         {
-            string legacyPath=Path.Combine(ExchangeDirectory,"story-text.json");
             StoryTextDocument installed=null;
-            if(File.Exists(legacyPath))
+            foreach (string name in new[] { "story-text-v2.json", "story-text.json" })
             {
-                try{installed=Parse(File.ReadAllText(legacyPath,Encoding.UTF8));}
+                string oldPath = Path.Combine(ExchangeDirectory, name);
+                if (!File.Exists(oldPath)) continue;
+                try { installed = Parse(File.ReadAllText(oldPath, Encoding.UTF8)); break; }
                 catch(Exception e){Debug.LogWarning("旧剧情文本副本无法读取，已使用新版正文："+e.Message);}
             }
             var upgraded=UpgradeInstalled(packaged,installed);

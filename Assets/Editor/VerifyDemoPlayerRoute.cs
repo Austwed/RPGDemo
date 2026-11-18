@@ -85,6 +85,13 @@ namespace BaseConquest.Editor
             var obsolete=installed.entries.Single(entry=>entry.key=="story.scene.prologue.pursuit_stab");
             obsolete.text="旧版雾中演出";
             obsolete.revision=0;
+            const string refreshed = "story.ui.hideout.recruiter_clue_2";
+            var oldClue = installed.entries.Single(entry => entry.key == refreshed);
+            oldClue.text = "旧版雷恩的长对白";
+            oldClue.revision--;
+            const string report = "story.scene.defense.second_victory_report";
+            installed.entries.RemoveAll(entry => entry.key.StartsWith(report + ".", StringComparison.Ordinal));
+            installed.entries.Add(new StoryTextEntry { key = report, text = "旧版单页陈安报告" });
             const string unchanged="story.scene.prologue.drill_pause";
             installed.entries.Single(entry=>entry.key==unchanged).text="本机自改的操作提示";
             const string added="story.item.practice_sword.description";
@@ -93,7 +100,10 @@ namespace BaseConquest.Editor
             upgraded.Validate();
             Need(upgraded.entries.Single(entry=>entry.key==obsolete.key).text.Contains("古裔追兵") &&
                 upgraded.entries.Single(entry=>entry.key==unchanged).text=="本机自改的操作提示" &&
-                upgraded.entries.Single(entry=>entry.key==added).text.Contains("青绳"),
+                upgraded.entries.Single(entry=>entry.key==added).text.Contains("青绳") &&
+                upgraded.entries.Single(entry => entry.key == refreshed).text.Contains("抢来的东西") &&
+                upgraded.entries.Count(entry => entry.key.StartsWith(report + ".", StringComparison.Ordinal)) == 2 &&
+                !upgraded.entries.Any(entry => entry.key == report),
                 "旧安装副本覆盖了新版台词，或未保留未改键的玩家文本");
             Note("发行文本：旧安装副本迁移覆盖过时台词，保留未改键的自定义内容，补入新物品说明。");
         }
