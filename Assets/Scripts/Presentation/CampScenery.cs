@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using BaseConquest.Battle;
 using UnityEngine;
 
@@ -7,15 +8,15 @@ namespace BaseConquest.Presentation
     internal sealed class CampScenery : MonoBehaviour
     {
         private const float Cell = BattleBoardView.CellSize;
-        private const int Padding = 5;
         private Mesh ground;
         private Material[] materials;
 
-        public static GameObject Create(Transform parent, BattleBoard board, Camera camera, Material grass, Material source, bool camp)
+        public static GameObject Create(Transform parent, BattleBoard board, Camera camera, Material grass, Material source,
+            float maxViewSize, bool camp, bool dungeon)
         {
             var root = new GameObject(camp ? "CampScenery" : "ExplorationScenery", typeof(MeshFilter), typeof(MeshRenderer));
             root.transform.SetParent(parent, false);
-            root.AddComponent<CampScenery>().Build(board, camera, grass, source, camp);
+            root.AddComponent<CampScenery>().Build(board, camera, grass, source, maxViewSize, camp, dungeon);
             return root;
         }
 
@@ -23,14 +24,16 @@ namespace BaseConquest.Presentation
         {
             float outside = Mathf.Max(0, Mathf.Max(x - board.Width, Mathf.Min(x, z - board.Height)));
             return Mathf.SmoothStep(0, 1, Mathf.Clamp01(outside / 5)) *
-                Mathf.Lerp(.2f, 1.4f, Mathf.PerlinNoise(x * .22f, z * .22f)) - .025f;
+                Mathf.Lerp(.2f, 1.4f, Mathf.PerlinNoise(x * .22f, z * .22f)) - .01f;
         }
 
-        private void Build(BattleBoard board, Camera camera, Material grass, Material source, bool camp)
+        private void Build(BattleBoard board, Camera camera, Material grass, Material source,
+            float maxViewSize, bool camp, bool dungeon)
         {
-            Material GrassTint(Color tint)
+            Material SceneryTint(Color tint)
             {
-                var material = new Material(grass);
+                var material = new Material(dungeon ? source : grass);
+                if (dungeon) material.SetTexture("_BaseMap", PixelDemoArt.Load("Terrain", "dungeon-wall"));
                 material.SetColor("_BaseColor", tint);
                 return material;
             }
@@ -38,8 +41,8 @@ namespace BaseConquest.Presentation
             materials = new[]
             {
                 grass,
-                GrassTint(new Color(.89f, .95f, .86f)),
-                GrassTint(new Color(.81f, .9f, .77f))
+                SceneryTint(dungeon ? new Color(.35f, .34f, .31f) : new Color(.89f, .95f, .86f)),
+                SceneryTint(dungeon ? new Color(.29f, .28f, .25f) : new Color(.81f, .9f, .77f))
             };
             var vertices = new List<Vector3>();
             var uv = new List<Vector2>();
@@ -64,17 +67,22 @@ namespace BaseConquest.Presentation
                 indices.Add(first); indices.Add(first + 2); indices.Add(first + 3);
             }
 
-            for (int z = -Padding; z < board.Height + Padding; z++)
-                for (int x = -Padding; x < board.Width + Padding; x++)
+            // Budget the ground projection from any playable edge, including a raised player focus.
+            float highestGround = board.Cells.Max(cell => cell.Elevation) * BaseTerrainView.LevelHeight;
+            var up = camera.transform.up;
+            int paddingX = Mathf.CeilToInt(maxViewSize * camera.aspect / Cell) + 1;
+            int paddingZ = Mathf.CeilToInt((maxViewSize + highestGround * up.y) / (up.z * Cell)) + 3;
+            for (int z = -paddingZ; z < board.Height + paddingZ; z++)
+                for (int x = -paddingX; x < board.Width + paddingX; x++)
                 {
                     if (x >= 0 && x < board.Width && z >= 0 && z < board.Height) continue;
                     int distance = Mathf.Max(Mathf.Max(-x - 1, x - board.Width), Mathf.Max(-z - 1, z - board.Height));
                     float variation = distance * .11f + (Mathf.PerlinNoise(x * .22f, z * .22f) - .5f) * 1.15f;
-                    int terrain = variation > .8f ? 2 : variation > .3f ? 1 : 0;
+                    int terrain = variation > .8f ? 2 : dungeon || variation > .3f ? 1 : 0;
                     Quad(x, z, terrain);
                 }
 
-            ground = new Mesh { name = "Camp grassland and slopes" };
+            ground = new Mesh { name = "Exploration scenery ground" };
             ground.SetVertices(vertices);
             ground.SetUVs(0, uv);
             ground.subMeshCount = materials.Length;
@@ -84,6 +92,7 @@ namespace BaseConquest.Presentation
             var renderer = GetComponent<MeshRenderer>();
             renderer.sharedMaterials = materials;
             renderer.sortingOrder = -32000;
+            if (dungeon) return;
 
             var random = new System.Random(711);
             var trees = new[] { "tree-oak-a", "tree-oak-b", "tree-pine" };

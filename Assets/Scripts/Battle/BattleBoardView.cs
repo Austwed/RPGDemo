@@ -65,7 +65,7 @@ namespace BaseConquest.Battle
         private string surfaceRegion="battle";
         private bool homeTerrainTrial;
         private bool campScenery;
-        private bool explorationFraming, wideShotSet;
+        private bool explorationFraming;
         private GameObject explorationScenery;
         private readonly Dictionary<Material,(Texture Texture,Vector2 Scale,Vector2 Offset)> originalTrialMaterials=new Dictionary<Material,(Texture,Vector2,Vector2)>();
         public bool SetHomeTerrainTrial(bool enabled)
@@ -155,7 +155,6 @@ namespace BaseConquest.Battle
             if (!combat) { draftDeploymentZones = null; showDraftDeploymentZones = false; }
             fieldworkArt?.SetKnown(null);
             CombatMode=combat; showDeploymentZones=deploymentZones; SelectCell(null); Refresh();
-            wideShotSet = false;
             if (explorationScenery != null && !campScenery) explorationScenery.SetActive(!combat);
             foreach(var edge in Root.GetComponentsInChildren<BaseConquest.Presentation.EnvironmentRoadEdges>(true)){edge.SetRaised(ObliqueExploration);edge.SetKnown(null);}
             foreach(var facade in Root.GetComponentsInChildren<BaseConquest.Presentation.SpriteFacade>(true))facade.SetRaised(ObliqueExploration);
@@ -243,13 +242,13 @@ namespace BaseConquest.Battle
             Refresh();
         }
         public static Vector3 World(GridPosition p, BattleBoard board) => new Vector3((p.X - (board.Width - 1) * 0.5f) * CellSize, 0, (p.Z - (board.Height - 1) * 0.5f) * CellSize);
-        internal void EnableExplorationFraming(bool outdoors, bool camp)
+        internal void EnableExplorationFraming(bool camp)
         {
             explorationFraming = true;
             campScenery = camp;
-            if (outdoors)
-                explorationScenery = BaseConquest.Presentation.CampScenery.Create(Root.transform, board, Camera, baseGrassMaterial, groundMaterial, camp);
         }
+        internal void BuildExplorationScenery() => explorationScenery = BaseConquest.Presentation.CampScenery.Create(
+            Root.transform, board, Camera, baseGrassMaterial, groundMaterial, MaxExplorationViewSize, campScenery, surfaceRegion == "dungeon");
         public void UpdateCamera(float leftFraction, float bottomFraction)
         {
             bool showGrid=CombatMode ? MapDisplayOptions.BattleGridOutlines : MapDisplayOptions.ShowGridOutlines;
@@ -263,7 +262,6 @@ namespace BaseConquest.Battle
             }
             Camera.rect=BaseConquest.Presentation.GameFrameCanvas.Compose(Camera.rect);
             Camera.orthographicSize = FullViewSize * zoomFactor;
-            if (explorationFraming && ObliqueExploration) panOffset = ClampExplorationPan(panOffset);
             Camera.transform.position = new Vector3(0, 30, FlatView ? 0 : -12) + panOffset;
             if (FlatView) Camera.transform.rotation = Quaternion.Euler(90, 0, 0);
             if (ObliqueExploration)
@@ -309,26 +307,8 @@ namespace BaseConquest.Battle
             size=Mathf.Clamp(size,MinViewSize,FullViewSize);
             zoomFactor=Mathf.Clamp(size/FullViewSize,MinZoomFactor,1f);
             Camera.orthographicSize=size;
-            if (explorationFraming && ObliqueExploration) ApplyPanOffset(panOffset);
         }
         public void Follow(Vector3 feet)=>ApplyPanOffset(feet);
-        public void FollowExplorer(Vector3 target)
-        {
-            bool widest = explorationFraming && ObliqueExploration &&
-                Mathf.Abs(Camera.orthographicSize - MaxExplorationViewSize) < .0001f;
-            if (!widest)
-            {
-                wideShotSet = false;
-                Follow(target);
-                return;
-            }
-
-            // Hold the current shot while the character has room to move through it.
-            var point = Camera.WorldToViewportPoint(target);
-            if (!wideShotSet || point.x < .14f || point.x > .86f || point.y < .16f || point.y > .79f)
-                Follow(target);
-            wideShotSet = true;
-        }
         public void ZoomAt(float ratio,Vector2 screen)
         {
             var ground=new Plane(Vector3.up,Vector3.zero);var before=Camera.ScreenPointToRay(screen);
@@ -349,17 +329,10 @@ namespace BaseConquest.Battle
         private void ApplyPanOffset(Vector3 offset)
         {
             Vector3 previous = panOffset;
-            panOffset = explorationFraming && ObliqueExploration ? ClampExplorationPan(offset) : new Vector3(
+            panOffset = explorationFraming && ObliqueExploration ? offset : new Vector3(
                 Mathf.Clamp(offset.x, -board.Width * CellSize * .6f, board.Width * CellSize * .6f), offset.y,
                 Mathf.Clamp(offset.z, -board.Height * CellSize * .6f, board.Height * CellSize * .6f));
             Camera.transform.position+=panOffset-previous;
-        }
-        private Vector3 ClampExplorationPan(Vector3 offset)
-        {
-            float margin = explorationScenery != null ? 2f * CellSize : 0;
-            float x = Mathf.Max(0, board.Width * CellSize * .5f + margin - Camera.orthographicSize * Camera.aspect);
-            float z = Mathf.Max(0, board.Height * CellSize * .5f + margin - Camera.orthographicSize / .8660254f);
-            return new Vector3(Mathf.Clamp(offset.x, -x, x), 0, Mathf.Clamp(offset.z, -z, z));
         }
         public bool Pick(Vector2 screen, out GridPosition cell)
         {

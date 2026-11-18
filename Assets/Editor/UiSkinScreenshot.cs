@@ -2617,23 +2617,23 @@ namespace BaseConquest.Editor
 
             var move = typeof(BaseSceneController).GetMethod("MoveExploration", BindingFlags.Instance | BindingFlags.NonPublic);
             view.SetViewSize(view.MaxExplorationViewSize);
-            view.FollowExplorer(controller.PlayerCameraTarget);
+            view.Follow(controller.PlayerCameraTarget);
             var startCamera = view.Camera.transform.position;
-            for (int i = 0; i < 20; i++) move.Invoke(controller, new object[] { Vector2.left, .05 });
+            for (int i = 0; i < 20; i++)
+            {
+                move.Invoke(controller, new object[] { Vector2.left, .05 });
+                RequireCentered(view, controller.PlayerCameraTarget);
+            }
             double edgeX = state.PlayerX, edgeY = state.PlayerY;
             if (edgeX < 0 || edgeX >= .65 || BaseSpatial.Walkable(controller.State, -.5, edgeY) ||
                 view.Board.Cell(new GridPosition(-1, (int)edgeY)) != null)
                 throw new InvalidOperationException($"西边缘的移动或布置边界异常：x={edgeX}");
-            var edgeCenter = (Vector3)Field(view, "panOffset");
-            view.Follow(new Vector3(-100, 0, edgeCenter.z));
-            if (Vector3.Distance(edgeCenter, (Vector3)Field(view, "panOffset")) > .01f)
-                throw new InvalidOperationException("贴边时相机还能越出西侧视野上限");
-            if (Vector3.Distance(startCamera, view.Camera.transform.position) > .01f)
-                throw new InvalidOperationException("最远档在同一个镜头内跟着主角移动");
+            if (Vector3.Distance(startCamera, view.Camera.transform.position) < 1f)
+                throw new InvalidOperationException("镜头没有跟随主角走到西边缘");
             var sceneryPoint = view.Camera.WorldToScreenPoint(controller.WorldPoint(-1.3, edgeY));
             if (!view.Camera.pixelRect.Contains(sceneryPoint) || view.Pick(sceneryPoint, out _))
                 throw new InvalidOperationException("地图外草地未入画或被误判为部署格");
-            Log.Add($"[PASS] 实际向西行走停在 x={edgeX:F2}，相机停止跟随，入画的草地无可拾取棋盘格");
+            Log.Add($"[PASS] 向西走到 x={edgeX:F2}，逐步核对主角始终对准画面中心，外景无可拾取棋盘格");
         }
 
         private static void CheckCampSceneryFullView()
@@ -2646,15 +2646,10 @@ namespace BaseConquest.Editor
             controller.ZoomExplorationFactor(point, .001f);
             if (Mathf.Abs(view.Camera.orthographicSize / view.FullViewSize - .3f) > .0001f)
                 throw new InvalidOperationException("最近档改变了");
+            RequireCentered(view, controller.PlayerCameraTarget);
             controller.ZoomExplorationFactor(point, 100);
-            var west = view.Camera.transform.position;
-            var east = controller.WorldPoint(view.Board.Width - 1.5, view.Board.Height * .5);
-            view.FollowExplorer(east);
-            if (Vector3.Distance(west, view.Camera.transform.position) < .1f ||
-                !view.Camera.pixelRect.Contains(view.Camera.WorldToScreenPoint(east)))
-                throw new InvalidOperationException("越过当前取景后无法继续看到角色");
-            view.FollowExplorer(controller.PlayerCameraTarget);
-            Log.Add("[PASS] 最远档是旧值的 0.512 倍；最近档还是 0.3 倍；取景内固定，越出时切到下一段");
+            CheckOuterCorners(view, view.Root.transform.Find("CampScenery"));
+            Log.Add("[PASS] 最远档 .512、最近档 .3 保持原值；最大视野下四个边角均有外围地表覆盖");
         }
 
         private static void CheckTownFraming()
@@ -2664,10 +2659,39 @@ namespace BaseConquest.Editor
             var view = (BattleBoardView)Field(controller, "regionView");
             Approach("travel_base");
             view.SetViewSize(view.MaxExplorationViewSize);
-            view.FollowExplorer(controller.PlayerCameraTarget);
-            if (view.Root.transform.Find("ExplorationScenery") == null)
+            view.Follow(controller.PlayerCameraTarget);
+            var scenery = view.Root.transform.Find("ExplorationScenery");
+            if (scenery == null)
                 throw new InvalidOperationException("灰岩镇缺少外围布景");
-            Capture("exploration-town-west");
+            RequireCentered(view, controller.PlayerCameraTarget);
+            CheckOuterCorners(view, scenery);
+            Capture("exploration-town-centered-west");
+            Capture("exploration-town-centered-west-narrow", 1024, 640);
+        }
+
+        private static void RequireCentered(BattleBoardView view, Vector3 target)
+        {
+            var point = view.Camera.WorldToViewportPoint(target);
+            if (Mathf.Abs(point.x - .5f) > .0001f || Mathf.Abs(point.y - .5f) > .0001f)
+                throw new InvalidOperationException($"角色没有居中：{point}");
+        }
+
+        private static void CheckOuterCorners(BattleBoardView view, Transform scenery)
+        {
+            var mesh = scenery.GetComponent<MeshFilter>();
+            float raisedFocus = view.Board.Cells.Max(cell => cell.Elevation) * BaseTerrainView.LevelHeight + 1.2f;
+            for (int side = 0; side < 4; side++)
+            {
+                bool east = (side & 1) != 0, north = (side & 2) != 0;
+                var target = new Vector3((east ? 1 : -1) * view.Board.Width * BattleBoardView.CellSize * .5f,
+                    raisedFocus, (north ? 1 : -1) * view.Board.Height * BattleBoardView.CellSize * .5f + 1.2f);
+                view.Follow(target);
+                RequireCentered(view, target);
+                var corner = new Vector3(east ? .999f : .001f, north ? .999f : .001f);
+                if (!BaseTerrainView.Raycast(mesh, view.Camera.ViewportPointToRay(corner), out _))
+                    throw new InvalidOperationException($"布景未覆盖视口边角 {corner}");
+            }
+            view.Follow(controller.PlayerCameraTarget);
         }
 
         private static void CheckSceneryOcclusion()
