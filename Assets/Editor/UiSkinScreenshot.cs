@@ -376,7 +376,7 @@ namespace BaseConquest.Editor
                     var merchantDialogue = RequirePanel("NpcDialogue");
                     VerifySavedDialogueColor(merchantDialogue);
                     var pendingReplies = merchantDialogue.Find("Replies").GetComponentsInChildren<Button>();
-                    if (pendingReplies.Length != 5 || pendingReplies.Any(button =>
+                    if (pendingReplies.Length != 3 || pendingReplies.Any(button =>
                         button.interactable || button.GetComponentInChildren<Text>().text != "..."))
                         throw new InvalidOperationException("行商对白未原位显示禁用的占位选项");
                     if (merchantDialogue.Find("AdvanceButton").GetComponentInChildren<Text>().text != "→")
@@ -385,7 +385,7 @@ namespace BaseConquest.Editor
                     FinishDialogue();
                     if (pendingReplies.Any(button => !button.interactable || button.GetComponentInChildren<Text>().text == "..."))
                         throw new InvalidOperationException("行商对白播完后未原位开放实际选项");
-                    Click(BaseConquest.Story.StoryText.Get("story.ui.trade.market_entry", "买卖物资"));
+                    Click(BaseConquest.Story.StoryText.Get("story.ui.trade.market_entry", "买卖东西"));
                     var merchantMarket = RequirePanel("TownTrade");
                     if (merchantMarket.Find("Tabs").gameObject.activeInHierarchy)
                         throw new InvalidOperationException("交易面板仍显示业务页签");
@@ -558,6 +558,20 @@ namespace BaseConquest.Editor
                     Press(preparation, "Supply/Grade1");
                     if (((BaseBattlePreparation)Field(H, "battleDraft")).SupplyGrade != 1)
                         throw new InvalidOperationException("一级军需未作为整场档位保存");
+                    var teamRows = preparation.Find("Teams");
+                    ClickHudButton(teamRows.GetChild(1));
+                    preparation = RequirePanel("BattlePreparation");
+                    teamRows = preparation.Find("Teams");
+                    if (teamRows.GetChild(1).Find("Portrait").GetComponent<Image>().color != DemoUiTheme.Current.Gold)
+                        throw new InvalidOperationException("点击队长整行后，分配目标没有变为金色");
+                    ClickHudButton(teamRows.GetChild(0));
+                    preparation = RequirePanel("BattlePreparation");
+                    var guide = (Graphic)Field(H, "questArrow");
+                    var continueButton = (RectTransform)preparation.Find("Continue");
+                    if (((RectTransform)Field(H, "questBar")).gameObject.activeSelf || !guide.gameObject.activeInHierarchy ||
+                        Mathf.Abs(guide.transform.position.x - continueButton.TransformPoint(continueButton.rect.center).x) > 1)
+                        throw new InvalidOperationException("备战面板上的任务箭头未对准进入战场或任务条遮住了面板");
+                    Log.Add("[PASS] 备战点击整行切换金色头像，任务箭头指向进入战场");
                     defenseSupplyStock = controller.State.Inventory.Equipment.Single(e => e.Product == "supply" && e.Level == 1).Count;
                     CaptureViewports("ui-skin-battle-preparation");
                     var fieldCamera = controller.WorldCamera;
@@ -701,8 +715,8 @@ namespace BaseConquest.Editor
             var tickGuide = typeof(BaseSceneController).GetMethod("TickPracticeGuide", BindingFlags.Instance | BindingFlags.NonPublic);
             drill.PreviewHud.Refresh();
             var resting = buttons.ToDictionary(button => button, ReadOutline);
-            if ((intro.DrillFlags & BaseDemoIntro.Select) != 0)
-                throw new InvalidOperationException("开场默认选中误记为玩家选择");
+            if ((intro.DrillFlags & BaseDemoIntro.Select) != 0 || drill.SelectedUnits.Count != 0)
+                throw new InvalidOperationException("序章演练开场应由玩家主动选中角色");
 
             (Color Color, Vector2 Distance, bool Enabled) ReadOutline(Transform target)
             {
@@ -832,7 +846,9 @@ namespace BaseConquest.Editor
             H.OpenObject("town_peddler");
             FinishDialogue();
             string reopen = BaseConquest.Story.StoryText.Get("story.ui.intel.first_reopen", "免费首防消息");
-            Click(reopen);
+            string intel = BaseConquest.Story.StoryText.Get("story.ui.trade.intel_entry", "小道消息");
+            Click(intel);
+            Click("查看首防消息");
             FinishDialogue();
             Click("领取免费首防消息");
             FinishDialogue();
@@ -845,8 +861,9 @@ namespace BaseConquest.Editor
             Click("知道了");
             H.OpenObject("town_peddler");
             FinishDialogue();
-            if (RequirePanel("NpcDialogue").Find("Replies").GetComponentsInChildren<Text>().Any(label => label.text == reopen))
-                throw new InvalidOperationException("补领后再次交谈仍显示首防消息");
+            Click(intel);
+            if (RequirePanel("TownTrade").GetComponentsInChildren<Text>().Any(label => label.text == reopen))
+                throw new InvalidOperationException("补领后小道消息仍显示免费首防消息");
             Log.Add("[PASS] 免费首防消息离开后可从老莫补领，日历日期一致，领取后入口消失");
         }
 
@@ -1243,7 +1260,10 @@ namespace BaseConquest.Editor
 
         private static void VerifyAuthoredLayout()
         {
-            var source = (RectTransform)controller.transform.Find("UI 布局源/PartyMemberCard/BagSlot_0");
+            int index = BasePartyInventory.FreeCell(controller.State, controller.State.PlayerLeaderId);
+            if (index < 0) throw new InvalidOperationException("场景配色检查需要一个空背包格");
+            string path = "BagSlot_" + index;
+            var source = (RectTransform)controller.transform.Find("UI 布局源/PartyMemberCard/" + path);
             var image = source.GetComponent<Image>();
             var originalPosition = source.anchoredPosition;
             var originalColor = image.color;
@@ -1254,7 +1274,7 @@ namespace BaseConquest.Editor
                 H.ClosePanel();
                 H.OpenBackpack();
                 var card = RequirePanel("PartyInventory").Find("Cards").GetChild(0);
-                var live = (RectTransform)card.Find("BagSlot_0");
+                var live = (RectTransform)card.Find(path);
                 if (Vector2.Distance(source.anchoredPosition, live.anchoredPosition) > .01f
                     || Vector4.Distance(image.color, live.GetComponent<Image>().color) > .005f)
                     throw new InvalidOperationException("背包格运行时覆盖了场景位置或配色");
@@ -1287,6 +1307,16 @@ namespace BaseConquest.Editor
                 cards.Any(card => Mathf.Abs(card.center.y - cards[0].center.y) > .1f) ||
                 cards.Zip(cards.Skip(1), (left, right) => left.xMax > right.xMin).Any(overlaps => overlaps))
                 throw new InvalidOperationException("独立背包没有沿用固定外窗和等宽居中角色卡：" + count);
+            foreach (var cell in group.GetComponentsInChildren<PartyInventoryCell>())
+            {
+                if (cell.Cell < 0 && string.IsNullOrEmpty(cell.Slot)) continue;
+                var rect = ((RectTransform)cell.transform).rect;
+                if (Mathf.Abs(rect.width - rect.height) > .1f)
+                    throw new InvalidOperationException("物品格或装备槽应为正方形：" + cell.name);
+                if (!string.IsNullOrEmpty(cell.ItemId) && cell.transform.Find("ItemIcon") != null &&
+                    cell.GetComponentInChildren<Text>(true).text != "")
+                    throw new InvalidOperationException("有物品时只显示图标和堆叠数量：" + cell.name);
+            }
             Log.Add("[PASS] 背包 " + count + " 人，外窗与角色卡尺寸从场景读取，卡组居中");
         }
 
@@ -1405,7 +1435,7 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("主角半血没有真实撤退并回到遗迹入口");
             var dialogue = RequirePanel("NpcDialogue");
             H.ContinueDialogue();
-            if (dialogue.Find("DialogueText").GetComponent<Text>().text != "那个骑马的家伙或许可以帮忙。" ||
+            if (dialogue.Find("DialogueText").GetComponent<Text>().text != "对方人多势众，优势不在我，或许镇上那位年轻铁匠可以帮忙。" ||
                 new[] { "DialogueHint", "AdvanceButton", "Replies" }.Any(path => dialogue.Find(path).gameObject.activeInHierarchy))
                 throw new InvalidOperationException("撤退独白仍有额外提示或选项");
             Capture("ui-skin-ruins-solo-retreat");

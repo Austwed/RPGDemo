@@ -71,7 +71,7 @@ namespace BaseConquest.Base
             if (selected)
             {
                 var image = view.GetComponent<Image>();
-                image.color = Color.Lerp(image.color, DemoUiTheme.Current.Gold, .6f);
+                image.color = DemoUiTheme.Current.Gold;
             }
             return button;
         }

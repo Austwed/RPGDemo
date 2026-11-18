@@ -256,7 +256,6 @@ namespace BaseConquest.Base
             if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"寨主，上回丢的脸，今天我自己挣回来！"));
             else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"你们还敢来？巴图的账，正好在这儿算。"));
             lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"山道窄，他们铺不开。弟兄们，顶住！"));
-            lines.Add(new NpcLine("你","","砍倒枯树能堵路。巨石顺着推的方向滚，自己人也得避开。",true));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备攻营",proceed),new NpcReply("暂不进攻",ClosePanel)});
         }
         internal void OpenDemoCampSuppliesFound()

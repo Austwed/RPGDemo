@@ -18,7 +18,9 @@ namespace BaseConquest.Presentation
             void Sprite(string id,float width,float height)
             {
                 var go=GameObject.CreatePrimitive(PrimitiveType.Quad);go.name=id;go.transform.SetParent(root.transform,false);BattleBoardView.DestroyObject(go.GetComponent<Collider>());go.transform.localScale=new Vector3(width*BattleBoardView.CellSize,height*BattleBoardView.CellSize,1);
-                var material=BattlePawn2D.Transparent(source);material.SetTexture("_BaseMap",Resources.Load<Texture2D>("Environment/"+id));material.SetColor("_BaseColor",Color.white);go.GetComponent<Renderer>().sharedMaterial=material;view.materials.Add(material);view.sprites.Add(go);
+                var material=BattlePawn2D.Transparent(source);material.SetTexture("_BaseMap",Resources.Load<Texture2D>("Environment/"+id));material.SetColor("_BaseColor",Color.white);
+                var renderer=go.GetComponent<Renderer>();renderer.sharedMaterial=material;view.materials.Add(material);view.sprites.Add(go);
+                if(d.Animal==""&&id!="rabbit-hole"&&height>=1.15f)SceneryOcclusion.Attach(renderer,view.owner.WorldCamera);
             }
             if(SpriteMetrics.Building(d.Id)||d.Id.StartsWith("tree-"))
             {SpriteFacade.Create(root.transform,Resources.Load<Texture2D>("Environment/"+d.Id),view.owner.WorldPoint(placement.X,d.Id.StartsWith("tree-")?placement.Y:placement.Y-placement.Height/2),(float)d.ArtWidth*BattleBoardView.CellSize,source,view.owner.WorldCamera);return;}

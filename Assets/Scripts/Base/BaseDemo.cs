@@ -108,7 +108,13 @@ namespace BaseConquest.Base
             BaseRpg.Initialize(state,openingRules);BaseAchievements.Enable(state);
             state.Muster.Strategies=new List<int>{(int)SquadStrategy.Obey,(int)SquadStrategy.Attack,(int)SquadStrategy.Attack};
             BaseTown.EnableDemoRecruitment(state);
-            if(includePrologue&&includeIntro)BaseDemoIntro.Enable(state,openingRules!=null);
+            if (includePrologue && includeIntro)
+            {
+                BaseDemoIntro.Enable(state, openingRules != null);
+                player.PersonalEquipment.Items.RemoveAll(item => item.Slot == "weapon" && item.Template == "basic_sword");
+                player.MaxHealth = BasePersonalEquipment.Stats(player).Health;
+                player.Health = Math.Min(player.Health, player.MaxHealth);
+            }
             BaseEnvironment.Install(state);BaseDevelopment.Allocate(state);
             var opening=new BaseScenarioDocument {Title="Demo · 序章与新营地",Description="序章→伙伴／"+BaseScriptNames.Ruins+"→修复供军→首防→世界道路攻营→返乡断剑。灰盒流程，非正式美术或难度定稿。",UseOpeningRules=true,Opening=state};
             opening.CreateState();return opening;

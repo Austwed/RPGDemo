@@ -37,6 +37,8 @@ namespace BaseConquest.Base
             view.name = key;
             foreach (var label in view.GetComponentsInChildren<Text>(true))
                 if (label.font == null || (label.font.hideFlags & HideFlags.DontSave) != 0) label.font = font;
+            foreach (var button in view.GetComponentsInChildren<Button>(true))
+                DemoUiTheme.Current.ApplyButtonFeedback(button);
             view.SetActive(true);
             return view.GetComponent<RectTransform>();
         }

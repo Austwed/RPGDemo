@@ -33,7 +33,8 @@ namespace BaseConquest.Presentation
             var face=GameObject.CreatePrimitive(PrimitiveType.Quad);face.transform.SetParent(root.transform,false);BattleBoardView.DestroyObject(face.GetComponent<Collider>());
             face.transform.localScale=new Vector3(width,view.VisibleHeight,1);view.material=BattlePawn2D.Transparent(source);view.material.SetTexture("_BaseMap",texture);view.material.SetColor("_BaseColor",Color.white);
             if(metric!=null){view.material.SetTextureScale("_BaseMap",new Vector2(metric.Width,metric.Height));view.material.SetTextureOffset("_BaseMap",new Vector2(metric.U,metric.V));}
-            view.Surface=face.GetComponent<Renderer>();view.Surface.sharedMaterial=view.material;view.Refresh();return view;
+            view.Surface=face.GetComponent<Renderer>();view.Surface.sharedMaterial=view.material;
+            SceneryOcclusion.Attach(view.Surface,camera);view.Refresh();return view;
         }
         public void Refresh()
         {if(camera==null)return;Surface.transform.position=Feet+camera.transform.right*(VisibleWidth*(.5f-(metric?.RootX??.5f)))+camera.transform.up*(VisibleHeight*(.5f-(metric?.RootY??0)));Surface.transform.rotation=camera.transform.rotation;MapSpriteOrder.Apply(transform,Feet.z);}

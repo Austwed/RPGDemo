@@ -211,22 +211,6 @@ namespace BaseConquest.Battle
                 Math.Abs(actor.MaxHealth-soldier.Stats.Health)>.001||Math.Abs(actor.Health-soldier.Health)>.001||actor.Escaped!=soldier.Escaped||actor.KnockedDown!=soldier.KnockedDown||
                 Math.Abs(actor.MoveSpeed-SpeedCells(Session,soldier)/PrototypeArena.Subdivision)>.001||Math.Abs(actor.Damage-soldier.Stats.Damage*soldier.DrinkMultiplier)>.001||actor.Reach!=RangeCells(Session,soldier)/PrototypeArena.Subdivision||actor.AttackInterval!=1||actor.UsesRangedWeapon!=(soldier.CombatKind==SoldierKind.Ranged))throw new ArgumentException("即时检查点身份／属性与真实人员不一致");
         }
-        internal void ApplyTacticalHits(PrototypeUnit source,System.Collections.Generic.IEnumerable<PrototypeUnit> targets,double raw)
-        {
-            damageBatch++;
-            try{foreach(var target in targets)ApplyTacticalHit(source,target,raw);}
-            finally{damageBatch--;}
-            ResolveImmediateVictory();
-        }
-        public void ApplyTacticalHit(PrototypeUnit source,PrototypeUnit target,double raw)
-        {
-            if(Battle.Phase!=BattlePhase.Fighting)return;
-            var attacker=Battle.Soldier(source.Id-1);var defender=Battle.Soldier(target.Id-1);
-            double damage=defender.DeveloperInvulnerable?0:Session.Opening.Rpg!=null?RpgDamage(raw,attacker.Stats.Level,1,attacker,defender):CombatNumbers.Hit(attacker.Stats,defender.Stats,(float)raw,false);
-            damage=DamageLimit?.Invoke(source,target,damage)??damage;double actual=Math.Min(target.Health,Math.Max(0,damage));target.Health-=actual;
-            attacker.LastAttackCritical=false;Battle.RecordRealtimeHit(attacker.Id,defender.Id,(float)actual,(float)target.Health);target.Health=defender.Health;target.KnockedDown=defender.KnockedDown;target.FlashUntil=Model.Elapsed+.12;
-            ResolveImmediateVictory();
-        }
         private double Damage(PrototypeUnit source,PrototypeUnit target,double raw)
         {
             var attacker=Battle.Soldier(source.Id-1);var defender=Battle.Soldier(target.Id-1);

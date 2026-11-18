@@ -22,7 +22,7 @@ namespace BaseConquest.Base
         }
         private const string TradeViewKey="town-trade";
         private enum TradeVendor { Merchant, Smith, Recruiter }
-        private enum TradeShelf { Goods, Equipment, Supplies, Intel, Reforge, Recruits }
+        private enum TradeShelf { Goods, Equipment, Intel, Reforge, Recruits }
         private TradeVendor tradeVendor;
         private TradeShelf tradeShelf;
         private string tradePerson="",tradeSelection="",tradeSale="",tradeFeedback="";
@@ -35,12 +35,9 @@ namespace BaseConquest.Base
         {
             string label=shelf switch
             {
-                TradeShelf.Goods=>StoryText.Get("story.ui.trade.market_entry","买卖物资"),
-                TradeShelf.Equipment=>vendor==TradeVendor.Smith
-                    ? StoryText.Get("story.ui.trade.smith_goods_entry","看看商品")
-                    : StoryText.Get("story.ui.trade.gear_entry","看看装备"),
-                TradeShelf.Supplies=>StoryText.Get("story.ui.trade.supplies_entry","购买补给"),
-                TradeShelf.Intel=>StoryText.Get("story.ui.trade.intel_entry","查看消息"),
+                TradeShelf.Goods=>StoryText.Get("story.ui.trade.market_entry","买卖东西"),
+                TradeShelf.Equipment=>StoryText.Get("story.ui.trade.smith_goods_entry","看看商品"),
+                TradeShelf.Intel=>StoryText.Get("story.ui.trade.intel_entry","小道消息"),
                 TradeShelf.Reforge=>StoryText.Get("story.ui.trade.reforge_entry","重铸"),
                 _=>throw new ArgumentOutOfRangeException(nameof(shelf))
             };
@@ -62,10 +59,9 @@ namespace BaseConquest.Base
 
         private static string TradeShelfName(TradeShelf shelf)=>shelf switch
         {
-            TradeShelf.Goods=>"物资",
+            TradeShelf.Goods=>"买卖东西",
             TradeShelf.Equipment=>"装备",
-            TradeShelf.Supplies=>"补给",
-            TradeShelf.Intel=>"消息",
+            TradeShelf.Intel=>"小道消息",
             TradeShelf.Reforge=>"重铸",
             _=>"招募"
         };
@@ -101,12 +97,12 @@ namespace BaseConquest.Base
 
         private void TradeOffer(Transform list,string id,string title,InventoryItemIcons.Icon? itemIcon=null)
         {
-            var button = TradeButton(list,tradeSale==""&&tradeSelection==id?"● "+title:title,()=>{
+            var button = TradeButton(list,title,()=>{
                 tradeSelection=id;
                 tradeSale=tradeFeedback="";
                 tradeQuantity=1;
                 RenderTownTrade();
-            });
+            }, selected:tradeSale==""&&tradeSelection==id);
             InventoryItemIcons.LeadLabel(button.GetComponentInChildren<Text>(true), itemIcon ?? InventoryItemIcons.Load(id), 26);
         }
 
@@ -246,7 +242,6 @@ namespace BaseConquest.Base
             {
                 case TradeShelf.Goods: RenderGoodsTrade(offers,shelfDetails); break;
                 case TradeShelf.Equipment: RenderEquipmentTrade(offers,shelfDetails,person); break;
-                case TradeShelf.Supplies: RenderSuppliesTrade(offers,shelfDetails); break;
                 case TradeShelf.Intel: RenderIntelTrade(offers,details); break;
                 case TradeShelf.Reforge: RenderReforgeTrade(offers,details,person); break;
             }
@@ -266,13 +261,20 @@ namespace BaseConquest.Base
         private void RenderGoodsTrade(RectTransform offers,RectTransform details)
         {
             var s=owner.State;
+            var supply = s.PersonalEquipment.Supplies.FirstOrDefault(item => item.Item == tradeSelection);
             var good=s.Town.Goods.FirstOrDefault(g=>g.Id==tradeSelection)??s.Town.Goods.FirstOrDefault();
-            if(tradeSelection!=BaseEquipmentCrafting.Stone)
+            if(tradeSelection!=BaseEquipmentCrafting.Stone && supply == null)
                 tradeSelection=good?.Id??BaseEquipmentCrafting.Stone;
             foreach(var g in s.Town.Goods)
                 TradeOffer(offers,g.Id,BaseTown.Name(g.Id)+" · 今日余 "+g.Remaining);
             RenderStoneOffer(offers);
+            RenderSupplyOffers(offers);
             if(details==null)return;
+            if (supply != null)
+            {
+                RenderSupplyDetails(details, supply);
+                return;
+            }
             if(tradeSelection==BaseEquipmentCrafting.Stone)
             {
                 RenderStoneDetails(details);

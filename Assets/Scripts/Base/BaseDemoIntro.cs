@@ -11,16 +11,17 @@ namespace BaseConquest.Base
         public int Step, DrillFlags, FarmWorkers=2, DummyPhase, DummyHits;
         public BaseLeader Captain;public int DeparturePhase,MilitiaSpawned;public double DepartureWait,MilitiaDelay;
         public List<BaseLeader> Militia=new List<BaseLeader>();
-        public string Hero="", PlayerName="", PracticeId="", OriginalWeaponId="";
+        public string Hero="", PlayerName="", PracticeId="";
         public double Walked, CaptainX=10, CaptainY=8.6;
         public bool Zoomed, BackpackOpened, MoveOrdered;
         public double DrillMoveOrigin;
         public double ReporterX=.6,ReporterY=7.2;
         public bool ReporterArrived,ReporterLeaving,ReporterGone;
+        public List<BaseVillageReportMember> ReportGroup = new List<BaseVillageReportMember>();
         public double TutorialDelay;
         // 村民闲聊过的 NPC id（PRO_02 首次／再次两套台词；旧档读进来为 null，按空处理）。
         public List<string> Talked=new List<string>();
-        public BaseDemoIntroState Copy(){var i=(BaseDemoIntroState)MemberwiseClone();i.Captain=Captain?.Copy();i.Militia=Militia.Select(v=>v.Copy()).ToList();i.Talked=Talked==null?new List<string>():Talked.ToList();return i;}
+        public BaseDemoIntroState Copy(){var i=(BaseDemoIntroState)MemberwiseClone();i.Captain=Captain?.Copy();i.Militia=Militia.Select(v=>v.Copy()).ToList();i.Talked=Talked==null?new List<string>():Talked.ToList();i.ReportGroup=ReportGroup?.Select(member=>member.Copy()).ToList()??new List<BaseVillageReportMember>();return i;}
     }
 
     public static class BaseDemoIntro
@@ -117,6 +118,11 @@ namespace BaseConquest.Base
             captain.HasMapPosition=true;captain.MapX=s.Demo.Intro.CaptainX;captain.MapY=s.Demo.Intro.CaptainY;captain.MapRegion="base";
             if(captain.Rpg!=null)captain.Rpg.Id=captain.Id;
             foreach(var g in captain.PersonalEquipment.Items){g.Id="personal:"+s.PersonalEquipment.NextId++;if(g.BoundLeader!="")g.BoundLeader=captain.Id;}
+            if (!captain.PersonalEquipment.Items.Any(gear => gear.Slot == "weapon"))
+                captain.PersonalEquipment.Items.Add(new BasePersonalItem
+                {
+                    Id = "personal:" + s.PersonalEquipment.NextId++, Template = "basic_sword", Slot = "weapon"
+                });
             s.Leaders.Add(captain);s.Adventure.Members.Add(captain.Id);
         }
         public static bool Patrol(BaseState s)
@@ -133,7 +139,6 @@ namespace BaseConquest.Base
             s.Leaders.Remove(captain);s.Adventure.Members.Remove(captain.Id);
             // The temporary companion takes their own possessions when leaving the party.
             s.PersonalEquipment.Warehouse.RemoveAll(g=>g.Holder==captain.Id);s.Backpack.Items.RemoveAll(g=>g.Holder==captain.Id);
-            i.OriginalWeaponId=player.PersonalEquipment.Items.FirstOrDefault(g=>g.Slot=="weapon")?.Id??"";
             var item=new BasePersonalItem{Id="personal:"+s.PersonalEquipment.NextId++,Template="novice_sword",Holder=player.Id,Cell=cell};s.PersonalEquipment.Warehouse.Add(item);i.PracticeId=item.Id;i.Step=3;return true;
         }
         public static void CheckEquipment(BaseState s)
@@ -141,6 +146,24 @@ namespace BaseConquest.Base
             if(Daily(s)&&s.Demo.Intro.Step==3&&s.Demo.Intro.BackpackOpened&&s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).PersonalEquipment.Items.Any(g=>g.Id==s.Demo.Intro.PracticeId&&g.Slot=="weapon"))s.Demo.Intro.Step=4;
         }
         public static bool At(BaseState s,string id)=>BaseSpatial.Objects(s).Concat(s.Leaders.Where(l=>l.Id=="demo_captain").Select(l=>new BaseMapObject(l.Id,l.Name,l.MapX,l.MapY,.45,.45))).Any(o=>o.Id==id&&BaseInteraction.CanReach(s,o));
+        public static (string Id, string Name, string Art) VillageManager(string facility) => facility switch
+        {
+            "intro_farm" => ("intro_chunshen", BaseScriptNames.ChunShen, "chunshen"),
+            "intro_smith" => ("intro_laozhou", BaseScriptNames.LaoZhou, "laozhou"),
+            _ => default
+        };
+
+        private static void AddVillageManager(BaseState state, string facility, List<BaseMapObject> people)
+        {
+            var site = BaseSpatial.Layout(state)?.Objects.FirstOrDefault(obj => obj.Id == facility);
+            if (site == null) return;
+            var manager = VillageManager(facility);
+            double x = facility == "intro_farm" ? site.X + Math.Min(site.Width * .5 + .65, 2) : site.X + .85;
+            double y = site.Y - site.Height * .5 - .65;
+            people.Add(new BaseMapObject(manager.Id, manager.Name + " · 交谈", x, y, .5, .5, false,
+                "demo-npc:" + facility + ":manager", manager.Art, "npc"));
+        }
+
         public static BaseMapObject[] Additional(BaseState s)
         {
             if(!Active(s)||!BaseDemoPrologue.Village(s)||s.Demo.Stage!=BaseDemoStage.PrologueBriefing)return Array.Empty<BaseMapObject>();
@@ -151,14 +174,18 @@ namespace BaseConquest.Base
                 var authored=s.Demo.StoryScene?.Valid==true?s.Demo.StoryScene.Map("village").Layout.Objects.Single(obj=>obj.Id=="intro_villager"):null;
                 result.Add(new BaseMapObject("intro_villager","阿禾 · 交谈",authored?.X??12,authored?.Y??10,.5,.5,false,"demo-npc:intro-villager","ahe","npc"));
 
-                // PRO_02_MILITIA_IDLE：护村剑士在序章日常阶段可点击搭话；演练与撤离阶段不出现，免得挡路。
-                if(!BaseSceneRules.Active(s)||Daily(s)&&i.Step>=2)
-                {
-                    result.Add(new BaseMapObject("intro_militia_1","东队民兵",18,10,.5,.5,false,"demo-npc:militia-1","saber","npc"));
-                    result.Add(new BaseMapObject("intro_militia_2","西队民兵",3,8,.5,.5,false,"demo-npc:militia-2","saber","npc"));
-                }
             }
-            return result.ToArray();
+            if (!BaseSceneRules.Active(s) || Daily(s) && i.Step >= 2 || i.Step == 6)
+            {
+                result.Add(new BaseMapObject("intro_militia_1","东队民兵",18,10,.5,.5,false,"demo-npc:militia-1","saber","npc"));
+                result.Add(new BaseMapObject("intro_militia_2","西队民兵",3,8,.5,.5,false,"demo-npc:militia-2","saber","npc"));
+            }
+            if (Daily(s) || i.Step == 6)
+            {
+                AddVillageManager(s, "intro_farm", result);
+                AddVillageManager(s, "intro_smith", result);
+            }
+            return result.Select(person => BaseVillageReport.Position(s, person)).ToArray();
         }
         public static bool AssignFarm(BaseState s,int workers)
         {
@@ -179,13 +206,14 @@ namespace BaseConquest.Base
         public static bool AdvanceReporter(BaseState s,double seconds)
         {
             if(!Active(s)||s.Demo.Intro.Step!=6||s.Demo.Intro.ReporterArrived)return false;var i=s.Demo.Intro;
-            var target=BaseSpatial.Nearest(s,new BasePoint(i.CaptainX-1.1,i.CaptainY));
-            if(!BaseStageWalk.Advance(s,ref i.ReporterX,ref i.ReporterY,target,Math.Max(0,seconds)*3.2/2.5))return false;i.ReporterArrived=true;BaseDemoPrologue.GatherVillagers(s);return true;
+            var target=BaseVillageReport.Target(s);
+            if(!BaseStageWalk.Advance(s,ref i.ReporterX,ref i.ReporterY,target,Math.Max(0,seconds)*3.2/2.5))return false;
+            i.ReporterArrived=true;BaseDemoPrologue.GatherVillagers(s);BaseVillageReport.Prepare(s);return true;
         }
         public static bool Depart(BaseState s)
         {
             if(!Active(s)||s.Demo.Intro.Step!=6||!s.Demo.Intro.ReporterArrived||!BaseInteraction.At(s,"base","prologue_report")&&!At(s,"demo_captain"))return false;
-            s.Demo.Intro.Step=7;s.Demo.Intro.ReporterLeaving=true;return true;
+            s.Demo.Intro.Step=7;s.Demo.Intro.ReporterLeaving=true;s.Demo.Intro.ReportGroup?.Clear();return true;
         }
         public static bool AdvanceReporterExit(BaseState s,double seconds)
         {
@@ -206,15 +234,6 @@ namespace BaseConquest.Base
                 foreach(var person in i.Militia){int n=i.Militia.IndexOf(person);var target=i.DeparturePhase>=4?new BasePoint(.6,7.2):BaseSpatial.Nearest(s,new BasePoint(i.CaptainX+1+(n%2)*.6,i.CaptainY+(n/2)*.6));BaseStageWalk.Advance(s,ref person.MapX,ref person.MapY,target,dt);}
                 if(i.DeparturePhase==4&&i.Militia.Count==4&&i.Militia.All(p=>new BasePoint(p.MapX,p.MapY).Distance(new BasePoint(.6,7.2))<.12)){i.Step=8;BaseDemoPrologue.BeginEscape(s);return true;}
             }return false;
-        }
-        public static void RemovePractice(BaseState s)
-        {
-            if(!Active(s)||string.IsNullOrEmpty(s.Demo.Intro.PracticeId))return;
-            var i=s.Demo.Intro;var player=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId);
-            bool wore=player.PersonalEquipment.Items.RemoveAll(g=>g.Id==i.PracticeId)>0;
-            s.PersonalEquipment.Warehouse.RemoveAll(g=>g.Id==i.PracticeId);
-            if(wore&&!string.IsNullOrEmpty(i.OriginalWeaponId))
-            {var original=s.PersonalEquipment.Warehouse.SingleOrDefault(g=>g.Id==i.OriginalWeaponId);if(original!=null){s.PersonalEquipment.Warehouse.Remove(original);original.Slot="weapon";original.Holder="";original.Cell=-1;player.PersonalEquipment.Items.Add(original);}}
         }
         public static BaseCampaignSession Practice(BaseState s)
         {
@@ -305,6 +324,7 @@ namespace BaseConquest.Base
         public static void Validate(BaseState s)
         {
             if(!Active(s))return;var i=s.Demo.Intro;var village=s.Demo.StoryScene?.Valid==true?s.Demo.StoryScene.Map("village").Board:null;int width=village?.Width??24,height=village?.Height??14;
+            BaseVillageReport.Validate(i, width, height);
             if(i.DummyPhase<0||i.DummyPhase>4||i.DummyHits<0||i.DummyHits>3)throw new ArgumentException("木桩教学进度非法");
             if(i.Step<0||i.Step>10||i.Step>0&&!new[]{"male","female"}.Contains(i.Hero)||i.Step==0&&i.Hero!=""||(i.DrillFlags&~(All|LegacyInspect))!=0||i.FarmWorkers<2||i.FarmWorkers>4||double.IsNaN(i.Walked)||double.IsInfinity(i.Walked)||i.Walked<0||i.CaptainX<0||i.CaptainX>=width||i.CaptainY<0||i.CaptainY>=height)throw new ArgumentException("序章教学进度非法");
             if(new[]{i.ReporterX,i.ReporterY,i.DrillMoveOrigin,i.TutorialDelay,i.CaptainX,i.CaptainY,i.DepartureWait,i.MilitiaDelay}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||i.ReporterX<0||i.ReporterX>=width||i.ReporterY<0||i.ReporterY>=height||i.DrillMoveOrigin<0||i.TutorialDelay<0||i.TutorialDelay>1)throw new ArgumentException("报信人与演练位置非法");

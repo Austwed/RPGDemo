@@ -82,7 +82,7 @@ namespace BaseConquest.Base
         {
             var layout=Layout(s,region);if(layout?.TacticalObjects==null)yield break;
             foreach(var o in layout.TacticalObjects)foreach(var p in o.Fallen?o.Trunk:new List<GridPosition>{new GridPosition(o.X,o.Y)})
-                yield return new BaseMapObject("tactic:"+o.Id+":"+p.X+":"+p.Z,o.Kind=="rock"?"巨石 · 战中可推动":o.Fallen?"倒下的树干":"枯树 · 战中可攻击",p.X+.5,p.Z+.5,1,1,true,"tactic:"+o.Id,null,o.Fallen?"tactical-trunk":o.Kind=="tree"?"tactical-tree":"tactical-rock",true);
+                yield return new BaseMapObject("tactic:"+o.Id+":"+p.X+":"+p.Z,o.Kind=="rock"?"巨石":o.Fallen?"倒下的树干":"枯树",p.X+.5,p.Z+.5,1,1,true,"tactic:"+o.Id,null,o.Fallen?"tactical-trunk":o.Kind=="tree"?"tactical-tree":"tactical-rock",true);
         }
         public static bool Geometry(IEnumerable<BaseMapObject> objects,double x,double y,double width=24,double height=14)
         {

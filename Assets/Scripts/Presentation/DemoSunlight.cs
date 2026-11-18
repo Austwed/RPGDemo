@@ -99,10 +99,11 @@ namespace BaseConquest.Presentation
         private void CreateBlob()
         {
             blob=new GameObject("FeetShadow",typeof(MeshFilter),typeof(MeshRenderer));blob.transform.SetParent(anchor,false);blobMesh=new Mesh();var verts=new List<Vector3>{Vector3.zero};var tris=new List<int>();
-            // A true circle on the ground plane: it stays round in the top-down view and reads as a circle
-            // in the 60-degree view too (a ground circle only foreshortens to about 0.87 there).
             float r=Mathf.Max(.05f,sun.Settings.FeetShadowRadius);
-            for(int n=0;n<=32;n++)verts.Add(new Vector3(Mathf.Cos(n*Mathf.PI/16)*r,0,Mathf.Sin(n*Mathf.PI/16)*r));for(int n=1;n<=32;n++)tris.AddRange(new[]{0,n,n+1});blobMesh.SetVertices(verts);blobMesh.SetTriangles(tris,0);blobMesh.RecalculateBounds();blob.GetComponent<MeshFilter>().sharedMesh=blobMesh;
+            for (int n = 0; n <= 32; n++)
+                verts.Add(new Vector3(Mathf.Cos(n * Mathf.PI / 16) * r, 0, Mathf.Sin(n * Mathf.PI / 16) * r * .58f));
+            for (int n = 1; n <= 32; n++) tris.AddRange(new[] { 0, n, n + 1 });
+            blobMesh.SetVertices(verts);blobMesh.SetTriangles(tris,0);blobMesh.RecalculateBounds();blob.GetComponent<MeshFilter>().sharedMesh=blobMesh;
             blobMaterial=DemoSunlight.MakeTransparent(new Material(Shader.Find("Universal Render Pipeline/Unlit")));blobMaterial.SetColor("_BaseColor",new Color(.13f,.12f,.1f,sun.Settings.FeetShadowOpacity));blob.GetComponent<Renderer>().sharedMaterial=blobMaterial;
         }
         public void Refresh()
@@ -110,7 +111,7 @@ namespace BaseConquest.Presentation
             if(sun==null||surface==null)return;block??=new MaterialPropertyBlock();var point=moving?anchor.position:fixedPoint;
             if(sun.Settings.Enabled){surface.GetPropertyBlock(block);block.SetFloat("_SunFactor",sun.Brightness(point));block.SetColor("_SunTint",sun.DayColor);surface.SetPropertyBlock(block);}
             // Contact shadow is a readability convention, not lighting: it stays on when the sun is off.
-            if(blob!=null){blob.SetActive(sun.Outdoors&&sun.Settings.FeetShadow&&surface.enabled&&surface.gameObject.activeInHierarchy);blob.transform.position=anchor.position+Vector3.up*.06f;blob.transform.rotation=Quaternion.identity;blob.transform.localScale=Vector3.one;blob.GetComponent<Renderer>().sortingOrder=-28000;}
+            if(blob!=null){blob.SetActive(sun.Outdoors&&sun.Settings.FeetShadow&&surface.enabled&&surface.gameObject.activeInHierarchy);blob.transform.position=anchor.position+new Vector3(0,.025f,-.13f);blob.transform.rotation=Quaternion.identity;blob.transform.localScale=Vector3.one;blob.GetComponent<Renderer>().sortingOrder=-28000;}
         }
         private void LateUpdate(){if(moving)Refresh();}
         private void OnDestroy(){BattleBoardView.DestroyObject(blobMaterial);BattleBoardView.DestroyObject(blobMesh);if(blob!=null)BattleBoardView.DestroyObject(blob);}

@@ -16,6 +16,12 @@ namespace BaseConquest.Editor
             opening.Opening.Demo.Rpg.GenerationSeed = DemoStageSaveTools.StageGenerationSeed;
             var state = opening.CreateState();
             if(story!=null)CheckAuthoredBoard(state,story,"village");
+            var villagePeople = BaseSpatial.Objects(state);
+            Need(villagePeople.Single(obj => obj.Id == BaseDemoIntro.VillageManager("intro_farm").Id).AssetId == "chunshen" &&
+                villagePeople.Single(obj => obj.Id == BaseDemoIntro.VillageManager("intro_smith").Id).AssetId == "laozhou",
+                "白桦村两处设施缺少实际固定负责人");
+            Need(state.Leaders.Single(leader => leader.Id == state.PlayerLeaderId).PersonalEquipment.Items.All(item => item.Slot != "weapon"),
+                "新档主角的武器槽应为空");
             Need(BaseQuestLog.Cue(state).Control == "hero", "开场任务未指向选角");
             string playerName=sex=="male"?"远山":"白露";
             Need(!BaseDemoIntro.Choose(state,sex,"../旧档")&&state.Demo.Intro.Step==0,"无效姓名推进了序章");
@@ -55,6 +61,11 @@ namespace BaseConquest.Editor
             for (int frame = 0; frame < 1200 && !state.Demo.Intro.ReporterArrived; frame++)
                 BaseDemoIntro.AdvanceReporter(state, .05);
             Need(state.Demo.Intro.ReporterArrived, "报信人无法走到序章会合点");
+            var people = state.Demo.Intro.ReportGroup;
+            var reporter = new BasePoint(state.Demo.Intro.ReporterX, state.Demo.Intro.ReporterY);
+            Need(people.Count == 8 && people.Any(actor => actor.Id == "intro_chunshen") &&
+                people.Any(actor => actor.Id == "intro_laozhou") && people.All(actor => actor.Target.Distance(reporter) <= 2.5),
+                "两位负责人、民兵、普通村民或同行者未分配到报信人附近");
             WalkToOpeningObject(state, "prologue_report");
             Need(BaseDemoIntro.Depart(state), "无法向搭档告别");
             for (int frame = 0; frame < 1600 && !BaseDemoPrologue.Evacuating(state); frame++)
@@ -63,7 +74,7 @@ namespace BaseConquest.Editor
                 BaseDemoIntro.AdvanceDeparture(state, .05);
             }
             Need(BaseDemoPrologue.Evacuating(state) && BaseDemoPrologue.Followers(state).Count() == 3, "民兵离开后未推进三人撤离");
-            Need(BasePartyInventory.Find(state, state.Demo.Intro.PracticeId) == null, "序章练习装备在撤离后仍留在背包");
+            Need(BasePartyInventory.Find(state, state.Demo.Intro.PracticeId) != null, "撤离时丢失了搭档赠送的短剑");
             WalkToOpeningObject(state, "prologue_trigger");
             Need(BaseDemoPrologue.BeginPursuit(state), "抵达东侧撤离点未触发追兵");
             CheckPursuitDefeat(state.Copy());

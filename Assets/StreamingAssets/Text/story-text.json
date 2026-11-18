@@ -184,26 +184,16 @@
     {
       "key": "story.ui.trade.market_entry",
       "group": "界面／交易",
-      "text": "买卖物资",
-      "notes": "行商的普通商品入口。"
-    },
-    {
-      "key": "story.ui.trade.gear_entry",
-      "group": "界面／交易",
-      "text": "看看装备",
-      "notes": "行商的个人装备入口。"
-    },
-    {
-      "key": "story.ui.trade.supplies_entry",
-      "group": "界面／交易",
-      "text": "购买补给",
-      "notes": "行商的随身补给入口。"
+      "text": "买卖东西",
+      "notes": "行商的普通商品入口。",
+      "revision": 2
     },
     {
       "key": "story.ui.trade.intel_entry",
       "group": "界面／交易",
-      "text": "查看消息",
-      "notes": "行商的付费消息入口。"
+      "text": "小道消息",
+      "notes": "行商的付费消息入口。",
+      "revision": 2
     },
     {
       "key": "story.ui.trade.smith_goods_entry",
@@ -336,18 +326,6 @@
       "key": "story.ui.prep.travel_confirm",
       "group": "界面／战前准备",
       "text": "确认出征编队",
-      "notes": "功能占位，待回稿。"
-    },
-    {
-      "key": "story.ui.prep.assigning",
-      "group": "界面／战前准备",
-      "text": "正在分配",
-      "notes": "功能占位，待回稿。"
-    },
-    {
-      "key": "story.ui.prep.assign",
-      "group": "界面／战前准备",
-      "text": "分配士兵",
       "notes": "功能占位，待回稿。"
     },
     {
@@ -991,8 +969,9 @@
     {
       "key": "story.scene.ruins.solo_retreat",
       "group": "剧情／沉眠古窟",
-      "text": "那个骑马的家伙或许可以帮忙。",
-      "notes": "首通前独战半血自动撤回入口后独白。用户原句。"
+      "text": "对方人多势众，优势不在我，或许镇上那位年轻铁匠可以帮忙。",
+      "notes": "首通前独战半血自动撤回入口后独白。用户原句。",
+      "revision": 2
     },
     {
       "key": "story.scene.home_rebuild.survivor",

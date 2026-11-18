@@ -117,8 +117,16 @@ namespace BaseConquest.Base
             foreach (var person in people)
             {
                 var option = CloneSceneUi("InventoryOption", parent);
-                InventoryButton(option, "", (person.Id == selectedId ? "● " : "") + person.Name,
-                    () => { if (!owner.Busy) select(person); }, person.Id != selectedId);
+                bool selected = person.Id == selectedId;
+                var button = InventoryButton(option, "", person.Name,
+                    () => { if (!owner.Busy) select(person); }, !selected);
+                if (selected)
+                {
+                    button.targetGraphic.color = DemoUiTheme.Current.Gold;
+                    var colors = button.colors;
+                    colors.disabledColor = Color.white;
+                    button.colors = colors;
+                }
             }
         }
 
@@ -212,50 +220,52 @@ namespace BaseConquest.Base
         {
             string filter = InventoryFilter(holder);
             bool visible = entry != null && (!editable || entry.Worn || filter == "all" || filter == entry.Category);
-            string title = slot != ""
-                ? BasePersonalEquipment.SlotName(slot) + "\n" + (visible ? InventoryShortName(entry) : "空")
-                : visible ? InventoryShortName(entry) + (entry.Count > 1 ? " ×" + entry.Count : "")
-                : entry == null ? "" : "·";
             var label = button.GetComponentInChildren<Text>(true);
-            label.text = title;
+            label.text = slot != "" ? BasePersonalEquipment.SlotName(slot) + "\n空" : entry == null ? "" : "·";
+            UnityEngine.UI.Image qualityFrame = null;
             if (visible)
             {
                 var icon = InventoryIcon(entry);
+                label.text = icon.Sprite == null ? "·" : "";
                 if (icon.Sprite != null)
+                    qualityFrame = InventoryItemIcons.DrawCell(button, icon);
+                if (entry.Count > 1)
                 {
-                    InventoryItemIcons.Draw(button.transform, icon, new Vector2(.5f, .5f), new Vector2(0, 6), 35);
-                    var caption = label.rectTransform;
-                    caption.anchorMin = Vector2.zero;
-                    caption.anchorMax = Vector2.right;
-                    caption.offsetMin = new Vector2(2, 1);
-                    caption.offsetMax = new Vector2(-2, 15);
-                    label.fontSize = Mathf.Min(label.fontSize, 12);
-                    label.alignment = TextAnchor.MiddleCenter;
-                    label.text = InventoryShortName(entry);
-                    if (entry.Count > 1)
-                    {
-                        var quantity = Label(button.transform, "×" + entry.Count, new Vector2(-15, -9),
-                            new Vector2(29, 15), 12, TextAnchor.MiddleRight, Vector2.one);
-                        quantity.color = DemoUiTheme.Current.Panel;
-                        var outline = quantity.gameObject.GetOrAdd<Outline>();
-                        outline.effectColor = DemoUiTheme.Current.Line;
-                    }
+                    var quantity = Label(button.transform, "×" + entry.Count, new Vector2(-16, 10),
+                        new Vector2(28, 16), 13, TextAnchor.MiddleRight, new Vector2(1, 0));
+                    quantity.name = "Quantity";
+                    quantity.color = DemoUiTheme.Current.Panel;
+                    var outline = quantity.gameObject.GetOrAdd<Outline>();
+                    outline.effectColor = DemoUiTheme.Current.Line;
                 }
             }
             button.interactable = editable || visible && select != null;
+            if (!editable && !visible)
+            {
+                var colors = button.colors;
+                colors.disabledColor = Color.white;
+                button.colors = colors;
+            }
             if (editable) button.onClick.AddListener(() => SelectInventoryCell(visible ? entry : null, holder, slot));
             else if (visible && select != null) button.onClick.AddListener(() => select(entry));
 
             if (visible && entry.Id == selectedItemId)
             {
-                var outline = button.gameObject.GetOrAdd<Outline>();
-                outline.effectColor = DemoUiTheme.Current.Copper;
-                outline.effectDistance = new Vector2(2, -2);
+                if (qualityFrame != null)
+                {
+                    qualityFrame.color = DemoUiTheme.Current.Copper;
+                    qualityFrame.pixelsPerUnitMultiplier = .5f;
+                }
+                else
+                {
+                    var outline = button.gameObject.GetOrAdd<Outline>();
+                    outline.effectColor = DemoUiTheme.Current.Copper;
+                    outline.effectDistance = new Vector2(2, -2);
+                }
                 if (editable) inventorySelectedCell = button.GetComponent<RectTransform>();
             }
             if (visible && editable && !entry.Worn && BaseDemoIntro.Daily(owner.State) &&
                 entry.Id == owner.State.Demo.Intro.PracticeId) questSwordTarget = (RectTransform)button.transform;
-            if (visible && entry.Gear != null && entry.Quality >= 4) label.color = DemoUiTheme.Current.Copper;
             if (editable) BindInventoryDrop(button.gameObject, visible ? entry : null, holder, index, slot, !visible && entry != null);
             else
             {
@@ -273,17 +283,6 @@ namespace BaseConquest.Base
             var key = entry.Stack?.ItemId ??
                 (entry.Id == owner.State.Demo?.Intro?.PracticeId ? "practice_sword" : entry.Gear?.Template);
             return InventoryItemIcons.Load(key, entry.Gear?.Quality ?? 2, entry.Category);
-        }
-
-        private static string InventoryShortName(BaseInventoryEntry entry)
-        {
-            string title = entry.Name;
-            if (entry.Gear != null)
-            {
-                int qualityEnd = title.IndexOf(']');
-                if (qualityEnd >= 0 && qualityEnd + 1 < title.Length) title = title.Substring(qualityEnd + 1).TrimStart();
-            }
-            return title.Length > 4 ? title.Substring(0, 4) : title;
         }
 
         private void SelectInventoryCell(BaseInventoryEntry entry, string holder, string slot)

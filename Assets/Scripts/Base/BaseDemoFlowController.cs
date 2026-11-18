@@ -92,13 +92,22 @@ namespace BaseConquest.Base
         {
             var s=owner.State;
             bool configured=s.Demo.Rpg?.IntelPricingConfigured==true;
+            bool free = BaseRaidIntel.CanClaimFirst(s);
+            bool showFree = free && (tradeSelection == "first-raid" || tradeSelection == "");
             int selected=tradeSelection=="5"?5:3;
-            tradeSelection=selected.ToString();
+            tradeSelection=showFree ? "first-raid" : selected.ToString();
+            if (free) TradeOffer(offers, "first-raid", StoryText.Get("story.ui.intel.first_reopen", "免费首防消息"));
             foreach(int days in new[]{3,5})
             {
                 var existing=BaseRaidIntel.Get(s,days);
                 int price=RaidIntelPrice(s,days);
                 TradeOffer(offers,days.ToString(),days+"日消息 · "+(existing!=null?"免费复习":configured?price+"币":"价格待配置"));
+            }
+
+            if (showFree)
+            {
+                TradeButton(details, "查看首防消息", OpenFirstRaidIntel);
+                return;
             }
 
             var snapshot=BaseRaidIntel.Get(s,selected);

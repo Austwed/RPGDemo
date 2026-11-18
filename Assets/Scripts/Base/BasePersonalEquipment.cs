@@ -214,7 +214,7 @@ namespace BaseConquest.Base
             return d!=null&&(!BaseDemoFlow.Active(s)||!template.StartsWith("novice_")||s.Demo.Flow.NoviceShop)
                 &&offer?.Remaining>0&&s.Inventory.Coins>=BuyPrice(s,template)&&s.PersonalEquipment.NextId<int.MaxValue-401&&s.Backpack.Revision<int.MaxValue-1
                 &&leader!=null&&BasePartyInventory.AccessibleLeader(s,leader)&&BasePartyInventory.FreeCell(s,recipient)>=0
-                &&!s.Campaign.HasActiveBattle&&BasePartyInventory.Peaceful(s)&&!BaseBattleLoot.Pending(s)&&AtShop(s);
+                &&!s.Campaign.HasActiveBattle&&BasePartyInventory.Peaceful(s)&&!BaseBattleLoot.Pending(s)&&AtSmith(s);
         }
         public static bool Buy(BaseState s,string template,string recipient,int quotedPrice)
         {

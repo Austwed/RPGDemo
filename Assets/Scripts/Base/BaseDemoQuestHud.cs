@@ -12,6 +12,7 @@ namespace BaseConquest.Base
     {
         // 主菜单任务页按主线和支线列出任务日志。
         private string questTab = "tasks";
+        private RectTransform questBar;
         private Text questInstruction;
         private GuidanceArrow questArrow;
         private Button questBackpackButton;
@@ -88,14 +89,29 @@ namespace BaseConquest.Base
         private void RefreshQuestCue()
         {
             if (!BaseBattleGateway.DemoMode) return;
+            float headerHeight = ((RectTransform)summary.transform.parent).rect.height;
             if (questInstruction == null)
             {
                 var frame = (RectTransform)(root.Find("游戏显示区域 · 16比9") ?? root);
-                questInstruction = Label(frame, "", new Vector2(288, -ExplorationHudLayout.HeaderHeight - 25),
-                    new Vector2(540, 40), 20, TextAnchor.MiddleLeft, new Vector2(0, 1));
+                var theme = DemoUiTheme.Current;
+                questBar = Solid("CurrentQuestBar", frame, Vector2.up, Vector2.zero,
+                    new Vector2(256, 34), new Color(theme.Panel.r, theme.Panel.g, theme.Panel.b, .94f));
+                questBar.pivot = Vector2.up;
+                var background = questBar.GetComponent<Image>();
+                background.raycastTarget = false;
+                var border = questBar.gameObject.AddComponent<Outline>();
+                border.effectColor = theme.Line;
+                border.effectDistance = new Vector2(1, -1);
+                questInstruction = Label(questBar, "", Vector2.zero, Vector2.zero, 19);
                 questInstruction.name = "CurrentQuestInstruction";
-                questInstruction.color = DemoUiTheme.Current.Panel;
+                questInstruction.color = theme.Ink;
                 questInstruction.fontStyle = FontStyle.Bold;
+                var labelRect = questInstruction.rectTransform;
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = new Vector2(12, 4);
+                labelRect.offsetMax = new Vector2(-12, -4);
+                questInstruction.GetComponent<Shadow>().enabled = false;
                 questArrow = GuidanceArrow.Create(frame, "CurrentQuestArrow", 36);
             }
 
@@ -104,8 +120,21 @@ namespace BaseConquest.Base
             bool show = !BaseBattleGateway.MainMenu && !owner.DeploymentWorldActive && cue.Id != null;
             bool hero = show && cue.Control == "hero" && heroChoiceLayer != null && heroChoiceLayer.gameObject.activeInHierarchy;
             bool showInstruction = show && !hero && !PanelOpen && !owner.ConstructionMode && !owner.HomeRebuildOverview;
-            questInstruction.gameObject.SetActive(showInstruction);
-            if (showInstruction && questInstruction.text != cue.Instruction) questInstruction.text = cue.Instruction;
+            questBar.gameObject.SetActive(showInstruction);
+            if (showInstruction)
+            {
+                var barPosition = new Vector2(20, -headerHeight - 12);
+                if (questBar.anchoredPosition != barPosition)
+                    questBar.anchoredPosition = barPosition;
+                if (questInstruction.text != cue.Instruction)
+                {
+                    questInstruction.text = cue.Instruction;
+                    questBar.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,
+                        Mathf.Clamp(questInstruction.preferredWidth + 24, 148, 500));
+                    questBar.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,
+                        Mathf.Max(34, questInstruction.preferredHeight + 8));
+                }
+            }
             if (!show || heroNameLayer != null && heroNameLayer.gameObject.activeInHierarchy)
             { questArrow.Hide(); return; }
             RectTransform target = null;
@@ -129,6 +158,8 @@ namespace BaseConquest.Base
                     target = (RectTransform)dialogueQuestTarget.transform;
                 else if (cue.Control == "sword" && panelViewKey == "party-inventory") target = questSwordTarget;
                 else if (cue.Control == "farm" && (panelViewKey == "intro_farm" || panelViewKey == "intro_smith")) target = questFarmTarget;
+                else if (panelViewKey == PreparationView && !PreparationHelpOpen && cue.ObjectId == "demo_defense_start")
+                    target = panel.Find("Continue") as RectTransform;
             }
             else if (cue.Control == "sword") target = (RectTransform)questBackpackButton.transform;
             else if (cue.Control == "rebuild")
@@ -161,7 +192,7 @@ namespace BaseConquest.Base
                         var top = camera.WorldToScreenPoint(head);
                         if (bottom.z > 0)
                         {
-                            questArrow.PointToMap(bottom, top, ExplorationHudLayout.HeaderHeight);
+                            questArrow.PointToMap(bottom, top, headerHeight, aboveLabel: true);
                             return;
                         }
                     }

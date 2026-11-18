@@ -36,7 +36,13 @@ namespace BaseConquest.Base
         }
         private void TickDemoIntro(double seconds)
         {
-            if(!BaseDemoIntro.Active(State)||!BaseDemoPrologue.Village(State)||Hud.PanelOpen)return;
+            if(!BaseDemoIntro.Active(State)||!BaseDemoPrologue.Village(State))return;
+            if (BaseVillageReport.Gathering(State))
+            {
+                TickVillageReportGroup(seconds);
+                return;
+            }
+            if (Hud.PanelOpen) return;
             var partner=State.Leaders.FirstOrDefault(l=>l.Id=="demo_captain");if(partner!=null){State.Demo.Intro.CaptainX=partner.MapX;State.Demo.Intro.CaptainY=partner.MapY;}
             if(State.Demo.Intro.ReporterLeaving&&!State.Demo.Intro.ReporterGone)
             {
@@ -55,6 +61,27 @@ namespace BaseConquest.Base
             npcViews.TryGetValue("demo_captain", out var actor);
             if(actor!=null)actor.MoveTo(WorldPoint(State.Demo.Intro.CaptainX,State.Demo.Intro.CaptainY));
             if(arrived){SaveStore.Save(State);RefreshDemoRegion();}
+        }
+
+        private void TickVillageReportGroup(double seconds)
+        {
+            BaseVillageReport.Prepare(State);
+            bool changed = false;
+            foreach (var member in State.Demo.Intro.ReportGroup)
+            {
+                if (!npcViews.TryGetValue(member.Id, out var actor)) continue;
+                double x = member.X, y = member.Y;
+                BaseStageWalk.Advance(State, ref member.X, ref member.Y, member.Target, seconds * 1.28);
+                if (x == member.X && y == member.Y) continue;
+                if (member.Id == "demo_captain")
+                {
+                    State.Demo.Intro.CaptainX = member.X;
+                    State.Demo.Intro.CaptainY = member.Y;
+                }
+                actor.MoveTo(WorldPoint(member.X, member.Y));
+                changed = true;
+            }
+            if (changed) InvalidateObjects();
         }
         public void BeginDemoPractice()
         {

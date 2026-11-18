@@ -158,17 +158,24 @@ namespace BaseConquest.Base
             }
             if(id=="demo_villager_1"||id=="demo_villager_2"||id=="intro_villager")
             {
-                // PRO_02：村民按交谈次数给首次／再次两套台词，记在序章场景状态里。
-                bool zhou=id=="demo_villager_1";
                 bool again=i.Talked!=null&&i.Talked.Contains(id);
                 string text=id=="intro_villager"?"多谢帮忙，忙完了再一起聊聊。"
-                    :zhou?(again?"有你们俩禁卫出身的大人守着村子，咱们睡得踏实！":"前两天进西山捡柴，林子里安静得邪门，连只山雀都见不着。")
-                    :(again?"等这茬晚麦收进仓，冬里大伙儿就能喝上热麦粥了。":"阿禾那孩子心细，天没亮就去翻晒麦种了，快去搭把手吧。");
-                string who=id=="intro_villager"?"阿禾":zhou?BaseScriptNames.LaoZhou:BaseScriptNames.ChunShen;
-                string art=id=="intro_villager"?"ahe":zhou?BaseScriptNames.Portrait("laozhou"):BaseScriptNames.Portrait("chunshen");
+                    :again?"又碰上了。今天过得还顺当？":id=="demo_villager_1"?"早啊，出来走走？":"早。今天天气不错。";
+                string who=id=="intro_villager"?"阿禾":"村民";
+                string art=id=="intro_villager"?"ahe":"villager";
                 NpcDialogue(new[]{new NpcLine(who,art,text)},new[]{new NpcReply("回头见",()=>{
                     owner.Change(next=>{var st=next.Demo.Intro;if(st.Talked==null)st.Talked=new List<string>();if(!st.Talked.Contains(id))st.Talked.Add(id);},"");
                     ClosePanel();})});return true;
+            }
+            if (id == "intro_chunshen" || id == "intro_laozhou")
+            {
+                bool chunshen = id == "intro_chunshen";
+                var manager = BaseDemoIntro.VillageManager(chunshen ? "intro_farm" : "intro_smith");
+                string greeting = chunshen
+                    ? "早啊。阿禾在田埂那头看麦种，我正好在这儿照应。"
+                    : "早。农具昨晚都修好了，谁家要取就来找我。";
+                NpcDialogue(new[] { new NpcLine(manager.Name, manager.Art, greeting) }, new[] { new NpcReply("回头见", ClosePanel) });
+                return true;
             }
             if(id=="intro_militia_1"||id=="intro_militia_2")
             {NpcDialogue(new[]{new NpcLine("护村剑士","saber","刀枪都擦亮了，只要二位一声令下，随时能上阵！")},new[]{new NpcReply("辛苦了",ClosePanel)});return true;}
@@ -186,6 +193,10 @@ namespace BaseConquest.Base
             questFarmTarget=null;
             int food=(int)Math.Floor(introFarmDraft*s.Rules.FarmPerWorker),need=BaseDemoIntro.VillageFood(s);
             int onsite=farm?introFarmDraft:4-introFarmDraft;
+            var manager = BaseDemoIntro.VillageManager(id);
+            var managerCard = CloneSceneUi("FacilityManagerCard", actions);
+            Ui<Text>(managerCard, "Name").text = "负责人 · " + manager.Name;
+            Ui<Text>(managerCard, "Effect").text = "村庄固定岗位";
             FacilityText(actions,$"本设施岗位 {onsite}/4 · 当前在岗 {(farm?i.FarmWorkers:4-i.FarmWorkers)} 人");
             FacilityText(actions,$"粮食预计 +{food} · 村庄口粮 {need} · 净增 {(food-need):+0;-0;0}");
             FacilityText(actions,$"铁匠铺预计 {(4-introFarmDraft)*s.Rules.WorkshopPerWorker:0.#} 工作点／日");

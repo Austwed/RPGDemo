@@ -96,11 +96,7 @@ namespace BaseConquest.Base
             if(id=="town_peddler")
             {
                 replies.Insert(0,TradeEntry(TradeVendor.Merchant,TradeShelf.Goods));
-                replies.Insert(1,TradeEntry(TradeVendor.Merchant,TradeShelf.Equipment));
-                replies.Insert(2,TradeEntry(TradeVendor.Merchant,TradeShelf.Supplies));
-                if(BaseDemoFlow.Active(state))replies.Insert(3,TradeEntry(TradeVendor.Merchant,TradeShelf.Intel));
-                if(BaseRaidIntel.CanClaimFirst(state))
-                    replies.Insert(0,new NpcReply(StoryText.Get("story.ui.intel.first_reopen","免费首防消息"),OpenFirstRaidIntel));
+                if(BaseDemoFlow.Active(state))replies.Insert(1,TradeEntry(TradeVendor.Merchant,TradeShelf.Intel));
             }
             string injury=id=="town_guard"?"INJ_TOWN_GUARD":id=="town_peddler"?"INJ_TOWN_MO":"INJ_TOWN_XIAOYUN";
             NpcDialogue(WithInjury(state,injury,new NpcLine(who,art,text)),replies.ToArray());
@@ -173,7 +169,7 @@ namespace BaseConquest.Base
         }
         public void OpenRuinsRetreatMonologue()
         {
-            NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.scene.ruins.solo_retreat", "那个骑马的家伙或许可以帮忙。"),true)},
+            NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.scene.ruins.solo_retreat", "对方人多势众，优势不在我，或许镇上那位年轻铁匠可以帮忙。"),true)},
                 Array.Empty<NpcReply>(), onCompleted: ClosePanel, quietAdvance: true);
         }
         public void OpenDemoPartner(string id)

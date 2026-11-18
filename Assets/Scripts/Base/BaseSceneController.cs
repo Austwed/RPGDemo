@@ -388,17 +388,31 @@ namespace BaseConquest.Base
         }
         private void PlaceCompanions()
         {
+            var eyePoint = WorldPoint(State.PlayerX, State.PlayerY);
+            double attentionNow = Time.unscaledTimeAsDouble;
+            bool reportGathering = BaseVillageReport.Gathering(State);
+            var reportCenter = reportGathering ? BaseVillageReport.Center(State) : default;
+            var reporter = reportGathering ? WorldPoint(reportCenter.X, reportCenter.Y) : eyePoint;
             foreach (var agent in Companions.Agents)
             {
                 if (!companionViews.ContainsKey(agent.Id)) {if(!agent.Visible)continue;var created=Person(player.parent,agent.Id,new Vector2((float)agent.Position.X,(float)agent.Position.Y),new Color(.62f,.55f,.32f));companionViews[agent.Id]=created;Sunlight?.BindArt();}
                 var view = companionViews[agent.Id]; view.gameObject.SetActive(agent.Visible);
                 if(agent.SceneOnly)view.SetParent(regionView.Root.transform,false);
-                view.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(agent.Position.X,agent.Position.Y),new Color(.62f,.55f,.32f),WorldPoint(State.PlayerX,State.PlayerY),Time.unscaledTimeAsDouble);
+                view.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(agent.Position.X,agent.Position.Y),new Color(.62f,.55f,.32f),
+                    reportGathering && agent.SceneOnly ? reporter : eyePoint, attentionNow, autonomous: reportGathering && agent.SceneOnly && !agent.Arrived);
             }
-            var eyePoint=WorldPoint(State.PlayerX,State.PlayerY);var attentionNow=Time.unscaledTimeAsDouble;
             bool choosingHero = BaseDemoIntro.Active(State) && State.Demo.Intro.Step == 0;
             foreach(var npc in npcViews)
-                if (!choosingHero || npc.Key != "demo_captain") npc.Value.RefreshAttention(eyePoint,attentionNow);
+                if (!choosingHero || npc.Key != "demo_captain")
+                {
+                    var focus = eyePoint;
+                    if (reportGathering)
+                    {
+                        if (npc.Key == "prologue_report") focus = WorldPoint(reportCenter.X, reportCenter.Y - .9);
+                        else if (BaseVillageReport.Find(State, npc.Key) != null) focus = reporter;
+                    }
+                    npc.Value.RefreshAttention(focus, attentionNow);
+                }
             // 美术检查台也随主角转身，否则只能看到正面一列。
             foreach(var view in motionViews.Values)view.RefreshAttention(eyePoint,attentionNow);
         }

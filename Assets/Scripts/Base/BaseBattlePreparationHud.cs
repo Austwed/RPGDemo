@@ -83,12 +83,13 @@ namespace BaseConquest.Base
             _ => PrepText("travel", "出征编队")
         };
 
-        private void PrepButton(Transform view, string path, string label, Action click, bool enabled = true)
+        private void PrepButton(Transform view, string path, string label, Action click, bool enabled = true, bool selected = false)
         {
             var button = Ui<Button>(view, path);
             if (label != null) Ui<Text>(button.transform, "Label").text = label;
             button.onClick.AddListener(() => { if (!owner.Busy && !PreparationHelpOpen) click(); });
             button.interactable = enabled;
+            if (selected) button.targetGraphic.color = DemoUiTheme.Current.Gold;
         }
 
         private IEnumerable<BasePrepUnit> PrepLeaders => battleDraft.Units.Where(unit => unit.Kind == SoldierKind.Hero);
@@ -151,7 +152,7 @@ namespace BaseConquest.Base
             }
 
             var cards = Ui<RectTransform>(view, "Teams");
-            var activeTeam = PrepLeaders.FirstOrDefault(unit => unit.Id == prepTeam && unit.Selected) ?? PrepLeaders.FirstOrDefault(unit => unit.Selected);
+            var activeTeam = PrepLeaders.FirstOrDefault(unit => unit.Id == prepTeam) ?? PrepLeaders.FirstOrDefault(unit => unit.Selected);
             prepTeam = activeTeam?.Id;
             int slot = 0;
             foreach (var team in PrepLeaders)
@@ -172,22 +173,29 @@ namespace BaseConquest.Base
                         ResizeTouchButton(minus, 49, 22);
                         ResizeTouchButton(plus, 49, 22);
                     }
-                BindInventoryPortrait(Ui<RectTransform>(card, "Portrait"), team.Leader);
+                var portrait = Ui<RectTransform>(card, "Portrait");
+                BindInventoryPortrait(portrait, team.Leader);
+                if (prepTeam == team.Id) portrait.GetComponent<Image>().color = DemoUiTheme.Current.Gold;
+                var rowSelect = card.gameObject.GetOrAdd<Button>();
+                rowSelect.transition = Selectable.Transition.None;
+                rowSelect.onClick.AddListener(() => SelectPreparationTeam(team));
                 string marker = team.Selected ? (char)('A' + slot++) + " · " : "○ ";
-                PrepButton(card, "Select", marker + team.Name, () => TogglePrepLeader(team), team.Id != battleDraft.PlayerId);
+                PrepButton(card, "Select", marker + team.Name, () => SelectPreparationTeam(team));
                 Ui<Text>(card, "Health").text = $"生命 {Number(team.Health)} / {Number(team.MaxHealth)}";
                 PrepMeter(card, "HealthMeter/Fill", team.MaxHealth > 0 ? team.Health / team.MaxHealth : 0);
-                PrepButton(card, "Assign", prepTeam == team.Id ? PrepText("assigning", "正在分配") : PrepText("assign", "分配士兵"), () => SetPrepFilter(team.Id, prepKind), team.Selected);
+                var membership = card.Find("Assign");
+                membership.gameObject.SetActive(team.Id != battleDraft.PlayerId);
+                PrepButton(card, "Assign", team.Selected ? "移出出战" : "加入出战", () => TogglePrepLeader(team));
                 foreach (var kind in BattleSimulation.TroopKinds)
                     BindPrepCount(card, team, kind);
             }
 
             var candidates = view.Find("Candidates");
-            PrepButton(candidates, "All", prepKind == null ? "● 全部" : null, () => SetPrepFilter(prepTeam, null));
+            PrepButton(candidates, "All", null, () => SetPrepFilter(prepTeam, null), selected: prepKind == null);
             foreach (var kind in BattleSimulation.TroopKinds)
             {
                 string path = BaseCampaign.ToBase(kind).ToString();
-                PrepButton(candidates, path, prepKind == kind ? "● " + BattleSimulation.KindName(kind) : null, () => SetPrepFilter(prepTeam, kind));
+                PrepButton(candidates, path, null, () => SetPrepFilter(prepTeam, kind), selected: prepKind == kind);
             }
             BindPrepSort(candidates, PrepSort.Role, PrepText("sort_role", "兵种"));
             BindPrepSort(candidates, PrepSort.Health, PrepText("sort_health", "生命"));
@@ -196,6 +204,7 @@ namespace BaseConquest.Base
                 $" · {PrepText("selected_count", "已选")} {SelectedPrepSoldiers.Count()}/{BaseMuster.BattleSoldierLimit}";
             ShowPrepRoster(candidates, state);
             RefreshPreparationFields();
+            RefreshQuestCue();
             Canvas.ForceUpdateCanvases();
             prepRoster.content.anchoredPosition = new Vector2(0, Mathf.Clamp(prepRosterScroll, 0, Mathf.Max(0, prepRoster.content.rect.height - prepRoster.viewport.rect.height)));
         }
@@ -288,6 +297,12 @@ namespace BaseConquest.Base
             ShowBattlePreparation();
         }
 
+        private void SelectPreparationTeam(BasePrepUnit team)
+        {
+            if (owner.Busy || PreparationHelpOpen || prepTeam == team.Id) return;
+            SetPrepFilter(team.Id, prepKind);
+        }
+
         private void TogglePrepLeader(BasePrepUnit leader)
         {
             if (leader.Id == battleDraft.PlayerId) return;
@@ -327,7 +342,11 @@ namespace BaseConquest.Base
             var available = PrepSoldiers.Where(unit => !unit.Selected && unit.Kind == kind).ToArray();
             int room = BaseMuster.BattleSoldierLimit - SelectedPrepSoldiers.Count();
             int count = Mathf.Clamp(requested, 0, selected.Length + Math.Min(available.Length, Math.Max(0, room)));
-            if (count == selected.Length) return false;
+            if (count == selected.Length)
+            {
+                SelectPreparationTeam(team);
+                return true;
+            }
             foreach (var soldier in selected.Skip(count)) soldier.Selected = false;
             foreach (var soldier in available.Take(count - selected.Length))
             {
@@ -343,6 +362,7 @@ namespace BaseConquest.Base
 
         private void SelectPrepSoldier(BasePrepUnit soldier)
         {
+            if (!PrepLeaders.Any(leader => leader.Id == prepTeam && leader.Selected)) return;
             if (!soldier.Selected && SelectedPrepSoldiers.Count() >= BaseMuster.BattleSoldierLimit)
             {
                 prepFeedback = PrepText("limit", "出战士兵最多 24 人");
@@ -406,7 +426,7 @@ namespace BaseConquest.Base
                 string status = $"{(soldier.Selected ? "● " : "○ ")}{assigned} · {unit.State}";
                 AddPersonnelRow(prepRoster.content, unit, status,
                     () => { if (!PreparationHelpOpen) SelectPrepSoldier(soldier); },
-                    available: prepTeam != null, selected: soldier.Selected,
+                    available: PrepLeaders.Any(leader => leader.Id == prepTeam && leader.Selected), selected: soldier.Selected,
                     warning: soldier.Selected && PrepLowHealth(state, soldier),
                     details: () =>
                     {
@@ -442,6 +462,7 @@ namespace BaseConquest.Base
                 stockLabel.text = name + " " + PrepText("stock", "库存") + " " + stock;
                 var button = Ui<Button>(view, path);
                 button.interactable = required > 0;
+                button.targetGraphic.color = chosen ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;
                 double attack = (grade == 1 ? rule?.LowBonus : rule?.HighBonus) ?? 0;
                 double defense = (grade == 1 ? rule?.LowDefense : rule?.HighDefense) ?? 0;
                 string choice = grade == 1 ? PrepText("supply_use_1", "使用一级军需") : PrepText("supply_use_2", "使用二级军需");

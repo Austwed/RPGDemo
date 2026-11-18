@@ -31,18 +31,19 @@ namespace BaseConquest.Base
         }
         private void TrainingPages(int pages){RowButton("上一页",-210,400,()=>{trainingPage--;OpenTraining();},trainingPage>0);RowButton((trainingPage+1)+"/"+pages+" 下一页",210,400,()=>{trainingPage++;OpenTraining();},trainingPage<pages-1);row+=58;}
         private void TrainingCancel(Action confirm){BeginPanel("确认取消训练");Line("已消耗的兵书不退还，本次训练进度清除；等级保留。",90);RowButton("确认取消训练",-210,400,confirm);RowButton("继续训练",210,400,OpenTraining);row+=60;EndPanel();}
-        private void RenderSuppliesTrade(UnityEngine.RectTransform offers,UnityEngine.RectTransform details)
+        private void RenderSupplyOffers(UnityEngine.RectTransform offers)
         {
             var s=owner.State;
-            var selected=s.PersonalEquipment.Supplies.FirstOrDefault(o=>o.Item==tradeSelection)??s.PersonalEquipment.Supplies.FirstOrDefault();
-            if(selected==null)return;
-            tradeSelection=selected.Item;
             foreach(var offer in s.PersonalEquipment.Supplies)
             {
                 var item=s.Backpack.Catalog.Single(d=>d.Id==offer.Item);
                 TradeOffer(offers,item.Id,item.Name+" · "+BaseProgressSupplies.Price(s,item.Id)+"币 · 余 "+offer.Remaining);
             }
-            if(details==null)return;
+        }
+
+        private void RenderSupplyDetails(UnityEngine.RectTransform details, BaseProgressOffer selected)
+        {
+            var s = owner.State;
             var chosen=s.Backpack.Catalog.Single(d=>d.Id==selected.Item);
             int price=BaseProgressSupplies.Price(s,chosen.Id),revision=s.Backpack.Revision;
             TradeLine(details,chosen.Name+" · 单价 "+price+"币 · 今日剩余 "+selected.Remaining);

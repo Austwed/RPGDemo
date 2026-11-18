@@ -124,6 +124,14 @@ namespace BaseConquest.Base
             if (Application.isPlaying && EventSystem.current == null) { var eventSystem = new GameObject("BaseEventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule)); eventSystem.transform.SetParent(owner.transform, false); eventSystem.GetComponent<InputSystemUIInputModule>().AssignDefaultActions(); }
             UiPrefabBinding.Complete(canvas);
             BindResourceStrip(header);
+            var headerEdge = Solid("HeaderTopEdge", header, new Vector2(.5f, 1), new Vector2(0, 1),
+                new Vector2(0, 4), header.GetComponent<Image>().color);
+            headerEdge.anchorMin = Vector2.up;
+            headerEdge.anchorMax = Vector2.one;
+            headerEdge.SetAsFirstSibling();
+            var edgeGraphic = headerEdge.GetComponent<Image>();
+            edgeGraphic.maskable = false;
+            edgeGraphic.raycastTarget = false;
             if (Application.platform == RuntimePlatform.Android)
             {
                 stick.sizeDelta = new Vector2(158, 158);
@@ -176,11 +184,12 @@ namespace BaseConquest.Base
         }
         private Text CreateNpcStatusMarker(RectTransform name)
         {
-            var marker = Label(name, "", new Vector2(0, 29), new Vector2(36, 38), 30, TextAnchor.MiddleCenter);
+            var marker = Label(name, "", new Vector2(0, -1), new Vector2(26, 32), 27, TextAnchor.MiddleCenter);
             marker.name = "NpcStatusMarker";
             StyleMapName(marker);
             marker.color = new Color(1, .78f, .23f);
             marker.fontStyle = FontStyle.Bold;
+            marker.gameObject.SetActive(false);
             return marker;
         }
         private void PlaceCompanionLabel(RectTransform label, string id, double x, double y)
@@ -276,8 +285,16 @@ namespace BaseConquest.Base
             {
                 var obj = owner.PresentedObject(labelObjects[i].Id); labels[i].gameObject.SetActive(obj != null);
                 if (obj == null) continue;
-                labels[i].GetComponent<Text>().text = obj.Name.Replace("伙伴 · ", "");
-                npcMarkers[i].text=BaseDemoNpcs.StatusMarker(owner.State,obj.Id);npcMarkers[i].gameObject.SetActive(npcMarkers[i].text!=""&&owner.SceneObjectVisible(obj));
+                var name = labels[i].GetComponent<Text>();
+                string displayName = obj.Name.Replace("伙伴 · ", "");
+                bool nameChanged = name.text != displayName;
+                name.text = displayName;
+                var status = npcMarkers[i];
+                status.text = BaseDemoNpcs.StatusMarker(owner.State, obj.Id);
+                bool showStatus = status.text != "" && owner.SceneObjectVisible(obj);
+                if (showStatus && (nameChanged || !status.gameObject.activeSelf))
+                    status.rectTransform.anchoredPosition = new Vector2(Mathf.Min(name.preferredWidth, labels[i].rect.width) * .5f + 12, -1);
+                status.gameObject.SetActive(showStatus);
                 bool person = obj.Kind == "npc" || owner.Companions.Agents.Any(a => a.Id == obj.Id && a.Visible);
                 if(person)PlaceCompanionLabel(labels[i],obj.Id,obj.X,obj.Y);
                 else PlaceMapLabel(labels[i],owner.WorldPoint(obj.X,obj.Y+obj.Height/2+.6));

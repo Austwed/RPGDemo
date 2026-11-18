@@ -69,7 +69,6 @@ namespace BaseConquest.Base
             if(!Village(state)||state.Demo.Stage!=BaseDemoStage.PrologueBriefing)return false;
             if(BaseDemoIntro.Active(state)){if(state.Demo.Intro.Step<8)return false;}
             else if(!BaseInteraction.At(state,"base","prologue_report")&&!BaseInteraction.At(state,"base","demo_captain"))return false;
-            BaseDemoIntro.RemovePractice(state);
             state.Demo.Stage=BaseDemoStage.PrologueEscape;if(!BaseDemoIntro.Active(state))state.Demo.SceneFollowers=Villagers(state.PlayerX-.8);
             state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.RemoveAll(item=>item.Id=="prologue_report");return true;
         }

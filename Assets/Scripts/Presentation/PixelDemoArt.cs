@@ -36,16 +36,16 @@ namespace BaseConquest.Presentation
             { "chief|v1", 55f }, { "chief|idle", 56f }, { "chief|walk", 56f },
             { "chenan|v1", 56f },
             { "baron|v1", 56f },
-            { "chunshen|v1", 56f },
+            { "chunshen|v1", 56f }, { "chunshen|walk", 56f },
             { "enemy-captain|v1", 55f }, { "enemy-captain|attack", 51f }, { "enemy-captain|walk", 55f },
             { "female|v1", 56f }, { "female|walk", 56f }, { "female|attack", 56f },
             { "galan|v1", 56f }, { "galan|walk", 56f }, { "galan|attack", 55f },
             { "horn|v1", 56f },
             { "huoya|v1", 56f }, { "huoya|walk", 56f }, { "huoya|attack", 55f },
             { "infantry|v1", 56f },
-            { "laozhou|v1", 56f }, { "merchant|v1", 56f }, { "merchant|walk", 56f },
+            { "laozhou|v1", 56f }, { "laozhou|walk", 56f }, { "merchant|v1", 56f }, { "merchant|walk", 56f },
             { "player|v1", 56f }, { "player|walk", 56f }, { "player|attack", 55f },
-            { "villager|v1", 50f }, { "villager|attack", 55f },
+            { "villager|v1", 56f }, { "villager|walk", 56f }, { "villager|attack", 55f },
             // 2026-11-02 小芸（NPC_女村民-v1）：四向静态 + 四向行走可动 NPC，正面高 56（与商人/新角色同档）。
             { "villager-girl|v1", 56f }, { "villager-girl|walk", 56f },
         };
@@ -144,6 +144,7 @@ namespace BaseConquest.Presentation
             Mesh=new Mesh{name="PixelDemo64Frame",vertices=new[]{new Vector3(-32*unit,.28f,-4*unit),new Vector3(-32*unit,.28f,60*unit),new Vector3(32*unit,.28f,60*unit),new Vector3(32*unit,.28f,-4*unit)},triangles=new[]{0,1,2,0,2,3}};
             Mesh.RecalculateNormals();Mesh.RecalculateBounds();Root.GetComponent<MeshFilter>().sharedMesh=Mesh;
             material=BattlePawn2D.Transparent(source);material.SetColor("_BaseColor",Color.white);Renderer=Root.GetComponent<Renderer>();Renderer.sharedMaterial=material;
+            SceneryOcclusion.Track(Renderer);
             Set(HeroFacing.South,HeroPose.Idle,0,false,false,false);
         }
         public void Set(HeroFacing facing,HeroPose pose,double time,bool hit,bool carried,bool mounted,bool referenceIdle=false)
@@ -206,6 +207,6 @@ namespace BaseConquest.Presentation
             Root.transform.localRotation=Quaternion.identity;
             Root.transform.localScale=Vector3.one;
         }
-        public void Dispose(){BattleBoardView.DestroyObject(Mesh);BattleBoardView.DestroyObject(material);}
+        public void Dispose(){SceneryOcclusion.Untrack(Renderer);BattleBoardView.DestroyObject(Mesh);BattleBoardView.DestroyObject(material);}
     }
 }

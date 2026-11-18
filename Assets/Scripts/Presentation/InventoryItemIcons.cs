@@ -8,6 +8,7 @@ namespace BaseConquest.Presentation
     internal static class InventoryItemIcons
     {
         private static readonly Dictionary<string, Sprite> sprites = new Dictionary<string, Sprite>();
+        private static Sprite cellBorder;
         private static readonly Color32[] qualityFills =
         {
             new Color32(224, 156, 151, 255), // 破损
@@ -56,6 +57,46 @@ namespace BaseConquest.Presentation
 
         internal static Color32 FrameFor(Color32 fill) =>
             new Color32((byte)(fill.r * .8f), (byte)(fill.g * .8f), (byte)(fill.b * .8f), fill.a);
+
+        public static UnityEngine.UI.Image DrawCell(UnityEngine.UI.Button cell, Icon icon)
+        {
+            var background = cell.GetComponent<UnityEngine.UI.Image>();
+            var fill = icon.Fill;
+            fill.a = 170;
+            background.color = fill;
+
+            // Unity's Outline paints full offset copies of the square behind the translucent fill.
+            var outline = cell.GetComponent<UnityEngine.UI.Outline>();
+            if (outline != null) outline.enabled = false;
+            var border = Inset(background.rectTransform, "QualityFrame", 0);
+            border.sprite = CellBorder();
+            border.type = UnityEngine.UI.Image.Type.Sliced;
+            border.fillCenter = false;
+            border.color = FrameFor(icon.Fill);
+
+            var art = Inset(background.rectTransform, "ItemIcon", 1);
+            art.sprite = icon.Sprite;
+            art.preserveAspect = true;
+            return border;
+        }
+
+        private static Sprite CellBorder()
+        {
+            if (cellBorder != null) return cellBorder;
+            var texture = new Texture2D(3, 3, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            var pixels = new Color32[9];
+            System.Array.Fill(pixels, new Color32(255, 255, 255, 255));
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            cellBorder = Sprite.Create(texture, new Rect(0, 0, 3, 3), Vector2.one * .5f, 100, 0, SpriteMeshType.FullRect, Vector4.one);
+            cellBorder.hideFlags = HideFlags.HideAndDontSave;
+            return cellBorder;
+        }
 
         public static void Draw(Transform parent, Icon icon, Vector2 anchor, Vector2 offset, float size)
         {

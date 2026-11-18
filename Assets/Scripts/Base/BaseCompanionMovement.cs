@@ -165,6 +165,7 @@ namespace BaseConquest.Base
             double attentionSeconds=Math.Max(0,seconds);
             seconds = Math.Max(0, Math.Min(seconds, 0.05));
             var player = new BasePoint(state.PlayerX,state.PlayerY);
+            bool reportGathering = BaseVillageReport.Gathering(state);
             foreach (var agent in Agents)
             {
                 if(sceneActorsOnly&&!agent.SceneOnly)continue;
@@ -179,7 +180,15 @@ namespace BaseConquest.Base
                 }
                 var blockers = Obstacles(agent, state);
                 var objects=BaseSpatial.Objects(state,string.IsNullOrEmpty(agent.MapId)?agent.Region:agent.MapId);var board=BaseBattlefield.Board(state,string.IsNullOrEmpty(agent.MapId)?agent.Region:agent.MapId);
-                if(agent.SceneOnly&&BaseDemoPrologue.Pursuit(state))
+                var reportMember = reportGathering && agent.SceneOnly ? BaseVillageReport.Find(state, agent.Id) : null;
+                if (reportMember != null)
+                {
+                    bool needsRoute = agent.Route.Count == 0 && agent.Position.Distance(reportMember.Target) >= .08;
+                    if (agent.Destination.Distance(reportMember.Target) > .01 ||
+                        !agent.Arrived && agent.RepathSeconds >= .5 && (needsRoute || agent.BlockedSeconds >= .5))
+                        Route(state, agent, reportMember.Target, blockers);
+                }
+                else if(agent.SceneOnly&&BaseDemoPrologue.Pursuit(state))
                 {
                     var exit=BaseDemoPrologue.Exit(state,agent.Id);
                     if(agent.Destination.Distance(exit)>.01||agent.BlockedSeconds>=.8)Route(state,agent,exit,blockers);

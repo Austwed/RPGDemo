@@ -31,8 +31,22 @@ namespace BaseConquest.Presentation
             bool slot=b.name.StartsWith("BagSlot_")||b.name.StartsWith("EquipmentSlot_")||b.name.StartsWith("物品格_")||b.name.StartsWith("装备槽_");
             var image=b.GetComponent<Image>();Surface(image,!slot,slot);
             image.sprite=null;image.type=Image.Type.Simple;image.color=slot?Inset:Button;
+            ApplyButtonFeedback(b);
+        }
+
+        public void ApplyButtonFeedback(UnityEngine.UI.Button b)
+        {
+            if (b.targetGraphic == null || b.transition == Selectable.Transition.None) return;
             b.transition=Selectable.Transition.ColorTint;
-            var c=b.colors;c.normalColor=Color.white;c.highlightedColor=new Color(1,.96f,.84f);c.selectedColor=c.highlightedColor;c.pressedColor=new Color(.88f,.73f,.50f);c.disabledColor=new Color(.69f,.63f,.55f,.6f);c.fadeDuration=.06f;b.colors=c;
+            var colors = b.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, .96f, .86f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.pressedColor = new Color(.83f, .71f, .55f);
+            colors.disabledColor = new Color(.67f, .63f, .58f, .64f);
+            colors.colorMultiplier = 1;
+            colors.fadeDuration = .06f;
+            b.colors = colors;
             if(b.GetComponent<DemoButtonTint>()==null)b.gameObject.AddComponent<DemoButtonTint>();
         }
         // protectedNodes 是 prefab 自带的节点：它们的颜色、字体、按钮态由美术在 prefab 里决定，主题不得回写。

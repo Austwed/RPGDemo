@@ -23,6 +23,7 @@ namespace BaseConquest.Base
         private void PartnerSpeech(BaseLeader leader,string key)
         {
             var avatar=Rect("DialogueAvatar",content,new Vector2(.5f,1),new Vector2(-340,-row-96),new Vector2(170,180)).gameObject.AddComponent<BattleAvatarGraphic>();
+            avatar.DialoguePortrait = true;
             avatar.PlayerHero=leader.Id==owner.State.PlayerLeaderId;avatar.AppearanceId=BaseCommanderIdentity.Appearance(leader);avatar.raycastTarget=false;
             Label(content,BasePersonnel.LeaderName(leader)+"\n"+BaseCommanderIdentity.RoleName(leader),new Vector2(-340,-row-215),new Vector2(180,58),18,TextAnchor.MiddleCenter,new Vector2(.5f,1));
             var speech=Label(content,BasePartnerDialogue.Resolve(leader,key),new Vector2(100,0),new Vector2(620,180),22,TextAnchor.UpperLeft,new Vector2(.5f,1));speech.name="DialogueSpeech";speech.supportRichText=false;

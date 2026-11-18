@@ -9,7 +9,7 @@ namespace BaseConquest.Presentation
         private RectTransform frame, target;
         private Vector2 lower, upper;
         private float topInset;
-        private bool map;
+        private bool map, aboveMapLabel;
 
         public static GuidanceArrow Create(RectTransform parent, string name, float size)
         {
@@ -33,13 +33,14 @@ namespace BaseConquest.Presentation
             Show();
         }
 
-        public void PointToMap(Vector2 bottom, Vector2 top, float header = 0)
+        public void PointToMap(Vector2 bottom, Vector2 top, float header = 0, bool aboveLabel = false)
         {
             RectTransformUtility.ScreenPointToLocalPointInRectangle(frame, bottom, null, out lower);
             RectTransformUtility.ScreenPointToLocalPointInRectangle(frame, top, null, out upper);
             target = null;
             topInset = header;
             map = true;
+            aboveMapLabel = aboveLabel;
             Show();
         }
 
@@ -61,12 +62,15 @@ namespace BaseConquest.Presentation
             }
             var area = frame.rect;
             var center = (lower + upper) * .5f;
-            bool up = center.y > area.center.y;
             float radius = rectTransform.rect.height * .5f;
             float bob = 4 * Mathf.Sin(Time.unscaledTime * 5);
-            Vector2 pos = up ? lower - Vector2.up * (radius + 6 + bob) : upper + Vector2.up * (radius + 6 + bob);
-            float angle = up ? 180 : 0;
             float yLimit = area.yMax - (map ? topInset : 0);
+            bool clearLabel = map && aboveMapLabel;
+            const float labelHeight = 29;
+            bool up = clearLabel ? upper.y + labelHeight + 2 * radius + 10 > yLimit : center.y > area.center.y;
+            Vector2 pos = up ? lower - Vector2.up * (radius + 6 + bob) :
+                upper + Vector2.up * (radius + 6 + bob + (clearLabel ? labelHeight : 0));
+            float angle = up ? 180 : 0;
             pos.y = Mathf.Clamp(pos.y, area.yMin + radius, yLimit - radius);
             if (map)
             {

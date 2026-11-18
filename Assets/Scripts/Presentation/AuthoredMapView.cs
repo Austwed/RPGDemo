@@ -39,6 +39,8 @@ namespace BaseConquest.Presentation
             if(pixelProp!=null)
             {
                 view.shaped=false;
+                if(prop=="boulder"||prop=="dead-tree"||prop=="dungeon-entrance")
+                    SceneryOcclusion.Attach(pixelProp.GetComponent<Renderer>(),root.GetComponentInParent<BaseSceneController>()?.WorldCamera);
                 if(prop=="dungeon-entrance")view.dungeonEntrance=pixelProp.GetComponent<Renderer>();
             }
             else if(placement.Kind?.StartsWith("tactical-")==true||placement.Kind=="demo-prop")

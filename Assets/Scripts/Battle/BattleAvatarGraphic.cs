@@ -9,6 +9,7 @@ namespace BaseConquest.Battle
     {
         public SoldierKind Kind = SoldierKind.Hero;
         [SerializeField] private bool playerHero;
+        private bool dialoguePortrait;
         private Texture2D heroAtlas;
         [SerializeField] private string appearanceId="";
         private Texture2D companionAtlas;
@@ -16,8 +17,10 @@ namespace BaseConquest.Battle
         private Rect recommendedUV;
         public string AppearanceId {get=>appearanceId;set{value=value??"";if(appearanceId==value)return;appearanceId=value;companionAtlas=null;SetAllDirty();}}
         public bool PlayerHero {get=>playerHero;set{if(playerHero==value)return;playerHero=value;SetAllDirty();}}
+        public bool DialoguePortrait { get => dialoguePortrait; set { if (dialoguePortrait == value) return; dialoguePortrait = value; SetAllDirty(); } }
         public override Texture mainTexture {get{
-            var result=BaseConquest.Presentation.DemoPortraits.For(AppearanceId,PlayerHero);
+            var result=DialoguePortrait ? BaseConquest.Presentation.DemoPortraits.ForDialogue(AppearanceId,PlayerHero) :
+                BaseConquest.Presentation.DemoPortraits.For(AppearanceId,PlayerHero);
             recommended=result.Origin==BaseConquest.Presentation.DemoPortraits.Source.Portrait||result.Origin==BaseConquest.Presentation.DemoPortraits.Source.CharacterSheet?result.Texture:null;
             recommendedUV=result.Uv;companionAtlas=result.Origin==BaseConquest.Presentation.DemoPortraits.Source.LegacyCompanion?result.Texture:null;heroAtlas=result.Origin==BaseConquest.Presentation.DemoPortraits.Source.LegacyHero?result.Texture:null;
             return result.Texture!=null?result.Texture:Texture2D.whiteTexture;}}

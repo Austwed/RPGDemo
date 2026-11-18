@@ -278,17 +278,18 @@ namespace BaseConquest.Editor
             At(state, "town_market");
             int bought = BaseEquipmentCrafting.MaxBuy(state);
             Need(bought >= 10 && BaseEquipmentCrafting.Buy(state, 10, state.Backpack.Revision), "老莫处无法买十颗锻造石");
+            Need(!BasePersonalEquipment.CanBuy(state, "basic_sword", state.PlayerLeaderId), "老莫仍能出售装备");
             At(state, "town_blacksmith");
-            var basic = BasePartyInventory.Entries(state).Single(entry => entry.Holder == state.PlayerLeaderId && entry.Slot == "weapon");
-            Need(basic.Gear.Template == "basic_sword" && BaseEquipmentCrafting.Quote(state, basic.Id, 1) == null &&
-                BasePartyInventory.AvailableMaterial(state, BaseEquipmentCrafting.Stone) >= 10, "初始无品质收益的短剑仍能报价");
-            Note("老莫处实付购入 10 颗锻造石。巴隆说明开局短剑无品质收益，保留全部石头。");
+            var heirloom = BasePartyInventory.Find(state, state.Demo.Intro.PracticeId);
+            Need(heirloom?.Gear?.Template == "novice_sword" && BaseEquipmentCrafting.Quote(state, heirloom.Id, 1) != null &&
+                BasePartyInventory.AvailableMaterial(state, BaseEquipmentCrafting.Stone) >= 10, "搭档旧制短剑未保留，或巴隆无法重铸");
+            Note("老莫处实付购入 10 颗锻造石。巴隆可为搭档旧制短剑报价，保留石头用于后续重铸。");
         }
 
         private static void ReforgeGift(BaseState state)
         {
             At(state, "town_blacksmith");
-            var sword = BasePartyInventory.Entries(state).Single(entry => entry.Gear?.Template == "novice_sword");
+            var sword = BasePartyInventory.Entries(state).First(entry => entry.Gear?.Template == "novice_sword" && entry.Id != state.Demo.Intro.PracticeId);
             Need(BasePersonalEquipment.Equip(state, state.PlayerLeaderId, sword.Id, "weapon"), "无法装备巴隆赠送的新手短剑");
             string starting = BasePersonalEquipment.Qualities[sword.Quality];
             var qualities = new List<string> { starting };

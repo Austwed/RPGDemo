@@ -92,14 +92,13 @@ namespace BaseConquest.Battle
             if(IsSceneEncounter)configureSceneEncounter?.Invoke(realtime);
             if(realtime.Model.Player!=null)boardView.CenterOn(battle.Soldier(realtime.Model.Player.Id-1).Cell);
             feedback="即时战斗已暂停：点选细格查看；选队长后单击移动／攻击，双击空地驻守／敌人集火；空格继续。";
-            if(realtime.Tactics.Objects.Count>0)feedback+=" 点击枯树可攻击倒障；点击巨石可沿攻击方向推动，双方均可能受伤。";
             SelectOpeningCommanders();
             SyncRealtimeViews();
         }
 
         private void SelectOpeningCommanders()
         {
-            var chosen = realtime.Model.Units.Where(unit => unit.Alive && unit.Side == PrototypeSide.Ally &&
+            var chosen = realtime.Model.Units.Where(unit => !IsDemoPractice && unit.Alive && unit.Side == PrototypeSide.Ally &&
                 unit.Role == PrototypeRole.Leader && unit.Strategy == PrototypeStrategy.Obey && battle.SelectableCommander(battle.Soldier(unit.Id - 1)))
                 .OrderBy(unit => unit.Squad).ToArray();
             selection.Set(chosen.Select(unit => unit.Id - 1));
