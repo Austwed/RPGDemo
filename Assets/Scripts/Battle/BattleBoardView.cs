@@ -132,10 +132,13 @@ namespace BaseConquest.Battle
         private readonly Dictionary<int,BoardCell> appearanceCells=new Dictionary<int,BoardCell>();
         public BoardCell DisplayCell(GridPosition point)=>appearanceCells.TryGetValue(point.Z*board.Width+point.X,out var cell)?cell:board.Cell(point);
         private GroundSurface DisplaySurface(GridPosition cell, BoardCell data) => GroundSurfaceRules.Resolve(data.Surface, surfaceRegion, cell.X, cell.Z);
+        internal BaseConquest.Presentation.EnvironmentRoadEdges RoadEdges { get; set; }
         internal GroundSurface FootstepSurfaceAt(double x, double z)
         {
             var cell = new GridPosition((int)System.Math.Floor(x), (int)System.Math.Floor(z));
             var surface = DisplaySurface(cell, DisplayCell(cell));
+            if (surface == GroundSurface.Grass && RoadEdges != null)
+                surface = RoadEdges.SurfaceAt(cell, (float)(x - cell.X), (float)(z - cell.Z));
             // The current trail texture paints stone pavers on cells authored as DirtPath.
             return surface == GroundSurface.Road || homeTerrainTrial && surface == GroundSurface.DirtPath ||
                 ObliqueExploration && board.RampLowEdge(cell) != 0 ? GroundSurface.Cobble : surface;

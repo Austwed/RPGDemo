@@ -20,17 +20,16 @@ namespace BaseConquest.Base
         }
         internal void OpenPursuitRetry()
         {
-            NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.scene.prologue.pursuit_retry",
-                "还不能倒在这儿。先带乡亲们往东走。"),true)},Array.Empty<NpcReply>(),onCompleted:ClosePanel);
+            NpcDialogue(new[]{new NpcLine("旁白","","乡亲们还在往东山口赶。"),new NpcLine("你","",StoryText.Get("story.scene.prologue.pursuit_retry",
+                "还不能倒在这儿。先带乡亲们往东走。"),true,"再看看东山口")},Array.Empty<NpcReply>(),onCompleted:ClosePanel);
         }
         internal void OpenPursuitArrival(Action begin)
         {
             NpcDialogue(new[]{new NpcLine("旁白","","村西的兵刃声忽然停了。"),
-                new NpcLine("你","","搭档还没跟上来！",true),
+                new NpcLine("旁白","","西桥那头没见搭档的身影。"),
                 new NpcLine("古裔追兵","galan","截住东口！别让他们过去！"),
-                new NpcLine("你","",StoryText.Get("story.scene.prologue.pursuit_royal_sword","王室的剑怎么会在你们手里？"),true),
-                new NpcLine("你","","这道伤……像是搭档的剑路。他们是从西桥过来的？",true),
-                new NpcLine("你","","阿禾，带乡亲们直奔东山口！这两个残兵交给我！",true)},new[]{new NpcReply("让阿禾带村民离开，准备迎敌",begin)},guide:true);
+                new NpcLine("你","",StoryText.Get("story.scene.prologue.pursuit_royal_sword","王室的剑怎么会在你们手里？"),true,"追问王室的剑"),
+                new NpcLine("旁白","","两名追兵身上都带着伤。那是搭档的剑路。")},new[]{new NpcReply("阿禾，带乡亲们往东走！这两个交给我！",begin)},guide:true);
         }
         private RectTransform heroChoiceLayer;
         private Button[] heroChoiceTargets;
@@ -142,8 +141,7 @@ namespace BaseConquest.Base
                         new NpcLine("你","","辞了也好。在王都，背后的冷箭比明刀难防。",true),
                         new NpcLine("搭档",portrait,"走吧，阿禾天刚亮就在麦田张望，八成是秋播缺人手了。")},
                         new[]{meet,new NpcReply("聊聊从前在王都值夜",()=>NpcDialogue(new[]{
-                            new NpcLine("你","","那年在宫门外站了一夜，冻得连剑都拔不出鞘。",true),
-                            new NpcLine("搭档",portrait,"那时候哪想过还能睡到天亮。走吧，别让阿禾等急了。")
+                            new NpcLine("搭档",portrait,"记得那年在宫门外站了一夜吗？冻得连剑都拔不出鞘。那时候哪想过还能睡到天亮。走吧，别让阿禾等急了。")
                         },new[]{meet},guide:true))},guide:true);return true;
                 }
                 if(i.Step==10)

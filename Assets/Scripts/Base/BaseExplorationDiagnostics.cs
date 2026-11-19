@@ -206,8 +206,17 @@ namespace BaseConquest.Base
             double direction = Math.Atan2(facing.Y, facing.X);
             double angle = Math.Acos(BaseInteraction.FrontCosine);
             Line(player.X, player.Y, player.X + Math.Cos(direction) * 1.2, player.Y + Math.Sin(direction) * 1.2, ReachColor);
-            foreach (double side in new[] { direction - angle, direction + angle })
-                Line(player.X, player.Y, player.X + Math.Cos(side) * .9, player.Y + Math.Sin(side) * .9, ReachColor);
+            double arcX = player.X, arcY = player.Y;
+            for (int step = 0; step <= 16; step++)
+            {
+                double side = direction - angle + 2 * angle * step / 16;
+                double x = player.X + Math.Cos(side) * BaseInteraction.Distance;
+                double y = player.Y + Math.Sin(side) * BaseInteraction.Distance;
+                Line(arcX, arcY, x, y, ReachColor);
+                arcX = x;
+                arcY = y;
+            }
+            Line(arcX, arcY, player.X, player.Y, ReachColor);
             Complete(reach);
         }
 

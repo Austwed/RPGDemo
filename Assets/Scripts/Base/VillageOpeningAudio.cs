@@ -43,20 +43,30 @@ namespace BaseConquest.Base
         internal static VillageOpeningAudio Shared()
         {
             if (instance != null) return instance;
+            // A script reload can reset static fields while the persistent host is still playing.
+            instance = FindAnyObjectByType<VillageOpeningAudio>();
+            if (instance != null) return instance;
             var host = new GameObject("ExplorationAudio");
             DontDestroyOnLoad(host);
             return instance = host.AddComponent<VillageOpeningAudio>();
         }
 
-        public static void PlayTitle()
+        public static void PlayTitle() => Shared().EnterTitle();
+
+        private void EnterTitle()
         {
-            var audio = Shared();
-            if (audio.place == Place.Title) return;
-            audio.owner = null;
-            audio.UnbindBattle();
-            audio.resultMusic.Stop();
-            audio.duckUntil = 0;
-            audio.SetPlace(Place.Title);
+            if (place == Place.Title) return;
+            owner = null;
+            UnbindBattle();
+            // The title shares the surface exploration loop. Leave its cursor alone.
+            // Stop the previous scene's voices before the title mix can play.
+            ruinsScore.Stop();
+            battleScore.Stop();
+            resultMusic.Stop();
+            ruinsScore.volume = ruinsGain = 0;
+            battleScore.volume = battleGain = 0;
+            duckUntil = 0;
+            SetPlace(Place.Title);
         }
 
         private void Awake()

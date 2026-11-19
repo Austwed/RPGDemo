@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using BaseConquest.Battle;
+using BaseConquest.Story;
 namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
@@ -50,33 +51,66 @@ namespace BaseConquest.Base
         }
         private void OpenWaitingGalan()
         {
-            string id=owner.State.Demo.Flow.FirstControllerId;
-            if(!BaseDemoStories.ControllerDialogue(owner.State,id)){ClosePanel();return;}
-            string galan=UnitDisplayNames.Mark(BaseScriptNames.Galan,true),portrait=BaseScriptNames.Portrait("galan");
-            NpcDialogue(new[]{
-                new NpcLine(galan,portrait,"我来找失散的族人。那两个人能活着出去，我出了力。"),
-                new NpcLine("你","","你护了他们，也把他们推出来挡刀。这笔账我记着。",true),
-                new NpcLine(galan,portrait,"这座窟我比你熟。留我做事，古窟的事我知道多少说多少。")
-            },new[]{
-                new NpcReply("接纳迦兰",()=>{
-                    if(!owner.Change(s=>{if(!BaseDemoStories.AcceptController(s,id))throw new InvalidOperationException("营帐名额已满。");},""))return;
-                    owner.RefreshDemoRegion();
-                    owner.Hud.OpenGalanReply("那就先从这座窟说起。");
-                },BaseAftermath.CanRecruitLeader(owner.State)),
-                new NpcReply("先不接纳",()=>NpcDialogue(
-                    new[]{new NpcLine(galan,portrait,"等你想谈了，再来找我。")},
-                    Array.Empty<NpcReply>(),onCompleted:ClosePanel)),
-                new NpcReply("处死迦兰",()=>NpcDialogue(new[]{new NpcLine(galan,portrait,"你想清楚了？")},new[]{
-                    new NpcReply("先留着他",ClosePanel),
-                    new NpcReply("执意处死",()=>{
-                        if(owner.Change(s=>{if(!BaseDemoStories.ExecuteController(s,id))throw new InvalidOperationException("迦兰已经离开。");},""))
-                        { ClosePanel();owner.RefreshDemoRegion(); }
-                    },skipDefault:false)
-                }),skipDefault:false)
+            if (!BaseDemoStories.ControllerDialogue(owner.State, owner.State.Demo.Flow.FirstControllerId)) { ClosePanel(); return; }
+            GalanQuestions("opening", "那两个家伙误闯遗迹能活到现在，都是因为我的法术在生效。\n我可没伤他们一丝一毫。");
+        }
+
+        private void GalanSays(string key, string fallback, NpcReply[] choices = null, Action finished = null, bool resume = false)
+        {
+            string name = UnitDisplayNames.Mark(BaseScriptNames.Galan, true);
+            var lines = StoryText.Get("story.scene.galan." + key, fallback).Split('\n')
+                .Select(text => new NpcLine(name, "galan", text.TrimEnd('\r'))).ToArray();
+            NpcDialogue(resume ? new[] { lines[lines.Length - 1] } : lines, choices ?? Array.Empty<NpcReply>(),
+                lockExitUntilFinished: finished != null, onCompleted: finished);
+            if (resume) ContinueDialogue();
+        }
+
+        private NpcReply GalanChoice(string key, string fallback, Action next) =>
+            new NpcReply(StoryText.Get("story.scene.galan.choice." + key, fallback), next);
+
+        private void GalanQuestions(string key, string text, bool resume = false) => GalanSays(key, text, new[] {
+            GalanChoice("control", "你确实控制了他们", GalanAdmission),
+            GalanChoice("ruins", "遗迹里有什么？", () => GalanQuestions("ruins", "遗迹地下有一条燃烧的地脉，普通人进去会气血翻腾，足以致死。\n但是看你在里面活蹦乱跳的，想必是异能者吧？\n我们自古以来就靠这东西抵御外敌，就怕你们这些不被地脉影响的怪胎……呃，异能强者。")),
+            GalanChoice("village", "关于村子，你长得有点像……", () => GalanQuestions("village", "哎呀，你们人类看异族不都是一个样子嘛。\n村子什么的我真不知道，我就一善良但迷路的古裔罢了。")),
+            GalanExecutionChoice(),
+            GalanChoice("wait", "你先待在这", ClosePanel)
+        }, resume: resume);
+
+        private void GalanAdmission()
+        {
+            const string admission = "控制他们我认，我就是想着让他们服侍我一段时间。\n毕竟法术施展耗了我不少精力。\n我真打算玩……呃，这两天就放回去的。";
+            GalanSays("admission", admission, new[] {
+                GalanChoice("attack", "我看你刚才倒挺想杀我的", GalanPledge),
+                GalanChoice("trust", "我怎么相信你？", GalanPledge),
+                GalanChoice("more", "我还想了解一些事", () => GalanQuestions("admission", admission, resume: true))
             });
         }
-        private void OpenGalanReply(string text) =>
-            NpcDialogue(new[]{new NpcLine(UnitDisplayNames.Mark(BaseScriptNames.Galan,true),"galan",text)},Array.Empty<NpcReply>(),onCompleted:ClosePanel);
+
+        private void GalanPledge() => GalanSays("pledge",
+            "诶诶，消消气！你看我的眼神，想必还跟其他古裔结下了不小梁子吧？\n我可以向你介绍我族相关的知识，知己知彼，百战不殆嘛。\n除此之外，我力气也不小。你放了我，我以古裔之名起誓，日后为你出力，\n绝不动操控别人或其他歪心思。请给我一次改过自新的机会！求求了！", new[] {
+                GalanChoice("recruit", "我会盯紧你的", RecruitWaitingGalan),
+                GalanChoice("later", "我要再想想", () => GalanSays("later", "拜托您再仔细考虑一下吧。", finished: ClosePanel)),
+                GalanExecutionChoice()
+            });
+
+        private void RecruitWaitingGalan()
+        {
+            if (!BaseAftermath.CanRecruitLeader(owner.State))
+            {
+                owner.ReportMessage("营帐已满。腾出名额后，可以回遗迹入口找迦兰。");
+                return;
+            }
+            string id = owner.State.Demo.Flow.FirstControllerId;
+            if (!owner.Change(state => {
+                if (!BaseDemoStories.AcceptController(state, id)) throw new InvalidOperationException("无法接纳迦兰。");
+            }, "")) return;
+            owner.RefreshDemoRegion();
+            var hud = owner.Hud;
+            hud.GalanSays("recruited", "只要不玩命……啊不对，万死不辞啊主人！", finished: hud.ClosePanel);
+        }
+
+        private NpcReply GalanExecutionChoice() => GalanChoice("execute", "不论如何，操控百姓当斩",
+            () => GalanSays("executed", "啊呀！", finished: owner.ExecuteWaitingGalan));
         private void RecruitLootAll(string battle)
         {
             LootChange(s=>BaseBattleLoot.RecruitAll(s,battle)>0,"已依次处理可招募俘虏，无法安置者仍保留");

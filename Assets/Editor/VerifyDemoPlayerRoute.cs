@@ -78,7 +78,7 @@ namespace BaseConquest.Editor
             EditorApplication.Exit(exit);
         }
 
-        private static void VerifyInstalledStoryText()
+        public static void VerifyInstalledStoryText()
         {
             var packaged=StoryTextFiles.Parse(File.ReadAllText(StoryTextFiles.SourcePath));
             var installed=packaged.Copy();
@@ -91,7 +91,7 @@ namespace BaseConquest.Editor
             oldClue.revision--;
             const string report = "story.scene.defense.second_victory_report";
             installed.entries.RemoveAll(entry => entry.key.StartsWith(report + ".", StringComparison.Ordinal));
-            installed.entries.Add(new StoryTextEntry { key = report, text = "旧版单页陈安报告" });
+            installed.entries.Add(new StoryTextEntry { key = report, group = "营地／陈安", text = "旧版单页陈安报告" });
             const string unchanged="story.scene.prologue.drill_pause";
             installed.entries.Single(entry=>entry.key==unchanged).text="本机自改的操作提示";
             const string added="story.item.practice_sword.description";
@@ -105,7 +105,27 @@ namespace BaseConquest.Editor
                 upgraded.entries.Count(entry => entry.key.StartsWith(report + ".", StringComparison.Ordinal)) == 2 &&
                 !upgraded.entries.Any(entry => entry.key == report),
                 "旧安装副本覆盖了新版台词，或未保留未改键的玩家文本");
-            Note("发行文本：旧安装副本迁移覆盖过时台词，保留未改键的自定义内容，补入新物品说明。");
+            string temp = Path.Combine(Path.GetTempPath(), "DemoStoryUpgrade-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(temp);
+            try
+            {
+                var older = installed.Copy();
+                older.entries.Single(entry => entry.key == unchanged).text = "第二版的旧改稿";
+                string v2 = Path.Combine(temp, "story-text-v2.json"), v3 = Path.Combine(temp, "story-text-v3.json");
+                File.WriteAllText(v2, JsonUtility.ToJson(older));
+                installed.entries.RemoveAll(entry => entry.key.StartsWith("story.scene.galan.", StringComparison.Ordinal) ||
+                    entry.key.StartsWith("story.scene.chenan.road.", StringComparison.Ordinal));
+                string original = JsonUtility.ToJson(installed);
+                File.WriteAllText(v3, original);
+                StoryTextFiles.InstallToDirectory(packaged, temp);
+                var disk = StoryTextFiles.Parse(File.ReadAllText(Path.Combine(temp, "story-text-v4.json")));
+                Need(disk.entries.Single(entry => entry.key == unchanged).text == "本机自改的操作提示" &&
+                    disk.entries.Single(entry => entry.key == "story.scene.galan.executed").text == "啊呀！" &&
+                    disk.entries.Single(entry => entry.key == "story.scene.chenan.road.opening").text.Contains("村子不好回去") &&
+                    File.ReadAllText(v3) == original, "从旧安装升级时未保留第三版自改内容或漏装了第四版对白");
+            }
+            finally { Directory.Delete(temp, true); }
+            Note("发行文本：旧副本升级并保留本机自改；补入迦兰、陈安的新对白与物品说明。");
         }
 
         private static void PrepareFirstDefense(BaseState state)

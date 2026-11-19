@@ -27,19 +27,20 @@ namespace BaseConquest.Battle
             void Button(string text,float x,float y,float width,Action click,bool enabled=true){var r=Box(text,y,43);r.sizeDelta=new Vector2(width,43);r.anchoredPosition=new Vector2(x,y);var b=r.gameObject.GetOrAdd<Button>();b.interactable=enabled;b.onClick.AddListener(()=>click());var t=UiPrefabBinding.Rect("Label",r).gameObject;t.GetOrAdd<Text>();var tr=t.GetComponent<RectTransform>();tr.anchorMin=Vector2.zero;tr.anchorMax=Vector2.one;tr.offsetMin=tr.offsetMax=Vector2.zero;var label=t.GetComponent<Text>();label.font=saveMenuFont;label.fontSize=18;label.color=Color.white;label.alignment=TextAnchor.MiddleCenter;label.text=text;label.raycastTarget=false;}
             Box("遮罩",0,700);
             Button(IsRealtimeCampaign?"战中不存档":loading ? "切换到保存" : "切换到读档",-280,300,250,()=>OpenCampaignSaves(!loading),!IsRealtimeCampaign&&!CampaignGameOver);
-            Button("返回战斗",0,300,250,()=>UiPrefabBinding.DestroyView(campaignMenu),!CampaignGameOver);
+            Button("关闭",0,300,250,CloseCampaignMenu);
             Button("回主菜单",280,300,250,CampaignMainMenu);
             var catalog=Application.isPlaying ? BaseBattleGateway.Catalog() : null;var entries=catalog?.Entries()??new System.Collections.Generic.List<BaseSaveEntry>();int row=0;
             foreach(string key in loading ? BaseSaveCatalog.Slots.Concat(BaseSaveCatalog.AutoSlots) : BaseSaveCatalog.Slots)
             {
                 string id=key;var entry=entries.FirstOrDefault(e=>e.Id==id);string name=(BaseSaveCatalog.AutoSlots.Contains(id)?"自动 ":"手动 ")+id+" · "+(entry==null ? "空" : entry.Error!=null ? "损坏" : "第"+entry.Day+"天 · "+entry.Name);float y=230-row++*52;
                 Button(name,-165,y,550,()=>{},false);
-                Button(loading ? "读取" : "保存",215,y,160,()=>{
+                bool recover = loading && entry?.CanRecover == true;
+                Button(loading ? (recover ? "恢复上次存档" : "读取") : "保存",215,y,160,()=>{
                     try {
-                        if(loading){BaseBattleGateway.Session().LoadPlayableSlot(id);BaseBattleGateway.MainMenu=false;BaseBattleGateway.RequestedId=null;campaignBattleId="";SceneLoadingCover.LoadExploration();}
+                        if(loading){BaseBattleGateway.Session().LoadPlayableSlot(id,recover);BaseBattleGateway.MainMenu=false;BaseBattleGateway.RequestedId=null;campaignBattleId="";SceneLoadingCover.LoadExploration();}
                         else { if(entry!=null){Button("确认覆盖此槽",0,-300,460,()=>{catalog.SaveSlot(id,BaseBattleGateway.Store().Load(),"战斗手动存档"+id);OpenCampaignSaves();});return;}catalog.SaveSlot(id,BaseBattleGateway.Store().Load(),"战斗手动存档"+id);OpenCampaignSaves();}
                     }catch(Exception e){feedback="存读档失败，原状态保留："+e.Message;Button(e.Message,0,-300,780,()=>OpenCampaignSaves(loading));}
-                },loading ? entry!=null&&entry.Error==null&&!entry.GameOver : !CampaignGameOver);
+                },loading ? recover || entry?.CanLoad == true : !CampaignGameOver);
             }
             Button("选项",-280,-260,240,OpenCampaignOptions,!CampaignGameOver);
             Button("背包 · B",150,-260,560,()=>OpenBattleBackpack(),!CampaignGameOver);

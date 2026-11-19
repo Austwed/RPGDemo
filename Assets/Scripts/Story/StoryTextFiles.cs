@@ -10,9 +10,10 @@ namespace BaseConquest.Story
 {
     public static class StoryTextFiles
     {
-        private const int InstalledRevision=3;
+        private const int InstalledRevision=4;
         public static string SourcePath=>Path.Combine(Application.streamingAssetsPath,"Text/story-text.json");
-        public static string EditablePath=>Application.isEditor ? SourcePath : Path.Combine(ExchangeDirectory,"story-text-v"+InstalledRevision+".json");
+        private static string InstalledFileName => "story-text-v" + InstalledRevision + ".json";
+        public static string EditablePath=>Application.isEditor ? SourcePath : Path.Combine(ExchangeDirectory,InstalledFileName);
         public static string ExchangeDirectory=>Application.isEditor ? Path.GetFullPath(Path.Combine(Application.dataPath,"../Logs/StoryTextExports")) : Path.Combine(BaseConquest.Base.BaseBattleGateway.PlayerDataDirectory,"StoryText");
         public static string CsvPath=>Path.Combine(ExchangeDirectory,"story-text.csv");
         public static string ExportPath=>Path.Combine(ExchangeDirectory,"story-text.export.json");
@@ -43,19 +44,20 @@ namespace BaseConquest.Story
                     entry.text=previous.text;
             return result;
         }
-        private static void InstallPackaged(StoryTextDocument packaged)
+        private static void InstallPackaged(StoryTextDocument packaged) => ApplyLoaded(InstallToDirectory(packaged, ExchangeDirectory));
+        public static StoryTextDocument InstallToDirectory(StoryTextDocument packaged, string directory)
         {
             StoryTextDocument installed=null;
-            foreach (string name in new[] { "story-text-v2.json", "story-text.json" })
+            foreach (string name in new[] { "story-text-v3.json", "story-text-v2.json", "story-text.json" })
             {
-                string oldPath = Path.Combine(ExchangeDirectory, name);
+                string oldPath = Path.Combine(directory, name);
                 if (!File.Exists(oldPath)) continue;
                 try { installed = Parse(File.ReadAllText(oldPath, Encoding.UTF8)); break; }
                 catch(Exception e){Debug.LogWarning("旧剧情文本副本无法读取，已使用新版正文："+e.Message);}
             }
             var upgraded=UpgradeInstalled(packaged,installed);
-            ApplyLoaded(upgraded);
-            Write(EditablePath,JsonUtility.ToJson(upgraded,true));
+            Write(Path.Combine(directory, InstalledFileName),JsonUtility.ToJson(upgraded,true));
+            return upgraded;
         }
         private static void ApplyLoaded(StoryTextDocument document)
         {

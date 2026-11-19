@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using BaseConquest.Base;
 using BaseConquest.Battle;
+using BaseConquest.Presentation;
 using UnityEditor;
 using UnityEngine;
 
@@ -66,9 +67,80 @@ namespace BaseConquest.Editor
                             id + " 离场后留有声音回调");
                     }
                 }
+                CheckTitleMix(audio);
+                CheckRoadFootsteps(host.transform, state);
+                CheckSmithRoad(state);
             }
             finally { UnityEngine.Object.DestroyImmediate(host); }
-            Debug.Log("[VerifyDemoAudio] PASS 素材、循环导入、战场音乐切换和受击单次订阅");
+            Debug.Log("[VerifyDemoAudio] PASS 素材、循环、回标题清音、路缘脚步、铁匠铺道路和战场订阅");
+        }
+
+        private static void CheckTitleMix(VillageOpeningAudio audio)
+        {
+            var type = audio.GetType();
+            var setPlace = type.GetMethod("SetPlace", Private);
+            var enterTitle = type.GetMethod("EnterTitle", Private);
+            AudioSource Source(string key) => (AudioSource)type.GetField(key, Private).GetValue(audio);
+            var exploration = Source("score");
+            foreach (string previous in new[] { "Dungeon", "Battle", "Field" })
+            {
+                setPlace.Invoke(audio, new[] { Enum.Parse(setPlace.GetParameters()[0].ParameterType, previous) });
+                foreach (string field in new[] { "ruinsGain", "battleGain", "duckUntil" })
+                    type.GetField(field, Private).SetValue(audio, 1f);
+                Source("battleScore").volume = Source("ruinsScore").volume = 1;
+                exploration.volume = .21f;
+                enterTitle.Invoke(audio, null);
+                enterTitle.Invoke(audio, null);
+                Need(Source("score") == exploration && Mathf.Approximately(exploration.volume, .21f) &&
+                    Source("battleScore").volume == 0 && Source("ruinsScore").volume == 0 &&
+                    !Source("resultMusic").isPlaying && (float)type.GetField("duckUntil", Private).GetValue(audio) == 0 &&
+                    type.GetField("place", Private).GetValue(audio).ToString() == "Title",
+                    previous + " 返回标题时须保留探索曲并立即清掉上一场景的音乐");
+            }
+        }
+
+        private static void CheckRoadFootsteps(Transform parent, BaseState state)
+        {
+            var board = BattleBoard.CreateDefault(8, 6);
+            foreach (var c in board.Cells) c.Surface = GroundSurface.Grass;
+            board.Cell(new GridPosition(2, 3)).Surface = GroundSurface.Cobble;
+            board.Cell(new GridPosition(5, 3)).Surface = GroundSurface.DirtPath;
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            var view = new BattleBoardView(board, parent, mat, mat);
+            try
+            {
+                var type = view.GetType();
+                var edges = EnvironmentRoadEdges.Build(state, board, view.Root.transform, false);
+                type.GetProperty("RoadEdges", Private).SetValue(view, edges);
+                var lookup = type.GetMethod("FootstepSurfaceAt", Private);
+                GroundSurface At(double x, double z) => (GroundSurface)lookup.Invoke(view, new object[] { x, z });
+                Need(At(2.5, 3.5) == GroundSurface.Cobble && At(2.5, 2.98) == GroundSurface.Cobble &&
+                    At(2.5, 2.5) == GroundSurface.Grass && At(1.98, 2.98) == GroundSurface.Cobble,
+                    "石路正中、铺进草格的直边及转角须随实际铺面发声");
+                Need(At(4.98, 3.5) == GroundSurface.DirtPath && At(4.5, 3.5) == GroundSurface.Grass,
+                    "原版泥路路缘应与未铺路的草面区分");
+                Need(view.SetHomeTerrainTrial(true) && At(5.5, 3.5) == GroundSurface.Cobble &&
+                    At(4.98, 3.5) == GroundSurface.Cobble && At(4.5, 3.5) == GroundSurface.Grass,
+                    "换成石板外观后，路面与铺进邻格的路缘都应响石面脚步");
+            }
+            finally { view.Dispose(); UnityEngine.Object.DestroyImmediate(mat); }
+        }
+
+        private static void CheckSmithRoad(BaseState state)
+        {
+            state.Campaign.Location = "town";
+            var town = state.Campaign.Layouts.Single(map => map.Region == "town");
+            BaseEnvironment.Populate(town, BaseBattlefield.Board(state, "town"));
+            bool SmithShrub(BaseMapPlacement obj) => obj.AssetId == "bush-wide" &&
+                Math.Abs(obj.X - 11.3) < .001 && Math.Abs(obj.Y - 8.4) < .001;
+            Need(!town.Objects.Any(SmithShrub), "生成灰岩镇时铁匠铺右下应留出道路");
+            var old = new BaseMapPlacement { Id = "env_999", AssetId = "bush-wide", X = 11.3, Y = 8.4, VisualOnly = true };
+            var nearby = old.Copy(); nearby.Id = "env_998"; nearby.X++;
+            var custom = old.Copy(); custom.Id = "author_decoration";
+            town.Objects.AddRange(new[] { old, nearby, custom });
+            BaseDemo.EnsureCampLayout(state);
+            Need(!town.Objects.Contains(old) && town.Objects.Contains(nearby) && town.Objects.Contains(custom),
+                "旧地图应只移除铁匠铺路上的生成灌木，保留附近与作者自定义的摆件");
         }
 
         private static void Need(bool ok, string message)

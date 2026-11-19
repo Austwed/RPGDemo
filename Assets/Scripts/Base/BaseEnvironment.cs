@@ -30,6 +30,12 @@ namespace BaseConquest.Base
                 (Decorative(o.Object)||o.DefinitionId=="decor_obstacle"||o.DefinitionId=="decor_marker"));
         }
         public static bool Active(BaseState s)=>s?.Demo?.EnvironmentVersion==1;
+        private static bool IsSmithRoadShrub(BaseMapPlacement item) =>
+            item.AssetId == "bush-wide" && item.Id.StartsWith("env_", StringComparison.Ordinal) &&
+            Math.Abs(item.X - 11.3) < .001 && Math.Abs(item.Y - 8.4) < .001;
+
+        // Existing campaigns own a copy of the generated town decorations.
+        internal static void ClearSmithRoad(BaseMapLayout town) => town?.Objects.RemoveAll(IsSmithRoadShrub);
         public static BasePoint FineCenter(BasePoint p)=>new BasePoint(Math.Floor(p.X*2)*.5+.25,Math.Floor(p.Y*2)*.5+.25);
         public static int[] RoadEdgeSlots(bool[] sides,bool[] corners)
         {
@@ -75,6 +81,7 @@ namespace BaseConquest.Base
             bool Place(string id,double x,double y)
             {
                 var d=Find(id);if(d.Blocks&&d.Width<1)x=Math.Floor(x)+.5;if(d.Blocks&&d.Depth<1)y=Math.Floor(y)+.5;var o=new BaseMapPlacement{Id="env_"+serial++,SourceObjectId="env_"+(m.SourceMapId??m.Region)+"_"+serial,DefinitionId="env_"+id,AssetId=id,Name=d.Name,Kind=d.Animal==""?"decoration":"wildlife",VisualOnly=true,Blocks=d.Blocks,X=x,Y=y,Width=d.Width,Height=d.Depth};
+                if(town&&IsSmithRoadShrub(o))return false;
                 if(x-d.Width/2<.4||y-d.Depth/2<.4||x+d.Width/2>b.Width-.4||y+d.Depth/2>b.Height-.4)return false;
                 if(new BasePoint(x,y).Distance(new BasePoint(m.SpawnX,m.SpawnY))<2)return false;
                 // Leave the teaching facilities, their approach and villagers clear of canopy.

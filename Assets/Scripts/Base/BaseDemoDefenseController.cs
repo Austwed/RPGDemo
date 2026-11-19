@@ -114,8 +114,7 @@ namespace BaseConquest.Base
         public void OpenFirstRaidBriefing(Action proceed, Action back = null)
         {
             NpcDialogue(new[]{
-                new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"新打的军械都留下！这座营地，黑鸦寨也要了！"),
-                new NpcLine("你","","想要军械？先问问我手里这把。",true)
+                new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"新打的军械都留下！这座营地，黑鸦寨也要了！")
             },new[]{new NpcReply("拔剑迎战",proceed),new NpcReply("先看布防",back ?? OpenDemoDefenseSupply)});
         }
         // DEF_01_MID_INTEL：敌军只剩一人时崩溃泄密，供出敌营位置。同场只播一次（BattleIntelSeen 由调用方记录）。
@@ -140,8 +139,7 @@ namespace BaseConquest.Base
         {
             var state=owner.State;if(!BaseDemoDefense.Won(state)||state.Demo.Defense.BatuStoryDay>0){if(BaseBattleLoot.Pending(state))OpenLoot();else OpenDemoStory();return;}
             bool dead=state.Demo.Defense.BatuFate=="dead";
-            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),dead?"这回算你们守住了……大当家会亲自来，替我报仇。":"这回算你们守住了。大当家不会就这么算了。"),
-                new NpcLine("你","","先清点伤员，把能用的兵器收起来。",true)},
+            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),dead?"这回算你们守住了……大当家会亲自来，替我报仇。":"这回算你们守住了。大当家不会就这么算了。")},
                 new[]{new NpcReply("处理战果",()=>{if(owner.Change(next=>{BaseDemoDefense.AcknowledgeBatu(next);},"已记录敌军威胁")){ClosePanel();owner.RefreshDemoRegion();if(BaseBattleLoot.Pending(owner.State))owner.Hud.OpenLoot();else owner.Hud.OpenDemoStory();}})});
         }
         public void OpenSecondRaidVictoryReport()
@@ -153,8 +151,8 @@ namespace BaseConquest.Base
                         StoryText.Get("story.scene.defense.second_victory_report.1","大人，守寨的匪兵都跑散了，往白桦村的路通了。")),
                     new NpcLine(BaseScriptNames.Scout,BaseScriptNames.Portrait("chenan"),
                         StoryText.Get("story.scene.defense.second_victory_report.2","咱们也能先去寨里看看，还有没有物资留下。"))},
-                new[]{new NpcReply(StoryText.Get("story.ui.defense.second_report_continue","知道了"),()=>ContinueDialogue())},
-                lockExitUntilFinished:true,onCompleted:FinishReport);
+                new[]{new NpcReply(StoryText.Get("story.ui.defense.second_report_continue","知道了"),FinishReport)},
+                lockExitUntilFinished:true);
 
             void FinishReport()
             {

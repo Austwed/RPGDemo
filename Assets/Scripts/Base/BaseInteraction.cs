@@ -7,9 +7,8 @@ namespace BaseConquest.Base
 {
     public static class BaseInteraction
     {
-        // 交互距离与正面判定（2026-11-06 裁决）：前方 120° 锥 ＋ 1.5 粗格，大物件按包围盒最近点。
-        // 背面不显示交互按钮；贴身时不判朝向，避免贴着墙站反而点不到。
-        public const double Distance=1.5, FrontCosine=.5, FacingSlack=.15;
+        // 正面半圆含左右边界。人物以中心定方向，设施使用最近接触点。
+        public const double Distance=1.5, FrontCosine=0, FacingSlack=.15;
         private const double LordDistance = 2.25;
         // 玩家当前朝向：表现层运行时状态，不进存档。只由行走方向更新，停下后保持最后方向。
         public static BasePoint Facing=new BasePoint(0,1);
@@ -38,6 +37,7 @@ namespace BaseConquest.Base
             double playerLevel = board.SurfaceLevel(positionX, positionY);
             if (Math.Abs(playerLevel - targetLevel) >= 1e-6 &&
                 !(lord && NearTopOfStair(board, positionX, positionY, playerLevel, targetLevel))) return false;
+            if (target.Kind == "npc") return InFront(target.X - positionX, target.Y - positionY, facing);
             return target.Id == "farm" || gap <= FacingSlack || InFront(closestX - positionX, closestY - positionY, facing);
         }
         public static bool CanReach(BaseState state,BaseMapObject target)
@@ -60,12 +60,7 @@ namespace BaseConquest.Base
             => target != null && state?.Leaders.Any(person => person.Id == target.Id) == true;
 
         private static bool InFront(double dx, double dy, BasePoint facing)
-        {
-            double distance = Math.Sqrt(dx * dx + dy * dy);
-            double facingLength = Math.Sqrt(facing.X * facing.X + facing.Y * facing.Y);
-            return distance < 1e-6 || facingLength < 1e-6 ||
-                (dx * facing.X + dy * facing.Y) / (distance * facingLength) >= FrontCosine;
-        }
+            => dx * facing.X + dy * facing.Y >= 0;
 
         private static bool NearTopOfStair(BattleBoard board, double x, double y, double playerLevel, double targetLevel)
         {

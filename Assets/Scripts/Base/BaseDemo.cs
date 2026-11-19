@@ -195,6 +195,8 @@ namespace BaseConquest.Base
         public static void EnsureCampLayout(BaseState state)
         {
             if(state?.Demo==null||state.Campaign?.Layouts==null)return;
+            if(state.Campaign.Location=="town")
+                BaseEnvironment.ClearSmithRoad(state.Campaign.Layouts.FirstOrDefault(map=>map.Region=="town"));
             if(!BaseDemoPrologue.Village(state)&&state.Demo.StoryScene?.Version!=2)BaseEnvironment.ClearCampApproach(state);
             if(state.Demo.CampLayoutVersion>=2)return;
             var camp=state.Campaign.Layouts.FirstOrDefault(map=>map.Region=="base");

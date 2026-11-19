@@ -188,7 +188,8 @@ namespace BaseConquest.Editor
                 File.WriteAllText(path,JsonUtility.ToJson(document));
                 File.Copy(path,path+".bak");
                 var catalog = Open();
-                Need(catalog.Entries().Single().Name=="A","初次读取槽位摘要失败");
+                var healthy = catalog.Entries().Single();
+                Need(healthy.Name=="A" && healthy.CanLoad && !healthy.CanRecover,"正常槽应直接读取，即使存在备份也只显示读取");
                 var stamp = File.GetLastWriteTimeUtc(path);
                 long length = new FileInfo(path).Length;
                 document.Label = "B";
@@ -198,7 +199,8 @@ namespace BaseConquest.Editor
 
                 File.WriteAllText(path,"{");
                 var reopened = Open();
-                Need(File.Exists(path) && reopened.Entries().Single().Error!=null,"损坏主档应保留在槽位并报告错误");
+                var damaged = reopened.Entries().Single();
+                Need(File.Exists(path) && damaged.Error!=null && !damaged.CanLoad && damaged.CanRecover,"损坏主档及有效上一版应可恢复");
                 var session = new BasePlaySession(reopened,Path.Combine(folder,"session"),false);
                 session.LoadPlayableSlot("slot1",true);
                 var loaded = session.Store.Load();
@@ -208,6 +210,10 @@ namespace BaseConquest.Editor
                 try { session.LoadPlayableSlot("slot1"); }
                 catch(ArgumentException) { rejected=true; }
                 Need(rejected && JsonUtility.ToJson(session.Store.Load())==before,"读取损坏主档后当前会话被修改");
+                File.WriteAllText(path+".bak","{");
+                Need(!reopened.Entries().Single().CanRecover,"损坏备份不应显示恢复");
+                File.Delete(path+".bak");
+                Need(!reopened.Entries().Single().CanRecover,"空备份不应显示恢复");
             }
             finally
             {

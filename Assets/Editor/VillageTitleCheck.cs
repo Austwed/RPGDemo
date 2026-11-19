@@ -82,7 +82,9 @@ namespace BaseConquest.Editor
                         PressText("返回");
                         Require(Btn("Load").gameObject.activeInHierarchy, "设置返回标题");
                         Btn("Load").onClick.Invoke();
-                        PressText("返回");
+                        Require(!owner.Hud.VisualRoot.GetComponentsInChildren<Button>().Any(b =>
+                            b.GetComponentInChildren<Text>()?.text == "返回"), "读档页只保留关闭");
+                        PressText("关闭");
                         Require(Btn("New").gameObject.activeInHierarchy, "读档返回标题");
                         Btn("New").onClick.Invoke();
                         step++;

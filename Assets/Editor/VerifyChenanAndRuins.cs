@@ -178,6 +178,13 @@ namespace BaseConquest.Editor
             Need(!BaseInteraction.CanReach(state, companion, 6.5, 6.65, north), "贴身背后的伙伴不应绕过朝向");
             Need(BaseInteraction.CanReach(state, companion, 6.5, 7.25, south), "原地转向伙伴后应可交互");
             Need(!BaseInteraction.CanReach(state, companion, 6.5, 8.2, south), "伙伴应保持原有交互半径");
+            foreach (int side in new[] {-1, 1})
+            {
+                double x = companion.X + side;
+                Need(BaseInteraction.CanReach(state, companion, x, companion.Y, north), "正左右边界应可与伙伴交谈");
+                Need(!BaseInteraction.CanReach(state, companion, x, companion.Y+.01, north), "半圆边界稍后的伙伴不应出现交互");
+                Need(BaseInteraction.CanReach(state, companion, x, companion.Y-.01, north), "半圆边界稍前的伙伴应可交互");
+            }
 
             var board = BattleBoard.CreateDefault(12, 12);
             var lord = new BaseMapObject("town_quest", "领主", 6.5, 6.5, .5, .5, false, kind: "npc");
@@ -190,7 +197,9 @@ namespace BaseConquest.Editor
             Need(BaseInteraction.CanReach(board, lord, 6.5, 4.75, north), "面向领主走到相连楼梯顶部时应可交谈");
             Need(!BaseInteraction.CanReach(board, lord, 6.5, 4.25, north), "楼梯下半段与领主仍隔层");
             Need(!BaseInteraction.CanReach(board, lord, 7.4, 6.5, new BasePoint(-1, 0)), "高台外即使很近也不能隔层交谈");
-            Debug.Log("[ExplorationInteraction] 伙伴朝向、领主高台距离与楼梯判定 PASS");
+            Need(!BaseInteraction.CanReach(board, lord, 6.5, 6.8, north), "普通人物贴身在背后仍不可交谈");
+            Need(BaseInteraction.CanReach(board, lord, 6.8, 6.5, north), "人物在正侧方可交谈");
+            Debug.Log("[ExplorationInteraction] 正面半圆含左右边界、贴身背后人物、领主高台距离与楼梯判定 PASS");
         }
         // P38（2026-11-04 最新裁决，取代伤员三档的 50%／20%）：
         // 士兵生命 <30% 不能工作也不能主动出战；≥30% 两者都可以。遇袭守家例外：还能行动就能迎战。
@@ -640,10 +649,23 @@ namespace BaseConquest.Editor
             Need(BaseDemoNpcs.Additional(later).Any(o=>o.Id==BaseDemoStories.GalanMarker),"镇民离去时带走了迦兰");
             Need(!BaseAftermath.Decide(later,prisoner.Id,"release")&&!BaseAftermath.Decide(later,prisoner.Id,"execute"),"普通处置能移走剧情人物");
             Need(BaseDemoStories.ExecuteController(later,prisoner.Id)&&BaseDemoNpcs.Additional(later).All(o=>o.Id!=BaseDemoStories.GalanMarker)&&!BaseDemoStories.AcceptController(later,prisoner.Id),"处决后仍可接纳");
+            var executed = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(later));
+            BaseEconomy.Validate(executed);
+            Need(executed.Aftermath.Prisoners.Single(p => p.Id == prisoner.Id).Status == "executed" &&
+                !BaseDemoStories.ExecuteController(executed, prisoner.Id) &&
+                BaseDemoNpcs.Additional(executed).All(person => person.Id != BaseDemoStories.GalanMarker),
+                "处斩后读取存档复活了迦兰，或可重复处置");
+            var full = state.Copy();
+            full.Demo.Rpg.Capacity[full.Demo.Rpg.CampLevel - 1] = BaseRpg.Population(full);
+            Need(!BaseDemoStories.AcceptController(full, prisoner.Id) && !full.Demo.Flow.ControllerAccepted &&
+                BaseDemoNpcs.Additional(full).Any(person => person.Id == BaseDemoStories.GalanMarker),
+                "营帐已满时接纳消耗了入口人物或写入了接纳标记");
             Need(BaseDemoStories.ControllerDialogue(state,prisoner.Id),"首通控制者专属剧情未生效");
             Need(!BaseAftermath.Decide(state,prisoner.Id,"recruit"),"首通控制者在接纳前不应直接招降");
             Need(BaseDemoStories.AcceptController(state,prisoner.Id),"首通控制者接纳失败");
             Need(state.Demo.Flow.ControllerAccepted&&state.Demo.Flow.ControllerPledged,"首通接纳标记未落地");
+            Need(!BaseDemoStories.AcceptController(state,prisoner.Id) && !BaseDemoStories.ExecuteController(state,prisoner.Id) &&
+                BaseDemoNpcs.Additional(state).All(person => person.Id != BaseDemoStories.GalanMarker),"接纳后仍有第二个可处置的迦兰");
             var recruited=state.Leaders.Single(l=>l.Id=="partner_recruit:"+prisoner.Id);
             Need(BasePartnerDialogue.Prefix(state,recruited)=="story.partner_galan","首通迦兰未使用专属对白");
             Debug.Log("[VerifyRuinsFirstClear] 首通标记、控制者外观、接纳前置、ControllerAccepted/Pledged 与专属对白 PASS");

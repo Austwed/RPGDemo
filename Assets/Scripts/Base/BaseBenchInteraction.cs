@@ -85,7 +85,15 @@ namespace BaseConquest.Base
             if (leavingBench && benchSitProgress == 0) ClearBenchSeat();
             PlacePlayer();
             if (sittingDown && benchSitProgress == 1f)
-                Hud.OpenSlots(true, fromBench: true);
+            {
+                try
+                {
+                    Companions.Capture(State);
+                    BaseBattleGateway.Session().SaveExplorationNode(State, "长椅休息");
+                    ReportMessage("已自动存档");
+                }
+                catch (System.Exception error) { ReportMessage("自动存档失败：" + error.Message); }
+            }
             return true;
         }
 

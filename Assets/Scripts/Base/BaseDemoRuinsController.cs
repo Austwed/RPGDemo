@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using BaseConquest.Battle;
+using BaseConquest.Presentation;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -9,6 +10,53 @@ namespace BaseConquest.Base
     public sealed partial class BaseSceneController
     {
         private BaseState beforeDemoRuins;
+        // The verdict is saved in the prisoner record. The body belongs only to this entrance visit.
+        private BaseMapObject fallenGalan;
+        private HeroFacing fallenGalanFacing;
+        private double galanFallStarted;
+
+        internal void ExecuteWaitingGalan()
+        {
+            var marker = MapObjects.FirstOrDefault(o => o.Id == BaseDemoStories.GalanMarker);
+            if (marker == null || !npcViews.TryGetValue(marker.Id, out var actor)) { Hud.ClosePanel(); return; }
+            if (!Change(s => {
+                if (!BaseDemoStories.ExecuteController(s, s.Demo.Flow.FirstControllerId))
+                    throw new InvalidOperationException("迦兰已经离开。");
+            }, "")) return;
+            fallenGalan = marker;
+            fallenGalanFacing = actor.GetComponent<CompanionSpriteView>().Facing;
+            galanFallStarted = Time.unscaledTimeAsDouble;
+            npcViews.Remove(marker.Id);
+            PlayGalanFall(actor);
+            Hud.ClosePanel();
+            Hud.RefreshMapLabels();
+        }
+
+        private void RestoreFallenGalanView()
+        {
+            if (fallenGalan == null) return;
+            if (State == null || !BaseSceneRules.Entrance(State)) { fallenGalan = null; return; }
+            var body = AuthoredMapView.Create(explorationActors, fallenGalan, WorldPoint(fallenGalan.X, fallenGalan.Y),
+                mapMaterial, regionView.ObliqueExploration);
+            PlayGalanFall(body);
+        }
+
+        private void PlayGalanFall(AuthoredMapView body)
+        {
+            body.name = "GalanFallen";
+            var sprite = body.GetComponent<CompanionSpriteView>();
+            StartCoroutine(Animate());
+            System.Collections.IEnumerator Animate()
+            {
+                while (sprite != null)
+                {
+                    double elapsed = Time.unscaledTimeAsDouble - galanFallStarted;
+                    sprite.Preview(HeroPose.Down, elapsed, fallenGalanFacing);
+                    if (elapsed >= 1) yield break;
+                    yield return null;
+                }
+            }
+        }
         public void MeetDemoPartner(string id)
         {if(Change(next=>{if(!BaseDemoRuins.Meet(next,id))throw new InvalidOperationException("请完成醒来并在伙伴旁交谈");},"已了解伙伴背景；是否同行由你决定"))Hud.OpenDemoPartner(id);}
         public void JoinDemoPartner(string id, bool requestFollow = true)

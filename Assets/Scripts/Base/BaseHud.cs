@@ -368,7 +368,7 @@ namespace BaseConquest.Base
                 Ui<Text>(view, "Title").text = title;
                 var close = Ui<Button>(view, "Close");
                 close.onClick.AddListener(ClosePanel);
-                close.interactable = !(BaseDemoIntro.Daily(owner.State) && owner.State.Demo.Intro.Step == 0)
+                close.interactable = SlotListOpen || !(BaseDemoIntro.Daily(owner.State) && owner.State.Demo.Intro.Step == 0)
                     && owner.State?.Aftermath.GameOver != true && !BaseBattleGateway.MainMenu && !BaseBattleLoot.Pending(owner.State);
                 panelScroll = Ui<ScrollRect>(view, "Viewport");
                 content = panelScroll.content;
@@ -393,7 +393,7 @@ namespace BaseConquest.Base
             panel.anchorMin=panel.anchorMax=panel.pivot=Vector2.one*.5f;panel.anchoredPosition=new Vector2(0,-36);panel.sizeDelta=new Vector2(960,540);panel.gameObject.GetOrAdd<Image>().color=DemoUiTheme.Current.Panel;
             Label(panel, title, new Vector2(-85, 230), new Vector2(710, 55), DemoUiMetrics.FontPanelTitle);
             var closeButton=MakeButton(panel, "关闭", new Vector2(390, 230), new Vector2(130, 50), ClosePanel);
-            closeButton.interactable = !(BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) && owner.State?.Aftermath.GameOver != true && !BaseBattleGateway.MainMenu && !BaseBattleLoot.Pending(owner.State);
+            closeButton.interactable = SlotListOpen || !(BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) && owner.State?.Aftermath.GameOver != true && !BaseBattleGateway.MainMenu && !BaseBattleLoot.Pending(owner.State);
             var viewport = Box("Viewport", panel, Vector2.one * 0.5f, new Vector2(0, -28), new Vector2(900, 440), DemoUiTheme.Current.Panel); viewport.gameObject.GetOrAdd<RectMask2D>();
             content = Rect("Content", viewport, new Vector2(0.5f, 1), Vector2.zero, new Vector2(880, 440)); content.pivot = new Vector2(0.5f, 1); content.gameObject.GetOrAdd<UiDynamicContent>(); content.GetComponent<UiVisualNode>().UseAuthoredLayout=false;
             panelScroll = viewport.gameObject.GetOrAdd<ScrollRect>(); panelScroll.viewport = viewport; panelScroll.content = content; panelScroll.horizontal = false; panelScroll.movementType = ScrollRect.MovementType.Clamped;
@@ -449,7 +449,13 @@ namespace BaseConquest.Base
         }
         public void ClosePanel()
         {
-            if (CloseDialogueSkipSummary()) return;
+            if (SlotListOpen)
+            {
+                if (BaseBattleGateway.MainMenu) OpenMainMenu();
+                else if (owner.State?.Aftermath.GameOver == true) OpenGameOver();
+                else OpenMenu();
+                return;
+            }
             if (ResourcePopoverOpen) { CloseResourcePopover(); return; }
             if (ClosePreparationHelp()) return;
             if (DialogueExitLocked) return;
@@ -460,7 +466,7 @@ namespace BaseConquest.Base
             productionView = null;
             ClearPanelSelection();
             if (PanelOpen) PanelClosedFrame = Time.frameCount;
-            dialogueContinue = dialogueDefault = dialogueFinishText = null;
+            dialogueContinue = skipNarration = null;
             dialogueTick = null;
             modal.gameObject.SetActive(false); activeObject = "";interactionObject=""; panelViewKey = null; panelScrollOffsets.Clear();
             BattlePreparationPanelClosed();

@@ -74,13 +74,27 @@ namespace BaseConquest.Presentation
         private Mesh mesh;private Material[] materials;
         private Vector3[] raisedVertices,flatVertices;
         private int[][] allTriangles,triangleCells;
+        private readonly Texture2D[] edgeMasks = new Texture2D[2];
+        private ushort[,] slotsByCell;
+        private int width;
         // 路面边缘只有两种：石板(cobble)与泥径(mud)。统一 Cainos 后两种都换：cobble→Stone()，mud→path-64-v1。
         private static readonly string[] FallbackBase={"cobble","mud"};
         public static EnvironmentRoadEdges Build(BaseState state,BattleBoard b,Transform parent,bool raised)
         {
             if(state==null||!BaseEnvironment.Active(state)&&!b.Cells.Any(c=>c.Surface==GroundSurface.Cobble||c.Surface==GroundSurface.DirtPath))return null;var root=new GameObject("EnvironmentRoadEdges",typeof(MeshFilter),typeof(MeshRenderer),typeof(EnvironmentRoadEdges));root.transform.SetParent(parent,false);var view=root.GetComponent<EnvironmentRoadEdges>();
             view.materials=new Material[2];var on=HomeTerrainTrial.Enabled&&HomeTerrainTrial.Eligible(state);var trial=on?HomeTerrainTrial.Texture(GroundSurface.DirtPath):null;var stone=on?HomeTerrainTrial.Stone():null;
-            for(int i=0;i<2;i++){view.materials[i]=new Material(Resources.Load<Shader>("Presentation/RoadTransition"));view.materials[i].SetTexture("_BaseMap",i==1&&trial!=null?trial:i==0&&stone!=null?stone:Resources.Load<Texture2D>("Environment/"+FallbackBase[i]));view.materials[i].SetTexture("_MaskMap",Resources.Load<Texture2D>("Environment/"+(i==0?"cobble-edge":"mud-edge")));view.materials[i].SetVector("_Grid",new Vector4(b.Width,b.Height,BattleBoardView.CellSize,0));}
+            view.width = b.Width;
+            view.slotsByCell = new ushort[b.Width * b.Height, 2];
+            var shader = Resources.Load<Shader>("Presentation/RoadTransition");
+            for (int i = 0; i < view.materials.Length; i++)
+            {
+                var material = view.materials[i] = new Material(shader);
+                var surface = i == 0 ? stone : trial;
+                material.SetTexture("_BaseMap", surface != null ? surface : Resources.Load<Texture2D>("Environment/" + FallbackBase[i]));
+                view.edgeMasks[i] = Resources.Load<Texture2D>("Environment/" + (i == 0 ? "cobble-edge" : "mud-edge"));
+                material.SetTexture("_MaskMap", view.edgeMasks[i]);
+                material.SetVector("_Grid", new Vector4(b.Width, b.Height, BattleBoardView.CellSize, 0));
+            }
             var verts=new List<Vector3>();var uv=new List<Vector2>();var groups=new[]{new List<int>(),new List<int>()};var cells=new[]{new List<int>(),new List<int>()};var dirs=new[]{new GridPosition(0,1),new GridPosition(1,0),new GridPosition(0,-1),new GridPosition(-1,0)};
             foreach(var p in b.Positions())
             {
@@ -92,6 +106,7 @@ namespace BaseConquest.Presentation
                     var sides=dirs.Select(d=>Road(p+d)).ToArray();var corners=new[]{new GridPosition(-1,1),new GridPosition(1,1),new GridPosition(1,-1),new GridPosition(-1,-1)}.Select(d=>Road(p+d)).ToArray();
                     foreach(int slot in BaseEnvironment.RoadEdgeSlots(sides,corners))
                     {
+                        view.slotsByCell[p.Z*b.Width+p.X,kind] |= (ushort)(1 << slot);
                     int start=verts.Count;float x0=slot%4/4f,x1=x0+.25f,y1=1-slot/4/4f,y0=y1-.25f;var center=BattleBoardView.World(p,b);float r=BattleBoardView.CellSize*.5f;
                     verts.AddRange(new[]{center+new Vector3(-r,BaseTerrainView.Height(b,p,0,0)+.035f,-r),center+new Vector3(-r,BaseTerrainView.Height(b,p,0,1)+.035f,r),center+new Vector3(r,BaseTerrainView.Height(b,p,1,1)+.035f,r),center+new Vector3(r,BaseTerrainView.Height(b,p,1,0)+.035f,-r)});uv.AddRange(new[]{new Vector2(x0,y0),new Vector2(x0,y1),new Vector2(x1,y1),new Vector2(x1,y0)});groups[kind].AddRange(new[]{start,start+1,start+2,start,start+2,start+3});cells[kind].Add(p.Z*b.Width+p.X);
                     }
@@ -99,6 +114,25 @@ namespace BaseConquest.Presentation
             }
             view.raisedVertices=verts.ToArray();view.flatVertices=verts.Select(v=>new Vector3(v.x,.035f,v.z)).ToArray();view.allTriangles=groups.Select(g=>g.ToArray()).ToArray();view.triangleCells=cells.Select(c=>c.ToArray()).ToArray();
             view.mesh=new Mesh{name="EnvironmentPathEdges"};view.mesh.SetVertices(verts);view.mesh.SetUVs(0,uv);view.mesh.subMeshCount=2;for(int i=0;i<2;i++)view.mesh.SetTriangles(groups[i],i);root.GetComponent<MeshFilter>().sharedMesh=view.mesh;root.GetComponent<Renderer>().sharedMaterials=view.materials;root.GetComponent<Renderer>().sortingOrder=-30000;view.SetRaised(raised);return view;
+        }
+        // The visible road extends onto neighbouring grass. Read the same atlas
+        // texel as the point-filtered road shader, with the top submesh first.
+        internal GroundSurface SurfaceAt(GridPosition cell, float localX, float localZ)
+        {
+            int index = cell.Z * width + cell.X;
+            for (int kind = 1; kind >= 0; kind--)
+            {
+                int slots = slotsByCell[index, kind];
+                if (slots == 0) continue;
+                var mask = edgeMasks[kind];
+                int w = mask.width / 4, h = mask.height / 4;
+                int x = Mathf.Clamp(Mathf.FloorToInt(localX * w), 0, w - 1);
+                int z = Mathf.Clamp(Mathf.FloorToInt(localZ * h), 0, h - 1);
+                for (int slot = 0; slots != 0; slot++, slots >>= 1)
+                    if ((slots & 1) != 0 && mask.GetPixel(slot % 4 * w + x, (3 - slot / 4) * h + z).a >= .5f)
+                        return kind == 0 ? GroundSurface.Cobble : GroundSurface.DirtPath;
+            }
+            return GroundSurface.Grass;
         }
         public void SetRaised(bool raised){if(mesh==null)return;mesh.vertices=raised?raisedVertices:flatVertices;mesh.RecalculateNormals();mesh.RecalculateBounds();}
         public void SetKnown(bool[] known)

@@ -246,7 +246,6 @@ namespace BaseConquest.Base
         {
             owner.Change(next=>next.Demo.Flow.BanditCleared=true,"");
             NpcDialogue(new[]{
-                new NpcLine("你","","匪首已死。把寨里抢来的军资清点一下。",true),
                 new NpcLine("旁白","","黑鸦寨已拿下，通往白桦村的南路开了。")
             },new[]{new NpcReply("处理战果",()=>{ClosePanel();if(BaseBattleLoot.Pending(owner.State))OpenLoot();else OpenDemoStory();})});
         }
@@ -261,7 +260,7 @@ namespace BaseConquest.Base
         }
         internal void OpenDemoCampSuppliesFound()
         {
-            NpcDialogue(new[]{new NpcLine("你","",StoryText.Get("story.ui.finale.camp_supplies_collected","他们走得急，这些东西都没带走。"),true)},
+            NpcDialogue(new[]{new NpcLine("旁白","",StoryText.Get("story.ui.finale.camp_supplies_collected","他们走得急，这些东西都没带走。"))},
                 Array.Empty<NpcReply>(),onCompleted:ClosePanel);
         }
 
@@ -273,7 +272,7 @@ namespace BaseConquest.Base
                 state.Demo.Flow.HomeEnterSeen||BaseDemoFinale.Rebuilding(state)||BaseBattleLoot.Pending(state))return false;
             activeObject="demo-home-arrival";
             var lines=new List<NpcLine>{
-                new NpcLine("你","","门板歪了，粮仓也被搬空。走前巷子里还有人声。",true)
+                new NpcLine("旁白","","门板歪了，粮仓也被搬空。巷子里听不见人声。")
             };
             if(BaseAdventure.Following(state,"partner_farm"))
                 lines.Add(new NpcLine("阿禾","ahe","院子翻成这样……人还在，咱们慢慢收拾。"));
@@ -297,13 +296,17 @@ namespace BaseConquest.Base
             if(!BaseDemoFinale.Enabled(owner.State))return false;
             if(id=="demo_march_exit"&&!BaseDemoFinale.Opened(owner.State))
             {
+                if (BaseDemoFinale.SecondRaidReportPending(owner.State)) { OpenSecondRaidVictoryReport(); return true; }
+                if (BaseDemoDefense.AnyDue(owner.State)) { OpenDemoScoutWarning(); return true; }
+                if (!BaseDemoDefense.Won(owner.State)) { OpenChenanRoadChat(); return true; }
                 if(owner.State.Demo.Defense.BatuStoryDay==0){OpenDemoDefenseAftermath();return true;}
                 if(BaseDemoFinale.OccupiedBySecondDefense(owner.State)){owner.PrepareDemoJourney();return true;}
                 activeObject="demo-roads";interactionObject="";
                 NpcDialogue(new[]{
                     new NpcLine(BaseScriptNames.Scout,"chenan","大人，从南口上官道，一天就到黑鸦寨。"),
                     new NpcLine(BaseScriptNames.Scout,"chenan","清点完寨里的战果，再往南走一天，就是白桦村。")
-                },new[]{new NpcReply("查看路线并选择出征队",owner.PrepareDemoJourney,!BaseBattleLoot.Pending(owner.State)),new NpcReply("先留营整备",ClosePanel)});return true;
+                },new[]{new NpcReply("查看路线并选择出征队",owner.PrepareDemoJourney,!BaseBattleLoot.Pending(owner.State)),
+                    new NpcReply("问问回村的路",OpenChenanRoadChat),new NpcReply("先留营整备",ClosePanel)});return true;
             }
             if(id=="demo_camp_attack")
             {
@@ -314,7 +317,7 @@ namespace BaseConquest.Base
             if(owner.State.Campaign.CurrentMapId==BaseDemoFinale.Home&&BaseDemoFinale.IsReturnField(id))
             {
                 activeObject=id;
-                NpcDialogue(new[]{new NpcLine("你","","那天阿禾还怕来不及下种。如今田埂上全是马蹄印。",true)},
+                NpcDialogue(new[]{new NpcLine("旁白","","那天阿禾还怕来不及下种。如今田埂上全是马蹄印。")},
                     Array.Empty<NpcReply>(),onCompleted:ClosePanel);
                 return true;
             }
@@ -333,10 +336,24 @@ namespace BaseConquest.Base
             activeObject="demo-sword";
             NpcDialogue(new[]{
                 new NpcLine("旁白","","断桥旁散着乱箭，一截断剑斜插在泥地里。"),
-                new NpcLine("你","","拨开泥，还是那个青绳结。这是搭档的剑。",true),
-                new NpcLine("你","","断口这么齐……像是东口那把王室秘银剑留下的。",true),
-                new NpcLine("你","","这车辙一直往西。搭档会不会在车上？",true)
+                new NpcLine("旁白","","拨开泥，剑柄上露出熟悉的青绳结。这是搭档的剑。"),
+                new NpcLine("旁白","","断口很齐，像是东口那把王室秘银剑留下的。"),
+                new NpcLine("旁白","","桥边有两道车辙，一直往西山去。")
             },new[]{new NpcReply("记录断剑 · 开始重建",owner.InvestigateDemoSword),new NpcReply("稍后调查",ClosePanel)});return true;
+        }
+
+        private void OpenChenanRoadChat()
+        {
+            NpcLine Line(string key, string fallback) =>
+                new NpcLine(BaseScriptNames.Scout, "chenan", StoryText.Get("story.scene.chenan.road." + key, fallback));
+            NpcDialogue(new[] { Line("opening", "村子不好回去咯。") }, new[] {
+                new NpcReply(StoryText.Get("story.scene.chenan.road.why", "为什么？"), () =>
+                    NpcDialogue(new[] {
+                        Line("bandits", "路上有个土匪寨子。上次运气好，他们在办宴会，我们从小路偷摸过来的。"),
+                        Line("lookouts", "现在远远就能看到那边不少放哨的，就等着镇上的人路过打劫呢。")
+                    }, Array.Empty<NpcReply>(), onCompleted: ClosePanel)),
+                new NpcReply("回头见", ClosePanel)
+            });
         }
     }
 }

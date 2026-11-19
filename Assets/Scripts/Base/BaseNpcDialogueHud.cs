@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using BaseConquest.Battle;
@@ -16,63 +15,48 @@ namespace BaseConquest.Base
         {
             public string Name,Appearance,Text;
             public bool Player;
-            public NpcLine(string name,string appearance,string text,bool player=false){Name=name;Appearance=player?appearance:BaseDemoNpcs.DialogueArt(name,appearance);Text=text;Player=player;}
+            public readonly string Intent;
+            public NpcLine(string name,string appearance,string text,bool player=false,string intent=null){Intent=intent;Name=name;Appearance=player?appearance:BaseDemoNpcs.DialogueArt(name,appearance);Text=text;Player=player;}
         }
         private sealed class NpcReply
         {
             public readonly string Text;
             public readonly Action Action;
-            public readonly bool Enabled, Unlocked, SkipDefault;
-            public NpcReply(string text, Action action, bool enabled = true, bool unlocked = true, bool skipDefault = true)
-            { Text = text; Action = action; Enabled = enabled; Unlocked = unlocked; SkipDefault = skipDefault; }
+            public readonly bool Enabled, Unlocked;
+            public NpcReply(string text, Action action, bool enabled = true, bool unlocked = true)
+            { Text = text; Action = action; Enabled = enabled; Unlocked = unlocked; }
         }
         private const float DialogueCharacterSeconds = .035f;
         private Action dialogueContinue;
+        private Action skipNarration;
         private Action<float> dialogueTick;
         private bool dialogueLocked;
         private Button dialogueQuestTarget;
-        private Action dialogueFinishText, dialogueDefault;
-        private string dialogueSkipSummary;
-        private RectTransform dialogueSkipPrompt;
-
         public bool DialogueOpen => PanelOpen && panelViewKey == "npc-dialogue";
         public bool DialogueExitLocked => DialogueOpen && dialogueLocked;
 
         public bool ContinueDialogue()
         {
-            if (!DialogueOpen || owner.Busy || dialogueSkipPrompt != null || dialogueContinue == null) return false;
+            if (!DialogueOpen || owner.Busy || dialogueContinue == null) return false;
             dialogueContinue();
             return true;
         }
 
         internal void TickDialogue(float seconds)
         {
-            if (DialogueOpen) { if (dialogueSkipPrompt == null) dialogueTick?.Invoke(seconds); }
+            if (DialogueOpen) dialogueTick?.Invoke(seconds);
             else dialogueTick = null;
         }
 
-        private void SkipDialogue(bool confirmed = false)
+        private void SkipToChoice()
         {
-            var visited = new HashSet<System.Reflection.MethodInfo>();
             var hud = this;
-            while (owner != null && !owner.Busy && hud.DialogueOpen && hud.dialogueSkipPrompt == null && hud.dialogueFinishText != null)
+            while (hud != null && hud.DialogueOpen && !hud.owner.Busy && hud.skipNarration != null)
             {
-                if (!confirmed && !string.IsNullOrEmpty(hud.dialogueSkipSummary))
-                {
-                    hud.OpenDialogueSkipSummary(hud.dialogueSkipSummary);
-                    return;
-                }
-                confirmed = false;
-                var current = hud.panel;
-                hud.dialogueFinishText();
-                var next = hud.dialogueDefault;
-                // The first reply in a repeatable companion menu leads back to chatting.
-                if (next == null || !visited.Add(next.Method)) return;
-                hud.dialogueLocked = false;
-                hud.InvokeDialogueAction(next);
-                // 招募和切换地图会重建界面，紧接着的回应挂在新的 HUD 上。
-                hud = owner == null ? null : owner.Hud;
-                if (hud == null || hud.panel == current) return;
+                var finish = hud.skipNarration;
+                hud.skipNarration = null;
+                finish();
+                hud = owner != null ? owner.Hud : null;
             }
         }
 
@@ -88,30 +72,8 @@ namespace BaseConquest.Base
             hint.gameObject.SetActive(true);
         }
 
-        private void OpenDialogueSkipSummary(string summary)
-        {
-            var prompt = dialogueSkipPrompt = CloneSceneUi("DialogueSkipSummary", modal);
-            Ui<Text>(prompt, "Window/Body").text = "对话摘要：" + summary;
-            var cancel = Ui<Button>(prompt, "Window/Cancel");
-            cancel.onClick.AddListener(() => CloseDialogueSkipSummary());
-            Ui<Button>(prompt, "Window/Confirm").onClick.AddListener(() =>
-            {
-                if (dialogueSkipPrompt == prompt && CloseDialogueSkipSummary()) SkipDialogue(true);
-            });
-            cancel.Select();
-        }
-
-        internal bool CloseDialogueSkipSummary()
-        {
-            if (dialogueSkipPrompt == null) return false;
-            dialogueSkipPrompt.gameObject.SetActive(false);
-            UiPrefabBinding.DestroyView(dialogueSkipPrompt.gameObject);
-            dialogueSkipPrompt = null;
-            return true;
-        }
-
         private void NpcDialogue(NpcLine[] lines, NpcReply[] replies, bool lockExitUntilFinished = false, Action onCompleted = null,
-            bool quietAdvance = false, bool guide = false, string skipSummary = null)
+            bool quietAdvance = false, bool guide = false)
         {
             var view = OpenScenePanel("NpcDialogue", "npc-dialogue");
             root.GetComponent<Canvas>().sortingOrder = 300;
@@ -153,51 +115,131 @@ namespace BaseConquest.Base
             surface.onClick.AddListener(() => ContinueDialogue());
             advance.onClick.AddListener(() => ContinueDialogue());
             var visibleReplies = replies.Where(reply => reply.Unlocked).ToArray();
-            var replyRows = new (Button Button, Text Label, NpcReply Reply)[Math.Max(1, visibleReplies.Length)];
-            bool textFinished = false;
-            for (int i = 0; i < replyRows.Length; i++)
+            // A press started on Skip cannot land on a reply that appears before release.
+            var skip = UnityEngine.Object.Instantiate(template, choices.content, false);
+            skip.name = "SkipDialogue";
+            skip.GetComponentInChildren<Text>(true).text = "跳过对话";
+            skip.interactable = true;
+            skip.onClick.AddListener(() =>
             {
-                bool firstRow = i == 0;
-                var reply = visibleReplies.Length == 0 ? null : visibleReplies[i];
-                var button = UnityEngine.Object.Instantiate(template, choices.content, false);
-                var label = button.GetComponentInChildren<Text>(true);
-                label.text = firstRow ? "跳过对话" : "...";
-                button.interactable = firstRow;
-                replyRows[i] = (button, label, reply);
-                button.gameObject.SetActive(true);
-                button.onClick.AddListener(() =>
+                if (DialogueOpen && panel == view && !owner.Busy && skip.isActiveAndEnabled) SkipToChoice();
+            });
+            var rows = new Button[Math.Max(1, visibleReplies.Length)];
+            var labels = new Text[rows.Length];
+            float minRowHeight = template.GetComponent<LayoutElement>().minHeight;
+            for (int i = 0; i < rows.Length; i++)
+            {
+                rows[i] = UnityEngine.Object.Instantiate(template, choices.content, false);
+                labels[i] = rows[i].GetComponentInChildren<Text>(true);
+            }
+            ShowSegment(0);
+            RefreshSummary();
+            Canvas.ForceUpdateCanvases();
+
+            string Resolve(string source)
+            {
+                string address = BaseDemoIntro.Address(owner.State);
+                return source.Replace("{称呼}", address).Replace("{Player}", address)
+                    .Replace("{搭档代词}", BaseDemoIntro.CaptainArt(owner.State) == "female" ? "她" : "他")
+                    .Replace("{Partner}", BaseDemoIntro.PartnerName(owner.State));
+            }
+
+            void Bind(int index, string text, Action click, bool enabled = true)
+            {
+                var button = rows[index];
+                var label = labels[index];
+                label.text = text;
+                label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                label.supportRichText = false;
+                button.GetComponent<LayoutElement>().preferredHeight = Mathf.Max(minRowHeight, label.preferredHeight + 8);
+                button.name = "Reply";
+                button.onClick.RemoveAllListeners();
+                button.interactable = enabled;
+                if (click != null) button.onClick.AddListener(() =>
                 {
-                    if (owner.Busy || panel != view || dialogueSkipPrompt != null || !choices.isActiveAndEnabled || !button.IsInteractable()) return;
-                    if (!textFinished) { if (firstRow) SkipDialogue(); return; }
-                    if (reply == null) return;
-                    InvokeDialogueAction(reply.Action);
+                    if (!owner.Busy && DialogueOpen && panel == view && button.isActiveAndEnabled && button.IsInteractable())
+                        InvokeDialogueAction(click);
                 });
             }
 
-            var defaultReply = visibleReplies.FirstOrDefault(reply => reply.Enabled);
-            dialogueDefault = defaultReply == null ? onCompleted : defaultReply.SkipDefault ? defaultReply.Action : null;
-            dialogueFinishText = () => PresentLine(lines.Length - 1, true);
-            dialogueSkipSummary = skipSummary;
-            dialogueLocked = lockExitUntilFinished || quietAdvance;
-            choices.gameObject.SetActive(true);
-            PresentLine(0);
-            RefreshSummary();
-            Canvas.ForceUpdateCanvases();
-            if (replyRows.Length > 0) choices.verticalNormalizedPosition = 1;
+            void ShowRows(int count, bool reading = false)
+            {
+                choices.gameObject.SetActive(count > 0);
+                skip.gameObject.SetActive(reading);
+                for (int i = 0; i < rows.Length; i++)
+                    rows[i].gameObject.SetActive(i < count && (!reading || i > 0));
+                if (count > 0) choices.verticalNormalizedPosition = 1;
+            }
 
-            void PresentLine(int index, bool immediate = false)
+            void AwaitChoice(int next)
+            {
+                dialogueContinue = null;
+                skipNarration = null;
+                dialogueTick = null;
+                advance.gameObject.SetActive(false);
+                hint.gameObject.SetActive(false);
+                if (next < lines.Length)
+                {
+                    var line = lines[next];
+                    Bind(0, Resolve(line.Intent ?? line.Text), () => ShowSegment(line.Intent == null ? next + 1 : next, line.Intent != null));
+                    rows[0].name = "PlayerSpeechChoice";
+                    ShowRows(1);
+                    if (guide) dialogueQuestTarget = rows[0];
+                    return;
+                }
+                dialogueLocked = false;
+                ShowRows(visibleReplies.Length);
+                for (int i = 0; i < visibleReplies.Length; i++)
+                {
+                    var reply = visibleReplies[i];
+                    Bind(i, Resolve(reply.Text), reply.Action, reply.Enabled);
+                }
+                if (guide)
+                {
+                    int first = Array.FindIndex(visibleReplies, reply => reply.Enabled);
+                    dialogueQuestTarget = first >= 0 ? rows[first] : null;
+                }
+                if (visibleReplies.Length == 0) onCompleted?.Invoke();
+            }
+
+            // Each run of narrated pages ends at the next player line or authored reply.
+            void ShowSegment(int first, bool playerChoseVoice = false)
+            {
+                dialogueLocked = lockExitUntilFinished || quietAdvance;
+                if (first == lines.Length || (lines[first].Player && !playerChoseVoice))
+                {
+                    if (first == 0)
+                    {
+                        portrait.gameObject.SetActive(false);
+                        name.text = speech.text = "";
+                    }
+                    AwaitChoice(first);
+                    return;
+                }
+                int end = first + 1;
+                while (end < lines.Length && !lines[end].Player) end++;
+                bool endsInChoice = end < lines.Length || visibleReplies.Length > 0;
+                ShowRows(end < lines.Length ? 1 : rows.Length, reading: true);
+                skipNarration = () =>
+                {
+                    if (endsInChoice) PresentLine(end - 1, end, true);
+                    else AwaitChoice(end);
+                };
+                for (int i = 1; i < rows.Length; i++) Bind(i, "...", null, false);
+                dialogueQuestTarget = guide ? advance : null;
+                PresentLine(first, end);
+            }
+
+            void PresentLine(int index, int end, bool immediate = false)
             {
                 var line = lines[index];
                 avatar.PlayerHero = line.Player;
                 avatar.AppearanceId = line.Player ? BaseDemoIntro.PlayerArt(owner.State) : line.Appearance;
                 portrait.gameObject.SetActive(line.Player || !string.IsNullOrEmpty(line.Appearance));
                 name.text = line.Name;
-                var address = BaseDemoIntro.Address(owner.State);
-                var fullText = line.Text.Replace("{称呼}", address)
-                    .Replace("{搭档代词}", BaseDemoIntro.CaptainArt(owner.State) == "female" ? "她" : "他")
-                    .Replace("{Player}", address).Replace("{Partner}", BaseDemoIntro.PartnerName(owner.State));
+                var fullText = Resolve(line.Text);
                 var characters = StringInfo.ParseCombiningCharacters(fullText);
-                var last = index == lines.Length - 1;
+                var last = index == end - 1;
                 var shown = 0;
                 var elapsed = 0f;
                 speech.text = "";
@@ -213,7 +255,7 @@ namespace BaseConquest.Base
                     else if (!last)
                     {
                         owner.OpeningAudio?.Play(VillageOpeningAudio.Cue.Page);
-                        PresentLine(index + 1);
+                        PresentLine(index + 1, end);
                     }
                     else if (onCompleted != null)
                     {
@@ -242,22 +284,10 @@ namespace BaseConquest.Base
                     speech.text = fullText;
                     dialogueTick = null;
                     if (!last) return;
-                    textFinished = true;
-                    dialogueLocked = quietAdvance || lockExitUntilFinished && onCompleted != null;
-                    choices.gameObject.SetActive(visibleReplies.Length > 0);
-                    foreach (var row in replyRows)
-                    {
-                        if (row.Reply == null) continue;
-                        row.Label.text = row.Reply.Text;
-                        row.Button.interactable = row.Reply.Enabled;
-                    }
-                    if (onCompleted == null)
-                    {
-                        dialogueContinue = null;
-                        advance.gameObject.SetActive(false);
-                        hint.gameObject.SetActive(false);
-                        if (guide) dialogueQuestTarget = replyRows.FirstOrDefault(row => row.Reply?.Enabled == true).Button;
-                    }
+                    if (end < lines.Length || visibleReplies.Length > 0)
+                        AwaitChoice(end);
+                    else
+                        ShowRows(0);
                 }
             }
         }

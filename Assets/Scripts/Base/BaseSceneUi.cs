@@ -74,9 +74,6 @@ namespace BaseConquest.Base
                 }
             }
             CloseResourcePopover();
-            CloseDialogueSkipSummary();
-            dialogueFinishText = dialogueDefault = null;
-            dialogueSkipSummary = null;
             if (panel != null)
             {
                 ClearPanelSelection();
@@ -87,7 +84,7 @@ namespace BaseConquest.Base
             panelScroll = null;
             panelFeedback = null;
             content = null;
-            dialogueContinue = null;
+            dialogueContinue = skipNarration = null;
             modal.GetComponent<Image>().color = DemoUiTheme.Current.Shade;
             modal.gameObject.SetActive(true);
             questBar?.gameObject.SetActive(false);

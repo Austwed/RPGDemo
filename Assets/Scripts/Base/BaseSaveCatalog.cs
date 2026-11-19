@@ -11,6 +11,8 @@ namespace BaseConquest.Base
         public string Id, Name, PlayerName, Error, SavedUtc, Location, SceneTitle;
         public int Day, Round;
         public bool GameOver, InBattle, Realtime;
+        public bool CanLoad => Error == null && !GameOver && !Realtime;
+        public bool CanRecover { get; internal set; }
         public double Seconds;
         public string CombatProgress => Realtime ? Seconds.ToString("0.0")+"秒" : "第"+Round+"轮";
         public string TimeLabel => DateTime.TryParse(SavedUtc,out var time) ? time.ToLocalTime().ToString("MM-dd HH:mm") : "";
@@ -132,11 +134,23 @@ namespace BaseConquest.Base
                 {
                     var entry = current!=null && current.TryGetValue(id,out var read) && read.Path==store.Path
                         ? read.Entry : ReadEntry(id,store);
-                    list.Add(entry.Copy());
+                    var listed = entry.Copy();
+                    if (listed.Error != null) listed.CanRecover = HasPlayableBackup(store);
+                    list.Add(listed);
                 }
-                catch(Exception e) { list.Add(new BaseSaveEntry {Id=id,Error=e.Message}); }
+                catch(Exception e) { list.Add(new BaseSaveEntry {Id=id,Error=e.Message,CanRecover=HasPlayableBackup(store)}); }
             }
             return list;
+        }
+        private static bool HasPlayableBackup(BaseSaveStore store)
+        {
+            if (!File.Exists(store.Path + ".bak")) return false;
+            try
+            {
+                var state = store.LoadBackup();
+                return !state.Aftermath.GameOver && BasePlaySession.RestoreError(state) == null;
+            }
+            catch (Exception) { return false; }
         }
         private BaseSaveEntry ReadEntry(string id, BaseSaveStore store)
         {
@@ -241,14 +255,25 @@ namespace BaseConquest.Base
             Restore(state,true);
         }
         public void Restore(BaseState state) => Restore(state,false);
+        public void SaveExplorationNode(BaseState state, string label)
+        {
+            catalog.SaveAuto(state, label);
+            Restore(state);
+        }
         private void Restore(BaseState state,bool ownsDiskCopy)
         {
-            if(!string.IsNullOrEmpty(state.SceneBattleId))throw new InvalidOperationException("同图遭遇不恢复战中状态，请读取战前节点");
-            if(state.Campaign.HasActiveBattle&&state.Campaign.ActiveBattle.RealtimeRules)throw new InvalidOperationException("不再恢复战中检查点，请选择对应战前或其他存档");
+            var error = RestoreError(state);
+            if (error != null) throw new InvalidOperationException(error);
             // Disk loads already validated and detached this state; callers of Restore keep ownership of theirs.
             if(ownsDiskCopy)Store.AdoptLoadedState(state);
             else Store.RestoreSession(state);
             beforeBattle=null;HasUnsavedChanges=false;LoadError=null;
+        }
+        internal static string RestoreError(BaseState state)
+        {
+            if (!string.IsNullOrEmpty(state.SceneBattleId)) return "同图遭遇不恢复战中状态，请读取战前节点";
+            return state.Campaign.HasActiveBattle && state.Campaign.ActiveBattle.RealtimeRules
+                ? "不再恢复战中检查点，请选择对应战前或其他存档" : null;
         }
         private static bool AwaitingName(BaseState state)=>BaseDemoIntro.Daily(state)&&state.Demo.Intro.Step==0;
         public void Start(BaseState state)

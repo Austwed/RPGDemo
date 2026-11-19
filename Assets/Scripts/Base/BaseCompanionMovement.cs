@@ -29,7 +29,7 @@ namespace BaseConquest.Base
         internal double BlockedSeconds;
         internal double RepathSeconds;
         internal BaseMotionAssist Motion=new BaseMotionAssist();
-        public BaseMapObject Footprint => new BaseMapObject(Id, SceneOnly?Name:"伙伴 · " + Name, Position.X, Position.Y, 0.45, 0.45);
+        public BaseMapObject Footprint => new BaseMapObject(Id, SceneOnly?Name:"伙伴 · " + Name, Position.X, Position.Y, 0.45, 0.45, kind: "npc");
     }
     // 表现任职与随行，日期／库存／资格仍由唯一经营状态决定。
     public sealed class BaseCompanionMovement

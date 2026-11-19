@@ -212,13 +212,21 @@ namespace BaseConquest.Editor
                     Approach("home");
                     H.OpenDemoStory();
                     Click("跳过对话");
-                    if (H.DialogueOpen || controller.State.Demo.Stage != BaseDemoStage.VisitLord)
-                        throw new InvalidOperationException("跳过苏醒对白没有执行首项答复");
+                    if (H.ContinueDialogue() || controller.State.Demo.Stage != BaseDemoStage.Waking)
+                        throw new InvalidOperationException("跳过越过了苏醒时的第一句主角回应");
+                    Click("嘶……这是哪儿？我睡了多久？");
+                    FinishDialogue();
+                    Click("起身，拜访领主");
                     Approach("demo_ahe");
                     H.OpenObject("demo_ahe");
                     Click("跳过对话");
-                    if (H.DialogueOpen || controller.State.Leaders.Count(person => person.Id == "partner_farm") != 1)
-                        throw new InvalidOperationException("跳过没有走完阿禾邀请及加入后的连续回应");
+                    FinishDialogue();
+                    if (controller.State.Leaders.Any(person => person.Id == "partner_farm"))
+                        throw new InvalidOperationException("快进对白擅自招募了阿禾");
+                    Click("好，一起走");
+                    FinishDialogue();
+                    if (controller.State.Leaders.Count(person => person.Id == "partner_farm") != 1)
+                        throw new InvalidOperationException("点选邀请后未加入营地");
                     Approach("exit_east");
                     controller.TravelDemo("town");
                     stage = "skip-town";
@@ -229,23 +237,38 @@ namespace BaseConquest.Editor
                     ApproachMerchantAwayFromStall();
                     H.OpenObject("town_peddler");
                     Click("跳过对话");
+                    if (!H.DialogueOpen) throw new InvalidOperationException("快进擅自打开了商店");
+                    Click(BaseConquest.Story.StoryText.Get("story.ui.trade.market_entry", "买卖东西"));
                     VerifyPersonTabWidths(RequirePanel("TownTrade"));
                     H.ClosePanel();
                     Approach("town_quest");
                     H.OpenObject("town_quest");
-                    H.ContinueDialogue();
-                    VerifyLordSkipCancel();
                     Click("跳过对话");
-                    var confirmedSummary = (RectTransform)Field(H, "dialogueSkipPrompt");
-                    Press(confirmedSummary, "Window/Confirm");
-                    if (H.DialogueOpen || controller.State.Demo.AcceptedDay == 0)
-                        throw new InvalidOperationException("确认跳过未接下霍恩的调查");
+                    if (H.ContinueDialogue() || controller.State.Demo.AcceptedDay != 0)
+                        throw new InvalidOperationException("快进替玩家向领主提出了请求");
+                    Click("多谢爵士接济。您可知道袭村的古裔从哪儿来？");
+                    Click("跳过对话");
+                    Click("我想在营地修工坊、招些人手。请您给道许可。");
+                    var heldSkip = RequirePanel("NpcDialogue").Find("Replies").GetComponent<ScrollRect>().content.Find("SkipDialogue").GetComponent<Button>();
+                    heldSkip.OnPointerDown(new PointerEventData(EventSystem.current) {button = PointerEventData.InputButton.Left});
+                    FinishDialogue();
+                    heldSkip.OnPointerUp(new PointerEventData(EventSystem.current) {button = PointerEventData.InputButton.Left});
+                    heldSkip.OnPointerClick(new PointerEventData(EventSystem.current) {button = PointerEventData.InputButton.Left});
+                    if (heldSkip.gameObject.activeInHierarchy) throw new InvalidOperationException("跳过按钮在答复出现后仍可接收松手事件");
+                    if (H.ContinueDialogue() || controller.State.Demo.AcceptedDay != 0)
+                        throw new InvalidOperationException("快进擅自接受领主委托");
+                    Click("暂且告辞");
+                    H.OpenObject("town_quest");
+                    FinishDialogue();
+                    Click("接受" + BaseScriptNames.Ruins + "调查");
+                    if (controller.State.Demo.AcceptedDay == 0) throw new InvalidOperationException("选择接取后领主委托未生效");
+                    VerifyRoyalSwordChoice();
                     H.OpenAzhuInvitation();
                     FinishDialogue();
                     Click("眼下有要事，改日再比");
                     Click("跳过对话");
                     if (H.DialogueOpen) throw new InvalidOperationException("无答复的独白跳过后未收起");
-                    Finish(0, "苏醒推进、商人首项、领主摘要与取消、确认接任务、独白收起 PASS");
+                    Finish(0, "苏醒与王室剑须主动发言，招募、交易及领主接取等待选择，纯叙述可跳过 PASS");
                     break;
                 case "opening-copy":
                     controller = C;
@@ -581,7 +604,8 @@ namespace BaseConquest.Editor
                         throw new InvalidOperationException("对白继续按钮未使用右箭头");
                     Capture("ui-skin-dialogue-placeholders");
                     FinishDialogue();
-                    if (pendingReplies.Any(button => !button.interactable || button.GetComponentInChildren<Text>().text == "..."))
+                    if (merchantDialogue.Find("Replies").GetComponentsInChildren<Button>()
+                        .Any(button => !button.interactable || button.GetComponentInChildren<Text>().text == "..."))
                         throw new InvalidOperationException("行商对白播完后未原位开放实际选项");
                     Click(BaseConquest.Story.StoryText.Get("story.ui.trade.market_entry", "买卖东西"));
                     var merchantMarket = RequirePanel("TownTrade");
@@ -643,7 +667,7 @@ namespace BaseConquest.Editor
                     var cancelPositions = cancelDraft.Positions.ToDictionary(pair => pair.Key, pair => pair.Value);
                     Press(BattleSafeArea(cancelRuins), "DraftPreparationControls/Start");
                     FinishDialogue();
-                    Click("追问他们为何不能动");
+                    Click("他们自己能走？还是得你发话？");
                     FinishDialogue();
                     Click("暂不交战");
                     if (RequireBattleDraft() != cancelRuins || H.PanelOpen ||
@@ -680,7 +704,17 @@ namespace BaseConquest.Editor
                     CaptureViewports("ui-skin-backpack-three");
                     VerifyTwoMemberBackpack();
                     VerifyBackpackTransfer();
-                    VerifyFacilityRosters();
+                    // This check exercises the ordinary player view, regardless of editor preferences.
+                    bool developerView = RuntimeDeveloperOptions.Enabled;
+                    try
+                    {
+                        if (developerView) RuntimeDeveloperOptions.Enabled = false;
+                        VerifyFacilityRosters();
+                    }
+                    finally
+                    {
+                        if (developerView) RuntimeDeveloperOptions.Enabled = true;
+                    }
                     VerifyRecruitRoster();
                     controller.LoadDemoStage("defense", "female");
                     stage = "defense-rosters-done"; frameDeadline = Time.frameCount + 15;
@@ -1480,43 +1514,38 @@ namespace BaseConquest.Editor
                 controller.Interact();
                 move.Invoke(controller, new object[] { Vector2.zero, .05 });
                 move.Invoke(controller, new object[] { Vector2.down, .05 });
-                if (view.Pose != HeroPose.Idle || H.PanelOpen)
-                    throw new InvalidOperationException("坐到一半起身应直接回到探索");
+                if (view.Pose != HeroPose.Idle || H.PanelOpen || !before.SequenceEqual(SnapshotSaves()))
+                    throw new InvalidOperationException("坐到一半起身应回到探索且不写档");
                 controller.Interact();
                 for (int n = 0; n < 9; n++) move.Invoke(controller, new object[] { Vector2.zero, .05 });
                 if (view.Pose != HeroPose.Seated || view.Facing != HeroFacing.South || view.AtlasFrame != 3 ||
                     controller.State.PlayerX != x || controller.State.PlayerY != y || controller.State.Demo.Intro.Step != 1)
                     throw new InvalidOperationException("长椅坐姿变更了实际位置或剧情");
-                if (RequirePanel("CommonPanel").Find("Title").GetComponent<Text>().text != "手动保存 · 3个槽位" ||
-                    !before.SequenceEqual(SnapshotSaves()))
-                    throw new InvalidOperationException("坐稳应打开手动槽，选择槽位前不应写档");
+                var after = SnapshotSaves();
+                var writes = after.Except(before).Select(line => line.Substring(0, line.IndexOf(':'))).ToArray();
+                var changedSlots = writes.Where(name => name.EndsWith(".json", StringComparison.Ordinal)).ToArray();
+                if (H.PanelOpen || changedSlots.Length != 1 || !BaseSaveCatalog.AutoSlots.Any(id =>
+                    changedSlots[0].EndsWith("-" + id + ".json", StringComparison.Ordinal)))
+                    throw new InvalidOperationException("坐稳应只写一个自动槽，继续显示地图");
+                var entry = catalog.Entries().Single(item =>
+                    Path.GetFileName(catalog.Store(item.Id).Path) == changedSlots[0]);
+                var saved = catalog.LoadSlot(entry.Id);
+                if (entry.Name != "长椅休息" || saved.PlayerX != x || saved.PlayerY != y ||
+                    !BaseSpatial.Walkable(saved, x, y) || saved.Demo.Intro.Step != 1 ||
+                    saved.Demo.Intro.PlayerName != controller.State.Demo.Intro.PlayerName)
+                    throw new InvalidOperationException("长椅自动档应读回椅前落点与剧情");
+                for (int n = 0; n < 9; n++) move.Invoke(controller, new object[] { Vector2.zero, .05 });
+                if (!after.SequenceEqual(SnapshotSaves())) throw new InvalidOperationException("持续坐着不应重复写档");
                 if (side < 0)
                 {
-                    Click("返回");
-                    move.Invoke(controller, new object[] { Vector2.zero, .05 });
-                    if (H.PanelOpen || view.Pose != HeroPose.Seated ||
-                        !before.SequenceEqual(SnapshotSaves()))
-                        throw new InvalidOperationException("取消长椅存档应留在座位，保持原档");
                     CaptureViewports("ui-skin-bench-sit");
                     controller.Interact();
-                }
-                else
-                {
-                    var slotButtons = RequirePanel("CommonPanel").GetComponentsInChildren<Button>()
-                        .Where(b => b.GetComponentInChildren<Text>()?.text is "保存到此槽" or "覆盖此槽（保留备份）").ToArray();
-                    if (slotButtons.Length != 3) throw new InvalidOperationException("长椅没有共用三个手动槽");
-                    slotButtons[2].onClick.Invoke();
-                    var saved = catalog.LoadSlot(BaseSaveCatalog.Slots[2]);
-                    if (H.PanelOpen || view.Pose != HeroPose.Seated || saved.PlayerX != x || saved.PlayerY != y ||
-                        !BaseSpatial.Walkable(saved, saved.PlayerX, saved.PlayerY) || saved.Demo.Intro.Step != 1 ||
-                        saved.Demo.Intro.PlayerName != controller.State.Demo.Intro.PlayerName)
-                        throw new InvalidOperationException("长椅手动档读回位置或剧情不一致");
                 }
                 for (int n = 0; n < 8; n++) move.Invoke(controller, new object[] { side < 0 ? Vector2.zero : Vector2.down, .05 });
                 if (view.Pose != HeroPose.Idle || controller.State.PlayerX != x || controller.State.PlayerY != y)
                     throw new InvalidOperationException("完成起身后没有回到原站位");
             }
-            Log.Add("[PASS] 两侧长椅坐稳打开三个手动槽，中断或取消均零写入；选槽后读回椅前落点与剧情，两种起身均可用");
+            Log.Add("[PASS] 两侧长椅坐稳各写一个自动槽，中断与持续坐着零写入，读回椅前落点与剧情，两种起身均可用");
         }
 
         private static void VerifyAuthoredLayout()
@@ -1710,6 +1739,8 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("主角半血没有真实撤退并回到遗迹入口");
             var dialogue = RequirePanel("NpcDialogue");
             H.ContinueDialogue();
+            Click("想想还能找谁帮忙");
+            H.ContinueDialogue();
             if (dialogue.Find("DialogueText").GetComponent<Text>().text != "对方人多势众，优势不在我，或许镇上那位年轻铁匠可以帮忙。" ||
                 new[] { "DialogueHint", "AdvanceButton", "Replies" }.Any(path => dialogue.Find(path).gameObject.activeInHierarchy))
                 throw new InvalidOperationException("撤退独白仍有额外提示或选项");
@@ -1738,6 +1769,13 @@ namespace BaseConquest.Editor
                     {
                         if (!BaseDemo.AcknowledgeWaking(s)) throw new InvalidOperationException("苏醒未完成");
                     }, "")) throw new InvalidOperationException(controller.Message);
+                    Approach("demo_march_exit");
+                    controller.Interact();
+                    FinishDialogue();
+                    Click("为什么？");
+                    FinishDialogue();
+                    if (H.PanelOpen || controller.State.Demo.Defense.BatuStoryDay != 0)
+                        throw new InvalidOperationException("陈安闲聊没有正常结束，或触发了首防剧情");
                     Approach("exit_east");
                     controller.TravelDemo("town");
                     stage = "ruins-exit-town";
@@ -1843,19 +1881,100 @@ namespace BaseConquest.Editor
                         SceneRect(portalLabel, portalLabel.parent).Overlaps(SceneRect(galanLabel, portalLabel.parent)))
                         throw new InvalidOperationException("迦兰姓名与遗迹入口标签应同时可见且各占独立位置");
                     Capture("ui-ruins-galan-waiting");
+                    BaseBattleGateway.Catalog().SaveSlot("slot1", controller.State, "洞外处置分支走查");
                     controller.Interact();
                     FinishDialogue();
-                    Click("先不接纳");
+                    CaptureViewports("ui-ruins-galan-questions", mobile: true);
+                    Click("遗迹里有什么？");
                     FinishDialogue();
-                    if (H.PanelOpen || !BaseDemoStories.ControllerDialogue(state, state.Demo.Flow.FirstControllerId))
-                        throw new InvalidOperationException("暂缓后没有回到探索，或迦兰已被处置");
+                    Click("遗迹里有什么？");
+                    FinishDialogue();
+                    Click("关于村子，你长得有点像……");
+                    FinishDialogue();
+                    Click("你确实控制了他们");
+                    FinishDialogue();
+                    Click("我还想了解一些事");
+                    FinishDialogue();
+                    Click("你先待在这");
+                    if (H.PanelOpen || !BaseDemoStories.ControllerDialogue(controller.State, state.Demo.Flow.FirstControllerId))
+                        throw new InvalidOperationException("暂留后没有回到探索，或迦兰已被处置");
                     controller.Interact();
                     FinishDialogue();
-                    var options = RequirePanel("NpcDialogue").GetComponentsInChildren<Button>()
-                        .Where(b => b.interactable).Select(b => b.GetComponentInChildren<Text>()?.text).ToList();
-                    if (!options.Contains("接纳迦兰") || !options.Contains("先不接纳") || !options.Contains("处死迦兰"))
-                        throw new InvalidOperationException("再次交谈没有恢复全部处置选项");
-                    Log.Add("[PASS] 队长实际走到撤离格，自动回洞外接村民对白；首通无奖励；迦兰暂缓后仍可再次交谈");
+                    Click("你确实控制了他们");
+                    FinishDialogue();
+                    Click("我看你刚才倒挺想杀我的");
+                    FinishDialogue();
+                    Click("我要再想想");
+                    FinishDialogue();
+                    controller.Interact();
+                    FinishDialogue();
+                    Click("你确实控制了他们");
+                    FinishDialogue();
+                    Click("我怎么相信你？");
+                    FinishDialogue();
+                    Click("不论如何，操控百姓当斩");
+                    if (!H.DialogueOpen || !BaseDemoStories.ControllerDialogue(controller.State, state.Demo.Flow.FirstControllerId))
+                        throw new InvalidOperationException("选择处斩后，惊呼还未播完便提交了处置");
+                    var cry = RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>();
+                    if (cry.text != "啊呀！") H.ContinueDialogue();
+                    if (cry.text != "啊呀！") throw new InvalidOperationException("处斩未播放迦兰的惊呼");
+                    H.ContinueDialogue();
+                    stage = "ruins-exit-galan-fallen";
+                    stageAt = EditorApplication.timeSinceStartup;
+                    break;
+                case "ruins-exit-galan-fallen":
+                    if (EditorApplication.timeSinceStartup - stageAt < .8) return;
+                    var body = GameObject.Find("GalanFallen");
+                    var actorInk = new MaterialPropertyBlock();
+                    bool fallenArt = body != null && body.GetComponentsInChildren<Renderer>().Any(renderer => {
+                        renderer.GetPropertyBlock(actorInk);
+                        return actorInk.GetTexture("_BaseMap")?.name.IndexOf("down", StringComparison.OrdinalIgnoreCase) >= 0;
+                    });
+                    if (!fallenArt || H.DialogueOpen || controller.PresentedObject(BaseDemoStories.GalanMarker) != null)
+                        throw new InvalidOperationException("迦兰处斩后应呈现倒地贴图，并立即失去交互与任务标记");
+                    Capture("ui-ruins-galan-fallen");
+                    Approach("demo_ruins_return");
+                    controller.TravelDemo("town");
+                    Approach("demo_ruins_exit");
+                    controller.TravelDemo("outpost");
+                    if (!BaseSceneRules.Entrance(controller.State) || GameObject.Find("GalanFallen") != null ||
+                        controller.PresentedObject(BaseDemoStories.GalanMarker) != null)
+                        throw new InvalidOperationException("离开再进遗迹，迦兰或遗体仍然出现");
+                    Log.Add("[PASS] 陈安封路问答、遗迹首胜与实走撤离、迦兰循环问答和暂缓重谈、处斩惊呼、倒地贴图及切图移除");
+                    controller.LoadSlot("slot1");
+                    stage = "ruins-exit-root-verdict";
+                    break;
+                case "ruins-exit-root-verdict":
+                case "ruins-exit-recruit":
+                    if (!BaseSceneRules.Entrance(state) || !BaseDemoStories.ControllerDialogue(state, state.Demo.Flow.FirstControllerId)) return;
+                    Approach(BaseDemoStories.GalanMarker);
+                    H.OpenObject(BaseDemoStories.GalanMarker);
+                    FinishDialogue();
+                    if (stage == "ruins-exit-root-verdict")
+                    {
+                        Click("不论如何，操控百姓当斩");
+                        H.ContinueDialogue();
+                        if (RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text != "啊呀！")
+                            throw new InvalidOperationException("首层判斩没有接入迦兰惊呼");
+                        H.ContinueDialogue();
+                        if (GameObject.Find("GalanFallen") == null || BaseDemoStories.ControllerDialogue(controller.State, state.Demo.Flow.FirstControllerId))
+                            throw new InvalidOperationException("首层判斩没有完成处置");
+                        controller.LoadSlot("slot1");
+                        stage = "ruins-exit-recruit";
+                        break;
+                    }
+                    Click("你确实控制了他们");
+                    FinishDialogue();
+                    Click("我怎么相信你？");
+                    FinishDialogue();
+                    Click("我会盯紧你的");
+                    H.ContinueDialogue();
+                    if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("万死不辞") ||
+                        !controller.State.Demo.Flow.ControllerPledged ||
+                        controller.State.Leaders.Count(leader => leader.Id == "partner_recruit:" + state.Demo.Flow.FirstControllerId) != 1)
+                        throw new InvalidOperationException("同意招募后没有听见回应或未登记唯一的迦兰");
+                    FinishDialogue();
+                    Log.Add("[PASS] 读同一洞外存档，首层处斩与起誓后的招募分别生效");
                     Finish(0, "古窟首通撤离与入口迦兰 PASS");
                     break;
             }
@@ -1867,11 +1986,11 @@ namespace BaseConquest.Editor
             void Open() => H.OpenRuinsConfrontation(() => battleStarts++);
             Open();
             FinishDialogue();
-            Click("追问他们为何不能动");
+            Click("他们自己能走？还是得你发话？");
             H.ContinueDialogue();
             var view = RequirePanel("NpcDialogue");
-            if (!view.Find("DialogueText").GetComponent<Text>().text.Contains("还是得你发话") || battleStarts != 0)
-                throw new InvalidOperationException("古窟追问未切入主角的追问页");
+            if (view.Find("SpeakerName").GetComponent<Text>().text != "迦兰" || battleStarts != 0)
+                throw new InvalidOperationException("点过追问后没有直接听见迦兰回答");
             FinishDialogue();
             if (!view.Find("DialogueText").GetComponent<Text>().text.Contains("我就叫他们拦你") ||
                 view.Find("Replies").GetComponentsInChildren<Button>().Count(button => button.interactable) != 2 ||
@@ -1882,12 +2001,12 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("暂缓古窟没有返回原处");
             Open();
             FinishDialogue();
-            Click("追问他们为何不能动");
+            Click("他们自己能走？还是得你发话？");
             FinishDialogue();
             Click("准备交战");
             if (battleStarts != 1) throw new InvalidOperationException("追问支线没有调用原战斗入口");
             H.ClosePanel();
-            Log.Add("[PASS] 古窟对峙追问两页，播完可暂缓或从原入口开战");
+            Log.Add("[PASS] 古窟对峙追问直接听答复，播完可暂缓或从原入口开战");
         }
 
         private static void ApproachMerchantAwayFromStall()
@@ -2090,7 +2209,11 @@ namespace BaseConquest.Editor
             H.OpenObject("demo_azhu");
             var replies = RequirePanel("NpcDialogue").Find("Replies");
             var buttons = replies.GetComponentsInChildren<Button>();
-            VerifyUnreadReplies(buttons,2);
+            VerifyUnreadReplies(buttons,1);
+            Click("跳过对话");
+            if (H.ContinueDialogue() || Field(controller, "combatController") != null)
+                throw new InvalidOperationException("快进替玩家追问阿铸或直接开始切磋");
+            Click("门边那杆长枪是你的？");
             FinishDialogue();
             var player = controller.State.Leaders.Single(l => l.Id == controller.State.PlayerLeaderId);
             double health = player.Health;
@@ -3112,7 +3235,13 @@ namespace BaseConquest.Editor
         private static void FinishDialogue()
         {
             RequirePanel("NpcDialogue");
-            for (int i = 0; i < 80 && H.ContinueDialogue(); i++) { }
+            for (int i = 0; i < 100 && H.DialogueOpen; i++)
+            {
+                if (H.ContinueDialogue()) continue;
+                var line = RequirePanel("NpcDialogue").Find("Replies").GetComponent<ScrollRect>().content.Find("PlayerSpeechChoice");
+                if (line == null || !line.gameObject.activeInHierarchy) return;
+                line.GetComponent<Button>().onClick.Invoke();
+            }
         }
 
         private static void Click(string label)
@@ -3130,20 +3259,25 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("对白首行跳过和后续占位项不正确");
         }
 
-        private static void VerifyLordSkipCancel()
+        private static void VerifyRoyalSwordChoice()
         {
-            var before = RequirePanel("NpcDialogue");
-            var speech = before.Find("DialogueText").GetComponent<Text>();
-            string text = speech.text;
+            int starts = 0;
+            typeof(BaseHud).GetMethod("OpenPursuitArrival", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(H, new object[] { (Action)(() => starts++) });
             Click("跳过对话");
-            var prompt = (RectTransform)Field(H, "dialogueSkipPrompt");
-            if (prompt == null || prompt.Find("Window/Title").GetComponent<Text>().text != "该对话有分支选项" ||
-                prompt.Find("Window/Body").GetComponent<Text>().text != "对话摘要：你接下了领主的任务，需要前往东边的遗迹探明情况" ||
-                H.ContinueDialogue() || controller.State.Demo.AcceptedDay != 0)
-                throw new InvalidOperationException("领主跳过摘要未先于接取显示，或底层对白仍响应翻页");
-            Press(prompt, "Window/Cancel");
-            if (RequirePanel("NpcDialogue") != before || speech.text != text || controller.State.Demo.AcceptedDay != 0)
-                throw new InvalidOperationException("取消跳过没有保留原页或提前接取任务");
+            var view = RequirePanel("NpcDialogue");
+            var speaker = view.Find("SpeakerName").GetComponent<Text>();
+            if (speaker.text == "你" || H.ContinueDialogue())
+                throw new InvalidOperationException("王室剑原句在选择前已播放");
+            Click("追问王室的剑");
+            H.ContinueDialogue();
+            if (speaker.text != "你" || view.Find("DialogueText").GetComponent<Text>().text != "王室的剑怎么会在你们手里？")
+                throw new InvalidOperationException("点明意图后未播放王室剑原句");
+            Click("跳过对话");
+            if (starts != 0 || speaker.text == "你") throw new InvalidOperationException("跳过重复主角发言或提前开战");
+            Click("阿禾，带乡亲们往东走！这两个交给我！");
+            if (starts != 1) throw new InvalidOperationException("东口迎敌未交还战斗入口");
+            H.ClosePanel();
         }
         private static void Press(Transform root, string path)
         {
@@ -3692,7 +3826,9 @@ namespace BaseConquest.Editor
 
             H.OpenDemoStory();
             var dialogue = RequirePanel("NpcDialogue");
-            for (int i = 0; i < 5; i++) H.ContinueDialogue();
+            H.ContinueDialogue();
+            Click("嘶……这是哪儿？我睡了多久？");
+            H.ContinueDialogue();
             if (dialogue.Find("SpeakerName").GetComponent<Text>().text != "老周" ||
                 !dialogue.Find("DialogueText").GetComponent<Text>().text.Contains("灰岩镇西边的营地。"))
                 throw new InvalidOperationException("苏醒对白未使用老周的口语称呼");

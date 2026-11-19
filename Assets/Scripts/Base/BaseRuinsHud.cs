@@ -21,12 +21,10 @@ namespace BaseConquest.Base
             var defer=new NpcReply("暂不交战",CloseRuinsBriefing);
             NpcDialogue(new[]{
                 new NpcLine("迦兰","galan","站住。他们吸了瘴气，全靠我护着。"),
-                new NpcLine("迦兰","galan","我一收手，他们就撑不住了。"),
-                new NpcLine("你","","他们怎么连一步都挪不了？",true)
+                new NpcLine("迦兰","galan","我一收手，他们就撑不住了。")
             },new[]{
                 fight,
-                new NpcReply("追问他们为何不能动",()=>NpcDialogue(new[]{
-                    new NpcLine("你","","他们自己能走？还是得你发话？",true),
+                new NpcReply("他们自己能走？还是得你发话？",()=>NpcDialogue(new[]{
                     new NpcLine("迦兰","galan","再走一步，我就叫他们拦你。")
                 },new[]{fight,defer})),
                 defer
@@ -41,8 +39,7 @@ namespace BaseConquest.Base
         {
             NpcDialogue(new[]{
                 new NpcLine("获救百姓甲","villager","脑子里像蒙了层雾，手脚全不听使唤……多谢你。"),
-                new NpcLine("获救百姓乙","villager","现在腿能动了。先扶我一把，出去再说。"),
-                new NpcLine("你","","先到洞外透气。古窟的事，我回镇上向霍恩交代。",true)
+                new NpcLine("获救百姓乙","villager","现在腿能动了。先扶我一把，出去再说。")
             },new[]{new NpcReply("去撤离点",resume)},lockExitUntilFinished:true);
         }
         public void OpenRescuedCivilian(string id,bool afterExtraction=false)

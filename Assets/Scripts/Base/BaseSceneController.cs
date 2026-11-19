@@ -160,6 +160,7 @@ namespace BaseConquest.Base
             RemoveDeveloperDiagnostics();
             regionView?.Dispose(); if(mapMaterial!=null)BattleBoardView.DestroyObject(mapMaterial); combatController=null;
             initializedSession = session; constructionOpen=false;constructionBrush.Cancel();constructionTouch=-1; StopAllCoroutines(); State = null; Busy = loadingTemplate = false;
+            fallenGalan = null;
             ClearWorkerTravel();
             ambientMap = null;
             environmentMapKey=null;environmentAnimals.Clear();playerMotion=new BaseMotionAssist(); SelectedCell = null; Companions = new BaseCompanionMovement(); companionViews.Clear(); touches.Clear(); mouseTap = null;
@@ -265,7 +266,7 @@ namespace BaseConquest.Base
             explorationActors=new GameObject("FreeMovementActors").transform;explorationActors.SetParent(regionView.Root.transform,false);
             npcViews.Clear();motionChecksRoot=null;
             BuildBenchTargets();
-            BaseConquest.Presentation.EnvironmentRoadEdges.Build(State,regionView.Board,regionView.Root.transform,regionView.ObliqueExploration);
+            regionView.RoadEdges = BaseConquest.Presentation.EnvironmentRoadEdges.Build(State,regionView.Board,regionView.Root.transform,regionView.ObliqueExploration);
             var objects=MapObjects;
             foreach (var obj in objects)
             {
@@ -294,6 +295,7 @@ namespace BaseConquest.Base
                     if(regionView.ObliqueExploration)notice.transform.localRotation=BattleBoardView.BaseArtTilt;
                 }
             }
+            RestoreFallenGalanView();
             BuildMotionChecks(RuntimeDeveloperOptions.Enabled);
             player=Person(explorationActors,"Player",new Vector2((float)(State?.PlayerX??12),(float)(State?.PlayerY??6.5)),new Color(.32f,.73f,.92f));
             selectionFrame=new GameObject("FreeCellSelection").transform;selectionFrame.SetParent(explorationActors,false);selectionFrame.gameObject.SetActive(false);
@@ -409,7 +411,6 @@ namespace BaseConquest.Base
             var keyboard = Keyboard.current;
             bool escape = keyboard?.escapeKey.wasPressedThisFrame == true;
             if(Hud.DialogueOpen&&keyboard!=null&&(keyboard.eKey.wasPressedThisFrame||keyboard.spaceKey.wasPressedThisFrame)){Hud.ContinueDialogue();return;}
-            if(escape && Hud.CloseDialogueSkipSummary())return;
             if(Hud.DialogueExitLocked&&escape)return;
             if (Hud.ResourcePopoverOpen && escape) { Hud.CloseResourcePopover(); escape = false; }
             if (escape && Hud.CloseInventoryItemMenu()) return;
@@ -726,7 +727,7 @@ namespace BaseConquest.Base
                 if(!deploymentChangedMap&&!changedMap)BaseBattlefield.KeepLiveBoard(next,MapSession.Board);
                 State = next; Message = message;
                 // Landing coordinates and followers belong to the destination board.
-                if (changedMap) { ClearWorkerTravel(); return true; }
+                if (changedMap) { fallenGalan = null; ClearWorkerTravel(); return true; }
                 Companions.Synchronize(State);
                 if (!DeploymentWorldActive) { PlaceCompanions(); PlacePlayer(); }
                 RefreshFarmVisuals(); if (PlayerAway) ClearSelection(); Hud.RefreshSummary(); return true;
@@ -769,6 +770,7 @@ namespace BaseConquest.Base
                 if (seed || backup) SaveStore.Save(next);
                 if (!RuntimeDeveloperOptions.Enabled) BaseDeveloperTools.ClearEffects(next);
                 State = next;
+                fallenGalan = null;
                 return true;
             }
             catch (Exception e)
