@@ -25,6 +25,7 @@ namespace BaseConquest.Base
 #if UNITY_EDITOR
         public const string PreviewTitleKey="BaseConquest.PreviewVillageTitle";
         public const string CustomMapTestLaunchKey="BaseConquest.CustomMapTest.PendingPackage";
+        public const string CustomMapTestFileKey="BaseConquest.CustomMapTest.File";
 #endif
         private void Awake()
         {

@@ -10,7 +10,8 @@ namespace BaseConquest.Editor
     public static class VerifyCustomMapTestEntry
     {
         private static byte[] officialBytes;
-        private static string officialPath,packageId,testRoot;
+        private static string officialPath,packageId,testRoot,capturePath;
+        private static BaseMapPlacement expectedProp;
         private static double deadline;
         private static bool opened,returning;
 
@@ -21,7 +22,13 @@ namespace BaseConquest.Editor
                 testRoot=Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES");
                 if(!Application.isBatchMode||string.IsNullOrEmpty(testRoot)||Directory.Exists(testRoot))
                     throw new InvalidOperationException("请为此回归设置一个尚不存在的 BASE_CONQUEST_UI_CHECK_SAVES 目录。");
-                var package=BaseSceneController.ReadCustomMapTestPackage();
+                var args=Environment.GetCommandLineArgs();
+                int fileIndex=Array.IndexOf(args,"-storyTestPackage"), propIndex=Array.IndexOf(args,"-storyTestObject");
+                string path=fileIndex<0?null:args[fileIndex+1];
+                int captureIndex=Array.IndexOf(args,"-storyTestCapture");
+                capturePath=captureIndex<0?null:Path.GetFullPath(args[captureIndex+1]);
+                var package=BaseSceneController.ReadCustomMapTestPackage(path);
+                expectedProp=propIndex<0?null:package.Map("village").Layout.Objects.Single(o=>o.Id==args[propIndex+1]);
                 packageId=package.Id;
                 var rules=DemoBalanceRuntime.Load();
                 string raw=File.ReadAllText(Path.Combine(Application.streamingAssetsPath,"BaseScenarios",BaseDemo.BalanceTemplate));
@@ -38,7 +45,7 @@ namespace BaseConquest.Editor
                 BaseBattleGateway.Catalog(false).SaveSlot("slot1",custom,"已有地图测试档");
                 deadline=EditorApplication.timeSinceStartup+65;
                 EditorApplication.update+=Tick;
-                CustomMapTestMenu.Start();
+                CustomMapTestMenu.Start(path);
             }
             catch(Exception error){Finish(error);}
         }
@@ -61,15 +68,38 @@ namespace BaseConquest.Editor
                 }
                 else if(!opened&&scene.State!=null)
                 {
+                    if(capturePath!=null&&UnityEngine.Object.FindAnyObjectByType<SceneLoadingCover>()!=null)return;
                     opened=true;
                     if(!BaseBattleGateway.DemoReleaseMode||!BaseBattleGateway.CustomMapTestMode||
                         scene.State.Demo.StoryScene?.Id!=packageId||scene.State.Demo.Intro.Step!=0)
                         throw new InvalidOperationException("测试入口没有用指定地图创建新档");
+                    if(expectedProp!=null)
+                    {
+                        var prop=BaseSpatial.Layout(scene.State).Objects.Single(o=>o.Id==expectedProp.Id);
+                        var view=scene.GetComponentsInChildren<BaseConquest.Presentation.AuthoredMapView>(true)
+                            .Single(v=>v.name==prop.Id+" · "+prop.Name);
+                        var point=scene.WorldPoint(expectedProp.X,expectedProp.Y);
+                        if(prop.X!=expectedProp.X||prop.Y!=expectedProp.Y||
+                            Math.Abs(point.x-view.transform.position.x)>.001||Math.Abs(point.z-view.transform.position.z)>.001||
+                            view.GetComponentInChildren<Renderer>()==null)
+                            throw new InvalidOperationException("导出的摆件与游戏场景实物位置不一致："+prop.Name);
+                        Debug.Log($"[VerifyCustomMapTestEntry] {packageId} {prop.Name} ({prop.X}, {prop.Y}) rendered");
+                    }
+                    if(capturePath!=null)
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(capturePath));
+                        UiSkinScreenshot.Capture(Path.ChangeExtension(capturePath,null));
+                    }
                     var catalog=BaseBattleGateway.Catalog(false);
                     if(Path.GetFullPath(BaseBattleGateway.SaveDirectory)!=Path.GetFullPath(Path.Combine(testRoot,"custom-map-test",packageId))||
-                        catalog.LoadSlot("slot1").Demo.Intro.Step!=1||
-                        !catalog.Entries().Any(e=>BaseSaveCatalog.AutoSlots.Contains(e.Id)&&e.Error==null))
-                        throw new InvalidOperationException("地图测试自动档未隔离，或覆盖了已有测试手动档");
+                        catalog.LoadSlot("slot1").Demo.Intro.PlayerName!="地图测试"||
+                        catalog.Entries().Any(e=>BaseSaveCatalog.AutoSlots.Contains(e.Id)&&e.CanLoad))
+                        throw new InvalidOperationException("开局选角前的测试存档不正确");
+                    scene.SelectDemoHero("female","布景演示");
+                    var automatic=catalog.Entries().SingleOrDefault(e=>BaseSaveCatalog.AutoSlots.Contains(e.Id)&&e.CanLoad);
+                    if(automatic?.PlayerName!="布景演示"||catalog.LoadSlot(automatic.Id).Demo.StoryScene?.Id!=packageId||
+                        catalog.LoadSlot("slot1").Demo.Intro.PlayerName!="地图测试")
+                        throw new InvalidOperationException("取名后未建立独立的地图测试自动档，或覆盖了已有手动档");
                     returning=true;
                     scene.ToMainMenu();
                 }

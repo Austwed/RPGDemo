@@ -904,7 +904,7 @@ namespace BaseConquest.Base
 #if UNITY_EDITOR
                     if (BaseBattleGateway.CustomMapTestMode)
                     {
-                        story = ReadCustomMapTestPackage();
+                        story = ReadCustomMapTestPackage(UnityEditor.SessionState.GetString(DemoLauncher.CustomMapTestFileKey, ""));
                         if (story.Id != BaseBattleGateway.CustomMapTestPackageId)
                             throw new InvalidOperationException("地图包在启动后被替换，请从 Unity 菜单重新开始测试。");
                         Debug.Log("[StoryScene] 自定义地图测试使用正式剧情规则（" + story.Id.Substring(0, 8) + "）");
@@ -929,11 +929,12 @@ namespace BaseConquest.Base
             Busy = loadingTemplate = false; Hud.RefreshSummary();SetRegionReady(true);
         }
 #if UNITY_EDITOR
-        public static BaseStoryScenePackage ReadCustomMapTestPackage()
+        public static BaseStoryScenePackage ReadCustomMapTestPackage(string path = null)
         {
-            string path = Path.Combine(Application.streamingAssetsPath, "StoryScene", "story-scene-package.json");
+            if (string.IsNullOrEmpty(path))
+                path = Path.Combine(Application.streamingAssetsPath, "StoryScene", "story-scene-package.json");
             if (!File.Exists(path))
-                throw new FileNotFoundException("没有找到地图包。请在浏览器地图编辑器导出，并保存到 Assets/StreamingAssets/StoryScene/story-scene-package.json。", path);
+                throw new FileNotFoundException("找不到地图 JSON，请重新选择导出的文件。", path);
             var package = JsonUtility.FromJson<BaseStoryScenePackage>(File.ReadAllText(path));
             if (package == null || package.Version != 2)
                 throw new ArgumentException("地图包不是当前版本，请从浏览器地图编辑器重新导出。");

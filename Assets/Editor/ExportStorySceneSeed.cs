@@ -21,6 +21,14 @@ namespace BaseConquest.Editor
         {
             public int Version = 1;
             public List<BaseDemoDesignMap> Maps = new List<BaseDemoDesignMap>();
+            public List<ArtSize> EnvironmentArt = new List<ArtSize>();
+        }
+
+        [Serializable]
+        private sealed class ArtSize
+        {
+            public string Id;
+            public double Width, Height;
         }
 
         public static void Batch()
@@ -38,6 +46,8 @@ namespace BaseConquest.Editor
             var state = BaseDemo.CreateOpening(balance, json, true, true, true, config.Rules, config.WorkbookSha256, null).CreateState();
 
             var seed = new Seed();
+            foreach (var art in BaseEnvironment.Catalog)
+                seed.EnvironmentArt.Add(new ArtSize { Id = art.Id, Width = art.ArtWidth, Height = art.ArtHeight });
             var village = Add(seed, state, "village", "base");
             village.SpawnX = state.PlayerX; village.SpawnY = state.PlayerY;
             // 这些锚点由序章引导或返乡事件按阶段生成，开局 Layout 本身没有。
@@ -46,7 +56,7 @@ namespace BaseConquest.Editor
                 new BaseMapPlacement { Id="intro_villager", Name="阿禾 · 交谈", X=12, Y=10, Width=.5, Height=.5, Kind="npc", AssetId="ahe", SourceObjectId="demo-npc:intro-villager" },
                 new BaseMapPlacement { Id="demo_home_world", Name="返回世界道路", X=23.3, Y=7, Width=1, Height=2 },
                 new BaseMapPlacement { Id="demo_broken_sword", Name="断剑 · 调查", X=10, Y=7, Width=1, Height=1 },
-                new BaseMapPlacement { Id="demo_survivor", Name="幸存村民", X=8.8, Y=7.5, Width=.5, Height=.5, Kind="npc", AssetId="ahe" }
+                new BaseMapPlacement { Id="demo_survivor", Name="幸存村民", X=8.8, Y=7.5, Width=.5, Height=.5, Kind="npc", AssetId="villager" }
             });
 
             state.Demo.Stage = BaseDemoStage.Waking;
