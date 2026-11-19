@@ -36,6 +36,21 @@ namespace BaseConquest.Battle
         {if(known==null)return;if(known.Length!=map.Width*map.Height)throw new ArgumentException("已知地形尺寸不符");for(int n=0;n<known.Length;n++)explored[(int)side][n]|=known[n];Revision++;}
         public int LastSeen(BattleSide side, GridPosition p) => lastSeen[(int)side][Index(p)];
         public bool CanSee(BattleSide observer, BattleSoldier soldier) => soldier != null && (soldier.Side == observer || Visible(observer, soldier.Cell));
+        public int SightRadius(BattleSoldier observer)
+        {
+            int ownRadius = observer.Stats.SightRadius;
+            return HeightMode
+                ? BattleHeightSight.Radius(map, observer.Cell, ownRadius > 0 ? ownRadius : BattleHeightSight.DefaultRadius)
+                : ownRadius > 0 ? ownRadius : battle.Scenario.VisionRadius;
+        }
+        public bool Observes(BattleSoldier observer, GridPosition target)
+        {
+            if (observer?.IsActive != true || !map.Contains(observer.Cell) || !map.Contains(target)) return false;
+            int radius = SightRadius(observer);
+            if (!HeightMode) return GridPosition.Distance(observer.Cell,target) <= radius && map.HasLineOfSight(observer.Cell,target);
+            int dx = target.X - observer.Cell.X, dz = target.Z - observer.Cell.Z;
+            return dx * dx + dz * dz <= radius * radius && BattleHeightSight.Clear(map,observer.Cell,target);
+        }
         public void Refresh(bool roundResolved = false)
         {
             foreach (BattleSide side in Enum.GetValues(typeof(BattleSide)))
@@ -47,10 +62,24 @@ namespace BaseConquest.Battle
                     if (battle.Board.Cell(p).Zone == (side == BattleSide.A ? DeploymentZone.A : DeploymentZone.B)) explored[i][Index(p)] = true;
                     if (FullVision(side)) visible[i][Index(p)] = true;
                 }
-                if(HeightMode&&!FullVision(side))BattleHeightSight.Compute(map,battle.Soldiers.Where(s=>s.Side==side&&s.IsActive).Select(s=>s.Cell),visible[i],terrain[i]);
-                else if(!FullVision(side)) foreach (BattleSoldier unit in battle.Soldiers.Where(s => s.Side == side && s.IsActive))
-                    foreach (GridPosition p in battle.Board.Positions())
-                        if (GridPosition.Distance(unit.Cell, p) <= battle.Scenario.VisionRadius && battle.Board.HasLineOfSight(unit.Cell, p)) visible[i][Index(p)] = true;
+                if(!FullVision(side))
+                {
+                    Array.Clear(terrain[i],0,terrain[i].Length);
+                    foreach (var unit in battle.Soldiers.Where(s => s.Side == side && s.IsActive && map.Contains(s.Cell)))
+                    {
+                        int radius = SightRadius(unit);
+                        if (HeightMode) { BattleHeightSight.Reveal(map,unit.Cell,radius,visible[i],terrain[i]); continue; }
+                        for (int z=Math.Max(0,unit.Cell.Z-radius);z<=Math.Min(map.Height-1,unit.Cell.Z+radius);z++)
+                        {
+                            int span=radius-Math.Abs(z-unit.Cell.Z);
+                            for (int x=Math.Max(0,unit.Cell.X-span);x<=Math.Min(map.Width-1,unit.Cell.X+span);x++)
+                            {
+                                int index=z*map.Width+x;
+                                if (!visible[i][index] && map.HasLineOfSight(unit.Cell,new GridPosition(x,z))) visible[i][index]=true;
+                            }
+                        }
+                    }
+                }
                 foreach (GridPosition p in battle.Board.Positions())
                     { if(HeightMode&&terrain[i][Index(p)])explored[i][Index(p)]=true;if (visible[i][Index(p)]) { explored[i][Index(p)] = true; lastSeen[i][Index(p)] = battle.RoundNumber; } }
                 foreach (BattleSoldier enemy in battle.Soldiers.Where(s => s.Side != side))

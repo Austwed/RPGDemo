@@ -393,7 +393,7 @@ namespace BaseConquest.Editor
                     if(Math.Abs(up-Math.Round(up))>1e-7||Math.Abs(down-Math.Round(down))>1e-7||up+down>10000+1e-7)throw new InvalidOperationException(quality+"!B"+row+"/C"+row+"：概率须为0.01个百分点的整数倍且合计不超过100%");
                     rules.ReforgeUp[i]=(int)Math.Round(up);rules.ReforgeDown[i]=(int)Math.Round(down);
                 }
-                var t=BattleBalanceImporter.Section(archive,templates,6,15,"ADEFGP");
+                var t=BattleBalanceImporter.Section(archive,templates,6,15,"ADEFGPT");
                 Header(t,templates,"A6","模板ID");Header(t,templates,"D6","职业ID");Header(t,templates,"E6","1级生命");Header(t,templates,"F6","1级攻击");Header(t,templates,"G6","1级防御");Header(t,templates,"P6","启用");
                 seen.Clear();
                 for(int row=7;row<=15;row++)
@@ -404,7 +404,8 @@ namespace BaseConquest.Editor
                     string runtime=id.Substring(0,id.Length-profession.Length)+new[]{"warrior","archer","knight"}[index];
                     var item=rules.Templates.SingleOrDefault(x=>x.Id==runtime);
                     if(item==null)throw new InvalidOperationException(templates+"!A"+row+"：未支持的模板ID："+id);
-                    item.Health=Number(t,templates,"E"+row,1,1000000);item.Attack=Number(t,templates,"F"+row,0,1000000);item.Defense=Number(t,templates,"G"+row,0,1000000);
+                    ReadSightRadius(t,templates,row,item);
+                item.Health=Number(t,templates,"E"+row,1,1000000);item.Attack=Number(t,templates,"F"+row,0,1000000);item.Defense=Number(t,templates,"G"+row,0,1000000);
                     if(runtime=="soldier_warrior"&&item.Attack<.001)throw new InvalidOperationException(templates+"!F"+row+"：剑士是战力公式的参照，攻击须至少为0.001；其他模板可为0");
                 }
                 ApplyPersonalEquipment(archive,rules);

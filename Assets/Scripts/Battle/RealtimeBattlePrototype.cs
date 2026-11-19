@@ -317,12 +317,12 @@ namespace BaseConquest.RealtimePrototype
                 points.Add(Arena.Center(next));cell=next;
             }
         }
-        public bool IssueOrder(int squad,int commanderId,PrototypeOrder order,PrototypePoint goal,int targetId=-1,IReadOnlyCollection<int> squads=null,bool leadersOnly=false)
+        public bool IssueOrder(int squad,int commanderId,PrototypeOrder order,PrototypePoint goal,int targetId=-1,IReadOnlyCollection<int> squads=null,bool leadersOnly=false,PrototypeSide side=PrototypeSide.Ally)
         {
             if(Outcome!=PrototypeOutcome.Fighting||!Enum.IsDefined(typeof(PrototypeOrder),order)||squad< -1||squad>2||!Arena.CanStand(goal))return false;
-            var target=Units.FirstOrDefault(unit=>unit.Id==targetId&&unit.Alive&&unit.Side==PrototypeSide.Enemy);
+            var target=Units.FirstOrDefault(unit=>unit.Id==targetId&&unit.Alive&&unit.Side!=side);
             if(order==PrototypeOrder.Focus&&target==null)return false;
-            var selected=Units.Where(unit=>unit.Alive&&unit.Side==PrototypeSide.Ally&&(squads!=null ? squads.Contains(unit.Squad)&&(!leadersOnly||unit.Role==PrototypeRole.Leader) : commanderId>=0 ? unit.Id==commanderId&&unit.Role==PrototypeRole.Leader : squad<0||unit.Squad==squad)).OrderBy(unit=>unit.Role==PrototypeRole.Leader ? 0 : 1).ThenBy(unit=>unit.Id).ToArray();
+            var selected=Units.Where(unit=>unit.Alive&&unit.Side==side&&(squads!=null ? squads.Contains(unit.Squad)&&(!leadersOnly||unit.Role==PrototypeRole.Leader) : commanderId>=0 ? unit.Id==commanderId&&unit.Role==PrototypeRole.Leader : squad<0||unit.Squad==squad)).OrderBy(unit=>unit.Role==PrototypeRole.Leader ? 0 : 1).ThenBy(unit=>unit.Id).ToArray();
             if(selected.Length==0)return false;
             var slots = new Dictionary<int, int>();
             var groupRoutes = new Dictionary<int, BodyRoute>();

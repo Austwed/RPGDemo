@@ -206,7 +206,7 @@ namespace BaseConquest.Base
             scenario.FogEnabled=FogEnabled(s);
             scenario.DefenderVisionEnabled=false;
             if(atHomeField)BaseDemoDefense.ApplyHomeSight(scenario);
-            scenario.VisionRadius=10;
+            scenario.VisionRadius=BattleHeightSight.DefaultRadius;
             while(scenario.A.Commanders.Count<scenario.A.HeroCount)scenario.A.Commanders.Add(new CommanderLoadout());
             BaseMuster.Validate(s);
             for(int n=0;n<scenario.A.Commanders.Count&&n<leaders.Count;n++)

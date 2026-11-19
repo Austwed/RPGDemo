@@ -2,8 +2,8 @@
     "Version": 1,
     "Kind": "SixSheetPatch",
     "CoreWorkbook": "DEMO核心数值表.xlsx",
-    "CoreWorkbookSha256": "0b4c748f3d4058b1c3eee85df7ca522bac54205c30db75f779ed69d9d140c9fd",
-    "BaselineSnapshotSha256": "c7a3e804e817d10c61f5f68831381920a8129534f6dc1f9850c373d1a7d7f275",
-    "BaselineConfigurationHash": "fd4be6e60cb4e1036bf7e9765ef3710f1eec5f0a9d2cff35bcbb30c317504b94",
-    "EffectiveConfigurationHash": "e3af2c75d1c06036414bd13a88672fd1db4135b612502444946083546c8eb634"
+    "CoreWorkbookSha256": "f8ce68b1d71ac286cf8f7b4543d09ee45fb79323e01c4f28e4ee712434cc45d8",
+    "BaselineSnapshotSha256": "3aba8c85265da2cc016d73a33259de7664062d713e0366d46c1031e4f94217ca",
+    "BaselineConfigurationHash": "e3af2c75d1c06036414bd13a88672fd1db4135b612502444946083546c8eb634",
+    "EffectiveConfigurationHash": "b880753902ce32db37d5fe1747a521b8b39c338cda273f6a69b44c9e8cb6016c"
 }

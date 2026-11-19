@@ -5,7 +5,9 @@ namespace BaseConquest.Battle
 {
     public static class BattleHeightSight
     {
-        public static double Radius(BattleBoard board,GridPosition observer)=>Math.Min(16,10+2*board.Cell(observer).Elevation);
+        public const int DefaultRadius = 10;
+        public static int Radius(BattleBoard board,GridPosition observer,int baseRadius = DefaultRadius)
+            => Math.Min(32, baseRadius + 2 * (board.Cell(observer)?.Elevation ?? 0));
         public static bool Clear(BattleBoard board,double ax,double az,double bx,double bz)
         {
             var from=new GridPosition((int)ax,(int)az);var to=new GridPosition((int)bx,(int)bz);
@@ -27,14 +29,15 @@ namespace BaseConquest.Battle
         {
             Array.Clear(visible,0,visible.Length);Array.Clear(terrain,0,terrain.Length);
             foreach(var observer in observers)
+                if(board.Contains(observer)) Reveal(board, observer, Radius(board,observer), visible, terrain);
+        }
+        internal static void Reveal(BattleBoard board,GridPosition observer,int radius,bool[] visible,bool[] terrain)
+        {
+            foreach(var p in board.Positions())
             {
-                if(!board.Contains(observer))continue;double radius=Radius(board,observer);
-                foreach(var p in board.Positions())
-                {
-                    int i=p.Z*board.Width+p.X;double dx=p.X-observer.X,dz=p.Z-observer.Z;bool near=dx*dx+dz*dz<=radius*radius;
-                    if(terrain[i]&&(!near||visible[i]))continue;
-                    if(!Clear(board,observer,p))continue;terrain[i]=true;if(near)visible[i]=true;
-                }
+                int i=p.Z*board.Width+p.X;int dx=p.X-observer.X,dz=p.Z-observer.Z;bool near=dx*dx+dz*dz<=radius*radius;
+                if(terrain[i]&&(!near||visible[i]))continue;
+                if(!Clear(board,observer,p))continue;terrain[i]=true;if(near)visible[i]=true;
             }
         }
     }

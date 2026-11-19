@@ -51,9 +51,9 @@ namespace BaseConquest.RealtimePrototype
         }
         public void ReleaseSteering(int id)
         {var u=Units.FirstOrDefault(actor=>actor.Id==id);if(u==null||!u.Steering)return;u.Steering=false;u.SteeringStopped=u.Moving;u.MoveGoal=-1;u.Goal=u.Anchor=u.Position;u.NextThinkAt=0;}
-        public void MarkDirectOrder(IEnumerable<int> squads,PrototypeOrder order,int target,bool focusSquad)
+        public void MarkDirectOrder(IEnumerable<int> squads,PrototypeOrder order,int target,bool focusSquad,PrototypeSide side=PrototypeSide.Ally)
         {
-            foreach(var l in Units.Where(u=>u.Alive&&u.Side==PrototypeSide.Ally&&u.Role==PrototypeRole.Leader&&squads.Contains(u.Squad)))
+            foreach(var l in Units.Where(u=>u.Alive&&u.Side==side&&u.Role==PrototypeRole.Leader&&squads.Contains(u.Squad)))
             {l.Steering=false;l.SteeringStopped=false;l.ManualOrder=order!=PrototypeOrder.Auto;l.ObjectOrder=false;l.ObjectTargetId="";l.SquadTargetId=focusSquad?target:-1;l.NextThinkAt=0;l.PatrolGoal=-1;}
         }
         private static bool Guards(PrototypeUnit leader)=>leader.Strategy!=PrototypeStrategy.Attack||leader.ManualOrder&&leader.Order==PrototypeOrder.Guard;

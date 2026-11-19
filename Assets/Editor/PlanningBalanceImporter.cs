@@ -44,7 +44,7 @@ namespace BaseConquest.Editor
             var package=new DemoBalancePackage {WorkbookSha256=hash,Rules=rules};package.Validate();
             var previewState=BaseDemo.CreateOpening(seedDocument,Encoding.UTF8.GetString(seedBytes).TrimStart('\ufeff'),true,true,true,rules).CreateState();
             var lines=new List<string>{"来源 SHA-256："+hash,"输出："+output,"新局读取独立快照；已经创建的存档不被改写。","战斗基础："};
-            lines.AddRange(rules.Templates.Select(t=>t.Id+"：生命 "+t.Health+"，攻击 "+t.Attack+"，防御 "+t.Defense));
+            lines.AddRange(rules.Templates.Select(t=>t.Id+"：生命 "+t.Health+"，攻击 "+t.Attack+"，防御 "+t.Defense+"，基础视野 "+(t.SightRadius>0?t.SightRadius+"格":"随战场")));
             lines.Add("队长成长倍率（生命 / 攻击 / 防御，均以1级裸装为基准）：");
             lines.AddRange(Enumerable.Range(1,8).Select(i=>(i+1)+"级："+rules.Growth[i].ToString("R",CultureInfo.InvariantCulture)+" / "+rules.AttackGrowth[i].ToString("R",CultureInfo.InvariantCulture)+" / "+rules.DefenseGrowth[i].ToString("R",CultureInfo.InvariantCulture)));
             var initial=rules.OpeningInventory;

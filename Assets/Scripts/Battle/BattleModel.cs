@@ -116,7 +116,9 @@ namespace BaseConquest.Battle
         public SoldierKind CombatKind;
         public bool HasProfessionKind;
         public SoldierKind ProfessionKind;
-        public bool EquipmentStatsValid => Level>=1&&Level<=9&&!float.IsNaN(Penetration)&&!float.IsInfinity(Penetration)&&Penetration>=0&&Penetration<=100000&&!float.IsNaN(Resistance)&&!float.IsInfinity(Resistance)&&Resistance>=0&&Resistance<=100000&&(!HasCombatKind||CombatKind==SoldierKind.Melee||CombatKind==SoldierKind.Ranged||CombatKind==SoldierKind.Cavalry)&&(!HasProfessionKind||ProfessionKind==SoldierKind.Melee||ProfessionKind==SoldierKind.Ranged||ProfessionKind==SoldierKind.Cavalry);
+        // Map tiles. Zero lets old saves and unconfigured units inherit the battlefield baseline.
+        public int SightRadius;
+        public bool EquipmentStatsValid => SightRadius>=0&&SightRadius<=32&&Level>=1&&Level<=9&&!float.IsNaN(Penetration)&&!float.IsInfinity(Penetration)&&Penetration>=0&&Penetration<=100000&&!float.IsNaN(Resistance)&&!float.IsInfinity(Resistance)&&Resistance>=0&&Resistance<=100000&&(!HasCombatKind||CombatKind==SoldierKind.Melee||CombatKind==SoldierKind.Ranged||CombatKind==SoldierKind.Cavalry)&&(!HasProfessionKind||ProfessionKind==SoldierKind.Melee||ProfessionKind==SoldierKind.Ranged||ProfessionKind==SoldierKind.Cavalry);
         public int Range = 1;
         public int MoveDistance = 1;
         public float CritChance = 0.1f;
@@ -132,7 +134,7 @@ namespace BaseConquest.Battle
         {
             Health = Math.Max(1, Health), Damage = Math.Max(0, Damage), Defense = Math.Max(0, Defense), Range = Math.Max(1, Math.Min(12, Range)),
             MoveDistance = Math.Max(1, Math.Min(12, MoveDistance)), CritChance = Math.Max(0, Math.Min(1, CritChance)), CritMultiplier = Math.Max(1, Math.Min(10, CritMultiplier)),
-            Level=Level,Penetration=Penetration,Resistance=Resistance,HasCombatKind=HasCombatKind,CombatKind=CombatKind,HasProfessionKind=HasProfessionKind,ProfessionKind=ProfessionKind
+            Level=Level,Penetration=Penetration,Resistance=Resistance,HasCombatKind=HasCombatKind,CombatKind=CombatKind,HasProfessionKind=HasProfessionKind,ProfessionKind=ProfessionKind,SightRadius=SightRadius
         };
     }
 
@@ -226,6 +228,7 @@ namespace BaseConquest.Battle
     [Serializable]
     public sealed class BattleScenario
     {
+        public const int DefaultVisionRadius = 6;
         public string SupplyBattleId = "";
         public BattleEffectRules Effects = new BattleEffectRules();
         public BattleBoard Board = BattleBoard.CreateDefault();
@@ -249,7 +252,7 @@ namespace BaseConquest.Battle
         public bool CustomExits, InstantDeathEnabled;
         public GridPosition ExitA, ExitB;
         public double LeaderInstantDeath = 0.05, TroopInstantDeath = 0.65;
-        public int VisionRadius = 6;
+        public int VisionRadius = DefaultVisionRadius;
         public bool HeightVision;
         // false仅供旧规则夹具回归；实际场景默认只开放小队长指挥。
         public bool CommanderControl = true;

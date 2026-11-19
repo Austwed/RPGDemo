@@ -62,7 +62,7 @@ namespace BaseConquest.Editor
             }
             Fields("02a","","BuyFactor","SellFactor","ArmorK","ArmorCap","OpeningSupplyWearVersion","OpeningReturnedWear","OpeningLostWear","CriticalMultiplier","BaseInterval","MinimumInterval","ArrowSpeed","HeightAdvantage","HealThreshold","WeaponAttackScale","AttackEquipmentScale","HealthEquipmentScale","DefenseEquipmentScale","AwakenedChance","EnemyLeaderDeath","SweepLossAtParity","SweepSecondsAtParity","SweepMinimumSeconds","SoldierDeathBase","SoldierDeathSensitivity","HideoutEnemyCount");
             var ids=new HashSet<string>(from category in new[]{"soldier","captain_normal","captain_awakened"} from profession in Enumerable.Range(0,3) select RpgRules.Template(category,profession));
-            for(int i=0;i<before.Templates.Count;i++)if(ids.Contains(before.Templates[i].Id))Fields("03b","/Templates/"+i,"Health","Attack","Defense");
+            for(int i=0;i<before.Templates.Count;i++)if(ids.Contains(before.Templates[i].Id))Fields("03b","/Templates/"+i,"Health","Attack","Defense","SightRadius");
             Array("03c","TroopBaseline",3);Array("03c","RecruitBasePrices",3);
             Fields("03c","","RecruitSupplyFactor","RecruitPriceSensitivity");
             Fields("06b","","SupplyAttackLow","SupplyAttackHigh","SupplyDefenseLow","SupplyDefenseHigh","SupplyMaterial");
@@ -119,7 +119,19 @@ namespace BaseConquest.Editor
             var edits=new List<(CoreJsonSpans.Span span,string value)>();
             foreach(string pointer in pointers)
             {
-                if(!original.TryGetValue(pointer,out var oldValue)||!generated.TryGetValue(pointer,out var newValue))throw new InvalidOperationException("基底JSON缺少待更新字段："+pointer);
+                if(!generated.TryGetValue(pointer,out var newValue))throw new InvalidOperationException("导入结果缺少字段："+pointer);
+                if(!original.TryGetValue(pointer,out var oldValue))
+                {
+                    // Older snapshots use the battlefield default and omit this optional field.
+                    if(pointer.StartsWith("/Rules/Templates/",StringComparison.Ordinal) && pointer.EndsWith("/SightRadius",StringComparison.Ordinal) &&
+                        newValue.Kind=='n' && original.TryGetValue(pointer.Substring(0,pointer.LastIndexOf('/')),out var template) && template.Kind=='{')
+                    {
+                        edits.Add((new CoreJsonSpans.Span{Start=template.Start+template.Length-1,Length=0},
+                            ",\"SightRadius\":"+generatedJson.Substring(newValue.Start,newValue.Length)));
+                        continue;
+                    }
+                    throw new InvalidOperationException("基底JSON缺少待更新字段："+pointer);
+                }
                 if(pointer!="/WorkbookSha256"&&(oldValue.Kind!='n'||newValue.Kind!='n'))throw new InvalidOperationException("局部导入只允许替换数值字段："+pointer);
                 edits.Add((oldValue,generatedJson.Substring(newValue.Start,newValue.Length)));
             }

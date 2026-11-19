@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
@@ -13,20 +14,24 @@ namespace BaseConquest.Editor
         public static void Build()
         {
             var args = Environment.GetCommandLineArgs();
+            bool lanTest = args.Contains("-demoLanDuelTest");
             int pathArg = Array.IndexOf(args, "-demoApkPath");
             string output = Path.GetFullPath(pathArg >= 0 && pathArg + 1 < args.Length
-                ? args[pathArg + 1] : "Builds/Android/DEMO.apk");
+                ? args[pathArg + 1] : lanTest ? "Logs/AndroidQa/lan-duel-qa.apk" : "Builds/Android/DEMO.apk");
             Directory.CreateDirectory(Path.GetDirectoryName(output));
             bool previousBundle = EditorUserBuildSettings.buildAppBundle;
+            string previousId = PlayerSettings.GetApplicationIdentifier(NamedBuildTarget.Android);
             int exitCode = 0;
             try
             {
                 EditorUserBuildSettings.buildAppBundle = false;
+                if (lanTest) PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.baseconquest.lanqa");
                 var options = BuildOptions.CompressWithLz4HC | BuildOptions.DetailedBuildReport;
                 if (args.Contains("-demoDevelopment")) options |= BuildOptions.Development;
                 var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
                 {
                     target = BuildTarget.Android,
+                    extraScriptingDefines = lanTest ? new[] { "LAN_DUEL_QA" } : Array.Empty<string>(),
                     locationPathName = output,
                     scenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).Select(scene => scene.path).ToArray(),
                     options = options
@@ -49,7 +54,11 @@ namespace BaseConquest.Editor
                 if (!Application.isBatchMode) throw;
                 exitCode = 1;
             }
-            finally { EditorUserBuildSettings.buildAppBundle = previousBundle; }
+            finally
+            {
+                EditorUserBuildSettings.buildAppBundle = previousBundle;
+                if (lanTest) PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, previousId);
+            }
             if (Application.isBatchMode) EditorApplication.Exit(exitCode);
         }
     }

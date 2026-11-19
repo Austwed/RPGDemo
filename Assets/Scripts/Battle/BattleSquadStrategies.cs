@@ -102,7 +102,7 @@ namespace BaseConquest.Battle
         }
         private Intent PlanSafeLeader(BattleSoldier s, BattleSoldier anchor, GridPosition centre, int radius, Dictionary<GridPosition, List<BattleSoldier>> occupied, Intent intent)
         {
-            Func<GridPosition, bool> safe = p => anchor == null ? OwnDeployment(s.Side, p) : GridPosition.Distance(p, anchor.Cell) <= Math.Min(radius, Scenario.VisionRadius) && Board.HasLineOfSight(anchor.Cell, p);
+            Func<GridPosition, bool> safe = p => anchor == null ? OwnDeployment(s.Side, p) : GridPosition.Distance(p, anchor.Cell) <= radius && Vision.Observes(anchor,p);
             bool preferZone = Board.Positions().Any(p => Board.Walkable(p) && safe(p) && OwnDeployment(s.Side, p));
             if (!safe(s.Cell) || preferZone && !OwnDeployment(s.Side, s.Cell))
             {
@@ -127,7 +127,7 @@ namespace BaseConquest.Battle
             }
             int current = threats.Min(e => GridPosition.Distance(e.Cell, s.Cell));
             var best = routes.Keys.Where(p => p == s.Cell || !occupied.TryGetValue(p, out var group) || group.Count(u => u.Id != s.Id) < 2).OrderByDescending(p => threats.Min(e => GridPosition.Distance(e.Cell, p)))
-                .ThenBy(p => OwnDeployment(s.Side, p) ? 0 : anchor != null && GridPosition.Distance(p, anchor.Cell) <= Scenario.VisionRadius && Board.HasLineOfSight(anchor.Cell, p) ? 1 : 2)
+                .ThenBy(p => OwnDeployment(s.Side, p) ? 0 : anchor != null && Vision.Observes(anchor,p) ? 1 : 2)
                 .ThenBy(p => occupied.TryGetValue(p, out var group) && group.Any(u => u.Id != s.Id) ? 1 : 0).ThenBy(p => routes[p].Count).ThenBy(p => p.Z * Board.Width + p.X).First();
             if (best != s.Cell && threats.Min(e => GridPosition.Distance(e.Cell, best)) >= current) SetMove(intent, routes[best]);
             intent.GoalCell = best; intent.Decision = "逃跑：队长远离已发现威胁"; return intent;

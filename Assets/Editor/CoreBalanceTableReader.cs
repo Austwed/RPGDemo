@@ -47,11 +47,22 @@ namespace BaseConquest.Editor
             return rules;
         }
 
+        private static void ReadSightRadius(Dictionary<string,string> cells, string sheet, int row, RpgTemplate item)
+        {
+            // Workbooks predating the vision column keep the current template value.
+            if (!cells.ContainsKey("T6")) return;
+            Header(cells, sheet, "T6", "基础视野（格）");
+            double value = Number(cells, sheet, "T" + row, 0, 32);
+            if (value != Math.Truncate(value))
+                throw new InvalidOperationException(sheet + "!T" + row + "：视野须为整格数");
+            item.SightRadius = (int)value;
+        }
+
         private static void ApplyCoreTemplates(ZipArchive archive,RpgRules rules)
         {
             const string templates="03b 九类模板";
             string[] ids={"saber","archer","rider"};var seen=new HashSet<string>();
-            var t=BattleBalanceImporter.Section(archive,templates,6,15,"ADEFGP");
+            var t=BattleBalanceImporter.Section(archive,templates,6,15,"ADEFGPT");
             Header(t,templates,"A6","模板ID");Header(t,templates,"D6","职业ID");Header(t,templates,"E6","1级生命");Header(t,templates,"F6","1级攻击");Header(t,templates,"G6","1级防御");Header(t,templates,"P6","启用");
             seen.Clear();
             for(int row=7;row<=15;row++)
@@ -62,6 +73,7 @@ namespace BaseConquest.Editor
                 string runtime=id.Substring(0,id.Length-profession.Length)+new[]{"warrior","archer","knight"}[index];
                 var item=rules.Templates.SingleOrDefault(x=>x.Id==runtime);
                 if(item==null)throw new InvalidOperationException(templates+"!A"+row+"：未支持的模板ID："+id);
+                ReadSightRadius(t,templates,row,item);
                 item.Health=Number(t,templates,"E"+row,1,1000000);item.Attack=Number(t,templates,"F"+row,0,1000000);item.Defense=Number(t,templates,"G"+row,0,1000000);
                 if(runtime=="soldier_warrior"&&item.Attack<.001)throw new InvalidOperationException(templates+"!F"+row+"：剑士是战力公式的参照，攻击须至少为0.001；其他模板可为0");
             }

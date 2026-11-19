@@ -21,6 +21,7 @@ namespace BaseConquest.Base
     [Serializable] public sealed class RpgTemplate
     {
         public string Id;public double Health,Attack,Defense;
+        public int SightRadius;
         public RpgTemplate Copy()=>(RpgTemplate)MemberwiseClone();
     }
     [Serializable] public sealed class RpgSkillDefinition
@@ -178,7 +179,7 @@ namespace BaseConquest.Base
             if(Capacity.Any(x=>x<1||x>10000)||Capacity[1]<Capacity[0]||Capacity[2]<Capacity[1]||CampMaterials.Concat(CampCoins).Any(x=>x<0||x>1000000)||new[]{WeaponValues,HelmetValues,ArmorValues,AccessoryValues}.Any(a=>a.Any(x=>x<1||x>1000000))||SupplyWorkValue>1000000)throw new ArgumentException("营帐容量、升级费用或商品价值非法");
             if(new[]{ArmorK,ArmorCap,CriticalMultiplier,BaseInterval,MinimumInterval,ArrowSpeed,HeightAdvantage,WeaponAttackScale,AttackEquipmentScale,HealthEquipmentScale,DefenseEquipmentScale,BuyFactor,SellFactor,SupplyAttackLow,SupplyAttackHigh,SupplyDefenseLow,SupplyDefenseHigh,HealThreshold}.Any(x=>!Finite(x)||x<0)||HealThreshold<=0||HealThreshold>1||ArrowSpeed<=0||BuyFactor<=SellFactor||SupplyMaterial<1||LeaderFood<0||Range.Concat(Speed).Concat(Growth).Concat(QualityValue).Any(x=>!Finite(x)||x<=0)||DropQuality.Any(x=>!Finite(x)||x<0)||Math.Abs(DropQuality.Sum()-1)>1e-8||Templates.Any(x=>x==null)||Skills.Any(x=>x==null||string.IsNullOrEmpty(x.Id)||!Finite(x.Cooldown)||x.Cooldown<=0||!Finite(x.Duration)||x.Duration<0||!Finite(x.Amount)||x.Amount<=0||!Finite(x.Radius)||x.Radius<0||!Finite(x.SpeedBonus)||x.SpeedBonus<0||!Finite(x.Opening)||x.Opening<0)||Skills.Select(x=>x.Id).Distinct().Count()!=6||Traits.Any(x=>x==null||!Finite(x.Min)||!Finite(x.Max)||!Finite(x.Step)||!Finite(x.Weight))||Traits.Select(x=>x.Id).Distinct().Count()!=21)throw new ArgumentException("RPG参数非法");
             if(new[]{FoodValue,MaterialValue,BookValue,AdvancedBookValue,StoneValue,WineValue,OtherValue,SupplyMaterial,ArcherFood}.Any(v=>v<1||v>1000000)||LeaderFood>100||new[]{FacilityRepairMaterials,FacilityRepairCoins}.Any(v=>v<0||v>1000000))throw new ArgumentException("经济默认值非法");
-            if(Version!=1||CampLevel<1||CampLevel>3||Hit.Length!=3||Evasion.Length!=3||Hit.Concat(Evasion).Any(x=>!Finite(x)||x<0||x>10||x!=Math.Truncate(x))||Templates.Count!=9||Templates.Select(t=>t.Id).Distinct().Count()!=9||Templates.Any(t=>!Finite(t.Health)||t.Health<1||!Finite(t.Attack)||t.Attack<0||!Finite(t.Defense)||t.Defense<0)||Skills.Count!=6||Traits.Count!=21||ArmorK<=0||ArmorCap<0||ArmorCap>=1||BaseInterval<MinimumInterval||MinimumInterval<=0||CriticalMultiplier<1||Traits.Any(t=>t.Min>t.Max||t.Step<=0||t.Weight<=0||Math.Abs((t.Max-t.Min)/t.Step-Math.Round((t.Max-t.Min)/t.Step))>1e-6))throw new ArgumentException("RPG规则／九类基准／技能特性配置非法");
+            if(Version!=1||CampLevel<1||CampLevel>3||Hit.Length!=3||Evasion.Length!=3||Hit.Concat(Evasion).Any(x=>!Finite(x)||x<0||x>10||x!=Math.Truncate(x))||Templates.Count!=9||Templates.Select(t=>t.Id).Distinct().Count()!=9||Templates.Any(t=>!Finite(t.Health)||t.Health<1||!Finite(t.Attack)||t.Attack<0||!Finite(t.Defense)||t.Defense<0||t.SightRadius<0||t.SightRadius>32)||Skills.Count!=6||Traits.Count!=21||ArmorK<=0||ArmorCap<0||ArmorCap>=1||BaseInterval<MinimumInterval||MinimumInterval<=0||CriticalMultiplier<1||Traits.Any(t=>t.Min>t.Max||t.Step<=0||t.Weight<=0||Math.Abs((t.Max-t.Min)/t.Step-Math.Round((t.Max-t.Min)/t.Step))>1e-6))throw new ArgumentException("RPG规则／九类基准／技能特性配置非法");
             // Validate derived prices before a snapshot can create a town or overflow a transaction.
             double supplyUnit=2d*SupplyMaterial*MaterialValue+SupplyWorkValue;
             foreach(int level in new[]{1,2})
@@ -229,7 +230,7 @@ namespace BaseConquest.Base
             if(p<0||p>2||level<1||level>9||!character.TemplateId.EndsWith(new[]{"warrior","archer","knight"}[p],StringComparison.Ordinal))throw new ArgumentException("人物模板／职业／等级不一致");
             bool soldier=character.TemplateId.StartsWith("soldier_");double healthGrowth=soldier?1:Growth[level-1],attackGrowth=soldier?1:AttributeGrowthVersion==1?AttackGrowth[level-1]:Growth[level-1],defenseGrowth=soldier?1:AttributeGrowthVersion==1?DefenseGrowth[level-1]:Growth[level-1];
             var kind=p==1?SoldierKind.Ranged:p==2?SoldierKind.Cavalry:SoldierKind.Melee;
-            return new SoldierStats{Health=(float)(t.Health*healthGrowth),Damage=(float)(t.Attack*attackGrowth),Defense=(float)(t.Defense*defenseGrowth),Level=level,CritChance=0,CritMultiplier=(float)CriticalMultiplier,Range=p==1?6:p==2?2:1,MoveDistance=p==2?3:2,HasProfessionKind=true,ProfessionKind=kind,HasCombatKind=true,CombatKind=kind};
+            return new SoldierStats{SightRadius=t.SightRadius, Health=(float)(t.Health*healthGrowth),Damage=(float)(t.Attack*attackGrowth),Defense=(float)(t.Defense*defenseGrowth),Level=level,CritChance=0,CritMultiplier=(float)CriticalMultiplier,Range=p==1?6:p==2?2:1,MoveDistance=p==2?3:2,HasProfessionKind=true,ProfessionKind=kind,HasCombatKind=true,CombatKind=kind};
         }
     }
     public static partial class BaseRpg

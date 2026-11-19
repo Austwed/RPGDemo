@@ -481,6 +481,8 @@ namespace BaseConquest.Base
             var tally = BaseDevelopment.Tally(state);
             FacilityText(actions, $"士兵 {tally[0]} · 队长 {state.Leaders.Count} · 可主动出战 {tally[2]} · 重伤 {tally[3]}");
             var tabs = CloneSceneUi("FacilityActionRow", actions);
+            if (state.Campaign.Location == "base")
+                FacilityButton(actions, "LanDuel", "模拟对抗", () => OpenLanDuel());
             FacilityButton(tabs, "Recovery", "伤情与岗位", () =>
             {
                 BeginPanel("兵营 · 伤情与岗位", "barracks:recovery");
@@ -686,6 +688,7 @@ namespace BaseConquest.Base
             FacilityText(list, unit.Name + " · " + BattleSimulation.KindName(unit.Kind), true);
             FacilityText(list, $"生命 {unit.Health:0.#}/{unit.MaxHealth:0.#} · {unit.State}");
             FacilityText(list, $"当前攻击 {unit.Current.Damage:0.##} · 防御 {unit.Current.Defense:0.##}");
+            FacilityText(list, CampSight(unit.Current));
             FacilityText(list, $"基础攻击 {unit.Basic.Damage:0.##} · 防御 {unit.Basic.Defense:0.##}");
             FacilityText(list, unit.Facility + " · " + (unit.Locked ? "手动锁定" : "自动安排"));
             FacilityButton(list, "CompleteDetail", "完整属性", openComplete);

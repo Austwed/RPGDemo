@@ -174,7 +174,7 @@ namespace BaseConquest.Base
             var player=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId);
             return player.Health>0 && (hire ? BaseInteraction.At(s,"town","town_recruit") : AtMerchant(s));
         }
-        private static string StatsKey(SoldierStats p) => string.Join(":",new double[]{p.Health,p.Damage,p.Defense,p.Range,p.MoveDistance,p.CritChance,p.CritMultiplier,p.Penetration,p.Resistance,(p.HasCombatKind ? 1 : 0),(int)p.CombatKind,(p.HasProfessionKind?1:0),(int)p.ProfessionKind}.Select(n=>n.ToString("R",CultureInfo.InvariantCulture)));
+        private static string StatsKey(SoldierStats p) => string.Join(":",new double[]{p.Health,p.Damage,p.Defense,p.Range,p.MoveDistance,p.CritChance,p.CritMultiplier,p.Penetration,p.Resistance,(p.HasCombatKind ? 1 : 0),(int)p.CombatKind,(p.HasProfessionKind?1:0),(int)p.ProfessionKind}.Select(n=>n.ToString("R",CultureInfo.InvariantCulture))) + (p.SightRadius == 0 ? "" : ":sight=" + p.SightRadius);
         internal static string Stamp(BaseState s) => BaseMuster.Snapshot(s)+"|trade:"+(BaseRpg.Active(s)?BaseRpg.TradeModifier(s):0)+"|baselines:"+(BaseRpg.Active(s)?string.Join(",",s.Demo.Rpg.TroopBaseline):"")+"|town:"+s.Town.Revision+":"+s.Town.StockDay+":"+s.Town.RecruitRulesVersion+"|"+string.Join("|",s.Town.Goods.Select(g=>g.Id+":"+g.BuyPrice+":"+g.SellPrice+":"+g.DailyStock+":"+g.Remaining))+"|"+string.Join("|",s.Town.Recruits.Select(r=>r.Kind+":"+r.Price+":"+r.DailyCount+":"+r.Remaining+":"+StatsKey(r.Stats)));
         public static BaseTownQuote QuoteTrade(BaseState s,string id,bool buy,int count)
         {

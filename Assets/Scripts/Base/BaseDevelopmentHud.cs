@@ -94,6 +94,10 @@ namespace BaseConquest.Base
             if (UseFacilityPanel) { OpenBarracksFacility(); return; }
             BeginPanel("兵营 · 军队与伤情", "barracks:" + activePage); ManagementTabs(OpenBarracks);
             var s = owner.State;
+            if (s.Campaign.Location == "base")
+            {
+                RowButton("模拟对抗", 0, 820, () => OpenLanDuel()); row += 60;
+            }
             if (!BaseDemo.Active(s))
             {
                 BaseConquest.Presentation.DemoUiIcons.Attach(RowButton("角色等级训练",0,820,OpenTraining),"training");row+=60;

@@ -24,6 +24,7 @@ namespace BaseConquest.Base
         public BaseState State { get; private set; }
         public BaseSaveStore SaveStore { get; private set; }
         public BaseHud Hud { get; private set; }
+        internal LanDuelScreen DuelScreen { get; set; }
         public Camera WorldCamera { get; private set; }
         internal VillageOpeningAudio OpeningAudio { get; private set; }
         public bool Busy { get; private set; }
@@ -368,6 +369,7 @@ namespace BaseConquest.Base
         private void Update()
         {
             if (!Application.isPlaying) return;
+            if (DuelScreen != null) return;
             if (RuntimeMissing()) { BeginSession(); return; }
             RefreshOpeningAudio();
             if (DeploymentWorldActive) { UpdateDeploymentWorld(); return; }
@@ -755,6 +757,7 @@ namespace BaseConquest.Base
         public void Save()
         {
             if (!Application.isPlaying || State == null || Busy || SaveStore == null || Hud == null) return;
+            if (DuelScreen != null) return;
             if(combatController!=null) return;
             try { Companions.Capture(State); SaveStore.Save(State); }
             catch (Exception e) { Message = "保存失败：" + e.Message; }

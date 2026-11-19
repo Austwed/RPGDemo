@@ -73,7 +73,7 @@ namespace BaseConquest.Base
         public static double Efficiency(BaseWorkerBucket w, string facility) => facility == "farm" ? w.FarmEfficiency : w.WorkshopEfficiency;
         public static double Bonus(BaseLeader l, string facility) => BaseRpg.ProductionBonus(l,facility);
         public static string PolicyName(string id) => id == "food" ? "粮食优先" : id == "equipment" ? "军需优先" : id == "auto" ? "自动分配" : "手动分配";
-        public static string ProfileKey(bool has, BaseConquest.Battle.SoldierStats stats) => !has ? "default" : stats == null ? "invalid" : string.Join(":",new[] {stats.Health,stats.Damage,stats.Defense,stats.CritChance,stats.CritMultiplier,stats.Penetration,stats.Resistance}.Select(x=>x.ToString("R",CultureInfo.InvariantCulture)))+":"+stats.Range+":"+stats.MoveDistance+":"+stats.HasCombatKind+":"+stats.CombatKind+":"+stats.HasProfessionKind+":"+stats.ProfessionKind+":"+stats.Level;
+        public static string ProfileKey(bool has, BaseConquest.Battle.SoldierStats stats) => !has ? "default" : stats == null ? "invalid" : string.Join(":",new[] {stats.Health,stats.Damage,stats.Defense,stats.CritChance,stats.CritMultiplier,stats.Penetration,stats.Resistance}.Select(x=>x.ToString("R",CultureInfo.InvariantCulture)))+":"+stats.Range+":"+stats.MoveDistance+":"+stats.HasCombatKind+":"+stats.CombatKind+":"+stats.HasProfessionKind+":"+stats.ProfessionKind+":"+stats.Level + (stats.SightRadius == 0 ? "" : ":sight=" + stats.SightRadius);
         public static void Normalize(BaseState s)
         {
             var d = s.Development;

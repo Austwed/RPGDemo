@@ -2,10 +2,12 @@ param(
     [string]$UnityEditor = 'C:/Program Files/Unity/Hub/Editor/6000.6.4f1/Editor/Unity.exe',
     [string]$ApkPath = 'Builds/Android/DEMO.apk',
     [switch]$Development,
+    [switch]$LanDuelTest,
     [switch]$IncludeDevelopmentAssets
 )
 
 $ErrorActionPreference = 'Stop'
+if ($LanDuelTest -and !$PSBoundParameters.ContainsKey('ApkPath')) { $ApkPath = 'Logs/AndroidQa/lan-duel-qa.apk' }
 $project = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 if (![IO.Path]::IsPathRooted($ApkPath)) { $ApkPath = Join-Path $project $ApkPath }
 $output = [IO.Path]::GetFullPath($ApkPath)
@@ -25,8 +27,10 @@ try {
         $destination = Join-Path $stage $directory
         $copyArgs = @($source, $destination, '/E', '/R:1', '/W:1', '/MT:8', '/NFL', '/NDL', '/NJH', '/NJS', '/NP')
         if ($directory -eq 'Assets' -and !$Development -and !$IncludeDevelopmentAssets) {
-            $copyArgs += @('/XD', (Join-Path $source 'Resources/DemoStages'), (Join-Path $source 'StreamingAssets/StoryScene'),
-                '/XF', 'DemoStages.meta', 'StoryScene.meta', 'PerformanceTestRunInfo.json*', 'PerformanceTestRunSettings.json*')
+            $copyArgs += @('/XD', (Join-Path $source 'StreamingAssets/StoryScene'))
+            if (!$LanDuelTest) { $copyArgs += (Join-Path $source 'Resources/DemoStages') }
+            $copyArgs += @('/XF', 'StoryScene.meta', 'PerformanceTestRunInfo.json*', 'PerformanceTestRunSettings.json*')
+            if (!$LanDuelTest) { $copyArgs += 'DemoStages.meta' }
             # These four legacy textures are only fallbacks for art present in PixelDemo.
             foreach ($name in @('Grass-v1', 'Sand-v1', 'Road-v1', 'Notice-v1')) {
                 $texture = Join-Path $source "Resources/MapSurfaces/$name.png"
@@ -49,6 +53,7 @@ try {
         '-executeMethod', 'BaseConquest.Editor.BuildAndroidDemo.Build', '-demoApkPath', ('"' + $stagedApk + '"'),
         '-logFile', ('"' + $stagedLog + '"'))
     if ($Development) { $unityArgs += '-demoDevelopment' }
+    if ($LanDuelTest) { $unityArgs += '-demoLanDuelTest' }
     Write-Output "Building Android in $stage"
     $unity = Start-Process -FilePath $UnityEditor -ArgumentList $unityArgs -WorkingDirectory $stage -WindowStyle Hidden -Wait -PassThru
     if ($unity.ExitCode -ne 0 -or !(Test-Path -LiteralPath $stagedApk -PathType Leaf)) {

@@ -196,7 +196,7 @@ namespace BaseConquest.Battle
             }
             foreach(var actor in Model.Units.Where(u=>u.Role==PrototypeRole.Leader))Battle.Scenario.Army(actor.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B).Commanders[actor.Squad].Strategy=(SquadStrategy)(int)actor.Strategy;
             Model.ExploredCell=(actor,cell)=>Battle.Vision.Explored(actor.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B,Coarse(cell));
-            Model.OtherSquadVision=(actor,cell)=>Model.Units.Any(other=>other.Alive&&other.Side==actor.Side&&other.Squad!=actor.Squad&&(other.Position-arena.Center(cell)).Length<=(Battle.Scenario.HeightVision?BattleHeightSight.Radius(Battle.Board,new GridPosition((int)other.Position.X,(int)other.Position.Z)):Battle.Scenario.VisionRadius)&&(Battle.Scenario.HeightVision?BattleHeightSight.Clear(Battle.Board,other.Position.X,other.Position.Z,arena.Center(cell).X,arena.Center(cell).Z):double.IsPositiveInfinity(arena.WallFraction(other.Position,arena.Center(cell)))));
+            Model.OtherSquadVision=(actor,cell)=>Model.Units.Any(other=>other.Alive&&other.Side==actor.Side&&other.Squad!=actor.Squad&&Battle.Vision.Observes(Battle.Soldier(other.Id-1),Coarse(cell)));
             InitializeSkills();InitializeRpgCombat();Tactics=new BattleTacticalRuntime(this);
             Synchronize(true);
         }

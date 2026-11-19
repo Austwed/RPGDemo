@@ -11,6 +11,9 @@ namespace BaseConquest.Base
     {
         private int personnelFilter;
         private static string RosterText(string key, string fallback) => StoryText.Get("story.ui.roster." + key, fallback);
+        private static string CampSight(SoldierStats stats) =>
+            stats.SightRadius > 0 ? $"基础视野 {stats.SightRadius} 格" :
+                $"平地视野 {BattleHeightSight.DefaultRadius} 格 · 演武 {BattleScenario.DefaultVisionRadius} 格";
         private RectTransform AddPersonnelRow(Transform list, BasePersonnelUnit unit, string status, Action select,
             bool available = true, bool selected = false, bool warning = false, Action details = null, bool showFacility = true)
         {
@@ -105,6 +108,7 @@ namespace BaseConquest.Base
             Line(u.Name+" · "+BattleSimulation.KindName(u.Kind),52,24);Line("生命 "+u.Health.ToString("0.#")+" / "+u.MaxHealth.ToString("0.#"),46);
             if(u.IsLeader){bool following=BaseAdventure.Contains(s,u.LeaderId);RowButton(following?"人物与背包":"到基地仓库管理此人背包",0,800,()=>{gearLeader=u.LeaderId;OpenPersonalEquipment();},following);row+=56;}
             Line("当前攻击 "+u.Current.Damage.ToString("0.##")+" · 防御 "+u.Current.Defense.ToString("0.##")+"；基础攻击 "+u.Basic.Damage.ToString("0.##")+" · 防御 "+u.Basic.Defense.ToString("0.##"),62,19);
+            Line(CampSight(u.Current),46,19);
             var person=u.IsLeader?s.Leaders.Single(leader=>leader.Id==u.LeaderId):null;
             if(person!=null)Line("获取来源："+(string.IsNullOrEmpty(person.AcquisitionSource)?"未记录":person.AcquisitionSource)+" · 游戏日："+(person.AcquisitionDay>0?"第"+person.AcquisitionDay+"天":"未记录"),64,19);
             var profession=u.IsLeader ? u.Current.HasProfessionKind?u.Current.ProfessionKind:u.Current.HasCombatKind?u.Current.CombatKind:BaseCommanderIdentity.Appearance(person)=="ahe"?SoldierKind.Ranged:BaseCommanderIdentity.Appearance(person)=="azhu"?SoldierKind.Cavalry:SoldierKind.Melee : u.Kind;
