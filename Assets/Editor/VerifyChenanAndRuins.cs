@@ -576,7 +576,24 @@ namespace BaseConquest.Editor
             }
         }
 
-        // 遗迹首通专属剧情：RuinsDay==0 开战置 RuinsFirstClear，结算写入 FirstControllerId。
+        internal static void WalkOutOfRuins(RealtimeCampaignBattle run, bool useCompanion = false)
+        {
+            Need(run.RuinsExitOpen && run.Battle.Phase == BattlePhase.Fighting, "救人后须留在战场等待撤离");
+            run.ContinueRuinsExit();
+            var captain = run.Model.Units.Where(u => u.Alive && u.Side == BaseConquest.RealtimePrototype.PrototypeSide.Ally &&
+                u.Role == BaseConquest.RealtimePrototype.PrototypeRole.Leader).OrderByDescending(u => u.Player != useCompanion).First();
+            var exit = run.Battle.ExitCell(BattleSide.A);
+            var target = new BaseConquest.RealtimePrototype.PrototypePoint(exit.X+.5,exit.Z+.5);
+            var health=run.Model.Units.Select(u=>u.Health).ToArray();
+            run.Model.SetPaused(false);
+            Need(run.OrderRuinsExit(target,new[]{captain.Id-1}), "点击实际撤离点未下令");
+            for (int i=0;i<480 && run.Battle.Phase==BattlePhase.Fighting;i++)run.Tick(.25);
+            Need(run.Battle.Report?.Outcome==BattleOutcome.SideAWin && (int)captain.Position.X==exit.X &&
+                (int)captain.Position.Z==exit.Z,"队长未能走出遗迹 "+captain.Position.X+","+captain.Position.Z+" → "+exit);
+            Need(run.Model.Units.Select(u=>u.Health).SequenceEqual(health),"撤离期间仍在结算伤害");
+        }
+
+        // 遗迹首通的现场解控、撤离和入口处置。
         public static void VerifyRuinsFirstClear()
         {
             var state=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
@@ -589,12 +606,40 @@ namespace BaseConquest.Editor
             var hero=session.Battle.Soldiers.Single(u=>u.Side==BattleSide.B&&u.Kind==SoldierKind.Hero);
             Need(hero.AppearanceId=="galan","首通遗迹控制者外观错误："+hero.AppearanceId);
             var run=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(run);
+            var exit=run.Battle.ExitCell(BattleSide.A);
+            Need(run.Model.PlaceNearest(run.Model.Player,new BaseConquest.RealtimePrototype.PrototypePoint(exit.X+.25,exit.Z+.25))&&
+                (int)run.Model.Player.Position.X==exit.X&&(int)run.Model.Player.Position.Z==exit.Z,"未能布置守在出口的队长");
             var enemy=run.Model.Units.Single(u=>u.Id==hero.Id+1);enemy.Health=1;enemy.KnockedDown=true;hero.Health=1;hero.KnockedDown=true;hero.DeathResolved=true;
-            run.Model.SetPaused(false);run.Tick(.02);Need(BaseDemoRuins.Complete(state,run),"遗迹首通结算失败");
+            run.Model.SetPaused(false);run.Tick(.02);
+            Need(run.AwaitingRescueDialogue && !BaseDemoRuins.Complete(state,run),"首胜在对白和离场前提交");
+            run.ContinueRuinsExit();run.Model.SetPaused(false);run.Tick(.1);
+            Need(run.Battle.Phase==BattlePhase.Fighting,"对白结束时在出口待命的队长触发了自动离场");
+            WalkOutOfRuins(run);
+            Need(BaseDemoRuins.Complete(state,run),"遗迹首通结算失败");
             var prisoner=state.Aftermath.Prisoners.Single(p=>p.BattleId==session.Opening.Id&&p.Kind==SoldierKind.Hero);
             Need(!string.IsNullOrEmpty(state.Demo.Flow.FirstControllerId)&&state.Demo.Flow.FirstControllerId==prisoner.Id,"首通未写入 FirstControllerId");
-            // 首通专属剧情：控制者被 FirstControllerId 标记后，未接纳前招降必须被挡住，走 AcceptController 才放行。
-            // （W11 旧工单写的是「直接招降成功」，实测不符；按 W11 要求不改运行时代码，断言按真实行为写。）
+            Need(state.Aftermath.Loot.All(m=>m.BattleId!=session.Opening.Id)&&BaseRuinsRewards.PendingBattle(state)=="","首胜意外生成奖励");
+            var later=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));BaseEconomy.Validate(later);
+            Need(BaseDemoNpcs.Additional(later).Any(o=>o.Id==BaseDemoStories.GalanMarker)&&prisoner.Status==BaseDemoStories.WaitingAtEntrance,"入口读档丢失迦兰");
+            var legacy=later.Copy();legacy.Aftermath.Prisoners.Single(p=>p.Id==prisoner.Id).Status="held";
+            legacy.Aftermath.Loot.Add(new BaseLootManifest{BattleId=prisoner.BattleId,Title="遗迹旧战果",ReceiptCoins=15});
+            int coins=legacy.Inventory.Coins;BaseEconomy.Validate(legacy);
+            Need(BaseDemoStories.ControllerDialogue(legacy,prisoner.Id)&&!BaseBattleLoot.ShouldPresent(legacy)&&legacy.Inventory.Coins==coins,
+                "旧档仍弹首战奖励或未保留迦兰");
+            var board=BaseBattlefield.Board(later);var objects=BaseSpatial.Objects(later);
+            var from=new BasePoint(later.PlayerX,later.PlayerY);
+            bool CanWalk(double x,double y)=>BaseSpatial.Geometry(objects,x,y,board.Width,board.Height)&&BaseSpatial.TerrainWalkable(board,x,y,objects);
+            foreach(var id in new[]{"demo_rescued_1","demo_rescued_2",BaseDemoStories.GalanMarker})
+            {
+                var person=objects.Single(o=>o.Id==id);var at=new BasePoint(person.X,person.Y);
+                Need(CanWalk(at.X,at.Y)&&BaseMap.FindRoute(from,at,null,CanWalk,false,board.Width,board.Height).Count>0&&
+                    BaseInteraction.WithinReach(board,person,at.X,at.Y),"出洞后不能走到人物旁交谈："+id);
+            }
+            Need(BaseSceneRules.TalkRescued(later,true),"撤离后无法继续洞外对白");
+            BaseSceneRules.TickRescued(later,60);
+            Need(BaseDemoNpcs.Additional(later).Any(o=>o.Id==BaseDemoStories.GalanMarker),"镇民离去时带走了迦兰");
+            Need(!BaseAftermath.Decide(later,prisoner.Id,"release")&&!BaseAftermath.Decide(later,prisoner.Id,"execute"),"普通处置能移走剧情人物");
+            Need(BaseDemoStories.ExecuteController(later,prisoner.Id)&&BaseDemoNpcs.Additional(later).All(o=>o.Id!=BaseDemoStories.GalanMarker)&&!BaseDemoStories.AcceptController(later,prisoner.Id),"处决后仍可接纳");
             Need(BaseDemoStories.ControllerDialogue(state,prisoner.Id),"首通控制者专属剧情未生效");
             Need(!BaseAftermath.Decide(state,prisoner.Id,"recruit"),"首通控制者在接纳前不应直接招降");
             Need(BaseDemoStories.AcceptController(state,prisoner.Id),"首通控制者接纳失败");
@@ -643,7 +688,7 @@ namespace BaseConquest.Editor
                 Need(session.Battle.Soldiers.Where(u=>u.Kind==SoldierKind.Hero).All(u=>!string.IsNullOrEmpty(u.AppearanceId)&&u.AppearanceId!="wilderness"),"遗迹队长外观缺失");
                 var run=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(run);
                 var enemy=run.Model.Units.Single(u=>u.Id==hero.Id+1);enemy.Health=1;enemy.KnockedDown=true;hero.Health=1;hero.KnockedDown=true;hero.DeathResolved=true;
-                run.Model.SetPaused(false);run.Tick(.02);Need(BaseDemoRuins.Complete(state,run),"遗迹结算失败："+seed);
+                run.Model.SetPaused(false);run.Tick(.02);WalkOutOfRuins(run);Need(BaseDemoRuins.Complete(state,run),"遗迹结算失败："+seed);
                 var prisoner=state.Aftermath.Prisoners.Single(p=>p.BattleId==session.Opening.Id&&p.Kind==SoldierKind.Hero);
                 Need(prisoner.AppearanceId=="galan"&&BaseAftermath.Decide(state,prisoner.Id,"recruit"),"遗迹俘虏外观或招降失败："+seed);
                 var recruited=state.Leaders.Single(l=>l.Id=="partner_recruit:"+prisoner.Id);

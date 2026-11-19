@@ -200,7 +200,7 @@ namespace BaseConquest.Base
                 ClearPanelChildren(offers.content);
                 ClearPanelChildren(details.content);
                 ClearPanelChildren(right.content);
-                ClearPanelChildren(rightTabs);
+                ClearPanelChildren(rightTabs.GetComponent<ScrollRect>().content);
             }
             tradeOffers.Clear();
             var vendor=tradeVendor==TradeVendor.Recruiter?BaseScriptNames.Recruiter

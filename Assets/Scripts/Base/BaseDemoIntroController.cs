@@ -111,7 +111,7 @@ namespace BaseConquest.Base
                 {
                     BaseDemoIntro.Configure(run, State.Demo.Intro);
                     OpeningAudio?.BindPractice(run);
-                }, null, FinishDemoPractice, "民兵演练 · 选主角／暂停／移动／攻击／驻守／手动鼓舞");
+                }, null, FinishDemoPractice, "民兵演练 · 选主角／暂停／移动／练木桩／攻击搭档");
             }
             catch(Exception e){State.SceneBattleId="";MapSession.LeaveBattle();if(combatController!=null){combatController.gameObject.SetActive(false);BattleBoardView.DestroyObject(combatController.gameObject);combatController=null;}explorationActors.gameObject.SetActive(true);Hud.SetVisible(true);ReportMessage("演练准备失败："+e.Message);}
         }
@@ -121,7 +121,7 @@ namespace BaseConquest.Base
             var next=State.Copy();if(!BaseDemoIntro.FinishPractice(next,completed))return false;
             if(!abandon&&run?.Battle.Phase==BattlePhase.Finished)BaseSceneRules.RememberStrategy(next,run.Session);BaseEconomy.Validate(next);SaveStore.Save(next);State=next;BaseBattleGateway.MainMenu=mainMenu;
             if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,()=>Hud.OpenPracticeResult(completed));return true;}
-            if(Application.isPlaying)SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+            if(Application.isPlaying)SceneLoadingCover.LoadExploration();
             else{var old=combatController;combatController=null;if(old!=null)BattleBoardView.DestroyObject(old.gameObject);RebuildRegion();RebuildHud();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();if(!mainMenu)Hud.OpenPracticeResult(completed);}
             return true;
         }

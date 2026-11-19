@@ -328,6 +328,7 @@ namespace BaseConquest.Base
             if(regionView!=null) {regionView.Root.SetActive(false);regionView.Dispose();BattleBoardView.DestroyObject(regionView.Root);}
             if(mapMaterial!=null)BattleBoardView.DestroyObject(mapMaterial);companionViews.Clear();BuildWorld();
         }
+        internal bool RegionPresented => runtimeRoot != null && runtimeRoot.gameObject.activeInHierarchy;
         private void SetRegionReady(bool ready)
         {
             // Async opening data and restored camera/actors must be ready before the first map frame.
@@ -357,7 +358,8 @@ namespace BaseConquest.Base
                     TickDefenseIntel();
                 }
             }
-            if (State == null || Busy || combatController != null) {ClearWorkerTravel();return;}
+            if (State == null || combatController != null) {if(workerTravelMap!=null)ClearWorkerTravel();return;}
+            if (Busy) return;
             TickWorkerTravel(Math.Min(Time.deltaTime,.05));
             TickDemoIntro(Math.Min(Time.deltaTime,.05));if(!Hud.PanelOpen)TickRescueJourney(Math.Min(Time.deltaTime,.05));
             if(BaseWorldJourney.OnWorld(State))
@@ -383,6 +385,7 @@ namespace BaseConquest.Base
             var keyboard = Keyboard.current;
             bool escape = keyboard?.escapeKey.wasPressedThisFrame == true;
             if(Hud.DialogueOpen&&keyboard!=null&&(keyboard.eKey.wasPressedThisFrame||keyboard.spaceKey.wasPressedThisFrame)){Hud.ContinueDialogue();return;}
+            if(escape && Hud.CloseDialogueSkipSummary())return;
             if(Hud.DialogueExitLocked&&escape)return;
             if (Hud.ResourcePopoverOpen && escape) { Hud.CloseResourcePopover(); escape = false; }
             if (escape && Hud.CloseInventoryItemMenu()) return;
@@ -434,9 +437,12 @@ namespace BaseConquest.Base
             bool opening = !BaseBattleGateway.MainMenu && BaseDemoIntro.Active(State) &&
                 !State.Aftermath.GameOver && State.Campaign.Location == "base" &&
                 State.Demo.Stage == BaseDemoStage.PrologueBriefing && State.Demo.Intro.Step is not (6 or 7);
-            if (opening && OpeningAudio == null)
-                OpeningAudio = runtimeRoot.gameObject.AddComponent<VillageOpeningAudio>();
-            OpeningAudio?.SetContext(opening, combatController != null && State?.SceneBattleId == BaseDemoIntro.BattleId);
+            bool exploring = BaseDemo.Active(State) && !BaseBattleGateway.MainMenu && !State.Aftermath.GameOver &&
+                combatController == null && !DeploymentWorldActive && !State.Campaign.HasActiveBattle;
+            if ((exploring || opening) && OpeningAudio == null)
+                OpeningAudio = VillageOpeningAudio.Shared();
+            if (OpeningAudio != null)
+                OpeningAudio.SetContext(this, opening, combatController != null && State?.SceneBattleId == BaseDemoIntro.BattleId, exploring);
         }
         private void AdvanceExplorationCompanions(double seconds)
         {
@@ -653,8 +659,12 @@ namespace BaseConquest.Base
             try
             {
                 Companions.Capture(State); var next = State.Copy(); edit(next); BaseDemoIntro.CheckEquipment(next); BaseDevelopment.Allocate(next); SaveStore.Save(next,beforeChange:State);
-                if(!deploymentChangedMap&&State.Campaign.Location==next.Campaign.Location&&State.Campaign.CurrentMapId==next.Campaign.CurrentMapId)BaseBattlefield.KeepLiveBoard(next,MapSession.Board);
+                bool changedMap = State.Campaign.Location != next.Campaign.Location ||
+                    State.Campaign.CurrentMapId != next.Campaign.CurrentMapId || BaseDemoPrologue.Village(State) != BaseDemoPrologue.Village(next);
+                if(!deploymentChangedMap&&!changedMap)BaseBattlefield.KeepLiveBoard(next,MapSession.Board);
                 State = next; Message = message;
+                // Landing coordinates and followers belong to the destination board.
+                if (changedMap) { ClearWorkerTravel(); return true; }
                 Companions.Synchronize(State);
                 if (!DeploymentWorldActive) { PlaceCompanions(); PlacePlayer(); }
                 RefreshFarmVisuals(); if (PlayerAway) ClearSelection(); Hud.RefreshSummary(); return true;
@@ -711,9 +721,10 @@ namespace BaseConquest.Base
             {
                 if (restored)
                 {
+                    ClearWorkerTravel();
                     if (previousLocation != null && previousLocation != State.Campaign.Location)
                     {
-                        UnityEngine.SceneManagement.SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+                        SceneLoadingCover.LoadExploration();
                         return;
                     }
                     Message = "已载入第" + State.Day + "天，未重复扣粮";
@@ -850,7 +861,7 @@ namespace BaseConquest.Base
             var next=opening.CreateState();BaseThreats.Enable(next);bool changedLocation=State!=null&&State.Campaign.Location!=next.Campaign.Location;BaseBattleGateway.Session().Start(next);State=next;
             BaseBattleGateway.MainMenu=false;Message="新开局 · "+opening.Title+"；首日口粮已扣一次";RebuildRegion();RebuildHud();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();ClearSelection();Hud.ClosePanel();
             if(BaseDemo.Active(State)&&(State.Demo.Stage==BaseDemoStage.Waking||BaseDemoPrologue.Village(State)))Hud.OpenDemoStory();
-            if(changedLocation)UnityEngine.SceneManagement.SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+            if(changedLocation)SceneLoadingCover.LoadExploration();
             else if((State.Campaign.Location=="world"||State.Campaign.Location=="outpost")&&!State.Muster.Parties.Any(p=>p.Purpose=="expedition"))Hud.OpenDeparture("world");
         }
         private void OnApplicationPause(bool paused) { if (paused) SaveAfterInputReset(); }
@@ -863,6 +874,6 @@ namespace BaseConquest.Base
             Save();
         }
         private void OnApplicationQuit() => Save();
-        private void OnDestroy() { EndDeploymentWorld(false); RemoveDeveloperDiagnostics(); regionView?.Dispose(); BattleBoardView.DestroyObject(mapMaterial); BattleBoardView.DestroyObject(font); }
+        private void OnDestroy() { if (OpeningAudio != null) OpeningAudio.Release(this); EndDeploymentWorld(false); RemoveDeveloperDiagnostics(); regionView?.Dispose(); BattleBoardView.DestroyObject(mapMaterial); BattleBoardView.DestroyObject(font); }
     }
 }

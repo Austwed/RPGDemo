@@ -9,6 +9,8 @@ namespace BaseConquest.Base
     {
         public int Stage;
         public double FirstX=11,FirstY=8.5,SecondX=12,SecondY=8.5;
+        public int EntranceLayoutVersion;
+        public double GalanX,GalanY;
         public BaseRescueJourney Copy()=>(BaseRescueJourney)MemberwiseClone();
     }
     [Serializable] public sealed class BaseTerrainMemory
@@ -20,6 +22,7 @@ namespace BaseConquest.Base
     {
         public const string DungeonId="demo_dungeon";
         private const string EntranceId = "demo_ruins_investigate";
+        internal const int EntrancePeopleLayout = 2;
         private const double EntranceHalfWidth = 1.15, DoorHalfWidth = .40;
         private const double PostFront = .25, DoorSill = .52, EntranceBack = 1.05;
         public static bool Active(BaseState s)=>s?.Demo?.Rpg?.SceneRulesVersion==1;
@@ -65,6 +68,8 @@ namespace BaseConquest.Base
                 s.PlayerX = point.X;
                 s.PlayerY = point.Y;
             }
+            if(current && s.Demo.Rescue is {Stage:>0} rescue && rescue.EntranceLayoutVersion<EntrancePeopleLayout)
+                PlaceEntrancePeople(s,portal,rescue);
             foreach (var leader in s.Leaders)
             {
                 if (leader?.HasMapPosition != true || !BlocksEntrance(portal, leader.MapX, leader.MapY)) continue;
@@ -74,6 +79,35 @@ namespace BaseConquest.Base
                 leader.MapX = point.X;
                 leader.MapY = point.Y;
             }
+        }
+        private static void PlaceEntrancePeople(BaseState state,BaseMapObject portal,BaseRescueJourney rescue)
+        {
+            var landing=EntranceApproach(state,portal);
+            var board=BaseBattlefield.Board(state);
+            var objects=BaseSpatial.Objects(state);
+            double level=board.SurfaceLevel(landing.X,landing.Y);
+            bool Ground(double x,double y)=>Math.Abs(board.SurfaceLevel(x,y)-level)<.001 &&
+                BaseSpatial.Geometry(objects,x,y,board.Width,board.Height)&&BaseSpatial.TerrainWalkable(board,x,y,objects);
+            var available=new List<BasePoint>();
+            for(int dx=-4;dx<=6;dx++)
+                for(int dy=-6;dy<=2;dy++)
+                {
+                    var p=new BasePoint(landing.X+dx*.5,landing.Y+dy*.5);
+                    if(p.Distance(landing)>=.7&&BaseMap.ClearSegment(landing,p,null,Ground,false,board.Width,board.Height))available.Add(p);
+                }
+            BasePoint Place(double dx,double dy)
+            {
+                if(available.Count==0)return landing;
+                var desired=new BasePoint(landing.X+dx,landing.Y+dy);
+                var post=available.OrderBy(p=>p.Distance(desired)).First();
+                available.RemoveAll(p=>p.Distance(post)<.75);return post;
+            }
+            var first=Place(-1.5,-.5);var second=Place(-.5,-1.5);var galan=Place(2.5,-2.5);
+            if(rescue.Stage==1)
+            {
+                rescue.FirstX=first.X;rescue.FirstY=first.Y;rescue.SecondX=second.X;rescue.SecondY=second.Y;
+            }
+            rescue.GalanX=galan.X;rescue.GalanY=galan.Y;rescue.EntranceLayoutVersion=EntrancePeopleLayout;
         }
         public static bool Neutral(BaseState s)=>Neutral(s, s.Campaign.Location);
         // 按指定区域判中立：副手在营地主持防守时，不能拿玩家所在城镇的“禁止士兵”清空战场编制。
@@ -141,8 +175,8 @@ namespace BaseConquest.Base
             var landing=portal==null ? BaseSpatial.Nearest(s,new BasePoint(11,7)) : EntranceApproach(s,portal);
             s.PlayerX=landing.X;s.PlayerY=landing.Y;BaseAdventure.Arrive(s);
         }
-        public static bool TalkRescued(BaseState s)
-        {if(!Entrance(s)||s.Demo.Rescue?.Stage!=1||!new[]{"demo_rescued_1","demo_rescued_2"}.Any(id=>BaseInteraction.At(s,s.Campaign.Location,id)))return false;s.Demo.Rescue.Stage=2;return true;}
+        public static bool TalkRescued(BaseState s,bool afterExtraction=false)
+        {if(!Entrance(s)||s.Demo.Rescue?.Stage!=1||!afterExtraction&&!new[]{"demo_rescued_1","demo_rescued_2"}.Any(id=>BaseInteraction.At(s,s.Campaign.Location,id)))return false;s.Demo.Rescue.Stage=2;return true;}
         public static bool TickRescued(BaseState s,double seconds)
         {
             if(!Active(s)||s.Demo.Rescue?.Stage!=2)return false;var r=s.Demo.Rescue;

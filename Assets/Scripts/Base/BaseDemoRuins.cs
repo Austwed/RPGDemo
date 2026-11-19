@@ -152,7 +152,7 @@ namespace BaseConquest.Base
         public static IEnumerable<BattleSoldier> Civilians(BaseCampaignSession session)=>session.Opening.Enemies.Select((enemy,index)=>new {enemy,index}).Where(x=>x.enemy.IsControlled).Select(x=>session.UnitForEnemy(x.index));
         public static bool SoloRetreatGuide(RealtimeCampaignBattle run)
         {
-            if(run==null||!Encounter(run.Session)||!run.Session.Opening.RuinsFirstClear||run.Battle.Phase!=BattlePhase.Fighting)return false;
+            if(run==null||!Encounter(run.Session)||!run.Session.Opening.RuinsFirstClear||run.Battle.Phase!=BattlePhase.Fighting||ControllerDefeated(run))return false;
             var allies=run.Battle.Soldiers.Where(u=>u.Side==BattleSide.A).ToArray();
             var player=run.Model.Player;
             return allies.Length==1&&allies[0].Kind==SoldierKind.Hero&&player!=null&&player.Alive&&player.Health<=player.MaxHealth*.5;
@@ -162,12 +162,14 @@ namespace BaseConquest.Base
         public static void Configure(RealtimeCampaignBattle run)
         {
             foreach(var leader in run.Battle.Soldiers.Where(unit=>unit.Side==BattleSide.B&&unit.Kind==SoldierKind.Hero))leader.ProtectFromInstantDeath=run.Session.Opening.RuinsFirstClear;
-            foreach(var victim in Civilians(run.Session)){victim.ProtectFromInstantDeath=true;victim.AppearanceId="villager";}
+            foreach(var victim in Civilians(run.Session))victim.ProtectFromInstantDeath=true;
             run.Battle.RuinsCivilianIds=new HashSet<int>(Civilians(run.Session).Select(v=>v.Id));
             var controller=run.Battle.Commander(BattleSide.B,0);if(controller!=null)controller.AppearanceId="galan";
             run.EnableRuinsExposure(run.Session.Opening.RuinsExposureFraction>0?run.Session.Opening.RuinsExposureFraction:.03);
-            run.ImmediateVictory=()=>ControllerDefeated(run);
-            run.OutcomeResolver=current=>ControllerDefeated(current)?BattleOutcome.SideAWin:BaseDemoCombat.Defeated(current)?BattleOutcome.SideBWin:current.Model.Elapsed>=90?BattleOutcome.RoundLimit:BattleOutcome.None;
+            run.ImmediateVictory=()=>ControllerDefeated(run)&&!BaseDemoCombat.Defeated(run)&&run.CheckRuinsExit();
+            run.OutcomeResolver=current=>ControllerDefeated(current)&&(!BaseDemoCombat.Defeated(current)||current.RuinsExitOpen)
+                ? current.CheckRuinsExit()?BattleOutcome.SideAWin:BattleOutcome.None
+                : BaseDemoCombat.Defeated(current)?BattleOutcome.SideBWin:current.Model.Elapsed>=90?BattleOutcome.RoundLimit:BattleOutcome.None;
         }
         public static bool Complete(BaseState state,RealtimeCampaignBattle run,bool allowMercyAchievement=true)
         {
@@ -179,7 +181,7 @@ namespace BaseConquest.Base
             BaseAchievements.Unlock(state,BaseAchievements.Ruins);if(allowMercyAchievement&&!run.Battle.RuinsCivilianDamaged)BaseAchievements.Unlock(state,BaseAchievements.Mercy);
             if(state.Demo.RuinsDay==0){state.Demo.RuinsDay=state.Day;state.Demo.Evidence.Add(Proof);if(BaseSceneRules.Active(state)&&state.Demo.Rescue.Stage==0)state.Demo.Rescue.Stage=1;
             state.Demo.Stage=BaseDemoStage.RuinsCleared;}
-            BaseRuinsRewards.RecordVictory(state,run.Session.Opening.Id,BasePrepRoute.Ruins,run.Session.Opening.RuinsFirstClear);
+            if(!run.Session.Opening.RuinsFirstClear)BaseRuinsRewards.RecordVictory(state,run.Session.Opening.Id,BasePrepRoute.Ruins);
             foreach(var manifest in state.Aftermath.Loot.Where(item=>item.BattleId==run.Session.Opening.Id))if(BaseBattleLoot.CanFinish(state,manifest)&&!state.Aftermath.Prisoners.Any(p=>p.BattleId==manifest.BattleId&&p.Status=="held"))BaseBattleLoot.Finish(state,manifest.BattleId);
             BaseSceneRules.LeaveDungeon(state);BaseEconomy.Validate(state);return true;
         }

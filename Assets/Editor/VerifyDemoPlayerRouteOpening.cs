@@ -56,7 +56,7 @@ namespace BaseConquest.Editor
             if(saveFixture)SaveRouteCheckpoint(state, "drill");
             PlayOpeningPractice(state.Copy(), destroyDummy: true);
             PlayOpeningPractice(state);
-            Note("序章演练：选人、暂停、移动、驻守、鼓舞，分别通过进攻策略三次命中和手动打坏木桩，再命中搭档。");
+            Note("序章演练：选人、暂停、移动，分别通过进攻策略三次命中和手动打坏木桩，再命中搭档。");
 
             for (int frame = 0; frame < 1200 && !state.Demo.Intro.ReporterArrived; frame++)
                 BaseDemoIntro.AdvanceReporter(state, .05);
@@ -157,14 +157,7 @@ namespace BaseConquest.Editor
             Need(practice.Issue(selected, PrototypeOrder.Move, arena.Center(near.cell), commanderOnly: true), "演练移动下令失败");
             AdvanceUntil(() => (intro.DrillFlags & BaseDemoIntro.Move) != 0, 240, "演练位移未计入");
             BaseDemoIntro.AdvanceTutorialDelay(intro, 1);
-            Need(practice.Issue(selected, PrototypeOrder.Guard, actor.Position, commanderOnly: true) &&
-                (intro.DrillFlags & BaseDemoIntro.Guard) != 0, "演练驻守下令失败");
-            BaseDemoIntro.AdvanceTutorialDelay(intro, 1);
-            Need(practice.CastSkill(BattleSide.A, 0) && (intro.DrillFlags & BaseDemoIntro.Skill) != 0, "演练鼓舞施放失败");
-            Need(practice.Battle.Events.Any(e => e.Message != null && e.Message.Contains("我方") &&
-                e.Message.Contains("影响 1 人") && e.Message.Contains("攻击 +")), "战报未显示鼓舞的实际效果");
-            BaseDemoIntro.AdvanceTutorialDelay(intro, 1);
-            Need(BaseDemoIntro.NextExercise(intro) == BaseDemoIntro.DummyDemo, "鼓舞之后应直接指向木桩演示");
+            Need(BaseDemoIntro.NextExercise(intro) == BaseDemoIntro.DummyDemo, "实走后应直接练木桩");
             if (destroyDummy)
             {
                 Need(practice.Tactics.Issue(selected, BaseDemoIntro.DummyId, leadersOnly: true), "主动攻击木桩失败");

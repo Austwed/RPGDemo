@@ -449,6 +449,7 @@ namespace BaseConquest.Base
         }
         public void ClosePanel()
         {
+            if (CloseDialogueSkipSummary()) return;
             if (ResourcePopoverOpen) { CloseResourcePopover(); return; }
             if (ClosePreparationHelp()) return;
             if (DialogueExitLocked) return;
@@ -457,7 +458,9 @@ namespace BaseConquest.Base
             if(!BaseDemo.Active(owner.State)&&BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             workerDraft=null;workerMoves.Clear();ClearPanelSelection();
             if (PanelOpen) PanelClosedFrame = Time.frameCount;
-            dialogueContinue=null;modal.gameObject.SetActive(false); activeObject = "";interactionObject=""; panelViewKey = null; panelScrollOffsets.Clear();
+            dialogueContinue = dialogueDefault = dialogueFinishText = null;
+            dialogueTick = null;
+            modal.gameObject.SetActive(false); activeObject = "";interactionObject=""; panelViewKey = null; panelScrollOffsets.Clear();
             BattlePreparationPanelClosed();
             if (owner.State != null) RefreshSummary();
             owner.NotifyPanelClosed();

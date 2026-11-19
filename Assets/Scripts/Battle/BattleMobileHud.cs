@@ -531,8 +531,9 @@ namespace BaseConquest.Battle
             status.text=(battle.Phase==BattlePhase.Finished?"战斗结束 · "+BattleSceneController.OutcomeName(battle.Report.Outcome):owner.RealtimeStatus)+"\n"+owner.Feedback;
             if(owner.IsSceneEncounter)
             {
-                objectiveTitle.text=owner.SceneEncounterObjective;
+                objectiveTitle.text=owner.Realtime?.RuinsExitOpen==true ? "前往我方撤离点" : owner.SceneEncounterObjective;
                 objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsSecondDefense?"击败全部来敌":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0.0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 可提前击退":owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":owner.SceneEncounterObjective;
+                if(owner.Realtime?.RuinsExitOpen==true)objectiveProgress.text=owner.Realtime.EscortWithoutCaptain?"点我方撤离点，让幸存士兵带队离开":"一名我方队长抵达即可撤离";
                 status.text=owner.Feedback;
             }
             if(owner.DetailsVisible)

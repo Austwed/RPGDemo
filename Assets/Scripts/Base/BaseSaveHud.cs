@@ -9,10 +9,10 @@ namespace BaseConquest.Base
         public void SaveSlot(string id) { try { Companions.Capture(State); BaseBattleGateway.Catalog().SaveSlot(id,State,"手动存档 "+id);BaseBattleGateway.Session().Restore(State); Message="已保存"+id; } catch(Exception e) { Message=e.Message; } Hud.OpenSlots(true); }
         public void LoadSlot(string id, bool backup=false)
         {
-            try { BaseBattleGateway.Session().LoadPlayableSlot(id,backup); BaseBattleGateway.MainMenu=false; BaseBattleGateway.RequestedId=null; SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); }
+            try { BaseBattleGateway.Session().LoadPlayableSlot(id,backup); BaseBattleGateway.MainMenu=false; BaseBattleGateway.RequestedId=null; SceneLoadingCover.LoadExploration(); }
             catch(Exception e) { Message="读档失败，当前进度保留："+e.Message; Hud.OpenSlots(false); }
         }
-        public void ToMainMenu() { if(BaseBattleGateway.DemoMode){BaseBattleGateway.ExitDemoSession(false);return;} BaseBattleGateway.MainMenu=true; BaseBattleGateway.RequestedId=null; SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); }
+        public void ToMainMenu() { if(BaseBattleGateway.DemoMode){BaseBattleGateway.ExitDemoSession(false);return;} BaseBattleGateway.MainMenu=true; BaseBattleGateway.RequestedId=null; SceneLoadingCover.LoadExploration(); }
     }
     public sealed partial class BaseHud
     {

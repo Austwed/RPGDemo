@@ -18,7 +18,6 @@ namespace BaseConquest.Battle
     public sealed partial class RealtimeCampaignBattle
     {
         private readonly List<RealtimeCommanderSkill> skills=new List<RealtimeCommanderSkill>();
-        public void PrepareTutorialSkills(){foreach(var skill in skills){skill.Auto=false;skill.ReadyAt=0;}}
         private BattleEffectRules Effects=>Battle.Scenario.Effects;
         private RealtimeCommanderSkill Skill(BattleSide side,int slot)=>skills.FirstOrDefault(s=>s.Side==side&&s.Slot==slot);
         private bool Affected(PrototypeUnit actor,int slot)=>skills.Any(s=>s.Slot==slot&&s.ActiveUntil>Model.Elapsed+1e-9&&s.Recipients.Contains(actor.Id));
@@ -45,18 +44,15 @@ namespace BaseConquest.Battle
         }
         public double SkillCooldown(BattleSide side,int slot)=>Math.Max(0,(Skill(side,slot)?.ReadyAt??0)-Model.Elapsed);
         public float SkillCharge(BattleSide side,int slot)=>Skill(side,slot)==null?0:(float)Math.Max(0,1-SkillCooldown(side,slot)/(Rpg==null?Effects.Cooldown:Rpg.Skills.Single(d=>d.Id==Skill(side,slot).Id).Cooldown));
-        public Func<bool> TutorialSkillGate;
         public bool CanCastSkill(BattleSide side,int slot)
         {
-            if(side==BattleSide.A&&TutorialSkillGate?.Invoke()==false)return false;
             if(Rpg!=null)return CanCastRpgSkill(side,slot);
             var hero=Battle.Commander(side,slot);var actor=Model.Units.FirstOrDefault(u=>u.Id==hero?.Id+1);
             return Battle.Phase==BattlePhase.Fighting&&actor?.Alive==true&&actor.Order!=PrototypeOrder.Retreat&&Skill(side,slot)!=null&&SkillCooldown(side,slot)<1e-7;
         }
         public bool CastSkill(BattleSide side,int slot)
         {
-            if(side==BattleSide.A&&TutorialSkillGate?.Invoke()==false)return false;
-            if(Rpg!=null){bool cast=CastRpgSkill(side,slot);if(cast&&side==BattleSide.A)TutorialAction?.Invoke(BaseDemoIntro.Skill);return cast;}
+            if(Rpg!=null)return CastRpgSkill(side,slot);
             if(!CanCastSkill(side,slot))return false;
             var skill=Skill(side,slot);var hero=Battle.Commander(side,slot);
             skill.ReadyAt=Model.Elapsed+Effects.Cooldown;skill.ActiveUntil=Model.Elapsed+(slot==0?Effects.InspireDuration:slot==1?Effects.MarchDuration:Effects.HealDuration);skill.NextHealAt=Model.Elapsed+1;

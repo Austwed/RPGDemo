@@ -36,7 +36,7 @@ namespace BaseConquest.Battle
                 Button(name,-165,y,550,()=>{},false);
                 Button(loading ? "读取" : "保存",215,y,160,()=>{
                     try {
-                        if(loading){BaseBattleGateway.Session().LoadPlayableSlot(id);BaseBattleGateway.MainMenu=false;BaseBattleGateway.RequestedId=null;campaignBattleId="";SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
+                        if(loading){BaseBattleGateway.Session().LoadPlayableSlot(id);BaseBattleGateway.MainMenu=false;BaseBattleGateway.RequestedId=null;campaignBattleId="";SceneLoadingCover.LoadExploration();}
                         else { if(entry!=null){Button("确认覆盖此槽",0,-300,460,()=>{catalog.SaveSlot(id,BaseBattleGateway.Store().Load(),"战斗手动存档"+id);OpenCampaignSaves();});return;}catalog.SaveSlot(id,BaseBattleGateway.Store().Load(),"战斗手动存档"+id);OpenCampaignSaves();}
                     }catch(Exception e){feedback="存读档失败，原状态保留："+e.Message;Button(e.Message,0,-300,780,()=>OpenCampaignSaves(loading));}
                 },loading ? entry!=null&&entry.Error==null&&!entry.GameOver : !CampaignGameOver);
@@ -93,7 +93,7 @@ namespace BaseConquest.Battle
             bool compact = UsesCampaignSystemMenu;
             bool confirmation = page == CampaignMenuPage.ConfirmMainMenu || page == CampaignMenuPage.ConfirmQuit;
             bool canWithdraw = !DeploymentDraftActive && realtime != null && battle?.Phase == BattlePhase.Fighting &&
-                (!IsSecondDefense || realtime.DefensePursuitReady) && !IsStandaloneTest;
+                (!IsSecondDefense || realtime.DefensePursuitReady) && !IsStandaloneTest && !realtime.RuinsExitOpen;
             bool demo = BaseBattleGateway.DemoMode && !IsStandaloneTest;
             float height = page == CampaignMenuPage.Audio ? 272 : page == CampaignMenuPage.Options ? 370 :
                 compact ? (confirmation ? 334 : canWithdraw ? 370 : 306) : 418;

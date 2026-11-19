@@ -35,7 +35,7 @@ namespace BaseConquest.Battle
         private bool CanCastRpgSkill(BattleSide side,int slot)
         {
             var skill=Skill(side,slot);var actor=skill==null?null:SkillActor(skill);
-            return Battle.Phase==BattlePhase.Fighting&&actor?.Alive==true&&actor.Order!=PrototypeOrder.Retreat&&skill.ReadyAt<=Model.Elapsed+1e-9&&skill.ActiveUntil<=Model.Elapsed+1e-9;
+            return !RuinsExitOpen&&Battle.Phase==BattlePhase.Fighting&&actor?.Alive==true&&actor.Order!=PrototypeOrder.Retreat&&skill.ReadyAt<=Model.Elapsed+1e-9&&skill.ActiveUntil<=Model.Elapsed+1e-9;
         }
         private bool LegalSkillTarget(PrototypeUnit actor,PrototypeUnit target,bool range=true)=>target?.Alive==true&&target.Side!=actor.Side&&(Model.CanTarget?.Invoke(actor,target)??true)&&(!range||RealtimeBattlePrototype.BodyGap(actor,target)<=Model.ReachFor(actor,target))&&Model.ClearAttack(actor.Position,target.BodyCenter);
         private bool CastRpgSkill(BattleSide side,int slot)

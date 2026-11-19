@@ -29,9 +29,19 @@ namespace BaseConquest.Base
 
         private AudioSource ambience, score, effects;
         private Sound[] sounds;
-        private bool active, inPractice;
+        private static VillageOpeningAudio instance;
+        private BaseSceneController owner;
+        private bool active, inPractice, exploring;
         private double distance;
         private float ambienceGain, scoreGain;
+
+        internal static VillageOpeningAudio Shared()
+        {
+            if (instance != null) return instance;
+            var host = new GameObject("ExplorationAudio");
+            DontDestroyOnLoad(host);
+            return instance = host.AddComponent<VillageOpeningAudio>();
+        }
 
         private void Awake()
         {
@@ -62,12 +72,19 @@ namespace BaseConquest.Base
             return source;
         }
 
-        internal void SetContext(bool opening, bool practice)
+        internal void SetContext(BaseSceneController scene, bool opening, bool practice, bool playExplorationMusic)
         {
+            owner = scene;
+            exploring = playExplorationMusic;
             if (active != opening || inPractice != practice) distance = Stride * .6;
             if (active && !opening) effects.Stop();
             active = opening;
             inPractice = practice;
+        }
+
+        internal void Release(BaseSceneController scene)
+        {
+            if (owner == scene) SetContext(null, false, false, false);
         }
 
         private void LateUpdate()
@@ -75,7 +92,7 @@ namespace BaseConquest.Base
             float sfx = GameAudioVolume.Effects;
             effects.volume = sfx;
             Fade(ambience, ref ambienceGain, active ? (inPractice ? .18f : .30f) : 0, sfx);
-            Fade(score, ref scoreGain, active && !inPractice ? .28f : 0, GameAudioVolume.Music, pauseWhenSilent: active);
+            Fade(score, ref scoreGain, exploring ? .28f : 0, GameAudioVolume.Music, pauseWhenSilent: true);
         }
 
         private static void Fade(AudioSource source, ref float gain, float target, float channelVolume, bool pauseWhenSilent = false)
@@ -83,8 +100,9 @@ namespace BaseConquest.Base
             if (source.clip == null) return;
             if (target > 0 && !source.isPlaying)
             {
-                if (source.timeSamples > 0) source.UnPause();
-                else source.Play();
+                // The audio device can drop a voice while the editor or phone is in the background.
+                source.UnPause();
+                if (!source.isPlaying) source.Play();
             }
             gain = Mathf.MoveTowards(gain, target, Time.unscaledDeltaTime * .55f);
             source.volume = gain * channelVolume;

@@ -51,17 +51,16 @@ namespace BaseConquest.Battle
                 point = new PrototypePoint(dummy.X + .5, dummy.Y + .5);
                 height = .58f;
             }
-            else if (step == BaseDemoIntro.Move || step == BaseDemoIntro.Guard)
+            else if (step == BaseDemoIntro.Move)
             {
                 var arena = model.Arena;
                 if (practiceGroundCell < 0)
                 {
                     var distances = arena.Distances(actor.Cell, true);
-                    double preferred = step == BaseDemoIntro.Move ? 1.5 : .8;
                     practiceGroundCell = Enumerable.Range(0, distances.Length)
                         .Where(i => distances[i] >= .75 && distances[i] <= 3 && arena.FineWalkable(i) &&
                             !model.Units.Any(u => u.Alive && u.Contains(arena.Center(i))) && realtime.Tactics.At(arena.Center(i)) == null)
-                        .OrderBy(i => Math.Abs(distances[i] - preferred)).ThenBy(i => i).DefaultIfEmpty(-1).First();
+                        .OrderBy(i => Math.Abs(distances[i] - 1.5)).ThenBy(i => i).DefaultIfEmpty(-1).First();
                 }
                 if (practiceGroundCell < 0) return false;
                 point = arena.Center(practiceGroundCell);
@@ -190,6 +189,11 @@ namespace BaseConquest.Battle
             if(!plane.Raycast(ray,out float distance))return false;
             var world=ray.GetPoint(distance);var point=new PrototypePoint(world.x/BattleBoardView.CellSize+battle.Board.Width*.5,world.z/BattleBoardView.CellSize+battle.Board.Height*.5);
             int fine=realtime.Model.Arena.CellAt(point);if(fine<0)return false;
+            if(realtime.OrderRuinsExit(point,selection.Ids))
+            {
+                feedback=realtime.EscortWithoutCaptain?"幸存士兵正前往撤离点":"队长正前往撤离点";
+                hud?.Refresh();return true;
+            }
             if (holdGuard)
             {
                 if (!HasSelection || !realtime.Model.Arena.CanStand(point) || realtime.Tactics.At(point) != null || RealtimeFineUnits(fine).Any(u => u.IsActive)) return false;

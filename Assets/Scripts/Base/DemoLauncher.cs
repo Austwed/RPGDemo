@@ -24,7 +24,7 @@ namespace BaseConquest.Base
             Application.targetFrameRate=60;QualitySettings.vSyncCount=1;
             if(!Application.isEditor&&!Application.isMobilePlatform)
                 Screen.SetResolution(1280,720,FullScreenMode.Windowed);
-            PrepareSession();SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+            PrepareSession();SceneLoadingCover.LoadExploration();
         }
     }
 }

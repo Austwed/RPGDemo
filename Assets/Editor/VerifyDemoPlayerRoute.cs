@@ -176,7 +176,7 @@ namespace BaseConquest.Editor
             Need(BaseSceneRules.TalkRescued(state), "无法与获救村民交谈");
             for (int i = 0; i < 900 && state.Demo.Rescue.Stage == 2; i++) BaseSceneRules.TickRescued(state, .05);
             Need(state.Demo.Rescue.Stage == 3, "获救村民未返回城镇");
-            Note("古窟重试：与阿禾、阿铸实际打赢，领取首通奖励、接纳迦兰，与获救村民道别。");
+            Note("古窟重试：与阿禾、阿铸实际打赢，队长从洞口撤出，在入口接纳迦兰，与获救村民道别。");
 
             Travel(state, "demo_ruins_return", "town");
             At(state, "town_quest");
@@ -417,6 +417,7 @@ namespace BaseConquest.Editor
             run.Model.SetPaused(false);
             for (int frame = 0; frame < frames && run.Battle.Phase == BattlePhase.Fighting && stop?.Invoke() != true; frame++)
             {
+                if(run.RuinsExitOpen){VerifyChenanAndRuins.WalkOutOfRuins(run,run.Session.Opening.Leaders.Count==2);break;}
                 if (frame % 30 == 0)
                 {
                     bool focus = attack && run.Battle.PlayerCanSee(BattleSide.A, enemy);

@@ -42,9 +42,6 @@ namespace BaseConquest.Base
                 BaseDemoIntro.Select => StoryText.Get("story.scene.prologue.drill_select", "先点左下角的头像，也可以点你自己。"),
                 BaseDemoIntro.Pause => StoryText.Get("story.scene.prologue.drill_pause", "点右下角的暂停／继续，或按空格。"),
                 BaseDemoIntro.Move => StoryText.Get("story.scene.prologue.drill_move", "【手动】时，你得自己下令。单击前方空地，暂停时按空格就会迈步。"),
-                BaseDemoIntro.Guard => StoryText.Get("story.scene.prologue.drill_guard", "双击身旁的空地，下令【驻守】。"),
-                BaseDemoIntro.Skill => StoryText.Get("story.scene.prologue.drill_skill", "点头像上方的【{skill}】，把气势提起来！")
-                    .Replace("{skill}", combatController.Realtime.SkillName(BattleSide.A, 0)),
                 BaseDemoIntro.DummyDemo => StoryText.Get("story.scene.prologue.drill_dummy", "看好了，每次挥砍都有起手空当，算准距离才能刀刀见肉！"),
                 BaseDemoIntro.AutoAttack when attackingDummy => "让队伍继续攻击木桩。战斗暂停时点【继续】。",
                 BaseDemoIntro.AutoAttack => StoryText.Get("story.scene.prologue.drill_auto_attack", "点右下角的【进攻】，让队伍连续攻击木桩。战斗暂停时先继续。"),
@@ -76,8 +73,26 @@ namespace BaseConquest.Base
         private string ruinsRetreatGuideId;
         private bool TickRuinsRetreatGuide()
         {
-            if(combatController?.IsDemoRuins!=true || combatController.ExternalDialogue)return false;
+            if(combatController?.IsDemoRuins!=true)return false;
             var run=combatController.Realtime;
+            if(combatController.ExternalDialogue)
+            {
+                var keyboard=UnityEngine.InputSystem.Keyboard.current;
+                if(keyboard!=null&&(keyboard.eKey.wasPressedThisFrame||keyboard.spaceKey.wasPressedThisFrame))Hud.ContinueDialogue();
+                return true;
+            }
+            if(run?.AwaitingRescueDialogue==true)
+            {
+                bool running=combatController.PauseForDialogue();
+                combatController.ExternalDialogue=true;
+                Hud.SetVisible(true);
+                Hud.OpenRuinsRescue(()=>{
+                    Hud.ClosePanel();Hud.SetVisible(false);
+                    run.ContinueRuinsExit();
+                    combatController.ExternalDialogue=false;combatController.ResumeAfterDialogue(running);
+                });
+                return true;
+            }
             if(Hud.PanelOpen||run==null||ruinsRetreatGuideId==run.Session.Opening.Id||!BaseDemoRuins.SoloRetreatGuide(run))return false;
             ruinsRetreatGuideId=run.Session.Opening.Id;
             combatController.PauseForDialogue();
@@ -210,9 +225,9 @@ namespace BaseConquest.Base
             }
             if(arrived){SaveStore.Save(State);RebuildRegion();RebuildHud();PlacePlayer();}
         }
-        public void ReturnRescuedVillagers()
+        public void ReturnRescuedVillagers(bool afterExtraction=false)
         {
-            if(Change(s=>{if(!BaseSceneRules.TalkRescued(s))throw new InvalidOperationException("请在遗迹入口与获救村民交谈");},"两名村民动身返回城镇"))Hud.ClosePanel();
+            if(Change(s=>{if(!BaseSceneRules.TalkRescued(s,afterExtraction))throw new InvalidOperationException("请在遗迹入口与获救村民交谈");},"两名村民动身返回城镇"))Hud.ClosePanel();
         }
         private void FinishLocalScene(bool mainMenu,Action after=null)
         {

@@ -288,6 +288,12 @@ namespace BaseConquest.Base
                 raw.ExitA = new GridPosition(1, 7);
                 raw.ExitB = new GridPosition(raw.Board.Width - 2, 7);
             }
+            else if (e.Id == BaseDemoRuins.EventId)
+            {
+                var exit = BaseSpatial.Layout(s)?.Objects.FirstOrDefault(o => o.Id == "demo_dungeon_exit");
+                if (exit != null) raw.ExitA = new GridPosition((int)exit.X, (int)exit.Y);
+                else raw.ExitA = new GridPosition(1, Math.Min(7, raw.Board.Height - 2));
+            }
             if (e.Kind == "defense") { raw.Objective.Kind = ObjectiveKinds.Hold; raw.Objective.HoldRounds = Math.Min(raw.MaxRounds, e.HoldRounds > 0 ? e.HoldRounds : 30); }
             raw.Objective.Title = hideout ? BaseBanditHideout.Objective : e.Kind == "defense" ? "坚守迎敌战场" : "攻克敌点";
             BaseRpg.PrepareEnemies(s,enemies,e.Id);
@@ -418,8 +424,10 @@ namespace BaseConquest.Base
             BaseAftermath.Capture(s, session, win);
             if(s.PersonalEquipment.Warehouse.Count>personalBeforeCapture)r.RecoveryNote="俘虏穿戴装备已缴入仓库："+(s.PersonalEquipment.Warehouse.Count-personalBeforeCapture)+"件";
             BaseItemRecovery.Record(s,session,e,r,win);
-            if(win&&!s.Aftermath.GameOver&&a.EventId!=BaseBanditHideout.EventId){r.DropMaterials=Math.Min(battle.Soldiers.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned&&!u.Escaped&&!u.IsAlive&&BattleSimulation.StableRoll(battle.Scenario.RandomSeed,u.Id,29)<a.Difficulty.DropRate),100000000-s.Inventory.Materials);s.Inventory.Materials+=r.DropMaterials;}
-            ApplyEventInventory(s, e, win && !s.Aftermath.GameOver, r,a.Difficulty.RewardFactor); e.Status = win && !s.Aftermath.GameOver || e.Kind == "defense" ? "resolved" : "pending";
+            bool rescueOnly = win && a.EventId == BaseDemoRuins.EventId && a.RuinsFirstClear;
+            if(win&&!rescueOnly&&!s.Aftermath.GameOver&&a.EventId!=BaseBanditHideout.EventId){r.DropMaterials=Math.Min(battle.Soldiers.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned&&!u.Escaped&&!u.IsAlive&&BattleSimulation.StableRoll(battle.Scenario.RandomSeed,u.Id,29)<a.Difficulty.DropRate),100000000-s.Inventory.Materials);s.Inventory.Materials+=r.DropMaterials;}
+            if (!rescueOnly) ApplyEventInventory(s, e, win && !s.Aftermath.GameOver, r,a.Difficulty.RewardFactor);
+            e.Status = win && !s.Aftermath.GameOver || e.Kind == "defense" ? "resolved" : "pending";
             BaseThreats.Settle(s,e,session,r,win&&!s.Aftermath.GameOver);
             // 掠夺等战果回写之后再结算：此时 EnemyDeployed 才是本场实际参战人头。
             // 剩余坚守时间取「目标坚守时长 − 已用时」，缺目标时退回事件上的默认 30 秒。
@@ -427,7 +435,7 @@ namespace BaseConquest.Base
             int enemyLeft = battle.Soldiers.Count(u => u.Side == BattleSide.B && u.IsAlive && !u.Escaped);
             BaseRaidLoot.Apply(s, e, r, win, passive, enemyLeft, holdLeft);
             s.Campaign.SettledIds.Add(a.Id); s.Campaign.Reports.Add(r); BaseQuests.RecordVictory(s,r); if(!passive&&!a.Deputy)ToBaseLocation(s);
-            BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>());
+            if (!rescueOnly) BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>());
             if (a.EventId != BaseBanditHideout.EventId) BaseSceneRules.RememberStrategy(s,session);
             BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
         }
@@ -582,9 +590,15 @@ namespace BaseConquest.Base
             if(Opening.Enemies.Count==0)return;
             foreach(var unit in Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned).OrderBy(u=>u.Id))
             {
-                if(enemies.ContainsKey(unit.Id))continue;
+                if(enemies.TryGetValue(unit.Id, out int boundIndex))
+                {
+                    if (Opening.Enemies[boundIndex].IsControlled) unit.AppearanceId = "villager";
+                    continue;
+                }
                 int index=Enumerable.Range(0,Opening.Enemies.Count).First(n=>Opening.Enemies[n].Kind==unit.Kind&&Opening.Enemies[n].CommanderSlot==unit.OriginCommanderSlot&&!enemies.ContainsValue(n));
-                enemies.Add(unit.Id,index);var source=Opening.Enemies[index];unit.Stats=source.Stats.Clone();unit.Health=source.Health;unit.KnockedDown=source.KnockedDown;unit.InstantDead=source.Dead;unit.DeathResolved=source.KnockedDown||source.Dead;unit.BattlePower=unit.Stats.BaseBattlePower;
+                enemies.Add(unit.Id,index);var source=Opening.Enemies[index];
+                if (source.IsControlled) unit.AppearanceId = "villager";
+                unit.Stats=source.Stats.Clone();unit.Health=source.Health;unit.KnockedDown=source.KnockedDown;unit.InstantDead=source.Dead;unit.DeathResolved=source.KnockedDown||source.Dead;unit.BattlePower=unit.Stats.BaseBattlePower;
             }
         }
         public BattleSoldier UnitForEnemy(int index) => enemies.Where(x=>x.Value==index).Select(x=>Battle.Soldier(x.Key)).SingleOrDefault();

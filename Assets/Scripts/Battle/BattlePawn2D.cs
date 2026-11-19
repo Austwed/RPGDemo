@@ -156,16 +156,19 @@ namespace BaseConquest.Battle
         public void SyncRealtime(BattleSimulation battle,PrototypeUnit actor,double seconds,Vector3 feet)
         {
             properties.Clear();
-            transform.position=feet;float scale=soldier.Kind==SoldierKind.Hero?1:.85f;shape.localScale=new Vector3(soldier.Side==BattleSide.A?scale:-scale,scale,scale);
+            // The lower half-cell is under the front hooves facing south and the hind hooves facing north.
+            float hoofOffset = actor.FootprintLength == 2 && actor.BodyAxis.Z != 0 ? BattleBoardView.CellSize * .25f : 0;
+            transform.position = feet - Vector3.forward * hoofOffset;
+            float scale=soldier.Kind==SoldierKind.Hero?1:.85f;shape.localScale=new Vector3(soldier.Side==BattleSide.A?scale:-scale,scale,scale);
             shape.localRotation=soldier.IsDowned?Quaternion.Euler(0,90,0):Quaternion.identity;
             playerHero?.Realtime(actor,seconds);companion?.Realtime(actor,seconds,soldier.CombatKind==SoldierKind.Cavalry);
             if(actor.FlashUntil>seconds)foreach(var pair in damageShapes){properties.SetColor("_BaseColor",new Color(1,.12f,.12f));pair.Key.SetPropertyBlock(properties);}
             if(projectile!=null)projectile.gameObject.SetActive(false);
-            SortAt(feet.z);
-            SyncGroundOccupation(actor, actor.Side, actor.Alive);
+            SortAt(transform.position.z);
+            SyncGroundOccupation(actor, actor.Side, actor.Alive, hoofOffset);
         }
 
-        private void SyncGroundOccupation(PrototypeUnit footprint, PrototypeSide side, bool visible)
+        private void SyncGroundOccupation(PrototypeUnit footprint, PrototypeSide side, bool visible, float hoofOffset = 0)
         {
             if (!visible)
             {
@@ -180,8 +183,8 @@ namespace BaseConquest.Battle
                 groundOccupation = Shape("GroundOccupation", Vector3.zero, cavalry ? 1 : .5f, 1, !cavalry, tint);
                 damageShapes.Remove(groundOccupation);
                 groundOccupation.transform.SetParent(transform, false);
-                groundOccupation.transform.localPosition = Vector3.up * .035f;
             }
+            groundOccupation.transform.localPosition = new Vector3(0, .035f, hoofOffset);
             var half = footprint.BodyHalf;
             float width = (float)(2 * half.X * BattleBoardView.CellSize);
             float depth = (float)(2 * half.Z * BattleBoardView.CellSize);

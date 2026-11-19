@@ -222,7 +222,7 @@ namespace BaseConquest.Battle
         }
         public bool Issue(IEnumerable<int> commanderIds,PrototypeOrder order,PrototypePoint point,int target=-1,bool commanderOnly=false,bool squadFocus=false)
         {
-            if(Battle.Phase!=BattlePhase.Fighting)return false;
+            if(Battle.Phase!=BattlePhase.Fighting || RuinsExitOpen && order==PrototypeOrder.Focus)return false;
             var commanders=commanderIds.Select(Battle.Soldier).Where(unit=>unit?.IsActive==true&&unit.Side==BattleSide.A&&unit.Kind==SoldierKind.Hero).ToArray();
             var targetUnit=Battle.Soldier(target);
             if(commanders.Length==0||order==PrototypeOrder.Focus&&(targetUnit?.IsActive!=true||targetUnit.Side!=BattleSide.B||!Battle.PlayerCanSee(BattleSide.A,targetUnit)))return false;
@@ -232,10 +232,13 @@ namespace BaseConquest.Battle
             if(accepted)
             {
                 Tactics.Cancel(slots);
+                if(RuinsExitOpen && order is PrototypeOrder.Move or PrototypeOrder.Retreat &&
+                    new GridPosition((int)point.X,(int)point.Z)==Battle.ExitCell(BattleSide.A))
+                    foreach(var captain in commanders)waitingOnRuinsExit.Remove(captain.Id+1);
                 foreach(var u in Model.Units.Where(u=>anchors.ContainsKey(u.Id)))if(order==PrototypeOrder.Focus)u.Anchor=anchors[u.Id];
                 Model.MarkDirectOrder(slots,order,target<0?-1:target+1,squadFocus);
             }
-            if(accepted){Battle.RecordRealtimeOrder();TutorialAction?.Invoke(BaseDemoIntro.Select|(order==PrototypeOrder.Move?BaseDemoIntro.Move:order==PrototypeOrder.Guard?BaseDemoIntro.Guard:order==PrototypeOrder.Focus?BaseDemoIntro.Attack:0));}
+            if(accepted){Battle.RecordRealtimeOrder();TutorialAction?.Invoke(BaseDemoIntro.Select|(order==PrototypeOrder.Move?BaseDemoIntro.Move:order==PrototypeOrder.Focus?BaseDemoIntro.Attack:0));}
             Synchronize();return accepted;
         }
         public bool SteerCommander(int id,PrototypePoint direction)
@@ -279,7 +282,7 @@ namespace BaseConquest.Battle
         }
         public bool RetreatAll()
         {
-            if(Session.Opening.EventId==BaseDemoDefense.SecondEventId)return false;
+            if(Session.Opening.EventId==BaseDemoDefense.SecondEventId||RuinsExitOpen)return false;
             if(Session.Opening.DemoCombat){if(Battle.Phase!=BattlePhase.Fighting)return false;Synchronize();Battle.FinishRealtime(BattleOutcome.Retreat);Model.SetPaused(true);return true;}
             var exit=Battle.ExitCell(BattleSide.A);var point=new PrototypePoint(exit.X+.25,exit.Z+.25);bool accepted=false;
             for(int squad=0;squad<3;squad++)accepted|=Model.IssueOrder(squad,-1,PrototypeOrder.Retreat,point);
@@ -297,8 +300,8 @@ namespace BaseConquest.Battle
         public void RefreshDeveloperState()=>Synchronize(true);
         public void Tick(double seconds)
         {
-            if(Battle.Phase!=BattlePhase.Fighting||Model.Paused)return;
-            Model.Tick(seconds);if(Battle.Phase!=BattlePhase.Fighting){Synchronize();return;}Tactics.Tick(seconds);Synchronize();if(Model.Paused)return;
+            if(Battle.Phase!=BattlePhase.Fighting||Model.Paused||AwaitingRescueDialogue)return;
+            Model.Tick(seconds);if(Battle.Phase!=BattlePhase.Fighting){Synchronize();return;}if(!RuinsExitOpen)Tactics.Tick(seconds);Synchronize();if(Model.Paused)return;
             if(OutcomeResolver!=null)
             {
                 var outcome=OutcomeResolver(this);if(outcome!=BattleOutcome.None){Battle.FinishRealtime(outcome);Model.SetPaused(true);}return;

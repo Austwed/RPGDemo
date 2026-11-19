@@ -48,7 +48,7 @@ namespace BaseConquest.Base
             BaseEconomy.Validate(next);SaveStore.Save(next);State=next;beforeDemoAttack=null;
             // 攻寨对白播完后进入原有战果处理。
             if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,()=>{if(victory&&BaseDemoFlow.Active(State)&&!State.Demo.Flow.BanditCleared)Hud.OpenBanditVictory();else if(BaseBattleLoot.Pending(State))Hud.OpenLoot();else Hud.OpenDemoStory();});return true;}
-            if(Application.isPlaying){BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;BaseBattleGateway.ShowPrisoners=BaseBattleLoot.Pending(next);SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
+            if(Application.isPlaying){BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;BaseBattleGateway.ShowPrisoners=BaseBattleLoot.Pending(next);SceneLoadingCover.LoadExploration();}
             else
             {
                 var previous=combatController;combatController=null;if(previous!=null){previous.gameObject.SetActive(false);BattleBoardView.DestroyObject(previous.gameObject);}
@@ -173,7 +173,7 @@ namespace BaseConquest.Base
             StopConstruction();FrameRebuiltVillage();Hud.OpenDemoStory(showCompletion: true);return true;
         }
         private void ReloadTravelRegion()
-        {if(Application.isPlaying)SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);else{RefreshDemoRegion();Hud.ClosePanel();}}
+        {if(Application.isPlaying)SceneLoadingCover.LoadExploration();else{RefreshDemoRegion();Hud.ClosePanel();}}
     }
     public sealed partial class BaseHud
     {

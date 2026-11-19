@@ -32,12 +32,19 @@ namespace BaseConquest.Base
                 return;
 
             // Preserve the doors before building changes and play one journey per civilian.
+            bool enteringCamp = civilianTravelState == null;
             civilianTravelState = State;
             var nextWorkplaces = new List<BasePoint>(2);
             foreach (string facility in new[] { "farm", "workshop" })
             {
                 int count = BaseEconomy.CivilianWorkersAt(State, facility);
                 if (count > 0) nextWorkplaces.AddRange(Enumerable.Repeat(BaseStageWalk.Door(State, facility), count));
+            }
+            if (enteringCamp)
+            {
+                // Restoring a map restores its existing posts. Only a new assignment starts a walk.
+                civilianWorkplaces = nextWorkplaces;
+                return;
             }
             var departures = new List<BasePoint>(civilianWorkplaces);
             var arrivals = new List<BasePoint>(2);

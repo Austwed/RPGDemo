@@ -50,7 +50,7 @@ namespace BaseConquest.Base
                 else Hud.OpenPursuitRetry();
             }
             if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,AfterPursuit);return true;}
-            if(Application.isPlaying)SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+            if(Application.isPlaying)SceneLoadingCover.LoadExploration();
             else {var previous=combatController;combatController=null;if(previous!=null){previous.gameObject.SetActive(false);BattleBoardView.DestroyObject(previous.gameObject);}RebuildRegion();RebuildHud();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();if(!mainMenu)AfterPursuit();}
             return true;
         }

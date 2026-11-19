@@ -922,34 +922,22 @@
       "notes": "演练第 3 步，使用正式策略名称。"
     },
     {
-      "key": "story.scene.prologue.drill_guard",
-      "group": "剧情／序章演练",
-      "text": "双击身旁的空地，下令【驻守】。",
-      "notes": "演练第 4 步，使用战场驻守指令。"
-    },
-    {
-      "key": "story.scene.prologue.drill_skill",
-      "group": "剧情／序章演练",
-      "text": "点头像上方的【{skill}】，把气势提起来！",
-      "notes": "演练第 5 步。{skill} 为当前战技按钮名称。"
-    },
-    {
       "key": "story.scene.prologue.drill_dummy",
       "group": "剧情／序章演练",
       "text": "看好了，每次挥砍都有起手空当，算准距离才能刀刀见肉！",
-      "notes": "演练第 7 步，搭档示范。"
+      "notes": "演练第 4 步，搭档示范。"
     },
     {
       "key": "story.scene.prologue.drill_auto_attack",
       "group": "剧情／序章演练",
       "text": "点右下角的【进攻】，让队伍连续攻击木桩。战斗暂停时先继续。",
-      "notes": "演练第 8 步，说明进攻策略入口和恢复战斗方式。"
+      "notes": "演练第 5 步，说明进攻策略入口和恢复战斗方式。"
     },
     {
       "key": "story.scene.prologue.drill_attack",
       "group": "剧情／序章演练",
       "text": "最后一式，单击我发起进攻。暂停时记得按空格继续！",
-      "notes": "演练第 9 步，实战命中搭档。"
+      "notes": "演练第 6 步，实战命中搭档。"
     },
     {
       "key": "story.scene.prologue.pursuit_royal_sword",
@@ -1090,7 +1078,7 @@
       "key": "story.ui.prep.dungeon_first_reward",
       "group": "界面／副本备战",
       "text": "首通领奖免费",
-      "notes": "本副本没有胜绩时展示。功能占位，待回稿。"
+      "notes": "土匪窝点首次挑战时展示。"
     },
     {
       "key": "story.ui.prep.dungeon_repeat_reward",

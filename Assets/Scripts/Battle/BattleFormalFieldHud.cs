@@ -95,7 +95,6 @@ namespace BaseConquest.Battle
             {
                 BaseDemoIntro.Select => portraits[0],
                 BaseDemoIntro.Pause => realtimePause,
-                BaseDemoIntro.Skill => skills[0],
                 BaseDemoIntro.AutoAttack when intro?.DummyPhase < 3 => realtimeStrategies[1].interactable ? realtimeStrategies[1] : portraits[0],
                 BaseDemoIntro.Move or BaseDemoIntro.AutoAttack when !owner.Automatic => realtimePause,
                 _ => null

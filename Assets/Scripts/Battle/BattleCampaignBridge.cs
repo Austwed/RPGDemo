@@ -32,7 +32,7 @@ namespace BaseConquest.Battle
             {
                 var state = BaseBattleGateway.Store().Load();
                 if (!state.Campaign.HasActiveBattle)
-                { SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); return false; }
+                { SceneLoadingCover.LoadExploration(); return false; }
                 if (state.Campaign.ActiveBattle.Id != campaignBattleId) throw new InvalidOperationException("存档已有另一场战斗");
                 if(!state.Campaign.ActiveBattle.RealtimeRules)throw new InvalidOperationException("隔离实验不自动迁移旧回合战斗存档，请使用战前开局");
                 campaignSession = new BaseCampaignSession(state.Campaign.ActiveBattle,sharedMapSession); campaignSaved = false;
@@ -41,7 +41,7 @@ namespace BaseConquest.Battle
                 if(IsRealtimeCampaign&&battle.Phase!=BattlePhase.Deployment)AttachRealtime();
                 feedback = state.Campaign.ActiveBattle.HasCheckpoint ? (realtime!=null?"已恢复"+RealtimeStatus+"；按继续运行":"已恢复真实布兵准备") : "真实队伍与供给已锁定；手动部署或一键布兵，当前生命入场。"; return true;
             }
-            catch (Exception e) { feedback = "战役读取失败：" + e.Message; if(sharedMapView!=null) { Debug.LogError(feedback); BaseBattleGateway.RequestedId=null;SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); } return false; }
+            catch (Exception e) { feedback = "战役读取失败：" + e.Message; if(sharedMapView!=null) { Debug.LogError(feedback); BaseBattleGateway.RequestedId=null;SceneLoadingCover.LoadExploration(); } return false; }
         }
         private void PersistCampaignResult()
         {
@@ -68,7 +68,7 @@ namespace BaseConquest.Battle
             if(IsSceneEncounter){if(CanReturnCampaign)FinishSceneEncounter();return;}
             if (!CanReturnCampaign) return;
             if(IsRealtimeCampaign&&battle.Phase==BattlePhase.Deployment){AbandonRealtimeBattle();return;}
-            if (campaignSession == null) { campaignBattleId = ""; SceneManager.LoadScene(BaseBattleGateway.ExplorationScene); return; }
+            if (campaignSession == null) { campaignBattleId = ""; SceneLoadingCover.LoadExploration(); return; }
             try
             {
                 if (battle.Phase == BattlePhase.Deployment)
@@ -79,7 +79,7 @@ namespace BaseConquest.Battle
                 else { campaignRetryAt = 0; PersistCampaignResult(); if (!campaignSaved || CampaignGameOver) {hud?.Refresh();return;} }
                 BaseBattleGateway.ShowPrisoners=true;
                 sharedMapSession?.LeaveBattle();sharedMapView?.SetCombatMode(false);
-                campaignBattleId = ""; BaseBattleGateway.RequestedId = null; SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+                campaignBattleId = ""; BaseBattleGateway.RequestedId = null; SceneLoadingCover.LoadExploration();
             }
             catch (Exception e) { feedback = "尚未返回，原进度保留：" + e.Message; Debug.LogError(feedback);hud?.Refresh(); }
         }
@@ -103,7 +103,7 @@ namespace BaseConquest.Battle
                 BaseBattleGateway.MainMenu=mainMenu;
                 BaseBattleGateway.RequestedId=null;
                 campaignBattleId="";
-                if(loadScene)SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+                if(loadScene)SceneLoadingCover.LoadExploration();
                 return true;
             }
             catch(Exception error){feedback="未放弃战斗："+error.Message;hud?.Refresh();return false;}
@@ -114,7 +114,7 @@ namespace BaseConquest.Battle
             BaseBattleGateway.MainMenu=true;
             BaseBattleGateway.RequestedId=null;
             campaignBattleId="";
-            SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+            SceneLoadingCover.LoadExploration();
         }
         private void OnApplicationPause(bool paused){if(paused){CancelGesture();ManualPause();PersistCampaignCheckpoint(true);}}
         private void OnApplicationQuit(){if(!BaseBattleGateway.DemoMode)PersistCampaignCheckpoint(true);}

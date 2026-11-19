@@ -63,6 +63,9 @@ namespace BaseConquest.Base
         private void ResetScenePanel(string viewKey)
         {
             CloseResourcePopover();
+            CloseDialogueSkipSummary();
+            dialogueFinishText = dialogueDefault = null;
+            dialogueSkipSummary = null;
             if (panel != null)
             {
                 ClearPanelSelection();

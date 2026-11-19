@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using BaseConquest.Battle;
@@ -21,34 +22,96 @@ namespace BaseConquest.Base
         {
             public readonly string Text;
             public readonly Action Action;
-            public readonly bool Enabled, Unlocked;
-            public NpcReply(string text, Action action, bool enabled = true, bool unlocked = true)
-            { Text = text; Action = action; Enabled = enabled; Unlocked = unlocked; }
+            public readonly bool Enabled, Unlocked, SkipDefault;
+            public NpcReply(string text, Action action, bool enabled = true, bool unlocked = true, bool skipDefault = true)
+            { Text = text; Action = action; Enabled = enabled; Unlocked = unlocked; SkipDefault = skipDefault; }
         }
         private const float DialogueCharacterSeconds = .035f;
         private Action dialogueContinue;
         private Action<float> dialogueTick;
         private bool dialogueLocked;
         private Button dialogueQuestTarget;
+        private Action dialogueFinishText, dialogueDefault;
+        private string dialogueSkipSummary;
+        private RectTransform dialogueSkipPrompt;
 
         public bool DialogueOpen => PanelOpen && panelViewKey == "npc-dialogue";
         public bool DialogueExitLocked => DialogueOpen && dialogueLocked;
 
         public bool ContinueDialogue()
         {
-            if (!DialogueOpen || owner.Busy || dialogueContinue == null) return false;
+            if (!DialogueOpen || owner.Busy || dialogueSkipPrompt != null || dialogueContinue == null) return false;
             dialogueContinue();
             return true;
         }
 
         internal void TickDialogue(float seconds)
         {
-            if (DialogueOpen) dialogueTick?.Invoke(seconds);
+            if (DialogueOpen) { if (dialogueSkipPrompt == null) dialogueTick?.Invoke(seconds); }
             else dialogueTick = null;
         }
 
+        private void SkipDialogue(bool confirmed = false)
+        {
+            var visited = new HashSet<System.Reflection.MethodInfo>();
+            var hud = this;
+            while (owner != null && !owner.Busy && hud.DialogueOpen && hud.dialogueSkipPrompt == null && hud.dialogueFinishText != null)
+            {
+                if (!confirmed && !string.IsNullOrEmpty(hud.dialogueSkipSummary))
+                {
+                    hud.OpenDialogueSkipSummary(hud.dialogueSkipSummary);
+                    return;
+                }
+                confirmed = false;
+                var current = hud.panel;
+                hud.dialogueFinishText();
+                var next = hud.dialogueDefault;
+                // The first reply in a repeatable companion menu leads back to chatting.
+                if (next == null || !visited.Add(next.Method)) return;
+                hud.dialogueLocked = false;
+                hud.InvokeDialogueAction(next);
+                // 招募和切换地图会重建界面，紧接着的回应挂在新的 HUD 上。
+                hud = owner == null ? null : owner.Hud;
+                if (hud == null || hud.panel == current) return;
+            }
+        }
+
+        private void InvokeDialogueAction(Action action)
+        {
+            var current = panel;
+            string previousMessage = owner.Message;
+            action();
+            if (owner == null || owner.Hud != this || !DialogueOpen || panel != current ||
+                previousMessage == owner.Message || string.IsNullOrEmpty(owner.Message)) return;
+            var hint = Ui<Text>(current, "DialogueHint");
+            hint.text = owner.Message;
+            hint.gameObject.SetActive(true);
+        }
+
+        private void OpenDialogueSkipSummary(string summary)
+        {
+            var prompt = dialogueSkipPrompt = CloneSceneUi("DialogueSkipSummary", modal);
+            Ui<Text>(prompt, "Window/Body").text = "对话摘要：" + summary;
+            var cancel = Ui<Button>(prompt, "Window/Cancel");
+            cancel.onClick.AddListener(() => CloseDialogueSkipSummary());
+            Ui<Button>(prompt, "Window/Confirm").onClick.AddListener(() =>
+            {
+                if (dialogueSkipPrompt == prompt && CloseDialogueSkipSummary()) SkipDialogue(true);
+            });
+            cancel.Select();
+        }
+
+        internal bool CloseDialogueSkipSummary()
+        {
+            if (dialogueSkipPrompt == null) return false;
+            dialogueSkipPrompt.gameObject.SetActive(false);
+            UiPrefabBinding.DestroyView(dialogueSkipPrompt.gameObject);
+            dialogueSkipPrompt = null;
+            return true;
+        }
+
         private void NpcDialogue(NpcLine[] lines, NpcReply[] replies, bool lockExitUntilFinished = false, Action onCompleted = null,
-            bool quietAdvance = false, bool guide = false)
+            bool quietAdvance = false, bool guide = false, string skipSummary = null)
         {
             var view = OpenScenePanel("NpcDialogue", "npc-dialogue");
             root.GetComponent<Canvas>().sortingOrder = 300;
@@ -90,35 +153,39 @@ namespace BaseConquest.Base
             surface.onClick.AddListener(() => ContinueDialogue());
             advance.onClick.AddListener(() => ContinueDialogue());
             var visibleReplies = replies.Where(reply => reply.Unlocked).ToArray();
-            var replyRows = new (Button Button, Text Label, NpcReply Reply)[visibleReplies.Length];
-            for (int i = 0; i < visibleReplies.Length; i++)
+            var replyRows = new (Button Button, Text Label, NpcReply Reply)[Math.Max(1, visibleReplies.Length)];
+            bool textFinished = false;
+            for (int i = 0; i < replyRows.Length; i++)
             {
-                var reply = visibleReplies[i];
+                bool firstRow = i == 0;
+                var reply = visibleReplies.Length == 0 ? null : visibleReplies[i];
                 var button = UnityEngine.Object.Instantiate(template, choices.content, false);
                 var label = button.GetComponentInChildren<Text>(true);
-                label.text = "...";
-                button.interactable = false;
+                label.text = firstRow ? "跳过对话" : "...";
+                button.interactable = firstRow;
                 replyRows[i] = (button, label, reply);
                 button.gameObject.SetActive(true);
                 button.onClick.AddListener(() =>
                 {
-                    if (owner.Busy || panel != view || !choices.isActiveAndEnabled || !button.IsInteractable()) return;
-                    var previousMessage = owner.Message;
-                    reply.Action();
-                    if (!DialogueOpen || panel != view || previousMessage == owner.Message || string.IsNullOrEmpty(owner.Message)) return;
-                    hint.text = owner.Message;
-                    hint.gameObject.SetActive(true);
+                    if (owner.Busy || panel != view || dialogueSkipPrompt != null || !choices.isActiveAndEnabled || !button.IsInteractable()) return;
+                    if (!textFinished) { if (firstRow) SkipDialogue(); return; }
+                    if (reply == null) return;
+                    InvokeDialogueAction(reply.Action);
                 });
             }
 
+            var defaultReply = visibleReplies.FirstOrDefault(reply => reply.Enabled);
+            dialogueDefault = defaultReply == null ? onCompleted : defaultReply.SkipDefault ? defaultReply.Action : null;
+            dialogueFinishText = () => PresentLine(lines.Length - 1, true);
+            dialogueSkipSummary = skipSummary;
             dialogueLocked = lockExitUntilFinished || quietAdvance;
-            choices.gameObject.SetActive(replyRows.Length > 0);
+            choices.gameObject.SetActive(true);
             PresentLine(0);
             RefreshSummary();
             Canvas.ForceUpdateCanvases();
             if (replyRows.Length > 0) choices.verticalNormalizedPosition = 1;
 
-            void PresentLine(int index)
+            void PresentLine(int index, bool immediate = false)
             {
                 var line = lines[index];
                 avatar.PlayerHero = line.Player;
@@ -138,7 +205,7 @@ namespace BaseConquest.Base
                 hint.gameObject.SetActive(!quietAdvance);
                 dialogueContinue = Advance;
                 dialogueTick = Reveal;
-                if (characters.Length == 0) FinishLine();
+                if (immediate || characters.Length == 0) FinishLine();
 
                 void Advance()
                 {
@@ -175,9 +242,12 @@ namespace BaseConquest.Base
                     speech.text = fullText;
                     dialogueTick = null;
                     if (!last) return;
+                    textFinished = true;
                     dialogueLocked = quietAdvance || lockExitUntilFinished && onCompleted != null;
+                    choices.gameObject.SetActive(visibleReplies.Length > 0);
                     foreach (var row in replyRows)
                     {
+                        if (row.Reply == null) continue;
                         row.Label.text = row.Reply.Text;
                         row.Button.interactable = row.Reply.Enabled;
                     }
@@ -186,7 +256,7 @@ namespace BaseConquest.Base
                         dialogueContinue = null;
                         advance.gameObject.SetActive(false);
                         hint.gameObject.SetActive(false);
-                        if (guide) dialogueQuestTarget = replyRows.FirstOrDefault(row => row.Reply.Enabled).Button;
+                        if (guide) dialogueQuestTarget = replyRows.FirstOrDefault(row => row.Reply?.Enabled == true).Button;
                     }
                 }
             }

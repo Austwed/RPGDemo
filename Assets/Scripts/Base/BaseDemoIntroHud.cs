@@ -159,7 +159,7 @@ namespace BaseConquest.Base
                 {
                     NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"先拿木桩找找手感。等我说好了，你再朝我出剑。")},new[]{new NpcReply("开始演练",owner.BeginDemoPractice),new NpcReply("再看看装备",ClosePanel)},guide:true);return true;
                 }
-                NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"我就在附近，慢慢来。")},new[]{new NpcReply("继续",ClosePanel)});return true;
+                NpcDialogue(new[]{new NpcLine("搭档",BaseDemoIntro.CaptainArt(s),"嗯？什么事")},new[]{new NpcReply("继续",ClosePanel)});return true;
             }
             if(id=="demo_villager_1"||id=="demo_villager_2"||id=="intro_villager")
             {

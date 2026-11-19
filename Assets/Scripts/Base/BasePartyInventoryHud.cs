@@ -114,12 +114,20 @@ namespace BaseConquest.Base
             Ui<Text>(panel, "Page").text = (warehousePage + 1) + " / " + pages;
         }
 
-        private void BuildInventoryPersonTabs(RectTransform parent, IEnumerable<BaseLeader> people, string selectedId,
+        private void BuildInventoryPersonTabs(RectTransform parent, BaseLeader[] people, string selectedId,
             Action<BaseLeader> select)
         {
+            var strip = parent.GetComponent<ScrollRect>();
+            var row = strip.content.GetComponent<HorizontalLayoutGroup>();
+            float tabWidth = (parent.rect.width - row.padding.horizontal - row.spacing * 2) / 3;
+            int slots = Math.Max(3, people.Length);
+            strip.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,
+                row.padding.horizontal + slots * tabWidth + (slots - 1) * row.spacing);
+            strip.horizontal = people.Length > 3;
             foreach (var person in people)
             {
-                var option = CloneSceneUi("InventoryOption", parent);
+                var option = CloneSceneUi("InventoryOption", strip.content);
+                option.GetComponent<LayoutElement>().preferredWidth = tabWidth;
                 bool selected = person.Id == selectedId;
                 var button = InventoryButton(option, "", person.Name,
                     () => { if (!owner.Busy) select(person); }, !selected);
@@ -131,6 +139,9 @@ namespace BaseConquest.Base
                     button.colors = colors;
                 }
             }
+            int selectedIndex = Array.FindIndex(people, person => person.Id == selectedId);
+            strip.StopMovement();
+            strip.content.anchoredPosition = Vector2.left * (Math.Max(0, selectedIndex - 2) * (tabWidth + row.spacing));
         }
 
         private RectTransform BuildTradeInventoryCard(RectTransform parent, BaseLeader person, string selectedItemId,

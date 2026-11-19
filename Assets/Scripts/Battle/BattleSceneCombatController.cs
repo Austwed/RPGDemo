@@ -15,7 +15,7 @@ namespace BaseConquest.Battle
         public bool IsDemoPractice=>sceneEncounter?.Opening.Id==BaseDemoIntro.BattleId;
         private bool IsDemoPursuit=>sceneEncounter?.Opening.Id==BaseDemoPrologue.BattleId;
         public bool ContinuesThroughDialogue=>IsAzhuDuel||IsDemoPractice||IsDemoPursuit||
-            IsDemoRuins&&sceneEncounter.Opening.RuinsFirstClear&&battle?.Report?.Outcome==BattleOutcome.SideAWin;
+            IsDemoRuins&&battle?.Report?.Outcome==BattleOutcome.SideAWin;
         public bool IsDemoRuins=>BaseDemoRuins.Encounter(sceneEncounter);
         public bool IsDemoDefense=>BaseDemoDefense.Encounter(sceneEncounter);
         public bool IsSecondDefense=>IsDemoDefense&&sceneEncounter.Opening.EventId==BaseDemoDefense.SecondEventId;
@@ -26,7 +26,7 @@ namespace BaseConquest.Battle
         public string SceneEncounterResult => IsBanditHideout
             ? battle?.Report?.Outcome == BattleOutcome.SideAWin ? BaseBanditHideout.VictoryText : BaseBanditHideout.DefeatText
             : IsDemoPursuit?"东口交战结束":IsStandaloneTest?"独立测试结束 · 可退出或重新选择预设":IsAzhuDuel?"比武结束 · 与阿铸继续交谈":IsDemoPractice?(battle?.Report?.Outcome==BattleOutcome.SideAWin?"演练完成 · 村口传来脚步声":"演练暂歇 · 可与搭档继续练习"):battle?.Report?.Outcome==BattleOutcome.SideAWin?(IsDemoAttack?"攻营成功 · 留在当地处理战果":IsDemoDefense?(sceneEncounter.Opening.EventId==BaseDemoDefense.SecondEventId?"第二波防守成功 · 返回处理战果":"首次防守成功 · 返回处理战果"): IsDemoRuins?"控制来源已击败 · 返回调查":"条件达成 · 继续重伤剧情"):(IsDemoAttack?"进攻败退 · 保留战损，留在敌营外":IsSecondDefense?"第二波防守失败 · 营地失守":IsDemoDefense?"守营败退 · 承担损失，残军次日再袭":IsDemoRuins?"救助未完成 · 保留战损，退回遗迹入口":"教学未完成 · 无损重试");
-        public string SceneEncounterReport=>IsBanditHideout?BaseBanditHideout.ReportText:IsSecondDefense?"第二波防守没有时限：击败全部来敌才算守住，我方全员失能即营地失守、行动中止。队长1血倒地后不能行动；保留实际血量与已消耗军需。":IsAzhuDuel?"双方点到为止；结束恢复比武前状态，可以继续交谈邀请阿铸。":IsDemoPractice?"演练结束后恢复原有生命、兵力与资源。完成暂停、选择、移动、指定攻击、驻守和手动鼓舞后，回到村庄听取来讯。":IsDemoAttack||IsDemoDefense||IsDemoRuins?"队长1血倒地后不能行动，全队失能才判败退；可立即撤退。保留实际血量、死亡及已消耗军需，倒地者战后1血恢复行动。胜利才处理俘虏与战果；败退不回战前，不返还已走行程。敌方残军过日恢复：半血以下回半血，半血及以上回满血；死者不恢复。"+(IsDemoDefense?"首次防守败退另扣本次入侵的经济损失，残军撤走后次日再袭，胜利才推进。":""):"胜败都接重伤剧情。主动放弃时回到撤离检查点。";
+        public string SceneEncounterReport=>IsBanditHideout?BaseBanditHideout.ReportText:IsSecondDefense?"第二波防守没有时限：击败全部来敌才算守住，我方全员失能即营地失守、行动中止。队长1血倒地后不能行动；保留实际血量与已消耗军需。":IsAzhuDuel?"双方点到为止；结束恢复比武前状态，可以继续交谈邀请阿铸。":IsDemoPractice?"演练结束后恢复原有生命、兵力与资源。完成选人、暂停、移动、木桩练习和指定攻击后，回到村庄听取来讯。":IsDemoAttack||IsDemoDefense||IsDemoRuins?"队长1血倒地后不能行动，全队失能才判败退；可立即撤退。保留实际血量、死亡及已消耗军需，倒地者战后1血恢复行动。胜利才处理俘虏与战果；败退不回战前，不返还已走行程。敌方残军过日恢复：半血以下回半血，半血及以上回满血；死者不恢复。"+(IsDemoDefense?"首次防守败退另扣本次入侵的经济损失，残军撤走后次日再袭，胜利才推进。":""):"胜败都接重伤剧情。主动放弃时回到撤离检查点。";
         public void ConfigureSceneEncounter(BaseCampaignSession encounter,Action<RealtimeCampaignBattle> configure,Action<double> advance,Func<RealtimeCampaignBattle,bool,bool,bool> finish,string objective)
         {
             sceneEncounter=encounter??throw new ArgumentNullException(nameof(encounter));campaignSession=encounter;campaignBattleId=encounter.Opening.Id;

@@ -157,7 +157,7 @@ namespace BaseConquest.Base
             if (document != null && !SaveBeforeBattle()) yield break;
             string previousLocation=State.Campaign.Location;
             if (document != null && Change(s => { if(!BaseDesignRoutes.CanBegin(s,e.Kind))throw new InvalidOperationException("请在对应战场开战");if(plan!=null&&!BaseMuster.Confirm(s,plan))throw new InvalidOperationException("所选人员已变化，请重新选兵");if(s.Campaign.Location=="base") BaseCampaign.Travel(s,e.Kind=="defense" ? "perimeter" : "world"); BaseCampaign.Begin(s, id, document, mode,realtime:BaseBattleGateway.RealtimeCampaign); }, "实际人员与军需已锁定，在当前区域进入战斗"))
-            { if(previousLocation!=State.Campaign.Location) {BaseBattleGateway.RequestedId=State.Campaign.ActiveBattle.Id;SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}else ResumeCampaign(); }
+            { if(previousLocation!=State.Campaign.Location) {BaseBattleGateway.RequestedId=State.Campaign.ActiveBattle.Id;SceneLoadingCover.LoadExploration();}else ResumeCampaign(); }
             else Hud.RefreshSummary();
         }
         private IEnumerator EnterAttackRegionRoutine()
@@ -166,7 +166,7 @@ namespace BaseConquest.Base
             if(target==null){Message="此处尚无可进入的区域";Hud.RefreshSummary();yield break;}
             Busy=true;Hud.RefreshSummary();BattleScenarioDocument document=null;
             yield return ReadBattle(target.ScenarioFile,d=>document=d);Busy=false;
-            if(document!=null&&Change(s=>{if(!BaseWorldMap.EnterAttackRegion(s,document))throw new InvalidOperationException("先选择主角出征队伍，再进入区域");},"已进入据点区域；接近据点状态点查看归属与敌情"))SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+            if(document!=null&&Change(s=>{if(!BaseWorldMap.EnterAttackRegion(s,document))throw new InvalidOperationException("先选择主角出征队伍，再进入区域");},"已进入据点区域；接近据点状态点查看归属与敌情"))SceneLoadingCover.LoadExploration();
             else Hud.RefreshSummary();
         }
         private IEnumerator RestCampaign(int expectedDay)
@@ -345,7 +345,7 @@ namespace BaseConquest.Base
             ReleaseSession();
             if(CustomMapTestMode&&!quit){UseDemo();ReleaseSession();}
             RequestedId=null;ShowPrisoners=false;MainMenu=true;
-            if(quit)Application.Quit();else SceneManager.LoadScene(ExplorationScene);
+            if(quit)Application.Quit();else SceneLoadingCover.LoadExploration();
         }
         private static void ReleaseSession()
         {

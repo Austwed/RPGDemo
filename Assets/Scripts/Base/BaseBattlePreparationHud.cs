@@ -616,7 +616,7 @@ namespace BaseConquest.Base
                 BaseRuinsRewards.Energy(state), BaseRuinsRewards.Maximum(state));
             string reward = BaseRuinsRewards.Cleared(state, route)
                 ? string.Format(PrepText("dungeon_repeat_reward", "复打领奖消耗 {0}"), BaseRuinsRewards.Cost(state))
-                : PrepText("dungeon_first_reward", "首通领奖免费");
+                : route==BasePrepRoute.Ruins ? "救出受困村民" : PrepText("dungeon_first_reward", "首通领奖免费");
             return energy + " · " + reward;
         }
 

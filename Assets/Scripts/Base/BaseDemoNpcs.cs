@@ -71,6 +71,7 @@ namespace BaseConquest.Base
         public static string StatusMarker(BaseState s,string id)
         {
             if(!BaseDemo.Active(s))return "";
+            if(id==BaseDemoStories.GalanMarker)return "?";
             if(BaseDemoPrologue.Village(s)&&BaseDemoIntro.Active(s))
             {
                 int step=s.Demo.Intro.Step;
@@ -173,7 +174,23 @@ namespace BaseConquest.Base
             if(BaseSceneRules.Active(state)&&state.Demo.Rescue!=null)
             {
                 var r=state.Demo.Rescue;
-                if(BaseSceneRules.Entrance(state)&&(r.Stage==1||r.Stage==2))return new[]{new BaseMapObject("demo_rescued_1","获救百姓甲 · 交谈",r.FirstX,r.FirstY,.5,.5,false,"demo-npc:rescued:1","villager","npc"),new BaseMapObject("demo_rescued_2","获救百姓乙 · 交谈",r.SecondX,r.SecondY,.5,.5,false,"demo-npc:rescued:2","villager","npc")};
+                if(BaseSceneRules.Entrance(state))
+                {
+                    var visitors = new List<BaseMapObject>();
+                    if (r.Stage==1 || r.Stage==2)
+                    {
+                        visitors.Add(new BaseMapObject("demo_rescued_1","获救百姓甲 · 交谈",r.FirstX,r.FirstY,.5,.5,false,"demo-npc:rescued:1","villager","npc"));
+                        visitors.Add(new BaseMapObject("demo_rescued_2","获救百姓乙 · 交谈",r.SecondX,r.SecondY,.5,.5,false,"demo-npc:rescued:2","villager","npc"));
+                    }
+                    if (BaseDemoStories.ControllerDialogue(state, state.Demo.Flow?.FirstControllerId))
+                    {
+                        var portal = BaseSpatial.Layout(state)?.Objects.FirstOrDefault(o => o.Id=="demo_ruins_investigate");
+                        bool placed=r.EntranceLayoutVersion>=BaseSceneRules.EntrancePeopleLayout;
+                        double x=placed?r.GalanX:(portal?.X??12)+2.5, y=placed?r.GalanY:(portal?.Y??7)-2.5;
+                        visitors.Add(new BaseMapObject(BaseDemoStories.GalanMarker,"迦兰 · 交谈",x,y,.5,.5,false,"demo-npc:galan","galan","npc"));
+                    }
+                    return visitors.ToArray();
+                }
                 if(state.Campaign.Location=="town"&&r.Stage==3)return new[]{new BaseMapObject("demo_rescued_1","获救百姓甲 · 交谈",19.8,9.5,.5,.5,false,"demo-npc:rescued:1","villager","npc"),new BaseMapObject("demo_rescued_2","获救百姓乙 · 交谈",18.2,9.5,.5,.5,false,"demo-npc:rescued:2","villager","npc")};
             }
             if(state.Demo.Stage==BaseDemoStage.PrologueBriefing)

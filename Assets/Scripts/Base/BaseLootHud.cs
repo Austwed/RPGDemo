@@ -24,7 +24,6 @@ namespace BaseConquest.Base
             activeObject="loot";BeginPanel("奖励 · "+m.Title,"loot:"+m.BattleId+":"+lootTab);
             var report=s.Campaign.Reports.FirstOrDefault(r=>r.BattleId==m.BattleId);if(!string.IsNullOrEmpty(report?.RecoveryNote))Line(report.RecoveryNote,70,20);
             if(report?.EventId==BaseDemoDefense.EventId)Line("本场Demo敌方队长固定击倒，可尝试招降。队长的技能与特性各不相同，营帐满员时可暂留俘虏。",76,19);
-            else if(report?.EventId==BaseDemoRuins.EventId&&s.Campaign.Reports.Count(r=>r.EventId==report.EventId&&r.Outcome=="SideAWin")==1)Line("遗迹首次胜利：控制者固定击倒可招募，受控百姓获救离场。首通奖励不消耗体力。",76,19);
             else if(report!=null&&s.Demo.Finale!=null&&report.EventId==BaseThreats.Site(s,BaseDemoFinale.Camp)?.AttackEventId)Line("本场Demo敌方队长固定战死，无法招降。一般战斗中队长可能直接死亡；收编前请查看实际技能与特性。",76,19);
             panel.GetComponent<UnityEngine.UI.Image>().color=new Color(.07f,.13f,.15f,.92f);
             RowButton("处理完毕 · 继续",-290,270,()=>{if(owner.Change(next=>{if(!BaseBattleLoot.Finish(next,m.BattleId))throw new InvalidOperationException("请先处理全部道具和俘虏");},"战利品已处理"))ClosePanel();},BaseBattleLoot.CanFinish(s,m));
@@ -138,8 +137,6 @@ namespace BaseConquest.Base
             Line("释放后无法再招降，处死将永久移除。",42,18);
             RowButton("一键招募",0,800,()=>
             {
-                var special=owner.State.Aftermath.Prisoners.FirstOrDefault(p=>p.BattleId==battle&&BaseDemoStories.ControllerDialogue(owner.State,p.Id));
-                if(special!=null){RecruitPrisoner(special.Id,()=>OpenRewardPrisoners(battle));return;}
                 owner.Change(next=>BaseBattleLoot.RecruitAll(next,battle),"");OpenRewardPrisoners(battle);
             });row+=54;
             foreach(var p in held)

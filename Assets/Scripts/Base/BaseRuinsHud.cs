@@ -37,18 +37,15 @@ namespace BaseConquest.Base
             if(owner.DeploymentWorldActive)owner.ResumeDeploymentWorld();
             else ClosePanel();
         }
-        public void OpenRuinsVictory()
+        public void OpenRuinsRescue(Action resume)
         {
-            var s=owner.State;
-            bool first=s.Campaign.Reports.Count(r=>r.EventId==BaseDemoRuins.EventId&&r.Outcome=="SideAWin")==1;
-            if(!first){OpenRuinsReward();return;}
             NpcDialogue(new[]{
                 new NpcLine("获救百姓甲","villager","脑子里像蒙了层雾，手脚全不听使唤……多谢你。"),
                 new NpcLine("获救百姓乙","villager","现在腿能动了。先扶我一把，出去再说。"),
                 new NpcLine("你","","先到洞外透气。古窟的事，我回镇上向霍恩交代。",true)
-            },new[]{new NpcReply("继续",ClosePanel)});
+            },new[]{new NpcReply("去撤离点",resume)},lockExitUntilFinished:true);
         }
-        public void OpenRescuedCivilian(string id)
+        public void OpenRescuedCivilian(string id,bool afterExtraction=false)
         {
             var state=owner.State;
             if(BaseSceneRules.Active(state)&&BaseSceneRules.Entrance(state)&&state.Demo.Rescue?.Stage==1)
@@ -56,7 +53,7 @@ namespace BaseConquest.Base
                 NpcDialogue(new[]{
                     new NpcLine("获救百姓乙","villager","总算能喘口气了。多亏你手下留情，我们才出得来。"),
                     new NpcLine("获救百姓甲","villager","我们这就回灰岩镇。见了霍恩爵士，会把经过说清楚。")
-                },new[]{new NpcReply("路上小心，我们城里见",owner.ReturnRescuedVillagers),new NpcReply("稍后再谈",ClosePanel)});return;
+                },new[]{new NpcReply("路上小心，我们城里见",()=>owner.ReturnRescuedVillagers(afterExtraction)),new NpcReply("稍后再谈",ClosePanel)});return;
             }
             bool first=id=="demo_rescued_1";
             bool inTown=state.Campaign.Location=="town"&&state.Demo.Rescue?.Stage==3;

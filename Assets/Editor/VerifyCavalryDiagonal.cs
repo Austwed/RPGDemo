@@ -1,4 +1,6 @@
 using System;
+using BaseConquest.Base;
+using BaseConquest.Battle;
 using BaseConquest.RealtimePrototype;
 using BaseConquest.Presentation;
 using System.Linq;
@@ -10,6 +12,134 @@ namespace BaseConquest.Editor
     public static class VerifyCavalryDiagonal
     {
         private static void Need(bool ok,string message){if(!ok)throw new InvalidOperationException(message);}
+
+        // GPU check: compare the gameplay character layer against the same frame with just the occupation visible.
+        public static void CheckRenderedPawns()
+        {
+            const int size = 192;
+            var state = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
+            void At(string id)
+            {
+                var place = BaseSpatial.Objects(state).Single(obj => obj.Id == id);
+                var p = place.Blocks ? BaseStageWalk.Door(state,id) : new BasePoint(place.X,place.Y);
+                state.PlayerX = p.X; state.PlayerY = p.Y; BaseAdventure.Arrive(state);
+            }
+            At("home"); Need(BaseDemo.AcknowledgeWaking(state),"营地苏醒失败");
+            At("exit_east"); Need(BaseCampaign.Travel(state,"town"),"进镇失败");
+            At("demo_ruins_exit"); Need(BaseCampaign.Travel(state,"outpost"),"到达古窟失败");
+            At("demo_ruins_investigate"); var session = BaseDemoRuins.Begin(state,"none");
+            var civilians = BaseDemoRuins.Civilians(session).ToArray();
+            Need(civilians.Length == 2 && civilians.All(s => s.AppearanceId == "villager"),"古窟建模时两名受控者须已绑定村民");
+
+            var stage = new GameObject("Combat portrait rendering test");
+            var camera = stage.AddComponent<Camera>();
+            var target = RenderTexture.GetTemporary(size,size,24);
+            var old = RenderTexture.active;
+            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            var image = new Texture2D(size,size,TextureFormat.RGB24,false);
+            var sheet = new Texture2D(size*4,size*3,TextureFormat.RGB24,false);
+            var center = Vector3.right*1500;
+            camera.enabled = false;
+            camera.transform.SetPositionAndRotation(center+new Vector3(0,15,.84f),Quaternion.Euler(90,0,0));
+            camera.targetTexture = target; camera.orthographic = true; camera.orthographicSize = 1.75f;
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.21f,.23f,.18f);
+            Color32[] Capture()
+            {
+                camera.Render(); RenderTexture.active = target;
+                image.ReadPixels(new Rect(0,0,size,size),0,0); image.Apply();
+                return image.GetPixels32();
+            }
+            void Keep(int col,int row,Color32[] pixels) => sheet.SetPixels32(col*size,(2-row)*size,size,size,pixels);
+            BattlePawn2D Create(BattleSoldier soldier)
+            {
+                var go = new GameObject(soldier.AppearanceId); go.transform.SetParent(stage.transform,true);
+                var pawn = go.AddComponent<BattlePawn2D>(); pawn.Initialize(soldier,material);
+                if(soldier.Kind==SoldierKind.Hero)Need(pawn.EnableCompanion(soldier.AppearanceId),"未取得骑乘角色");
+                return pawn;
+            }
+            int Delta(Color32 a,Color32 b) => Math.Abs(a.r-b.r)+Math.Abs(a.g-b.g)+Math.Abs(a.b-b.b);
+            try
+            {
+                var directions = new[]{new PrototypePoint(0,-1),new PrototypePoint(0,1),new PrototypePoint(-1,0),new PrototypePoint(1,0)};
+                for(int row=0;row<2;row++)
+                {
+                    var soldier = new BattleSoldier { AppearanceId=row==0?"azhu":"rider", Kind=row==0?SoldierKind.Hero:SoldierKind.Cavalry,
+                        Side=row==0?BattleSide.A:BattleSide.B, Stats=new SoldierStats(), Health=100 };
+                    var pawn = Create(soldier);
+                    for(int col=0;col<directions.Length;col++)
+                    {
+                        var direction = directions[col];
+                        var actor = new PrototypeUnit{ Facing=direction,FootprintLength=2,Side=row==0?PrototypeSide.Ally:PrototypeSide.Enemy,Health=100};
+                        pawn.SyncRealtime(session.Battle,actor,0,center);
+                        var graphic = pawn.transform.Find("PixelDemoCharacter").GetComponent<Renderer>();
+                        var ground = pawn.transform.Find("GroundOccupation").GetComponent<Renderer>();
+                        var bounds = ground.bounds;
+                        bool vertical=direction.Z!=0;
+                        Need(Math.Abs(bounds.center.x-center.x)<.001f && Math.Abs(bounds.center.z-center.z)<.001f &&
+                            Math.Abs(bounds.size.x-2*actor.BodyHalf.X*BattleBoardView.CellSize)<.001f &&
+                            Math.Abs(bounds.size.z-2*actor.BodyHalf.Z*BattleBoardView.CellSize)<.001f,"阵营色偏离实际双格碰撞范围");
+                        var dressed=Capture(); Keep(col,row,dressed); graphic.enabled=false; var bare=Capture(); graphic.enabled=true;
+                        var vp=camera.WorldToViewportPoint(center);
+                        int groundY=Mathf.FloorToInt(vp.y*size), mid=Mathf.FloorToInt(vp.x*size);
+                        var tint=bare[groundY*size+mid];
+                        Need(row==0?tint.b>tint.r+16:tint.r>tint.b+16,"离屏阵营色不正确");
+                        int bottom=-1;
+                        for(int y=0;y<size&&bottom<0;y++)
+                            for(int x=mid-22;x<=mid+22;x++)
+                                if(Delta(dressed[y*size+x],bare[y*size+x])>36){bottom=y;break;}
+                        float hoof=(bottom+.5f-groundY)*2*camera.orthographicSize/size/BattleBoardView.CellSize;
+                        Need(bottom>=0 && (vertical?hoof>-.5f && hoof<-.02f:Math.Abs(hoof)<.22f),
+                            soldier.AppearanceId+" 朝向"+direction.X+","+direction.Z+"，蹄底偏移 "+hoof+" 格");
+                        Debug.Log($"[CombatArt] {soldier.AppearanceId} {direction.X},{direction.Z} hoof {hoof:F3} cells");
+                    }
+                    UnityEngine.Object.DestroyImmediate(pawn.gameObject);
+                }
+
+                var run=new RealtimeCampaignBattle(session);
+                var pawns=civilians.Select(Create).ToArray(); // Bind the views before the encounter callback.
+                BattleScenePlacement.Snap(state,run);
+                BaseDemoRuins.Configure(run);
+                var controller=run.Model.Units.Single(u=>u.Side==PrototypeSide.Enemy&&u.Role==PrototypeRole.Leader);
+                Need(run.Model.PlaceNearest(run.Model.Player,controller.Position+new PrototypePoint(0,-1)),
+                    "未找到控制来源身旁的接战位置");
+                for(int i=0;i<civilians.Length;i++)
+                {
+                    var actor=run.Model.Units.Single(a=>a.Id==civilians[i].Id+1);
+                    Need(run.Model.PlaceNearest(actor,run.Model.Player.Position + new PrototypePoint(i==0?.6:-.6,0)),
+                        "未找到村民攻击测试的相邻站位");
+                }
+                run.RefreshDeveloperState();run.Model.SetPaused(false);
+                var swings=new int[civilians.Length];
+                for(int step=0;step<2700 && swings.Any(n=>n<2) && run.Battle.Phase==BattlePhase.Fighting;step++)
+                {
+                    run.Tick(.02);
+                    for(int i=0;i<civilians.Length;i++)
+                    {
+                        var actor=run.Model.Units.Single(a=>a.Id==civilians[i].Id+1);
+                        if(swings[i]>=2 || actor.SwingUntil<=run.Model.Elapsed || !actor.Alive)continue;
+                        foreach(var other in pawns)other.gameObject.SetActive(other==pawns[i]);
+                        pawns[i].SyncRealtime(session.Battle,actor,run.Model.Elapsed,center);
+                        var graphic=pawns[i].transform.Find("PixelDemoCharacter").GetComponent<Renderer>();
+                        var block=new MaterialPropertyBlock();graphic.GetPropertyBlock(block);
+                        Need(block.GetTexture("_BaseMap")?.name=="villager-attack-v2","受控镇民出手未绑定村民攻击图集");
+                        // First windup frame and a later swing frame for each civilian.
+                        if(swings[i]==1 && graphic.GetComponent<MeshFilter>().sharedMesh.uv[0].x<.5f)continue;
+                        var strike=Capture(); graphic.enabled=false; var empty=Capture(); graphic.enabled=true;
+                        Need(strike.Zip(empty,Delta).Count(d=>d>36)>150,"村民出手帧未显示");
+                        Keep(i*2+swings[i],2,strike);swings[i]++;
+                    }
+                }
+                Need(swings.All(n=>n==2),"没有观测到两名受控镇民完整的攻击，已播放帧数 "+string.Join(",",swings)+" @ "+run.Model.Elapsed);
+                Directory.CreateDirectory("Logs/combat-art");
+                sheet.Apply();File.WriteAllBytes("Logs/combat-art/riders-and-ruins.png",sheet.EncodeToPNG());
+                Debug.Log("[CombatArt] PASS four directions, both factions and two controlled villager attack renders");
+            }
+            finally
+            {
+                camera.targetTexture=null;RenderTexture.active=old;RenderTexture.ReleaseTemporary(target);
+                foreach(var item in new UnityEngine.Object[]{stage,material,image,sheet})UnityEngine.Object.DestroyImmediate(item);
+            }
+        }
         public static void RunAll()
         {
             Run();VerifyCavalrySafety.Run();VerifyDemoCheckpoint.Run();

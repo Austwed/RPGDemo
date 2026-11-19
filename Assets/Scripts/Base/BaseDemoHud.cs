@@ -12,7 +12,7 @@ namespace BaseConquest.Base
         {
             if(Busy||State?.Campaign.HasActiveBattle==true)return;
             BaseBattleGateway.UseDemo();BaseBattleGateway.MainMenu=false;
-            SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+            SceneLoadingCover.LoadExploration();
         }
     }
     public sealed partial class BaseHud
@@ -144,7 +144,8 @@ namespace BaseConquest.Base
                 else if (!gift && BaseFacilityLayout.CanOrder(state)) replies.Add(new NpcReply("营地建设", () => owner.OrderCampConstruction()));
                 replies.Add(new NpcReply("告辞", ClosePanel));
                 if (questLines.Count==0) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"守好南边。"));
-                NpcDialogue(questLines.ToArray(), replies.ToArray(), guide:deliver&&BaseQuestLog.Cue(state).ObjectId=="town_quest"); return;
+                NpcDialogue(questLines.ToArray(), replies.ToArray(), guide:deliver&&BaseQuestLog.Cue(state).ObjectId=="town_quest",
+                    skipSummary:deliver ? "你向领主交了差，领到赏金和建设许可，募兵处也向你开放了。" : null); return;
             }
             bool available=state.Demo.Stage==BaseDemoStage.VisitLord;
             var lordLines=available?new[]{
@@ -160,7 +161,8 @@ namespace BaseConquest.Base
                 new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"古窟走东口。若嫌人手少，可以去铁匠铺问问。"),
                 new NpcLine("你","","我去看看。两个人在里头多耽搁一天，就多一分险。",true)
             };
-            NpcDialogue(lordLines,new[]{new NpcReply("接受"+BaseScriptNames.Ruins+"调查",()=>{if(owner.Change(next=>{if(!BaseDemo.AcceptLordQuest(next))throw new InvalidOperationException("请先了解营地现状，并在领主同层一格以内接取");},BaseScriptNames.Ruins+"调查已接取并保存节点"))ClosePanel();},unlocked:available),new NpcReply("暂且告辞",ClosePanel)},lockExitUntilFinished:available,guide:available&&BaseQuestLog.Cue(state).ObjectId=="town_quest");
+            NpcDialogue(lordLines,new[]{new NpcReply("接受"+BaseScriptNames.Ruins+"调查",()=>{if(owner.Change(next=>{if(!BaseDemo.AcceptLordQuest(next))throw new InvalidOperationException("请先了解营地现状，并在领主同层一格以内接取");},BaseScriptNames.Ruins+"调查已接取并保存节点"))ClosePanel();},unlocked:available),new NpcReply("暂且告辞",ClosePanel)},lockExitUntilFinished:available,guide:available&&BaseQuestLog.Cue(state).ObjectId=="town_quest",
+                skipSummary:available ? "你接下了领主的任务，需要前往东边的遗迹探明情况" : null);
         }
         public void OpenAzhuInvitation()
         {
@@ -224,6 +226,7 @@ namespace BaseConquest.Base
             if(OpenDemoFinaleInteraction(id))return true;
             if(id=="demo_ahe"||id=="demo_azhu"){OpenDemoPartner(id=="demo_ahe"?"partner_farm":"partner_craft");return true;}
             if(id=="demo_rescued_1"||id=="demo_rescued_2"){OpenRescuedCivilian(id);return true;}
+            if(id==BaseDemoStories.GalanMarker){OpenWaitingGalan();return true;}
             if(id=="demo_ruins_investigate"){OpenRuinsChallenge();return true;}
             if(BaseDemoFinale.Opened(owner.State))return false;
             if(OpenDemoDefenseInteraction(id))return true;

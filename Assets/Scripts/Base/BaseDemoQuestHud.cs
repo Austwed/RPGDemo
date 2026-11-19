@@ -140,7 +140,7 @@ namespace BaseConquest.Base
                         Mathf.Max(34, questInstruction.preferredHeight + 8));
                 }
             }
-            if (!show || heroNameLayer != null && heroNameLayer.gameObject.activeInHierarchy)
+            if (!show || dialogueSkipPrompt != null || heroNameLayer != null && heroNameLayer.gameObject.activeInHierarchy)
             { questArrow.Hide(); return; }
             RectTransform target = null;
             if (hero)

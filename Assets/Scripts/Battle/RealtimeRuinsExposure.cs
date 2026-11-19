@@ -3,11 +3,69 @@ using System.Linq;
 using System.Collections.Generic;
 using BaseConquest.Base;
 using BaseConquest.Battle;
+using BaseConquest.RealtimePrototype;
 
 namespace BaseConquest.Battle
 {
     public sealed partial class RealtimeCampaignBattle
     {
+        public bool RuinsExitOpen { get; private set; }
+        public bool AwaitingRescueDialogue { get; private set; }
+        private readonly HashSet<int> waitingOnRuinsExit=new HashSet<int>();
+        public void ContinueRuinsExit() => AwaitingRescueDialogue = false;
+        public bool EscortWithoutCaptain => RuinsExitOpen &&
+            !Model.Units.Any(u=>u.Side==PrototypeSide.Ally && u.Role==PrototypeRole.Leader && u.Alive);
+        public bool OrderRuinsExit(PrototypePoint goal,IReadOnlyCollection<int> selected)
+        {
+            if(!RuinsExitOpen || AwaitingRescueDialogue)return false;
+            var exit=Battle.ExitCell(BattleSide.A);
+            if((int)goal.X!=exit.X || (int)goal.Z!=exit.Z)return false;
+            var center=new PrototypePoint(exit.X+.5,exit.Z+.5);
+            if (EscortWithoutCaptain)
+            {
+                bool accepted=Model.IssueOrder(-1,-1,PrototypeOrder.Retreat,center);
+                if(accepted)waitingOnRuinsExit.Clear();
+                return accepted;
+            }
+            var captains=Model.Units.Where(u=>u.Side==PrototypeSide.Ally&&u.Alive&&u.Role==PrototypeRole.Leader)
+                .OrderByDescending(u=>selected?.Contains(u.Id-1)==true)
+                .ThenBy(u=>(u.Position-center).Length);
+            foreach(var captain in captains)
+                if(Issue(new[]{captain.Id-1},PrototypeOrder.Retreat,center))return true;
+            return false;
+        }
+
+        private bool OccupiesRuinsExit(PrototypeUnit actor,GridPosition exit) =>
+            (int)actor.Position.X == exit.X && (int)actor.Position.Z == exit.Z &&
+            (actor.FootprintLength==1||Model.Footprint(actor,actor.Cell,actor.BodyAxis).All(cell=>
+                cell>=0&&cell%Model.Arena.FineColumns/2==exit.X&&cell/Model.Arena.FineColumns/2==exit.Z));
+
+        internal bool CheckRuinsExit()
+        {
+            var exit = Battle.ExitCell(BattleSide.A);
+            if (!RuinsExitOpen)
+            {
+                RuinsExitOpen = true;
+                AwaitingRescueDialogue = Session.Opening.RuinsFirstClear;
+                Model.CanTarget = (_, _) => false;
+                Model.CanMove = actor => actor.Side == PrototypeSide.Ally;
+                Model.AfterStep = null;
+                DamageLimit = (_, _, _) => 0;
+                foreach(var actor in Model.Units.Where(u=>u.Side==PrototypeSide.Ally&&OccupiesRuinsExit(u,exit)))
+                    waitingOnRuinsExit.Add(actor.Id);
+                if (AwaitingRescueDialogue) Model.SetPaused(true);
+            }
+            if (AwaitingRescueDialogue) return false;
+            bool escort=EscortWithoutCaptain;
+            foreach(var actor in Model.Units)
+            {
+                if(actor.Side!=PrototypeSide.Ally || !actor.Alive&&!actor.Escaped)continue;
+                if(!OccupiesRuinsExit(actor,exit)){waitingOnRuinsExit.Remove(actor.Id);continue;}
+                if(!waitingOnRuinsExit.Contains(actor.Id) && (actor.Role==PrototypeRole.Leader || escort&&actor.Order==PrototypeOrder.Retreat))return true;
+            }
+            return false;
+        }
+
         public double RuinsExposureFraction {get;private set;}
         public void EnableRuinsExposure(double fraction)
         {

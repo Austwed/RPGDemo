@@ -54,11 +54,28 @@ namespace BaseConquest.Base
         public List<BaseLostItems> LostItems=new List<BaseLostItems>();
         public BaseAftermath Copy() => new BaseAftermath { Version = Version, GameOver = GameOver, Reason = Reason, Difficulty = Difficulty.Copy(), Prisoners = Prisoners.Select(p => p.Copy()).ToList(), Loot=Loot.Select(m=>m.Copy()).ToList(),LostItems=LostItems?.Select(x=>x.Copy()).ToList() };
         // 旧档里六个字段可能仍存着 easy/hard 的旧值；读档与每次校验前统一归位到基准，难度解耦才算真正生效。
-        public static void Normalize(BaseState s) { if (s?.Aftermath?.Difficulty != null) s.Aftermath.Difficulty.Neutralize();if(s?.Aftermath?.GameOver==true&&s.Aftermath.Reason=="待写"&&s.Demo?.Defense?.SecondOutcome=="failed")s.Aftermath.Reason=BaseDemoDefense.SecondGameOverReason; }
+        public static void Normalize(BaseState s)
+        {
+            if (s?.Aftermath?.Difficulty != null) s.Aftermath.Difficulty.Neutralize();
+            if(s?.Aftermath?.GameOver==true&&s.Aftermath.Reason=="待写"&&s.Demo?.Defense?.SecondOutcome=="failed")s.Aftermath.Reason=BaseDemoDefense.SecondGameOverReason;
+            string id = s?.Demo?.Flow?.FirstControllerId;
+            if (!string.IsNullOrEmpty(id) && s.Aftermath?.Prisoners?.FirstOrDefault(p => p?.Id == id) is BasePrisoner galan &&
+                galan.Status is "held" or "released" or "refused")
+            {
+                galan.Status = BaseDemoStories.WaitingAtEntrance;
+                var receipt = s.Aftermath.Loot?.FirstOrDefault(m => m?.BattleId == galan.BattleId);
+                if (receipt?.Items != null && receipt.Items.All(i=>i!=null&&i.Status!="pending"))
+                {
+                    receipt.Closed=true;
+                    receipt.ReceiptFood=receipt.ReceiptMaterials=receipt.ReceiptCoins=0;
+                    foreach(var item in receipt.Items)item.ReceiptDestination=null;
+                }
+            }
+        }
         public static void Validate(BaseState s)
         {
             if(s.Aftermath==null || s.Aftermath.Version==0 && !s.Aftermath.GameOver && (s.Aftermath.Prisoners==null||s.Aftermath.Prisoners.Count==0)) s.Aftermath=new BaseAftermath(); var a = s.Aftermath; var d = a.Difficulty;
-            if (a.Version != 1 || d == null || d.Version != 1 || !new[] { "easy", "normal", "hard" }.Contains(d.Preset) || new[] { d.LeaderDeath, d.TroopDeath, d.LeaderRecruit, d.TroopRecruit, d.DropRate }.Any(v => double.IsNaN(v) || double.IsInfinity(v) || v < 0 || v > 1) || double.IsNaN(d.RewardFactor) || d.RewardFactor < 0 || d.RewardFactor > 10 || a.Prisoners == null || a.Prisoners.Count > 10000 || a.Prisoners.Any(p => p == null || string.IsNullOrWhiteSpace(p.Id) || !ValidStats(p.Stats) || !Enum.IsDefined(typeof(SoldierKind), p.Kind) || !new[] { "held", "recruited", "released", "executed", "refused" }.Contains(p.Status) || double.IsNaN(p.Health) || p.Health <= 0 || p.Health > p.Stats.Health) || a.Prisoners.Select(p => p.Id).Distinct().Count() != a.Prisoners.Count) throw new ArgumentException("难度／俘虏数据非法");
+            if (a.Version != 1 || d == null || d.Version != 1 || !new[] { "easy", "normal", "hard" }.Contains(d.Preset) || new[] { d.LeaderDeath, d.TroopDeath, d.LeaderRecruit, d.TroopRecruit, d.DropRate }.Any(v => double.IsNaN(v) || double.IsInfinity(v) || v < 0 || v > 1) || double.IsNaN(d.RewardFactor) || d.RewardFactor < 0 || d.RewardFactor > 10 || a.Prisoners == null || a.Prisoners.Count > 10000 || a.Prisoners.Any(p => p == null || string.IsNullOrWhiteSpace(p.Id) || !ValidStats(p.Stats) || !Enum.IsDefined(typeof(SoldierKind), p.Kind) || !new[] { "held", "recruited", "released", "executed", "refused", BaseDemoStories.WaitingAtEntrance }.Contains(p.Status) || double.IsNaN(p.Health) || p.Health <= 0 || p.Health > p.Stats.Health) || a.Prisoners.Select(p => p.Id).Distinct().Count() != a.Prisoners.Count) throw new ArgumentException("难度／俘虏数据非法");
         }
         public static void MarkKnownRecruits(BaseState s)
         {
@@ -69,15 +86,15 @@ namespace BaseConquest.Base
         public static bool Decide(BaseState s, string id, string action)
         {
             BaseEconomy.Validate(s); if (s.Aftermath.GameOver || s.Campaign.HasActiveBattle) return false;
-            var p = s.Aftermath.Prisoners.FirstOrDefault(x => x.Id == id && x.Status == "held"); if (p == null) return false;
+            bool controller=BaseDemoStories.ControllerDialogue(s,id);
+            if(controller && (action!="recruit" || !s.Demo.Flow.ControllerAccepted))return false;
+            var p = s.Aftermath.Prisoners.FirstOrDefault(x => x.Id == id && (controller || x.Status == "held")); if (p == null) return false;
             if (action == "release" || action == "execute") { p.Status = action == "release" ? "released" : "executed"; return true; }
             if (action != "recruit") return false;
-            bool controller=BaseDemoStories.ControllerDialogue(s,id);
-            if(controller&&!s.Demo.Flow.ControllerAccepted)return false;
             if (p.Kind == SoldierKind.Hero ? !CanRecruitLeader(s) : s.Workers.Sum(w => w.Count) >= 10000) return false;
             // 2026-11-01 用户裁决：取消招降概率。战场上没死的目标只要容量允许就固定招募成功，
             // 即死率已承担损失角色；特殊剧情（迦兰）由 ControllerAccepted 前置自行把关。
-            if (p.Kind == SoldierKind.Hero) {var door=BasePersonnel.BarracksDoor(s);s.Leaders.Add(new BaseLeader { Id = "partner_recruit:" + p.Id, Name = UnitDisplayNames.RecruitedName(p.Name),AcquisitionSource="战后招降 · "+(string.IsNullOrEmpty(p.CaptureSource)?p.BattleId:p.CaptureSource),AcquisitionDay=s.Day,IsAlien=p.IsAlien,IsAwakened=p.IsAwakened, AppearanceId=p.AppearanceId, Recruited=true,HasHomePosition=true,HomeX=door.X,HomeY=door.Y,HasMapPosition=true,MapX=door.X,MapY=door.Y, Health = p.Health, MaxHealth = p.Stats.Health, Resting = false, UnavailableDay = s.Day, HasCombatProfile = true, CombatStats = p.Stats.Clone(), Training=BaseTraining.FromProfile(p.Stats),Rpg=p.Rpg?.Copy(),PersonalEquipment=p.Rpg?.Version!=1?null:new BasePersonalLoadout {Version=1,Weapon=new[]{"sword","bow","spear"}[p.Rpg.Profession],InitialWeapon=new[]{"sword","bow","spear"}[p.Rpg.Profession],BaseStats=p.Stats.Clone()} });}
+            if (p.Kind == SoldierKind.Hero) {var door=BasePersonnel.BarracksDoor(s);s.Leaders.Add(new BaseLeader { Id = "partner_recruit:" + p.Id, Name = UnitDisplayNames.RecruitedName(p.Name),AcquisitionSource=controller?"剧情结识 · 遗迹入口":"战后招降 · "+(string.IsNullOrEmpty(p.CaptureSource)?p.BattleId:p.CaptureSource),AcquisitionDay=s.Day,IsAlien=p.IsAlien,IsAwakened=p.IsAwakened, AppearanceId=p.AppearanceId, Recruited=true,HasHomePosition=true,HomeX=door.X,HomeY=door.Y,HasMapPosition=true,MapX=door.X,MapY=door.Y, Health = p.Health, MaxHealth = p.Stats.Health, Resting = false, UnavailableDay = s.Day, HasCombatProfile = true, CombatStats = p.Stats.Clone(), Training=BaseTraining.FromProfile(p.Stats),Rpg=p.Rpg?.Copy(),PersonalEquipment=p.Rpg?.Version!=1?null:new BasePersonalLoadout {Version=1,Weapon=new[]{"sword","bow","spear"}[p.Rpg.Profession],InitialWeapon=new[]{"sword","bow","spear"}[p.Rpg.Profession],BaseStats=p.Stats.Clone()} });}
             else s.Workers.Add(new BaseWorkerBucket { Kind = BaseCampaign.ToBase(p.Kind), Recruited=true, Count = 1, Health = p.Health, MaxHealth = p.Stats.Health, Resting = p.Health < p.Stats.Health * BaseDevelopment.DutyThreshold, UnavailableDay = s.Day, HasCombatProfile = true, CombatStats = p.Stats.Clone() });
             if(BaseRpg.Active(s)&&p.Kind==SoldierKind.Hero&&s.Adventure.Members.Count<BaseAdventure.Capacity)
                 JoinRecruit(s,s.Leaders.Last());
@@ -110,9 +127,10 @@ namespace BaseConquest.Base
                 string id = session.Opening.Id + ":" + enemy.Id;
                 if(s.Aftermath.Prisoners.Count>=10000)break;
                 if (s.Aftermath.Prisoners.Any(p => p.Id == id)) continue;
-                var bare=BaseItemRecovery.Disarm(s,session,enemy);
                 var origin=session.Opening.Enemies.FirstOrDefault(member=>member.Rpg?.Id==enemy.Rpg?.Id);
-                s.Aftermath.Prisoners.Add(new BasePrisoner { IsAlien=origin?.IsAlien==true,IsAwakened=origin?.IsAwakened==true||enemy.Rpg?.TemplateId.StartsWith("captain_awakened_")==true,CaptureSource=s.Campaign.Events.FirstOrDefault(e=>e.Id==session.Opening.EventId)?.Title??session.Opening.EventId,CaptureDay=s.Day,Rpg=enemy.Rpg?.Copy(),Id = id, BattleId = session.Opening.Id, Name = session.Battle.UnitName(enemy), Kind = enemy.Kind, AppearanceId=enemy.AppearanceId, Health = Math.Min(bare.Health,Math.Max(1, enemy.Health)), Stats = bare });
+                bool storyController = session.Opening.EventId==BaseDemoRuins.EventId && session.Opening.RuinsFirstClear && enemy.Kind==SoldierKind.Hero;
+                var bare=storyController ? origin?.Equipment?.BaseStats??enemy.Stats : BaseItemRecovery.Disarm(s,session,enemy);
+                s.Aftermath.Prisoners.Add(new BasePrisoner { IsAlien=origin?.IsAlien==true,IsAwakened=origin?.IsAwakened==true||enemy.Rpg?.TemplateId.StartsWith("captain_awakened_")==true,CaptureSource=s.Campaign.Events.FirstOrDefault(e=>e.Id==session.Opening.EventId)?.Title??session.Opening.EventId,CaptureDay=s.Day,Rpg=enemy.Rpg?.Copy(),Id = id, BattleId = session.Opening.Id, Name = session.Battle.UnitName(enemy), Kind = enemy.Kind, AppearanceId=enemy.AppearanceId, Health = Math.Min(bare.Health,Math.Max(1, enemy.Health)), Stats = bare.Clone() });
             }
         }
     }

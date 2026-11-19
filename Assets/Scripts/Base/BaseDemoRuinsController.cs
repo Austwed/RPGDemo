@@ -96,11 +96,12 @@ namespace BaseConquest.Base
             if(soloRetreat)Message="";
             void AfterRetreat()
             {
-                if(victory)Hud.OpenRuinsVictory();
+                if(victory && run.Session.Opening.RuinsFirstClear)Hud.OpenRescuedCivilian("demo_rescued_1",true);
+                else if(victory)Hud.OpenRuinsReward();
                 else if(soloRetreat)Hud.OpenRuinsRetreatMonologue();
             }
             if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,AfterRetreat);return true;}
-            if(Application.isPlaying){BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
+            if(Application.isPlaying){BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;SceneLoadingCover.LoadExploration();}
             else
             {
                 var previous=combatController;combatController=null;if(previous!=null){previous.gameObject.SetActive(false);BattleBoardView.DestroyObject(previous.gameObject);}

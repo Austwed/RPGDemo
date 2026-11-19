@@ -40,6 +40,7 @@ namespace BaseConquest.Editor
             var entrance=BaseSpatial.Objects(s).First(o=>o.Id=="demo_ruins_investigate");s.PlayerX=entrance.X;s.PlayerY=entrance.Y;
             var session=BaseDemoRuins.Begin(s,"none");var run=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(run);run.Model.SetPaused(false);
             for(int t=0;t<5400&&run.Battle.Phase==BattlePhase.Fighting;t++){
+                if(run.RuinsExitOpen){VerifyChenanAndRuins.WalkOutOfRuins(run);break;}
                 if(t%30==0){var enemy=run.Battle.Commander(BattleSide.B,0);var target=run.Model.Units.First(u=>u.Id==enemy.Id+1);
                     foreach(var captain in run.Model.Units.Where(u=>u.Alive&&u.Side==PrototypeSide.Ally&&u.Role==PrototypeRole.Leader)){
                         bool visible=run.Battle.PlayerCanSee(BattleSide.A,enemy);

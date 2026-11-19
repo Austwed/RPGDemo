@@ -27,7 +27,7 @@ namespace BaseConquest.Base
                 var next=JsonUtility.FromJson<BaseState>(asset.text);BaseEconomy.Validate(next);
                 if(next.Demo.ConfigHash!=DemoBalanceRuntime.Load().WorkbookSha256)throw new InvalidOperationException("阶段档与当前数值快照不一致，请重新生成阶段档");
                 BaseBattleGateway.Catalog().SaveAuto(next,"阶段测试 · "+id);BaseBattleGateway.Session().Restore(next);BaseBattleGateway.MainMenu=false;BaseBattleGateway.RequestedId=null;
-                if(Application.isPlaying)SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);else{SaveStore.RestoreSession(next);LoadSaved();}
+                if(Application.isPlaying)SceneLoadingCover.LoadExploration();else{SaveStore.RestoreSession(next);LoadSaved();}
             }
             catch(Exception e){ReportMessage("阶段档读取失败："+e.Message);}
         }

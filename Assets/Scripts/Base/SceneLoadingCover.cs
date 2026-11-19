@@ -5,10 +5,6 @@ using UnityEngine.UI;
 
 namespace BaseConquest.Base
 {
-    // 统一场景加载黑屏：任何 SceneManager.LoadScene 自动被不透明黑屏覆盖，加载完成后淡出。
-    // 解决「切换场景瞬间闪现原场景同坐标区域」的渲染时序问题（旧 regionView 帧末才销毁、新场景第一帧未就绪）。
-    // 做法：DontDestroyOnLoad 挂一张全屏黑图，sceneUnloaded 时置不透明、sceneLoaded 后延迟一帧淡出；
-    // 不依赖任何调用点改动，也不依赖 Canvas 构造时序（Image 用纯色即可，无需字体/贴图）。
     public sealed class SceneLoadingCover : MonoBehaviour
     {
         private static SceneLoadingCover instance;
@@ -22,8 +18,30 @@ namespace BaseConquest.Base
             var go = new GameObject("SceneLoadingCover");
             DontDestroyOnLoad(go);
             instance = go.AddComponent<SceneLoadingCover>();
-            SceneManager.sceneUnloaded += _ => instance.Immediate();
-            SceneManager.sceneLoaded += (_, __) => instance.FadeOut();
+            SceneManager.sceneUnloaded += instance.OnUnloaded;
+            SceneManager.sceneLoaded += instance.OnLoaded;
+        }
+
+        internal static void LoadExploration()
+        {
+            // LoadScene finishes on a later frame. Cover the outgoing renderer before that frame.
+            if (instance != null) instance.Immediate();
+            SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);
+        }
+
+        private void OnUnloaded(Scene scene) => Immediate();
+        private void OnLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (!covered || mode != LoadSceneMode.Single) return;
+            var destination = FindAnyObjectByType<BaseSceneController>();
+            StartCoroutine(FadeRoutine(destination));
+        }
+
+        private void OnDestroy()
+        {
+            SceneManager.sceneUnloaded -= OnUnloaded;
+            SceneManager.sceneLoaded -= OnLoaded;
+            if (instance == this) instance = null;
         }
 
         private void Awake()
@@ -46,25 +64,16 @@ namespace BaseConquest.Base
         private void Immediate()
         {
             gameObject.SetActive(true);
+            StopAllCoroutines();
             group.alpha = 1;
             covered = true;
         }
 
-        private void FadeOut()
+        private IEnumerator FadeRoutine(BaseSceneController destination)
         {
-            // 首次启动没有 sceneUnloaded，不需要从黑淡出；只有真正发生过场景切换才淡出，避免启动闪黑。
-            if (!covered) return;
+            do { yield return null; }
+            while (destination != null && !destination.RegionPresented);
             covered = false;
-            gameObject.SetActive(true);
-            StopAllCoroutines();
-            StartCoroutine(FadeRoutine());
-        }
-
-        private IEnumerator FadeRoutine()
-        {
-            group.alpha = 1;
-            // 等新场景第一帧就绪（BeginSession → BuildWorld 同步完成后）再淡出，避免黑屏过早消失露出中间帧。
-            yield return null;
             float t = 0;
             while (t < 0.22f)
             {

@@ -30,11 +30,11 @@ namespace BaseConquest.Base
     public static class BaseDemoIntro
     {
         public const string BattleId="demo:prologue:practice";
-        public const int Select=1, Pause=2, Move=4, Attack=8, Guard=16, Skill=32, All=Select|Pause|Move|Attack|Guard|Skill;
-        private const int LegacyInspect = 64;
+        public const int Select=1, Pause=2, Move=4, Attack=8, All=Select|Pause|Move|Attack;
+        private const int RetiredDrillFlags = 16 | 32 | 64; // 驻守、技能、查看详情的旧存档位。
         public const int DummyDemo=128, AutoAttack=256;
         public const string DummyId="intro:training-dummy";
-        private static readonly int[] DrillControls={Select,Pause,Move,Guard,Skill};
+        private static readonly int[] DrillControls={Select,Pause,Move};
         public static bool Active(BaseState s)=>BaseDemo.Active(s)&&s.Demo.Intro!=null;
         public static bool Daily(BaseState s)=>Active(s)&&BaseDemoPrologue.Village(s)&&s.Demo.Intro.Step is not (6 or 7 or 8);
         public static string PlayerArt(BaseState s)=>Active(s)&&s.Demo.Intro.Hero=="female"?"female":"player";
@@ -260,7 +260,7 @@ namespace BaseConquest.Base
             var a=Nearest(s.PlayerX,s.PlayerY);var b=Nearest(s.Demo.Intro.CaptainX,s.Demo.Intro.CaptainY,a);board.Cell(a).Zone=DeploymentZone.A;board.Cell(b).Zone=DeploymentZone.B;
             var scenario=new BattleScenario {Board=board,CampaignRules=true,FogEnabled=false,PlayerHeroAppearance=true,PlayerLeaderSlot=0,MaxRounds=360,InstantDeathEnabled=false,
                 A=new ArmyDefinition {HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=stats},B=new ArmyDefinition {HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=target},
-                Objective=new ObjectiveConfig {Title="村庄演练 · 暂停、选择、移动、攻击、驻守、鼓舞"},Placements=new List<UnitPlacement>{new UnitPlacement {Side=BattleSide.A,Kind=SoldierKind.Hero,CommanderSlot=0,Cell=a},new UnitPlacement {Side=BattleSide.B,Kind=SoldierKind.Hero,CommanderSlot=0,Cell=b}}};
+                Objective=new ObjectiveConfig {Title="村庄演练 · 选人、暂停、移动、木桩、攻击"},Placements=new List<UnitPlacement>{new UnitPlacement {Side=BattleSide.A,Kind=SoldierKind.Hero,CommanderSlot=0,Cell=a},new UnitPlacement {Side=BattleSide.B,Kind=SoldierKind.Hero,CommanderSlot=0,Cell=b}}};
             BaseSceneRules.Configure(s,scenario,new[]{player});
             var enemies=BaseDemoCombat.CreateEnemies(BattleId,scenario.B);BaseRpg.PrepareEnemies(s,enemies,BattleId);var partner=enemies.Single();partner.Rpg=opponent.Rpg.Copy();partner.Rpg.Id=partner.Id;partner.Rpg.AutoSkill=false;partner.Equipment=opponent.PersonalEquipment.Copy();partner.Stats=target.Clone();partner.Health=(float)opponent.MaxHealth;partner.IsAwakened=opponent.IsAwakened;
             var fixture=BaseSpatial.Objects(s).FirstOrDefault(o=>o.Id==DummyId);var dummy=fixture==null?board.Positions().Where(p=>board.Walkable(p)&&p!=a&&p!=b).OrderBy(p=>Math.Abs(p.X-13)+Math.Abs(p.Z-8)).First():new GridPosition((int)fixture.X,(int)fixture.Y);
@@ -327,7 +327,6 @@ namespace BaseConquest.Base
                     run.Model.SetStrategy(actor, PrototypeStrategy.Obey);
                 }
             };
-            run.PrepareTutorialSkills();run.TutorialSkillGate=()=>Next()==Skill;
             var targeting=run.Model.CanTarget;run.Model.CanTarget=(source,target)=>source.Side==PrototypeSide.Ally&&(intro.DrillFlags&Attack)!=0&&(targeting?.Invoke(source,target)??true);
             run.Model.CanMove=actor=>actor.Side==PrototypeSide.Ally||intro.DummyPhase==1;
             run.OutcomeResolver=current=>{
@@ -341,7 +340,7 @@ namespace BaseConquest.Base
             if(!Active(s))return;var i=s.Demo.Intro;var village=s.Demo.StoryScene?.Valid==true?s.Demo.StoryScene.Map("village").Board:null;int width=village?.Width??24,height=village?.Height??14;
             BaseVillageReport.Validate(i, width, height);
             if(i.DummyPhase<0||i.DummyPhase>4||i.DummyHits<0||i.DummyHits>3)throw new ArgumentException("木桩教学进度非法");
-            if(i.Step<0||i.Step>10||i.Step>0&&!new[]{"male","female"}.Contains(i.Hero)||i.Step==0&&i.Hero!=""||(i.DrillFlags&~(All|LegacyInspect))!=0||i.FarmWorkers<2||i.FarmWorkers>4||double.IsNaN(i.Walked)||double.IsInfinity(i.Walked)||i.Walked<0||i.CaptainX<0||i.CaptainX>=width||i.CaptainY<0||i.CaptainY>=height)throw new ArgumentException("序章教学进度非法");
+            if(i.Step<0||i.Step>10||i.Step>0&&!new[]{"male","female"}.Contains(i.Hero)||i.Step==0&&i.Hero!=""||(i.DrillFlags&~(All|RetiredDrillFlags))!=0||i.FarmWorkers<2||i.FarmWorkers>4||double.IsNaN(i.Walked)||double.IsInfinity(i.Walked)||i.Walked<0||i.CaptainX<0||i.CaptainX>=width||i.CaptainY<0||i.CaptainY>=height)throw new ArgumentException("序章教学进度非法");
             if(new[]{i.ReporterX,i.ReporterY,i.DrillMoveOrigin,i.TutorialDelay,i.CaptainX,i.CaptainY,i.DepartureWait,i.MilitiaDelay}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||i.ReporterX<0||i.ReporterX>=width||i.ReporterY<0||i.ReporterY>=height||i.DrillMoveOrigin<0||i.TutorialDelay<0||i.TutorialDelay>1)throw new ArgumentException("报信人与演练位置非法");
             if(i.Militia==null||i.MilitiaSpawned<0||i.MilitiaSpawned>4||i.Militia.Count!=i.MilitiaSpawned||i.DepartureWait<0||i.DepartureWait>1.05||i.MilitiaDelay<-.06||i.MilitiaDelay>.4||i.Militia.Any(v=>v==null||new[]{v.MapX,v.MapY}.Any(n=>double.IsNaN(n)||double.IsInfinity(n))||v.MapX<0||v.MapX>=width||v.MapY<0||v.MapY>=height)||i.DeparturePhase<0||i.DeparturePhase>4||i.Militia.Select(v=>v.Id).Distinct().Count()!=i.Militia.Count)throw new ArgumentException("序章民兵离场记录非法");
             if(i.Step>0&&s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).AppearanceId!=PlayerArt(s))throw new ArgumentException("主角选择与形象不一致");

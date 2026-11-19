@@ -46,7 +46,12 @@ namespace BaseConquest.Base
         }
         private void RecruitPrisoner(string id,Action back)
         {
-            if(!BaseDemoStories.ControllerDialogue(owner.State,id)){owner.Change(s=>{if(!BaseAftermath.Decide(s,id,"recruit"))throw new InvalidOperationException("无法安置队长，俘虏仍保留");},"已尝试招降");back();return;}
+            owner.Change(s=>{if(!BaseAftermath.Decide(s,id,"recruit"))throw new InvalidOperationException("无法安置队长，俘虏仍保留");},"已尝试招降");back();
+        }
+        private void OpenWaitingGalan()
+        {
+            string id=owner.State.Demo.Flow.FirstControllerId;
+            if(!BaseDemoStories.ControllerDialogue(owner.State,id)){ClosePanel();return;}
             string galan=UnitDisplayNames.Mark(BaseScriptNames.Galan,true),portrait=BaseScriptNames.Portrait("galan");
             NpcDialogue(new[]{
                 new NpcLine(galan,portrait,"我来找失散的族人。那两个人能活着出去，我出了力。"),
@@ -54,18 +59,26 @@ namespace BaseConquest.Base
                 new NpcLine(galan,portrait,"这座窟我比你熟。留我做事，古窟的事我知道多少说多少。")
             },new[]{
                 new NpcReply("接纳迦兰",()=>{
-                    if(!owner.Change(s=>{if(!BaseDemoStories.AcceptController(s,id))throw new InvalidOperationException("队长名额已满，俘虏仍保留");},"")){back();return;}
-                    NpcDialogue(new[]{new NpcLine(galan,portrait,"那就先从这座窟说起。")},Array.Empty<NpcReply>(),onCompleted:back);
-                }),
+                    if(!owner.Change(s=>{if(!BaseDemoStories.AcceptController(s,id))throw new InvalidOperationException("营帐名额已满。");},""))return;
+                    owner.RefreshDemoRegion();
+                    owner.Hud.OpenGalanReply("那就先从这座窟说起。");
+                },BaseAftermath.CanRecruitLeader(owner.State)),
                 new NpcReply("先不接纳",()=>NpcDialogue(
                     new[]{new NpcLine(galan,portrait,"等你想谈了，再来找我。")},
-                    Array.Empty<NpcReply>(),onCompleted:back))
+                    Array.Empty<NpcReply>(),onCompleted:ClosePanel)),
+                new NpcReply("处死迦兰",()=>NpcDialogue(new[]{new NpcLine(galan,portrait,"你想清楚了？")},new[]{
+                    new NpcReply("先留着他",ClosePanel),
+                    new NpcReply("执意处死",()=>{
+                        if(owner.Change(s=>{if(!BaseDemoStories.ExecuteController(s,id))throw new InvalidOperationException("迦兰已经离开。");},""))
+                        { ClosePanel();owner.RefreshDemoRegion(); }
+                    },skipDefault:false)
+                }),skipDefault:false)
             });
         }
+        private void OpenGalanReply(string text) =>
+            NpcDialogue(new[]{new NpcLine(UnitDisplayNames.Mark(BaseScriptNames.Galan,true),"galan",text)},Array.Empty<NpcReply>(),onCompleted:ClosePanel);
         private void RecruitLootAll(string battle)
         {
-            var special=owner.State.Aftermath.Prisoners.FirstOrDefault(p=>p.BattleId==battle&&BaseDemoStories.ControllerDialogue(owner.State,p.Id));
-            if(special!=null){RecruitPrisoner(special.Id,OpenLoot);return;}
             LootChange(s=>BaseBattleLoot.RecruitAll(s,battle)>0,"已依次处理可招募俘虏，无法安置者仍保留");
         }
     }

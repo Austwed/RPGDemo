@@ -77,6 +77,7 @@ namespace BaseConquest.Editor
             run.Model.SetPaused(false);
             for (int t = 0; t < 5400 && run.Battle.Phase == BattlePhase.Fighting; t++)
             {
+                if(run.RuinsExitOpen){VerifyChenanAndRuins.WalkOutOfRuins(run);break;}
                 if (t % 30 == 0)
                 {
                     var enemy = run.Battle.Commander(BattleSide.B, 0);

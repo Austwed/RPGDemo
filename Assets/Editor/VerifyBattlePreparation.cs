@@ -111,6 +111,7 @@ namespace BaseConquest.Editor
             pawn.KnockedDown = pawn.DeathResolved = true;
             battle.Model.SetPaused(false);
             battle.Tick(.02);
+            VerifyChenanAndRuins.WalkOutOfRuins(battle);
             Need(BaseDemoRuins.Complete(state, battle), "古窟首通");
             ClearLoot(state);
             At(state, "demo_ruins_investigate");

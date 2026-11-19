@@ -66,7 +66,7 @@ namespace BaseConquest.Base
             var landing=BaseSpatial.Nearest(next,new BasePoint(1.6,6.5));next.PlayerX=landing.X;next.PlayerY=landing.Y;BaseAdventure.Arrive(next);
             BaseEconomy.Validate(next);SaveStore.Save(next);State=next;beforeDemoDefense=null;
             if(BaseSceneRules.Active(State)){FinishLocalScene(mainMenu,AfterDefense);return true;}
-            if(Application.isPlaying){BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;BaseBattleGateway.ShowPrisoners=BaseBattleLoot.Pending(next);SceneManager.LoadScene(BaseBattleGateway.ExplorationScene);}
+            if(Application.isPlaying){BaseBattleGateway.MainMenu=mainMenu;BaseBattleGateway.RequestedId=null;BaseBattleGateway.ShowPrisoners=BaseBattleLoot.Pending(next);SceneLoadingCover.LoadExploration();}
             else
             {
                 var previous=combatController;combatController=null;if(previous!=null){previous.gameObject.SetActive(false);BattleBoardView.DestroyObject(previous.gameObject);}
