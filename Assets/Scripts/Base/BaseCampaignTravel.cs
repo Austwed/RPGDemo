@@ -52,14 +52,8 @@ namespace BaseConquest.Base
             if(worldEntry!=null)
             {
                 if(!BaseInteraction.CanReach(State,BaseSpatial.Layout(State).Objects.Single(obj=>obj.SourceObjectId==worldEntry.ObjectId).Object)){ReportMessage("请在世界出入口同层一格内交互");return;}
-                pendingWorldEntry=worldEntry.Id;
-                if(!State.Muster.Parties.Any(party=>party.Purpose=="expedition"&&party.Leaders.Any(leader=>leader.LeaderId==State.PlayerLeaderId)))
-                {
-                    if(objectId=="demo_march_exit"&&BaseDemoFinale.Enabled(State))Hud.OpenBattlePreparation(BasePrepRoute.Travel);
-                    else Hud.OpenDeparture("world");
-                    return;
-                }
-                CompleteTravel("world",null);return;
+                OpenJourneyMap(worldEntry.Id);
+                return;
             }
             pendingWorldEntry=null;
             var link=BaseDesignRoutes.ForObject(State,objectId);
@@ -86,11 +80,6 @@ namespace BaseConquest.Base
         {
             if(location=="base"&&State.Campaign.Location!="base"&&OfferFirstRaidIntel())return;
             if(BaseDemoDefense.Enabled(State)&&State.Campaign.Location=="perimeter"&&location=="perimeter"){PrepareDemoDefense(plan);return;}
-            if(pendingWorldEntry!=null)
-            {
-                string entry=pendingWorldEntry;
-                if(Change(state=>{BaseAdventure.RecallPaused(state);if(plan!=null&&!BaseMuster.Confirm(state,plan))throw new InvalidOperationException("出征队伍已变化");BaseWorldJourney.EnterWorld(state,entry);},"已进入世界地图，暂离成员自动随队")){pendingWorldEntry=null;ReloadTravelRegion();}return;
-            }
             if (Change(s => {
                 if(location=="base"&&(s.Campaign.Location=="world"||s.Campaign.Location=="outpost"||s.Campaign.Location=="perimeter")){string purpose=s.Campaign.Location=="perimeter"?"defense":"expedition";var returning=s.Muster.Parties.FirstOrDefault(p=>p.Purpose==purpose);if(returning!=null){foreach(var q in s.Supply.Quotas.Where(q=>q.PartyId==returning.Id).ToArray())if(!BaseSupply.Cancel(s,q.BattleId))throw new InvalidOperationException("战斗中不能返营");if(!BaseMuster.Return(s,returning.Id))throw new InvalidOperationException("未能返营");}}
                 if (plan != null && !BaseMuster.Confirm(s, plan)) throw new InvalidOperationException("编制已变化，重新选择"); if ((BaseSceneInstances.Active(s)||s.Campaign.Location!=location)&&!BaseCampaign.Travel(s, location,pendingDesignExit)) throw new InvalidOperationException("目前不能前往该区域，请重新靠近原出口并确认连接"); }, "前往" + BaseCampaign.LocationName(location)))
@@ -133,6 +122,11 @@ namespace BaseConquest.Base
         }
         private IEnumerator ReadBattle(string filename, Action<BattleScenarioDocument> receive)
         {
+            if(filename==BaseDemoRaids.Scenario && BaseDemoDefense.Enabled(State))
+            {
+                receive(BaseDemoDefense.DefenseDocument(State,State.Demo.Defense.Army.Clone()));
+                yield break;
+            }
             string path = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/BattleScenarios/" + filename;
             string uri = path.Contains("://") ? path : new Uri(path).AbsoluteUri;
             using (var request = UnityWebRequest.Get(uri))

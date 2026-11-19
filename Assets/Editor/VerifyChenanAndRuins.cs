@@ -655,6 +655,7 @@ namespace BaseConquest.Editor
                 !BaseDemoStories.ExecuteController(executed, prisoner.Id) &&
                 BaseDemoNpcs.Additional(executed).All(person => person.Id != BaseDemoStories.GalanMarker),
                 "处斩后读取存档复活了迦兰，或可重复处置");
+            VerifyFullPartyGalan(state.Copy(),prisoner.Id);
             var full = state.Copy();
             full.Demo.Rpg.Capacity[full.Demo.Rpg.CampLevel - 1] = BaseRpg.Population(full);
             Need(!BaseDemoStories.AcceptController(full, prisoner.Id) && !full.Demo.Flow.ControllerAccepted &&
@@ -670,11 +671,90 @@ namespace BaseConquest.Editor
             Need(BasePartnerDialogue.Prefix(state,recruited)=="story.partner_galan","首通迦兰未使用专属对白");
             Debug.Log("[VerifyRuinsFirstClear] 首通标记、控制者外观、接纳前置、ControllerAccepted/Pledged 与专属对白 PASS");
         }
+
+        private static void VerifyFullPartyGalan(BaseState state,string captive)
+        {
+            void Go(BaseState current,string exit,string destination)
+            {
+                At(current,exit);
+                Need(BaseCampaign.Travel(current,destination),"招募验收无法通行："+exit);
+            }
+            Go(state,"demo_ruins_return","town");
+            At(state,"demo_azhu");
+            Need(BaseDemoRuins.Meet(state,"partner_craft") && BaseDemoRuins.Join(state,"partner_craft"),"准备满队时无法邀请阿铸");
+            Go(state,"travel_base","base"); At(state,"demo_ahe");
+            Need(BaseDemoRuins.Join(state,"partner_farm") && BaseAdventure.Full(state),"准备满队时无法邀请阿禾");
+            Go(state,"exit_east","town"); Go(state,"demo_ruins_exit","outpost");
+            var marker = BaseDemoNpcs.Additional(state).Single(o=>o.Id==BaseDemoStories.GalanMarker);
+            Need(BaseDemoStories.AcceptController(state,captive),"满队无法接纳迦兰");
+            state = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state)); BaseEconomy.Validate(state);
+            string id = "partner_recruit:"+captive;
+            var galan = state.Leaders.Single(l=>l.Id==id);
+            var movement = new BaseCompanionMovement(); movement.Synchronize(state,true);
+            var atEntrance = movement.Agents.Single(a=>a.Id==id);
+            Need(atEntrance.Visible && atEntrance.Position.Distance(new BasePoint(marker.X,marker.Y)) < .01 &&
+                BaseAdventure.WaitingHere(state,galan) && !BaseAdventure.InviteWaiting(state,galan) &&
+                BaseDemoNpcs.Additional(state).All(o=>o.Id!=BaseDemoStories.GalanMarker),"满队接纳后迦兰没留在原坐标或有重影");
+
+            var returning = state.Copy();
+            Need(BaseAdventure.SendToCamp(returning,id) && !returning.Leaders.Single(l=>l.Id==id).WaitingAtRecruitment,
+                "选择回营没有送走迦兰");
+            var leaving = state.Copy();
+            Go(leaving,"demo_ruins_return","town"); Go(leaving,"travel_base","base");
+            var atCamp = leaving.Leaders.Single(l=>l.Id==id);
+            var barracks = BaseSpatial.Layout(leaving,"base").Objects.Single(o=>o.Id=="barracks");
+            var chat = new BasePartnerDialogue();
+            Need(!atCamp.WaitingAtRecruitment && atCamp.MapRegion=="base" && atCamp.HomeX>barracks.X+barracks.Width*.5 &&
+                atCamp.HomeY>barracks.Y && BaseSpatial.Walkable(leaving,atCamp.HomeX,atCamp.HomeY,"base") &&
+                BasePartnerDialogue.Resolve(atCamp,chat.Chat(leaving,atCamp))=="村民们都怕我，我躲远点。",
+                "离场自动回营、兵营东侧台阶驻点或专属闲聊不符");
+            atCamp.CampPostSet=false; atCamp.HomeX=atCamp.MapX=BasePersonnel.BarracksDoor(leaving).X;
+            var oldSaveMovement = new BaseCompanionMovement(); oldSaveMovement.Synchronize(leaving,true);
+            Need(oldSaveMovement.Agents.Single(a=>a.Id==id).Visible && atCamp.HomeX>barracks.X+barracks.Width*.5,
+                "旧存档中的迦兰未迁至新驻点");
+
+            Need(BaseAdventure.SendToCamp(state,"partner_craft") && BaseAdventure.InviteWaiting(state,galan) &&
+                BaseAdventure.Contains(state,id) && !galan.WaitingAtRecruitment && !BaseAdventure.Contains(state,"partner_craft") &&
+                !BaseAdventure.InviteWaiting(state,galan),"送队友回营后未能当场换人，或重复入队");
+            movement.Synchronize(state);
+            Need(movement.Agents.Single(a=>a.Id==id).Following && !movement.Agents.Single(a=>a.Id=="partner_craft").Visible,
+                "换人后原队友仍在洞口，或迦兰没有开始跟随");
+            BaseEconomy.Validate(state);
+
+            Need(BaseAdventure.SendToCamp(leaving,"partner_farm"),"准备普通队长招募时无法腾出随行位");
+            var other = leaving.Aftermath.Prisoners.Single(p=>p.Id==captive).Copy();
+            other.Id="test:camp-officer"; other.Status="held"; other.Name="俘虏队长";
+            leaving.Aftermath.Prisoners.Add(other);
+            Need(BaseAftermath.Decide(leaving,other.Id,"recruit"),"普通队长招降失败");
+            var officer = leaving.Leaders.Single(l=>l.Id=="partner_recruit:"+other.Id);
+            var tent = BaseSpatial.WorkPost(leaving,"home");
+            oldSaveMovement.Synchronize(leaving);
+            var agent = oldSaveMovement.Agents.Single(a=>a.Id==officer.Id);
+            Need(!agent.Visible && agent.Position.Distance(tent)<.01 && !BaseAdventure.Contains(leaving,officer.Id),"普通队长没有留在营帐内");
+            At(leaving,"farm"); Need(BaseEconomy.AssignLeader(leaving,officer.Id,"farm"),"普通队长不能任职");
+            oldSaveMovement.Synchronize(leaving);
+            Need(agent.Visible && agent.Position.Distance(tent)<.01 && agent.Destination.Distance(BaseSpatial.WorkPost(leaving,"farm"))<.01,
+                "任职后没有从营帐朝岗位出发");
+            Go(leaving,"exit_east","town"); Go(leaving,"travel_base","base");
+            oldSaveMovement.Synchronize(leaving,true);
+            for (int frame=0; frame<600 && !agent.Arrived; frame++) oldSaveMovement.Update(leaving,.05,false);
+            Need(agent.Visible && agent.Arrived && agent.Position.Distance(BaseSpatial.WorkPost(leaving,"farm"))<.05,
+                "受任队长实际寻路没有抵达粮田岗位");
+            BaseEconomy.Validate(leaving);
+        }
         public static void Run()
         {
             var state=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
-            var scout=BaseDemoNpcs.Present(state,new BaseMapObject("demo_march_exit","old",12,.7,2,1,false,"","villager","npc"));
+            var scout = BaseSpatial.Objects(state, "base").Single(obj => obj.Id == BaseDemoNpcs.CampScout);
             Need(scout.Name=="陈安 · 交谈"&&scout.AssetId=="chenan"&&!PixelDemoArt.IsCast("chenan"),"斥候名称、外观或分类错误");
+            var gate = BaseSpatial.Objects(state, "base").Single(obj => obj.Id == "demo_march_exit");
+            Need(gate.AssetId == "road-sign-down" && gate.VisualOnly && gate.Id != scout.Id, "未解锁的南口仍与陈安共用交互");
+            foreach (string direction in new[] { "left", "right", "down" })
+                Need(PixelDemoArt.Load("Props", "road-sign-" + direction) != null, "缺少路牌 " + direction);
+            var defended = state.Copy();
+            defended.Demo.Stage = BaseDemoStage.DefenseWon;
+            var afterScout = BaseSpatial.Objects(defended, "base").Single(obj => obj.Id == BaseDemoNpcs.CampScout);
+            Need((int)afterScout.X == 10 && (int)afterScout.Y == 4, "首防后陈安没有驻在 10,4");
             var ids=new[]{"baron","chunshen","horn","laozhou","merchant","villager","chenan","guard","survivor","villager-girl","rescued-villager"};
             // 行为／表现解耦（2026-11-02 定）：能力由贴图有无动作图集决定，不再按类别硬关。
             // 这里只验证「分类口径」仍正确（这些 id 属于交互 NPC），不断言它们「没有攻击能力」——

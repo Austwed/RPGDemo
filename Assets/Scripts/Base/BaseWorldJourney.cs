@@ -53,6 +53,12 @@ namespace BaseConquest.Base
         public static bool Active(BaseState state)=>state?.Campaign?.WorldJourney?.Version==1;
         public static bool OnWorld(BaseState state)=>Active(state)&&state.Campaign.Location=="world";
         public static bool Marching(BaseState state)=>Active(state)&&state.Campaign.WorldJourney.Route.Count>0;
+        internal static void StopAtNode(BaseState state)
+        {
+            var world=state.Campaign.WorldJourney;
+            if(!OnWorld(state)||world.RoadDay!=0)throw new InvalidOperationException("路段途中无法返回");
+            world.Route.Clear();world.RoadIndex=0;
+        }
         public static bool LocalLink(BaseState state,BaseMapLayout source,BaseMapLayout target)=>Active(state)&&AreaForMap(state,source.SourceMapId)!=""&&AreaForMap(state,source.SourceMapId)==AreaForMap(state,target.SourceMapId);
         public static string AreaForMap(BaseState state,string mapId){var node=state.Campaign.WorldJourney.Nodes.FirstOrDefault(n=>n.MapIds.Contains(mapId));return node==null?"":string.IsNullOrEmpty(node.AreaId)?node.Id:node.AreaId;}
         public static string AreaForNode(BaseState state,string id){var node=state.Campaign.WorldJourney.Nodes.First(n=>n.Id==id);return string.IsNullOrEmpty(node.AreaId)?node.Id:node.AreaId;}
@@ -82,11 +88,13 @@ namespace BaseConquest.Base
             if(world.Route.Count==0){if(world.RoadIndex!=0||world.RoadDay!=0)throw new ArgumentException("空行程不能保留路段进度");}
             else if(world.Route.Count<2||world.Route.Count>64||world.Route.Distinct().Count()!=world.Route.Count||world.Route.Any(id=>!ids.Contains(id))||world.RoadIndex<0||world.RoadIndex>=world.Route.Count-1||world.NodeId!=world.Route[world.RoadIndex]||world.Route.Skip(1).Where((id,index)=>Road(world,world.Route[index],id)==null).Any()||world.RoadDay<0||world.RoadDay>=Math.Max(1,Road(world,world.Route[world.RoadIndex],world.Route[world.RoadIndex+1]).Days)||state.Campaign.Location!="world")throw new ArgumentException("活动行程或路段进度非法");
         }
-        public static BaseWorldPlan Plan(BaseState state,IEnumerable<string> previous,string target)
+        public static BaseWorldPlan Plan(BaseState state,IEnumerable<string> previous,string target,string departureEntry=null)
         {
-            var world=state.Campaign.WorldJourney;var path=previous?.ToList()??new List<string>{world.NodeId};
-            if(path.Count==0)path.Add(world.NodeId);
-            if(!world.Nodes.Any(node=>node.Id==target)||path[0]!=world.NodeId||path.Distinct().Count()!=path.Count||path.Skip(1).Where((id,index)=>Road(world,path[index],id)==null).Any())throw new ArgumentException("计划身份、道路或真实起点非法");
+            var world=state.Campaign.WorldJourney;
+            var origin=departureEntry==null?world.NodeId:world.Entries.Single(entry=>entry.Id==departureEntry).NodeId;
+            var path=previous?.ToList()??new List<string>{origin};
+            if(path.Count==0)path.Add(origin);
+            if(!world.Nodes.Any(node=>node.Id==target)||path[0]!=origin||path.Distinct().Count()!=path.Count||path.Skip(1).Where((id,index)=>Road(world,path[index],id)==null).Any())throw new ArgumentException("计划身份、道路或真实起点非法");
             BaseWorldPlan Result(List<string> route,List<string> preview,bool reachable=true)=>new BaseWorldPlan{Path=route,Preview=preview,Days=route.Skip(1).Select((id,index)=>Road(world,route[index],id).Days).Sum(),Changed=!route.SequenceEqual(path),Reachable=reachable};
             int old=path.IndexOf(target);if(old>=0)return Result(path.Take(old+1).ToList(),old==path.Count-1?new List<string>():path.Skip(old).Reverse().ToList());
             var direct=Road(world,path.Last(),target);if(Passable(state,direct))return Result(path.Concat(new[]{target}).ToList(),new List<string>{path.Last(),target});
@@ -128,19 +136,43 @@ namespace BaseConquest.Base
         public static void Start(BaseState state,IEnumerable<string> path)
         {
             if(!OnWorld(state)||Marching(state)||BaseBattleLoot.Pending(state))throw new InvalidOperationException("目前不能开始新行程");
+            if(BaseDemoFinale.Rebuilding(state))throw new InvalidOperationException("请先完成返乡重建");
             var route=path.ToList();var world=state.Campaign.WorldJourney;
             if(route.Count<2||route[0]!=world.NodeId||route.Distinct().Count()!=route.Count||route.Skip(1).Where((id,index)=>!Passable(state,Road(world,route[index],id))).Any())throw new InvalidOperationException("路线已失效，请重新规划");
             world.Route=route;world.RoadDay=world.RoadIndex=0;
             // P42：首次出发讨伐黑鸦寨时解锁副手设立；此前没有副手，剧情防守也只能玩家亲自。
             if(route[route.Count-1]=="bandit")BaseDeputy.Unlock(state);
         }
+        public static void Depart(BaseState state,string entry,IEnumerable<string> path,BaseBattlePreparation draft,bool production)
+        {
+            if(Marching(state)||draft?.Route!=BasePrepRoute.Travel)throw new InvalidOperationException("请先在地图上选择目的地并整备队伍");
+            if(entry!=null)BaseAdventure.RecallPaused(state);
+            draft.CommitTravelParty(state,production);
+            if(entry!=null)EnterWorld(state,entry);
+            Start(state,path);
+        }
+        private static bool InterceptsSecond(BaseState state,BaseWorldRoad road)
+        {
+            int raidDay=BaseDemoDefense.SecondArrival(state);
+            var world=state.Campaign.WorldJourney;
+            return raidDay>0&&world.NodeId=="camp"&&world.Route[world.RoadIndex+1]=="bandit"&&
+                (state.Day==raidDay||state.Day+road.Days-world.RoadDay==raidDay);
+        }
+        public static IEnumerable<string> RequiredBattles(BaseState state)
+        {
+            var world=state.Campaign.WorldJourney;
+            var road=Road(world,world.NodeId,world.Route[world.RoadIndex+1]);
+            if(road.Days==0) return Enumerable.Empty<string>();
+            bool intercept=InterceptsSecond(state,road);
+            return BaseCampaign.Due(state).Where(mission=>!intercept||mission.Id!=BaseDemoDefense.SecondEventId)
+                .Select(mission=>mission.ScenarioFile).Distinct();
+        }
         public static bool Step(BaseState state,Func<string,BaseConquest.Battle.BattleScenarioDocument> resolve)
         {
             if(!OnWorld(state)||!Marching(state)||BaseBattleLoot.Pending(state)||state.Campaign.HasActiveBattle||state.Aftermath.GameOver)return false;
             var world=state.Campaign.WorldJourney;var road=Road(world,world.NodeId,world.Route[world.RoadIndex+1]);
             if(!Passable(state,road))return false;
-            int raidDay=BaseDemoDefense.SecondArrival(state);
-            if(raidDay>0&&world.NodeId=="camp"&&world.Route[world.RoadIndex+1]=="bandit"&&(state.Day==raidDay||state.Day+road.Days-world.RoadDay==raidDay))BaseDemoDefense.CancelSecond(state,"intercepted");
+            if(InterceptsSecond(state,road))BaseDemoDefense.CancelSecond(state,"intercepted");
             if(road.Days>0){int day=state.Day;if(!BaseCampaign.Rest(state,day,resolve,true))return false;if(state.Aftermath.GameOver)return true;if(state.Day!=day+1)return false;world.RoadDay++;}
             if(world.RoadDay>=road.Days){world.NodeId=world.Route[++world.RoadIndex];world.RoadDay=0;if(world.RoadIndex==world.Route.Count-1){world.Route.Clear();world.RoadIndex=0;}}
             return true;

@@ -37,6 +37,7 @@ namespace BaseConquest.Base
         public BattleBoard Board { get; }
         public IReadOnlyList<BasePrepUnit> Units => units;
         public string PlayerId { get; }
+        public bool TravelingParty => Route == BasePrepRoute.Travel && arrivedPartyId != null;
         public Dictionary<string, GridPosition> Positions { get; } = new Dictionary<string, GridPosition>();
         public int SupplyGrade { get; set; }
 
@@ -47,7 +48,7 @@ namespace BaseConquest.Base
             purpose = route == BasePrepRoute.Defense || route == BasePrepRoute.Second ? "defense" : "expedition";
             stamp = BaseMuster.Snapshot(state);
             mapKey = state.Campaign.CurrentMapId ?? state.Campaign.Location;
-            var party = route is BasePrepRoute.BlackCrow or BasePrepRoute.Hideout
+            var party = route is BasePrepRoute.BlackCrow or BasePrepRoute.Hideout or BasePrepRoute.Travel
                 ? state.Muster.Parties.FirstOrDefault(p => p.Purpose == purpose) : null;
             if (route == BasePrepRoute.BlackCrow && party == null) throw new InvalidOperationException("请率出征队到黑鸦寨");
             arrivedPartyId = party?.Id;
@@ -55,7 +56,7 @@ namespace BaseConquest.Base
                 ? route == BasePrepRoute.Travel ? BaseMuster.PreviewFormation(state, purpose, "combat") : BaseAdventure.Preview(state, purpose, true)
                 : null;
             var leaders = party == null ? BaseAdventure.Members(state).Where(BaseDevelopment.CanFight)
-                : party.Leaders.Select(p => state.Leaders.Single(l => l.Id == p.LeaderId)).Where(l => BaseAdventure.Alive(l) && l.Health > 0);
+                : party.Leaders.Select(p => state.Leaders.Single(l => l.Id == p.LeaderId)).Where(l => TravelingParty || BaseAdventure.Alive(l) && l.Health > 0);
             var rows = leaders.OrderByDescending(l => l.Id == PlayerId).Select(l => new BasePrepUnit
             {
                 Id = l.Id, Name = BasePersonnel.LeaderName(l), TeamId = l.Id, Kind = SoldierKind.Hero, Leader = l,
@@ -78,7 +79,7 @@ namespace BaseConquest.Base
                 int assigned = 0;
                 foreach (var bucket in state.Workers.Select((worker, index) => (worker, index))
                     .Where(p => p.worker.Kind == baseKind && (party == null ? BaseDevelopment.Eligible(purpose, p.worker)
-                        : p.worker.Away && p.worker.PartyId == party.Id && p.worker.Health >= p.worker.MaxHealth * BaseDevelopment.DutyThreshold))
+                        : p.worker.Away && p.worker.PartyId == party.Id && (TravelingParty || p.worker.Health >= p.worker.MaxHealth * BaseDevelopment.DutyThreshold)))
                     .OrderByDescending(p => p.worker.Health / p.worker.MaxHealth).ThenBy(p => p.index))
                 {
                     var worker = bucket.worker;
@@ -163,6 +164,7 @@ namespace BaseConquest.Base
                 mapKey != (state.Campaign.CurrentMapId ?? state.Campaign.Location))
                 return StoryText.Get("story.ui.prep.validation.changed", "现场已变化，请重新备战");
             if (Route == BasePrepRoute.Hideout && !BaseBanditHideout.CanEnter(state)) return BaseBanditHideout.ApproachText;
+            if (TravelingParty && units.Any(unit => !unit.Selected)) return "请为每名随队士兵选定队长";
             if (!units.Any(u => u.Id == PlayerId && u.Selected)) return "主角必须出战";
             var leaders = Taking(deployed).Where(u => u.Kind == SoldierKind.Hero).Select(u => u.Id).ToHashSet();
             if (!leaders.Contains(PlayerId)) return StoryText.Get("story.ui.prep.validation.player", "请先部署主角");
@@ -255,6 +257,28 @@ namespace BaseConquest.Base
             var problem = Problem(state, false);
             if (problem != "") throw new InvalidOperationException(problem);
             return Plan(state, false, production ? "production" : "combat");
+        }
+
+        internal void CommitTravelParty(BaseState state, bool production)
+        {
+            if (!TravelingParty)
+            {
+                var plan = TravelPlan(state, production);
+                if (production && plan.Production?.Allowed != true || !BaseMuster.Confirm(state, plan))
+                    throw new InvalidOperationException("出征队伍有变化，请重新整备");
+                return;
+            }
+            var problem = Problem(state, false);
+            if (problem != "") throw new InvalidOperationException(problem);
+            var party = state.Muster.Parties.Single(p => p.Id == arrivedPartyId);
+            party.CommanderTroops = party.Leaders.Select(leader =>
+            {
+                var members = units.Where(unit => unit.Pick != null && unit.TeamId == leader.LeaderId).ToList();
+                var row = new BaseCommanderAllocation { LeaderId = leader.LeaderId, SoldierNumbers = members.Select(unit => unit.SoldierNumber).ToList() };
+                foreach (var kind in BattleSimulation.TroopKinds) row.Actual.Set(BaseCampaign.ToBase(kind), members.Count(unit => unit.Kind == kind));
+                row.Requested = row.Actual.Copy();
+                return row;
+            }).ToList();
         }
 
         internal BasePreparedRoster Roster(BaseState state, bool deployed)

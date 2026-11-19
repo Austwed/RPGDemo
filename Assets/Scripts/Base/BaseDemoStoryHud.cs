@@ -106,7 +106,9 @@ namespace BaseConquest.Base
             }, "")) return;
             owner.RefreshDemoRegion();
             var hud = owner.Hud;
-            hud.GalanSays("recruited", "只要不玩命……啊不对，万死不辞啊主人！", finished: hud.ClosePanel);
+            var leader = owner.State.Leaders.Single(l => l.Id == "partner_recruit:" + id);
+            hud.GalanSays("recruited", "只要不玩命……啊不对，万死不辞啊主人！",
+                finished: leader.WaitingAtRecruitment ? () => hud.OpenRecruitDestination(leader.Id) : hud.ClosePanel);
         }
 
         private NpcReply GalanExecutionChoice() => GalanChoice("execute", "不论如何，操控百姓当斩",

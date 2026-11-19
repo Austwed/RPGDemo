@@ -12,7 +12,7 @@ namespace BaseConquest.Battle
     {
         private GameObject campaignMenu;
         private Font saveMenuFont;
-        private enum CampaignMenuPage { Main, Options, Audio, ConfirmMainMenu, ConfirmQuit }
+        private enum CampaignMenuPage { Main, Options, Audio, Help, ConfirmMainMenu, ConfirmQuit }
         internal bool UsesCampaignSystemMenu => DeploymentDraftActive || IsCampaignBattle && !IsStandaloneTest;
         internal bool CampaignMenuOpen => campaignMenu != null && !battleBagOpen;
         public void OpenCampaignSaves(bool loading=false)
@@ -97,7 +97,7 @@ namespace BaseConquest.Battle
                 (!IsSecondDefense || realtime.DefensePursuitReady) && !IsStandaloneTest && !realtime.RuinsExitOpen;
             bool demo = BaseBattleGateway.DemoMode && !IsStandaloneTest;
             float height = page == CampaignMenuPage.Audio ? 272 : page == CampaignMenuPage.Options ? 370 :
-                compact ? (confirmation ? 334 : canWithdraw ? 370 : 306) : 418;
+                page == CampaignMenuPage.Help ? 390 : compact ? (confirmation ? 334 : canWithdraw ? 432 : 368) : 480;
             panel.sizeDelta = new Vector2(720, height);
             panel.gameObject.GetOrAdd<Image>();
             DemoUiTheme.Current.Frame(panel);
@@ -135,9 +135,10 @@ namespace BaseConquest.Battle
             string back = DeploymentDraftActive ? CampaignMenuText("return_deployment", "返回部署") : "返回战斗";
             if (page == CampaignMenuPage.Main)
             {
-                float y = compact ? canWithdraw ? 124 : 93 : 150;
+                float y = compact ? canWithdraw ? 155 : 124 : 181;
                 Option("Continue", back, y, CloseCampaignMenu, !CampaignGameOver);
                 Option("Options", "选项", y -= 62, OpenCampaignOptions, !CampaignGameOver);
+                Option("Help", "帮助", y -= 62, () => BuildCampaignMenu(CampaignMenuPage.Help));
                 Option("MainMenu", "回主菜单", y -= 62, () =>
                 {
                     if (demo) BaseBattleGateway.ExitDemoSession(false);
@@ -178,6 +179,15 @@ namespace BaseConquest.Battle
                         OpenCampaignOptions();
                     });
                 Option("Continue", back, y - 62, CloseCampaignMenu);
+            }
+            else if (page == CampaignMenuPage.Help)
+            {
+                var rules=UiPrefabBinding.Rect("BattleRules",panel);
+                rules.anchorMin=new Vector2(0,0);rules.anchorMax=Vector2.one;
+                rules.offsetMin=new Vector2(25,80);rules.offsetMax=new Vector2(-25,-18);
+                Label(rules,BaseExperienceRules.FieldBattle,19);
+                rules.GetComponentInChildren<Text>().alignment=TextAnchor.MiddleLeft;
+                Option("Back","返回菜单",-151,OpenCampaignMenu);
             }
             else if (page == CampaignMenuPage.Audio)
                 Option("Back", "返回选项", 96, OpenCampaignOptions);

@@ -131,7 +131,7 @@ namespace BaseConquest.Base
         }
         public static bool FogEnabled(BaseState s)
         {
-            if(BaseWorldJourney.OnWorld(s))return false;
+            if(BaseWorldJourney.OnWorld(s)||s.Campaign.Location=="perimeter")return false;
             if(BaseDemoPrologue.Evacuating(s)||BaseDemoPrologue.Pursuit(s))return true;
             var layout=BaseSpatial.Layout(s);
             if(layout?.Safety=="safe")return false;if(layout?.Safety=="dangerous")return true;
@@ -200,7 +200,13 @@ namespace BaseConquest.Base
         public static void Configure(BaseState s,BattleScenario scenario,IReadOnlyList<BaseLeader> leaders,string region=null)
         {
             if(Neutral(s,region??s.Campaign.Location)){scenario.A.MeleeCount=scenario.A.RangedCount=scenario.A.CavalryCount=0;foreach(var c in scenario.A.Commanders)c.Melee=c.Ranged=c.Cavalry=0;}
-            if(!Active(s))return;scenario.HeightVision=true;scenario.FogEnabled=FogEnabled(s);scenario.DefenderVisionEnabled=false;scenario.VisionRadius=10;
+            if(!Active(s))return;
+            bool atHomeField=(region??s.Campaign.Location)=="perimeter";
+            scenario.HeightVision=true;
+            scenario.FogEnabled=FogEnabled(s);
+            scenario.DefenderVisionEnabled=false;
+            if(atHomeField)BaseDemoDefense.ApplyHomeSight(scenario);
+            scenario.VisionRadius=10;
             while(scenario.A.Commanders.Count<scenario.A.HeroCount)scenario.A.Commanders.Add(new CommanderLoadout());
             BaseMuster.Validate(s);
             for(int n=0;n<scenario.A.Commanders.Count&&n<leaders.Count;n++)

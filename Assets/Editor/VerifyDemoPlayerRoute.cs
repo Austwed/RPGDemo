@@ -294,7 +294,8 @@ namespace BaseConquest.Editor
                 state.Adventure.Members.SequenceEqual(following), "满队邀请阿禾没有入营，或挤走了现有队友");
             BaseEconomy.Validate(state);
             At(state, "farm");
-            Need(BaseEconomy.AssignLeader(state, "partner_farm", "farm") && state.Adventure.Members.SequenceEqual(following),
+            Need(BaseEconomy.AssignLeader(state, "partner_farm", "farm") && !state.Leaders.Single(l=>l.Id=="partner_farm").WaitingAtRecruitment &&
+                state.Adventure.Members.SequenceEqual(following),
                 "入营的阿禾不能担任粮田负责人，或影响了随行队伍");
             Note("满队邀请旁支：主角、迦兰、阿铸已随行。接受邀请后阿禾留营，随后可直接任职粮田。");
         }

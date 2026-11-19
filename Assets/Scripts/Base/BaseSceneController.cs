@@ -371,11 +371,12 @@ namespace BaseConquest.Base
             if (RuntimeMissing()) { BeginSession(); return; }
             RefreshOpeningAudio();
             if (DeploymentWorldActive) { UpdateDeploymentWorld(); return; }
-            if(combatController==null) regionView?.UpdateCamera(HomeRebuildOverview || CampPlacementMode ? 0 : RebuildPlacementMode ? Hud.HomeRebuildMapInset : ConstructionMode ? 190f/1280 : 0,0);
+            if(combatController==null) regionView?.UpdateCamera(RebuildPlacementMode&&!HomeRebuildOverview ? Hud.HomeRebuildMapInset : 0,0);
             if(State!=null&&!Busy&&runtimeRoot!=null&&runtimeRoot.gameObject.activeInHierarchy)Hud.RefreshAchievementNotice(Time.unscaledDeltaTime);
             if(State!=null&&!Busy)
             {
                 Hud.TickDialogue(Time.unscaledDeltaTime);
+                if(combatController==null&&HandleJourneyMap())return;
                 RefreshSceneSight();
                 if (combatController?.CampaignMenuOpen != true)
                 {
@@ -388,11 +389,6 @@ namespace BaseConquest.Base
             if (Busy) return;
             TickWorkerTravel(Math.Min(Time.deltaTime,.05));
             TickDemoIntro(Math.Min(Time.deltaTime,.05));if(!Hud.PanelOpen)TickRescueJourney(Math.Min(Time.deltaTime,.05));
-            if(BaseWorldJourney.OnWorld(State))
-            {
-                if(journeyHud==null){var host=new GameObject("WorldJourney");host.transform.SetParent(runtimeRoot,false);journeyHud=host.AddComponent<BaseWorldJourneyHud>();journeyHud.Initialize(this,font);}
-                return;
-            }
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==0&&!BaseBattleGateway.MainMenu&&!Hud.PanelOpen){TickHeroChoice(Time.deltaTime);return;}
             AdvanceExplorationCompanions(Time.deltaTime);PlaceCompanions();
             UpdateExplorationInput();
@@ -455,8 +451,24 @@ namespace BaseConquest.Base
                 BaseDemoIntro.Walk(State, travelled);
                 OpeningAudio?.Footstep(travelled, regionView, x, y);
             }
-            State.PlayerX = x; State.PlayerY = y; PlacePlayer(cardinal?BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(input.x,input.y,BaseConquest.Presentation.HeroFacing.South):null);CheckPrologueTrigger();
+            double previousX = State.PlayerX, previousY = State.PlayerY;
+            State.PlayerX = x; State.PlayerY = y; PlacePlayer(cardinal?BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(input.x,input.y,BaseConquest.Presentation.HeroFacing.South):null);
+            CheckPrologueTrigger();
+            if ((movedX != 0 || movedY != 0) && !Busy && !Hud.PanelOpen && !ConstructionMode && !RebuildPlacementMode &&
+                BaseDemo.Active(State) && !BaseDemoPrologue.Village(State))
+            {
+                foreach (var gate in MapObjects)
+                    if (CrossedRoadEdge(gate, previousX, previousY, x, y) && BaseInteraction.CanReach(State, gate))
+                    {
+                        Hud.OpenObject(gate.Id);
+                        break;
+                    }
+            }
         }
+        internal static bool CrossedRoadEdge(BaseMapObject gate, double fromX, double fromY, double toX, double toY) =>
+            gate != null && !gate.VisualOnly && BaseDemoNpcs.RoadSign(gate.Id) != null &&
+            !gate.Contains(fromX, fromY, BaseMap.Radius) && gate.Contains(toX, toY, BaseMap.Radius);
+
         private void RefreshOpeningAudio()
         {
             if (BaseBattleGateway.MainMenu || State == null || combatController != null) return;
@@ -751,6 +763,7 @@ namespace BaseConquest.Base
         public void LoadSaved(bool backup = false)
         {
             if (Busy) return;
+            ClearJourneyMap();
             Hud?.ClearBattlePreparation();
             SetRegionReady(false);
             StopConstruction();

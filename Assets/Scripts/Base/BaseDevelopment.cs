@@ -42,7 +42,7 @@ namespace BaseConquest.Base
         public const double WarningDefault = .5, WarningFloor = .3, WarningCeiling = 1;
         public static bool HeavilyWounded(BaseWorkerBucket w) => w.Health > 0 && w.Health < w.MaxHealth * DutyThreshold;
         public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
-        public static bool CanManage(BaseState s, BaseLeader l) => !l.Away && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && !BaseTraining.Busy(l.Training) && l.Health > 0;
+        public static bool CanManage(BaseState s, BaseLeader l) => !l.Away && !l.WaitingAtRecruitment && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && !BaseTraining.Busy(l.Training) && l.Health > 0;
         public static bool Effective(BaseState s, BaseLeader l) => CanManage(s,l);
         public static bool CanFight(BaseWorkerBucket w) => !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
         // 遇袭防守例外：守家时只要还能行动就上，不受 30% 门槛限制。

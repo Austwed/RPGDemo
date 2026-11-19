@@ -12,6 +12,7 @@ namespace BaseConquest.Editor
         {
             Need(state.Campaign.Location == "base" && BaseDemoDefense.Due(state), "主线未到首次迎敌日");
             EnterDefenseField(state);
+            SaveRouteCheckpoint(state, "home-field");
             if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"field");
             state = WinRouteBattle(state, BasePrepRoute.Defense);
             BaseDemoDefense.AcknowledgeBatu(state);
@@ -30,20 +31,39 @@ namespace BaseConquest.Editor
                 "世界地图营地节点未使用灰岩营地");
             BaseAdventure.RecallPaused(state);
             var travel = PrepareRouteRoster(state, BasePrepRoute.Travel);
-            var departure = travel.TravelPlan(state);
-            Need(BaseMuster.Confirm(state, departure), "南侧出口的出征编队未确认");
-            BaseWorldJourney.EnterWorld(state, "camp_entry");
-            Need(!BaseWorldJourney.Plan(state, null, "home").Reachable, "未攻占黑鸦寨时已能规划返乡");
-            var itinerary = BaseWorldJourney.Plan(state, null, "bandit");
-            Need(itinerary.Reachable && itinerary.Days == 1, "黑鸦寨行军路线或路程非法");
-            SaveRouteCheckpoint(state, "world");
-            BaseWorldJourney.Start(state, itinerary.Path);
+            Need(!BaseWorldJourney.Plan(state, null, "home","camp_entry").Reachable, "未攻占黑鸦寨时已能规划返乡");
+            var itinerary = BaseWorldJourney.Plan(state, null, "bandit","camp_entry");
+            Need(itinerary.Reachable && itinerary.Days == 1 && state.Campaign.Location=="base" &&
+                !state.Muster.Parties.Any(p=>p.Purpose=="expedition"), "查看目的地或备战已经提交行程");
+            // Old saves can be on the world map with a party already committed but no route.
+            var staged=state.Copy();
+            Need(BaseMuster.Confirm(staged,travel.TravelPlan(staged)), "旧版出征队生成失败");
+            BaseWorldJourney.EnterWorld(staged,"camp_entry");
+            SaveRouteCheckpoint(staged, "world");
+            BaseWorldJourney.Depart(state,"camp_entry",itinerary.Path,travel,false);
+            Need(!BaseWorldJourney.RequiredBattles(state).Any(), "平日行军试图读取已结束战斗的资源");
             int departureDay = state.Day;
             Need(BaseWorldJourney.Step(state, _ => null) && state.Day == departureDay + 1, "攻营行军没有正确推进一天");
             BaseWorldJourney.EnterScene(state, "bandit_entry");
             if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"bandit");
+            var returning=state.Copy();
+            At(returning,"demo_camp_world");
+            var sameParty=returning.Muster.Parties.Single(p=>p.Purpose=="expedition");
+            var regroup=new BaseBattlePreparation(returning,BasePrepRoute.Travel);
+            Need(regroup.TravelingParty, "在寨外再次出发误用了营地人员");
+            var member=regroup.Units.FirstOrDefault(u=>u.Kind!=SoldierKind.Hero);
+            var other=regroup.Units.FirstOrDefault(u=>u.Kind==SoldierKind.Hero&&u.Id!=member?.TeamId);
+            if(member!=null&&other!=null)member.TeamId=other.Id;
+            var back=BaseWorldJourney.Plan(returning,null,"camp","bandit_entry");
+            BaseWorldJourney.Depart(returning,"bandit_entry",back.Path,regroup,false);
+            Need(returning.Muster.Parties.Single().Id==sameParty.Id && (member==null||other==null||
+                sameParty.CommanderTroops.Single(row=>row.LeaderId==other.Id).SoldierNumbers.Contains(member.SoldierNumber)),
+                "从寨外调整编制替换了出征队或丢失士兵编号");
+            Need(BaseWorldJourney.Step(returning,_=>null),"返营路线未结算");
+            BaseWorldJourney.EnterScene(returning,"camp_entry");
+            Need(returning.Campaign.Location=="base"&&returning.Muster.Parties.Count==0&&returning.Day==state.Day+1,"已出征的部队未正常返营");
             At(state, "demo_camp_attack");
-            Note($"第 {departureDay} 天从南侧出口选出征队，经世界地图走一天，第 {state.Day} 天抵达黑鸦寨。行军前返乡路受敌寨阻断。");
+            Note($"第 {departureDay} 天从南侧出口查看世界地图，选黑鸦寨、整备后出发，第 {state.Day} 天抵达。行军前返乡路受敌寨阻断。");
 
             VerifyExitFacings(state, "黑鸦寨战前");
             state = WinRouteBattle(state, BasePrepRoute.BlackCrow);
@@ -230,7 +250,15 @@ namespace BaseConquest.Editor
             BaseWorldJourney.Start(branch, campPlan.Path);
             Need(BaseWorldJourney.Step(branch, _ => null), "占领后不能行军到黑鸦寨");
             BaseWorldJourney.EnterScene(branch, "bandit_entry");
-            Need(!BaseDemoFinale.ClaimCampSupplies(branch), "未到搜查点就能领取物资");
+            Need(!branch.Demo.Finale.CampSuppliesTaken, "抵达空寨不应自动搜查物资");
+            // Depending on the imported entry, the player can land within reach of the search marker.
+            var search = BaseSpatial.Objects(branch).Single(obj => obj.Id == BaseDemoFinale.CampSuppliesMarker);
+            var far = BaseBattlefield.Board(branch).Positions()
+                .Select(p => new BasePoint(p.X + .5, p.Z + .5))
+                .First(p => search.Distance(p.X, p.Y) > BaseInteraction.Distance + 1 && BaseSpatial.Walkable(branch, p.X, p.Y));
+            branch.PlayerX = far.X;
+            branch.PlayerY = far.Y;
+            Need(!BaseDemoFinale.ClaimCampSupplies(branch), "远离搜查点仍可领取物资");
             At(branch, BaseDemoFinale.CampSuppliesMarker);
             SaveRouteCheckpoint(branch, "camp-remnants");
             var stock = branch.Inventory.Copy();

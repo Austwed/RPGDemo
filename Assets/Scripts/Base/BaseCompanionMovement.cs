@@ -76,22 +76,41 @@ namespace BaseConquest.Base
             {
                 if(reset){agent.Motion=new BaseMotionAssist();agent.SightWait=0;agent.GuardVisible=true;agent.LastObserver=new BasePoint(double.NegativeInfinity,0);}
                 var person = People(state).FirstOrDefault(p => p.Id == agent.Id);agent.SceneOnly=BaseDemoPrologue.Followers(state).Any(follower=>follower.Id==agent.Id);
-                var home = BaseSpatial.Objects(state,"base").FirstOrDefault(o => o.Id == agent.Id)??new BaseMapObject(agent.Id,"伙伴 · "+person?.Name,7+(Agents.IndexOf(agent)%12)*1.1,7.9+(Agents.IndexOf(agent)/12)*.04,.45,.45);
+                if (person == null) { agent.Visible = false; continue; }
+                bool managedCamp = BaseDemo.Active(state) && !BaseDemoPrologue.Village(state) && !agent.SceneOnly;
+                bool resident = BaseAdventure.CampResident(state, person.Id);
+                if (managedCamp && !person.CampPostSet)
+                {
+                    var post = BaseAdventure.CampPost(state,person);
+                    person.CampPostSet = person.HasHomePosition = true;
+                    person.HomeX = post.X; person.HomeY = post.Y;
+                    if (!person.WaitingAtRecruitment && !BaseAdventure.Contains(state,person.Id) && string.IsNullOrEmpty(person.FacilityId))
+                        BaseAdventure.StationAtCamp(state,person);
+                }
+                var home = BaseSpatial.Objects(state,"base").FirstOrDefault(o => o.Id == agent.Id)??new BaseMapObject(agent.Id,"伙伴 · "+person.Name,7+(Agents.IndexOf(agent)%12)*1.1,7.9+(Agents.IndexOf(agent)/12)*.04,.45,.45);
                 if(person?.HasHomePosition==true)home=new BaseMapObject(agent.Id,"伙伴 · "+person.Name,person.HomeX,person.HomeY,.45,.45);
                 var pause=person==null?null:BaseAdventure.PauseFor(state,person.Id);
                 bool following = person != null && (BaseAdventure.Following(state,person.Id)||agent.SceneOnly&&BaseDemoPrologue.FollowingPlayer(state));
-                string region = following ? state.Campaign.Location : pause?.Region??"base";
-                string mapId=BaseSceneInstances.Active(state)?following?state.Campaign.CurrentMapId:pause?.MapId??BaseSpatial.Layout(state,"base").SourceMapId:null;
+                bool waiting = BaseAdventure.WaitingHere(state,person);
+                string region = following || waiting ? state.Campaign.Location : pause?.Region??"base";
+                string mapId=BaseSceneInstances.Active(state)?following||waiting?state.Campaign.CurrentMapId:pause?.MapId??BaseSpatial.Layout(state,"base").SourceMapId:null;
                 if (reset || agent.Region != region || agent.MapId!=mapId) agent.Position = person?.HasMapPosition == true && BaseAdventure.Region(person)==region && BaseSpatial.Walkable(state,person.MapX,person.MapY,mapId??region)
                     ? new BasePoint(person.MapX, person.MapY) : new BasePoint(home.X, home.Y);
                 agent.Region = region;agent.MapId=mapId;
                 if(reset&&person!=null)agent.Position=BaseSpatial.Nearest(state,agent.Position,mapId??region,Agents.Where(a=>a!=agent&&a.Visible).Select(a=>a.Footprint));
                 agent.Visible = person != null && BaseAdventure.Alive(person) && person.Health > 0 && region==state.Campaign.Location && (!BaseSceneInstances.Active(state)||mapId==state.Campaign.CurrentMapId) && (following || pause!=null || !person.Away);
-                if(agent.Id=="partner_craft"&&BaseDemoFlow.SmithVisit(state))agent.Visible=false;
                 agent.Name = person==null ? "" : agent.SceneOnly?person.Name:BasePersonnel.LeaderName(person);
                 bool changed = agent.Following != following||agent.TemporarilyDetached!=(pause!=null); agent.Following = following;agent.TemporarilyDetached=pause!=null;if(following)agent.AttentionRemaining=0;
                 agent.Resting = false;
                 string job = following ? "adventure" : pause!=null?"paused":person?.FacilityId ?? "";
+                if (waiting || (managedCamp && !resident && job == ""))
+                {
+                    if (!waiting) agent.Visible = false;
+                    agent.FacilityId = waiting ? "recruitment" : "";
+                    agent.Route.Clear(); agent.Arrived = true; agent.ReturningToGuard = false;
+                    agent.Position = agent.Destination = waiting ? new BasePoint(person.MapX,person.MapY) : new BasePoint(home.X,home.Y);
+                    continue;
+                }
                 if(pause!=null){agent.FacilityId=job;agent.GuardCenter=new BasePoint(pause.X,pause.Y);if(changed||reset){agent.Route.Clear();agent.Arrived=true;agent.ReturningToGuard=false;agent.PatrolStep=0;agent.PauseRemaining=PauseMinimum+PauseRange*Sample(agent,53);}continue;}
                 if(agent.SceneOnly&&!following)
                 {
@@ -196,7 +215,9 @@ namespace BaseConquest.Base
                 if(!agent.Visible)continue;
                 agent.SightWait -= seconds;
                 bool scripted=agent.SceneOnly&&BaseDemoPrologue.Village(state)&&(!BaseDemoIntro.Daily(state)||state.Demo.Intro.ReporterArrived);
-                if(!scripted&&!agent.Following)
+                bool headingToPost = !agent.SceneOnly && !agent.Arrived && !agent.TemporarilyDetached &&
+                    !string.IsNullOrEmpty(agent.FacilityId);
+                if(!scripted&&!agent.Following&&!headingToPost)
                 {
                     agent.AttentionRemaining=agent.Position.Distance(player)<=2?3:Math.Max(0,agent.AttentionRemaining-attentionSeconds);
                     if(agent.AttentionRemaining>0)continue;

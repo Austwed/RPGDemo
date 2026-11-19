@@ -30,6 +30,7 @@ namespace BaseConquest.Base
         public string MapRegion = "base";
         public string MapId;
         public bool Recruited, HasHomePosition;
+        public bool WaitingAtRecruitment, CampPostSet;
         public double HomeX, HomeY;
         public double MapX, MapY;
         public int UnavailableDay;

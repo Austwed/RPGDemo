@@ -115,7 +115,7 @@ namespace BaseConquest.Base
             if(f.FirstControllerId==null||f.FirstControllerId!=""&&controller==null||f.ControllerAccepted&&controller==null||f.ControllerPledged&&(!f.ControllerAccepted||controller?.Status!="recruited"))throw new ArgumentException("首个控制者的身份／接纳记录非法");
             if(new[]{f.FarmX,f.FarmY,f.FarmNpcX,f.FarmNpcY}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||f.HiredKinds<0||f.HiredKinds>7||double.IsNaN(f.FarmX)||double.IsInfinity(f.FarmX)||double.IsNaN(f.FarmY)||double.IsInfinity(f.FarmY))throw new ArgumentException("Demo经营教学状态非法");
         }
-        public static bool SmithVisit(BaseState s)=>Active(s)&&s.Demo.RuinsDay>0&&s.Campaign.Location=="town"&&!BaseAdventure.Following(s,"partner_craft")&&(!s.Leaders.Any(l=>l.Id=="partner_craft")||BaseAdventure.Alive(s.Leaders.Single(l=>l.Id=="partner_craft")));
+        public static bool SmithVisit(BaseState s)=>Active(s)&&s.Demo.RuinsDay>0&&s.Campaign.Location=="town"&&!s.Leaders.Any(l=>l.Id=="partner_craft");
         public static BasePoint SmithApproach(BaseState s)
         {var smith=BaseSpatial.Layout(s,"town")?.Objects.FirstOrDefault(o=>o.Id=="town_smith");return smith==null?new BasePoint(14,7.5):new BasePoint(smith.X+1.5,smith.Y-smith.Height/2-.6);}
     }

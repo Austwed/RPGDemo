@@ -15,6 +15,7 @@ namespace BaseConquest.Base
         private BaseState beforeDemoAttack;
         public void PrepareDemoJourney()
         {
+            if(BaseDemoFinale.Opened(State)){TravelConnection("demo_march_exit");return;}
             if(!Change(BaseDemoFinale.OpenWorld,"已取得敌营位置与返乡道路；沿路行军才耗日"))return;
             RefreshDemoRegion();TravelConnection("demo_march_exit");
         }
@@ -294,19 +295,28 @@ namespace BaseConquest.Base
         private bool OpenDemoFinaleInteraction(string id)
         {
             if(!BaseDemoFinale.Enabled(owner.State))return false;
-            if(id=="demo_march_exit"&&!BaseDemoFinale.Opened(owner.State))
+            if (id == BaseDemoNpcs.CampScout)
             {
-                if (BaseDemoFinale.SecondRaidReportPending(owner.State)) { OpenSecondRaidVictoryReport(); return true; }
-                if (BaseDemoDefense.AnyDue(owner.State)) { OpenDemoScoutWarning(); return true; }
-                if (!BaseDemoDefense.Won(owner.State)) { OpenChenanRoadChat(); return true; }
-                if(owner.State.Demo.Defense.BatuStoryDay==0){OpenDemoDefenseAftermath();return true;}
-                if(BaseDemoFinale.OccupiedBySecondDefense(owner.State)){owner.PrepareDemoJourney();return true;}
-                activeObject="demo-roads";interactionObject="";
-                NpcDialogue(new[]{
-                    new NpcLine(BaseScriptNames.Scout,"chenan","大人，从南口上官道，一天就到黑鸦寨。"),
-                    new NpcLine(BaseScriptNames.Scout,"chenan","清点完寨里的战果，再往南走一天，就是白桦村。")
-                },new[]{new NpcReply("查看路线并选择出征队",owner.PrepareDemoJourney,!BaseBattleLoot.Pending(owner.State)),
-                    new NpcReply("问问回村的路",OpenChenanRoadChat),new NpcReply("先留营整备",ClosePanel)});return true;
+                var state = owner.State;
+                if (BaseDemoFinale.SecondRaidReportPending(state)) OpenSecondRaidVictoryReport();
+                else if (BaseDemoDefense.AnyDue(state)) OpenDemoScoutWarning();
+                else if (!BaseDemoDefense.Won(state)) OpenChenanRoadChat();
+                else
+                {
+                    string advice = BaseDemoFinale.Later(state)
+                        ? "寨子那头的路通了。出了南口，沿官道就能回白桦村。"
+                        : "大人，趁他们还没再打过来，咱们先去黑鸦寨。走营地南口上官道，我把路给你标好了。";
+                    NpcDialogue(new[] { new NpcLine(BaseScriptNames.Scout, "chenan", advice) }, Array.Empty<NpcReply>(), onCompleted: ClosePanel);
+                }
+                return true;
+            }
+            if (id == "demo_march_exit" && !BaseDemoFinale.Opened(owner.State))
+            {
+                if (BaseDemoFinale.SecondRaidReportPending(owner.State)) OpenSecondRaidVictoryReport();
+                else if (BaseDemoDefense.AnyDue(owner.State)) OpenDemoScoutWarning();
+                else if (owner.State.Demo.Defense.BatuStoryDay == 0) OpenDemoDefenseAftermath();
+                else owner.PrepareDemoJourney();
+                return true;
             }
             if(id=="demo_camp_attack")
             {

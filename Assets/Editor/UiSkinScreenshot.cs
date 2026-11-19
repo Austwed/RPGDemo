@@ -61,6 +61,15 @@ namespace BaseConquest.Editor
             EditorApplication.EnterPlaymode();
         }
 
+        private static bool worldJourneyOnly;
+        private static int worldDepartureDay;
+        public static void RunWorldJourney()
+        {
+            worldJourneyOnly = true;
+            stage = "route-boot";
+            Run();
+        }
+
         public static void RunPlayerRouteViews()
         {
             stage = "route-boot";
@@ -116,6 +125,12 @@ namespace BaseConquest.Editor
             Run();
         }
 
+        public static void RunHomeFieldViews()
+        {
+            stage="home-field-boot";
+            Run();
+        }
+
         public static void RunCampScenery()
         {
             campSceneryOnly = true;
@@ -134,6 +149,7 @@ namespace BaseConquest.Editor
             if (!EditorApplication.isPlaying) { Note("等待进入 playmode"); return; }
             if (stage.StartsWith("civilian-", StringComparison.Ordinal)) { TickCivilianWork(); return; }
             if (stage.StartsWith("ruins-exit-", StringComparison.Ordinal)) { TickRuinsExit(); return; }
+            if(stage.StartsWith("home-field-",StringComparison.Ordinal)){TickHomeField();return;}
             switch (stage)
             {
                 case "soldiers-boot":
@@ -291,7 +307,7 @@ namespace BaseConquest.Editor
                 case "route-boot":
                     controller = C;
                     if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
-                    LoadRouteView(homeCopyOnly ? "home-arrival" : "drill");
+                    LoadRouteView(worldJourneyOnly ? "world" : homeCopyOnly ? "home-arrival" : "drill");
                     break;
                 case "route-drill":
                     if (!RouteViewReady(state => BaseDemoPrologue.Village(state) && state.Demo.Intro.Step == 4)) return;
@@ -357,43 +373,93 @@ namespace BaseConquest.Editor
                         frameDeadline = Time.frameCount + 2;
                         return;
                     }
-                    var journey = Object.FindAnyObjectByType<BaseWorldJourneyHud>();
-                    var map = journey?.transform.Find("游戏显示区域 · 16比9/WorldMap");
-                    if (map == null || !map.gameObject.activeInHierarchy)
-                    {
-                        if (EditorApplication.timeSinceStartup - stageAt > 30)
-                            throw new InvalidOperationException("存档已进入世界，但行军地图仍未显示");
-                        return;
-                    }
-                    var journeyDetails = map.parent.Find("JourneyPanel");
-                    if (map.Find("Node_bandit").GetComponentInChildren<Text>().text != "黑鸦寨" ||
-                        map.Find("Node_home").GetComponentInChildren<Text>().text != "白桦村")
-                        throw new InvalidOperationException("世界地图节点未显示可区分的短名称");
-                    if (!BaseWorldJourney.Marching(controller.State))
-                    {
-                        ClickHudButton(map.Find("Node_home"));
-                        if (!journeyDetails.GetComponentsInChildren<Text>().Any(label => label.text.Contains("被黑鸦寨封锁")))
-                            throw new InvalidOperationException("未攻寨时未显示返乡路的阻断原因");
-                        ClickHudButton(map.Find("Node_bandit"));
-                    }
-                    stage = "route-world-shot"; frameDeadline = Time.frameCount + 20;
+                    var oldMap = Object.FindAnyObjectByType<BaseWorldJourneyHud>();
+                    if (oldMap == null) return;
+                    worldDepartureDay = controller.State.Day;
+                    PressJourney("返回");
+                    JourneyStage("journey-browse");
                     break;
-                case "route-world-shot":
-                    if (!RouteViewReady(BaseWorldJourney.OnWorld)) return;
-                    var journeyPanel = Object.FindAnyObjectByType<BaseWorldJourneyHud>()?.transform.Find("游戏显示区域 · 16比9/JourneyPanel");
-                    string marchLabel = BaseWorldJourney.Marching(controller.State) ? "继续行军" : "确认行军";
-                    var confirm = journeyPanel?.GetComponentsInChildren<Button>().SingleOrDefault(button =>
-                        button.interactable && button.GetComponentInChildren<Text>()?.text == marchLabel);
-                    if (confirm == null)
-                        throw new InvalidOperationException("选择黑鸦寨后未出现可用的行军确认按钮");
-                    var actions = (RectTransform)confirm.transform.parent;
-                    var frame = (RectTransform)journeyPanel.parent;
-                    if (actions.anchorMin.y != 0 || actions.anchorMax.y != 0 ||
-                        !RectWithin((RectTransform)confirm.transform, frame))
-                        throw new InvalidOperationException("行军确认按钮未固定在游戏画面内的右栏底部");
+                case "journey-browse":
+                    if (!RouteViewReady(state => state.Campaign.Location == "base")) return;
+                    if (H.PanelOpen) H.ClosePanel();
+                    Approach(BaseDemoNpcs.CampScout);
+                    H.OpenObject(BaseDemoNpcs.CampScout);
+                    H.ContinueDialogue();
+                    if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("南口"))
+                        throw new InvalidOperationException("首防后陈安未告知南口路线");
+                    H.ClosePanel();
+                    var south = controller.MapObjects.Single(obj => obj.Id == "demo_march_exit");
+                    controller.State.PlayerX = south.X;
+                    controller.State.PlayerY = south.Y + south.Height / 2 + BaseMap.Radius + .16;
+                    MoveSceneExplorer(Vector2.down);
+                    var overview = Object.FindAnyObjectByType<BaseWorldJourneyHud>();
+                    if (overview == null || H.PanelOpen) throw new InvalidOperationException("南口未直接打开地图");
+                    ClickHudButton(overview.transform.Find("WorldMap/Node_home"));
+                    if (!overview.GetComponentsInChildren<Text>().Any(t=>t.text.Contains("被黑鸦寨封锁")))
+                        throw new InvalidOperationException("阻路原因未显示");
+                    PressJourney("返回");
+                    if(controller.State.Day!=worldDepartureDay || controller.State.Muster.Parties.Any(p=>p.Purpose=="expedition"))
+                        throw new InvalidOperationException("取消查看路线误扣日期或调兵");
+                    H.OpenObject("demo_march_exit");
+                    var journey = Object.FindAnyObjectByType<BaseWorldJourneyHud>();
+                    var map = (RectTransform)journey.transform.Find("WorldMap");
+                    var art = (RectTransform)map.Find("MapArt");
+                    Canvas.ForceUpdateCanvases();
+                    if (Math.Abs(map.rect.width-((RectTransform)journey.transform).rect.width)>.1f ||
+                        art.rect.width<map.rect.width-.1f || art.rect.height<map.rect.height-.1f)
+                        throw new InvalidOperationException("世界地图未铺满地图栏");
+                    var header = journey.transform.parent.Find("Header");
+                    if(header==null || !header.gameObject.activeInHierarchy)throw new InvalidOperationException("世界地图缺少资源顶栏");
+                    ClickHudButton(header.Find("菜单"));
+                    if (!H.PanelOpen || !map.gameObject.activeInHierarchy) throw new InvalidOperationException("菜单切掉了世界地图");
+                    H.ClosePanel();
+                    ClickHudButton(map.Find("Node_bandit"));
+                    Canvas.ForceUpdateCanvases();
+                    if (((RectTransform)Field(H,"questBar")).gameObject.activeInHierarchy ||
+                        ((Component)Field(H,"questArrow")).gameObject.activeInHierarchy ||
+                        journey.transform.Find("JourneyDestinationArrow").gameObject.activeInHierarchy ||
+                        !journey.GetComponentsInChildren<Text>().Any(label=>label.text=="目的地提示 · 黑鸦寨"))
+                        throw new InvalidOperationException("查看已选目的地时仍显示探索路口指引，或没有当前目的地");
+                    JourneyStage("journey-selection");
+                    break;
+                case "journey-selection":
+                    if (!RouteViewReady(state=>state.Campaign.Location=="base") || EditorApplication.timeSinceStartup-stageAt<.45) return;
+                    var selectedMap=Object.FindAnyObjectByType<BaseWorldJourneyHud>().transform.Find("WorldMap");
+                    var preview=(RectTransform)selectedMap.Find("PlanParty");
+                    var destination=(RectTransform)selectedMap.Find("Node_bandit");
+                    if (Math.Abs(preview.anchoredPosition.x-destination.anchoredPosition.x)>1)
+                        throw new InvalidOperationException("路线预览没有走到所选目的地");
                     CaptureViewports("ui-player-route-world");
-                    Log.Add("[PASS] 连续路线存档载入世界地图，显示路线与行军面板");
-                    LoadRouteView("home-arrival");
+                    PressJourney("整备出征");
+                    var departureScreen = RequirePanel("BattlePreparation");
+                    if (controller.State.Day != worldDepartureDay || controller.State.Muster.Parties.Any(p=>p.Purpose=="expedition"))
+                        throw new InvalidOperationException("备战预览已提前提交行军");
+                    ClickHudButton(departureScreen.Find("Back"));
+                    if (H.PanelOpen || !selectedMap.gameObject.activeInHierarchy) throw new InvalidOperationException("取消编队没有回到路线图");
+                    PressJourney("整备出征");
+                    ClickHudButton(RequirePanel("BattlePreparation").Find("Continue"));
+                    JourneyStage("journey-arrived");
+                    break;
+                case "journey-arrived":
+                    if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Camp)) return;
+                    if (controller.State.Day != worldDepartureDay + 1 || BaseWorldJourney.Marching(controller.State) ||
+                        controller.State.Muster.Parties.Count(p=>p.Purpose=="expedition") != 1)
+                        throw new InvalidOperationException("到达黑鸦寨后日期或编队不符");
+                    Log.Add("[PASS] 南口查看、退出、资源顶栏菜单、返回备战及出征，到达黑鸦寨结算一天");
+                    // Reproduce a save written by the old confirm button before its battle-file preload failed.
+                    var stranded = JsonUtility.FromJson<BaseState>(File.ReadAllText(Path.Combine("Logs","demo-route-checkpoints","world.json")));
+                    BaseWorldJourney.Start(stranded,BaseWorldJourney.Plan(stranded,null,"bandit").Path);
+                    controller.SaveStore.RestoreSession(stranded);
+                    controller.LoadSaved();
+                    JourneyStage("journey-resumed");
+                    break;
+                case "journey-resumed":
+                    if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Camp)) return;
+                    if (controller.State.Day != worldDepartureDay + 1 || BaseWorldJourney.Marching(controller.State) ||
+                        controller.State.Muster.Parties.Count(p=>p.Purpose=="expedition")!=1)
+                        throw new InvalidOperationException("旧档续走一天后位置、日期或队伍异常");
+                    Log.Add("[PASS] 读取旧版已确认、尚余一天的路线后，原队伍抵达黑鸦寨且只结算一次");
+                    if(worldJourneyOnly) Finish(0,"OK"); else LoadRouteView("home-arrival");
                     break;
                 case "route-home-arrival":
                     if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Home && !BaseDemoFinale.Rebuilding(state))) return;
@@ -936,6 +1002,89 @@ namespace BaseConquest.Editor
         private static string[] SnapshotSaves()=>Directory.GetFiles(BaseBattleGateway.SaveDirectory,"*.json*")
             .OrderBy(path=>path,StringComparer.Ordinal).Select(path=>Path.GetFileName(path)+":"+Convert.ToBase64String(File.ReadAllBytes(path))).ToArray();
 
+        private static void TickHomeField()
+        {
+            controller=C;
+            if(controller?.State==null||controller.Busy||Object.FindAnyObjectByType<SceneLoadingCover>()!=null)return;
+            switch(stage)
+            {
+                case "home-field-boot":
+                    LoadRouteView("home-field");
+                    stage="home-field-ready";return;
+                case "home-field-ready":
+                    if(Time.frameCount<frameDeadline||controller.State.Campaign.Location!="perimeter")return;
+                    H.ClosePanel();
+                    var board=BaseBattlefield.Board(controller.State);
+                    if(board.Cell(new GridPosition(20,5)).Terrain!=TerrainKind.Ground||
+                       !Enumerable.Range(9,8).All(z=>board.Cell(new GridPosition(10,z)).Terrain==TerrainKind.Swamp)||
+                       BaseSceneRules.FogEnabled(controller.State)||controller.State.Demo.EnvironmentVersion<1||
+                       !BaseSpatial.Layout(controller.State,"perimeter").Objects.Any(o=>o.Id.StartsWith("env_")))
+                        throw new InvalidOperationException("正式迎敌场景的布景、入口、纵向沼泽或主场探索视野错误");
+                    if(!controller.Change(s=>{s.PlayerX=16.5;s.PlayerY=11.5;BaseAdventure.Arrive(s);},""))
+                        throw new InvalidOperationException(controller.Message);
+                    controller.ZoomExplorationFactor(controller.WorldCamera.pixelRect.center,100);
+                    defenseViewport=controller.WorldCamera.rect;
+                    controller.ArmConstruction();controller.SelectConstructionProject(ConstructionProject.Trap);
+                    stage="home-field-tools";frameDeadline=Time.frameCount+12;return;
+                case "home-field-tools":
+                    if(Time.frameCount<frameDeadline)return;
+                    var toolbar=Object.FindObjectsByType<RectTransform>().Single(t=>t.name=="FieldworkToolbar");
+                    if(!controller.ConstructionMode||controller.WorldCamera.rect!=defenseViewport||toolbar.rect.height>70||
+                       Object.FindObjectsByType<Text>().Any(t=>t.text=="巨石"||t.text=="枯树"))
+                        throw new InvalidOperationException("开启工事改变了相机范围，或环境摆件仍显示地名");
+                    H.RefreshAchievementNotice(3);
+                    Capture("home-field-tools");controller.StopConstruction();
+                    if(!controller.Change(s=>s.Inventory.Equipment.Single(e=>e.Product=="supply"&&e.Level==1).Count+=8,"检查首防"))
+                        throw new InvalidOperationException(controller.Message);
+                    Approach("demo_defense_start");H.OpenObject("demo_defense_start");
+                    var prep=RequirePanel("BattlePreparation");Press(prep,"Supply/Grade1");Press(prep,"Continue");
+                    stage="home-field-deploy";frameDeadline=Time.frameCount+12;return;
+                case "home-field-deploy":
+                    if(Time.frameCount<frameDeadline)return;
+                    defenseBattle=RequireBattleDraft();
+                    VerifyHomeSight(defenseBattle.PreviewSimulation);
+                    defenseBattle.PreviewBoard.SetViewSize(defenseBattle.PreviewBoard.FullViewSize);
+                    defenseBattle.PreviewBoard.CenterOn(new GridPosition(16,12));
+                    Capture("home-field-deployment");
+                    Press(BattleSafeArea(defenseBattle),"DraftPreparationControls/Auto");
+                    Press(BattleSafeArea(defenseBattle),"DraftPreparationControls/Start");
+                    FinishDialogue();Click("拔剑迎战");stage="home-field-live";return;
+                case "home-field-live":
+                    var run=defenseBattle.Realtime;
+                    if(run==null)return;
+                    VerifyHomeSight(run.Battle);
+                    foreach(var lead in run.Battle.Soldiers.Where(u=>u.Side==BattleSide.A&&u.Kind==SoldierKind.Hero))
+                        run.Strategy(lead.OriginCommanderSlot,SquadStrategy.Protect);
+                    run.Model.SetPaused(false);
+                    for(int tick=0;tick<run.Battle.Scenario.Objective.HoldRounds*60+3&&run.Battle.Phase==BattlePhase.Fighting;tick++)
+                        run.Tick(1d/60);
+                    if(run.DefensePursuitReady)defenseBattle.RealtimeRetreat();
+                    if(run.Battle.Report?.Outcome!=BattleOutcome.SideAWin||run.Model.Elapsed<=1)
+                        throw new InvalidOperationException("由备战名册部署的队伍未能在实战中守住营地");
+                    defenseBattle.PreviewHud.Refresh();
+                    stage="home-field-report";frameDeadline=Time.frameCount+12;return;
+                case "home-field-report":
+                    if(Time.frameCount<frameDeadline)return;
+                    var report=Object.FindObjectsByType<RectTransform>().Single(t=>t.name=="AfterActionPanel");
+                    if(report.GetComponentInChildren<ScrollRect>()!=null||!report.Find("AllySummary/Strength")||
+                       !report.Find("EnemySummary/Troops")||!report.Find("SettleBattle").gameObject.activeInHierarchy)
+                        throw new InvalidOperationException("单屏战报缺少双方战损或结算入口");
+                    var leaders=report.Find("AllySummary/Leaders").GetComponentsInChildren<Text>();
+                    if(leaders.Any(t=>t.supportRichText||t.text.Contains(UnitDisplayNames.RecruitmentColor))||
+                       !leaders.Any(t=>t.text.Contains("迦兰")&&((Color32)t.color).Equals(new Color32(139,81,47,255))))
+                        throw new InvalidOperationException("战报姓名未按纯文字显示，或俘虏队长的颜色丢失");
+                    Capture("home-field-report");Capture("home-field-report-mobile",854,480);
+                    Finish(failed?2:0,"首防工事、部署单向全图、交战视野和单屏战报检查完成");return;
+            }
+        }
+
+        private static void VerifyHomeSight(BattleSimulation battle)
+        {
+            if(!battle.Board.Positions().All(p=>battle.Vision.Visible(BattleSide.A,p))||
+               !battle.Board.Positions().Any(p=>!battle.Vision.Visible(BattleSide.B,p)))
+                throw new InvalidOperationException("迎敌战场应仅向我方揭开全图");
+        }
+
         private static void VerifyOpeningDrillControls()
         {
             H.ClosePanel();
@@ -1076,6 +1225,16 @@ namespace BaseConquest.Editor
             stage = "route-" + fixture;
             frameDeadline = Time.frameCount + 20;
             stageAt = EditorApplication.timeSinceStartup;
+        }
+
+        private static void JourneyStage(string next)
+        {
+            stage=next;stageAt=EditorApplication.timeSinceStartup;frameDeadline=Time.frameCount+10;
+        }
+        private static void PressJourney(string label)
+        {
+            var surface=Object.FindAnyObjectByType<BaseWorldJourneyHud>();
+            ClickHudButton(surface.transform.Find("JourneyPanel").GetComponentsInChildren<Button>().Single(b=>b.GetComponentInChildren<Text>().text==label).transform);
         }
 
         private static void VerifyFirstIntelReopened()
@@ -1769,19 +1928,26 @@ namespace BaseConquest.Editor
                     {
                         if (!BaseDemo.AcknowledgeWaking(s)) throw new InvalidOperationException("苏醒未完成");
                     }, "")) throw new InvalidOperationException(controller.Message);
-                    Approach("demo_march_exit");
+                    Approach(BaseDemoNpcs.CampScout);
                     controller.Interact();
                     FinishDialogue();
                     Click("为什么？");
                     FinishDialogue();
                     if (H.PanelOpen || controller.State.Demo.Defense.BatuStoryDay != 0)
                         throw new InvalidOperationException("陈安闲聊没有正常结束，或触发了首防剧情");
-                    Approach("exit_east");
-                    controller.TravelDemo("town");
+                    // Walk through the east doorway with the same movement handler as keyboard / touch input.
+                    var east = controller.MapObjects.Single(obj => obj.Id == "exit_east");
+                    controller.State.PlayerX = east.X - east.Width / 2 - BaseMap.Radius - .16;
+                    controller.State.PlayerY = east.Y;
+                    MoveSceneExplorer(Vector2.right);
                     stage = "ruins-exit-town";
                     break;
                 case "ruins-exit-town":
-                    if (state.Campaign.Location != "town") throw new InvalidOperationException(controller.Message);
+                    if (state.Campaign.Location != "town") throw new InvalidOperationException("步行到东口应直接进入灰岩镇：" + controller.Message);
+                    var west = controller.MapObjects.Single(obj => obj.Id == "travel_base");
+                    if (GameObject.Find(west.Id + " · " + west.Name)?.GetComponentsInChildren<Renderer>()
+                            .Any(r => r.name == "PixelDemo_road-sign-left") != true)
+                        throw new InvalidOperationException("西口没有木质左路牌");
                     Approach("demo_ruins_exit");
                     controller.TravelDemo("outpost");
                     stage = "ruins-exit-entrance";
@@ -1947,6 +2113,7 @@ namespace BaseConquest.Editor
                 case "ruins-exit-root-verdict":
                 case "ruins-exit-recruit":
                     if (!BaseSceneRules.Entrance(state) || !BaseDemoStories.ControllerDialogue(state, state.Demo.Flow.FirstControllerId)) return;
+                    if (stage == "ruins-exit-recruit") PrepareFullPartyAtEntrance();
                     Approach(BaseDemoStories.GalanMarker);
                     H.OpenObject(BaseDemoStories.GalanMarker);
                     FinishDialogue();
@@ -1974,10 +2141,65 @@ namespace BaseConquest.Editor
                         controller.State.Leaders.Count(leader => leader.Id == "partner_recruit:" + state.Demo.Flow.FirstControllerId) != 1)
                         throw new InvalidOperationException("同意招募后没有听见回应或未登记唯一的迦兰");
                     FinishDialogue();
+                    Click("先在这里等");
+                    var newId = "partner_recruit:" + state.Demo.Flow.FirstControllerId;
+                    if (H.PanelOpen || !BaseAdventure.WaitingHere(controller.State,controller.State.Leaders.Single(l=>l.Id==newId)))
+                        throw new InvalidOperationException("选择原地等候未保留迦兰");
+                    TalkToPresentRecruit(newId);
+                    Click("邀请随行"); FinishDialogue();
+                    if (RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text != BaseAdventure.FullPartyReply)
+                        throw new InvalidOperationException("满队当面邀请迦兰没有给出统一回复");
+                    Click("知道了");
+                    TalkToPresentRecruit("partner_craft");
+                    Click("回到营地");
+                    if (BaseAdventure.Contains(controller.State,"partner_craft") || controller.PresentedObject("partner_craft") != null)
+                        throw new InvalidOperationException("选择回营后阿铸仍在队中或还留在洞口");
+                    TalkToPresentRecruit(newId);
+                    Click("邀请随行");
+                    if (!BaseAdventure.Following(controller.State,newId) || controller.State.Leaders.Single(l=>l.Id==newId).WaitingAtRecruitment ||
+                        !BaseAdventure.Full(controller.State))
+                        throw new InvalidOperationException("空出位置后未当场接入迦兰");
+                    Log.Add("[PASS] 满队接纳迦兰后实际点选原地等候，满队邀入得到回复，遣阿铸回营后当场邀请迦兰随行");
                     Log.Add("[PASS] 读同一洞外存档，首层处斩与起誓后的招募分别生效");
                     Finish(0, "古窟首通撤离与入口迦兰 PASS");
                     break;
             }
+        }
+
+        private static void PrepareFullPartyAtEntrance()
+        {
+            if (!controller.Change(s =>
+            {
+                void ApproachMarker(string id)
+                {
+                    var obj = BaseSpatial.Objects(s).Single(o=>o.Id==id);
+                    s.PlayerX=obj.X; s.PlayerY=obj.Y; BaseAdventure.Arrive(s);
+                }
+                void Go(string gate,string dest)
+                {
+                    ApproachMarker(gate);
+                    if (!BaseCampaign.Travel(s,dest)) throw new InvalidOperationException("准备满队时无法通行："+gate);
+                }
+                Go("demo_ruins_return","town"); ApproachMarker("demo_azhu");
+                if (!BaseDemoRuins.Meet(s,"partner_craft") || !BaseDemoRuins.Join(s,"partner_craft"))
+                    throw new InvalidOperationException("无法准备满队阿铸");
+                Go("travel_base","base"); ApproachMarker("demo_ahe");
+                if (!BaseDemoRuins.Join(s,"partner_farm") || !BaseAdventure.Full(s)) throw new InvalidOperationException("无法准备满队阿禾");
+                Go("exit_east","town"); Go("demo_ruins_exit","outpost");
+            },"")) throw new InvalidOperationException(controller.Message);
+        }
+
+        private static void TalkToPresentRecruit(string id)
+        {
+            var target = controller.PresentedObject(id) ?? throw new InvalidOperationException("地图上找不到伙伴："+id);
+            if (!controller.Change(s=>
+            {
+                var point = BaseSpatial.Nearest(s,new BasePoint(target.X,target.Y-.65));
+                s.PlayerX=point.X; s.PlayerY=point.Y;
+                BaseInteraction.Walk(new BasePoint(target.X-point.X,target.Y-point.Y));
+            },"")) throw new InvalidOperationException(controller.Message);
+            H.OpenObject(id);
+            FinishDialogue();
         }
 
         private static void VerifyRuinsConfrontationCopy()
@@ -2959,14 +3181,15 @@ namespace BaseConquest.Editor
             FinishDialogue();
             Click("好，一起走");
             if (!H.DialogueOpen || !controller.State.Adventure.Members.SequenceEqual(priorParty) ||
-                !controller.State.Leaders.Any(leader => leader.Id == ahe && leader.MapRegion == "base"))
-                throw new InvalidOperationException("满队邀请阿禾没有直接登记为驻营队长");
+                !controller.State.Leaders.Any(leader => leader.Id == ahe && BaseAdventure.WaitingHere(controller.State,leader)))
+                throw new InvalidOperationException("满队邀请阿禾后未在原地等候");
             var response = RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>();
-            H.ContinueDialogue();
-            if (!response.text.Contains("留营")) throw new InvalidOperationException("满队邀请未用对白交代去向");
-            Capture("ui-skin-ahe-full-following");
             FinishDialogue();
-            H.ClosePanel();
+            if (!response.text.Contains("队伍人满了")) throw new InvalidOperationException("满队邀请未用对白交代去向");
+            Capture("ui-skin-ahe-full-following");
+            Click("先回营地");
+            if (H.DialogueOpen || controller.State.Leaders.Single(l=>l.Id==ahe).WaitingAtRecruitment)
+                throw new InvalidOperationException("选择回营后阿禾还在等待去向");
 
             Approach("farm");
             H.OpenObject("farm");
@@ -2992,9 +3215,17 @@ namespace BaseConquest.Editor
             if (tent.Find("Right/Title").GetComponent<Text>().text != "队长名册" || RosterRows().Count() != controller.State.Leaders.Count)
                 throw new InvalidOperationException("营帐没有显示完整的队长名册");
             ClickHudButton(Captain("阿禾"));
-            if (RequirePanel("FacilityPanel") != tent || FollowButton().interactable)
-                throw new InvalidOperationException("满队时营帐不应允许阿禾加入随行");
+            if (RequirePanel("FacilityPanel") != tent || !FollowButton().interactable)
+                throw new InvalidOperationException("满队时邀请按钮不可点击");
             CaptureViewports("ui-skin-tent-captains-full");
+            ClickHudButton(FollowButton().transform);
+            FinishDialogue();
+            if (RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text != BaseAdventure.FullPartyReply ||
+                !controller.State.Adventure.Members.SequenceEqual(priorParty))
+                throw new InvalidOperationException("满队点击邀请未保留队伍或没有统一回复");
+            Click("知道了");
+            tent = RequirePanel("FacilityPanel");
+            roster = tent.Find("Right/List").GetComponent<ScrollRect>();
             ClickHudButton(Captain("迦兰"));
             ClickHudButton(FollowButton().transform);
             if (RequirePanel("FacilityPanel") != tent || controller.State.Adventure.Members.Count != priorParty.Length - 1)
@@ -3218,6 +3449,12 @@ namespace BaseConquest.Editor
             if (!H.PanelOpen || value == null || value.name != name)
                 throw new InvalidOperationException("未进入 " + name + "：" + controller.Message);
             return value;
+        }
+
+        private static void MoveSceneExplorer(Vector2 direction)
+        {
+            typeof(BaseSceneController).GetMethod("MoveExploration", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(controller, new object[] { direction, .05 });
         }
 
         private static void Approach(string id)

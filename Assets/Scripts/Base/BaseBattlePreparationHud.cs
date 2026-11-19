@@ -133,15 +133,15 @@ namespace BaseConquest.Base
             activeObject = "battle-preparation";
             interactionObject = "";
             prepRoster = Ui<ScrollRect>(view, "Candidates/List");
-            Ui<Text>(view, "Title").text = PrepTitle(battleDraft.Route) + (travel ? "" : " · " + PrepText("preparation", "战前准备"));
+            Ui<Text>(view, "Title").text = travel ? owner.WorldMarchTitle : PrepTitle(battleDraft.Route) + " · " + PrepText("preparation", "战前准备");
             PrepButton(view, "Back", PrepText("back", "返回"), ClosePanel);
             PrepButton(view, "Help", null, ShowPreparationHelp);
             BindPreparationHelp(view, travel);
             PrepButton(view, "Close", null, ClosePanel);
             PrepButton(view, "Reset", null, () => OpenBattlePreparation(battleDraft.Route));
-            PrepButton(view, "Continue", travel ? PrepText("travel_confirm", "确认出征编队") : PrepText("deployment_enter", "进入战场"), ContinueBattlePreparation);
+            PrepButton(view, "Continue", travel ? "出发" : PrepText("deployment_enter", "进入战场"), ContinueBattlePreparation);
             var priority = Ui<Button>(view, "Priority");
-            priority.gameObject.SetActive(travel);
+            priority.gameObject.SetActive(travel && !battleDraft.TravelingParty);
             if (travel) PrepButton(view, "Priority", null, () =>
             {
                 prepProduction = !prepProduction;
@@ -202,7 +202,7 @@ namespace BaseConquest.Base
                 Ui<Text>(card, "Health").text = $"生命 {Number(team.Health)} / {Number(team.MaxHealth)}";
                 PrepMeter(card, "HealthMeter/Fill", team.MaxHealth > 0 ? team.Health / team.MaxHealth : 0);
                 var membership = card.Find("Assign");
-                membership.gameObject.SetActive(team.Id != battleDraft.PlayerId);
+                membership.gameObject.SetActive(team.Id != battleDraft.PlayerId && !battleDraft.TravelingParty);
                 PrepButton(card, "Assign", null, () => TogglePrepLeader(team));
                 foreach (var kind in BattleSimulation.TroopKinds)
                     BindPrepCount(card, team, kind);
@@ -566,13 +566,13 @@ namespace BaseConquest.Base
             var problem = battleDraft.Problem(state, false);
             var context = "";
             if (travel) Ui<Text>(panel, "Priority/Label").text = prepProduction ? "生产优先" : "作战优先";
-            if (travel && problem == "")
+            if (battleDraft.TravelingParty) context = "沿用随行队伍，可将士兵调给另一名队长。";
+            else if (travel && problem == "")
             {
                 try
                 {
                     var plan = battleDraft.TravelPlan(state, prepProduction);
-                    context = PrepText("travel_context", "抵达黑鸦寨后，可在随行人员中重新编队及部署。") +
-                        $"\n预计日产变化   粮食 {(-plan.FoodLoss):+0;-0;0}  ·  军需 {(-plan.ProductLoss):+0;-0;0}";
+                    context = $"预计日产变化   粮食 {(-plan.FoodLoss):+0;-0;0}  ·  军需 {(-plan.ProductLoss):+0;-0;0}";
                     if (prepProduction && plan.Production?.Allowed != true) problem = plan.Production?.Problem ?? PrepText("production", "当前编队无法保障生产");
                 }
                 catch (ArgumentException error) { problem = error.Message; }
@@ -630,10 +630,8 @@ namespace BaseConquest.Base
             if (battleDraft.Route != BasePrepRoute.Travel) { ShowBattleDeployment(); return; }
             try
             {
-                var plan = battleDraft.TravelPlan(PreparationState(BasePrepRoute.Travel), prepProduction);
-                if (prepProduction && plan.Production?.Allowed != true) return;
-                owner.CompleteTravel("world", plan);
-                if (owner.State.Campaign.Location != "world") { prepFeedback = owner.Message; RefreshPreparationFields(); }
+                if (!owner.DepartWorldMarch(battleDraft, prepProduction))
+                { prepFeedback = owner.Message; RefreshPreparationFields(); }
             }
             catch (InvalidOperationException error) { prepFeedback = error.Message; RefreshPreparationFields(); }
             catch (ArgumentException error) { prepFeedback = error.Message; RefreshPreparationFields(); }

@@ -20,6 +20,7 @@ namespace BaseConquest.Base
     }
     public static class BaseDemoDefense
     {
+        public static bool BatuFell(BattleSimulation battle)=>battle.Commander(BattleSide.B,0)?.InstantDead==true;
         public const string EventId="demo:defense:first", SecondEventId="demo:defense:second", Proof="demo:defense:won";
         public const string SecondGameOverReason="第二波防守失败：队伍全员失能，营地失守，行动中止。";
         public const int RepairMaterials=10, RepairCoins=20;
@@ -66,6 +67,13 @@ namespace BaseConquest.Base
         public static bool Repaired(BaseState state,string id)=>Enabled(state)&&(id=="workshop"?state.Demo.Defense.WorkshopRepaired:id=="barracks"&&state.Demo.Defense.BarracksRepaired);
         public static bool BattleActive(BaseState state)=>AnyDue(state)&&state.Campaign.Location=="perimeter"&&state.Campaign.HasActiveBattle&&new[]{EventId,SecondEventId}.Contains(state.Campaign.ActiveBattle.EventId);
         public static bool Encounter(BaseCampaignSession session)=>session!=null&&new[]{EventId,SecondEventId}.Contains(session.Opening.EventId);
+        public static void ApplyHomeSight(BattleScenario scenario)
+        {
+            scenario.FogEnabled=true;
+            scenario.DefenderVisionEnabled=true;
+            scenario.DefenderSide=(int)BattleSide.A;
+            scenario.ShowEnemiesThroughFog=false;
+        }
         public static void PrepareOpening(BaseState state)
         {
             var source=state.Campaign.EnemySites[0];var army=source.Capacity.Clone();army.HeroCount=1;army.CaptainSlot=0;
@@ -175,9 +183,14 @@ namespace BaseConquest.Base
             if(plan.Purpose!="defense"||!plan.Leaders.Contains(state.PlayerLeaderId))throw new InvalidOperationException("首次防守需主角在场，训练中请先取消训练或重新选队");
             bool second=SecondDue(state);string eventId=second?SecondEventId:EventId;
             if (expectedSecond.HasValue && expectedSecond.Value != second) throw new InvalidOperationException("迎战事件已变化，请重新备战");
-            var army=state.Demo.Defense.Army.Clone();if(!second){BaseDemoEncounterConfig.ConfigureArmy(state,eventId,army);army.CommanderNames=new List<string>{"巴图"};}var own=army.Clone();own.HeroCount=1;own.CaptainSlot=0;own.CommanderStats.Clear();own.CommanderNames.Clear();own.Commanders=new List<CommanderLoadout>{new CommanderLoadout()};
-            var document=new BattleScenarioDocument {Title="Demo首次防守",Scenario=new BattleScenario {Board=BaseBattlefield.Board(state).Clone(),A=own,B=army,MaxRounds=90,Objective=new ObjectiveConfig {Title="守住营地外围"}}};
+            var army=state.Demo.Defense.Army.Clone();if(!second){BaseDemoEncounterConfig.ConfigureArmy(state,eventId,army);army.CommanderNames=new List<string>{"巴图"};}
+            var document=DefenseDocument(state,army);
             return new BaseCampaignSession(BaseCampaign.Begin(state,eventId,document,mode,plan,true,roster));
+        }
+        internal static BattleScenarioDocument DefenseDocument(BaseState state,ArmyDefinition army)
+        {
+            var own=army.Clone();own.HeroCount=1;own.CaptainSlot=0;own.CommanderStats.Clear();own.CommanderNames.Clear();own.Commanders=new List<CommanderLoadout>{new CommanderLoadout()};
+            return new BattleScenarioDocument {Title="营地防守",Scenario=new BattleScenario {Board=BaseBattlefield.Board(state,"perimeter").Clone(),A=own,B=army,MaxRounds=90,Objective=new ObjectiveConfig {Title="守住营地外围"}}};
         }
         public static void Configure(RealtimeCampaignBattle run)
         {
@@ -209,8 +222,7 @@ namespace BaseConquest.Base
                 BaseEconomy.Validate(state);
                 return true;
             }
-            var batu=run.Battle.Commander(BattleSide.B,0);
-            state.Demo.Stage=BaseDemoStage.DefenseWon;state.Demo.Defense.VictoryDay=state.Day;state.Demo.Defense.BatuFate=batu!=null&&batu.InstantDead?"dead":"escaped";state.Demo.Evidence.Add(Proof);
+            state.Demo.Stage=BaseDemoStage.DefenseWon;state.Demo.Defense.VictoryDay=state.Day;state.Demo.Defense.BatuFate=BatuFell(run.Battle)?"dead":"escaped";state.Demo.Evidence.Add(Proof);
             foreach(var manifest in state.Aftermath.Loot.Where(item=>item.BattleId==run.Session.Opening.Id))if(BaseBattleLoot.CanFinish(state,manifest)&&!state.Aftermath.Prisoners.Any(p=>p.BattleId==manifest.BattleId&&p.Status=="held"))BaseBattleLoot.Finish(state,manifest.BattleId);
             var marker=state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Single(obj=>obj.Id=="demo_defense_exit");marker.VisualOnly=false;marker.Name="← 迎敌战场 · 已守住";
             if(BaseDemoFinale.Enabled(state)){var exit=state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Single(obj=>obj.Id=="demo_march_exit");exit.VisualOnly=false;exit.Name="世界道路 · 攻营与返乡";}

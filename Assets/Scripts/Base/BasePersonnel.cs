@@ -16,7 +16,7 @@ namespace BaseConquest.Base
     public static class BasePersonnel
     {
         public static string LeaderName(BaseLeader l)=>UnitDisplayNames.Mark(l.Name,l.Recruited);
-        public static string State(BaseState s,BaseLeader l)=>!BaseAdventure.Alive(l)||l.Health<=0 ? l.Fate=="dead" ? "已阵亡" : l.Fate=="missing" ? "失联／未救出" : "无法行动" : BaseAdventure.PauseFor(s,l.Id)!=null?"暂离 · 保留队伍名额":l.Away ? "外出" : BaseAdventure.Contains(s,l.Id) ? "冒险小队 · 随行" : BaseDevelopment.Effective(s,l) ? l.FacilityId=="" ? "闲置 · 今日可生产" : BaseEconomy.FacilityName(l.FacilityId)+"管理员" : "训练中";
+        public static string State(BaseState s,BaseLeader l)=>!BaseAdventure.Alive(l)||l.Health<=0 ? l.Fate=="dead" ? "已阵亡" : l.Fate=="missing" ? "失联／未救出" : "无法行动" : l.WaitingAtRecruitment?"暂留原地":BaseAdventure.PauseFor(s,l.Id)!=null?"暂离 · 保留队伍名额":l.Away ? "外出" : BaseAdventure.Contains(s,l.Id) ? "冒险小队 · 随行" : BaseDevelopment.Effective(s,l) ? l.FacilityId=="" ? "闲置 · 今日可生产" : BaseEconomy.FacilityName(l.FacilityId)+"管理员" : "训练中";
         private static void Effects(BaseState s,BasePersonnelUnit unit,string party)
         {
             var q=s.Supply.Quotas.FirstOrDefault(q=>q.PartyId==party&&!string.IsNullOrEmpty(party));

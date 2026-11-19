@@ -96,12 +96,27 @@ namespace BaseConquest.Base
             // 即死率已承担损失角色；特殊剧情（迦兰）由 ControllerAccepted 前置自行把关。
             if (p.Kind == SoldierKind.Hero) {var door=BasePersonnel.BarracksDoor(s);s.Leaders.Add(new BaseLeader { Id = "partner_recruit:" + p.Id, Name = UnitDisplayNames.RecruitedName(p.Name),AcquisitionSource=controller?"剧情结识 · 遗迹入口":"战后招降 · "+(string.IsNullOrEmpty(p.CaptureSource)?p.BattleId:p.CaptureSource),AcquisitionDay=s.Day,IsAlien=p.IsAlien,IsAwakened=p.IsAwakened, AppearanceId=p.AppearanceId, Recruited=true,HasHomePosition=true,HomeX=door.X,HomeY=door.Y,HasMapPosition=true,MapX=door.X,MapY=door.Y, Health = p.Health, MaxHealth = p.Stats.Health, Resting = false, UnavailableDay = s.Day, HasCombatProfile = true, CombatStats = p.Stats.Clone(), Training=BaseTraining.FromProfile(p.Stats),Rpg=p.Rpg?.Copy(),PersonalEquipment=p.Rpg?.Version!=1?null:new BasePersonalLoadout {Version=1,Weapon=new[]{"sword","bow","spear"}[p.Rpg.Profession],InitialWeapon=new[]{"sword","bow","spear"}[p.Rpg.Profession],BaseStats=p.Stats.Clone()} });}
             else s.Workers.Add(new BaseWorkerBucket { Kind = BaseCampaign.ToBase(p.Kind), Recruited=true, Count = 1, Health = p.Health, MaxHealth = p.Stats.Health, Resting = p.Health < p.Stats.Health * BaseDevelopment.DutyThreshold, UnavailableDay = s.Day, HasCombatProfile = true, CombatStats = p.Stats.Clone() });
-            if(BaseRpg.Active(s)&&p.Kind==SoldierKind.Hero&&s.Adventure.Members.Count<BaseAdventure.Capacity)
-                JoinRecruit(s,s.Leaders.Last());
+            if (p.Kind == SoldierKind.Hero && BaseRpg.Active(s))
+            {
+                var leader = s.Leaders.Last();
+                if (controller)
+                {
+                    var marker = BaseDemoNpcs.Additional(s).FirstOrDefault(o => o.Id == BaseDemoStories.GalanMarker);
+                    s.Demo.Flow.ControllerPledged = true;
+                    BaseAdventure.StationAtCamp(s,leader);
+                    if (BaseAdventure.Full(s)) BaseAdventure.WaitAtRecruitment(s,leader,
+                        marker == null ? new BasePoint(s.PlayerX,s.PlayerY) : new BasePoint(marker.X,marker.Y));
+                    else JoinRecruit(s,leader);
+                }
+                else if (BaseDemo.Active(s)) BaseAdventure.StationAtCamp(s, leader);
+                else if (!BaseAdventure.Full(s)) JoinRecruit(s,leader);
+            }
             p.Status = "recruited";if(controller)s.Demo.Flow.ControllerPledged=true; BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
         }
-        private static void JoinRecruit(BaseState s,BaseLeader leader)
+        internal static void JoinRecruit(BaseState s,BaseLeader leader)
         {
+            leader.DesiredFacility = leader.FacilityId = "";
+            leader.PostLocked = false;
             s.Adventure.Members.Add(leader.Id);
             var point=BaseSpatial.Nearest(s,new BasePoint(s.PlayerX,s.PlayerY-.9));
             leader.MapX=point.X;leader.MapY=point.Y;leader.MapRegion=s.Campaign.Location;leader.MapId=s.Campaign.CurrentMapId;

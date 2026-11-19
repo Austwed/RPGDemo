@@ -92,10 +92,27 @@ namespace BaseConquest.Base
         {
             if(PauseProblem(s,id,true)!="")return false;var paused=PauseFor(s,id);bool outside=paused.Region!="base";RestorePaused(s,paused);BaseDevelopment.Allocate(s);BaseAchievements.PartyChanged(s);if(outside)BaseAchievements.Unlock(s,BaseAchievements.Reunion);return true;
         }
-        private static void RestorePaused(BaseState s,BaseAdventurePause p)
+        public static bool SendToCamp(BaseState s, string id)
+        {
+            var leader = s.Leaders.FirstOrDefault(person => person.Id == id);
+            if (leader == null || id == s.PlayerLeaderId || !BasePartyInventory.Peaceful(s)) return false;
+            if (!WaitingHere(s,leader))
+            {
+                var pause = PauseFor(s,id);
+                if (pause != null && PauseProblem(s,id,true) != "") return false;
+                if (pause == null && !Pause(s,id)) return false;
+                RestorePaused(s,PauseFor(s,id),true);
+                s.Adventure.Members.Remove(id);
+            }
+            StationAtCamp(s,leader);
+            BaseDevelopment.Allocate(s);
+            BaseAchievements.PartyChanged(s);
+            return true;
+        }
+        private static void RestorePaused(BaseState s,BaseAdventurePause p,bool toCamp = false)
         {
             var l=s.Leaders.Single(person=>person.Id==p.LeaderId);
-            var party=s.Muster.Parties.FirstOrDefault(t=>t.Id==p.PartyId)??s.Muster.Parties.FirstOrDefault(t=>(t.Purpose==p.Purpose||string.IsNullOrEmpty(p.Purpose)&&t.Purpose=="expedition")&&t.Leaders.Any(r=>r.LeaderId==s.PlayerLeaderId));
+            var party=toCamp?null:s.Muster.Parties.FirstOrDefault(t=>t.Id==p.PartyId)??s.Muster.Parties.FirstOrDefault(t=>(t.Purpose==p.Purpose||string.IsNullOrEmpty(p.Purpose)&&t.Purpose=="expedition")&&t.Leaders.Any(r=>r.LeaderId==s.PlayerLeaderId));
             var rows=party==null?null:BaseMuster.CurrentFormation(s,party)??BaseMuster.Distribute(party.Leaders.Select(r=>new BaseCommanderAllocation {LeaderId=r.LeaderId,Requested=s.Leaders.Single(person=>person.Id==r.LeaderId).DefaultTroops.Copy()}),k=>s.Workers.Where(w=>w.PartyId==party.Id&&w.Kind==k).Sum(w=>w.Count),true);
             var held=s.Workers.Where(w=>w.HeldBy==p.LeaderId).ToArray();
             if(p.Allocation!=null)p.Allocation.SoldierNumbers=held.SelectMany(w=>w.SoldierNumbers).ToList();

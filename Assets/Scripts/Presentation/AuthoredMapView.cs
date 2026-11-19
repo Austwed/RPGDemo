@@ -35,7 +35,12 @@ namespace BaseConquest.Presentation
             bool ravagedField=false;
             if(BaseEnvironment.Decorative(placement)){view.shaped=true;EnvironmentDecorView.Attach(root,placement,source);return view;}
             string prop=placement.AssetId=="dungeon-entrance"?"dungeon-entrance":placement.Kind=="pixel-prop"?placement.AssetId:placement.Kind=="tactical-rock"?"boulder":placement.Kind=="tactical-tree"?"dead-tree":placement.Kind=="tactical-trunk"?"fallen-log":placement.AssetId=="demo-broken-sword"?"broken-sword":placement.AssetId=="demo-long-sword"?"longsword":placement.AssetId=="demo-debris"?"ruined-wall":null;
-            var pixelProp=prop==null?null:PixelDemoArt.Prop(root.transform,prop,Vector3.zero,source,prop=="dungeon-entrance"?3:prop=="dead-tree"?1.25f:1.5f,prop=="dungeon-entrance"?3:prop=="dead-tree"?2.5f:prop=="ruined-wall"?.75f:1.5f);
+            bool roadSign = prop != null && prop.StartsWith("road-sign-", System.StringComparison.Ordinal);
+            // Put the post on the shoulder and leave the travel trigger in the road itself.
+            Vector3 propOffset = !roadSign ? Vector3.zero : prop == "road-sign-down"
+                ? Vector3.right * (float)(placement.BoundsWidth * .5 + .15) * BattleBoardView.CellSize
+                : Vector3.forward * (float)(placement.BoundsHeight * .5 + .10) * BattleBoardView.CellSize;
+            var pixelProp=prop==null?null:PixelDemoArt.Prop(root.transform,prop,propOffset,source,roadSign?1.05f:prop=="dungeon-entrance"?3:prop=="dead-tree"?1.25f:1.5f,roadSign?1.15f:prop=="dungeon-entrance"?3:prop=="dead-tree"?2.5f:prop=="ruined-wall"?.75f:1.5f);
             if(pixelProp!=null)
             {
                 view.shaped=false;

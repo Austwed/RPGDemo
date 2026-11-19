@@ -102,6 +102,8 @@ namespace BaseConquest.Battle
             var scenario = new BattleScenario { Board = deploymentDraft.Board, CampaignRules = true, HeightVision = true,
                 ShowEnemiesThroughFog = false, TestAutoDeployment = false, PlayerLeaderSlot = Array.FindIndex(draftTeams, u => u.Id == deploymentDraft.PlayerId),
                 B = new ArmyDefinition { HeroCount = 0, MeleeCount = 0, RangedCount = 0, CavalryCount = 0 } };
+            if(deploymentDraft.Route==BasePrepRoute.Defense||deploymentDraft.Route==BasePrepRoute.Second)
+                BaseDemoDefense.ApplyHomeSight(scenario);
             var army = scenario.A;
             army.HeroCount = draftTeams.Length;
             army.Capacity = 90;

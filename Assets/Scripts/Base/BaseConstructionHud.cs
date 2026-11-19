@@ -18,16 +18,18 @@ namespace BaseConquest.Base
         private (BaseState Draft, int Revision, string Project, string Status) campPaletteContent;
         private void BuildConstructionPalette()
         {
-            constructionPalette=Box("ConstructionProjects",controls,new Vector2(0,1),new Vector2(95,-ExplorationHudLayout.HeaderHeight-212),new Vector2(166,400),new Color(.055f,.08f,.12f,.97f));
-            Label(constructionPalette,"防御工程",new Vector2(0,171),new Vector2(150,40),22,TextAnchor.MiddleCenter);
-            trapProject=MakeButton(constructionPalette,"埋设陷阱\n原料4 · 最多10",new Vector2(0,78),new Vector2(146,70),()=>owner.SelectConstructionProject(ConstructionProject.Trap));
-            sandbagProject=MakeButton(constructionPalette,"堆筑沙袋\n原料2",new Vector2(0,3),new Vector2(146,70),()=>owner.SelectConstructionProject(ConstructionProject.Sandbag));
-            demolishProject=MakeButton(constructionPalette,"拆除\n整组工事不返还",new Vector2(0,-12),new Vector2(146,74),()=>owner.SelectConstructionProject(ConstructionProject.Demolish));
-            demolishProject.GetComponent<RectTransform>().anchoredPosition=new Vector2(0,-71);
-            constructionResources=Label(constructionPalette,"",new Vector2(0,-120),new Vector2(148,36),18,TextAnchor.MiddleCenter);
-            MakeButton(constructionPalette,"退出 · Esc",new Vector2(0,-171),new Vector2(146,44),owner.StopConstruction);
-            constructionCaption=Box("ConstructionStatus",controls,new Vector2(.5f,0),new Vector2(70,34),new Vector2(860,62),new Color(.055f,.08f,.12f,.96f));
-            constructionStatus=Label(constructionCaption,"",Vector2.zero,new Vector2(838,56),19,TextAnchor.MiddleCenter);
+            var theme=DemoUiTheme.Current;
+            constructionPalette=Box("FieldworkToolbar",controls,new Vector2(.5f,0),new Vector2(0,44),new Vector2(666,60),theme.Panel);
+            constructionResources=Label(constructionPalette,"",new Vector2(-265,0),new Vector2(116,44),19,TextAnchor.MiddleCenter);
+            trapProject=MakeButton(constructionPalette,"陷阱 · 原料4",new Vector2(-126,0),new Vector2(150,44),()=>owner.SelectConstructionProject(ConstructionProject.Trap));
+            sandbagProject=MakeButton(constructionPalette,"沙袋 · 原料2",new Vector2(28,0),new Vector2(150,44),()=>owner.SelectConstructionProject(ConstructionProject.Sandbag));
+            demolishProject=MakeButton(constructionPalette,"拆除",new Vector2(161,0),new Vector2(105,44),()=>owner.SelectConstructionProject(ConstructionProject.Demolish));
+            MakeButton(constructionPalette,"退出",new Vector2(268,0),new Vector2(98,44),owner.StopConstruction);
+            constructionCaption=Box("FieldworkHint",controls,new Vector2(.5f,0),new Vector2(0,99),new Vector2(630,42),theme.Panel);
+            constructionCaption.GetComponent<Image>().raycastTarget=false;
+            constructionStatus=Label(constructionCaption,"",Vector2.zero,new Vector2(612,40),16,TextAnchor.MiddleCenter);
+            constructionStatus.GetComponent<Shadow>().enabled=false;
+            constructionResources.GetComponent<Shadow>().enabled=false;
             constructionPalette.gameObject.SetActive(false);constructionCaption.gameObject.SetActive(false);
             BuildHomeRebuildPalette();
             BuildCampConstructionPalette();
@@ -118,12 +120,12 @@ namespace BaseConquest.Base
             RefreshHomeRebuildPalette(showRebuild);
             RefreshCampConstructionPalette(showCamp);
             constructionPalette.gameObject.SetActive(show);constructionCaption.gameObject.SetActive(show);
-            mapLabels.offsetMin=new Vector2(showRebuild&&!owner.HomeRebuildOverview ? HomeRebuildGutter : show ? 188 : 12,showCamp ? 154 : ExplorationHudLayout.FooterHeight);
+            mapLabels.offsetMin=new Vector2(showRebuild&&!owner.HomeRebuildOverview ? HomeRebuildGutter : 12,showCamp ? 154 : ExplorationHudLayout.FooterHeight);
             if(!show)return;
             trapProject.gameObject.SetActive(true);sandbagProject.gameObject.SetActive(true);
-            trapProject.GetComponent<Image>().color=owner.SelectedConstructionProject==ConstructionProject.Trap ? new Color(.15f,.39f,.52f) : buttonColor;
-            sandbagProject.GetComponent<Image>().color=owner.SelectedConstructionProject==ConstructionProject.Sandbag ? new Color(.15f,.39f,.52f) : buttonColor;
-            demolishProject.GetComponent<Image>().color=owner.SelectedConstructionProject==ConstructionProject.Demolish ? new Color(.15f,.39f,.52f) : buttonColor;
+            trapProject.GetComponent<Image>().color=owner.SelectedConstructionProject==ConstructionProject.Trap ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;
+            sandbagProject.GetComponent<Image>().color=owner.SelectedConstructionProject==ConstructionProject.Sandbag ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;
+            demolishProject.GetComponent<Image>().color=owner.SelectedConstructionProject==ConstructionProject.Demolish ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;
             int material=owner.State.Inventory.Materials;constructionResources.text="原料 "+material;
             constructionStatus.text=owner.ConstructionHoverText;
         }

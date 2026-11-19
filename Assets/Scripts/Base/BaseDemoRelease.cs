@@ -20,8 +20,38 @@ namespace BaseConquest.Base
             foreach(var p in b.Positions())
             {var c=b.Cell(p);c.Terrain=TerrainKind.Ground;c.Zone=p.X>=(defense?25:3)&&p.X<=(defense?28:6)?DeploymentZone.A:p.X>=(defense?2:25)&&p.X<=(defense?5:28)?DeploymentZone.B:DeploymentZone.None;
              if(p.X==15&&p.Z>=4&&p.Z<=19&&p.Z!=8&&p.Z!=9&&p.Z!=16&&p.Z!=17){c.Terrain=TerrainKind.Wall;c.Zone=DeploymentZone.None;}}
-            if(defense)foreach(var p in b.Positions().Where(p=>(p.X>=9&&p.X<=11&&p.Z>=11&&p.Z<=13)||(p.X>=19&&p.X<=21&&p.Z>=5&&p.Z<=6)))b.Cell(p).Terrain=TerrainKind.Swamp;
+            if(defense)ShapeMarsh(b);
             return b;
+        }
+        private static void ShapeMarsh(BattleBoard board)
+        {
+            for(int x=9;x<=11;x++)
+                for(int z=9;z<=16;z++)
+                {
+                    var cell=board.Cell(new GridPosition(x,z));
+                    if(cell.Terrain==TerrainKind.Ground&&cell.ObstacleHealth==0&&!cell.HiddenTrap&&cell.SandbagGroup==0&&!cell.HasDeveloperTerrain)
+                        cell.Terrain=TerrainKind.Swamp;
+                }
+            for(int x=19;x<=21;x++)
+                for(int z=5;z<=6;z++)
+                {
+                    var cell=board.Cell(new GridPosition(x,z));
+                    if(cell.Terrain==TerrainKind.Swamp&&!cell.HasDeveloperTerrain)cell.Terrain=TerrainKind.Ground;
+                }
+        }
+        public static void UpgradeHomeField(BaseState state)
+        {
+            var board=state.Campaign.PerimeterBoard;
+            if(board?.Width!=32||board.Height!=24||board.Cells?.Length!=32*24)return;
+            bool bundledLegacy=state.Demo?.StoryScene?.Id=="b03ca0fe940be17c21a793d32dbe3f565172f0081ea70ef686990fc5149ac2aa";
+            if(state.Demo?.StoryScene?.Valid==true&&!bundledLegacy)return;
+            bool oldMarsh=board.Cell(new GridPosition(10,12)).Terrain==TerrainKind.Swamp&&board.Cell(new GridPosition(20,5)).Terrain==TerrainKind.Swamp;
+            if(!oldMarsh&&!bundledLegacy)return;
+            ShapeMarsh(board);
+            var active=state.Campaign.ActiveBattle;
+            if(active==null||(active.EventId!=BaseDemoDefense.EventId&&active.EventId!=BaseDemoDefense.SecondEventId))return;
+            ShapeMarsh(active.Scenario.Board);
+            if(active.HasCheckpoint)ShapeMarsh(active.Checkpoint.Scenario.Board);
         }
         public static void Configure(BaseMapLayout m)
         {
@@ -48,6 +78,7 @@ namespace BaseConquest.Base
                 s.Campaign.Layouts.RemoveAll(m=>m.Region==map.Layout.Region);s.Campaign.Layouts.Add(map.Layout.Copy());
                 if(map.Role=="defense")s.Campaign.PerimeterBoard=map.Board.Clone();else s.Campaign.RegionMaps.Single(m=>m.Id=="outpost").Board=map.Board.Clone();
             }
+            UpgradeHomeField(s);
         }
         public static BasePoint Landing(BaseState s,string map,BaseMapPlacement marker)
         {

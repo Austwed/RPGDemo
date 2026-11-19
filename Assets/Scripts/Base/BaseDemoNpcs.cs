@@ -28,6 +28,10 @@ namespace BaseConquest.Base
             if(state.Campaign.CurrentMapId==BaseDemoFinale.Home&&BaseDemoFinale.IsReturnField(original.Id))
                 return new BaseMapObject(original.Id,"麦田 · 查看",original.X,original.Y,original.Width,original.Height,
                     original.Blocks,original.SourceObjectId,original.AssetId,original.Kind,false,original.Shape,original.Rotation);
+            string sign = RoadSign(original.Id);
+            if (sign != null)
+                return new BaseMapObject(original.Id, original.Name, original.X, original.Y, original.Width, original.Height,
+                    original.Blocks, original.SourceObjectId, sign, "pixel-prop", original.VisualOnly, original.Shape, original.Rotation);
             string name=null,appearance="chenan";
             switch(original.Id)
             {
@@ -47,7 +51,6 @@ namespace BaseConquest.Base
                 case "demo_azhu":name="阿铸 · 交谈";appearance="azhu";if(BaseDemoFlow.SmithVisit(state))return new BaseMapObject(original.Id,name,BaseDemoFlow.SmithApproach(state).X,BaseDemoFlow.SmithApproach(state).Y,.5,.5,false,"demo-npc:smith","azhu","npc");break;
                 case "demo_broken_sword":if(!BaseDemoRelease.Enabled(state)){name="幸存村民 · 交谈";appearance=ResolveNpcArt("survivor");}break;
                 case "demo_survivor":name="幸存村民 · 交谈";appearance=ResolveNpcArt("survivor");break;
-                case "demo_march_exit":if(!BaseDemoFinale.Opened(state)){name=BaseScriptNames.Scout+" · 交谈";appearance="chenan";}break;
                 case "demo_rescued_1":case "demo_rescued_2":name=original.Name;appearance=ResolveNpcArt("rescued-villager");break;
                 case "town_blacksmith":
                     // 2026-11-02：老铁匠专属图 baron-v1 入库。布局随存档序列化，旧档 AssetId 还是 chenan，这里运行时强制换新。
@@ -55,6 +58,16 @@ namespace BaseConquest.Base
             }
             return name==null?original:new BaseMapObject(original.Id,name,original.X,original.Y,original.Width,original.Height,false,string.IsNullOrEmpty(original.SourceObjectId)?"demo-npc:"+original.Id:original.SourceObjectId,appearance,"npc");
         }
+        public const string CampScout = "demo_camp_scout";
+
+        internal static string RoadSign(string id) => id switch
+        {
+            "demo_defense_exit" or "travel_base" or "demo_ruins_return" or "demo_camp_world" or "demo_direct_camp" => "road-sign-left",
+            "exit_east" or "demo_defense_return" or "demo_ruins_exit" or "demo_home_world" or "demo_direct_home" => "road-sign-right",
+            "demo_march_exit" => "road-sign-down",
+            _ => null
+        };
+
         public static bool NearAzhu(BaseState s)
         {
             if(!BaseDemoRuins.CanExplore(s)||s.Campaign.Location!="town"||BaseSceneCombat.Active(s))return false;
@@ -152,6 +165,14 @@ namespace BaseConquest.Base
             if(!BaseDemo.Active(state)||BaseDemoPrologue.Village(state)||(region??state.Campaign.Location)!="base")yield break;
             var objects=BaseSpatial.Layout(state,"base")?.Objects;if(objects==null)yield break;
             foreach(var resident in CampResidents())if(objects.All(o=>o.Id!=resident.Id))yield return Present(state,resident.Object);
+            var gate = objects.FirstOrDefault(obj => obj.Id == "demo_march_exit");
+            if (gate != null)
+            {
+                bool defended = BaseDemoDefense.Won(state);
+                yield return new BaseMapObject(CampScout, BaseScriptNames.Scout + " · 交谈",
+                    defended ? 10.5 : gate.X - 1.2, defended ? 4.5 : gate.Y + 1, .5, .5,
+                    false, "demo-npc:camp-scout", "chenan", "npc");
+            }
         }
         // 旧档兼容：三个镇上闲聊 NPC 是在 156f189 才写进 town 布局的，而布局随存档序列化，
         // 旧档里不存在。这里参照 MarketMerchant 的运行时注入先例，缺哪个补哪个，新档不受影响。
@@ -168,7 +189,6 @@ namespace BaseConquest.Base
         public static BaseMapObject[] Additional(BaseState state)
         {
             if(!BaseDemo.Active(state))return Array.Empty<BaseMapObject>();
-            if(BaseDemoFlow.SmithVisit(state)&&state.Leaders.Any(l=>l.Id=="partner_craft"))return new[]{new BaseMapObject("demo_azhu","阿铸 · 交谈",BaseDemoFlow.SmithApproach(state).X,BaseDemoFlow.SmithApproach(state).Y,.5,.5,false,"demo-npc:smith","azhu","npc")}.Concat(RescuedTown(state)).ToArray();
             if(!BaseSceneRules.Active(state)&&state.Demo.RuinsDay>0&&BaseDemoRuins.InRuins(state)&&!state.Campaign.HasActiveBattle)
                 return new[]{new BaseMapObject("demo_rescued_1","获救百姓甲 · 交谈",13,7.5,.5,.5,false,"demo-npc:rescued:1","villager","npc"),new BaseMapObject("demo_rescued_2","获救百姓乙 · 交谈",14,7.5,.5,.5,false,"demo-npc:rescued:2","villager","npc")};
             if(BaseSceneRules.Active(state)&&state.Demo.Rescue!=null)

@@ -1,95 +1,149 @@
+using System;
+using System.Linq;
 using BaseConquest.Base;
 using BaseConquest.Presentation;
 using UnityEngine;
 using UnityEngine.UI;
+
 namespace BaseConquest.Battle
 {
-    // 战斗结束后的只读页面，关闭后可回看棋盘，再次打开不重新结算。
     public sealed class BattleResultPanel
     {
-        private readonly RectTransform backdrop, panel, content;
-        private readonly Text title, body;
-        private readonly ScrollRect scroll;
-        private BattleReport previousReport, renderedReport;
+        private readonly RectTransform backdrop, panel;
+        private readonly Text title, metrics, note;
+        private readonly ArmyColumn own, opposing;
+        private readonly Button viewBoard, returnBase, loadGame, mainMenu;
+        private readonly BattleSceneController owner;
+        private BattleReport previous;
         private BattleSide previousObserver;
+        private string lastCaptives;
         private bool dismissed;
-        private readonly BattleSceneController campaignOwner;
-        private readonly Button returnBase;
-        private readonly Button loadGame,mainMenu,prisoners;
-        private readonly RectTransform viewBoard;
-        private string renderedCampaignFeedback;
         public bool Visible => backdrop.gameObject.activeSelf;
         public RectTransform Blocker => backdrop;
+
         public BattleResultPanel(Transform parent, Font font, BattleSceneController campaignOwner = null)
         {
-            this.campaignOwner = campaignOwner;
-            backdrop = Rect("BattleReportBackdrop", parent); backdrop.anchorMin = Vector2.zero; backdrop.anchorMax = Vector2.one; backdrop.offsetMin=Vector2.zero;backdrop.offsetMax=new Vector2(0,-64);
-            backdrop.gameObject.GetOrAdd<Image>().color = new Color(0,0,0,0.65f);
-            panel = Rect("BattleReportPage", backdrop); panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(0.5f,0.5f); panel.sizeDelta = new Vector2(680,520);
-            panel.gameObject.GetOrAdd<Image>().color = new Color(0.055f,0.08f,0.12f,1);
-            title = Label("ReportTitle", panel, font, 22); title.fontStyle = FontStyle.Bold; title.rectTransform.anchorMin = new Vector2(0,1); title.rectTransform.anchorMax=Vector2.one; title.rectTransform.offsetMin=new Vector2(18,-48);title.rectTransform.offsetMax=new Vector2(-18,-10);
-            var viewport = Rect("ReportViewport", panel); viewport.anchorMin=Vector2.zero;viewport.anchorMax=Vector2.one;viewport.offsetMin=new Vector2(18,18);viewport.offsetMax=new Vector2(-18,-116);viewport.gameObject.GetOrAdd<Image>().color=new Color(0,0,0,0.1f);viewport.gameObject.GetOrAdd<RectMask2D>();
-            content = Rect("ReportContent", viewport); content.anchorMin=new Vector2(0,1);content.anchorMax=Vector2.one;content.pivot=new Vector2(0.5f,1);content.sizeDelta=new Vector2(0,100);
-            body = Label("ReportText", content, font, 14);body.alignment=TextAnchor.UpperLeft;body.supportRichText=true;body.horizontalOverflow=HorizontalWrapMode.Wrap;body.verticalOverflow=VerticalWrapMode.Overflow;body.lineSpacing=1.2f;body.rectTransform.offsetMin=new Vector2(8,0);body.rectTransform.offsetMax=new Vector2(-8,0);
-            scroll=viewport.gameObject.GetOrAdd<ScrollRect>();scroll.viewport=viewport;scroll.content=content;scroll.horizontal=false;scroll.movementType=ScrollRect.MovementType.Clamped;
-            var close = Rect("查看棋盘", panel);viewBoard=close;close.anchorMin=close.anchorMax=new Vector2(0.5f,1);close.pivot=new Vector2(0.5f,1);close.anchoredPosition=new Vector2(0,-60);close.sizeDelta=new Vector2(150,38);close.gameObject.GetOrAdd<Image>().color=new Color(0.16f,0.28f,0.4f);var button=close.gameObject.GetOrAdd<Button>();button.targetGraphic=close.GetComponent<Image>();button.onClick.AddListener(Close);Label("Label",close,font,14).text="查看棋盘";
+            owner=campaignOwner;
+            backdrop=Region("AfterActionBackdrop",parent,0,0,1,1,0,0,0,0);
+            backdrop.gameObject.GetOrAdd<Image>().color=DemoUiTheme.Current.Shade;
+            panel=Region("AfterActionPanel",backdrop,.5f,.5f,.5f,.5f,0,0,0,0);
+            panel.gameObject.GetOrAdd<Image>();
+            DemoUiTheme.Current.Frame(panel);
+            title=TextAt("Outcome",panel,font,27,0,.85f,1,1,20,2,-20,-6);
+            title.fontStyle=FontStyle.Bold;
+            metrics=TextAt("BattleMetrics",panel,font,18,0,.75f,1,.85f,20,0,-20,0);
+            own=new ArmyColumn(panel,font,true);
+            opposing=new ArmyColumn(panel,font,false);
+            note=TextAt("SettlementNote",panel,font,16,0,.14f,1,.22f,16,0,-16,0);
+            viewBoard=ActionButton("ReviewBoard","查看战场",false,Close);
+            returnBase=ActionButton("SettleBattle","结算并返回营地",true,()=>owner?.ReturnCampaign());
+            loadGame=ActionButton("LoadGame","读取存档",false,()=>owner?.OpenCampaignSaves(true));
+            mainMenu=ActionButton("MainMenu","回主菜单",true,()=>owner?.CampaignMainMenu());
             backdrop.gameObject.SetActive(false);
-            var back = Rect("返回基地", panel); back.anchorMin = back.anchorMax = new Vector2(0.5f, 1); back.pivot = new Vector2(0.5f, 1); back.anchoredPosition = new Vector2(110, -60); back.sizeDelta = new Vector2(190, 38);
-            back.gameObject.GetOrAdd<Image>().color = new Color(0.2f, 0.38f, 0.3f); returnBase = back.gameObject.GetOrAdd<Button>(); returnBase.targetGraphic=back.GetComponent<Image>(); returnBase.onClick.AddListener(() => this.campaignOwner?.ReturnCampaign()); Label("Label", back, font, 14).text = "处理战利品并返营";
-            back.gameObject.SetActive(false);
-            var load=Rect("读取存档",panel);load.anchorMin=load.anchorMax=new Vector2(.5f,1);load.pivot=new Vector2(.5f,1);load.anchoredPosition=new Vector2(-110,-60);load.sizeDelta=new Vector2(190,38);load.gameObject.GetOrAdd<Image>().color=new Color(.2f,.3f,.4f);loadGame=load.gameObject.GetOrAdd<Button>();loadGame.targetGraphic=load.GetComponent<Image>(); loadGame.onClick.AddListener(()=>this.campaignOwner?.OpenCampaignSaves(true));Label("Label",load,font,14).text="读取存档";
-            var menu=Rect("回主菜单",panel);menu.anchorMin=menu.anchorMax=new Vector2(.5f,1);menu.pivot=new Vector2(.5f,1);menu.anchoredPosition=new Vector2(110,-60);menu.sizeDelta=new Vector2(190,38);menu.gameObject.GetOrAdd<Image>().color=new Color(.3f,.25f,.2f);mainMenu=menu.gameObject.GetOrAdd<Button>();mainMenu.targetGraphic=menu.GetComponent<Image>(); mainMenu.onClick.AddListener(()=>this.campaignOwner?.CampaignMainMenu());Label("Label",menu,font,14).text="回主菜单";
-            load.gameObject.SetActive(false);menu.gameObject.SetActive(false);
-            var held=Rect("俘虏处理",panel);held.anchorMin=held.anchorMax=new Vector2(.5f,1);held.pivot=new Vector2(.5f,1);held.anchoredPosition=new Vector2(0,-60);held.sizeDelta=new Vector2(150,38);held.gameObject.GetOrAdd<Image>().color=new Color(.3f,.4f,.2f);prisoners=held.gameObject.GetOrAdd<Button>();prisoners.targetGraphic=held.GetComponent<Image>(); prisoners.onClick.AddListener(()=>this.campaignOwner?.ReturnCampaignPrisoners());Label("Label",held,font,14).text="战利品与俘虏";held.gameObject.SetActive(false);
+
+            Button ActionButton(string id,string label,bool right,Action action)
+            {
+                var rect=Region(id,panel,right?.51f:.21f,.025f,right?.79f:.49f,.135f,0,0,0,0);
+                var button=rect.gameObject.GetOrAdd<Button>();
+                button.targetGraphic=rect.gameObject.GetOrAdd<Image>();
+                DemoUiTheme.Current.StyleButton(button);
+                button.onClick.AddListener(()=>action());
+                TextAt("Label",rect,font,18,0,0,1,1,5,2,-5,-2).text=label;
+                return button;
+            }
         }
-        public void Close() { if(campaignOwner?.CampaignGameOver==true)return;dismissed=true;backdrop.gameObject.SetActive(false); }
-        public void Open() { dismissed=false; }
-        public void Refresh(BattleSimulation battle, BattleSide observer, bool animating, bool skipping, Vector2 available)
+
+        private sealed class ArmyColumn
+        {
+            private readonly Text totals, rows;
+            private readonly Text[] commanders=new Text[3];
+            public ArmyColumn(RectTransform panel,Font font,bool friendly)
+            {
+                var card=Region(friendly?"AllySummary":"EnemySummary",panel,friendly?0:.5f,.22f,friendly?.5f:1,.735f,
+                    friendly?18:5,0,friendly?-5:-18,0);
+                card.gameObject.GetOrAdd<Image>().color=DemoUiTheme.Current.Inset;
+                var faction=TextAt("Faction",card,font,22,0,.81f,1,.99f,12,0,-12,0);
+                faction.text=friendly?"我方":"敌方";
+                faction.fontStyle=FontStyle.Bold;
+                totals=TextAt("Strength",card,font,18,0,.64f,1,.82f,8,0,-8,0);
+                rows=TextAt("Troops",card,font,16,0,.37f,1,.65f,8,0,-8,0);
+                var leaders=Region("Leaders",card,0,.025f,1,.37f,8,0,-8,0);
+                for(int i=0;i<commanders.Length;i++)
+                    commanders[i]=TextAt("Captain"+i,leaders,font,16,0,0,1,1,0,0,0,0);
+            }
+
+            public void Show(ArmyBattleReport army,string batuOutcome=null)
+            {
+                if(army==null){totals.text=rows.text="";foreach(var label in commanders)label.text="";return;}
+                totals.text=$"队长 {army.Commanders.Count}    士兵 {army.Deployed}";
+                int deaths=army.Troops.Sum(t=>t.InstantKilled);
+                rows.text=$"留场 {army.Standing}    撤离 {army.Escaped}\n倒地 {army.Killed-deaths}    阵亡 {deaths}";
+                for(int i=0;i<commanders.Length;i++)
+                {
+                    var label=commanders[i];
+                    if(i>=army.Commanders.Count){label.text="";continue;}
+                    var hero=army.Commanders[i];
+                    float top=.5f+(army.Commanders.Count*.5f-i)/commanders.Length;
+                    label.rectTransform.anchorMin=new Vector2(0,top-1f/commanders.Length);
+                    label.rectTransform.anchorMax=new Vector2(1,top);
+                    label.color=hero.Recruited?new Color32(139,81,47,255):DemoUiTheme.Current.Ink;
+                    label.text=$"{hero.Name} · {(hero.Slot==0&&batuOutcome!=null?batuOutcome:hero.Status)}";
+                }
+            }
+        }
+
+        public void Close(){if(owner?.CampaignGameOver==true)return;dismissed=true;backdrop.gameObject.SetActive(false);}
+        public void Open()=>dismissed=false;
+        public void Refresh(BattleSimulation battle,BattleSide observer,bool animating,bool skipping,Vector2 available)
         {
             var report=battle.Report;
-            if (report!=previousReport) {previousReport=report;dismissed=false;scroll.verticalNormalizedPosition=1;}
-            bool visible=battle.Phase==BattlePhase.Finished && report!=null && !animating && !skipping && !dismissed
-                && campaignOwner?.ContinuesThroughDialogue!=true;
-            backdrop.gameObject.SetActive(visible);
-            if (!visible) return;
-            bool campaign = campaignOwner != null && campaignOwner.IsCampaignBattle;
-            bool ended=campaign&&campaignOwner.CampaignGameOver;
-            returnBase.gameObject.SetActive(campaign&&!ended); returnBase.interactable = campaign && campaignOwner.CanReturnCampaign;
-            loadGame.gameObject.SetActive(ended);mainMenu.gameObject.SetActive(false);viewBoard.gameObject.SetActive(!ended);
-            bool hasCaptives=campaign&&!ended&&!string.IsNullOrEmpty(campaignOwner.CampaignCaptives);prisoners.gameObject.SetActive(hasCaptives);prisoners.interactable=hasCaptives&&campaignOwner.CanReturnCampaign;
-            viewBoard.anchoredPosition = new Vector2(campaign ? -130 : 0,-60);returnBase.GetComponent<RectTransform>().anchoredPosition=new Vector2(85,-60);prisoners.gameObject.SetActive(false);
-            panel.sizeDelta=new Vector2(Mathf.Min(680,Mathf.Max(280,available.x-32)),Mathf.Min(520,Mathf.Max(220,available.y-32)));
-            title.text=ended ? "游戏结束" : "战后报告 · "+BattleSceneController.OutcomeName(report.Outcome);
-            bool sceneEncounter=campaignOwner?.IsSceneEncounter==true;
-            if(sceneEncounter)
+            bool changed=report!=previous;
+            if(changed){previous=report;dismissed=false;lastCaptives=null;}
+            bool visible=battle.Phase==BattlePhase.Finished&&report!=null&&!animating&&!skipping&&!dismissed&&owner?.ContinuesThroughDialogue!=true;
+            bool opening=visible&&!Visible;
+            if(Visible!=visible)backdrop.gameObject.SetActive(visible);
+            if(!visible)return;
+            panel.sizeDelta=new Vector2(Mathf.Min(830,Mathf.Max(240,available.x-32)),Mathf.Min(470,Mathf.Max(220,available.y-24)));
+            bool campaign=owner!=null&&owner.IsCampaignBattle, ended=campaign&&owner.CampaignGameOver;
+            viewBoard.gameObject.SetActive(!ended);returnBase.gameObject.SetActive(campaign&&!ended);
+            returnBase.interactable=campaign&&owner.CanReturnCampaign;
+            loadGame.gameObject.SetActive(ended);mainMenu.gameObject.SetActive(ended);
+            var captives=owner?.CampaignCaptives??"";
+            if(changed||opening||observer!=previousObserver||lastCaptives!=captives)
             {
-                title.text=campaignOwner.SceneEncounterResult;
-                returnBase.GetComponentInChildren<Text>().text=campaignOwner.IsBanditHideout?BaseBanditHideout.ReturnText:
-                    report.Outcome==BattleOutcome.SideAWin
-                        ?campaignOwner.IsDemoAttack?"结算并留在当地":campaignOwner.IsDemoDefense?"结算并返回营地":campaignOwner.IsDemoRuins?"返回入口":"继续剧情"
-                        :campaignOwner.IsDemoDefense||campaignOwner.IsDemoAttack||campaignOwner.IsDemoRuins?"结算并撤退":"无损重试";
+                previousObserver=observer;lastCaptives=captives;
+                title.text=ended?"游戏结束":owner?.IsSceneEncounter==true?owner.SceneEncounterResult.Split('·')[0].Trim():BattleSceneController.OutcomeName(report.Outcome);
+                var run=owner?.Realtime;
+                string duration=run!=null?$"用时 {run.Model.Elapsed:0.#} 秒":$"{report.Rounds} 回合";
+                int supply=run?.Session.Opening.SupplySnapshot?.Equipment?.Where(e=>e.Product=="supply").Sum(e=>e.Count)??0;
+                metrics.text=$"{duration}     下令 {report.CommandsIssued} 次     技能 {report.AbilitiesUsed} 次"+(supply>0?$"     军需 {supply} 件":"");
+                bool firstDefenseVictory=owner?.IsDemoDefense==true&&!owner.IsSecondDefense&&report.Outcome==BattleOutcome.SideAWin;
+                string batuOutcome=firstDefenseVictory?(BaseDemoDefense.BatuFell(battle)?"战死":"逃脱"):null;
+                own.Show(report.Armies.FirstOrDefault(a=>a.Side==observer),observer==BattleSide.B?batuOutcome:null);
+                opposing.Show(report.Armies.FirstOrDefault(a=>a.Side!=observer),observer==BattleSide.A?batuOutcome:null);
+                returnBase.GetComponentInChildren<Text>(true).text=owner?.IsBanditHideout==true?BaseBanditHideout.ReturnText
+                    :owner?.IsDemoAttack==true&&report.Outcome==BattleOutcome.SideAWin?"结算并留在当地"
+                    :report.Outcome==BattleOutcome.SideAWin?"结算并返回营地":"结算并撤退";
             }
-            bool refreshText=renderedReport!=report || previousObserver!=observer || campaign && renderedCampaignFeedback != campaignOwner.Feedback;
-            if(refreshText)
-            {
-                string summary=BattleReportFormatting.Format(report,observer);
-                if(campaignOwner?.IsRealtimeCampaign==true)summary=summary.Replace("回合 "+report.Rounds,"作战 "+(campaignOwner.Realtime?.Model.Elapsed??0).ToString("0.0")+"秒");
-                if(sceneEncounter)
-                {
-                    string feedback=campaignOwner.Feedback;
-                    body.text=campaignOwner.SceneEncounterReport+"\n\n"+summary;
-                    if(!string.IsNullOrEmpty(feedback)&&feedback!=title.text)body.text+="\n\n"+feedback;
-                }
-                else body.text=summary+(campaign&&!string.IsNullOrEmpty(campaignOwner.Feedback)?"\n\n"+campaignOwner.Feedback:"");
-                previousObserver=observer;renderedReport=report;renderedCampaignFeedback=campaign ? campaignOwner.Feedback : null;
-            }
-            content.sizeDelta=new Vector2(0,Mathf.Max(scroll.viewport.rect.height,body.preferredHeight+12));
-            if(refreshText) { scroll.StopMovement();scroll.verticalNormalizedPosition=1; }
+            string feedback=owner?.Feedback??"";
+            note.text=feedback.StartsWith("战果尚未保存")||feedback.StartsWith("尚未返回")?feedback:captives.Length>0?"俘虏　"+captives:"";
             backdrop.SetAsLastSibling();
         }
-        private static RectTransform Rect(string name, Transform parent)
-        {return UiPrefabBinding.Rect(name,parent);}
-        private static Text Label(string name,Transform parent,Font font,int size)
-        {var r=Rect(name,parent);r.anchorMin=Vector2.zero;r.anchorMax=Vector2.one;r.offsetMin=r.offsetMax=Vector2.zero;var t=r.gameObject.GetOrAdd<Text>();t.font=font;t.fontSize=size;t.color=Color.white;t.alignment=TextAnchor.MiddleCenter;t.raycastTarget=false;return t;}
+
+        private static RectTransform Region(string id,Transform parent,float x0,float y0,float x1,float y1,float left,float bottom,float right,float top)
+        {
+            var rect=UiPrefabBinding.Rect(id,parent);
+            rect.anchorMin=new Vector2(x0,y0);rect.anchorMax=new Vector2(x1,y1);
+            rect.offsetMin=new Vector2(left,bottom);rect.offsetMax=new Vector2(right,top);
+            return rect;
+        }
+        private static Text TextAt(string id,Transform parent,Font font,int size,float x0,float y0,float x1,float y1,float left,float bottom,float right,float top)
+        {
+            var label=Region(id,parent,x0,y0,x1,y1,left,bottom,right,top).gameObject.GetOrAdd<Text>();
+            label.font=font;label.fontSize=size;label.alignment=TextAnchor.MiddleCenter;
+            label.color=DemoUiTheme.Current.Ink;label.raycastTarget=false;label.supportRichText=false;
+            label.resizeTextForBestFit=true;label.resizeTextMinSize=12;label.resizeTextMaxSize=size;
+            return label;
+        }
     }
 }

@@ -16,6 +16,53 @@ namespace BaseConquest.Base
     public static partial class BaseAdventure
     {
         public const int Capacity = 3;
+        public const string FullPartyReply = "队伍人满了，先腾个位置吧。";
+        public static bool Full(BaseState state) => state.Adventure.Members.Count >= Capacity;
+        public static bool CampResident(BaseState state, string id) => id == "partner_farm" || id == "partner_craft" ||
+            state.Demo?.Flow?.ControllerPledged == true && id == "partner_recruit:" + state.Demo.Flow.FirstControllerId;
+
+        public static bool WaitingHere(BaseState state, BaseLeader person) => person.WaitingAtRecruitment &&
+            person.MapRegion == state.Campaign.Location && (!BaseSceneInstances.Active(state) || person.MapId == state.Campaign.CurrentMapId);
+
+        public static void WaitAtRecruitment(BaseState state, BaseLeader person, BasePoint position)
+        {
+            person.WaitingAtRecruitment = person.HasMapPosition = true;
+            person.MapRegion = state.Campaign.Location;
+            person.MapId = state.Campaign.CurrentMapId;
+            person.MapX = position.X; person.MapY = position.Y;
+        }
+
+        public static BasePoint CampPost(BaseState state, BaseLeader leader)
+        {
+            if (state.Demo?.Flow?.ControllerPledged == true && leader.Id == "partner_recruit:" + state.Demo.Flow.FirstControllerId)
+            {
+                var barracks = BaseSpatial.Layout(state, "base").Objects.First(o => o.Id == "barracks");
+                return BaseSpatial.Nearest(state, new BasePoint(barracks.X + barracks.Width * .5 + .45, barracks.Y + .55), "base");
+            }
+            if (CampResident(state, leader.Id))
+                return BaseSpatial.Nearest(state, leader.HasHomePosition ? new BasePoint(leader.HomeX,leader.HomeY) :
+                    new BasePoint(leader.Id == "partner_farm" ? 8 : 10, 7), "base");
+            return BaseSpatial.WorkPost(state,"home");
+        }
+
+        public static void StationAtCamp(BaseState state, BaseLeader leader)
+        {
+            var post = CampPost(state, leader);
+            leader.WaitingAtRecruitment = false;
+            leader.CampPostSet = true;
+            leader.HasHomePosition = leader.HasMapPosition = true;
+            leader.HomeX = leader.MapX = post.X; leader.HomeY = leader.MapY = post.Y;
+            leader.MapRegion = "base"; leader.MapId = BaseSpatial.Layout(state,"base").SourceMapId;
+        }
+
+        public static bool InviteWaiting(BaseState state, BaseLeader person)
+        {
+            if (!WaitingHere(state, person) || !BasePartyInventory.Peaceful(state) || state.Campaign.HasActiveBattle ||
+                Full(state) || Contains(state,person.Id) || !BaseDevelopment.CanFight(person)) return false;
+            person.WaitingAtRecruitment = false;
+            BaseAftermath.JoinRecruit(state, person);
+            return true;
+        }
         public static bool Alive(BaseLeader leader) => leader != null && (string.IsNullOrEmpty(leader.Fate) || leader.Fate == "active");
         public static bool Contains(BaseState state, string id) => state.Adventure?.Members?.Contains(id) == true;
         public static bool Following(BaseState state,string id)=>Contains(state,id)&&PauseFor(state,id)==null;
@@ -54,6 +101,7 @@ namespace BaseConquest.Base
             var leader = state.Leaders.FirstOrDefault(l => l.Id == id);
             if (leader == null) return "找不到这名伙伴";
             if (id == state.PlayerLeaderId) return "主角固定带队";
+            if (join && Full(state) && !Contains(state,id)) return FullPartyReply;
             if(PauseFor(state,id)!=null)return "请与暂离伙伴交谈，选择恢复随行";
             if(join&&state.Adventure.Pauses.Count>0&&!Contains(state,id))return "暂离伙伴占位期间不能添加新成员，请先让暂离者归队";
             bool local = state.Campaign.Location == "base" || invited && state.Campaign.Location == "town";
@@ -62,7 +110,6 @@ namespace BaseConquest.Base
             if (leader.Away) return "该伙伴尚未返营";
             if (join&&!BaseDevelopment.CanFight(leader))return "该伙伴当前无法行动或正在训练";
             if (join == Contains(state, id)) return join ? "已经在冒险小队中" : "该伙伴未随行";
-            if (join && state.Adventure.Members.Count >= Capacity) return "小队已满：主角与最多2名伙伴";
             return "";
         }
         public static bool SetMember(BaseState state, string id, bool join) => SetMember(state, id, join, false);
@@ -74,6 +121,7 @@ namespace BaseConquest.Base
             if (ChangeProblem(state, id, join, invited) != "") return false;
             var leader = state.Leaders.Single(l => l.Id == id);
             if (join) state.Adventure.Members.Add(id); else state.Adventure.Members.Remove(id);
+            leader.WaitingAtRecruitment = false;
             leader.FacilityId = "";
             BaseDevelopment.Allocate(state);BaseAchievements.PartyChanged(state);
             return true;
@@ -91,6 +139,8 @@ namespace BaseConquest.Base
         // 切区是入口落点；同一区域内跟随只能实际寻路，不能用此方法追赶瞬移。
         public static void Arrive(BaseState state)
         {
+            foreach (var recruit in state.Leaders.Where(l => l.WaitingAtRecruitment && !WaitingHere(state,l)))
+                StationAtCamp(state, recruit);
             if(state.Campaign.Location=="world"||state.Adventure.Pauses.Any(p=>p.AreaId!=Area(state)))RecallPaused(state);
             var region = state.Campaign.Location;
             var occupants = new List<BaseMapObject> { new BaseMapObject("player", "主角", state.PlayerX, state.PlayerY, .45, .45) };

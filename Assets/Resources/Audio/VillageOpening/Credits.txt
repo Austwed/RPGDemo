@@ -63,14 +63,14 @@ Independent.nu (submitted by qubodup) — 35 wooden cracks/hits/destructions
 https://opengameart.org/content/35-wooden-crackshitsdestructions
 Source members: impactwood03.mp3.flac, impactwood08.mp3.flac.
 
-Fall/01.wav
-Spring Spring — Various Sound Effects
-https://opengameart.org/content/various-sound-effects-0
-Source: fall_0.wav.
-
 Hoof/01–02.wav
 EZduzziteh — Horse Trotting
 https://opengameart.org/content/horse-trotting
 Source: Trot_0.ogg.
 
 Short cues were excerpted, level-adjusted and converted to 22.05 kHz mono PCM.
+
+Grunt/01–04.wav — thebardofblasphemy, grunts of male death and pain (CC0 1.0)
+https://opengameart.org/content/grunts-male-death-and-pain
+Source: death pain grunts.wav. Four different human takes at 6.92–7.37, 29.84–30.34,
+38.80–39.44 and 40.38–41.04 s. Filtered, level-matched and faded, 22.05 kHz mono PCM.

@@ -69,10 +69,14 @@ namespace BaseConquest.Base
             RefreshDemoRegion();
             Hud.ClosePanel();
             bool following = BaseAdventure.Following(State, id);
+            if (State.Leaders.Single(l => l.Id == id).WaitingAtRecruitment)
+            {
+                Hud.OpenRecruitDestination(id,id == "partner_craft" ? Hud.OpenSmithFather : Hud.ClosePanel);
+                return;
+            }
             if (id == "partner_farm")
             {
                 Hud.OpenAheResponse(following ? "成，你走前头。我带着弓，替你看住背后。" :
-                    requestFollow && State.Adventure.Members.Count >= BaseAdventure.Capacity ? "队里满了？那我留营，你有事就来叫我。" :
                     "成，我就在田边。要搭手，喊我一声就行。");
             }
             else if (id == "partner_craft") Hud.OpenSmithFather();

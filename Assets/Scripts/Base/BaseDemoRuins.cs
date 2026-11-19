@@ -54,6 +54,7 @@ namespace BaseConquest.Base
                 (id == "partner_craft" && !state.Demo.MetCompanions.Contains(id)) ||
                 state.Leaders.Any(person => person.Id == id) || !Meet(state, id)) return false;
             var person = state.Demo.Candidates.Single(candidate => candidate.Id == id).Copy();
+            var meeting = BaseSpatial.Objects(state).First(o => o.Id == Marker(id));
             person.FacilityId = person.DesiredFacility = person.PartyId = "";
             person.PostLocked = person.Away = person.Resting = false;
             person.AcquisitionSource = "剧情结识 · " + (id == "partner_farm" ? BaseScriptNames.Camp : BaseScriptNames.Town) + "邀请";
@@ -77,7 +78,12 @@ namespace BaseConquest.Base
                 person.MapX = point.X;
                 person.MapY = point.Y;
             }
-            else BaseDevelopment.Allocate(state);
+            else
+            {
+                if (requestFollow && BaseAdventure.Full(state))
+                    BaseAdventure.WaitAtRecruitment(state, person, new BasePoint(meeting.X, meeting.Y));
+                BaseDevelopment.Allocate(state);
+            }
             return true;
         }
         public static string TravelProblem(BaseState state,string target)

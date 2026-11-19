@@ -180,6 +180,7 @@ namespace BaseConquest.Base
             if(!CanAssignLeader(s,leaderId,facility))return false;
             var leader=s.Leaders.Single(x=>x.Id==leaderId);
             if(facility!=""&&BaseAdventure.Contains(s,leaderId)&&!BaseAdventure.SetMember(s,leaderId,false))return false;
+            if (facility != "" && leader.WaitingAtRecruitment) BaseAdventure.StationAtCamp(s,leader);
             leader.FacilityId = leader.DesiredFacility = facility; leader.PostLocked = true; return true;
         }
         public static bool CanAssignLeader(BaseState s,string leaderId,string facility)
@@ -189,6 +190,7 @@ namespace BaseConquest.Base
             if(l==null||l.Away)return false;
             if(facility=="")return true;
             if(s.Leaders.Any(x=>x.Id!=leaderId&&x.FacilityId==facility))return false;
+            if (l.WaitingAtRecruitment) return s.Campaign.Location == "base" && BaseAdventure.WaitingHere(s,l) && BaseDevelopment.CanFight(l);
             if(BaseAdventure.Contains(s,leaderId))return BaseAdventure.ChangeProblem(s,leaderId,false)==""&&BaseAdventure.Alive(l)&&l.Health>0&&!BaseTraining.Busy(l.Training);
             return BaseDevelopment.CanManage(s,l);
         }

@@ -30,6 +30,7 @@ namespace BaseConquest.Editor
             foreach (string id in Enum.GetNames(cueType))
             {
                 var clips = Resources.LoadAll<AudioClip>(Root + id);
+                if (id == "Grunt") Need(clips.Length >= 3 && clips.All(c => c.length > .20f && c.length < .8f), "倒地需要多段短人声");
                 Need(clips.Length > 0 && clips.All(c => c.channels == 1 && c.samples > 0), id + " 缺少动作音效");
             }
 

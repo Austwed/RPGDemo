@@ -150,7 +150,7 @@ namespace BaseConquest.Base
                 label.gameObject.SetActive(false);
                 BattleBoardView.DestroyObject(label.gameObject);
             }
-            labelObjects=owner.DisplayObjects.Where(o=>!BaseEnvironment.Decorative(o)&&o.Id!="demo_sword_prop").ToArray();
+            labelObjects=owner.DisplayObjects.Where(o=>!BaseEnvironment.Decorative(o)&&o.Id!="demo_sword_prop"&&!o.Id.StartsWith("tactic:",StringComparison.Ordinal)).ToArray();
             labels=new RectTransform[labelObjects.Length];
             npcMarkers=new Text[labelObjects.Length];
             for(int i=0;i<labels.Length;i++)

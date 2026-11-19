@@ -35,7 +35,9 @@ namespace BaseConquest.Base
                 if(s.Campaign.Location=="base"&&BaseAdventure.ChangeProblem(s,id,false)=="")
                     replies.Add(new NpcReply("留在营地",()=>SetPartnerFollowing(id,false),nearby));
             }
-            else replies.Add(new NpcReply("邀请随行",()=>SetPartnerFollowing(id,true),nearby&&problem==""));
+            else replies.Add(new NpcReply("邀请随行",()=>SetPartnerFollowing(id,true),nearby&&(BaseAdventure.Full(s)||BaseAdventure.WaitingHere(s,leader)||problem=="")));
+            if (BaseAdventure.WaitingHere(s,leader) || joined && (s.Campaign.Location != "base" || s.Muster.Parties.Count != 0) && problem == "")
+                replies.Add(new NpcReply("回到营地",()=>SendPartnerHome(id),nearby));
             replies.Add(new NpcReply("退出对话",ClosePanel));
             NpcDialogue(new[]{new NpcLine(BasePersonnel.LeaderName(leader),BaseCommanderIdentity.Appearance(leader),BasePartnerDialogue.Resolve(leader,key),leader.Id==s.PlayerLeaderId)},replies.ToArray());
         }
@@ -52,13 +54,39 @@ namespace BaseConquest.Base
 
         private void SetPartnerFollowing(string id, bool follow)
         {
+            if (follow && BaseAdventure.Full(owner.State)) { OpenFullPartyReply(id,ClosePanel); return; }
             if (owner.Change(next =>
             {
                 if (!BaseInteraction.CanReach(next, owner.PresentedObject(id)))
                     throw new InvalidOperationException("请在伙伴旁交谈");
-                if (!BaseAdventure.SetMember(next, id, follow))
+                var person = next.Leaders.Single(l => l.Id == id);
+                if (!(follow && BaseAdventure.WaitingHere(next,person) ? BaseAdventure.InviteWaiting(next,person) : BaseAdventure.SetMember(next, id, follow)))
                     throw new InvalidOperationException(BaseAdventure.ChangeProblem(next, id, follow));
             }, "")) ClosePanel();
+        }
+
+        private void OpenFullPartyReply(string id, Action done)
+        {
+            var person = owner.State.Leaders.Single(l => l.Id == id);
+            NpcDialogue(new[]{new NpcLine(BasePersonnel.LeaderName(person), BaseCommanderIdentity.Appearance(person), BaseAdventure.FullPartyReply)},
+                new[]{new NpcReply("知道了",done)});
+        }
+
+        internal void OpenRecruitDestination(string id, Action done = null)
+        {
+            var person = owner.State.Leaders.Single(l => l.Id == id);
+            Action finish = done ?? ClosePanel;
+            NpcDialogue(new[]{new NpcLine(BasePersonnel.LeaderName(person), BaseCommanderIdentity.Appearance(person),
+                "队伍人满了，我在这儿等，还是先回营地？")},
+                new[]{new NpcReply("先回营地",()=>SendPartnerHome(id,finish)),new NpcReply("先在这里等",finish)});
+        }
+
+        private void SendPartnerHome(string id, Action done = null)
+        {
+            if (!owner.Change(next => {
+                if (!BaseAdventure.SendToCamp(next,id)) throw new InvalidOperationException("现在无法回营。");
+            }, "")) return;
+            (done ?? ClosePanel)();
         }
     }
 }

@@ -48,7 +48,7 @@ namespace BaseConquest.Battle
                     if (FullVision(side)) visible[i][Index(p)] = true;
                 }
                 if(HeightMode&&!FullVision(side))BattleHeightSight.Compute(map,battle.Soldiers.Where(s=>s.Side==side&&s.IsActive).Select(s=>s.Cell),visible[i],terrain[i]);
-                else foreach (BattleSoldier unit in battle.Soldiers.Where(s => s.Side == side && s.IsActive))
+                else if(!FullVision(side)) foreach (BattleSoldier unit in battle.Soldiers.Where(s => s.Side == side && s.IsActive))
                     foreach (GridPosition p in battle.Board.Positions())
                         if (GridPosition.Distance(unit.Cell, p) <= battle.Scenario.VisionRadius && battle.Board.HasLineOfSight(unit.Cell, p)) visible[i][Index(p)] = true;
                 foreach (GridPosition p in battle.Board.Positions())

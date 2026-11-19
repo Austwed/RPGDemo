@@ -776,9 +776,9 @@ namespace BaseConquest.Base
                 string problem = player ? "" : BaseAdventure.ChangeProblem(current, selected.Id, joining);
                 follow.gameObject.SetActive(!player);
                 follow.GetComponentInChildren<Text>().text = joining ? "加入冒险小队" : "留在营地";
-                follow.interactable = problem == "";
+                follow.interactable = problem == "" || problem == BaseAdventure.FullPartyReply;
                 restriction.text = problem;
-                restriction.gameObject.SetActive(problem != "");
+                restriction.gameObject.SetActive(problem != "" && problem != BaseAdventure.FullPartyReply);
                 dismiss.gameObject.SetActive(!player && selected.Rpg != null && !selected.Rpg.Story);
                 dismiss.interactable = BaseRpg.DismissProblem(current, selected.Id) == "";
                 foreach (var (id, (card, normal)) in cards)
@@ -789,6 +789,7 @@ namespace BaseConquest.Base
             {
                 string id = tentLeaderId;
                 bool joining = !BaseAdventure.Contains(owner.State, id);
+                if (joining && BaseAdventure.Full(owner.State)) { OpenFullPartyReply(id,OpenHome); return; }
                 FacilityChange(next =>
                 {
                     if (!BaseAdventure.SetMember(next, id, joining))

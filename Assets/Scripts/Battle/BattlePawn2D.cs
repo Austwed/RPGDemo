@@ -62,6 +62,7 @@ namespace BaseConquest.Battle
             // WorldTransparent.mat keeps this runtime keyword variant in player builds.
             var m = new Material(source); m.SetFloat("_Surface", 1); m.SetFloat("_ZWrite", 0);
             m.SetFloat("_SrcBlend", (int)BlendMode.SrcAlpha); m.SetFloat("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+            m.SetFloat("_SrcBlendAlpha", (int)BlendMode.One); m.SetFloat("_DstBlendAlpha", (int)BlendMode.OneMinusSrcAlpha);
             m.SetFloat("_Cull", 0); m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = (int)RenderQueue.Transparent; return m;
         }
         public void Initialize(BattleSoldier s, Material source)

@@ -8,7 +8,7 @@ namespace BaseConquest.Base
 {
     public sealed class VillageOpeningAudio : MonoBehaviour
     {
-        internal enum Cue { Grass, Stone, Dirt, Page, Assignment, Sword, Bow, WoodHit, Hit, Fall, Hoof, Trade, Recruit, Reward, Forge }
+        internal enum Cue { Grass, Stone, Dirt, Page, Assignment, Sword, Bow, WoodHit, Hit, Grunt, Hoof, Trade, Recruit, Reward, Forge }
         internal enum Place { Silent, Title, Village, Field, Dungeon, Practice, Battle }
 
         private const string Root = "Audio/VillageOpening/";
@@ -32,6 +32,7 @@ namespace BaseConquest.Base
         private AudioSource ambience, score, ruinsScore, battleScore, effects, resultMusic;
         private AudioClip victory, defeat;
         private Sound[] sounds;
+        private readonly System.Random voiceRandom = new System.Random();
         private static VillageOpeningAudio instance;
         private BaseSceneController owner;
         private RealtimeCampaignBattle encounter;
@@ -85,7 +86,7 @@ namespace BaseConquest.Base
                 new Sound(Cue.Page, .37f, .09f), new Sound(Cue.Assignment, .53f, .16f),
                 new Sound(Cue.Sword, .38f, .12f), new Sound(Cue.Bow, .40f, .12f),
                 new Sound(Cue.WoodHit, .49f, .13f), new Sound(Cue.Hit, .47f, .13f),
-                new Sound(Cue.Fall, .46f, .23f), new Sound(Cue.Hoof, .30f, .16f),
+                new Sound(Cue.Grunt, .62f, .12f), new Sound(Cue.Hoof, .30f, .16f),
                 new Sound(Cue.Trade, .53f, 0), new Sound(Cue.Recruit, .54f, 0), new Sound(Cue.Reward, .54f, 0),
                 new Sound(Cue.Forge, .50f, 0)
             };
@@ -189,7 +190,8 @@ namespace BaseConquest.Base
             sound.ReadyAt = Time.unscaledTime + sound.Interval;
             effects.volume = GameAudioVolume.Effects;
             effects.PlayOneShot(sound.Clips[sound.Next], sound.Volume * proximity);
-            sound.Next = (sound.Next + 1) % sound.Clips.Length;
+            int stride = cue == Cue.Grunt && sound.Clips.Length > 1 ? voiceRandom.Next(1, sound.Clips.Length) : 1;
+            sound.Next = (sound.Next + stride) % sound.Clips.Length;
         }
 
         internal void BindBattle(RealtimeCampaignBattle run)
@@ -243,7 +245,7 @@ namespace BaseConquest.Base
             if (!hasAttackRelease) Strike(source);
             var proximity = Near(target);
             Play(Cue.Hit, proximity);
-            if (!target.Alive) Play(Cue.Fall, proximity);
+            if (!target.Alive) Play(Cue.Grunt, proximity);
         }
 
         private void CellEntered(PrototypeUnit actor, int cell)

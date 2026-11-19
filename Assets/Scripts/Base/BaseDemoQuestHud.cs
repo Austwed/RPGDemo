@@ -122,7 +122,7 @@ namespace BaseConquest.Base
 
             var s = owner.State;
             var cue = BaseQuestLog.Cue(s);
-            bool show = !BaseBattleGateway.MainMenu && !owner.DeploymentWorldActive && !owner.CampPlacementMode && cue.Id != null;
+            bool show = !BaseBattleGateway.MainMenu && !owner.DeploymentWorldActive && !owner.CampPlacementMode && !owner.JourneyMapOpen && cue.Id != null;
             bool hero = show && cue.Control == "hero" && heroChoiceLayer != null && heroChoiceLayer.gameObject.activeInHierarchy;
             bool showInstruction = show && !hero && !PanelOpen && !owner.ConstructionMode && !owner.HomeRebuildOverview;
             questBar.gameObject.SetActive(showInstruction);

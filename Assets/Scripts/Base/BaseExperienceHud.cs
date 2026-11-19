@@ -14,6 +14,7 @@ namespace BaseConquest.Base
         private void OpenHelp()
         {
             BeginPanel("帮助");RowButton("返回",0,800,OpenMenu);row+=60;
+            RowButton("战斗与结算",0,800,()=>{BeginPanel("帮助 · 战斗与结算");RowButton("返回帮助",0,800,OpenHelp);row+=60;Line(BaseExperienceRules.FieldBattle,280,20);EndPanel();});row+=60;
             string[] titles={"游戏操作","游戏规则","游戏术语"};
             string[] texts={BaseExperienceRules.Operations,BaseExperienceRules.Rules,BaseExperienceRules.Terms};
             for(int i=0;i<3;i++)

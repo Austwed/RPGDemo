@@ -535,6 +535,11 @@ namespace BaseConquest.Base
         public BaseCampaignSession(BaseCampaignBattle opening, BaseMapSession map = null)
         {
             Opening = opening.Copy();
+            if(Opening.EventId==BaseDemoDefense.EventId||Opening.EventId==BaseDemoDefense.SecondEventId)
+            {
+                BaseDemoDefense.ApplyHomeSight(Opening.Scenario);
+                if(Opening.HasCheckpoint)BaseDemoDefense.ApplyHomeSight(Opening.Checkpoint.Scenario);
+            }
             if(Opening.Rpg!=null){Opening.Rpg.Validate();foreach(var person in Opening.Leaders)if(person.Rpg!=null)person.Rpg.Rules=Opening.Rpg;}
             Battle = Opening.HasCheckpoint ? BattleSimulation.Restore(Opening.Checkpoint,Opening.Rpg!=null) : new BattleSimulation(Opening.Scenario);
             if(Opening.HasCheckpoint)

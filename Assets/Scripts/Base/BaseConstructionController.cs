@@ -164,7 +164,7 @@ namespace BaseConquest.Base
             if(problem!=""){Message=problem;Hud.RefreshSummary();return;}
             Hud.ClosePanel();ClearSelection();constructionResult="";constructionOpen=true;constructionBrush.Select(ConstructionProject.None);
             ConstructionHoverText="选择陷阱、沙袋或拆除工具，再点击格子";
-            Message="建造模式：左侧选项目，点击／拖划连续建造；右键／Esc退出";Hud.RefreshSummary();
+            Message="从下方选择工事，点击或拖划格子建造。";Hud.RefreshSummary();
         }
         public void SelectConstructionProject(ConstructionProject project)
         {

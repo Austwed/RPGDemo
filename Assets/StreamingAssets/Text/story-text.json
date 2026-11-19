@@ -62,6 +62,13 @@
       "revision": 1
     },
     {
+      "key": "story.partner_galan.camp_chat",
+      "group": "伙伴／迦兰",
+      "text": "村民们都怕我，我躲远点。",
+      "notes": "驻营未任职，在兵营东侧台阶后闲聊。",
+      "revision": 1
+    },
+    {
       "key": "story.partner_galan.chat.1",
       "group": "伙伴／迦兰",
       "text": "我答应跟你说古窟的事。你想问什么？",
