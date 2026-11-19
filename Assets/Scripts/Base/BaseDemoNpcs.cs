@@ -30,7 +30,7 @@ namespace BaseConquest.Base
                     original.Blocks,original.SourceObjectId,original.AssetId,original.Kind,false,original.Shape,original.Rotation);
             string sign = RoadSign(original.Id);
             if (sign != null)
-                return new BaseMapObject(original.Id, original.Name, original.X, original.Y, original.Width, original.Height,
+                return new BaseMapObject(original.Id, original.Id == "exit_east" ? BaseScriptNames.Town + " →" : original.Name, original.X, original.Y, original.Width, original.Height,
                     original.Blocks, original.SourceObjectId, sign, "pixel-prop", original.VisualOnly, original.Shape, original.Rotation);
             string name=null,appearance="chenan";
             switch(original.Id)
@@ -66,6 +66,14 @@ namespace BaseConquest.Base
             "exit_east" or "demo_defense_return" or "demo_ruins_exit" or "demo_home_world" or "demo_direct_home" => "road-sign-right",
             "demo_march_exit" => "road-sign-down",
             _ => null
+        };
+
+        internal static BasePoint RoadInward(string id) => RoadSign(id) switch
+        {
+            "road-sign-left" => new BasePoint(1, 0),
+            "road-sign-right" => new BasePoint(-1, 0),
+            "road-sign-down" => new BasePoint(0, 1),
+            _ => default
         };
 
         public static bool NearAzhu(BaseState s)

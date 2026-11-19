@@ -131,7 +131,9 @@ namespace BaseConquest.Base
             if(!OnWorld(state)||Marching(state)||entry.NodeId!=world.NodeId||!world.Discovered.Contains(entryId)||BaseBattleLoot.Pending(state))throw new InvalidOperationException("只能从已抵达地点进入已发现入口");
             var map=BaseSceneInstances.Layout(state,entry.MapId);
             if(map.Region=="base")foreach(var party in state.Muster.Parties.Where(party=>party.Purpose=="expedition").ToArray()){foreach(var quota in state.Supply.Quotas.Where(quota=>quota.PartyId==party.Id).ToArray())if(!BaseSupply.Cancel(state,quota.BattleId))throw new InvalidOperationException("战斗军需未解锁");if(!BaseMuster.Return(state,party.Id,worker=>{worker.Resting=worker.Health<worker.MaxHealth*BaseDevelopment.DutyThreshold;}))throw new InvalidOperationException("出征队无法返营");}
-            world.LastEntryId=entryId;state.Campaign.CurrentMapId=map.SourceMapId;state.Campaign.Location=map.Region;state.PlayerX=entry.X;state.PlayerY=entry.Y;BaseAdventure.Arrive(state);
+            world.LastEntryId=entryId;state.Campaign.CurrentMapId=map.SourceMapId;state.Campaign.Location=map.Region;state.PlayerX=entry.X;state.PlayerY=entry.Y;
+            if(BaseDemo.Active(state))BaseDemoRelease.ArriveAtRoad(state,map.Objects.Single(o=>o.SourceObjectId==entry.ObjectId));
+            BaseAdventure.Arrive(state);
         }
         public static void Start(BaseState state,IEnumerable<string> path)
         {

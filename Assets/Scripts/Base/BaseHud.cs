@@ -286,7 +286,7 @@ namespace BaseConquest.Base
             if (nearbyId != id)
             {
                 nearbyId = id;
-                interact.GetComponentInChildren<Text>().text = nearby == null ? "接近对象后交互" : nearby.Kind == BaseSceneController.BenchSeatKind ? nearby.Name : (nearby.Kind=="npc"||owner.State.Leaders.Any(l=>l.Id==nearby.Id)||nearby.Id.StartsWith("demo_villager")||nearby.Id=="prologue_ahe") ? "交谈 · " + nearby.Name.Replace("伙伴 · ","").Replace(" · 交谈","") : (nearby.Kind=="facility"?"管理 · ":nearby.Id.Contains("exit")||nearby.Id.Contains("travel")||nearby.Id.Contains("trigger")?"前往 · ":"使用 · ")+nearby.Name;
+                interact.GetComponentInChildren<Text>().text = nearby == null ? "接近对象后交互" : nearby.Id == "exit_east" && BaseDemo.Active(owner.State) ? "前往" + BaseScriptNames.Town + " →" : nearby.Kind == BaseSceneController.BenchSeatKind ? nearby.Name : (nearby.Kind=="npc"||owner.State.Leaders.Any(l=>l.Id==nearby.Id)||nearby.Id.StartsWith("demo_villager")||nearby.Id=="prologue_ahe") ? "交谈 · " + nearby.Name.Replace("伙伴 · ","").Replace(" · 交谈","") : (nearby.Kind=="facility"?"管理 · ":nearby.Id.Contains("exit")||nearby.Id.Contains("travel")||nearby.Id.Contains("trigger")?"前往 · ":"使用 · ")+nearby.Name;
                 bool touch = Application.platform == RuntimePlatform.Android;
                 hint.text = owner.PlayerAway ? "主角外出中：入侵信息查看敌情，兵营查看外出队伍" : nearby == null
                     ? touch ? "拖动左侧摇杆移动，靠近人物或设施后点按右侧按钮" : "设施需在边缘一格内且同层；伙伴靠近对话\n电脑：WASD／方向键移动，E交互 · B背包 · N任务 · M地图"

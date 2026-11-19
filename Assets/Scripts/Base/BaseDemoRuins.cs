@@ -104,13 +104,8 @@ namespace BaseConquest.Base
             if(!Enabled(state)||TravelProblem(state,target)!="")return false;
             if(state.Campaign.Location=="base"){state.Campaign.BaseX=state.PlayerX;state.Campaign.BaseY=state.PlayerY;}
             string from=state.Campaign.Location;state.Campaign.Location=target;var layout=BaseSpatial.Layout(state);
-            if(state.Demo.StoryScene?.Version==2)
-            {
-                string marker=target=="base"?"exit_east":target=="town"?(from=="outpost"?"demo_ruins_exit":"travel_base"):"demo_ruins_return";
-                var point=BaseDemoRelease.Landing(state,target,layout.Objects.Single(o=>o.Id==marker));
-                state.PlayerX=point.X;state.PlayerY=point.Y;
-            }
-            else{state.PlayerX=target=="base"?22.4:target=="town"?(from=="outpost"?22.4:2):layout.SpawnX;state.PlayerY=target=="outpost"?layout.SpawnY:6.5;}
+            string marker=target=="base"?"exit_east":target=="town"?(from=="outpost"?"demo_ruins_exit":"travel_base"):"demo_ruins_return";
+            BaseDemoRelease.ArriveAtRoad(state,layout.Objects.Single(o=>o.Id==marker));
             BaseAdventure.Arrive(state);return true;
         }
         public static BattleScenarioDocument Document(BaseState state)

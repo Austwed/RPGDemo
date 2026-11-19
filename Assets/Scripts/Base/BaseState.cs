@@ -118,6 +118,7 @@ namespace BaseConquest.Base
     }
     [Serializable] public sealed class BaseState
     {
+        [NonSerialized] internal BasePoint RoadArrivalFacing;
         public int Version = 1, Day = 1, FoodPaidDay, LastCompletedDay;
         public int TodayFoodRequired, TodayFoodConsumed, TodayFoodMissing;
         public string PlayerLeaderId = "player", TemplateTitle = "", WorkshopProduct = "sword";

@@ -131,7 +131,7 @@ namespace BaseConquest.Base
                     Placement("farm","粮田",6.2,11,5,3,"farm"),
                     Placement("workshop","工坊 · 待修复",19,11,4,3,"workshop",true),
                     Placement("barracks","兵营 · 待修复",12.5,10.9,3.2,2.0,"barracks",true),
-                    new BaseMapPlacement {Id="exit_east",Name="拜访领主 →",X=23.3,Y=6.5,Width=1.2,Height=2}
+                    new BaseMapPlacement {Id="exit_east",Name=BaseScriptNames.Town+" →",X=23.3,Y=6.5,Width=1.2,Height=2}
                 }},
                 new BaseMapLayout {Region="town",Title="领主驻地",SpawnX=12,SpawnY=6.5,Objects=new List<BaseMapPlacement> {
                     new BaseMapPlacement {Id="travel_base",Name="← 返回"+BaseScriptNames.Camp,X=.7,Y=6.5,Width=1.2,Height=2},
@@ -196,6 +196,7 @@ namespace BaseConquest.Base
         {
             if(state?.Demo==null||state.Campaign?.Layouts==null)return;
             BaseDemoRelease.UpgradeHomeField(state);
+            BaseEnvironment.RestoreMissingScenery(state);
             if(state.Campaign.Location=="town")
                 BaseEnvironment.ClearSmithRoad(state.Campaign.Layouts.FirstOrDefault(map=>map.Region=="town"));
             if(!BaseDemoPrologue.Village(state)&&state.Demo.StoryScene?.Version!=2)BaseEnvironment.ClearCampApproach(state);

@@ -125,6 +125,92 @@ namespace BaseConquest.Editor
             Run();
         }
 
+        public static void RunRoadContacts()
+        {
+            stage = "road-boot";
+            Run();
+        }
+
+        private static void TickRoadContacts()
+        {
+            controller = C;
+            if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+            void LoadStage(string name, bool town)
+            {
+                var s = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/" + name + "-male").text);
+                if (town)
+                {
+                    var home = BaseStageWalk.Door(s,"home");
+                    s.PlayerX = home.X; s.PlayerY = home.Y;
+                    BaseInteraction.Facing = default;
+                    if (!BaseDemo.AcknowledgeWaking(s)) throw new InvalidOperationException("营地醒来失败");
+                    var gate = BaseSpatial.Objects(s).Single(o => o.Id == "exit_east");
+                    s.PlayerX = gate.X; s.PlayerY = gate.Y;
+                    if (!BaseCampaign.Travel(s,"town")) throw new InvalidOperationException("前往灰岩镇失败");
+                }
+                BaseBattleGateway.MainMenu = false;
+                controller.SaveStore.RestoreSession(s);
+                controller.LoadSaved();
+            }
+            void WalkGate(string id, Vector2 direction)
+            {
+                H.ClosePanel();
+                var s = controller.State;
+                var gate = BaseSpatial.Objects(s).Single(o => o.Id == id);
+                double half = direction.x != 0 ? gate.BoundsWidth / 2 : gate.BoundsHeight / 2;
+                if (!controller.Change(n => {
+                    n.PlayerX = gate.X - direction.x * (half + .6);
+                    n.PlayerY = gate.Y - direction.y * (half + .6);
+                    BaseAdventure.Arrive(n);
+                }, "")) throw new InvalidOperationException(controller.Message);
+                for (int i = 0; i < 35; i++)
+                {
+                    double distance = (controller.State.PlayerX - gate.X) * direction.x + (controller.State.PlayerY - gate.Y) * direction.y;
+                    MoveSceneExplorer(direction);
+                    if (controller.State.Campaign.Location != s.Campaign.Location)
+                    {
+                        if (distance + .216 < half - .5) throw new InvalidOperationException(id + " 提前触发");
+                        return;
+                    }
+                }
+                throw new InvalidOperationException(id + " 未能步行切图：" + controller.Message);
+            }
+            void Arrival(string id, int inward)
+            {
+                var s = controller.State;
+                var gate = BaseSpatial.Objects(s).Single(o => o.Id == id);
+                if ((s.PlayerX - gate.X) * inward <= gate.BoundsWidth / 2 || BaseInteraction.Facing.X != inward ||
+                    !BaseSpatial.Walkable(s,s.PlayerX,s.PlayerY)) throw new InvalidOperationException(id + " 返回落点或朝向错误");
+            }
+            switch (stage)
+            {
+                case "road-boot": LoadStage("defense", false); stage = "road-field"; break;
+                case "road-field":
+                    if (controller.State.Campaign.Location != "perimeter") return;
+                    H.ClosePanel();
+                    var count = BaseSpatial.Layout(controller.State).Objects.Count(o => o.Kind == "decoration");
+                    var board = BaseBattlefield.Board(controller.State);
+                    if (count < 10 || !board.Cells.Any(c => c.Surface == GroundSurface.DirtPath) || !board.Cells.Any(c => c.Surface == GroundSurface.Grass))
+                        throw new InvalidOperationException("迎敌阶段档布景恢复失败");
+                    Capture("road-stage-field", 1366, 768);
+                    if (!controller.Change(s => {
+                        var edge = BaseSpatial.Nearest(s,new BasePoint(board.Width-.5,2));
+                        s.PlayerX=edge.X; s.PlayerY=edge.Y;
+                    }, "")) throw new InvalidOperationException(controller.Message);
+                    controller.ZoomExplorationFactor(controller.WorldCamera.pixelRect.center,100);
+                    Capture("road-stage-field-edge",1366,768);
+                    Log.Add("迎敌测试档恢复 " + count + " 件装饰");
+                    WalkGate("demo_defense_return",Vector2.right); Arrival("demo_defense_exit",1);
+                    WalkGate("demo_defense_exit",Vector2.left); Arrival("demo_defense_return",-1);
+                    LoadStage("camp", true); stage = "road-town"; break;
+                case "road-town":
+                    if (controller.State.Campaign.Location != "town") return;
+                    WalkGate("demo_ruins_exit",Vector2.right); Arrival("demo_ruins_return",1);
+                    WalkGate("demo_ruins_return",Vector2.left); Arrival("demo_ruins_exit",-1);
+                    Finish(0,"迎敌战场与营地、灰岩镇与野外往返均由实际移动触发，四处落点与朝向通过"); break;
+            }
+        }
+
         public static void RunHomeFieldViews()
         {
             stage="home-field-boot";
@@ -149,6 +235,7 @@ namespace BaseConquest.Editor
             if (!EditorApplication.isPlaying) { Note("等待进入 playmode"); return; }
             if (stage.StartsWith("civilian-", StringComparison.Ordinal)) { TickCivilianWork(); return; }
             if (stage.StartsWith("ruins-exit-", StringComparison.Ordinal)) { TickRuinsExit(); return; }
+            if(stage.StartsWith("road-",StringComparison.Ordinal)){TickRoadContacts();return;}
             if(stage.StartsWith("home-field-",StringComparison.Ordinal)){TickHomeField();return;}
             switch (stage)
             {
@@ -392,6 +479,14 @@ namespace BaseConquest.Editor
                     controller.State.PlayerX = south.X;
                     controller.State.PlayerY = south.Y + south.Height / 2 + BaseMap.Radius + .16;
                     MoveSceneExplorer(Vector2.down);
+                    if (Object.FindAnyObjectByType<BaseWorldJourneyHud>() != null) throw new InvalidOperationException("南口在路牌外误触发");
+                    for (int i = 0; i < 18 && Object.FindAnyObjectByType<BaseWorldJourneyHud>() == null; i++)
+                    {
+                        double previous = controller.State.PlayerY;
+                        MoveSceneExplorer(Vector2.down);
+                        if (Object.FindAnyObjectByType<BaseWorldJourneyHud>() != null && previous - .216 > south.Y - south.Height / 2 + .5)
+                            throw new InvalidOperationException("南口在最下细格前触发");
+                    }
                     var overview = Object.FindAnyObjectByType<BaseWorldJourneyHud>();
                     if (overview == null || H.PanelOpen) throw new InvalidOperationException("南口未直接打开地图");
                     ClickHudButton(overview.transform.Find("WorldMap/Node_home"));
@@ -400,6 +495,9 @@ namespace BaseConquest.Editor
                     PressJourney("返回");
                     if(controller.State.Day!=worldDepartureDay || controller.State.Muster.Parties.Any(p=>p.Purpose=="expedition"))
                         throw new InvalidOperationException("取消查看路线误扣日期或调兵");
+                    if (controller.State.PlayerY <= south.Y + south.Height / 2 || BaseInteraction.Facing.Y != 1)
+                        throw new InvalidOperationException("南口返回未向北落在路牌外");
+                    BaseInteraction.Walk(new BasePoint(0,-1));
                     H.OpenObject("demo_march_exit");
                     var journey = Object.FindAnyObjectByType<BaseWorldJourneyHud>();
                     var map = (RectTransform)journey.transform.Find("WorldMap");

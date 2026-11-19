@@ -61,6 +61,34 @@ namespace BaseConquest.Base
                 else {var original=s.Campaign.Layouts.Single(l=>l.Region==(m.Role=="ruins"?"outpost":"perimeter"));m.Layout=original.Copy();m.Board=BaseBattlefield.Board(s,original.Region).Clone();}
             }
         }
+        // Early stage shortcuts saved the encounter before its scenery had been installed.
+        // Use a copy for dressing so a running campaign keeps its terrain, defences and residents.
+        internal static void RestoreMissingScenery(BaseState state)
+        {
+            if (!BaseDemoRelease.Enabled(state) || !BaseSceneRules.Active(state) || state.Demo.StoryScene?.Valid == true)
+                return;
+            var current = BaseSpatial.Layout(state);
+            if (current == null || current.Region == "world" ||
+                (current.Region == "custom" && current.SourceMapId != "demo_ruins" && current.SourceMapId != BaseSceneRules.DungeonId) ||
+                current.Objects.Any(o => o.Kind == "decoration" || o.Kind == "wildlife"))
+                return;
+            var board = BaseBattlefield.Board(state);
+            var dressed = current.Copy();
+            var ground = board.Clone();
+            Populate(dressed, ground);
+            foreach (var prop in dressed.Objects.Where(o => o.Kind == "decoration" || o.Kind == "wildlife"))
+            {
+                if (prop.Blocks && (prop.Object.Contains(state.PlayerX,state.PlayerY,BaseMap.Radius) ||
+                    state.Leaders.Any(l => l.HasMapPosition && l.MapRegion == state.Campaign.Location &&
+                        prop.Object.Contains(l.MapX,l.MapY,BaseMap.Radius)))) continue;
+                current.Objects.Add(prop);
+            }
+            for (int i = 0; i < board.Cells.Length; i++)
+                if (board.Cells[i].Surface == GroundSurface.Default && board.Cells[i].Terrain == TerrainKind.Ground)
+                    board.Cells[i].Surface = ground.Cells[i].Surface;
+            state.Demo.EnvironmentVersion = 1;
+        }
+
         public static void Populate(BaseMapLayout m,BattleBoard b)
         {
             m.Objects.RemoveAll(o=>o.Id.StartsWith("env_",StringComparison.Ordinal)||o.Id=="ruins_wall");

@@ -164,13 +164,8 @@ namespace BaseConquest.Base
             if(TravelProblem(state,target)!="")return false;
             if(state.Campaign.Location=="base"){state.Campaign.BaseX=state.PlayerX;state.Campaign.BaseY=state.PlayerY;}
             state.Campaign.Location=target;var landing=BaseSpatial.Layout(state);
-            if(state.Demo.StoryScene?.Version==2)
-            {
-                string marker=target=="perimeter"?"demo_defense_return":"demo_defense_exit";
-                var point=BaseDemoRelease.Landing(state,target,landing.Objects.Single(o=>o.Id==marker));
-                state.PlayerX=point.X;state.PlayerY=point.Y;
-            }
-            else{state.PlayerX=target=="perimeter"&&BaseDemoRelease.Enabled(state)?landing.SpawnX:target=="perimeter"?22:1.6;state.PlayerY=target=="perimeter"&&BaseDemoRelease.Enabled(state)?landing.SpawnY:6.5;}
+            string marker=target=="perimeter"?"demo_defense_return":"demo_defense_exit";
+            BaseDemoRelease.ArriveAtRoad(state,landing.Objects.Single(o=>o.Id==marker));
             BaseAdventure.Arrive(state);return true;
         }
         public static BaseCampaignSession Begin(BaseState state,string mode,BaseMusterPlan plan=null)

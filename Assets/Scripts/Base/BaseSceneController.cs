@@ -299,6 +299,12 @@ namespace BaseConquest.Base
             RestoreFallenGalanView();
             BuildMotionChecks(RuntimeDeveloperOptions.Enabled);
             player=Person(explorationActors,"Player",new Vector2((float)(State?.PlayerX??12),(float)(State?.PlayerY??6.5)),new Color(.32f,.73f,.92f));
+            if (State != null && !BaseDemoPrologue.Village(State) && BaseDemo.Active(State))
+            {
+                var facing = BaseInteraction.Facing;
+                player.GetComponent<BattlePawn2D>().SyncExploration(WorldPoint(State.PlayerX,State.PlayerY),
+                    new Color(.32f,.73f,.92f), facing:BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(facing.X,facing.Y,BaseConquest.Presentation.HeroFacing.South));
+            }
             selectionFrame=new GameObject("FreeCellSelection").transform;selectionFrame.SetParent(explorationActors,false);selectionFrame.gameObject.SetActive(false);
             Sunlight=BaseConquest.Presentation.DemoSunlight.Create(this,regionView.Root.transform);
         }
@@ -459,17 +465,28 @@ namespace BaseConquest.Base
             if ((movedX != 0 || movedY != 0) && !Busy && !Hud.PanelOpen && !ConstructionMode && !RebuildPlacementMode &&
                 BaseDemo.Active(State) && !BaseDemoPrologue.Village(State))
             {
+                if (lastTouchedRoad != null && !lastTouchedRoad.Contains(x, y)) lastTouchedRoad = null;
                 foreach (var gate in MapObjects)
-                    if (CrossedRoadEdge(gate, previousX, previousY, x, y) && BaseInteraction.CanReach(State, gate))
+                    if (gate.Id != lastTouchedRoad?.Id && CrossedRoadEdge(gate, previousX, previousY, x, y) && BaseInteraction.CanReach(State, gate))
                     {
+                        lastTouchedRoad = gate;
                         Hud.OpenObject(gate.Id);
                         break;
                     }
             }
         }
-        internal static bool CrossedRoadEdge(BaseMapObject gate, double fromX, double fromY, double toX, double toY) =>
-            gate != null && !gate.VisualOnly && BaseDemoNpcs.RoadSign(gate.Id) != null &&
-            !gate.Contains(fromX, fromY, BaseMap.Radius) && gate.Contains(toX, toY, BaseMap.Radius);
+        private BaseMapObject lastTouchedRoad;
+        internal static bool CrossedRoadEdge(BaseMapObject gate, double fromX, double fromY, double toX, double toY)
+        {
+            if (gate == null || gate.VisualOnly || !gate.Contains(toX, toY)) return false;
+            var inward = BaseDemoNpcs.RoadInward(gate.Id);
+            double along = (toX - fromX) * inward.X + (toY - fromY) * inward.Y;
+            if (along >= -1e-6) return false;
+            double depth = inward.X != 0 ? gate.BoundsWidth : gate.BoundsHeight;
+            double edge = Math.Min(.5, depth) - depth / 2;
+            double after = (toX - gate.X) * inward.X + (toY - gate.Y) * inward.Y;
+            return after <= edge;
+        }
 
         private void RefreshOpeningAudio()
         {
@@ -741,7 +758,14 @@ namespace BaseConquest.Base
                 if(!deploymentChangedMap&&!changedMap)BaseBattlefield.KeepLiveBoard(next,MapSession.Board);
                 State = next; Message = message;
                 // Landing coordinates and followers belong to the destination board.
-                if (changedMap) { fallenGalan = null; ClearWorkerTravel(); return true; }
+                if (changedMap)
+                {
+                    BaseInteraction.Walk(next.RoadArrivalFacing);
+                    lastTouchedRoad = null;
+                    fallenGalan = null;
+                    ClearWorkerTravel();
+                    return true;
+                }
                 Companions.Synchronize(State);
                 if (!DeploymentWorldActive) { PlaceCompanions(); PlacePlayer(); }
                 RefreshFarmVisuals(); if (PlayerAway) ClearSelection(); Hud.RefreshSummary(); return true;

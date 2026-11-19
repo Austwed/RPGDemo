@@ -64,6 +64,7 @@ namespace BaseConquest.Base
             if((context.Region=="world"||context.Region=="outpost")&&!state.Muster.Parties.Any(party=>party.Purpose=="expedition"&&party.Leaders.Any(leader=>leader.LeaderId==state.PlayerLeaderId)))return false;
             if(source.Region=="base"){state.Campaign.BaseX=state.PlayerX;state.Campaign.BaseY=state.PlayerY;}
             state.Campaign.CurrentMapId=target.SourceMapId;state.Campaign.Location=target.Region;state.PlayerX=link.X;state.PlayerY=link.Y;
+            if(BaseDemo.Active(state))BaseDemoRelease.ArriveAtRoad(state,target.Objects.FirstOrDefault(o=>o.SourceObjectId==link.TargetObjectId));
             foreach(var leader in BaseAdventure.Members(state)){leader.UnavailableDay=state.Day;leader.FacilityId="";}
             BaseAdventure.Arrive(state);return true;
         }

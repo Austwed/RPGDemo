@@ -47,6 +47,19 @@ namespace BaseConquest.Base
                 }, "返回" + WorldNodeTitle(world.NodeId))) ReloadTravelRegion();
                 return;
             }
+            var entryObject = State.Campaign.WorldJourney.Entries.FirstOrDefault(item => item.Id == pendingWorldEntry);
+            if (entryObject != null && BaseDemo.Active(State))
+            {
+                var marker = BaseSpatial.Layout(State).Objects.FirstOrDefault(item => item.SourceObjectId == entryObject.ObjectId);
+                if (marker != null && BaseDemoNpcs.RoadSign(marker.Id) != null)
+                {
+                    BaseDemoRelease.ArriveAtRoad(State, marker);
+                    var facing = State.RoadArrivalFacing;
+                    BaseInteraction.Walk(facing);
+                    PlacePlayer(BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(facing.X,facing.Y,BaseConquest.Presentation.HeroFacing.South));
+                    lastTouchedRoad = null;
+                }
+            }
             ClearJourneyMap();
         }
         private void ClearJourneyMap()

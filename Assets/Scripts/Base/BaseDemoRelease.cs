@@ -83,10 +83,41 @@ namespace BaseConquest.Base
         public static BasePoint Landing(BaseState s,string map,BaseMapPlacement marker)
         {
             var board=BaseBattlefield.Board(s,map);var layout=BaseSpatial.Layout(s,map);
-            if(marker.VisualOnly&&s.Demo.StoryScene?.Version==2){marker=marker.Copy();marker.VisualOnly=false;}
-            var points=board.Positions().Select(p=>new BasePoint(p.X+.5,p.Z+.5)).Where(p=>BaseSpatial.Walkable(s,p.X,p.Y,map)&&BaseInteraction.WithinReach(board,marker.Object,p.X,p.Y)).OrderBy(p=>p.Distance(new BasePoint(layout.SpawnX,layout.SpawnY))).ToArray();
+            if(marker.VisualOnly && (s.Demo.StoryScene?.Version==2 || BaseDemoNpcs.RoadSign(marker.Id)!=null)){marker=marker.Copy();marker.VisualOnly=false;}
+            var gate = marker.Object;
+            var inward = BaseDemoNpcs.RoadInward(marker.Id);
+            if (inward.X != 0 || inward.Y != 0)
+            {
+                double half = (inward.X != 0 ? gate.BoundsWidth : gate.BoundsHeight) / 2;
+                var center = new BasePoint(gate.X + inward.X * (half + .5), gate.Y + inward.Y * (half + .5));
+                // Search the inward face first, including off-grid authored doors.
+                for (int step = 0; step <= 3; step++)
+                    for (int offset = 0; offset <= (int)Math.Ceiling((inward.X != 0 ? gate.BoundsHeight : gate.BoundsWidth) * 2); offset++)
+                    {
+                        double side = offset % 2 == 0 ? -offset * .25 : (offset + 1) * .25;
+                        var point = new BasePoint(center.X + inward.X * step * .25 + inward.Y * side,
+                            center.Y + inward.Y * step * .25 + inward.X * side);
+                        if (BaseInteraction.WithinReach(board, gate, point.X, point.Y) && BaseSpatial.Walkable(s, point.X, point.Y, map))
+                            return point;
+                    }
+            }
+            var points=board.Positions().Select(p=>new BasePoint(p.X+.5,p.Z+.5))
+                .Where(p=>BaseInteraction.WithinReach(board,gate,p.X,p.Y) &&
+                    ((inward.X == 0 && inward.Y == 0) || !gate.Contains(p.X,p.Y,BaseMap.Radius)) &&
+                    BaseSpatial.Walkable(s,p.X,p.Y,map))
+                .OrderBy(p=>p.Distance(new BasePoint(layout.SpawnX,layout.SpawnY))).ToArray();
             if(points.Length==0)throw new ArgumentException("出入口没有安全落点："+marker.Id);return points[0];
         }
+        internal static void ArriveAtRoad(BaseState state, BaseMapPlacement marker)
+        {
+            if (marker == null || BaseDemoNpcs.RoadSign(marker.Id) == null) return;
+            string map = BaseSceneInstances.Active(state) ? state.Campaign.CurrentMapId : state.Campaign.Location;
+            var point = Landing(state, map, marker);
+            state.PlayerX = point.X;
+            state.PlayerY = point.Y;
+            state.RoadArrivalFacing = BaseDemoNpcs.RoadInward(marker.Id);
+        }
+
         public static void Validate(BaseState s)
         {
             if(s.Demo==null)return;
