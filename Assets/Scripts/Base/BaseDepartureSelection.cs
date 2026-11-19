@@ -5,10 +5,12 @@ using BaseConquest.Battle;
 
 namespace BaseConquest.Base
 {
-    // 同属性兵桶中的单兵序号只在本次选择快照内有效，不冒充跨日持久身份。
+    // 草案位置由快照保护；固定编号贯穿调岗、出征与读档。
     public sealed class BaseSoldierPick
     {
-        public int BucketIndex, Ordinal;
+        public int BucketIndex, Ordinal, SoldierNumber;
+        public static BaseSoldierPick At(BaseState state, int bucket, int ordinal) => new BaseSoldierPick
+            { BucketIndex = bucket, Ordinal = ordinal, SoldierNumber = state.Workers[bucket].SoldierNumbers[ordinal] };
         public string Key => BucketIndex+":"+Ordinal;
         public BaseSoldierPick Copy() => (BaseSoldierPick)MemberwiseClone();
     }
@@ -26,6 +28,7 @@ namespace BaseConquest.Base
     {
         public static IEnumerable<BaseSoldierRow> SoldierRows(BaseState s, BaseTroopKind kind, string purpose = "")
         {
+            s.EnsureSoldierNumbers();
             foreach(var entry in s.Workers.Select((w,i)=>new {Worker=w,Index=i}).Where(x=>x.Worker.Kind==kind&&x.Worker.Count>0)
                 .OrderByDescending(x=>x.Worker.MaxHealth>0 ? x.Worker.Health/x.Worker.MaxHealth : 0)
                 .ThenBy(x=>x.Worker.FacilityId=="" ? -1 : s.Muster.Facilities.FirstOrDefault(f=>f.FacilityId==x.Worker.FacilityId)?.Priority??0).ThenBy(x=>x.Index))
@@ -34,14 +37,15 @@ namespace BaseConquest.Base
                 var stats=w.HasCombatProfile ? w.CombatStats.Clone() : new ArmyDefinition().Stats(BaseCampaign.ToBattle(kind)).Clone();
                 stats.Health=(float)w.MaxHealth;
                 string reason=w.Away ? "已外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.Eligible(purpose,w) ? "" : "生命低于30%，不能主动出战";
-                for(int n=0;n<w.Count;n++) yield return new BaseSoldierRow {Pick=new BaseSoldierPick {BucketIndex=entry.Index,Ordinal=n},Kind=kind,Stats=stats,
+                for(int n=0;n<w.Count;n++) yield return new BaseSoldierRow {Pick=BaseSoldierPick.At(s,entry.Index,n),Kind=kind,Stats=stats,
                     Health=w.Health,MaxHealth=w.MaxHealth,Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),EffectiveWorker=BaseDevelopment.Effective(s,w),Recruited=w.Recruited,UnavailableReason=reason};
             }
         }
         private static void SelectExactWorkers(BaseState s, BaseMusterPlan plan, BaseArmyPreset preset)
         {
             var picks=plan.ManualPicks;
-            if(picks.Count>90||picks.Any(p=>p==null||p.BucketIndex<0||p.BucketIndex>=s.Workers.Count||p.Ordinal<0||p.Ordinal>=s.Workers[p.BucketIndex].Count||!BaseDevelopment.Eligible(plan.Purpose,s.Workers[p.BucketIndex]))||picks.Select(p=>p.Key).Distinct().Count()!=picks.Count)
+            if(picks.Count>90||picks.Any(p=>p==null||p.BucketIndex<0||p.BucketIndex>=s.Workers.Count||p.Ordinal<0||p.Ordinal>=s.Workers[p.BucketIndex].Count||
+                p.SoldierNumber!=0 && s.Workers[p.BucketIndex].SoldierNumbers[p.Ordinal]!=p.SoldierNumber || !BaseDevelopment.Eligible(plan.Purpose,s.Workers[p.BucketIndex]))||picks.Select(p=>p.Key).Distinct().Count()!=picks.Count)
                 throw new ArgumentException("逐兵选择已变化或包含不可出战／重复单位，请重新选择");
             foreach(var kind in Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>())
             {
@@ -68,7 +72,7 @@ namespace BaseConquest.Base
         {
             var preset=priorityMode=="" ? BaseAdventure.Selection(state,purpose) : BaseMuster.FormationSelection(state,purpose);
             var plan=BaseMuster.Preview(state,purpose,bypass,preset,null,priorityMode);Preset=preset;Stamp=BaseMuster.Snapshot(state);PriorityMode=priorityMode;
-            foreach(var take in plan.Takes)for(int n=0;n<take.Count;n++)Picks.Add(new BaseSoldierPick {BucketIndex=take.BucketIndex,Ordinal=n});
+            foreach(var take in plan.Takes)for(int n=0;n<take.Count;n++)Picks.Add(BaseSoldierPick.At(state,take.BucketIndex,n));
             SynchronizeCounts(state);
         }
         private BaseDepartureSelection() {}
@@ -107,8 +111,8 @@ namespace BaseConquest.Base
                 .OrderByDescending(x=>x.Worker.MaxHealth>0 ? x.Worker.Health/x.Worker.MaxHealth : 0)
                 .ThenBy(x=>x.Worker.FacilityId=="" ? -1 : s.Muster.Facilities.FirstOrDefault(f=>f.FacilityId==x.Worker.FacilityId)?.Priority??0).ThenBy(x=>x.Index))
             {
-                int ordinal=0;while(ordinal<entry.Worker.Count&&Selected(new BaseSoldierPick {BucketIndex=entry.Index,Ordinal=ordinal}))ordinal++;
-                if(ordinal<entry.Worker.Count&&Toggle(s,new BaseSoldierPick {BucketIndex=entry.Index,Ordinal=ordinal},bypass,out error))return true;
+                int ordinal=0;while(ordinal<entry.Worker.Count&&Selected(BaseSoldierPick.At(s,entry.Index,ordinal)))ordinal++;
+                if(ordinal<entry.Worker.Count&&Toggle(s,BaseSoldierPick.At(s,entry.Index,ordinal),bypass,out error))return true;
             }
             return false;
         }

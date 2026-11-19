@@ -153,6 +153,7 @@ namespace BaseConquest.Base
         }
         public static void Allocate(BaseState s)
         {
+            s.EnsureSoldierNumbers();
             Normalize(s);
             bool auto = AutoAssign(s);
             var order = PolicyOrder(s);
@@ -169,7 +170,7 @@ namespace BaseConquest.Base
             void Put(BaseWorkerBucket source, string id, int n)
             {
                 if (n <= 0) return;
-                var w = source.Copy(); w.Count = n; w.FacilityId = id; assigned.Add(w); remaining[source] -= n;
+                var w = source.Slice(source.Count - remaining[source], n); w.FacilityId = id; assigned.Add(w); remaining[source] -= n;
             }
             int Assigned(string id) => assigned.Where(w => w.FacilityId == id).Sum(w => w.Count);
             double ChiefBonus(string id) => 1 + (s.Leaders.FirstOrDefault(l => l.FacilityId == id) is BaseLeader chief ? Bonus(chief, id) : 0);
@@ -249,9 +250,10 @@ namespace BaseConquest.Base
             var groups = new Dictionary<string, BaseWorkerBucket>(); var merged = new List<BaseWorkerBucket>();
             foreach (var w in s.Workers.Where(w => w.Count > 0))
             {
+                if (w.SoldierNumbers == null || w.SoldierNumbers.Count == 0) s.EnsureSoldierNumbers();
                 string key = w.Kind + "|" + w.FacilityId + "|" + w.DesiredFacility + "|" + w.PostLocked + "|" + w.Resting + "|" + w.Away + "|" + w.PartyId + "|" + w.SourceId + "|" + w.UnavailableDay + "|" + w.Health.ToString("R", CultureInfo.InvariantCulture) + "|" + w.MaxHealth.ToString("R", CultureInfo.InvariantCulture) + "|" + w.FarmEfficiency.ToString("R", CultureInfo.InvariantCulture) + "|" + w.WorkshopEfficiency.ToString("R", CultureInfo.InvariantCulture);
-                key += "|" + w.Recruited + "|" + ProfileKey(w.HasCombatProfile,w.CombatStats);
-                if (groups.TryGetValue(key, out var found)) found.Count += w.Count;
+                key += "|" + w.Recruited + "|" + ProfileKey(w.HasCombatProfile,w.CombatStats) + "|" + w.HeldBy + "|" + w.HeldSourceId + "|" + w.PartyOrder;
+                if (groups.TryGetValue(key, out var found)) { found.SoldierNumbers.AddRange(w.SoldierNumbers); found.Count += w.Count; }
                 else { groups.Add(key, w); merged.Add(w); }
             }
             s.Workers = merged;

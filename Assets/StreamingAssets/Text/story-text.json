@@ -340,7 +340,7 @@
     {
       "key": "story.ui.prep.roster",
       "group": "界面／战前准备",
-      "text": "候选名册",
+      "text": "士兵名册",
       "notes": "功能占位，待回稿。"
     },
     {
@@ -418,7 +418,7 @@
     {
       "key": "story.ui.prep.help_roster",
       "group": "界面／战前准备",
-      "text": "选定队长后，可以修改各兵种人数，或在候选名册中点选具体士兵。",
+      "text": "选定队长后，可以修改各兵种人数，或在士兵名册中点选具体士兵。",
       "notes": "功能占位，待回稿。"
     },
     {
@@ -1041,8 +1041,8 @@
     {
       "key": "story.ui.facility.workers",
       "group": "界面／营地设施",
-      "text": "工人名册",
-      "notes": "粮田、工坊工人页。功能占位，待回稿。"
+      "text": "士兵名册",
+      "notes": "粮田与工坊共用。"
     },
     {
       "key": "story.ui.facility.draft",

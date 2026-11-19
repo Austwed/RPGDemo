@@ -21,18 +21,31 @@ namespace BaseConquest.Editor
         private static void VerifyNamedWorker()
         {
             var state = Load("defense");
-            var worker = state.Workers.First(w => !w.Away && w.FacilityId == "farm");
-            var chosen = worker.Copy();
-            chosen.Count = 1;
-            chosen.Health = chosen.MaxHealth * .75;
-            state.Workers.Add(chosen);
-            int unassigned = state.Workers.Where(w => w.Kind == worker.Kind && w.Health == chosen.Health && w.FacilityId == "").Sum(w => w.Count);
-            var move = typeof(BaseEconomy).GetMethod("MoveWorkers", BindingFlags.NonPublic | BindingFlags.Static, null,
-                new[] { typeof(BaseState), typeof(BaseTroopKind), typeof(string), typeof(string), typeof(int), typeof(int?) }, null);
-            Need((bool)move.Invoke(null, new object[] { state, worker.Kind, "farm", "", 1, (int?)(state.Workers.Count - 1) }), "点名调离失败");
-            Need(state.Workers.Where(w => w.Kind == worker.Kind && w.Health == chosen.Health && w.FacilityId == "").Sum(w => w.Count) == unassigned + 1,
-                "点名没有移动所选人员");
-            Debug.Log("[VerifyBattlePreparation] 逐人点名调配 PASS");
+            foreach (var batch in state.Workers) batch.SoldierNumbers = null;
+            state.LastSoldierNumber = 0;
+            BaseEconomy.Validate(state);
+            var original = state.Workers.SelectMany(w => w.SoldierNumbers).ToArray();
+            Need(original.SequenceEqual(Enumerable.Range(1, original.Length)), "旧档首次编号没有沿用原名册顺序");
+            var worker = state.Workers.First(w => !w.Away && w.FacilityId == "farm" && w.Count >= 2);
+            int number = worker.SoldierNumbers[1], neighbor = worker.SoldierNumbers[0];
+            Need(BaseEconomy.MoveWorker(state, number, "farm", ""), "点名调离失败");
+            Need(state.Workers.Single(w => w.SoldierNumbers.Contains(number)).FacilityId == "" &&
+                state.Workers.Single(w => w.SoldierNumbers.Contains(neighbor)).FacilityId == "farm", "同批的另一名士兵被调离");
+            Need(BaseEconomy.MoveWorker(state, number, "", "farm"), "原岗合批失败");
+            BaseDevelopment.Allocate(state);
+            var pick = BaseMuster.SoldierRows(state, worker.Kind).Single(r => r.Pick.SoldierNumber == number).Pick;
+            var preset = state.Muster.Presets.Single(p => p.Purpose == "expedition").Copy();
+            preset.SelectLeaders(new[] { state.PlayerLeaderId });
+            foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind))) preset.SetCount(kind, kind == worker.Kind ? 1 : 0);
+            var plan = BaseMuster.Preview(state, "expedition", true, preset, new[] { pick });
+            Need(BaseMuster.Confirm(state, plan) && state.Workers.Where(w => w.Away).SelectMany(w => w.SoldierNumbers).SequenceEqual(new[] { number }), "出征没有带走点中的士兵");
+            state = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            BaseEconomy.Validate(state);
+            Need(BaseMuster.Return(state, plan.Id) && state.Workers.All(w => !w.Away), "读档归队失败");
+            var roster = BasePersonnel.Soldiers(state).ToList();
+            Need(roster.Select(u => u.SoldierNumber).SequenceEqual(original) &&
+                roster.Single(u => u.SoldierNumber == number).Key == "soldier:" + number, "调岗、出征或读档后人员编号变化");
+            Debug.Log("[VerifyBattlePreparation] 固定编号、逐人调岗、出征与读档归队 PASS");
         }
 
         private static BaseState Load(string id)
@@ -57,6 +70,21 @@ namespace BaseConquest.Editor
             if (!ok) throw new InvalidOperationException(message);
         }
 
+        private static BaseState ReadLegacyRoster(BaseState state)
+        {
+            var legacy = state.Copy();
+            legacy.LastSoldierNumber = 0;
+            foreach (var worker in legacy.Workers) worker.SoldierNumbers = null;
+            foreach (var party in legacy.Muster.Parties)
+                if (party.CommanderTroops != null)
+                    foreach (var team in party.CommanderTroops) team.SoldierNumbers = null;
+            if (legacy.Campaign.HasActiveBattle)
+                foreach (var troop in legacy.Campaign.ActiveBattle.Troops) troop.SoldierNumbers = null;
+            legacy = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(legacy));
+            BaseEconomy.Validate(legacy);
+            return legacy;
+        }
+
         private static void ClearLoot(BaseState state)
         {
             foreach (var prisoner in state.Aftermath.Prisoners.Where(p => p.Status == "held").ToArray())
@@ -75,6 +103,19 @@ namespace BaseConquest.Editor
             Need(draft.Problem(state, true) == "", draft.Problem(state, true));
             var session = draft.Begin(state);
             var battle = new RealtimeCampaignBattle(session);
+            var expected = draft.Units.Where(u => u.SoldierNumber > 0 && draft.Positions.ContainsKey(u.Id))
+                .ToDictionary(u => u.SoldierNumber, u => u.TeamId);
+            var opening = session.Opening;
+            Need(opening.Troops.Count == expected.Count && opening.Troops.Select((troop, i) =>
+                troop.SoldierNumbers.Count == 1 && expected.TryGetValue(troop.SoldierNumbers[0], out var team) &&
+                opening.Leaders[opening.TroopSlots[i]].Id == team).All(matches => matches), "实际出战士兵编号或分队与落位不一致");
+            for (int i = 0; i < opening.Troops.Count; i++)
+            {
+                int number = opening.Troops[i].SoldierNumbers[0];
+                var actor = session.UnitForTroop(i);
+                Need(actor?.SoldierNumber == number && actor.OriginCommanderSlot == opening.TroopSlots[i] &&
+                    actor.Cell.Equals(draft.Positions["soldier:" + number]), "战场实体与所点士兵的编号、队长或部署格不一致");
+            }
             Need(battle.Battle.Phase == BattlePhase.Fighting && battle.Model.Player != null, "草案未开战");
             Need(battle.Model.Units.Count(u => u.Side == PrototypeSide.Ally) == draft.Positions.Count, "未落位人员进了战场");
             Need((int)battle.Model.Player.Position.X == cell.X && (int)battle.Model.Player.Position.Z == cell.Z, "未使用主角落点");
@@ -185,6 +226,13 @@ namespace BaseConquest.Editor
             var restored = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
             BaseEconomy.Validate(restored);
             var resumed = new RealtimeCampaignBattle(new BaseCampaignSession(restored.Campaign.ActiveBattle));
+            var legacyBattle = ReadLegacyRoster(state);
+            var legacyOpening = new BaseCampaignSession(legacyBattle.Campaign.ActiveBattle).Opening;
+            var legacyAway = legacyBattle.Workers.Where(w => w.PartyId == legacyOpening.PartyId).ToArray();
+            var legacyNumbers = legacyOpening.Troops.Select(troop => troop.SoldierNumbers.Single()).ToArray();
+            Need(legacyNumbers.Distinct().Count() == deployed && legacyOpening.Troops.All(troop =>
+                legacyAway.Any(worker => worker.SourceId == troop.SourceId && worker.SoldierNumbers.Contains(troop.SoldierNumbers[0]))),
+                "旧战中存档的参战人员未对回真实出征来源");
             Need(resumed.Model.Player.Position.Equals(battle.Model.Player.Position) &&
                 resumed.Session.Opening.SupplySnapshot.FullConsumptionGrade == 1 &&
                 resumed.Session.Opening.SupplySnapshot.Equipment.Single(entry => entry.Level == 1).Count == deployed, "开战检查点丢失军需或落点");
@@ -215,6 +263,13 @@ namespace BaseConquest.Editor
             At(state, "demo_march_exit");
             BaseDemoFinale.OpenWorld(state);
             var travel = new BaseBattlePreparation(state, BasePrepRoute.Travel);
+            var teamIds = travel.Units.Where(unit => unit.Kind == SoldierKind.Hero && unit.Selected).Select(unit => unit.TeamId).ToArray();
+            var pair = travel.Units.Where(unit => unit.SoldierNumber > 0 && unit.Selected)
+                .GroupBy(unit => unit.Kind).First(group => group.Count() >= 2).Take(2).ToArray();
+            pair[0].TeamId = teamIds[1];
+            pair[1].TeamId = teamIds[0];
+            var departingTeams = travel.Units.Where(unit => unit.SoldierNumber > 0 && unit.Selected)
+                .ToDictionary(unit => unit.SoldierNumber, unit => unit.TeamId);
             Need(BaseMuster.Confirm(state, travel.TravelPlan(state)), "黑鸦寨行军编队失败");
             At(state, "demo_march_exit");
             BaseWorldJourney.EnterWorld(state, "camp_entry");
@@ -222,10 +277,23 @@ namespace BaseConquest.Editor
             Need(BaseWorldJourney.Step(state, _ => null), "行军失败");
             BaseWorldJourney.EnterScene(state, "bandit_entry");
             At(state, "demo_camp_attack");
+            var legacyTravel = ReadLegacyRoster(state);
+            var legacyDraft = new BaseBattlePreparation(legacyTravel, BasePrepRoute.BlackCrow);
+            var legacyParty = legacyTravel.Muster.Parties.Single(p => p.Purpose == "expedition");
+            var expectedCounts = legacyParty.CommanderTroops;
+            Need(expectedCounts.All(team => BattleSimulation.TroopKinds.All(kind =>
+                legacyDraft.Units.Count(unit => unit.Selected && unit.Kind == kind && unit.TeamId == team.LeaderId) ==
+                team.Actual.Count(BaseCampaign.ToBase(kind)))), "旧行军存档没有按原有兵种人数恢复出征分队");
+            state = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            BaseEconomy.Validate(state);
             var attack = new BaseBattlePreparation(state, BasePrepRoute.BlackCrow);
+            var arrived = attack.Units.Where(unit => unit.Selected && unit.SoldierNumber > 0).ToArray();
+            Need(arrived.Length == departingTeams.Count && arrived.All(unit =>
+                departingTeams.TryGetValue(unit.SoldierNumber, out var leader) && leader == unit.TeamId), "行军抵达读档后士兵编号或队长归属变化");
             var party = state.Muster.Parties.Single(p => p.Purpose == "expedition");
             var reserve = state.Workers.Where(w => w.PartyId == party.Id).Sum(w => w.Count);
             Need(reserve > 0, "攻营夹具没有随行士兵");
+            VerifySubsetWound(state.Copy(), party.Id);
             Need(attack.Place(attack.PlayerId, attack.Board.Positions().First(p => attack.CanPlace(attack.PlayerId, p))), "无法仅部署主角");
             Need(attack.SupplyGrade == 0 && attack.RequiredSupply(true) == 0 && attack.SupplyProblem(state, true) == "", "只有队长上场时被要求配军需");
             var encounter = Start(state, attack);
@@ -236,6 +304,36 @@ namespace BaseConquest.Editor
             Need(state.Workers.Where(w => w.PartyId == party.Id).Sum(w => w.Count) == reserve && state.Campaign.Reports.Last().GearLost == 0,
                 "仅队长参战时误扣军需或改动了场外随行士兵");
             Debug.Log("[VerifyBattlePreparation] 首防、第二波、行军、黑鸦寨、军需与存读 PASS");
+        }
+
+        private static void VerifySubsetWound(BaseState state, string partyId)
+        {
+            var source = state.Workers.Where(w => w.PartyId == partyId && w.Health >= w.MaxHealth * BaseDevelopment.DutyThreshold)
+                .OrderByDescending(w => w.Count).First();
+            int chosen = source.SoldierNumbers.Last();
+            var originalHealth = state.Workers.SelectMany(w => w.SoldierNumbers.Select(n => (Number: n, w.Health))).ToDictionary(p => p.Number, p => p.Health);
+            var draft = new BaseBattlePreparation(state, BasePrepRoute.BlackCrow) { SupplyGrade = 1 };
+            foreach (var soldier in draft.Units.Where(u => u.Kind != SoldierKind.Hero))
+            {
+                soldier.Selected = soldier.SoldierNumber == chosen;
+                soldier.TeamId = draft.PlayerId;
+            }
+            draft.AutoPlace();
+            var battle = Start(state, draft);
+            Need(battle.Session.Opening.Troops.Single().SoldierNumbers.Single() == chosen, "攻营快照未带走点中编号");
+            var restored = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            BaseEconomy.Validate(restored);
+            Need(restored.Campaign.ActiveBattle.Troops.Single().SoldierNumbers.Single() == chosen, "战斗读档丢失实际参战编号");
+            var resumed = new RealtimeCampaignBattle(new BaseCampaignSession(restored.Campaign.ActiveBattle));
+            var named = resumed.Session.UnitForTroop(0);
+            Need(named.SoldierNumber == chosen && resumed.Battle.UnitName(named).Contains("#" + chosen), "战场显示的士兵编号与名册不同");
+            BaseDemoFinale.Configure(resumed);
+            var actor = resumed.Model.Units.Single(u => u.Side == PrototypeSide.Ally && u.Role != PrototypeRole.Leader);
+            actor.Health = 7;
+            Win(restored, resumed, () => BaseDemoFinale.Complete(restored, resumed));
+            var after = BasePersonnel.Soldiers(restored).ToDictionary(u => u.SoldierNumber);
+            Need(after.Count == originalHealth.Count && originalHealth.All(p => after[p.Key].Health == (p.Key == chosen ? 7 : p.Value)),
+                "攻营战损写到未上场士兵或改变了编号");
         }
 
         private static void Win(BaseState state, RealtimeCampaignBattle battle, Func<bool> complete)

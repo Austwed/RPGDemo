@@ -34,8 +34,16 @@ namespace BaseConquest.Editor
             Need(state.Demo.Intro.Walked > 0 && BaseDemoIntro.Patrol(state), "散步后无法与阿禾交谈");
             Need(BaseQuestLog.Cue(state).ObjectId == "intro_farm", "派工目标未指向粮田");
             WalkToOpeningObject(state, "intro_farm");
-            Need(BaseDemoIntro.AssignFarm(state, 3) && state.Demo.Intro.Step == 9, "未达到四人便完成粮田任务");
-            Need(BaseDemoIntro.AssignFarm(state, 4) && state.Demo.Intro.Step == 10, "确认四人后未自动推进粮田任务");
+            var villagePosts = BaseDemoIntro.VillagePosts(state.Demo.Intro);
+            Need(villagePosts.SequenceEqual(new[]{"intro_farm","intro_farm","intro_smith","intro_smith"}), "两处设施的初始士兵岗位不一致");
+            villagePosts[3] = "intro_farm";
+            Need(BaseDemoIntro.VillagePosts(state.Demo.Intro)[3] == "intro_smith", "编辑草案改变了实际岗位");
+            Need(BaseDemoIntro.AssignVillagePosts(state, villagePosts) && state.Demo.Intro.Step == 9, "只调第四名士兵后误判完成");
+            var savedPosts = JsonUtility.FromJson<BaseDemoIntroState>(JsonUtility.ToJson(state.Demo.Intro));
+            Need(BaseDemoIntro.VillagePosts(savedPosts).SequenceEqual(villagePosts), "重新读档后第三、第四号士兵的岗位不一致");
+            Need(!BaseDemoIntro.AssignVillagePosts(state, villagePosts), "零变更方案被重复接受");
+            villagePosts[2] = "intro_farm";
+            Need(BaseDemoIntro.AssignVillagePosts(state, villagePosts) && state.Demo.Intro.Step == 10, "确认四人后未自动推进粮田任务");
             WalkToOpeningObject(state, "demo_captain");
             Need(BaseDemoIntro.ReceiveSword(state), "搭档未交付序章短剑");
             Need(BaseQuestLog.Cue(state).Control == "sword", "领取武器后任务未指向背包");

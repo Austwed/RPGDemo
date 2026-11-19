@@ -98,6 +98,12 @@ namespace BaseConquest.Editor
             Run();
         }
 
+        public static void RunSoldierRoster()
+        {
+            stage = "soldiers-boot";
+            Run();
+        }
+
         public static void RunCivilianWork()
         {
             CivilianStage("civilian-boot");
@@ -130,6 +136,70 @@ namespace BaseConquest.Editor
             if (stage.StartsWith("ruins-exit-", StringComparison.Ordinal)) { TickRuinsExit(); return; }
             switch (stage)
             {
+                case "soldiers-boot":
+                    controller = C;
+                    if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    controller.LoadDemoStage("defense", "male");
+                    stage = "soldiers-perimeter";
+                    break;
+                case "soldiers-perimeter":
+                    controller = C;
+                    if (controller?.State?.Campaign.Location != "perimeter" || controller.Busy ||
+                        Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    Approach("demo_defense_return");
+                    controller.TravelDemo("base");
+                    stage = "soldiers-camp";
+                    break;
+                case "soldiers-camp":
+                    controller = C;
+                    if (controller?.State?.Campaign.Location != "base" || controller.Busy ||
+                        Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    VerifySharedSoldiers();
+                    Approach("exit_east");
+                    controller.TravelDemo("town");
+                    stage = "soldiers-recruit";
+                    break;
+                case "soldiers-recruit":
+                    controller = C;
+                    if (controller?.State?.Campaign.Location != "town" || controller.Busy ||
+                        Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    Approach("town_recruit");
+                    H.OpenObject("town_recruit");
+                    if (H.DialogueOpen) { FinishDialogue(); Click("开始招募"); }
+                    var readOnly = RequirePanel("TownTrade").Find("RightBody").GetComponent<ScrollRect>().content;
+                    var soldiers = RosterUnits(readOnly);
+                    if (soldiers.Length != 8 || soldiers.Any(r => r.GetComponent<Button>().interactable))
+                        throw new InvalidOperationException("募兵处未显示全部八名现役士兵");
+                    foreach (var item in soldiers) VerifyRosterRow(item, false);
+                    Capture("roster-recruit");
+                    if (failed) throw new InvalidOperationException("名册截图失败");
+                    Log.Add("[PASS] 募兵处全营八名士兵只读，包括重伤者");
+                    controller.LoadDemoStage("defense", "male");
+                    stage = "soldiers-preparation";
+                    break;
+                case "soldiers-preparation":
+                    controller = C;
+                    if (controller?.State?.Campaign.Location != "perimeter" || controller.Busy ||
+                        Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    Approach("demo_defense_start");
+                    H.OpenObject("demo_defense_start");
+                    var prep = RequirePanel("BattlePreparation");
+                    var prepList = prep.Find("Candidates/List").GetComponent<ScrollRect>().content;
+                    var picked = RosterUnits(prepList).First();
+                    VerifyRosterRow(picked, true);
+                    string before = picked.Find("Status").GetComponent<Text>().text;
+                    ClickHudButton(picked);
+                    if (picked == null || !picked.gameObject.activeInHierarchy || picked.Find("Status").GetComponent<Text>().text == before)
+                        throw new InvalidOperationException("战前点选未就地更新该士兵的分队状态");
+                    Press(picked,"Info");
+                    if (!prep.Find("Candidates/Detail").gameObject.activeInHierarchy)
+                        throw new InvalidOperationException("备战士兵详情没有打开");
+                    Press(prep, "Candidates/Detail/Back");
+                    Capture("roster-preparation", 854, 480);
+                    if (failed) throw new InvalidOperationException("备战名册截图失败");
+                    Log.Add("[PASS] 备战使用单行名册，点行分配士兵，详情按钮单独生效");
+                    Finish(0, "通用士兵名册走查通过");
+                    break;
                 case "skip-boot":
                     controller = C;
                     if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
@@ -1366,13 +1436,12 @@ namespace BaseConquest.Editor
             Canvas.ForceUpdateCanvases();
             typeof(BaseHud).GetMethod("RefreshQuestCue", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(H, null);
             Capture("ui-village-farm-compact");
-            var villagePlus = villageActions.Find("VillageFarmWorkers/Plus");
-            for (int i = 0; i < 2; i++)
-            {
-                Press(villageActions, "VillageFarmWorkers/Plus");
-                if (RequirePanel("FacilityPanel") != villageFarm || villageActions.Find("VillageFarmWorkers/Plus") != villagePlus)
-                    throw new InvalidOperationException("白桦村加派工人时重建了面板");
-            }
+            var villageList = villageFarm.Find("Right/List").GetComponent<ScrollRect>().content;
+            var villageRows = RosterUnits(villageList);
+            if (villageRows.Length != 4) throw new InvalidOperationException("序章没有显示四名护村剑士");
+            foreach (var card in villageRows) VerifyRosterRow(card, false);
+            foreach (var card in villageRows.Where(r => r.Find("Status").GetComponent<Text>().text.Contains("铁匠铺")).ToArray())
+                ClickHudButton(card);
             Click("确认方案");
             H.ContinueDialogue();
             if (controller.State.Demo.Intro.Step != 10 || controller.State.Demo.Intro.FarmWorkers != 4 ||
@@ -2231,14 +2300,125 @@ namespace BaseConquest.Editor
             Log.Add("[PASS] 仓库 24 格铺满左侧、右侧共用背包，贴格双向避让、数量、存取、快取、拖放和重开");
         }
 
+        private static RectTransform[] RosterUnits(Transform list) =>
+            list.Cast<RectTransform>().Where(row => row.gameObject.activeSelf && row.Find("Status") != null &&
+                row.Find("Info") != null).ToArray();
+
         private static void VerifyRosterRow(Transform row, bool infoVisible)
         {
+            Canvas.ForceUpdateCanvases();
             var source = (RectTransform)controller.transform.Find("UI 布局源/PersonnelRosterRow");
-            var label = row.Find("Label")?.GetComponent<Text>();
-            if (row.name != source.name || Mathf.Abs(((RectTransform)row).rect.height - source.rect.height) > .1f ||
-                label == null || label.resizeTextForBestFit || !label.text.Contains("生命") ||
+            var left = row.Find("Label")?.GetComponent<Text>();
+            var right = row.Find("Status")?.GetComponent<Text>();
+            if (left == null || right == null || !left.text.Contains("生命") || string.IsNullOrWhiteSpace(right.text) ||
+                right.text.Contains("攻击") || left.text.Contains("攻 ") || right.text.Contains("防御") ||
+                Mathf.Abs(((RectTransform)row).rect.height - source.rect.height) > .1f ||
                 row.Find("Info").gameObject.activeSelf != infoVisible)
-                throw new InvalidOperationException("名册入口未正确使用场景共用士兵行：" + row.parent.name);
+                throw new InvalidOperationException("名册单行内容不符：" + row.name);
+            foreach (var text in new[] { left, right })
+            {
+                var settings = text.GetGenerationSettings(text.rectTransform.rect.size);
+                var generator = text.cachedTextGenerator;
+                generator.Populate(text.text, settings);
+                if (text.text.Contains("\n") || generator.lineCount != 1 || generator.characterCountVisible == 0)
+                    throw new InvalidOperationException($"名册文字未排在一行：{text.text}，宽度 {text.rectTransform.rect.width}，行数 {generator.lineCount}");
+            }
+            var container = (RectTransform)row;
+            var a = SceneRect(left.rectTransform, container);
+            var b = SceneRect(right.rectTransform, container);
+            if (a.xMax > b.xMin + .1f || Mathf.Abs(a.center.y - b.center.y) > 1f ||
+                (infoVisible && b.xMax > SceneRect((RectTransform)row.Find("Info"), container).xMin + .1f))
+                throw new InvalidOperationException("名册左右文字或详情按钮重叠");
+        }
+
+        private static void VerifySharedSoldiers()
+        {
+            H.ClosePanel();
+            if (!controller.Change(s =>
+            {
+                s.Workers.Clear();
+                foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
+                    s.Workers.Add(new BaseWorkerBucket { Kind = kind, Count = 2, Health = 75, MaxHealth = 100, FacilityId = "workshop", DesiredFacility = "workshop" });
+            }, "六名士兵全在工坊")) throw new InvalidOperationException(controller.Message);
+            var original = BasePersonnel.Units(controller.State).Where(unit => !unit.IsLeader)
+                .OrderBy(unit => unit.SoldierNumber).ToArray();
+            var pick = original[1];
+            var farm = OpenCivilianFacility("farm");
+            var list = farm.Find("Right/List").GetComponent<ScrollRect>().content;
+            var actions = farm.Find("Left/List").GetComponent<ScrollRect>().content;
+            var rows = RosterUnits(list);
+            if (rows.Length != 6 || actions.Find("Melee/Plus").GetComponent<Button>().interactable)
+                throw new InvalidOperationException($"工坊全员案例：粮田列出 {rows.Length}/6 人，加号可用 {actions.Find("Melee/Plus").GetComponent<Button>().interactable}，实岗 {string.Join(",", original.Select(u => u.Facility))}");
+            foreach (var row in rows) VerifyRosterRow(row, false);
+            var chosen = rows.Single(row => row.Find("Label").GetComponent<Text>().text.StartsWith(pick.Name, StringComparison.Ordinal));
+            string originalStatus = chosen.Find("Status").GetComponent<Text>().text;
+            ClickHudButton(chosen);
+            if (chosen == null || RequirePanel("FacilityPanel") != farm || chosen.Find("Status").GetComponent<Text>().text == originalStatus ||
+                BaseEconomy.WorkersAt(controller.State, "farm") != 0)
+                throw new InvalidOperationException("跨设施点名必须原位更新草案");
+            ClickHudButton(chosen);
+            if (chosen.Find("Status").GetComponent<Text>().text != originalStatus || actions.Find("FacilityActionRow/Apply").GetComponent<Button>().interactable)
+                throw new InvalidOperationException("再点同一人没有恢复原岗位");
+            ClickHudButton(chosen);
+            Press(actions, "FacilityActionRow/Cancel");
+            if (chosen.Find("Status").GetComponent<Text>().text != originalStatus)
+                throw new InvalidOperationException("取消草案后未恢复士兵状态");
+            ClickHudButton(chosen);
+            Capture("roster-farm-transfer");
+            Capture("roster-farm-transfer-854x480", 854, 480);
+            Press(actions, "FacilityActionRow/Apply");
+            var catalog = BaseBattleGateway.Catalog();
+            string slot = BaseSaveCatalog.Slots[0];
+            catalog.SaveSlot(slot, controller.State, "点名调工");
+            var saved = BasePersonnel.Units(catalog.LoadSlot(slot)).Where(unit => !unit.IsLeader).OrderBy(unit => unit.SoldierNumber).ToArray();
+            if (!saved.Select(u => u.SoldierNumber).SequenceEqual(original.Select(u => u.SoldierNumber)) ||
+                saved.Single(u => u.SoldierNumber == pick.SoldierNumber).Facility != BaseEconomy.FacilityName("farm") ||
+                BaseEconomy.WorkersAt(controller.State, "workshop") != 5)
+                throw new InvalidOperationException("调动后读档没有保留同一名士兵和正确岗位");
+            var works = OpenCivilianFacility("workshop");
+            if (RosterUnits(works.Find("Right/List").GetComponent<ScrollRect>().content).Length != 6)
+                throw new InvalidOperationException("工坊应仍能看到已调到粮田的士兵");
+            var barracks = OpenCivilianFacility("barracks");
+            var soldier = RosterUnits(barracks.Find("Right/List").GetComponent<ScrollRect>().content)
+                .Single(row => row.Find("Label").GetComponent<Text>().text.StartsWith(pick.Name, StringComparison.Ordinal));
+            ClickHudButton(soldier);
+            if (barracks.Find("Right/Title").GetComponent<Text>().text != "单位详情" ||
+                !barracks.Find("Right").GetComponentsInChildren<Text>().Any(label => label.text.Contains(pick.Name)))
+                throw new InvalidOperationException("兵营点名未显示所点士兵详情");
+            H.ClosePanel();
+            Log.Add("[PASS] 六人全在工坊，粮田可逐人调入、再点撤销、取消及确认；读档保号；兵营点同一人查看详情");
+            if (!controller.Change(s =>
+            {
+                s.Workers.Add(new BaseWorkerBucket { Kind = BaseTroopKind.Melee, Count = 1, Health = 80, MaxHealth = 100, DesiredFacility = "workshop" });
+                s.Workers.Add(new BaseWorkerBucket { Kind = BaseTroopKind.Ranged, Count = 1, Health = 10, MaxHealth = 100 });
+            }, "满岗换人与重伤名册")) throw new InvalidOperationException(controller.Message);
+            farm = OpenCivilianFacility("farm");
+            list = farm.Find("Right/List").GetComponent<ScrollRect>().content;
+            actions = farm.Find("Left/List").GetComponent<ScrollRect>().content;
+            RectTransform RowFor(int number) => (RectTransform)list.Find("Soldier" + number);
+            foreach (var unit in original.Where(unit => unit != pick)) ClickHudButton(RowFor(unit.SoldierNumber));
+            Press(actions, "FacilityActionRow/Apply");
+            if (BaseEconomy.WorkersAt(controller.State, "farm") != 6 || BaseEconomy.CivilianWorkersAt(controller.State, "farm") != 0)
+                throw new InvalidOperationException("六名士兵占满粮田后村民仍在补岗");
+            var replace = BasePersonnel.Units(controller.State).Single(u => !u.IsLeader && u.Facility == BaseEconomy.FacilityName("workshop"));
+            var injured = BasePersonnel.Units(controller.State).Single(u => !u.IsLeader && u.Health == 10);
+            if (RowFor(injured.SoldierNumber).GetComponent<Button>().interactable ||
+                !RowFor(injured.SoldierNumber).Find("Status").GetComponent<Text>().text.Contains("重伤"))
+                throw new InvalidOperationException("重伤士兵未在原名册中显示无法生产的原因");
+            ClickHudButton(RowFor(replace.SoldierNumber));
+            if (!farm.GetComponentsInChildren<Text>().Any(text => text.text.Contains("岗位已满")) ||
+                actions.Find("FacilityActionRow/Apply").GetComponent<Button>().interactable)
+                throw new InvalidOperationException("满岗点击外岗士兵应提示玩家先调出一人");
+            ClickHudButton(RowFor(pick.SoldierNumber));
+            ClickHudButton(RowFor(replace.SoldierNumber));
+            Press(actions, "FacilityActionRow/Apply");
+            var committed = BasePersonnel.Units(controller.State).Where(u => !u.IsLeader).ToDictionary(u => u.SoldierNumber);
+            if (committed[pick.SoldierNumber].Facility != BaseEconomy.FacilityName("") ||
+                committed[replace.SoldierNumber].Facility != BaseEconomy.FacilityName("farm") ||
+                BaseEconomy.WorkersAt(controller.State, "farm") != 6)
+                throw new InvalidOperationException("满岗换人后兵号或岗位不符");
+            H.ClosePanel();
+            Log.Add("[PASS] 六个正式岗位占满时先调出再调入一次确认；村民让位，重伤者保留可读状态");
         }
 
         private static void VerifyPersonTabWidths(Transform trade)
@@ -2529,7 +2709,7 @@ namespace BaseConquest.Editor
             var list = view.Find("Right/List").GetComponent<ScrollRect>();
             if (actions.GetComponentsInChildren<Button>().Any(button => button.name == "Unlock" || button.name == "ManagerLock"))
                 throw new InvalidOperationException("正式粮田界面仍显示自动调工专用的岗位锁");
-            var rows = list.content.Cast<RectTransform>().Where(node => node.name == "PersonnelRosterRow").ToArray();
+            var rows = RosterUnits(list.content);
             if (rows.Length == 0) throw new InvalidOperationException("粮田点名名册没有显示可调士兵");
             foreach (var row in rows) VerifyRosterRow(row, false);
             CaptureViewports("ui-skin-facility-farm");
@@ -2555,8 +2735,8 @@ namespace BaseConquest.Editor
             if (BaseEconomy.WorkersAt(controller.State, "farm") != assigned ||
                 BaseEconomy.WorkersAt((BaseState)Field(H, "workerDraft"), "farm") != assigned)
                 throw new InvalidOperationException("取消点名后岗位未恢复");
-            if (view.Find("Right/Filters").gameObject.activeSelf)
-                throw new InvalidOperationException("生产设施的右栏应只显示工人名册");
+            if (!view.Find("Right/Filters").gameObject.activeSelf)
+                throw new InvalidOperationException("生产设施没有显示士兵名册的兵种筛选");
             var manage = view.Find("PortraitColumn/Manage").GetComponent<Button>();
             var managerOptions = view.Find("PortraitColumn/ManagerOptions");
             if (managerOptions != null && manage.gameObject.activeInHierarchy && manage.interactable)
@@ -2588,7 +2768,7 @@ namespace BaseConquest.Editor
             if (RequirePanel("FacilityPanel") != view || rangeDraft == null || rangeDraft.text != "17")
                 throw new InvalidOperationException("兵营切筛选时丢失左侧范围草案");
             list = view.Find("Right/List").GetComponent<ScrollRect>();
-            var soldier = list.content.Cast<RectTransform>().First(node => node.name == "PersonnelRosterRow");
+            var soldier = RosterUnits(list.content).First();
             VerifyRosterRow(soldier, false);
             CaptureViewports("ui-skin-facility-barracks");
             list.verticalNormalizedPosition = 0;
@@ -2803,7 +2983,7 @@ namespace BaseConquest.Editor
             if (recruitmentPortrait.mainTexture != DemoPortraits.HalfBody("recruiter"))
                 throw new InvalidOperationException("募兵处未使用雷恩的共用半身像");
             var roster = trade.Find("RightBody").GetComponent<ScrollRect>();
-            var rows = roster.GetComponentsInChildren<RectTransform>().Where(node => node.name == "PersonnelRosterRow").ToArray();
+            var rows = RosterUnits(roster.content);
             if (rows.Length == 0 || rows.Length != BasePersonnel.Units(controller.State).Count(unit => !unit.IsLeader) ||
                 !roster.vertical || trade.Find("RightTabs").gameObject.activeSelf)
                 throw new InvalidOperationException("军官处没有在单一滚动列表中显示现役士兵");
@@ -3618,6 +3798,7 @@ namespace BaseConquest.Editor
             string report = campSceneryOnly ? "ui-exploration-framing-report.txt" : androidTouch ? "ui-android-touch-report.txt" :
                 stage == "opening-copy" ? "ui-opening-copy-report.txt" :
                 stage.StartsWith("ruins-exit-", StringComparison.Ordinal) ? "ui-ruins-exit-report.txt" :
+                stage.StartsWith("soldiers-", StringComparison.Ordinal) ? "ui-soldier-roster-report.txt" :
                 stage.StartsWith("civilian-", StringComparison.Ordinal) ? "ui-civilian-work-report.txt" :
                 stage.StartsWith("route-", StringComparison.Ordinal) ? "ui-player-route-views-report.txt" : "ui-skin-report.txt";
             File.WriteAllText(Path.Combine(OutDir, report), string.Join("\n", Log));

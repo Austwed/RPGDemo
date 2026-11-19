@@ -24,7 +24,7 @@ namespace BaseConquest.Base
         private bool prepProduction;
         private ScrollRect prepRoster;
         private readonly Dictionary<string, (RectTransform Card, Color PortraitColor)> prepCards = new();
-        private readonly Dictionary<string, (RectTransform Card, Color Background, Color Text)> prepRows = new();
+        private readonly Dictionary<string, (RectTransform Card, Color Background)> prepRows = new();
         private readonly Dictionary<string, (Button Button, Color Normal)> prepFilters = new();
         private Dictionary<string, BasePersonnelUnit> prepRosterUnits;
         private (GameObject Node, bool Visible)[] deploymentHudVisibility;
@@ -217,7 +217,7 @@ namespace BaseConquest.Base
                 PrepButton(candidates, "Sort" + sort, null, () => SetPrepSort(sort));
             PrepButton(candidates, "Detail/Back", null, () => { prepDetail = ""; RefreshPreparationRoster(); });
             prepRows.Clear();
-            prepRosterUnits = BasePersonnel.Units(state).Where(unit => !unit.IsLeader).ToDictionary(unit => unit.Key);
+            prepRosterUnits = BasePersonnel.Soldiers(state).ToDictionary(unit => unit.Key);
             RefreshPreparationEdits();
             Canvas.ForceUpdateCanvases();
             prepRoster.content.anchoredPosition = new Vector2(0, Mathf.Clamp(prepRosterScroll, 0, Mathf.Max(0, prepRoster.content.rect.height - prepRoster.viewport.rect.height)));
@@ -269,7 +269,7 @@ namespace BaseConquest.Base
         {
             var help = view.Find("HelpOverlay");
             Ui<Text>(help, "Window/Title").text = PrepText("help_title", "备战说明");
-            string roster = PrepText("help_roster", "选定队长后，可以修改各兵种人数，或在候选名册中点选具体士兵。");
+            string roster = PrepText("help_roster", "选定队长后，可以修改各兵种人数，或在士兵名册中点选具体士兵。");
             Ui<Text>(help, "Window/Body").text = roster + "\n\n" + (travel
                 ? PrepText("travel_context", "抵达黑鸦寨后，可在随行人员中重新编队及部署。")
                 : PrepText("help_supply", "每名士兵需要一份军需，所有士兵使用同一等级。仅队长出战时无需军需。") + "\n\n" +
@@ -454,7 +454,7 @@ namespace BaseConquest.Base
         {
             var view = panel.Find("Candidates");
             var activeTeam = PrepLeaders.FirstOrDefault(unit => unit.Id == prepTeam);
-            Ui<Text>(view, "Title").text = PrepText("roster", "候选名册") + (activeTeam == null ? "" : " · " + activeTeam.Name) +
+            Ui<Text>(view, "Title").text = PrepText("roster", "士兵名册") + (activeTeam == null ? "" : " · " + activeTeam.Name) +
                 $" · {PrepText("selected_count", "已选")} {SelectedPrepSoldiers.Count()}/{BaseMuster.BattleSoldierLimit}";
             var theme = DemoUiTheme.Current;
             string selectedFilter = prepKind.HasValue ? BaseCampaign.ToBase(prepKind.Value).ToString() : "All";
@@ -494,7 +494,10 @@ namespace BaseConquest.Base
                 _ => candidates.OrderBy(unit => unit.Kind)
             };
             int index = 0;
-            foreach (var soldier in prepDescending ? sorted.Reverse() : sorted)
+            var ordered = sorted.ThenBy(unit => unit.SoldierNumber);
+            var teamLabels = PrepLeaders.Where(team => team.Selected).Select((team, slot) => (team.Id, label: (char)('A' + slot) + "队"))
+                .ToDictionary(team => team.Id, team => team.label);
+            foreach (var soldier in prepDescending ? ordered.Reverse() : ordered)
             {
                 var entry = prepRosterUnits[soldier.Id];
                 if (!prepRows.TryGetValue(soldier.Id, out var row))
@@ -508,8 +511,8 @@ namespace BaseConquest.Base
                         prepRoster.StopMovement();
                         prepDetail = soldier.Id;
                         RefreshPreparationRoster();
-                    }, showStats: false);
-                    row = (card, Ui<Image>(card, "").color, Ui<Text>(card, "Label").color);
+                    });
+                    row = (card, Ui<Image>(card, "").color);
                     prepRows.Add(soldier.Id, row);
                 }
 
@@ -518,10 +521,9 @@ namespace BaseConquest.Base
                 row.Card.gameObject.SetActive(true);
                 Ui<Button>(row.Card, "").interactable = activeTeam?.Selected == true;
                 Ui<Image>(row.Card, "").color = soldier.Selected ? Color.Lerp(row.Background, theme.Gold, .38f) : row.Background;
-                string assigned = soldier.Selected ? PrepLeaders.FirstOrDefault(team => team.Id == soldier.TeamId)?.Name ?? "" : PrepText("unselected", "待选");
-                var label = Ui<Text>(row.Card, "Label");
-                label.text = PersonnelRowLabel(entry, $"{(soldier.Selected ? "● " : "○ ")}{assigned} · {entry.State}", false, false);
-                label.color = soldier.Selected && PrepLowHealth(owner.State, soldier) ? PrepInvalid : row.Text;
+                string status = soldier.Selected && teamLabels.TryGetValue(soldier.TeamId, out var assigned)
+                    ? $"{assigned} · {entry.Facility} · {entry.State}" : $"{entry.Facility} · {entry.State}";
+                UpdatePersonnelRow(row.Card, entry, status, showFacility: false, warning: soldier.Selected && PrepLowHealth(owner.State, soldier));
             }
         }
 

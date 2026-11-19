@@ -9,33 +9,34 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        private int personnelFilter,personnelPage;
+        private int personnelFilter;
         private static string RosterText(string key, string fallback) => StoryText.Get("story.ui.roster." + key, fallback);
         private RectTransform AddPersonnelRow(Transform list, BasePersonnelUnit unit, string status, Action select,
-            bool available = true, bool selected = false, bool warning = false, bool useCurrentStats = false,
-            Action details = null, bool showStats = true, bool showFacility = true)
+            bool available = true, bool selected = false, bool warning = false, Action details = null, bool showFacility = true)
         {
             var card = CloneSceneUi("PersonnelRosterRow", list);
             bool touch = Application.platform == RuntimePlatform.Android;
-            if (touch) card.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(card.rect.height, 60));
+            if (touch) card.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(card.rect.height, 48));
             Ui<LayoutElement>(card, "").preferredHeight = card.rect.height;
             var button = Ui<Button>(card, "");
-            var label = Ui<Text>(card, "Label");
-            if (touch) label.fontSize = Mathf.Max(label.fontSize, 19);
-            label.text = PersonnelRowLabel(unit, status, useCurrentStats, showStats, showFacility);
+            if (select == null) button.transition = Selectable.Transition.None;
+            else button.onClick.AddListener(() => { if (!owner.Busy) select(); });
             button.interactable = available && select != null;
-            if (select != null) button.onClick.AddListener(() => { if (!owner.Busy) select(); });
-            else button.transition = Selectable.Transition.None;
             var info = Ui<Button>(card, "Info");
-            if (touch) ResizeTouchButton(info, 48, 20);
             info.gameObject.SetActive(details != null);
-            if (details != null) info.onClick.AddListener(() => { if (!owner.Busy) details(); });
+            if (details != null)
+            {
+                if (touch) ResizeTouchButton(info, 44, 18);
+                info.onClick.AddListener(() => { if (!owner.Busy) details(); });
+                var textArea = Ui<Text>(card, "Status").rectTransform;
+                textArea.offsetMax = new Vector2(((RectTransform)info.transform).offsetMin.x - 4f, textArea.offsetMax.y);
+            }
+            UpdatePersonnelRow(card, unit, status, showFacility, warning);
             if (selected)
             {
                 var background = Ui<Image>(card, "");
                 background.color = Color.Lerp(background.color, DemoUiTheme.Current.Gold, .38f);
             }
-            if (warning) label.color = new Color32(150, 35, 28, 255);
             if (list == content)
             {
                 card.anchorMin = card.anchorMax = new Vector2(.5f, 1);
@@ -45,27 +46,31 @@ namespace BaseConquest.Base
             }
             return card;
         }
-        private static string PersonnelRowLabel(BasePersonnelUnit unit, string status, bool useCurrentStats, bool showStats, bool showFacility = true)
+
+        private static void UpdatePersonnelRow(RectTransform card, BasePersonnelUnit unit, string status,
+            bool showFacility = true, bool warning = false)
         {
-            var stats = useCurrentStats ? unit.Current : unit.Basic;
-            string combat = showStats ? $" · 攻 {stats.Damage:0.#} 防 {stats.Defense:0.#}" : "";
-            string location = showFacility ? unit.Facility + " · " + status : status;
-            return $"{unit.Name} · 生命 {unit.Health:0.#}/{unit.MaxHealth:0.#}{combat}\n{location}";
+            Ui<Text>(card, "Label").text = $"{unit.Name}  生命 {unit.Health:0.#}/{unit.MaxHealth:0.#}";
+            var right = Ui<Text>(card, "Status");
+            if (string.IsNullOrEmpty(status)) status = unit.State;
+            right.text = showFacility && !string.IsNullOrEmpty(unit.Facility) ? unit.Facility + " · " + status : status;
+            right.color = warning ? new Color32(150, 35, 28, 255) : DemoUiTheme.Current.Ink;
         }
+
         private void PersonnelRoster()
         {
             var s=owner.State;var kinds=new[]{SoldierKind.Hero,SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry};
             if(BaseRpg.Active(s)){RowButton("俘虏名册 · "+s.Aftermath.Prisoners.Count(p=>p.Status=="held"),0,800,OpenHeldPrisoners);row+=60;}
-            for(int i=0;i<kinds.Length;i++){int index=i;RowButton((personnelFilter==i ? "● " : "")+BattleSimulation.KindName(kinds[i]),-315+i*210,200,()=>{personnelFilter=index;personnelPage=0;OpenBarracks();});}row+=60;
-            var units=BasePersonnel.Units(s).Where(u=>u.Kind==kinds[personnelFilter]).ToArray();int pages=Math.Max(1,(units.Length+7)/8);personnelPage=Math.Max(0,Math.Min(pages-1,personnelPage));
+            for(int i=0;i<kinds.Length;i++){int index=i;RowButton((personnelFilter==i ? "● " : "")+BattleSimulation.KindName(kinds[i]),-315+i*210,200,()=>{personnelFilter=index;OpenBarracks();});}row+=60;
+            var kind=kinds[personnelFilter];
+            var units=(kind==SoldierKind.Hero ? BasePersonnel.Leaders(s) : BasePersonnel.Soldiers(s,kind)).ToArray();
             Line("共 "+units.Length+"人；点击单位查看完整属性、工作与粮草／装备效果。",54,18);
             string stamp=BaseMuster.Snapshot(s);
-            foreach(var u in units.Skip(personnelPage*8).Take(8))
+            foreach(var u in units)
             {
                 string key=u.Key;
-                AddPersonnelRow(content, u, u.State, () => OpenPersonnelDetail(key, stamp), useCurrentStats: true);
+                AddPersonnelRow(content, u, u.State, () => OpenPersonnelDetail(key, stamp));
             }
-            RowButton("上一页",-290,240,()=>{personnelPage--;OpenBarracks();},personnelPage>0);Label(content,"第 "+(personnelPage+1)+"／"+pages+" 页",new UnityEngine.Vector2(0,-row-26),new UnityEngine.Vector2(240,48),18,UnityEngine.TextAnchor.MiddleCenter,new UnityEngine.Vector2(.5f,1));RowButton("下一页",290,240,()=>{personnelPage++;OpenBarracks();},personnelPage+1<pages);row+=60;
             Line(UnitDisplayNames.Mark("棕色姓名",true)+"：通过劝降加入。仅标记来源，工作、伤情、编队与战斗规则相同。",70,18);
         }
         private void OpenHeldPrisoners()
@@ -90,7 +95,9 @@ namespace BaseConquest.Base
         }
         private void OpenPersonnelDetail(string key,string stamp,Action back=null,string backLabel="返回对话")
         {
-            var s=owner.State;var u=BaseMuster.Snapshot(s)==stamp ? BasePersonnel.Units(s).FirstOrDefault(u=>u.Key==key) : null;
+            var s=owner.State;
+            var roster=key.StartsWith("leader:",StringComparison.Ordinal) ? BasePersonnel.Leaders(s) : BasePersonnel.Soldiers(s);
+            var u=BaseMuster.Snapshot(s)==stamp ? roster.FirstOrDefault(unit=>unit.Key==key) : null;
             string title = u?.IsLeader == true && BaseDemo.Active(s) ? "队长详情" : "兵营 · 单位详情";
             BeginPanel(title,"personnel:"+key);
             RowButton(back==null?"返回名册":backLabel,-210,400,back??(()=>{activePage="roster";OpenBarracks();}));

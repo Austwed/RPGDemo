@@ -14,7 +14,8 @@ namespace BaseConquest.Base
     {
         public string LeaderId;
         public BaseCommanderTroops Requested=new BaseCommanderTroops(),Actual=new BaseCommanderTroops();
-        public BaseCommanderAllocation Copy()=>new BaseCommanderAllocation {LeaderId=LeaderId,Requested=Requested.Copy(),Actual=Actual.Copy()};
+        public List<int> SoldierNumbers;
+        public BaseCommanderAllocation Copy()=>new BaseCommanderAllocation {LeaderId=LeaderId,Requested=Requested.Copy(),Actual=Actual.Copy(),SoldierNumbers=SoldierNumbers?.ToList()};
     }
     public sealed class BaseProductionDay
     {
@@ -55,7 +56,7 @@ namespace BaseConquest.Base
         }
         public static List<BaseCommanderAllocation> Distribute(IEnumerable<BaseCommanderAllocation> requested,Func<BaseTroopKind,int> available,bool allowExtra=false)
         {
-            var rows=requested.Select(r=>new BaseCommanderAllocation {LeaderId=r.LeaderId,Requested=r.Requested.Copy()}).ToList();
+            var rows=requested.Select(r=>r.Copy()).ToList();
             foreach(BaseTroopKind k in Enum.GetValues(typeof(BaseTroopKind)))
             {
                 int left=available(k);
@@ -68,7 +69,33 @@ namespace BaseConquest.Base
         public static List<BaseCommanderAllocation> CurrentFormation(BaseState s,BaseOutsideParty party)
         {
             if(party.CommanderTroops==null)return null;
-            return Distribute(party.CommanderTroops,k=>s.Workers.Where(w=>w.Away&&w.PartyId==party.Id&&w.Kind==k).Sum(w=>w.Count),true);
+            var soldiers = s.Workers.Where(worker => worker.Away && worker.PartyId == party.Id)
+                .SelectMany(worker => worker.SoldierNumbers.Select(number => (number, worker.Kind))).ToArray();
+            var kinds = soldiers.ToDictionary(soldier => soldier.number, soldier => soldier.Kind);
+            var assigned = new HashSet<int>();
+            var rows = party.CommanderTroops.Select(group => group.Copy()).ToList();
+            foreach (var row in rows)
+            {
+                var previous = row.SoldierNumbers;
+                row.Actual = new BaseCommanderTroops();
+                row.SoldierNumbers = new List<int>();
+                if (previous == null) continue;
+                foreach (int number in previous)
+                    if (kinds.TryGetValue(number, out var kind) && assigned.Add(number)) Add(row, number, kind);
+            }
+            foreach (var (number, kind) in soldiers)
+            {
+                if (assigned.Contains(number)) continue;
+                var team = rows.FirstOrDefault(row => row.Actual.Count(kind) < row.Requested.Count(kind)) ?? rows[0];
+                Add(team, number, kind);
+            }
+            return rows;
+
+            static void Add(BaseCommanderAllocation team, int number, BaseTroopKind kind)
+            {
+                team.SoldierNumbers.Add(number);
+                team.Actual.Set(kind, team.Actual.Count(kind) + 1);
+            }
         }
         private static void SetFormation(BaseState s,BaseMusterPlan plan)
         {

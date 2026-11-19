@@ -189,7 +189,7 @@ namespace BaseConquest.Battle
             selection.Set(new[] { id });
             deployArmed = false;
             commandTool = CommandTool.None; skillArmed = false; values.Clear(); orderOverlay.Invalidate();
-            feedback = "已选中" + BattleSimulation.SideName(s.Side) + BattleSimulation.KindName(s.Kind) + " #" + (s.Id + 1);
+            feedback = "已选中" + battle.UnitName(s);
             SyncViews(); return true;
         }
         private void SelectGroup(BattleSide side, SoldierKind kind)

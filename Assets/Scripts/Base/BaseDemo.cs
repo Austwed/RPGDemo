@@ -93,6 +93,7 @@ namespace BaseConquest.Base
             BaseDemoFinale.PrepareOpening(state);
             state.Leaders.RemoveAll(leader=>leader.Id!=state.PlayerLeaderId);
             state.Workers.Clear();
+            state.LastSoldierNumber = 0;
             var player=state.Leaders.Single();player.FacilityId=player.DesiredFacility="";player.HasMapPosition=player.HasHomePosition=false;
             player.AcquisitionSource="主角 · "+BaseScriptNames.Village+"序章";player.AcquisitionDay=state.Day;
             state.Adventure.Members=new List<string>{state.PlayerLeaderId};

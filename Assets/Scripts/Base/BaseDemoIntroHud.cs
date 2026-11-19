@@ -11,7 +11,6 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        private int introFarmDraft=-1;
         internal void OpenPracticeResult(bool completed)
         {
             string text=completed
@@ -192,9 +191,10 @@ namespace BaseConquest.Base
         {
             var s=owner.State;var i=s.Demo.Intro;
             bool farm=id=="intro_farm",canAssign=BaseDemoIntro.Daily(s)&&i.Step>=9;
-            if(activeObject!=id||!PanelOpen)introFarmDraft=i.FarmWorkers;
+            var actual = BaseDemoIntro.VillagePosts(i);
+            var draft = actual.ToArray();
             activeObject=id;
-            var (actions,filters,list)=OpenFacilityPanel(id,farm?"村庄粮田":"小铁匠铺","岗位与生产","村庄工人");
+            var (actions,filters,list)=OpenFacilityPanel(id,farm?"村庄粮田":"小铁匠铺","岗位与生产",FacilityCopy("workers", "士兵名册"));
             const float height = 370;
             float shrink = panel.rect.height - height;
             panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
@@ -212,23 +212,42 @@ namespace BaseConquest.Base
             var foodLabel = FacilityText(actions,"");
             var smithLabel = FacilityText(actions,"");
             var rosterHeading = FacilityText(filters,"",true);
-            var workerLabels = new Text[4];
-            for (int n=0;n<workerLabels.Length;n++) workerLabels[n]=FacilityText(list,"");
             RectTransform counter = null;
             Button apply = null, cancel = null;
+            var soldiers = new BasePersonnelUnit[4];
+            var cards = new RectTransform[soldiers.Length];
+            Color rosterColor = DemoUiTheme.Current.Button;
+            for (int n = 0; n < soldiers.Length; n++)
+            {
+                int index = n;
+                var unit = new BasePersonnelUnit { SoldierNumber=n+1, Name="剑士 #" + (n+1), Health=100, MaxHealth=100, Kind=SoldierKind.Melee };
+                soldiers[n] = unit;
+                cards[n] = AddPersonnelRow(list, unit, "", () =>
+                {
+                    draft[index] = draft[index] != actual[index] ? actual[index] : draft[index] == id ? "" : id;
+                    RefreshStaffing();
+                }, canAssign, showFacility:false);
+                cards[n].name = "Soldier" + (n+1);
+                rosterColor = cards[n].GetComponent<Image>().color;
+            }
             if(canAssign)
             {
                 counter=FacilityCounter(actions,"VillageFarmWorkers","",
-                    ()=>{introFarmDraft--;RefreshStaffing();},()=>{introFarmDraft++;RefreshStaffing();},false,false);
+                    ()=>AdjustCount(id, ""),()=>AdjustCount("", id),false,false);
                 counter.Find("Unlock").gameObject.SetActive(false);
                 apply=FacilityButton(actions,"Apply","确认方案",()=>{
-                    int before=owner.State.Demo.Intro.FarmWorkers,step=owner.State.Demo.Intro.Step,workers=introFarmDraft;
-                    if(!owner.Change(next=>{if(!BaseDemoIntro.AssignFarm(next,workers))throw new InvalidOperationException("请靠近粮田或铁匠铺再安排岗位");},""))return;
-                    if (workers != before)
+                    int step=owner.State.Demo.Intro.Step;
+                    if (!owner.Change(next =>
                     {
-                        owner.OpeningAudio?.Play(VillageOpeningAudio.Cue.Assignment);
-                        owner.EnqueueWorkerTransfer(BaseTroopKind.Melee, workers > before ? "intro_smith" : "intro_farm", workers > before ? "intro_farm" : "intro_smith", Math.Abs(workers - before));
-                    }
+                        if (!BaseDemoIntro.VillagePosts(next.Demo.Intro).SequenceEqual(actual) || !BaseDemoIntro.AssignVillagePosts(next,draft))
+                            throw new InvalidOperationException("岗位已变化，请重新打开设施。");
+                    }, "")) return;
+                    owner.OpeningAudio?.Play(VillageOpeningAudio.Cue.Assignment);
+                    for (int n = 0; n < draft.Length; n++)
+                        if (actual[n] != draft[n])
+                            owner.EnqueueWorkerTransfer(BaseTroopKind.Melee, actual[n] == "" ? "village_house" : actual[n],
+                                draft[n] == "" ? "village_house" : draft[n], 1);
+                    actual = draft.ToArray();
                     if(step==9&&owner.State.Demo.Intro.Step==10)
                         NpcDialogue(new[]{
                             new NpcLine("阿禾","ahe","人齐了！趁地还润着，这就把晚麦种下。"),
@@ -236,38 +255,53 @@ namespace BaseConquest.Base
                         },Array.Empty<NpcReply>(),onCompleted:ClosePanel,guide:true);
                     else RefreshStaffing();
                 },false);
-                cancel=FacilityButton(actions,"Cancel","取消方案",()=>{introFarmDraft=owner.State.Demo.Intro.FarmWorkers;RefreshStaffing();},false);
+                cancel=FacilityButton(actions,"Cancel","取消方案",()=>{draft=actual.ToArray();RefreshStaffing();},false);
             }
             else FacilityText(actions,BaseDemoIntro.Daily(s)?"先到田埂边听阿禾说说今天的人手安排。":"村民正准备撤离，暂时不派工。");
             RefreshStaffing();
             FinishFacilityPanel();
 
+            void AdjustCount(string from, string to)
+            {
+                int index = Array.FindIndex(draft, post => post == from);
+                if (index < 0) return;
+                draft[index] = to;
+                RefreshStaffing();
+            }
+
+            string PostName(string post) => post == "intro_farm" ? "粮田" : post == "intro_smith" ? "铁匠铺" : "闲置";
+
             void RefreshStaffing()
             {
                 var current=owner.State;
-                int actual=current.Demo.Intro.FarmWorkers;
-                introFarmDraft=Mathf.Clamp(introFarmDraft,2,4);
-                int smithWorkers=4-introFarmDraft, onsite=farm?introFarmDraft:smithWorkers;
-                int food=(int)Math.Floor(introFarmDraft*current.Rules.FarmPerWorker),need=BaseDemoIntro.VillageFood(current);
+                int farmWorkers=draft.Count(post=>post=="intro_farm"), smithWorkers=draft.Count(post=>post=="intro_smith");
+                int onsite=farm?farmWorkers:smithWorkers;
+                int food=(int)Math.Floor(farmWorkers*current.Rules.FarmPerWorker),need=BaseDemoIntro.VillageFood(current);
                 posts.text=$"岗位 · {onsite}/4";
                 foodLabel.text=$"粮食预计 +{food} · 口粮 {need} · 净增 {(food-need):+0;-0;0}";
                 smithLabel.text=$"铁匠铺预计 {smithWorkers*current.Rules.WorkshopPerWorker:0.#} 工作点／日";
-                rosterHeading.text=$"粮田 {introFarmDraft} 人 · 铁匠铺 {smithWorkers} 人";
-                for (int n=0;n<workerLabels.Length;n++)
+                rosterHeading.text=$"粮田 {farmWorkers} 人 · 铁匠铺 {smithWorkers} 人";
+                for (int n=0;n<cards.Length;n++)
                 {
-                    bool onFarm=n<introFarmDraft;
-                    string post=onFarm?"粮田":"铁匠铺";
-                    workerLabels[n].text=$"村庄剑士 {n+1} · {post}"+(onFarm==(n<actual)?"":" · 待调配");
+                    bool changed = actual[n] != draft[n];
+                    string status = changed ? "待调 " + PostName(actual[n]) + "→" + PostName(draft[n]) + " · 可生产"
+                        : PostName(actual[n]) + " · 今日可生产";
+                    UpdatePersonnelRow(cards[n], soldiers[n], status, showFacility:false);
+                    cards[n].GetComponent<Button>().targetGraphic.color = changed ? Color.Lerp(rosterColor, DemoUiTheme.Current.Gold, .38f) : rosterColor;
                 }
                 if(counter==null)return;
-                Ui<Text>(counter,"Label").text=$"粮田工人  {introFarmDraft}";
-                Ui<Button>(counter,"Minus").interactable=introFarmDraft>2;
-                var plus=Ui<Button>(counter,"Plus");
-                plus.interactable=introFarmDraft<4;
-                bool pending=introFarmDraft!=actual;
+                Ui<Text>(counter,"Label").text=$"剑士  {onsite}";
+                Ui<Button>(counter,"Minus").interactable=onsite>0;
+                Ui<Button>(counter,"Plus").interactable=Array.IndexOf(draft, "") >= 0;
+                bool pending=!draft.SequenceEqual(actual);
                 apply.interactable=cancel.interactable=pending;
                 apply.targetGraphic.color=pending ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;
-                questFarmTarget=(RectTransform)(plus.interactable ? plus.transform : apply.transform);
+                if (farm)
+                {
+                    int next = Array.FindIndex(draft, post => post != "intro_farm");
+                    questFarmTarget = next < 0 ? (RectTransform)apply.transform : cards[next];
+                }
+                else questFarmTarget = (RectTransform)(pending ? apply : Ui<Button>(panel, "Close")).transform;
                 RefreshQuestCue();
             }
         }

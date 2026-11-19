@@ -8,13 +8,12 @@ namespace BaseConquest.Base
         private BaseDepartureSelection departure;
         private string departureKey, departureMessage="";
         private BaseTroopKind? departureExpanded;
-        private int departureUnitPage;
         private void OpenDepartureReview(string location,string eventId=null,string mode="full",bool bypass=false)
         {
             string purpose=location=="world"||location=="outpost" ? "expedition" : "defense",key=location+":"+eventId;
             var s=owner.DepartureState(location);var existing=s.Muster.Parties.FirstOrDefault(p=>p.Purpose==purpose);
             if(existing==null&&(departureKey!=key||departure==null||departure.Stamp!=BaseMuster.Snapshot(s)))
-            {departureKey=key;departure=new BaseDepartureSelection(s,purpose,bypass,bypass ? "combat" : "production");departureExpanded=null;departureUnitPage=0;departureMessage="";}
+            {departureKey=key;departure=new BaseDepartureSelection(s,purpose,bypass,bypass ? "combat" : "production");departureExpanded=null;departureMessage="";}
             BaseMusterPlan plan=null;string error="";
             if(existing==null)try {plan=departure.Preview(s,bypass);}catch(Exception e){error=e.Message;}
             string shownMode=existing==null ? BaseMuster.ModeName(bypass ? "combat" : "production") : string.IsNullOrEmpty(existing.PriorityMode) ? "已有队伍" : BaseMuster.ModeName(existing.PriorityMode);
@@ -42,23 +41,21 @@ namespace BaseConquest.Base
             foreach(var kind in Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>())
             {
                 var k=kind;var capacity=departure.Capacity(s,k,bypass);int count=capacity.Selected;
-                RowButton((departureExpanded==k ? "▾ " : "▸ ")+BaseEconomy.TroopName(k)+" · "+capacity.Summary,-155,500,()=>{departureExpanded=departureExpanded==k ? (BaseTroopKind?)null : k;departureUnitPage=0;Reopen();});
+                RowButton((departureExpanded==k ? "▾ " : "▸ ")+BaseEconomy.TroopName(k)+" · "+capacity.Summary,-155,500,()=>{departureExpanded=departureExpanded==k ? (BaseTroopKind?)null : k;Reopen();});
                 RowButton("−",160,100,()=>{departure.Adjust(s,k,-1,bypass,out departureMessage);Reopen();},count>0);
                 RowButton("+",300,100,()=>{departure.Adjust(s,k,1,bypass,out departureMessage);Reopen();},count<capacity.Limit);row+=52;
                 Line(capacity.Detail,60,17);
                 if(BaseTown.DemoRecruitment(s))Line("全军普通兵 "+BaseTown.TroopTotal(s)+"人（含外出） · 合计基准 "+BaseDemoCombat.BaselineTotal(s.Demo?.Rpg)+" · 普通兵即死率 "+BaseTown.HireProbability(s).ToString("P0")+"；三兵种共用，调岗出征不改变总数。",62,17);
                 if(departureExpanded!=k)continue;
-                var rows=BaseMuster.SoldierRows(s,k,purpose).ToArray();int pages=Math.Max(1,(rows.Length+7)/8);departureUnitPage=Math.Max(0,Math.Min(pages-1,departureUnitPage));
-                var roster=BasePersonnel.Units(s).Where(unit=>!unit.IsLeader&&unit.Kind==BaseCampaign.ToBattle(k)).ToDictionary(unit=>unit.Key);
-                Line("基础攻击／防御 · 当前／最大生命 · 所在设施 · 今日生产资格",42,17);
-                foreach(var unit in rows.Skip(departureUnitPage*8).Take(8))
+                var roster=BasePersonnel.Soldiers(s,BaseCampaign.ToBattle(k)).ToDictionary(unit=>unit.Key);
+                Line("士兵名册",42,17);
+                foreach(var unit in BaseMuster.SoldierRows(s,k,purpose).OrderBy(row=>row.Pick.SoldierNumber))
                 {
                     var pick=unit.Pick;bool selected=departure.Selected(pick);bool allowed=selected||departure.CanToggle(s,pick,bypass,out _);
                     string status=unit.Available ? unit.EffectiveWorker ? "今日可生产" : "今日不生产" : unit.UnavailableReason+" · 今日不生产";
-                    AddPersonnelRow(content,roster["soldier:"+pick.Key],(selected?"● 已选 · ":"")+status,
+                    AddPersonnelRow(content,roster["soldier:"+pick.SoldierNumber],(selected?"已选 · ":"")+status,
                         ()=>{departure.Toggle(s,pick,bypass,out departureMessage);Reopen();},allowed,selected);
                 }
-                RowButton("上一页",-290,240,()=>{departureUnitPage--;Reopen();},departureUnitPage>0);Label(content,"第 "+(departureUnitPage+1)+"／"+pages+" 页",new UnityEngine.Vector2(0,-row-26),new UnityEngine.Vector2(240,48),18,UnityEngine.TextAnchor.MiddleCenter,new UnityEngine.Vector2(.5f,1));RowButton("下一页",290,240,()=>{departureUnitPage++;Reopen();},departureUnitPage+1<pages);row+=60;
             }
             foreach(var leader in BaseAdventure.Members(s))
             {

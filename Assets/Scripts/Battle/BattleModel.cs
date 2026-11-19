@@ -284,7 +284,7 @@ namespace BaseConquest.Battle
 
     [Serializable] public sealed class BattleSoldier
     {
-        public int Id, SquadId;
+        public int Id, SquadId, SoldierNumber;
         public BaseConquest.Base.RpgCharacter Rpg;
         public int OriginCommanderSlot = -1;
         public int RescueTargetId = -1, CarryingId = -1, CarriedById = -1;

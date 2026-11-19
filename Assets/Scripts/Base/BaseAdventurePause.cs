@@ -61,13 +61,26 @@ namespace BaseConquest.Base
                 p.PartyId=party.Id;p.Purpose=party.Purpose;p.OriginalFacility=party.Leaders.Single(r=>r.LeaderId==id).OriginalFacility;p.Allocation=formation.Single(r=>r.LeaderId==id).Copy();
                 foreach(BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
                 {
+                    var numbers=p.Allocation.SoldierNumbers?.ToHashSet();
                     int left=p.Allocation.Actual.Count(kind),skip=formation.TakeWhile(row=>row.LeaderId!=id).Sum(row=>row.Actual.Count(kind));
                     foreach(var worker in s.Workers.Where(w=>w.Away&&w.PartyId==party.Id&&w.Kind==kind).ToArray())
                     {
-                        if(skip>=worker.Count){skip-=worker.Count;continue;}
-                        int count=Math.Min(left,worker.Count-skip);skip=0;if(count==0)continue;
+                        BaseWorkerBucket held;
+                        if(numbers!=null)
+                        {
+                            var chosen=worker.SoldierNumbers.Where(numbers.Contains).ToList();
+                            if(chosen.Count==0)continue;
+                            held=worker.TakeNumbers(chosen);
+                        }
+                        else
+                        {
+                            if(skip>=worker.Count){skip-=worker.Count;continue;}
+                            int count=Math.Min(left,worker.Count-skip);
+                            if(count==0)continue;
+                            held=worker.Take(skip,count);skip=0;
+                        }
                         if(!p.Sources.Any(source=>source.Id==worker.SourceId))p.Sources.Add(party.Sources.Single(source=>source.Id==worker.SourceId).Copy());
-                        var held=worker.Copy();held.Count=count;held.HeldBy=id;held.HeldSourceId=worker.SourceId;held.PartyId=held.SourceId="";worker.Count-=count;s.Workers.Add(held);left-=count;
+                        held.HeldBy=id;held.HeldSourceId=worker.SourceId;held.PartyId=held.SourceId="";s.Workers.Add(held);left-=held.Count;
                     }
                     if(left!=0)throw new InvalidOperationException("分队士兵与实际出征来源不一致");
                 }
@@ -84,7 +97,9 @@ namespace BaseConquest.Base
             var l=s.Leaders.Single(person=>person.Id==p.LeaderId);
             var party=s.Muster.Parties.FirstOrDefault(t=>t.Id==p.PartyId)??s.Muster.Parties.FirstOrDefault(t=>(t.Purpose==p.Purpose||string.IsNullOrEmpty(p.Purpose)&&t.Purpose=="expedition")&&t.Leaders.Any(r=>r.LeaderId==s.PlayerLeaderId));
             var rows=party==null?null:BaseMuster.CurrentFormation(s,party)??BaseMuster.Distribute(party.Leaders.Select(r=>new BaseCommanderAllocation {LeaderId=r.LeaderId,Requested=s.Leaders.Single(person=>person.Id==r.LeaderId).DefaultTroops.Copy()}),k=>s.Workers.Where(w=>w.PartyId==party.Id&&w.Kind==k).Sum(w=>w.Count),true);
-            foreach(var worker in s.Workers.Where(w=>w.HeldBy==p.LeaderId))
+            var held=s.Workers.Where(w=>w.HeldBy==p.LeaderId).ToArray();
+            if(p.Allocation!=null)p.Allocation.SoldierNumbers=held.SelectMany(w=>w.SoldierNumbers).ToList();
+            foreach(var worker in held)
             {
                 var source=p.Sources.Single(item=>item.Id==worker.HeldSourceId);
                 worker.Away=party!=null;worker.PartyId=party?.Id??"";worker.SourceId=party!=null?source.Id:"";worker.DesiredFacility=source.FacilityId;worker.FacilityId="";worker.UnavailableDay=s.Day;if(party!=null)worker.Resting=false;

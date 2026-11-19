@@ -109,7 +109,10 @@ namespace BaseConquest.Base
             if(party!=null)
             {
                 leader.Away=true;leader.PartyId=party.Id;party.Leaders.Add(new BaseMusterLeader{LeaderId=leader.Id,OriginalFacility=""});
-                party.CommanderTroops=BaseMuster.Distribute(party.Leaders.Select(r=>new BaseCommanderAllocation{LeaderId=r.LeaderId,Requested=s.Leaders.Single(l=>l.Id==r.LeaderId).DefaultTroops.Copy()}),k=>s.Workers.Where(w=>w.PartyId==party.Id&&w.Kind==k).Sum(w=>w.Count),true);
+                var current = party.CommanderTroops ?? new List<BaseCommanderAllocation>();
+                party.CommanderTroops=party.Leaders.Select(r=>current.FirstOrDefault(group=>group.LeaderId==r.LeaderId) ??
+                    new BaseCommanderAllocation{LeaderId=r.LeaderId,Requested=s.Leaders.Single(l=>l.Id==r.LeaderId).DefaultTroops.Copy()}).ToList();
+                party.CommanderTroops=BaseMuster.CurrentFormation(s,party);
                 party.Preset.SelectLeaders(party.Leaders.Select(r=>r.LeaderId));
             }
             BaseAchievements.PartyChanged(s);

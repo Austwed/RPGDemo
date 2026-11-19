@@ -190,11 +190,12 @@ namespace BaseConquest.Base
         }
         public static string Snapshot(BaseState s)
         {
+            s.EnsureSoldierNumbers();
             string N(double n) => n.ToString("R", CultureInfo.InvariantCulture);
             var parts = new List<string> { s.Day.ToString(), s.Inventory.Food.ToString(), s.Inventory.Materials.ToString(), s.Inventory.Coins.ToString(), s.WorkshopProduct, N(s.FarmFraction), s.TodayFoodMissing.ToString(), s.TodayFoodRequired.ToString(), N(s.Rules.FarmPerWorker), N(s.Rules.WorkshopPerWorker), N(s.Rules.HungerProductionPenalty), s.Rules.SwordMaterial.ToString(), s.Rules.BowMaterial.ToString(), s.Rules.ArmorMaterial.ToString() };
             parts.Add(string.Join(",",s.Adventure.Members)+"/"+string.Join(",",s.Adventure.Pauses.Select(p=>p.LeaderId+":"+p.MapId+":"+p.Region)));
             parts.AddRange(s.Leaders.Select(l => l.Id + ":" + l.FacilityId + ":" + l.Away + ":" + l.PartyId + ":" + l.UnavailableDay + ":" + N(l.ProductionBonus)+":"+l.Recruited));
-            parts.AddRange(s.Workers.Select(w => w.Kind + ":" + w.FacilityId + ":" + w.Count + ":" + w.Away + ":" + w.PartyId + ":" + w.SourceId + ":" + w.UnavailableDay+":"+w.Recruited));
+            parts.AddRange(s.Workers.Select(w => w.Kind + ":" + w.FacilityId + ":" + string.Join(",",w.SoldierNumbers) + ":" + w.Away + ":" + w.PartyId + ":" + w.SourceId + ":" + w.UnavailableDay+":"+w.Recruited));
             parts.AddRange(s.Leaders.Select(l=>l.Id+":training:"+BaseTraining.Key(l.Training)));
             parts.AddRange(s.Inventory.Equipment.Select(e => e.Product + ":" + e.Level + ":" + e.Count));
             parts.AddRange(s.WorkshopProgress.Select(p => p.Product + ":" + N(p.Fraction)));
@@ -220,6 +221,8 @@ namespace BaseConquest.Base
             parts.AddRange(s.Leaders.Select(l=>l.Id+":composition:"+(l.DefaultTroops==null ? "legacy" : l.DefaultTroops.Version+":"+l.DefaultTroops.Melee+":"+l.DefaultTroops.Ranged+":"+l.DefaultTroops.Cavalry)));
             parts.AddRange(s.Muster.Parties.Select(p=>p.Id+":"+p.PriorityMode+":"+p.ConserveMaterials+":"+string.Join(";",p.CommanderTroops?.Select(r=>r.LeaderId+":"+r.Requested.Melee+":"+r.Requested.Ranged+":"+r.Requested.Cavalry+":"+r.Actual.Melee+":"+r.Actual.Ranged+":"+r.Actual.Cavalry)??Enumerable.Empty<string>())));
             parts.AddRange(s.Muster.Facilities.Select(f=>f.DeveloperProductionPaused.ToString()));
+            parts.AddRange(s.Muster.Parties.SelectMany(p => (p.CommanderTroops ?? new List<BaseCommanderAllocation>())
+                .Select(team => team.LeaderId + ":" + string.Join(",", team.SoldierNumbers ?? new List<int>()))));
             return string.Join("|", parts);
         }
         public static BaseMusterPlan Preview(BaseState s, string purpose, bool ignoreProtection = false, BaseArmyPreset selection = null, IEnumerable<BaseSoldierPick> manualPicks = null,string priorityMode="")
@@ -317,7 +320,9 @@ namespace BaseConquest.Base
             {
                 var source = s.Workers[take.BucketIndex]; string sourceId = prefix + index++;
                 party.Sources.Add(new BaseMusterSource { Id = sourceId, Kind = source.Kind, FacilityId = source.DesiredFacility != "" ? source.DesiredFacility : source.FacilityId, Taken = take.Count });
-                source.Count -= take.Count; var away = source.Copy(); away.Count = take.Count; away.Away = true; away.FacilityId = ""; away.PartyId = party.Id; away.SourceId = sourceId; away.UnavailableDay = s.Day; away.Resting = false; s.Workers.Add(away);
+                var away = plan.ManualPicks == null ? source.Take(0, take.Count) :
+                    source.TakeNumbers(plan.ManualPicks.Where(p => p.BucketIndex == take.BucketIndex).Select(p => source.SoldierNumbers[p.Ordinal]).ToList());
+                away.Away = true; away.FacilityId = ""; away.PartyId = party.Id; away.SourceId = sourceId; away.UnavailableDay = s.Day; away.Resting = false; s.Workers.Add(away);
             }
             s.Workers.RemoveAll(w => w.Count == 0);
         }
@@ -335,7 +340,7 @@ namespace BaseConquest.Base
             {
                 foreach (var worker in s.Workers.Where(w => w.Away && w.PartyId == id && w.SourceId == source.Id).ToArray())
                 {
-                    worker.Away = false; worker.PartyId = worker.SourceId = ""; worker.DesiredFacility = source.FacilityId; worker.FacilityId = ""; worker.UnavailableDay = s.Day;
+                    worker.Away = false; worker.PartyId = worker.SourceId = ""; worker.PartyOrder = 0; worker.DesiredFacility = source.FacilityId; worker.FacilityId = ""; worker.UnavailableDay = s.Day;
                     afterReturn?.Invoke(worker);
                 }
             }

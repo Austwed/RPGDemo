@@ -51,7 +51,34 @@ namespace BaseConquest.Base
         public BaseConquest.Battle.SoldierStats CombatStats;
         public bool Away;
         public int Count, UnavailableDay;
-        public BaseWorkerBucket Copy() { var x = (BaseWorkerBucket)MemberwiseClone(); x.CombatStats = CombatStats?.Clone(); return x; }
+        public List<int> SoldierNumbers;
+
+        private BaseWorkerBucket CopyWith(List<int> numbers, int count)
+        {
+            var copy = (BaseWorkerBucket)MemberwiseClone();
+            copy.CombatStats = CombatStats?.Clone();
+            copy.SoldierNumbers = numbers;
+            copy.Count = count;
+            return copy;
+        }
+        public BaseWorkerBucket Copy() => CopyWith(SoldierNumbers?.ToList(), Count);
+        public BaseWorkerBucket Slice(int ordinal, int count) => CopyWith(SoldierNumbers.GetRange(ordinal, count), count);
+        internal BaseWorkerBucket Take(int ordinal, int count)
+        {
+            var moved = Slice(ordinal, count);
+            SoldierNumbers.RemoveRange(ordinal, count);
+            Count -= count;
+            return moved;
+        }
+        internal BaseWorkerBucket TakeNumbers(List<int> numbers)
+        {
+            var selected = numbers.ToHashSet();
+            if (selected.Count != numbers.Count || SoldierNumbers.Count(selected.Contains) != numbers.Count)
+                throw new InvalidOperationException("出征士兵与所选名单不一致");
+            SoldierNumbers.RemoveAll(selected.Contains);
+            Count = SoldierNumbers.Count;
+            return CopyWith(numbers, numbers.Count);
+        }
     }
     [Serializable] public sealed class BaseEquipmentStock
     {
@@ -98,6 +125,27 @@ namespace BaseConquest.Base
         public BaseEconomyRules Rules = new BaseEconomyRules();
         public List<BaseLeader> Leaders = new List<BaseLeader>();
         public List<BaseWorkerBucket> Workers = new List<BaseWorkerBucket>();
+        public int LastSoldierNumber;
+        internal void EnsureSoldierNumbers(bool validate = false)
+        {
+            if (LastSoldierNumber < 0) throw new ArgumentException("士兵编号计数非法");
+            var used = validate ? new HashSet<int>() : null;
+            int previousLast = LastSoldierNumber;
+            // Old saves and new hires enter in roster order. Retired numbers stay reserved by the counter.
+            foreach (var worker in Workers)
+            {
+                if (worker.SoldierNumbers?.Count > 0)
+                {
+                    if (worker.SoldierNumbers.Count != worker.Count || validate && worker.SoldierNumbers.Any(n => n <= 0 || n > previousLast || !used.Add(n)))
+                        throw new ArgumentException("士兵编号与名册不一致");
+                    continue;
+                }
+                if (worker.Count < 0 || worker.Count > 10000 || (long)LastSoldierNumber + worker.Count > int.MaxValue)
+                    throw new ArgumentException("士兵编号或人数越界");
+                worker.SoldierNumbers ??= new List<int>(worker.Count);
+                for (int i = 0; i < worker.Count; i++) worker.SoldierNumbers.Add(++LastSoldierNumber);
+            }
+        }
         public List<BaseProductProgress> WorkshopProgress = new List<BaseProductProgress>();
         public BaseMusterState Muster;
         public BaseDevelopmentState Development;
@@ -128,7 +176,7 @@ namespace BaseConquest.Base
             PlayerLeaderId = PlayerLeaderId, TemplateTitle = TemplateTitle, WorkshopProduct = WorkshopProduct,
             InjuryDialogueDay = InjuryDialogueDay, InjuryDialogueIds = InjuryDialogueIds?.ToList(),
             PlayerX = PlayerX, PlayerY = PlayerY, FarmFraction = FarmFraction, SceneBattleId=SceneBattleId,
-            Inventory = Inventory.Copy(), Rules = Rules.Copy(), Leaders = Leaders.Select(x => x.Copy()).ToList(),
+            Inventory = Inventory.Copy(), Rules = Rules.Copy(), Leaders = Leaders.Select(x => x.Copy()).ToList(), LastSoldierNumber = LastSoldierNumber,
             Workers = Workers.Select(x => x.Copy()).ToList(), WorkshopProgress = WorkshopProgress.Select(x => x.Copy()).ToList(), HasReport = HasReport, LastReport = LastReport?.Copy() ?? new BaseDayReport(), Muster = Muster?.Copy(), Development = Development?.Copy(), Supply = Supply?.Copy(), Campaign = Campaign?.Copy(), Aftermath = Aftermath?.Copy(), Town = Town?.Copy(), Inn=Inn?.Copy(), Backpack=Backpack?.Copy(), Construction=Construction?.Copy(), Layout=Layout?.Copy(), Caravan=Caravan?.Copy(), Quests=Quests?.Copy(), Adventure=Adventure?.Copy(), PersonalEquipment=PersonalEquipment?.Copy(), Demo=Demo?.Copy(),Achievements=Achievements?.Copy()
         };
     }

@@ -14,6 +14,7 @@ namespace BaseConquest.Base
         public string Id, Name, TeamId;
         public SoldierKind Kind;
         public double Health, MaxHealth;
+        public int SoldierNumber => Pick?.SoldierNumber ?? 0;
         public bool Selected;
         internal BaseSoldierPick Pick;
         internal SoldierStats Stats;
@@ -63,12 +64,17 @@ namespace BaseConquest.Base
             }).ToList();
             var teams = rows.Where(l => l.Selected).ToArray();
             var initialFormation = party == null ? selected.CommanderTroops : BaseMuster.CurrentFormation(state, party);
+            var assignedTeams = new Dictionary<int, string>();
+            foreach (var allocation in initialFormation ?? Enumerable.Empty<BaseCommanderAllocation>())
+                if (allocation.SoldierNumbers != null && teams.Any(team => team.Id == allocation.LeaderId))
+                    foreach (int number in allocation.SoldierNumbers)
+                        assignedTeams[number] = allocation.LeaderId;
             var selectedBuckets = selected?.Takes.ToDictionary(t => t.BucketIndex, t => t.Count);
             foreach (var kind in BattleSimulation.TroopKinds)
             {
                 var baseKind = BaseCampaign.ToBase(kind);
                 var order = teams.SelectMany(team => Enumerable.Repeat(team.Id,
-                    initialFormation?.FirstOrDefault(row => row.LeaderId == team.Id)?.Actual.Count(baseKind) ?? 0)).ToArray();
+                    initialFormation?.FirstOrDefault(group => group.LeaderId == team.Id)?.Actual.Count(baseKind) ?? 0)).ToArray();
                 int assigned = 0;
                 foreach (var bucket in state.Workers.Select((worker, index) => (worker, index))
                     .Where(p => p.worker.Kind == baseKind && (party == null ? BaseDevelopment.Eligible(purpose, p.worker)
@@ -79,12 +85,16 @@ namespace BaseConquest.Base
                     int count = selectedBuckets == null ? worker.Count : selectedBuckets.GetValueOrDefault(bucket.index);
                     for (int i = 0; i < worker.Count; i++)
                     {
-                        var pick = new BaseSoldierPick { BucketIndex = bucket.index, Ordinal = i };
+                        var pick = BaseSoldierPick.At(state, bucket.index, i);
                         bool chosen = i < count && teams.Length > 0;
-                        string team = teams.Length == 0 ? null : chosen
-                            ? assigned < order.Length ? order[assigned] : teams[assigned % teams.Length].Id : teams[0].Id;
-                        if (chosen) assigned++;
-                        rows.Add(new BasePrepUnit { Id = "soldier:" + pick.Key, Name = BattleSimulation.KindName(kind),
+                        string team = teams.FirstOrDefault()?.Id;
+                        if (chosen)
+                        {
+                            if (!assignedTeams.TryGetValue(pick.SoldierNumber, out team))
+                                team = assigned < order.Length ? order[assigned] : teams[assigned % teams.Length].Id;
+                            assigned++;
+                        }
+                        rows.Add(new BasePrepUnit { Id = "soldier:" + pick.SoldierNumber, Name = BattleSimulation.KindName(kind) + " #" + pick.SoldierNumber,
                             TeamId = team, Kind = kind, Pick = pick, Health = worker.Health, MaxHealth = worker.MaxHealth,
                             Stats = worker.HasCombatProfile ? worker.CombatStats.Clone() : new ArmyDefinition().Stats(kind).Clone(), Selected = chosen });
                     }
@@ -231,7 +241,8 @@ namespace BaseConquest.Base
             if (priority == "") return BaseMuster.Preview(state, purpose, true, preset, picks);
             var teams = preset.Candidates.Select(id =>
             {
-                var row = new BaseCommanderAllocation { LeaderId = id };
+                var row = new BaseCommanderAllocation { LeaderId = id, SoldierNumbers = selected.Where(u => u.Pick != null && u.TeamId == id)
+                    .Select(u => u.SoldierNumber).ToList() };
                 foreach (var kind in BattleSimulation.TroopKinds)
                     row.Requested.Set(BaseCampaign.ToBase(kind), selected.Count(u => u.Kind == kind && u.TeamId == id));
                 return row;
@@ -335,17 +346,13 @@ namespace BaseConquest.Base
         public string ArrivedPartyId;
         public readonly Dictionary<string, BaseWorkerBucket> Troops = new Dictionary<string, BaseWorkerBucket>();
 
-        public void CaptureTroops(BaseState state, BaseMusterPlan plan, BaseOutsideParty party)
+        public void CaptureTroops(BaseState state, BaseOutsideParty party)
         {
+            var departing = state.Workers.Where(worker => worker.Away && worker.PartyId == party.Id).ToArray();
             foreach (var unit in Units.Where(u => u.Pick != null))
             {
-                int index = unit.Pick.BucketIndex;
-                var troop = plan == null ? state.Workers[index] :
-                    state.Workers.Single(w => w.PartyId == party.Id &&
-                        w.SourceId == party.Id + "." + plan.Takes.FindIndex(t => t.BucketIndex == index));
-                var snapshot = troop.Copy();
-                snapshot.Count = 1;
-                Troops.Add(unit.Id, snapshot);
+                var troop = departing.Single(worker => worker.SoldierNumbers.Contains(unit.SoldierNumber));
+                Troops.Add(unit.Id, troop.Slice(troop.SoldierNumbers.IndexOf(unit.SoldierNumber), 1));
             }
         }
     }

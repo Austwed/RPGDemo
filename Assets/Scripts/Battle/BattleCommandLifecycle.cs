@@ -22,7 +22,7 @@ namespace BaseConquest.Battle
         private readonly int[] captainSlots = { -1, -1 };
         private bool resolvingRound;
         public int CaptainSlot(BattleSide side) => captainSlots[(int)side];
-        public string UnitName(BattleSoldier s) => s == null ? "未知单位" : (s.DeveloperSpawned ? "测试·" : "") + SideName(s.Side) + (s.Kind == SoldierKind.Hero ? CommanderDisplayName(s.Side, s.OriginCommanderSlot) : UnitDisplayNames.Mark(KindName(s.Kind) + "#" + (s.Id + 1),s.Recruited)) + (RuinsCivilianIds.Contains(s.Id)&&Phase==BattlePhase.Fighting&&Commander(BattleSide.B,0)?.IsActive==true ? " · 受控" : "");
+        public string UnitName(BattleSoldier s) => s == null ? "未知单位" : (s.DeveloperSpawned ? "测试·" : "") + SideName(s.Side) + (s.Kind == SoldierKind.Hero ? CommanderDisplayName(s.Side, s.OriginCommanderSlot) : UnitDisplayNames.Mark(KindName(s.Kind) + "#" + (s.SoldierNumber > 0 ? s.SoldierNumber : s.Id + 1),s.Recruited)) + (RuinsCivilianIds.Contains(s.Id)&&Phase==BattlePhase.Fighting&&Commander(BattleSide.B,0)?.IsActive==true ? " · 受控" : "");
         public readonly List<string> CommanderNamesA = new List<string>();
         public string CommanderDisplayName(BattleSide side,int slot)=>UnitDisplayNames.Mark(RawCommanderName(side,slot),slot>=0&&slot<Scenario.Army(side).CommanderRecruited.Count&&Scenario.Army(side).CommanderRecruited[slot]);
         private string RawCommanderName(BattleSide side, int slot)

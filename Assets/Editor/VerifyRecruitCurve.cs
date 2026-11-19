@@ -110,6 +110,7 @@ namespace BaseConquest.Editor
             var worker = seed.Copy();
             worker.Kind = BaseTroopKind.Melee;
             worker.Count = total;
+            worker.SoldierNumbers = null;
             worker.FacilityId = "";
             worker.Resting = false;
             worker.Away = false;

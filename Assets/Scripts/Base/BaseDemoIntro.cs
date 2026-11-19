@@ -9,6 +9,8 @@ namespace BaseConquest.Base
     [Serializable] public sealed class BaseDemoIntroState
     {
         public int Step, DrillFlags, FarmWorkers=2, DummyPhase, DummyHits;
+        // 四名村庄剑士按固定编号保存岗位；早期存档只记录粮田人数。
+        public string[] VillageWorkerPosts;
         public BaseLeader Captain;public int DeparturePhase,MilitiaSpawned;public double DepartureWait,MilitiaDelay;
         public List<BaseLeader> Militia=new List<BaseLeader>();
         public string Hero="", PlayerName="", PracticeId="";
@@ -24,7 +26,7 @@ namespace BaseConquest.Base
         public double TutorialDelay;
         // 村民闲聊过的 NPC id（PRO_02 首次／再次两套台词；旧档读进来为 null，按空处理）。
         public List<string> Talked=new List<string>();
-        public BaseDemoIntroState Copy(){var i=(BaseDemoIntroState)MemberwiseClone();i.Captain=Captain?.Copy();i.Militia=Militia.Select(v=>v.Copy()).ToList();i.Talked=Talked==null?new List<string>():Talked.ToList();i.ReportGroup=ReportGroup?.Select(member=>member.Copy()).ToList()??new List<BaseVillageReportMember>();return i;}
+        public BaseDemoIntroState Copy(){var i=(BaseDemoIntroState)MemberwiseClone();i.Captain=Captain?.Copy();i.Militia=Militia.Select(v=>v.Copy()).ToList();i.Talked=Talked==null?new List<string>():Talked.ToList();i.ReportGroup=ReportGroup?.Select(member=>member.Copy()).ToList()??new List<BaseVillageReportMember>();i.VillageWorkerPosts=VillageWorkerPosts?.ToArray();return i;}
     }
 
     public static class BaseDemoIntro
@@ -192,16 +194,38 @@ namespace BaseConquest.Base
         }
         public static bool AssignFarm(BaseState s,int workers)
         {
-            if(!Daily(s)||!(At(s,"intro_farm")||At(s,"intro_smith"))||workers<2||workers>4)return false;
+            if (!Active(s) || workers < 2 || workers > 4) return false;
+            var posts = VillagePosts(s.Demo.Intro);
+            int delta = workers - posts.Count(p => p == "intro_farm");
+            for (int n = 0; n < posts.Length && delta != 0; n++)
+            {
+                if (delta > 0 && posts[n] != "intro_farm") { posts[n] = "intro_farm"; delta--; }
+                else if (delta < 0 && posts[n] == "intro_farm") { posts[n] = "intro_smith"; delta++; }
+            }
+            return AssignVillagePosts(s, posts);
+        }
+        public static string[] VillagePosts(BaseDemoIntroState intro) =>
+            intro.VillageWorkerPosts?.Length == 4 ? intro.VillageWorkerPosts.ToArray() :
+            Enumerable.Range(0, 4).Select(n => n < intro.FarmWorkers ? "intro_farm" : "intro_smith").ToArray();
+
+        private static bool ValidVillagePosts(string[] posts) =>
+            posts?.Length == 4 && posts.All(p => p == "" || p == "intro_farm" || p == "intro_smith");
+
+        public static bool AssignVillagePosts(BaseState s, string[] posts)
+        {
+            if (!Daily(s) || !(At(s,"intro_farm") || At(s,"intro_smith")) || !ValidVillagePosts(posts)) return false;
             // PRO_02_LOCK_FARM／LOCK_SMITH：还没听阿禾说完人手安排，先别动粮田与铁匠铺的岗位。
             if(s.Demo.Intro.Step<9)throw new InvalidOperationException(At(s,"intro_farm")?"阿禾正在田埂边清点麦种，先过去听听她怎么安排。":"炉火正旺，先去麦田问问阿禾今天的人手安排。");
-            s.Demo.Intro.FarmWorkers=workers;
+            if (VillagePosts(s.Demo.Intro).SequenceEqual(posts)) return false;
+            s.Demo.Intro.VillageWorkerPosts = posts.ToArray();
+            s.Demo.Intro.FarmWorkers = posts.Count(p => p == "intro_farm");
             CompleteFarmAssignment(s);
             return true;
         }
         public static int FarmOutput(BaseState s)=>(int)Math.Floor(s.Demo.Intro.FarmWorkers*s.Rules.FarmPerWorker);
         public static int VillageFood(BaseState s)=>4*s.Rules.SoldierFood+2*(BaseRpg.Active(s)?s.Demo.Rpg.LeaderFood:s.Rules.LeaderFood);
-        public static double SmithWork(BaseState s)=>(4-s.Demo.Intro.FarmWorkers)*s.Rules.WorkshopPerWorker;
+        public static double SmithWork(BaseState s)=>(s.Demo.Intro.VillageWorkerPosts?.Length == 4 ?
+            s.Demo.Intro.VillageWorkerPosts.Count(p => p == "intro_smith") : 4-s.Demo.Intro.FarmWorkers)*s.Rules.WorkshopPerWorker;
         internal static void CompleteFarmAssignment(BaseState s)
         {
             if(Daily(s)&&s.Demo.Intro.Step==9&&s.Demo.Intro.FarmWorkers==4)s.Demo.Intro.Step=10;
@@ -340,7 +364,10 @@ namespace BaseConquest.Base
             if(!Active(s))return;var i=s.Demo.Intro;var village=s.Demo.StoryScene?.Valid==true?s.Demo.StoryScene.Map("village").Board:null;int width=village?.Width??24,height=village?.Height??14;
             BaseVillageReport.Validate(i, width, height);
             if(i.DummyPhase<0||i.DummyPhase>4||i.DummyHits<0||i.DummyHits>3)throw new ArgumentException("木桩教学进度非法");
-            if(i.Step<0||i.Step>10||i.Step>0&&!new[]{"male","female"}.Contains(i.Hero)||i.Step==0&&i.Hero!=""||(i.DrillFlags&~(All|RetiredDrillFlags))!=0||i.FarmWorkers<2||i.FarmWorkers>4||double.IsNaN(i.Walked)||double.IsInfinity(i.Walked)||i.Walked<0||i.CaptainX<0||i.CaptainX>=width||i.CaptainY<0||i.CaptainY>=height)throw new ArgumentException("序章教学进度非法");
+            bool namedPosts = i.VillageWorkerPosts != null && i.VillageWorkerPosts.Length != 0;
+            if (namedPosts && (!ValidVillagePosts(i.VillageWorkerPosts) || i.VillageWorkerPosts.Count(p => p == "intro_farm") != i.FarmWorkers))
+                throw new ArgumentException("村庄士兵岗位记录非法");
+            if(i.Step<0||i.Step>10||i.Step>0&&!new[]{"male","female"}.Contains(i.Hero)||i.Step==0&&i.Hero!=""||(i.DrillFlags&~(All|RetiredDrillFlags))!=0||i.FarmWorkers<(namedPosts?0:2)||i.FarmWorkers>4||double.IsNaN(i.Walked)||double.IsInfinity(i.Walked)||i.Walked<0||i.CaptainX<0||i.CaptainX>=width||i.CaptainY<0||i.CaptainY>=height)throw new ArgumentException("序章教学进度非法");
             if(new[]{i.ReporterX,i.ReporterY,i.DrillMoveOrigin,i.TutorialDelay,i.CaptainX,i.CaptainY,i.DepartureWait,i.MilitiaDelay}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||i.ReporterX<0||i.ReporterX>=width||i.ReporterY<0||i.ReporterY>=height||i.DrillMoveOrigin<0||i.TutorialDelay<0||i.TutorialDelay>1)throw new ArgumentException("报信人与演练位置非法");
             if(i.Militia==null||i.MilitiaSpawned<0||i.MilitiaSpawned>4||i.Militia.Count!=i.MilitiaSpawned||i.DepartureWait<0||i.DepartureWait>1.05||i.MilitiaDelay<-.06||i.MilitiaDelay>.4||i.Militia.Any(v=>v==null||new[]{v.MapX,v.MapY}.Any(n=>double.IsNaN(n)||double.IsInfinity(n))||v.MapX<0||v.MapX>=width||v.MapY<0||v.MapY>=height)||i.DeparturePhase<0||i.DeparturePhase>4||i.Militia.Select(v=>v.Id).Distinct().Count()!=i.Militia.Count)throw new ArgumentException("序章民兵离场记录非法");
             if(i.Step>0&&s.Leaders.Single(l=>l.Id==s.PlayerLeaderId).AppearanceId!=PlayerArt(s))throw new ArgumentException("主角选择与形象不一致");

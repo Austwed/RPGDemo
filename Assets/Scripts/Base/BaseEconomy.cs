@@ -46,6 +46,7 @@ namespace BaseConquest.Base
             if(s.Leaders.Any(l=>l.HasMapPosition&&(!BaseSceneInstances.LocationValid(s,BaseAdventure.Region(l))||!Finite(l.MapX)||!Finite(l.MapY)||!BaseSpatial.Geometry(s,l.MapX,l.MapY,BaseAdventure.MapKey(s,l))))) throw new ArgumentException("伙伴存档坐标不可通行");
             if (s.Leaders.Where(x => x.FacilityId != "").GroupBy(x => x.FacilityId).Any(g => g.Count() > 1)) throw new ArgumentException("同一设施只能有一名负责人");
             if (s.Workers.Any(x => x == null || !Enum.IsDefined(typeof(BaseTroopKind), x.Kind) || !Facilities.Contains(x.FacilityId) || x.Count < 0 || x.Count > 10000 || x.UnavailableDay < 0 || x.UnavailableDay > s.Day) || s.Workers.Sum(x => (long)x.Count) > 10000) throw new ArgumentException("兵力数量或生产资格非法");
+            s.EnsureSoldierNumbers(validate: true);
             if (s.Inventory.Equipment.Count != ProductsFor(s).Length*2 || s.Inventory.Equipment.Any(x => x == null || !ProductsFor(s).Contains(x.Product) || x.Level < 1 || x.Level > 2 || x.Count < 0 || x.Count > 100000000) || s.Inventory.Equipment.Select(x => x.Product + x.Level).Distinct().Count() != ProductsFor(s).Length*2) throw new ArgumentException("装备库存非法");
             if (s.TodayFoodRequired < 0 || s.TodayFoodConsumed < 0 || s.TodayFoodMissing < 0 || s.TodayFoodConsumed + (long)s.TodayFoodMissing != s.TodayFoodRequired || !initialized && s.TodayFoodRequired != 0) throw new ArgumentException("当天口粮记录非法");
             if (s.HasReport && (s.LastReport == null || s.LastReport.CompletedDay != s.LastCompletedDay || s.LastReport.NewDay != s.Day)) throw new ArgumentException("日结报告日期非法");
@@ -194,7 +195,21 @@ namespace BaseConquest.Base
         public static bool MoveWorkers(BaseState s, BaseTroopKind kind, string from, string to, int count)
             => MoveWorkers(s, kind, from, to, count, null);
 
+        public static bool MoveWorker(BaseState s, int soldierNumber, string from, string to)
+        {
+            s.EnsureSoldierNumbers();
+            int bucket = s.Workers.FindIndex(w => w.SoldierNumbers.Contains(soldierNumber));
+            if (bucket < 0) return false;
+            var worker = s.Workers[bucket];
+            return MoveWorkers(s, worker.Kind, from, to, 1, bucket, worker.SoldierNumbers.IndexOf(soldierNumber));
+        }
         internal static bool MoveWorkers(BaseState s, BaseTroopKind kind, string from, string to, int count, int? bucket)
+        {
+            s.EnsureSoldierNumbers();
+            return MoveWorkers(s, kind, from, to, count, bucket, 0);
+        }
+
+        private static bool MoveWorkers(BaseState s, BaseTroopKind kind, string from, string to, int count, int? bucket, int ordinal)
         {
             if (count <= 0 || from == to || !Facilities.Contains(from) || !Facilities.Contains(to)||!BaseDemo.FacilityAvailable(s,to)) return false;
             if (bucket.HasValue && (bucket.Value < 0 || bucket.Value >= s.Workers.Count)) return false;
@@ -206,8 +221,8 @@ namespace BaseConquest.Base
             foreach (var source in sources)
             {
                 int n = Math.Min(left, source.Count); if (n == 0) continue;
-                var target = source.Copy(); target.FacilityId = target.DesiredFacility = to; target.PostLocked = true; target.Count = n; s.Workers.Add(target);
-                source.Count -= n; left -= n; if (left == 0) break;
+                var target = source.Take(ordinal, n); target.FacilityId = target.DesiredFacility = to; target.PostLocked = true; s.Workers.Add(target);
+                left -= n; if (left == 0) break;
             }
             BaseDevelopment.Merge(s); return true;
         }

@@ -155,11 +155,13 @@ namespace BaseConquest.Base
             if (a == null || a.Scenario == null || string.IsNullOrWhiteSpace(a.Id) || c.SettledIds.Contains(a.Id) || a.StartedDay != s.Day || a.Leaders == null || a.Troops == null || a.Leaders.Count < 1 || a.Leaders.Count > 3 || a.Troops.Count > 90 || a.Leaders.Any(l => l == null || !s.Leaders.Any(p => p.Id == l.Id && p.PartyId == a.PartyId && p.Away)) || a.Leaders.Select(l => l.Id).Distinct().Count() != a.Leaders.Count || a.Troops.Any(w => w == null || w.Count != 1 || !w.Away || w.PartyId != a.PartyId || w.Health <= 0 || w.Health > w.MaxHealth) || !c.Events.Any(e => e.Id == a.EventId && e.Status == "pending") || !s.Supply.Quotas.Any(q => q.BattleId == a.Id && q.PartyId == a.PartyId && q.Phase == "fighting")) throw new ArgumentException("活动战斗与真实编制／配额不一致");
             if (a.Scenario.SupplyBattleId != a.Id + ":0" || a.Scenario.A.HeroCount != a.Leaders.Count || Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>().Any(k => a.Scenario.A.Count(ToBattle(k)) != a.Troops.Count(w => w.Kind == k))) throw new ArgumentException("活动战场供给分母不一致");
             var actual = s.Workers.Where(w => w.Away && w.PartyId == a.PartyId).ToArray();
+            BindRosterNumbers(a.Troops, actual);
             var supply = s.Supply.Quotas.Single(q => q.BattleId == a.Id);
             if ((!supply.PartySubset && actual.Sum(w => w.Count) != a.Troops.Count) ||
-                a.Troops.GroupBy(WorkerKey).Any(g => actual.Where(w => WorkerKey(w) == g.Key).Sum(w => w.Count) < g.Count()) ||
                 a.Leaders.Any(l => l.Health <= 0 || !Finite(l.Health) || !Finite(l.MaxHealth) || l.Health > l.MaxHealth || s.Leaders.Single(p => p.Id == l.Id).Health != l.Health))
                 throw new ArgumentException("活动战役的真实人员已被其他操作改变，拒绝重新生成人员");
+            if (a.TroopSlots?.Count > 0 && (a.TroopSlots.Count != a.Troops.Count || a.TroopSlots.Any(n => n < 0 || n >= a.Leaders.Count)))
+                throw new ArgumentException("活动战斗士兵的分队归属非法");
             if ((a.SupplySnapshot?.FullConsumptionGrade ?? 0) != supply.FullConsumptionGrade ||
                 supply.ByTeam && (a.SupplySnapshot?.ByTeam != true || a.SupplySnapshot.PartySubset != supply.PartySubset ||
                 !a.Leaders.Select(l => l.Id).SequenceEqual(supply.Leaders) ||
@@ -186,6 +188,25 @@ namespace BaseConquest.Base
         public static SoldierKind ToBattle(BaseTroopKind k) => k == BaseTroopKind.Melee ? SoldierKind.Melee : k == BaseTroopKind.Ranged ? SoldierKind.Ranged : SoldierKind.Cavalry;
         private static (string source, BaseTroopKind kind, double health, double max) WorkerKey(BaseWorkerBucket worker)
             => (worker.SourceId, worker.Kind, worker.Health, worker.MaxHealth);
+        private static void BindRosterNumbers(List<BaseWorkerBucket> troops, BaseWorkerBucket[] party)
+        {
+            var available = party.SelectMany(w => w.SoldierNumbers.Select(number => (number, worker: w))).ToDictionary(p => p.number, p => p.worker);
+            var used = new HashSet<int>();
+            foreach (var troop in troops.Where(t => t.SoldierNumbers?.Count > 0))
+            {
+                int number = troop.SoldierNumbers[0];
+                if (troop.SoldierNumbers.Count != 1 || !used.Add(number) || !available.TryGetValue(number, out var worker) || WorkerKey(worker) != WorkerKey(troop))
+                    throw new ArgumentException("活动战斗士兵与出征名册不一致");
+            }
+            // Legacy checkpoints recorded each deployed soldier's source and health, but no number.
+            foreach (var troop in troops.Where(t => t.SoldierNumbers == null || t.SoldierNumbers.Count == 0))
+            {
+                int number = party.Where(w => WorkerKey(w) == WorkerKey(troop)).SelectMany(w => w.SoldierNumbers).FirstOrDefault(n => !used.Contains(n));
+                if (number == 0) throw new ArgumentException("活动战斗缺少对应的出征士兵");
+                troop.SoldierNumbers = new List<int> { number };
+                used.Add(number);
+            }
+        }
         public static BaseTroopKind ToBase(SoldierKind k) => k == SoldierKind.Melee ? BaseTroopKind.Melee : k == SoldierKind.Ranged ? BaseTroopKind.Ranged : BaseTroopKind.Cavalry;
         public static IEnumerable<BaseCampaignEvent> Due(BaseState s) => s.Campaign.Events.Where(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= s.Day && e.DeadlineDay <= s.Day);
         public static bool Travel(BaseState s, string location,string connectionId=null)
@@ -258,7 +279,7 @@ namespace BaseConquest.Base
             if (roster != null)
             {
                 if (quota != null && !BaseSupply.Cancel(s, quota.BattleId)) throw new InvalidOperationException("当前军需配额不能替换");
-                roster.CaptureTroops(s, plan, party);
+                roster.CaptureTroops(s, party);
                 quota = BaseSupply.ReservePrepared(s, party, roster);
             }
             if (quota == null)
@@ -333,8 +354,16 @@ namespace BaseConquest.Base
                 a.TroopSlots = soldiers.Select(u => Array.IndexOf(roster.Leaders, u.TeamId)).ToList();
             }
             else
+            {
                 foreach (var w in s.Workers.Where(w => !neutral&&w.Away && w.PartyId == party.Id))
-                    for (int n = 0; n < w.Count; n++) { var unit = w.Copy(); unit.Count = 1; a.Troops.Add(unit); }
+                    for (int n = 0; n < w.Count; n++) a.Troops.Add(w.Slice(n, 1));
+                if (formation != null && a.Scenario.CommanderControl)
+                {
+                    var slots = formation.SelectMany(team => team.SoldierNumbers.Select(number =>
+                        (number, slot: quota.Leaders.IndexOf(team.LeaderId)))).ToDictionary(entry => entry.number, entry => entry.slot);
+                    a.TroopSlots = a.Troops.Select(t => slots[t.SoldierNumbers[0]]).ToList();
+                }
+            }
             s.Campaign.ActiveBattle = a; s.Campaign.HasActiveBattle = true;
             BaseEconomy.Validate(s); return a;
         }
@@ -396,14 +425,11 @@ namespace BaseConquest.Base
             }
             if (a.SupplySnapshot?.PartySubset == true)
             {
-                var fought = a.Troops.GroupBy(WorkerKey).ToDictionary(g => g.Key, g => g.Count());
+                var fought = a.Troops.Select(w => w.SoldierNumbers.Single()).ToHashSet();
                 foreach (var worker in s.Workers.Where(w => w.Away && w.PartyId == a.PartyId))
                 {
-                    var key = WorkerKey(worker);
-                    if (!fought.TryGetValue(key, out int count)) continue;
-                    int used = Math.Min(count, worker.Count);
-                    worker.Count -= used;
-                    fought[key] -= used;
+                    worker.SoldierNumbers.RemoveAll(fought.Contains);
+                    worker.Count = worker.SoldierNumbers.Count;
                 }
                 s.Workers.RemoveAll(w => w.Count == 0);
             }
@@ -511,7 +537,15 @@ namespace BaseConquest.Base
             Opening = opening.Copy();
             if(Opening.Rpg!=null){Opening.Rpg.Validate();foreach(var person in Opening.Leaders)if(person.Rpg!=null)person.Rpg.Rules=Opening.Rpg;}
             Battle = Opening.HasCheckpoint ? BattleSimulation.Restore(Opening.Checkpoint,Opening.Rpg!=null) : new BattleSimulation(Opening.Scenario);
-            if(Opening.HasCheckpoint) {foreach(var x in Opening.Bindings)troops.Add(x.SoldierId,x.TroopIndex);leaders.UnionWith(Battle.Soldiers.Where(u=>u.Side==BattleSide.A&&u.Kind==SoldierKind.Hero).Select(u=>u.Id));}
+            if(Opening.HasCheckpoint)
+            {
+                foreach(var x in Opening.Bindings)
+                {
+                    troops.Add(x.SoldierId,x.TroopIndex);
+                    Battle.Soldier(x.SoldierId).SoldierNumber=Opening.Troops[x.TroopIndex].SoldierNumbers?.FirstOrDefault()??0;
+                }
+                leaders.UnionWith(Battle.Soldiers.Where(u=>u.Side==BattleSide.A&&u.Kind==SoldierKind.Hero).Select(u=>u.Id));
+            }
             else
             {
                 if(Opening.Scenario.Placements.Any(item=>item.Side==BattleSide.B)&&Opening.Enemies.Any(unit=>unit.HasDeployment)&&Battle.Soldiers.Count(unit=>unit.Side==BattleSide.B)!=Opening.Enemies.Count)throw new ArgumentException("逐兵编排未完整部署，不能自动替换站位");
@@ -556,8 +590,9 @@ namespace BaseConquest.Base
                 }
                 else if (!troops.ContainsKey(unit.Id))
                 {
+                    bool hasSlots = Opening.TroopSlots?.Count == Opening.Troops.Count;
                     int i = Enumerable.Range(0, Opening.Troops.Count).First(n => Opening.Troops[n].Kind == BaseCampaign.ToBase(unit.Kind)
-                        && (Opening.SupplySnapshot?.ByTeam != true || Opening.TroopSlots[n] == unit.OriginCommanderSlot) && !troops.ContainsValue(n));
+                        && (!hasSlots || Opening.TroopSlots[n] == unit.OriginCommanderSlot) && !troops.ContainsValue(n));
                     troops.Add(unit.Id, i); var w = Opening.Troops[i];
                     unit.Recruited=w.Recruited;
                     if (w.HasCombatProfile)
@@ -573,7 +608,12 @@ namespace BaseConquest.Base
                     }
                     unit.Stats.Level=1;unit.Stats.Health = (float)w.MaxHealth; unit.Health = (float)w.Health;
                 }
-                if(unit.Kind!=SoldierKind.Hero&&troops.TryGetValue(unit.Id,out int sourceIndex))unit.Recruited=Opening.Troops[sourceIndex].Recruited;
+                if(unit.Kind!=SoldierKind.Hero&&troops.TryGetValue(unit.Id,out int sourceIndex))
+                {
+                    var source=Opening.Troops[sourceIndex];
+                    unit.Recruited=source.Recruited;
+                    unit.SoldierNumber=source.SoldierNumbers?.FirstOrDefault()??0;
+                }
                 unit.BattlePower = unit.Stats.BaseBattlePower;
             }
             BaseRpg.BindBattle(this);

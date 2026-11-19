@@ -7,7 +7,7 @@ namespace BaseConquest.Base
     public sealed class BasePersonnelUnit
     {
         public string Key,Name,Facility,State,Effects,LeaderId;
-        public int BucketIndex=-1,Ordinal;
+        public int BucketIndex=-1,Ordinal,SoldierNumber;
         public bool IsLeader,Recruited,Effective,Resting,Away,Locked;
         public SoldierKind Kind;
         public double Health,MaxHealth,FarmEfficiency,WorkshopEfficiency;
@@ -25,7 +25,8 @@ namespace BaseConquest.Base
             unit.Effects=ProvisionEffects.Summary(unit.Kind,factor,weapon,armor,q!=null)+"／今日生产效率×"+BaseEconomy.ProductionFactor(s).ToString("0.##")+(unit.IsLeader?"":"／过夜恢复最大生命的"+(BaseDevelopment.RecoveryRatio(s)*100).ToString("0")+"%（满血停止）");
             if(unit.IsLeader&&unit.Health>0)unit.Effects+="／每日自然恢复最大生命的"+(BaseDevelopment.RecoveryRatio(s)*100).ToString("0")+"%（满血停止）";
         }
-        public static IEnumerable<BasePersonnelUnit> Units(BaseState s)
+        public static IEnumerable<BasePersonnelUnit> Units(BaseState s) => Leaders(s).Concat(Soldiers(s));
+        public static IEnumerable<BasePersonnelUnit> Leaders(BaseState s)
         {
             foreach(var l in s.Leaders)
             {
@@ -33,13 +34,21 @@ namespace BaseConquest.Base
                 var u=new BasePersonnelUnit {Key="leader:"+l.Id,LeaderId=l.Id,Name=LeaderName(l),IsLeader=true,Recruited=l.Recruited,Kind=SoldierKind.Hero,Health=l.Health,MaxHealth=l.MaxHealth,Basic=stats,Facility=l.Away ? "外出队伍" : BaseAdventure.Contains(s,l.Id) ? "冒险小队" : BaseEconomy.FacilityName(l.FacilityId),State=State(s,l),Effective=BaseDevelopment.Effective(s,l),Resting=false,Away=l.Away,Locked=l.PostLocked,FarmEfficiency=BaseDevelopment.Bonus(l,"farm"),WorkshopEfficiency=BaseDevelopment.Bonus(l,"workshop")};
                 Effects(s,u,l.PartyId);yield return u;
             }
-            int number=0;
+        }
+        public static IEnumerable<BasePersonnelUnit> Soldiers(BaseState s, SoldierKind? kind = null)
+            => SoldierRows(s, kind).OrderBy(unit => unit.SoldierNumber);
+        private static IEnumerable<BasePersonnelUnit> SoldierRows(BaseState s, SoldierKind? kind)
+        {
+            s.EnsureSoldierNumbers();
             for(int i=0;i<s.Workers.Count;i++)
             {
-                var w=s.Workers[i];var stats=w.HasCombatProfile ? w.CombatStats.Clone() : new ArmyDefinition().Stats(BaseCampaign.ToBattle(w.Kind)).Clone();stats.Health=(float)w.MaxHealth;
+                var w=s.Workers[i];
+                if(kind.HasValue && BaseCampaign.ToBattle(w.Kind)!=kind.Value)continue;
+                var stats=w.HasCombatProfile ? w.CombatStats.Clone() : new ArmyDefinition().Stats(BaseCampaign.ToBattle(w.Kind)).Clone();stats.Health=(float)w.MaxHealth;
                 for(int n=0;n<w.Count;n++)
                 {
-                    var u=new BasePersonnelUnit {Key="soldier:"+i+":"+n,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+(++number),w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),State=w.Away ? "外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.Effective(s,w) ? "今日可生产" : "重伤 · 强制空闲",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
+                    int number=w.SoldierNumbers[n];
+                    var u=new BasePersonnelUnit {Key="soldier:"+number,SoldierNumber=number,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+number,w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),State=w.Away ? "外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.Effective(s,w) ? "今日可生产" : "重伤 · 强制空闲",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
                     Effects(s,u,w.PartyId);yield return u;
                 }
             }

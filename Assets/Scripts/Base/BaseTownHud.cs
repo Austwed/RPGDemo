@@ -440,8 +440,8 @@ namespace BaseConquest.Base
             if(maximum==0)TradeLine(details,"当前无法招募");
             TradeButton(details,"规则 i",()=>TownRules(()=>RenderTownTrade(false)));
 
-            foreach(var unit in BasePersonnel.Units(s).Where(u=>!u.IsLeader))
-                AddPersonnelRow(roster,unit,unit.State,null,available:false,useCurrentStats:true);
+            foreach(var unit in BasePersonnel.Soldiers(s))
+                AddPersonnelRow(roster,unit,unit.State,null,available:false);
             if(roster.childCount==0)Ui<LayoutElement>(TradeLine(roster,"暂无士兵"),"").flexibleWidth=1;
         }
 

@@ -456,7 +456,9 @@ namespace BaseConquest.Base
             if(owner.State?.Aftermath.GameOver==true || BaseBattleGateway.MainMenu || BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) return;
             if (OfferSmithLessonOnTradeExit() || OfferRecruiterHideoutClueOnExit()) return;
             if(!BaseDemo.Active(owner.State)&&BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
-            workerDraft=null;workerMoves.Clear();ClearPanelSelection();
+            ResetWorkerDraft();
+            productionView = null;
+            ClearPanelSelection();
             if (PanelOpen) PanelClosedFrame = Time.frameCount;
             dialogueContinue = dialogueDefault = dialogueFinishText = null;
             dialogueTick = null;
@@ -761,10 +763,10 @@ namespace BaseConquest.Base
                 ManagerButtons(leader.Id, OpenGovernment);
             }
         }
-        private BaseState workerDraft;
+        private BaseState workerDraft, workerDraftSource;
         private string workerDraftStamp;
-        private readonly System.Collections.Generic.List<(BaseTroopKind kind,string from,string to,int? bucket)> workerMoves =
-            new System.Collections.Generic.List<(BaseTroopKind,string,string,int?)>();
+        private readonly System.Collections.Generic.Dictionary<int,(BaseTroopKind kind,string from,string to)> workerMoves =
+            new System.Collections.Generic.Dictionary<int,(BaseTroopKind,string,string)>();
         private static void LockCurrentPosts(BaseState state)
         {
             foreach (var worker in state.Workers)
@@ -815,32 +817,53 @@ namespace BaseConquest.Base
         {
             var state = workerDraft;
             if (state == null) { back(); return; }
-            BeginPanel(BaseEconomy.FacilityName(facility) + " · 人员名册", "workers-roster:" + facility);
+            BeginPanel(BaseEconomy.FacilityName(facility) + " · " + FacilityCopy("workers","士兵名册"), "workers-roster:" + facility);
             RowButton("返回调配方案", 0, 800, back); row += 60;
             int civilians = BaseEconomy.CivilianWorkersAt(state, facility);
             if (civilians > 0) Line(CivilianRosterLabel(civilians), 42, 19);
-            var available = BasePersonnel.Units(state).Where(u => !u.IsLeader && !u.Away &&
-                (state.Workers[u.BucketIndex].FacilityId == facility || state.Workers[u.BucketIndex].FacilityId == ""))
-                .OrderByDescending(u => state.Workers[u.BucketIndex].FacilityId == facility).ThenBy(u => u.Kind).ToArray();
-            int capacity = state.Muster.Facilities.Single(f => f.FacilityId == facility).Capacity;
-            bool room = BaseEconomy.WorkersAt(state, facility) < capacity;
+            var available = BasePersonnel.Soldiers(state).ToArray();
             Action refresh = () => OpenWorkerRoster(facility, back);
             foreach (var unit in available)
             {
-                var worker = state.Workers[unit.BucketIndex];
-                bool assigned = worker.FacilityId == facility;
-                string status = assigned ? RosterText("unassign", "点击调回闲置") : !unit.Effective ? unit.State :
-                    room ? RosterText("assign", "点击安排上岗") : RosterText("full", "岗位已满");
-                AddPersonnelRow(content, unit, status,
-                    () => Adjust(worker.Kind, worker.FacilityId, assigned ? "" : facility, refresh, unit.BucketIndex),
-                    assigned || (unit.Effective && room), assigned);
+                AddPersonnelRow(content, unit, WorkerRowStatus(unit), () => ToggleWorker(unit.SoldierNumber, facility, refresh),
+                    unit.Effective, workerMoves.ContainsKey(unit.SoldierNumber), showFacility:false);
             }
             if (available.Length == 0) Line("当前没有可调人员。", 52, 18);
             EndPanel();
         }
-        private void Adjust(BaseTroopKind kind, string from, string to, Action refresh, int? bucket = null)
+        private void Adjust(BaseTroopKind kind, string from, string to, Action refresh)
         {
-            if(workerDraft!=null&&BaseEconomy.MoveWorkers(workerDraft,kind,from,to,1,bucket))workerMoves.Add((kind,from,to,bucket));
+            var candidate = BasePersonnel.Soldiers(workerDraft).Where(u => u.Effective &&
+                workerDraft.Workers[u.BucketIndex].Kind == kind && workerDraft.Workers[u.BucketIndex].FacilityId == from)
+                .OrderByDescending(u => workerMoves.TryGetValue(u.SoldierNumber, out var move) && move.from == to)
+                .ThenBy(u => u.SoldierNumber).FirstOrDefault();
+            if (candidate != null) MoveDraftWorker(candidate, to, refresh);
+        }
+        private void ToggleWorker(int number, string facility, Action refresh)
+        {
+            var unit = BasePersonnel.Soldiers(workerDraft).FirstOrDefault(u => u.SoldierNumber == number);
+            if (unit == null || !unit.Effective) return;
+            string from = workerDraft.Workers[unit.BucketIndex].FacilityId;
+            string to = workerMoves.TryGetValue(number, out var move) ? move.from : from == facility ? "" : facility;
+            MoveDraftWorker(unit, to, refresh);
+        }
+        private void MoveDraftWorker(BasePersonnelUnit unit, string to, Action refresh)
+        {
+            var worker = workerDraft.Workers[unit.BucketIndex];
+            string from = worker.FacilityId;
+            if (!BaseEconomy.MoveWorker(workerDraft, unit.SoldierNumber, from, to))
+            {
+                if (panelFeedback != null)
+                {
+                    panelFeedback.text = to != "" && BaseEconomy.WorkersAt(workerDraft, to) >= workerDraft.Muster.Facilities.Single(f => f.FacilityId == to).Capacity
+                        ? "岗位已满，先调出一名在岗士兵。" : "当前无法调整这名士兵。";
+                    panelFeedback.gameObject.SetActive(true);
+                }
+                return;
+            }
+            string original = workerMoves.TryGetValue(unit.SoldierNumber, out var move) ? move.from : from;
+            if (to == original) workerMoves.Remove(unit.SoldierNumber);
+            else workerMoves[unit.SoldierNumber] = (worker.Kind, original, to);
             refresh();
         }
         private void ConfirmManager(string leaderId,string facility,Action refresh)
