@@ -62,6 +62,17 @@ namespace BaseConquest.Base
 
         private void ResetScenePanel(string viewKey)
         {
+            if (villageTitle != null)
+            {
+                titleActions.SetActive(false);
+                if (!BaseBattleGateway.MainMenu)
+                {
+                    villageTitle.gameObject.SetActive(false);
+                    UiPrefabBinding.DestroyView(villageTitle.gameObject);
+                    villageTitle = null;
+                    titleActions = null;
+                }
+            }
             CloseResourcePopover();
             CloseDialogueSkipSummary();
             dialogueFinishText = dialogueDefault = null;

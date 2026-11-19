@@ -148,6 +148,7 @@ namespace BaseConquest.Base
                 if (recruitment && BaseDemoFlow.Active(next) && BaseBanditHideout.Installed(next) && !next.Demo.Flow.HideoutRecruitClueSeen)
                     next.Demo.Flow.HideoutRecruitCluePending = true;
             }, message);
+            if (ok) owner.OpeningAudio?.Play(recruitment ? VillageOpeningAudio.Cue.Recruit : VillageOpeningAudio.Cue.Trade);
             tradeFeedback = ok ? message : owner.Message;
             RenderTownTrade();
         }

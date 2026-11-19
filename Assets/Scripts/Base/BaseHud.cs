@@ -540,8 +540,8 @@ namespace BaseConquest.Base
             if (owner.CampPlacementMode) { owner.RequestExitCampPlacement(); return; }
             interactionObject="";
             owner.StopConstruction();
-            if (owner.State == null) { OpenRecovery(); return; }
             if(BaseBattleGateway.MainMenu) { OpenMainMenu(); return; }
+            if (owner.State == null) { OpenRecovery(); return; }
             if(owner.State.Aftermath.GameOver) { OpenGameOver(); return; }
             if(BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             activeObject = "menu";

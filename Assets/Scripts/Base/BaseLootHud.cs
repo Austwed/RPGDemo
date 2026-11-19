@@ -82,6 +82,7 @@ namespace BaseConquest.Base
             if(!owner.Change(next=>receipt=BaseBattleLoot.ConsumeReceipt(next,battle),""))return;
             bool held=owner.State.Aftermath.Prisoners.Any(p=>p.BattleId==battle&&p.Status=="held");
             if(!receipt.HasReceipt){if(held)OpenRewardPrisoners(battle);else ClosePanel();return;}
+            owner.OpeningAudio?.Play(VillageOpeningAudio.Cue.Reward);
             var lines=receipt.Items.Where(i=>!string.IsNullOrEmpty(i.ReceiptDestination)).Select(i=>(
                 Item: BaseBattleLoot.Name(owner.State,i),
                 Destination: i.ReceiptDestination==BaseBattleLoot.WarehouseReceipt?StoryText.Get("ui.reward.warehouse","仓库"):

@@ -49,6 +49,9 @@ namespace BaseConquest.Base
         private Transform selectionFrame;
         private readonly Dictionary<string, Transform> companionViews = new Dictionary<string, Transform>();
         private readonly Dictionary<string,AuthoredMapView> npcViews = new Dictionary<string,AuthoredMapView>();
+        private readonly Dictionary<string, BaseAmbientWalk> ambientPeople = new Dictionary<string, BaseAmbientWalk>();
+        private readonly Dictionary<string, BaseMapObject> ambientPositions = new Dictionary<string, BaseMapObject>();
+        private string ambientMap;
         private static float? explorationViewSize;
         public Vector3 PlayerCameraTarget=>player.GetComponent<BattlePawn2D>().ExplorationHeadPoint;
         private sealed class Tap { public Vector2 Start; public float Travel; public bool Pinched; }
@@ -88,7 +91,12 @@ namespace BaseConquest.Base
             {
                 string region=State?.Campaign.Location,map=State?.Campaign.CurrentMapId;
                 if(objectCache==null||objectState!=State||objectFrame!=Time.frameCount||objectRegion!=region||objectMap!=map)
-                {objectState=State;objectFrame=Time.frameCount;objectRegion=region;objectMap=map;objectCache=State==null?BaseCampaign.MapObjects("base"):State.Campaign.Location=="base"&&!BaseDemo.Active(State)?BaseConstruction.MapObjects(State).Where(o=>o.Id!="warehouse").Concat(new[]{BasePartyInventory.WarehouseObject(State)}).ToArray():BaseConstruction.MapObjects(State);}
+                {
+                    objectState=State;objectFrame=Time.frameCount;objectRegion=region;objectMap=map;objectCache=State==null?BaseCampaign.MapObjects("base"):State.Campaign.Location=="base"&&!BaseDemo.Active(State)?BaseConstruction.MapObjects(State).Where(o=>o.Id!="warehouse").Concat(new[]{BasePartyInventory.WarehouseObject(State)}).ToArray():BaseConstruction.MapObjects(State);
+                    if (ambientPositions.Count > 0)
+                        for (int i = 0; i < objectCache.Length; i++)
+                            if (ambientPositions.TryGetValue(objectCache[i].Id, out var person)) objectCache[i] = person;
+                }
                 return objectCache;
             }
         }
@@ -153,6 +161,7 @@ namespace BaseConquest.Base
             regionView?.Dispose(); if(mapMaterial!=null)BattleBoardView.DestroyObject(mapMaterial); combatController=null;
             initializedSession = session; constructionOpen=false;constructionBrush.Cancel();constructionTouch=-1; StopAllCoroutines(); State = null; Busy = loadingTemplate = false;
             ClearWorkerTravel();
+            ambientMap = null;
             environmentMapKey=null;environmentAnimals.Clear();playerMotion=new BaseMotionAssist(); SelectedCell = null; Companions = new BaseCompanionMovement(); companionViews.Clear(); touches.Clear(); mouseTap = null;
             if (Application.isMobilePlatform) Screen.orientation = ScreenOrientation.LandscapeLeft;
             foreach (Transform child in transform.Cast<Transform>().ToArray())
@@ -222,6 +231,11 @@ namespace BaseConquest.Base
 #endif
             // 布局随存档序列化：旧档读进来先做一次性迁移，否则改过的营地坐标在旧档里看不到。
             if(State!=null)BaseDemo.EnsureCampLayout(State);
+            var ambientKey = State == null ? null : (State.Campaign.CurrentMapId ?? "") + "/" + State.Campaign.Location + "/" + BaseDemoPrologue.Village(State);
+            if (ambientMap != ambientKey || State == null) ambientPeople.Clear();
+            ambientMap = ambientKey;
+            ambientPositions.Clear();
+            InvalidateObjects();
             explorationSight=null;nextSightAt=0;BeginEnvironmentVisit();
             var board=State==null ? BattleBoard.CreateDefault(24,14) : BaseBattlefield.Board(State);
             MapSession=new BaseMapSession(board);
@@ -253,6 +267,16 @@ namespace BaseConquest.Base
             BuildBenchTargets();
             BaseConquest.Presentation.EnvironmentRoadEdges.Build(State,regionView.Board,regionView.Root.transform,regionView.ObliqueExploration);
             var objects=MapObjects;
+            foreach (var obj in objects)
+            {
+                if (!BaseAmbientWalk.IsAmbient(obj) || State == null || State.Leaders.Any(person => person.Id == obj.Id) ||
+                    BaseDesignRoutes.ForObject(State, obj.Id) != null || BaseWorldJourney.EntryForObject(State, obj.Id) != null) continue;
+                var origin = new BasePoint(obj.X, obj.Y);
+                if (!ambientPeople.TryGetValue(obj.Id, out var walk) || walk.Home.Distance(origin) > .01)
+                    ambientPeople[obj.Id] = walk = new BaseAmbientWalk(obj.Id, origin, origin);
+                ambientPositions[obj.Id] = AtAmbientPosition(obj, walk.Position);
+            }
+            if (ambientPositions.Count > 0) { InvalidateObjects(); objects = MapObjects; }
             authoredMotionObjects=objects.Where(BaseDemoNpcs.IsStoryShell).ToArray();
             bool hasSwordProp=objects.Any(o=>o.Id=="demo_sword_prop");
             foreach(var obj in objects.Where(o=>!BaseDemoNpcs.IsStoryShell(o)&&!o.Id.StartsWith("partner")&&(!o.Blocks||!string.IsNullOrEmpty(o.SourceObjectId)||!string.IsNullOrEmpty(o.AssetId))))
@@ -434,21 +458,59 @@ namespace BaseConquest.Base
         }
         private void RefreshOpeningAudio()
         {
-            bool opening = !BaseBattleGateway.MainMenu && BaseDemoIntro.Active(State) &&
-                !State.Aftermath.GameOver && State.Campaign.Location == "base" &&
-                State.Demo.Stage == BaseDemoStage.PrologueBriefing && State.Demo.Intro.Step is not (6 or 7);
-            bool exploring = BaseDemo.Active(State) && !BaseBattleGateway.MainMenu && !State.Aftermath.GameOver &&
-                combatController == null && !DeploymentWorldActive && !State.Campaign.HasActiveBattle;
-            if ((exploring || opening) && OpeningAudio == null)
-                OpeningAudio = VillageOpeningAudio.Shared();
-            if (OpeningAudio != null)
-                OpeningAudio.SetContext(this, opening, combatController != null && State?.SceneBattleId == BaseDemoIntro.BattleId, exploring);
+            if (BaseBattleGateway.MainMenu || State == null || combatController != null) return;
+            if (!BaseDemo.Active(State) || State.Aftermath.GameOver)
+            {
+                OpeningAudio?.Release(this);
+                return;
+            }
+            OpeningAudio ??= VillageOpeningAudio.Shared();
+            var place = BaseSceneRules.Dungeon(State) ? VillageOpeningAudio.Place.Dungeon :
+                BaseDemoPrologue.Village(State) ? VillageOpeningAudio.Place.Village : VillageOpeningAudio.Place.Field;
+            OpeningAudio.SetExploration(this, place);
         }
         private void AdvanceExplorationCompanions(double seconds)
         {
             if(BaseBattleGateway.MainMenu||State.Aftermath.GameOver)return;
             bool sceneOnly=Hud.PanelOpen;if(sceneOnly&&!(BaseDemoPrologue.Village(State)&&Hud.DialogueOpen))return;
-            Companions.Update(State,seconds,developerPanel?.BlocksGameInput!=true&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State),sceneOnly);Companions.Capture(State);
+            Companions.Update(State,seconds,developerPanel?.BlocksGameInput!=true&&!State.Campaign.HasActiveBattle&&!BaseBattleLoot.Pending(State),sceneOnly,ReadNpcGeometry);Companions.Capture(State);
+            if (!sceneOnly && developerPanel?.BlocksGameInput != true && !State.Campaign.HasActiveBattle &&
+                !BaseVillageReport.Gathering(State) && !BaseDemoPrologue.Evacuating(State) && !BaseDemoPrologue.Pursuit(State))
+                WalkAmbientPeople(seconds);
+        }
+        private BaseMapObject[] ReadNpcGeometry() => MapObjects;
+        private static BaseMapObject AtAmbientPosition(BaseMapObject obj, BasePoint position) =>
+            new BaseMapObject(obj.Id, obj.Name, position.X, position.Y, obj.Width, obj.Height, obj.Blocks,
+                obj.SourceObjectId, obj.AssetId, obj.Kind, obj.VisualOnly, obj.Shape, obj.Rotation);
+
+        private void WalkAmbientPeople(double seconds)
+        {
+            if (ambientPositions.Count == 0) return;
+            var board = regionView.Board;
+            var playerFeet = new BasePoint(State.PlayerX, State.PlayerY);
+            BaseMapObject[] geometry = null;
+            foreach (var entry in ambientPeople)
+            {
+                if (!ambientPositions.TryGetValue(entry.Key, out var person) || !npcViews.TryGetValue(entry.Key, out var view)) continue;
+                bool Walkable(double x, double y)
+                {
+                    geometry ??= MapObjects;
+                    if (!BaseSpatial.Geometry(geometry, x, y, board.Width, board.Height) || !BaseSpatial.TerrainWalkable(board, x, y, geometry)) return false;
+                    foreach (var other in geometry)
+                        if (other.Kind == "npc" && other.Id != entry.Key && !BaseDemoNpcs.IsStoryShell(other) &&
+                            other.Contains(x, y, BaseMap.Radius)) return false;
+                    foreach (var agent in Companions.Agents)
+                        if (agent.Visible && agent.Position.Distance(new BasePoint(x, y)) < .55) return false;
+                    return true;
+                }
+                if (!entry.Value.Tick(seconds, playerFeet, Walkable, board.Width, board.Height)) continue;
+                var position = entry.Value.Position;
+                var moved = ambientPositions[entry.Key] = AtAmbientPosition(person, position);
+                // MapObjects is the shared array for this frame. Update only this body so the next walker also sees it.
+                for (int i = 0; i < geometry.Length; i++)
+                    if (geometry[i].Id == entry.Key) { geometry[i] = moved; break; }
+                view.MoveTo(WorldPoint(position.X, position.Y));
+            }
         }
         private bool HandlePanelShortcuts(bool backpackPressed,bool questsPressed,bool mapPressed=false)
         {

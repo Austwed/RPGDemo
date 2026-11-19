@@ -110,7 +110,6 @@ namespace BaseConquest.Base
                 BeginSceneEncounter(encounter, run =>
                 {
                     BaseDemoIntro.Configure(run, State.Demo.Intro);
-                    OpeningAudio?.BindPractice(run);
                 }, null, FinishDemoPractice, "民兵演练 · 选主角／暂停／移动／练木桩／攻击搭档");
             }
             catch(Exception e){State.SceneBattleId="";MapSession.LeaveBattle();if(combatController!=null){combatController.gameObject.SetActive(false);BattleBoardView.DestroyObject(combatController.gameObject);combatController=null;}explorationActors.gameObject.SetActive(true);Hud.SetVisible(true);ReportMessage("演练准备失败："+e.Message);}

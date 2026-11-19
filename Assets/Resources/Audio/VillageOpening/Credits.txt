@@ -1,11 +1,30 @@
-Birch Village opening and militia exercise
-Source pages checked on 2026-11-17. The following recordings are released under CC0 1.0.
+DEMO — exploration, title, battle and interactions
+Source pages checked on 2026-11-17 and 2026-11-19. The following recordings are released under CC0 1.0.
 https://creativecommons.org/publicdomain/zero/1.0/
 
 Exploration.ogg
 RandomMind — Medieval: Exploration
 https://opengameart.org/content/medieval-exploration
-Source: Exploration.wav. Adjusted gain and edge fades, encoded to stereo Vorbis.
+Source: Exploration.wav. Used 1.10–231.53 s of the original recording with a 120 ms wrap crossfade.
+
+BattleScore.ogg — RandomMind, Medieval: Battle
+https://opengameart.org/content/medieval-battle
+Source: battle.wav. Used 0.14–70.65 s with a 120 ms wrap crossfade.
+
+RuinsScore.ogg — RandomMind, Fantasy: Rising Moon
+https://opengameart.org/content/fantasy-rising-moon
+Source: Rising_Moon.mp3. Used 0.40–217.77 s with a 350 ms wrap crossfade.
+These three loops are level-matched stereo Vorbis, 44.1 kHz.
+
+Victory.ogg / Defeat.ogg — RandomMind, Medieval: Victory Theme / Medieval: Defeat Theme
+https://opengameart.org/content/medieval-victory-theme
+https://opengameart.org/content/medieval-defeat-theme
+Source: victory.mp3 (26.75–30.55 s), defeat.mp3 (28.52–32.72 s). Short closing phrases with edge fades.
+
+Trade/01.wav, Recruit/01.wav, Reward/01.wav, Forge/01.wav — artisticdude, RPG Sound Pack
+https://opengameart.org/content/rpg-sound-pack
+Source: rpg_sound_pack.zip, RPG Sound Pack/inventory/coin.wav, armor-light.wav,
+coin3.wav, metal-ringing.wav respectively. Converted to 22.05 kHz mono PCM.
 
 Ambience.ogg
 TinyWorlds — Forest Ambience

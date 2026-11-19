@@ -31,7 +31,7 @@ namespace BaseConquest.Base
                     double y = front - BaseMap.Radius - .06;
                     if (!BaseSpatial.Walkable(State, x, y)) continue;
                     var seat = new BaseMapObject(bench.Id + (side < 0 ? ":seat:left" : ":seat:right"),
-                        side < 0 ? "坐下 · 长椅左侧" : "坐下 · 长椅右侧", x, y, .1, .1, false, kind: BenchSeatKind);
+                        side < 0 ? "坐下存档 · 长椅左侧" : "坐下存档 · 长椅右侧", x, y, .1, .1, false, kind: BenchSeatKind);
                     benchTargets.Add((bench, seat));
                 }
             }
@@ -80,9 +80,12 @@ namespace BaseConquest.Base
         {
             if (benchSeat == null) return false;
             if (input.sqrMagnitude > .0001f) leavingBench = true;
+            bool sittingDown = !leavingBench && benchSitProgress < 1f;
             benchSitProgress = Mathf.MoveTowards(benchSitProgress, leavingBench ? 0 : 1, (float)(seconds / .36));
             if (leavingBench && benchSitProgress == 0) ClearBenchSeat();
             PlacePlayer();
+            if (sittingDown && benchSitProgress == 1f)
+                Hud.OpenSlots(true, fromBench: true);
             return true;
         }
 

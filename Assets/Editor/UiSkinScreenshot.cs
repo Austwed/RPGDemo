@@ -1475,21 +1475,48 @@ namespace BaseConquest.Editor
                 if (!controller.Change(s => { s.PlayerX = x; s.PlayerY = y; }, "") ||
                     controller.Nearby?.Id != bench.Id + (side < 0 ? ":seat:left" : ":seat:right"))
                     throw new InvalidOperationException("长椅没有对应的可达座位");
+                var catalog = BaseBattleGateway.Catalog();
+                var before = SnapshotSaves();
+                controller.Interact();
+                move.Invoke(controller, new object[] { Vector2.zero, .05 });
+                move.Invoke(controller, new object[] { Vector2.down, .05 });
+                if (view.Pose != HeroPose.Idle || H.PanelOpen)
+                    throw new InvalidOperationException("坐到一半起身应直接回到探索");
                 controller.Interact();
                 for (int n = 0; n < 9; n++) move.Invoke(controller, new object[] { Vector2.zero, .05 });
                 if (view.Pose != HeroPose.Seated || view.Facing != HeroFacing.South || view.AtlasFrame != 3 ||
                     controller.State.PlayerX != x || controller.State.PlayerY != y || controller.State.Demo.Intro.Step != 1)
                     throw new InvalidOperationException("长椅坐姿变更了实际位置或剧情");
+                if (RequirePanel("CommonPanel").Find("Title").GetComponent<Text>().text != "手动保存 · 3个槽位" ||
+                    !before.SequenceEqual(SnapshotSaves()))
+                    throw new InvalidOperationException("坐稳应打开手动槽，选择槽位前不应写档");
                 if (side < 0)
                 {
+                    Click("返回");
+                    move.Invoke(controller, new object[] { Vector2.zero, .05 });
+                    if (H.PanelOpen || view.Pose != HeroPose.Seated ||
+                        !before.SequenceEqual(SnapshotSaves()))
+                        throw new InvalidOperationException("取消长椅存档应留在座位，保持原档");
                     CaptureViewports("ui-skin-bench-sit");
                     controller.Interact();
+                }
+                else
+                {
+                    var slotButtons = RequirePanel("CommonPanel").GetComponentsInChildren<Button>()
+                        .Where(b => b.GetComponentInChildren<Text>()?.text is "保存到此槽" or "覆盖此槽（保留备份）").ToArray();
+                    if (slotButtons.Length != 3) throw new InvalidOperationException("长椅没有共用三个手动槽");
+                    slotButtons[2].onClick.Invoke();
+                    var saved = catalog.LoadSlot(BaseSaveCatalog.Slots[2]);
+                    if (H.PanelOpen || view.Pose != HeroPose.Seated || saved.PlayerX != x || saved.PlayerY != y ||
+                        !BaseSpatial.Walkable(saved, saved.PlayerX, saved.PlayerY) || saved.Demo.Intro.Step != 1 ||
+                        saved.Demo.Intro.PlayerName != controller.State.Demo.Intro.PlayerName)
+                        throw new InvalidOperationException("长椅手动档读回位置或剧情不一致");
                 }
                 for (int n = 0; n < 8; n++) move.Invoke(controller, new object[] { side < 0 ? Vector2.zero : Vector2.down, .05 });
                 if (view.Pose != HeroPose.Idle || controller.State.PlayerX != x || controller.State.PlayerY != y)
                     throw new InvalidOperationException("完成起身后没有回到原站位");
             }
-            Log.Add("[PASS] 白桦村长椅两端可分别坐下，E／触屏和方向输入可起身，保持剧情与存档位置");
+            Log.Add("[PASS] 两侧长椅坐稳打开三个手动槽，中断或取消均零写入；选槽后读回椅前落点与剧情，两种起身均可用");
         }
 
         private static void VerifyAuthoredLayout()
@@ -3684,7 +3711,7 @@ namespace BaseConquest.Editor
             }
         }
 
-        private static void Capture(string name, int w = 1280, int h = 720)
+        internal static void Capture(string name, int w = 1280, int h = 720)
         {
             var cams = Camera.allCameras.Where(c => c.enabled && c.targetTexture == null).OrderBy(c => c.depth).ToList();
             if (cams.Count == 0 && controller?.WorldCamera != null) cams.Add(controller.WorldCamera);

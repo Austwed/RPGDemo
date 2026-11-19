@@ -1,3 +1,4 @@
+using System;
 using BaseConquest.Battle;
 using BaseConquest.Presentation;
 using BaseConquest.RealtimePrototype;
@@ -7,7 +8,8 @@ namespace BaseConquest.Base
 {
     public sealed class VillageOpeningAudio : MonoBehaviour
     {
-        internal enum Cue { Grass, Stone, Dirt, Page, Assignment, Sword, Bow, WoodHit, Hit, Fall, Hoof }
+        internal enum Cue { Grass, Stone, Dirt, Page, Assignment, Sword, Bow, WoodHit, Hit, Fall, Hoof, Trade, Recruit, Reward, Forge }
+        internal enum Place { Silent, Title, Village, Field, Dungeon, Practice, Battle }
 
         private const string Root = "Audio/VillageOpening/";
         private const double Stride = 1.65;
@@ -27,13 +29,16 @@ namespace BaseConquest.Base
             }
         }
 
-        private AudioSource ambience, score, effects;
+        private AudioSource ambience, score, ruinsScore, battleScore, effects, resultMusic;
+        private AudioClip victory, defeat;
         private Sound[] sounds;
         private static VillageOpeningAudio instance;
         private BaseSceneController owner;
-        private bool active, inPractice, exploring;
+        private RealtimeCampaignBattle encounter;
+        private Place place;
+        private bool resultHeard, suspended, hasAttackRelease;
         private double distance;
-        private float ambienceGain, scoreGain;
+        private float ambienceGain, scoreGain, ruinsGain, battleGain, duckUntil;
 
         internal static VillageOpeningAudio Shared()
         {
@@ -43,18 +48,36 @@ namespace BaseConquest.Base
             return instance = host.AddComponent<VillageOpeningAudio>();
         }
 
+        public static void PlayTitle()
+        {
+            var audio = Shared();
+            if (audio.place == Place.Title) return;
+            audio.owner = null;
+            audio.UnbindBattle();
+            audio.resultMusic.Stop();
+            audio.duckUntil = 0;
+            audio.SetPlace(Place.Title);
+        }
+
         private void Awake()
         {
             ambience = MakeSource("Ambience");
             score = MakeSource("Exploration");
+            ruinsScore = MakeSource("RuinsScore");
+            battleScore = MakeSource("BattleScore");
             effects = MakeSource();
+            resultMusic = MakeSource();
+            victory = Resources.Load<AudioClip>(Root + "Victory");
+            defeat = Resources.Load<AudioClip>(Root + "Defeat");
             sounds = new[]
             {
                 new Sound(Cue.Grass, .30f, .14f), new Sound(Cue.Stone, .39f, .14f), new Sound(Cue.Dirt, .31f, .14f),
                 new Sound(Cue.Page, .37f, .09f), new Sound(Cue.Assignment, .53f, .16f),
                 new Sound(Cue.Sword, .38f, .12f), new Sound(Cue.Bow, .40f, .12f),
                 new Sound(Cue.WoodHit, .49f, .13f), new Sound(Cue.Hit, .47f, .13f),
-                new Sound(Cue.Fall, .46f, .23f), new Sound(Cue.Hoof, .30f, .16f)
+                new Sound(Cue.Fall, .46f, .23f), new Sound(Cue.Hoof, .30f, .16f),
+                new Sound(Cue.Trade, .53f, 0), new Sound(Cue.Recruit, .54f, 0), new Sound(Cue.Reward, .54f, 0),
+                new Sound(Cue.Forge, .50f, 0)
             };
         }
 
@@ -72,27 +95,45 @@ namespace BaseConquest.Base
             return source;
         }
 
-        internal void SetContext(BaseSceneController scene, bool opening, bool practice, bool playExplorationMusic)
+        private void SetPlace(Place next)
+        {
+            if (place == next) return;
+            distance = Stride * .6;
+            if (next == Place.Silent || next == Place.Title) effects.Stop();
+            place = next;
+        }
+
+        internal void SetExploration(BaseSceneController scene, Place next)
         {
             owner = scene;
-            exploring = playExplorationMusic;
-            if (active != opening || inPractice != practice) distance = Stride * .6;
-            if (active && !opening) effects.Stop();
-            active = opening;
-            inPractice = practice;
+            UnbindBattle();
+            SetPlace(next);
         }
 
         internal void Release(BaseSceneController scene)
         {
-            if (owner == scene) SetContext(null, false, false, false);
+            if (owner == scene) SetExploration(null, Place.Silent);
         }
+
+        internal void ReleaseBattle(RealtimeCampaignBattle run)
+        {
+            if (run != null && encounter == run) SetExploration(null, Place.Silent);
+        }
+
+        private void OnApplicationPause(bool paused) => suspended = paused;
 
         private void LateUpdate()
         {
+            if (suspended) return;
             float sfx = GameAudioVolume.Effects;
             effects.volume = sfx;
-            Fade(ambience, ref ambienceGain, active ? (inPractice ? .18f : .30f) : 0, sfx);
-            Fade(score, ref scoreGain, exploring ? .28f : 0, GameAudioVolume.Music, pauseWhenSilent: true);
+            float music = GameAudioVolume.Music;
+            resultMusic.volume = music;
+            float duck = Time.unscaledTime < duckUntil ? .23f : 1;
+            Fade(ambience, ref ambienceGain, place is Place.Village or Place.Title ? .30f : place == Place.Practice ? .18f : 0, sfx);
+            Fade(score, ref scoreGain, place is Place.Village or Place.Title or Place.Field ? .28f * duck : 0, music, true);
+            Fade(ruinsScore, ref ruinsGain, place == Place.Dungeon ? .28f * duck : 0, music, true);
+            Fade(battleScore, ref battleGain, place == Place.Battle ? .30f * duck : 0, music);
         }
 
         private static void Fade(AudioSource source, ref float gain, float target, float channelVolume, bool pauseWhenSilent = false)
@@ -112,17 +153,17 @@ namespace BaseConquest.Base
                 {
                     if (source.isPlaying) source.Pause();
                 }
-                else if (source.isPlaying || source.timeSamples > 0) source.Stop();
+                else if (source.isPlaying) source.Stop();
             }
         }
 
         internal void Footstep(double travelled, BattleBoardView board, double x, double z)
         {
-            if (!active || inPractice || travelled <= 0) return;
+            if (place is not (Place.Village or Place.Field or Place.Dungeon) || encounter != null || travelled <= 0) return;
             distance += travelled;
             if (distance < Stride) return;
             distance %= Stride;
-            Play(board.FootstepSurfaceAt(x, z) switch
+            Play(place == Place.Dungeon ? Cue.Stone : board.FootstepSurfaceAt(x, z) switch
             {
                 GroundSurface.Cobble => Cue.Stone,
                 GroundSurface.DirtPath or GroundSurface.Sand => Cue.Dirt,
@@ -132,46 +173,86 @@ namespace BaseConquest.Base
 
         internal void Play(Cue cue, float proximity = 1)
         {
-            if (!active || proximity <= 0) return;
+            if (place == Place.Silent || proximity <= 0 || GameAudioVolume.Effects <= 0) return;
             var sound = sounds[(int)cue];
             if (sound.Clips.Length == 0 || Time.unscaledTime < sound.ReadyAt) return;
             sound.ReadyAt = Time.unscaledTime + sound.Interval;
+            effects.volume = GameAudioVolume.Effects;
             effects.PlayOneShot(sound.Clips[sound.Next], sound.Volume * proximity);
             sound.Next = (sound.Next + 1) % sound.Clips.Length;
         }
 
-        internal void BindPractice(RealtimeCampaignBattle practice)
+        internal void BindBattle(RealtimeCampaignBattle run)
         {
-            float Near(PrototypeUnit actor) => Mathf.Clamp01(1 - (float)(actor.Position - practice.Model.Player.Position).Length * .085f);
-            void Strike(PrototypeUnit source) => Play(source.Ranged ? Cue.Bow : Cue.Sword, Near(source));
+            if (encounter == run) return;
+            UnbindBattle();
+            owner = null;
+            encounter = run;
+            resultHeard = run.Battle.Report != null;
+            SetPlace(run.Session.Opening.Id == BaseDemoIntro.BattleId ? Place.Practice :
+                run.Session.Opening.EventId == BaseDemoRuins.EventId ? Place.Dungeon : Place.Battle);
+            // A null release callback selects the older combat model's immediate-hit path.
+            hasAttackRelease = run.Model.AttackTriggered != null;
+            if (hasAttackRelease) run.Model.AttackTriggered = (Action<PrototypeUnit>)Strike + run.Model.AttackTriggered;
+            run.Tactics.ObjectHit += ObjectHit;
+            run.Model.DamageApplied += DamageApplied;
+            run.Model.CellEntered += CellEntered;
+        }
 
-            var attack = practice.Model.AttackTriggered;
-            if (attack != null)
-            {
-                practice.Model.AttackTriggered = source =>
-                {
-                    Strike(source);
-                    attack(source);
-                };
-            }
-            practice.Tactics.ObjectHit += (source, _, damage) =>
-            {
-                if (damage <= 0) return;
-                Strike(source);
-                Play(Cue.WoodHit, Near(source));
-            };
-            practice.Model.DamageApplied += (source, target, damage) =>
-            {
-                if (damage <= 0) return;
-                if (attack == null) Strike(source);
-                var proximity = Near(target);
-                Play(Cue.Hit, proximity);
-                if (!target.Alive) Play(Cue.Fall, proximity);
-            };
-            practice.Model.CellEntered += (actor, _) =>
-            {
-                if (actor.FootprintLength == 2) Play(Cue.Hoof, Near(actor));
-            };
+        private void UnbindBattle()
+        {
+            if (encounter == null) return;
+            if (hasAttackRelease) encounter.Model.AttackTriggered -= Strike;
+            encounter.Tactics.ObjectHit -= ObjectHit;
+            encounter.Model.DamageApplied -= DamageApplied;
+            encounter.Model.CellEntered -= CellEntered;
+            encounter = null;
+        }
+
+        private void OnDestroy() => UnbindBattle();
+
+        private float Near(PrototypeUnit actor)
+        {
+            if (encounter?.Model.Player == null) return 0;
+            if (actor.Side == PrototypeSide.Enemy && !encounter.Battle.CanInspectUnit(BattleSide.A, encounter.Battle.Soldier(actor.Id-1))) return 0;
+            return Mathf.Clamp01(1 - (float)(actor.Position - encounter.Model.Player.Position).Length * .064f);
+        }
+
+        private void Strike(PrototypeUnit source) => Play(source.Ranged ? Cue.Bow : Cue.Sword, Near(source));
+
+        private void ObjectHit(PrototypeUnit source, BattleTacticalObject target, double damage)
+        {
+            if (damage <= 0) return;
+            Strike(source);
+            Play(Cue.WoodHit, Near(source));
+        }
+
+        private void DamageApplied(PrototypeUnit source, PrototypeUnit target, double damage)
+        {
+            if (damage <= 0) return;
+            if (!hasAttackRelease) Strike(source);
+            var proximity = Near(target);
+            Play(Cue.Hit, proximity);
+            if (!target.Alive) Play(Cue.Fall, proximity);
+        }
+
+        private void CellEntered(PrototypeUnit actor, int cell)
+        {
+            if (actor.FootprintLength == 2) Play(Cue.Hoof, Near(actor));
+        }
+
+        internal void PlayResult(RealtimeCampaignBattle run)
+        {
+            if (run != encounter || resultHeard || run.Battle.Report == null) return;
+            resultHeard = true;
+            // These three encounters cut directly to a conversation; leave space for its opening line.
+            string id = run.Session.Opening.Id;
+            if (id == BaseDemoIntro.BattleId || id == BaseDemoPrologue.BattleId || id == BaseLocalDuel.Id) return;
+            var clip = run.Battle.Report.Outcome == BattleOutcome.SideAWin ? victory : defeat;
+            if (clip == null || GameAudioVolume.Music <= 0) return;
+            resultMusic.volume = GameAudioVolume.Music;
+            resultMusic.PlayOneShot(clip, .45f);
+            duckUntil = Time.unscaledTime + clip.length;
         }
     }
 }

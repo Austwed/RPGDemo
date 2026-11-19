@@ -22,11 +22,39 @@ namespace BaseConquest.Base
         [NonSerialized] internal List<BasePoint> ReporterRoute;
         [NonSerialized] internal BasePoint ReporterTarget;
         [NonSerialized] internal int ReporterWaypoint;
+        [NonSerialized] internal BaseDepartureWalk[] DepartureRoutes;
+        [NonSerialized] internal BasePoint? FarmDoor;
         public List<BaseVillageReportMember> ReportGroup = new List<BaseVillageReportMember>();
         public double TutorialDelay;
         // 村民闲聊过的 NPC id（PRO_02 首次／再次两套台词；旧档读进来为 null，按空处理）。
         public List<string> Talked=new List<string>();
-        public BaseDemoIntroState Copy(){var i=(BaseDemoIntroState)MemberwiseClone();i.Captain=Captain?.Copy();i.Militia=Militia.Select(v=>v.Copy()).ToList();i.Talked=Talked==null?new List<string>():Talked.ToList();i.ReportGroup=ReportGroup?.Select(member=>member.Copy()).ToList()??new List<BaseVillageReportMember>();i.VillageWorkerPosts=VillageWorkerPosts?.ToArray();return i;}
+        public BaseDemoIntroState Copy(){var i=(BaseDemoIntroState)MemberwiseClone();i.DepartureRoutes=null;i.Captain=Captain?.Copy();i.Militia=Militia.Select(v=>v.Copy()).ToList();i.Talked=Talked==null?new List<string>():Talked.ToList();i.ReportGroup=ReportGroup?.Select(member=>member.Copy()).ToList()??new List<BaseVillageReportMember>();i.VillageWorkerPosts=VillageWorkerPosts?.ToArray();return i;}
+    }
+
+    internal sealed class BaseDepartureWalk
+    {
+        private List<BasePoint> path;
+        private BasePoint requested, goal;
+        private int waypoint;
+        private bool followedLastTarget;
+        private double remaining;
+
+        internal bool Advance(BaseState state,ref double x,ref double y,BasePoint target,double seconds,bool follow=false)
+        {
+            remaining -= seconds;
+            if (path == null || followedLastTarget != follow || (!follow && target.Distance(requested) > .01) ||
+                (path.Count == 0 && remaining <= 0 && new BasePoint(x, y).Distance(goal) >= .08) ||
+                (follow && remaining <= 0 && target.Distance(requested) > .45))
+            {
+                requested = target;
+                followedLastTarget = follow;
+                goal = follow ? BaseSpatial.Nearest(state, target) : target;
+                path = BaseStageWalk.Route(state, new BasePoint(x,y), goal);
+                waypoint = 0;
+                remaining = .65;
+            }
+            return BaseStageWalk.Advance(ref x, ref y, goal, seconds, path, ref waypoint);
+        }
     }
 
     public static class BaseDemoIntro
@@ -264,13 +292,25 @@ namespace BaseConquest.Base
         {
             if(!Active(s)||s.Demo.Intro.Step!=7)return false;
             var i=s.Demo.Intro;seconds=Math.Max(0,seconds);
+            i.FarmDoor ??= BaseStageWalk.Door(s,"intro_farm");
+            var door = i.FarmDoor.Value;
+            var exit = new BasePoint(.6,7.2);
+            i.DepartureRoutes ??= new BaseDepartureWalk[5];
+            var captain = i.DepartureRoutes[0] ??= new BaseDepartureWalk();
             // Small deterministic steps keep the cutscene resumable with any caller tick size.
-            while(seconds>1e-8&&i.Step==7){double dt=Math.Min(.05,seconds);seconds-=dt;var door=BaseStageWalk.Door(s,"intro_farm");
-                if(i.DeparturePhase==0){if(BaseStageWalk.Advance(s,ref i.CaptainX,ref i.CaptainY,door,dt))i.DeparturePhase=1;}
+            while(seconds>1e-8&&i.Step==7){double dt=Math.Min(.05,seconds);seconds-=dt;
+                if(i.DeparturePhase==0){if(captain.Advance(s,ref i.CaptainX,ref i.CaptainY,door,dt))i.DeparturePhase=1;}
                 else if(i.DeparturePhase==1){i.DepartureWait+=dt;if(i.DepartureWait>=1)i.DeparturePhase=2;}
                 else if(i.DeparturePhase==2){i.MilitiaDelay-=dt;if(i.MilitiaDelay<=0&&i.MilitiaSpawned<4){int n=i.MilitiaSpawned++;i.Militia.Add(new BaseLeader{Id="intro_militia_"+n,Name="村庄剑士",AppearanceId="saber",Health=100,MaxHealth=100,MapX=door.X,MapY=door.Y,HasMapPosition=true});i.MilitiaDelay=.4;}if(i.MilitiaSpawned==4)i.DeparturePhase=3;}
-                else if(i.DeparturePhase==3){if(BaseStageWalk.Advance(s,ref i.CaptainX,ref i.CaptainY,new BasePoint(.6,7.2),dt))i.DeparturePhase=4;}
-                foreach(var person in i.Militia){int n=i.Militia.IndexOf(person);var target=i.DeparturePhase>=4?new BasePoint(.6,7.2):BaseSpatial.Nearest(s,new BasePoint(i.CaptainX+1+(n%2)*.6,i.CaptainY+(n/2)*.6));BaseStageWalk.Advance(s,ref person.MapX,ref person.MapY,target,dt);}
+                else if(i.DeparturePhase==3){if(captain.Advance(s,ref i.CaptainX,ref i.CaptainY,exit,dt))i.DeparturePhase=4;}
+                for (int n = 0; n < i.Militia.Count; n++)
+                {
+                    var person = i.Militia[n];
+                    var walk = i.DepartureRoutes[n + 1] ??= new BaseDepartureWalk();
+                    bool follow = i.DeparturePhase < 4;
+                    var target = follow ? new BasePoint(i.CaptainX+1+(n%2)*.6,i.CaptainY+(n/2)*.6) : exit;
+                    walk.Advance(s,ref person.MapX,ref person.MapY,target,dt,follow);
+                }
                 if(i.DeparturePhase==4&&i.Militia.Count==4&&i.Militia.All(p=>new BasePoint(p.MapX,p.MapY).Distance(new BasePoint(.6,7.2))<.12)){i.Step=8;BaseDemoPrologue.BeginEscape(s);return true;}
             }return false;
         }

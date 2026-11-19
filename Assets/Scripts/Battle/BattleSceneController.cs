@@ -640,6 +640,6 @@ namespace BaseConquest.Battle
             BattleBoardView.DestroyObject(material); BattleBoardView.DestroyObject(lineMaterial); BattleBoardView.DestroyObject(font);
             material = lineMaterial = null; font = null;
         }
-        private void OnDestroy() {DisposePreview();if(saveMenuFont!=null)BattleBoardView.DestroyObject(saveMenuFont);if(campaignMenu!=null)BattleBoardView.DestroyObject(campaignMenu);}
+        private void OnDestroy() {if(battleAudio!=null)battleAudio.ReleaseBattle(realtime);DisposePreview();if(saveMenuFont!=null)BattleBoardView.DestroyObject(saveMenuFont);if(campaignMenu!=null)BattleBoardView.DestroyObject(campaignMenu);}
     }
 }

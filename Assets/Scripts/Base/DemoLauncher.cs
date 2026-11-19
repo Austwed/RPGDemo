@@ -14,9 +14,16 @@ namespace BaseConquest.Base
                 BaseBattleGateway.UseCustomMapTest(test);return;
             }
 #endif
-            BaseBattleGateway.UseDemo();BaseBattleGateway.MainMenu=false;
+            BaseBattleGateway.UseDemo();
+#if UNITY_EDITOR
+            BaseBattleGateway.MainMenu=UnityEditor.SessionState.GetBool(PreviewTitleKey,false);
+            UnityEditor.SessionState.EraseBool(PreviewTitleKey);
+#else
+            BaseBattleGateway.MainMenu=true;
+#endif
         }
 #if UNITY_EDITOR
+        public const string PreviewTitleKey="BaseConquest.PreviewVillageTitle";
         public const string CustomMapTestLaunchKey="BaseConquest.CustomMapTest.PendingPackage";
 #endif
         private void Awake()

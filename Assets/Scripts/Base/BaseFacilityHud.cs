@@ -134,6 +134,7 @@ namespace BaseConquest.Base
             }, "已确认工人安排");
             if (saved)
             {
+                owner.OpeningAudio?.Play(VillageOpeningAudio.Cue.Assignment);
                 foreach (var (_, move) in moves) owner.EnqueueWorkerTransfer(move.kind, move.from, move.to, 1);
                 ResetWorkerDraft();
                 refresh();

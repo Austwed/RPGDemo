@@ -186,6 +186,7 @@ namespace BaseConquest.Base
             }
         }
         private static bool KindAllowed(string kind,bool modern)=>new[]{"facility","npc","interaction","obstacle","decoration","wildlife"}.Contains(kind)||modern&&new[]{"demo-prop","pixel-prop"}.Contains(kind);
+        internal static bool NpcRole(string id) => Rules.Any(rule => rule.Id == id);
         private static bool Walkable(BattleBoard board,BaseMapObject[] objects,BasePoint p)=>BaseSpatial.Geometry(objects,p.X,p.Y,board.Width,board.Height)&&BaseSpatial.TerrainWalkable(board,p.X,p.Y,objects);
 
         // 编辑器测试入口校验一次；存档只检查数据结构，不重复搜索整张地图。

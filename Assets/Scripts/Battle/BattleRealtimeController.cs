@@ -12,6 +12,7 @@ namespace BaseConquest.Battle
     public sealed partial class BattleSceneController
     {
         private RealtimeCampaignBattle realtime;
+        private VillageOpeningAudio battleAudio;
         private bool realtimeSingleCommander;
         private int informationFineCell=-1,lastRealtimeTap=int.MinValue;
         private double lastRealtimeTapTime=-10;
@@ -89,6 +90,11 @@ namespace BaseConquest.Battle
         {
             realtime=new RealtimeCampaignBattle(campaignSession);autoRun=false;animating=skipping=false;presentation=1;
             if(IsSceneEncounter)configureSceneEncounter?.Invoke(realtime);
+            if (Application.isPlaying && (IsSceneEncounter || sharedMapSession != null) && campaignSession.Opening.DemoCombat && !DeploymentDraftActive)
+            {
+                battleAudio = VillageOpeningAudio.Shared();
+                battleAudio.BindBattle(realtime);
+            }
             if(realtime.Model.Player!=null)boardView.CenterOn(battle.Soldier(realtime.Model.Player.Id-1).Cell);
             feedback="即时战斗已暂停：点选细格查看；选队长后单击移动／攻击，双击空地驻守／敌人集火；空格继续。";
             SelectOpeningCommanders();
@@ -312,6 +318,7 @@ namespace BaseConquest.Battle
         private void SyncRealtimeViews()
         {
             if(realtime==null||boardView==null)return;
+            if (battle.Report != null) battleAudio?.PlayResult(realtime);
             if(combatText==null)combatText=new BattleCombatTextView(unitsRoot,font,battle);
             SyncTacticalObjects();
             selection.Prune(battle,BattleSide.A);selectedUnitId=selection.Primary;

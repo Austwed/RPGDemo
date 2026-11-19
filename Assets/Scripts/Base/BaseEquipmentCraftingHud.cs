@@ -62,6 +62,7 @@ namespace BaseConquest.Base
                     if(!BaseEquipmentCrafting.Confirm(next,quote))
                         throw new InvalidOperationException(StoryText.Get("story.ui.trade.changed","交易条件已变化，请重新确认"));
                 },"已完成重铸");
+                if (ok) owner.OpeningAudio?.Play(VillageOpeningAudio.Cue.Forge);
                 var result=ok?BasePartyInventory.Find(owner.State,selected.Id):null;
                 tradeFeedback=result==null?owner.Message:string.Format(
                     StoryText.Get("story.ui.trade.reforge_result","重铸结果：{0} → {1} · 消耗 {2} 颗"),
