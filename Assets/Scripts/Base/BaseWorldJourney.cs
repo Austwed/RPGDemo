@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -138,7 +138,6 @@ namespace BaseConquest.Base
         public static void Start(BaseState state,IEnumerable<string> path)
         {
             if(!OnWorld(state)||Marching(state)||BaseBattleLoot.Pending(state))throw new InvalidOperationException("目前不能开始新行程");
-            if(BaseDemoFinale.Rebuilding(state))throw new InvalidOperationException("请先完成返乡重建");
             var route=path.ToList();var world=state.Campaign.WorldJourney;
             if(route.Count<2||route[0]!=world.NodeId||route.Distinct().Count()!=route.Count||route.Skip(1).Where((id,index)=>!Passable(state,Road(world,route[index],id))).Any())throw new InvalidOperationException("路线已失效，请重新规划");
             world.Route=route;world.RoadDay=world.RoadIndex=0;

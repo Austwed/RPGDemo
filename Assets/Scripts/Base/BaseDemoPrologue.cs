@@ -96,7 +96,8 @@ namespace BaseConquest.Base
             if(!Pursuit(state)||state.SceneBattleId!=BattleId)throw new InvalidOperationException("尚未触发追兵剧情");
             var player=state.Leaders.Single(person=>person.Id==state.PlayerLeaderId).Copy();
             var stats=BaseCommanderIdentity.Stats(player,new ArmyDefinition().Hero);var elite=stats.Clone();elite.Health*=1.2f;elite.Damage*=.35f;elite.Defense*=.7f;elite.CritChance=0;elite.HasProfessionKind=elite.HasCombatKind=true;elite.ProfessionKind=elite.CombatKind=SoldierKind.Melee;
-            var scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),CampaignRules=true,FogEnabled=false,PlayerHeroAppearance=true,PlayerLeaderSlot=0,CustomExits=true,ExitA=new GridPosition(23,6),ExitB=new GridPosition(0,6),MaxRounds=90,InstantDeathEnabled=false,
+            var board=BaseSceneCombat.Project(state);
+            var scenario=new BattleScenario {Board=board,CampaignRules=true,FogEnabled=false,PlayerHeroAppearance=true,PlayerLeaderSlot=0,CustomExits=true,ExitA=BattleSimulation.SideExit(board,false),ExitB=BattleSimulation.SideExit(board,true),MaxRounds=90,InstantDeathEnabled=false,
                 A=new ArmyDefinition {HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=stats},
                 B=new ArmyDefinition {HeroCount=2,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=elite,CommanderNames=new List<string>{"受伤精英追兵","受伤精英追兵"},CommanderAppearances=new List<string>{"galan","galan"}},
                 Objective=new ObjectiveConfig {Title="掩护撤离 · 追兵交战"},Placements=new List<UnitPlacement>()};
@@ -144,6 +145,11 @@ namespace BaseConquest.Base
         public static bool Recover(BaseState state)
         {
             if(!Village(state)||state.Demo.Stage!=BaseDemoStage.PrologueWounded||!state.Demo.PrologueCompleted)return false;
+            if(state.Demo.StoryScene?.Valid!=true && state.Demo.Finale!=null)
+            {
+                state.Demo.Finale.Village=BaseSpatial.Layout(state,"base").Copy();
+                state.Demo.Finale.VillageBoard=BaseBattlefield.Board(state,"base").Clone();
+            }
             state.Demo.Stage=BaseDemoStage.Waking;state.Demo.SceneFollowers.Clear();BaseDemo.InstallCampMap(state);return true;
         }
         public static void Validate(BaseState state)

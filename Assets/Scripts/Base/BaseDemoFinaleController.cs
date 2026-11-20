@@ -59,7 +59,45 @@ namespace BaseConquest.Base
         }
         public void InvestigateDemoSword()
         {
-            if(Change(next=>{if(!BaseDemoFinale.Investigate(next))throw new InvalidOperationException("先处理战果，返乡后到断剑旁同层一格内调查");},"已记录断剑，开始返乡重建"))Hud.OpenRebuild();
+            if(!Change(next=>{if(!BaseDemoFinale.Investigate(next))throw new InvalidOperationException("请靠近断剑。");},""))return;
+            RefreshDemoRegion();
+        }
+        private readonly List<BasePoint>[] volunteerRoutes=new List<BasePoint>[2];
+        private readonly int[] volunteerSteps=new int[2];
+        private readonly BasePoint[] volunteerPosts=new BasePoint[2];
+        private void ResetVolunteerRoutes(){volunteerRoutes[0]=volunteerRoutes[1]=null;}
+        internal void TickVillageReturn()
+        {
+            if(State?.Campaign.CurrentMapId!=BaseDemoFinale.Home || !BaseDemoFinale.Rebuilding(State) ||
+                State.Demo.Finale.RebuildMask!=7 || BaseDemoFinale.HomeVolunteers(State))
+            {
+                ResetVolunteerRoutes();
+                return;
+            }
+            if(ConstructionMode||BaseBattleGateway.MainMenu)return;
+            // Repairing the house finishes its dialogue before rebuilding the scene with the two arrivals.
+            if(Hud.DialogueOpen && !npcViews.ContainsKey(BaseDemoFinale.Builder))return;
+            var map=BaseSceneInstances.Layout(State,BaseDemoFinale.Home);
+            bool allArrived=true;
+            for(int i=0;i<2;i++)
+            {
+                var id=i==0 ? BaseDemoFinale.Builder : BaseDemoFinale.Helper;
+                var person=map.Objects.Single(o=>o.Id==id);
+                var route=volunteerRoutes[i];
+                if(route==null)
+                {
+                    var target=volunteerPosts[i]=BaseDemoFinale.VolunteerPost(State,i);
+                    volunteerRoutes[i]=route=BaseStageWalk.Route(State,new BasePoint(person.X,person.Y),target);
+                    volunteerSteps[i]=0;
+                }
+                bool arrived=BaseStageWalk.Advance(ref person.X,ref person.Y,volunteerPosts[i],Time.deltaTime,route,ref volunteerSteps[i]);
+                allArrived &= arrived;
+                if(npcViews.TryGetValue(id,out var npc)) npc.MoveTo(WorldPoint(person.X,person.Y));
+            }
+            InvalidateObjects();
+            if(allArrived && CommitChange(next=>{
+                if(!BaseDemoFinale.WelcomeVolunteers(next))throw new InvalidOperationException("村民尚未走到麦田边");
+            },"",fromInteraction:false))InvalidateObjects();
         }
 
         internal void CollectDemoCampSupplies()
@@ -73,176 +111,11 @@ namespace BaseConquest.Base
             Hud.OpenDemoCampSuppliesFound();
         }
 
-        private int rebuildProject=-1;
-        private GridPosition? rebuildCell;
-        private float rebuildViewBefore;
-        public bool RebuildPlacementMode { get; private set; }
-        public bool HomeRebuildOverview { get; private set; }
-        public int RebuildProject => rebuildProject;
-        public string RebuildPlacementProblem => rebuildProject<0 ? StoryText.Get("story.ui.finale.rebuild_select_project","请先选择设施") :
-            !rebuildCell.HasValue ? StoryText.Get("story.ui.finale.rebuild_select_cell","点击地图选择空地") :
-            BaseDemoFinale.RebuildProblem(State,rebuildProject,rebuildCell.Value.X,rebuildCell.Value.Z);
-
-        internal void ArmHomeRebuild()
-        {
-            if(Busy||!BaseDemoFinale.Rebuilding(State)||State.Campaign.CurrentMapId!=BaseDemoFinale.Home)return;
-            Hud.ClosePanel();
-            if(Hud.PanelOpen)return;
-            StopConstruction();ClearSelection();
-            constructionOpen=true;RebuildPlacementMode=true;
-            regionView.UpdateCamera(Hud.HomeRebuildMapInset,0);
-            SelectNextRebuildProject();Hud.RefreshSummary();
-        }
-
-        private void SelectNextRebuildProject()
-        {
-            int mask=State.Demo.Finale.RebuildMask;
-            if(mask==7){rebuildProject=-1;rebuildCell=null;Hud.RefreshConstructionPalette();return;}
-            SelectRebuildProject(Enumerable.Range(0,3).First(i=>(mask&(1<<i))==0));
-        }
-
-        public void SelectRebuildProject(int item)
-        {
-            if(!RebuildPlacementMode||HomeRebuildOverview||item<0||item>=3)return;
-            rebuildProject=item;rebuildCell=null;
-            regionView.SelectCell(null);Hud.RefreshConstructionPalette();
-        }
-
-        private void SelectRebuildCell(GridPosition cell)
-        {
-            if(rebuildProject<0||HomeRebuildOverview||(State.Demo.Finale.RebuildMask&(1<<rebuildProject))!=0)return;
-            rebuildCell=cell;regionView.SelectCell(cell);
-            Hud.RefreshConstructionPalette();
-        }
-
-        internal void TintRebuildPreview(bool available)
-        {
-            if(rebuildCell.HasValue)regionView.TintSelection(available?new Color(.35f,1,.55f):new Color(1,.32f,.25f));
-        }
-
-        public bool ConfirmRebuildPlacement()
-        {
-            if(!RebuildPlacementMode||HomeRebuildOverview||Hud.PanelOpen||RebuildPlacementProblem!="")return false;
-            int item=rebuildProject;var cell=rebuildCell.Value;
-            if(!Change(next=>{if(!BaseDemoFinale.PlaceRebuild(next,item,cell.X,cell.Z))throw new InvalidOperationException(BaseDemoFinale.RebuildProblem(next,item,cell.X,cell.Z));},""))return false;
-            rebuildCell=null;
-            RefreshDemoRegion();SelectNextRebuildProject();return true;
-        }
-
-        public bool WithdrawRebuildPlacement()
-        {
-            if(!RebuildPlacementMode||HomeRebuildOverview||Hud.PanelOpen||rebuildProject<0)return false;
-            int item=rebuildProject;
-            if((State.Demo.Finale.RebuildMask&(1<<item))==0)return false;
-            if(!Change(next=>{if(!BaseDemoFinale.RemoveRebuild(next,item))throw new InvalidOperationException("无法撤回设施");},""))return false;
-            RefreshDemoRegion();SelectRebuildProject(item);return true;
-        }
-
-        public void ShowHomeRebuildOverview()
-        {
-            if(!RebuildPlacementMode||HomeRebuildOverview||Hud.PanelOpen||State.Demo.Finale.RebuildMask!=7)return;
-            rebuildViewBefore=WorldCamera.orthographicSize;
-            HomeRebuildOverview=true;rebuildCell=null;
-            regionView.SelectCell(null);FrameRebuiltVillage();Hud.RefreshSummary();
-        }
-
-        public void ReturnToHomeRebuild()
-        {
-            if(!HomeRebuildOverview)return;
-            ResetHomeRebuildOverview();Hud.RefreshSummary();
-        }
-
-        private void FrameRebuiltVillage()
-        {
-            regionView.UpdateCamera(0,0);
-            regionView.SetViewSize(regionView.FullViewSize);
-            regionView.Follow(Vector3.zero);
-        }
-
-        private void ResetHomeRebuildOverview()
-        {
-            if(!HomeRebuildOverview)return;
-            HomeRebuildOverview=false;
-            regionView.UpdateCamera(Hud.HomeRebuildMapInset,0);
-            regionView.SetViewSize(rebuildViewBefore);regionView.Follow(PlayerCameraTarget);
-        }
-
-        public bool FinishHomeRebuild()
-        {
-            if(!HomeRebuildOverview||Hud.PanelOpen)return false;
-            if(!Change(next=>{if(!BaseDemoFinale.FinishRebuild(next))throw new InvalidOperationException("请先完成三项重建");},""))return false;
-            StopConstruction();FrameRebuiltVillage();Hud.OpenDemoStory(showCompletion: true);return true;
-        }
         private void ReloadTravelRegion()
         {if(Application.isPlaying)SceneLoadingCover.LoadExploration();else{RefreshDemoRegion();Hud.ClosePanel();}}
     }
     public sealed partial class BaseHud
     {
-        private RectTransform rebuildPalette,rebuildOverview;
-        private readonly Button[] rebuildProjects=new Button[3];
-        private Color[] rebuildProjectColors;
-        private Button rebuildPlace,rebuildWithdraw,rebuildConfirm,rebuildResume,rebuildFinish;
-        private Text rebuildStatus;
-        internal float HomeRebuildGutter
-        {
-            get
-            {
-                if(rebuildPalette==null||controls.rect.width<=0)return 206f;
-                var edge=controls.InverseTransformPoint(rebuildPalette.TransformPoint(new Vector3(rebuildPalette.rect.xMax,0)));
-                return Mathf.Clamp(edge.x-controls.rect.xMin+11,0,controls.rect.width*.35f);
-            }
-        }
-        internal float HomeRebuildMapInset => HomeRebuildGutter / (controls.rect.width>0?controls.rect.width:1280f);
-        public void OpenRebuild()=>owner.ArmHomeRebuild();
-
-        private void BuildHomeRebuildPalette()
-        {
-            var wood=new Color(.33f,.24f,.16f,.98f);
-            rebuildPalette=Box("HomeRebuildProjects",controls,new Vector2(0,1),new Vector2(103,-ExplorationHudLayout.HeaderHeight-228),new Vector2(184,434),wood);
-            Label(rebuildPalette,StoryText.Get("story.ui.finale.rebuild_title","返乡重建"),new Vector2(0,188),new Vector2(160,36),22,TextAnchor.MiddleCenter);
-            for(int i=0;i<rebuildProjects.Length;i++)
-            {
-                int item=i;
-                rebuildProjects[i]=MakeButton(rebuildPalette,BaseDemoFinale.RebuildName(i),new Vector2(0,145-i*47),new Vector2(160,42),()=>owner.SelectRebuildProject(item));
-            }
-            rebuildStatus=Label(rebuildPalette,"",new Vector2(0,1),new Vector2(156,50),17,TextAnchor.MiddleCenter);
-            rebuildPlace=MakeButton(rebuildPalette,"放置",new Vector2(-41,-49),new Vector2(76,42),()=>owner.ConfirmRebuildPlacement());
-            var placementColors=rebuildPlace.colors;placementColors.fadeDuration=0;rebuildPlace.colors=placementColors;
-            rebuildWithdraw=MakeButton(rebuildPalette,"撤回",new Vector2(41,-49),new Vector2(76,42),()=>owner.WithdrawRebuildPlacement());
-            rebuildConfirm=MakeButton(rebuildPalette,"确认完成",new Vector2(0,-103),new Vector2(160,43),owner.ShowHomeRebuildOverview);
-            MakeButton(rebuildPalette,"关闭",new Vector2(0,-172),new Vector2(160,43),owner.StopConstruction);
-
-            rebuildOverview=Box("HomeRebuildOverview",controls,new Vector2(.5f,0),new Vector2(0,38),new Vector2(304,58),wood);
-            MakeButton(rebuildOverview,"返回重建",new Vector2(-73,0),new Vector2(134,42),owner.ReturnToHomeRebuild);
-            rebuildFinish=MakeButton(rebuildOverview,"结束 Demo",new Vector2(73,0),new Vector2(134,42),()=>owner.FinishHomeRebuild());
-            rebuildResume=MakeButton(controls,"继续重建",new Vector2(103,-ExplorationHudLayout.HeaderHeight-41),new Vector2(154,44),OpenRebuild,new Vector2(0,1));
-            rebuildPalette.gameObject.SetActive(false);rebuildOverview.gameObject.SetActive(false);rebuildResume.gameObject.SetActive(false);
-        }
-
-        private void RefreshHomeRebuildPalette(bool visible)
-        {
-            if(rebuildPalette==null)return;
-            bool placing=visible&&!owner.HomeRebuildOverview;
-            rebuildPalette.gameObject.SetActive(placing);
-            rebuildOverview.gameObject.SetActive(visible&&owner.HomeRebuildOverview);
-            rebuildResume.gameObject.SetActive(!owner.ConstructionMode&&!PanelOpen&&!owner.Busy&&BaseDemoFinale.Rebuilding(owner.State)&&owner.State.Campaign.CurrentMapId==BaseDemoFinale.Home);
-            if(!placing)return;
-            if(rebuildProjectColors==null)rebuildProjectColors=rebuildProjects.Select(button=>button.targetGraphic.color).ToArray();
-            int mask=owner.State.Demo.Finale.RebuildMask,selected=owner.RebuildProject;
-            for(int i=0;i<rebuildProjects.Length;i++)
-            {
-                var button=rebuildProjects[i];
-                button.GetComponentInChildren<Text>().text=BaseDemoFinale.RebuildName(i)+((mask&(1<<i))!=0?" · 已放置":"");
-                button.targetGraphic.color=i==selected?DemoUiTheme.Current.Gold:rebuildProjectColors[i];
-            }
-            string problem=owner.RebuildPlacementProblem;
-            owner.TintRebuildPreview(problem=="");
-            rebuildStatus.text=mask==7&&selected<0?StoryText.Get("story.ui.finale.rebuild_ready","三项设施已就位"):
-                problem==""?StoryText.Get("story.ui.finale.rebuild_available","可放置 · 确认此处"):problem;
-            rebuildPlace.interactable=problem=="";
-            rebuildWithdraw.interactable=selected>=0&&(mask&(1<<selected))!=0;
-            rebuildConfirm.interactable=mask==7;
-        }
         public void OpenBanditVictory()
         {
             owner.Change(next=>next.Demo.Flow.BanditCleared=true,"");
@@ -269,8 +142,10 @@ namespace BaseConquest.Base
         {
             var state=owner.State;
             if(PanelOpen||owner.ConstructionMode||BaseBattleGateway.MainMenu||!BaseDemoFlow.Active(state)||
-                state.Campaign.CurrentMapId!=BaseDemoFinale.Home||state.Demo.Stage!=BaseDemoStage.AttackWon||
-                state.Demo.Flow.HomeEnterSeen||BaseDemoFinale.Rebuilding(state)||BaseBattleLoot.Pending(state))return false;
+                state.Campaign.CurrentMapId!=BaseDemoFinale.Home||BaseBattleLoot.Pending(state))return false;
+            if(state.Demo.Stage==BaseDemoStage.Finished && !state.Demo.Finale.EndingSeen)
+            {OpenDemoStory(showCompletion:true);return true;}
+            if(state.Demo.Stage!=BaseDemoStage.AttackWon||state.Demo.Flow.HomeEnterSeen)return false;
             activeObject="demo-home-arrival";
             var lines=new List<NpcLine>{
                 new NpcLine("旁白","","门板歪了，粮仓也被搬空。巷子里听不见人声。")
@@ -324,32 +199,112 @@ namespace BaseConquest.Base
                 OpenBattlePreparation(BasePrepRoute.BlackCrow);return true;
             }
             if(id==BaseDemoFinale.CampSuppliesMarker){owner.CollectDemoCampSupplies();return true;}
-            if(owner.State.Campaign.CurrentMapId==BaseDemoFinale.Home&&BaseDemoFinale.IsReturnField(id))
+            var current=owner.State;
+            if(current.Campaign.CurrentMapId==BaseDemoFinale.HomeField && id=="demo_broken_sword")
             {
-                activeObject=id;
-                NpcDialogue(new[]{new NpcLine("旁白","","那天阿禾还怕来不及下种。如今田埂上全是马蹄印。")},
-                    Array.Empty<NpcReply>(),onCompleted:ClosePanel);
+                activeObject=id;interactionObject="";
+                NpcDialogue(new[]{new NpcLine("断剑","","一把断裂的剑躺在地上。剑柄上沾着泥的青绳结，看起来很熟悉。")},
+                    new[]{new NpcReply("这是搭档的剑……收起来吧。",owner.InvestigateDemoSword),
+                          new NpcReply("先去村庄看看吧，或许呢？",ClosePanel)});
                 return true;
             }
-            if(id!="demo_broken_sword"&&id!="demo_survivor")return false;
-            if(owner.State.Demo.Stage==BaseDemoStage.Finished){OpenDemoStory();return true;}
-            if(BaseDemoFinale.Rebuilding(owner.State)){OpenRebuild();return true;}
-            interactionObject="";
+            if(current.Campaign.CurrentMapId!=BaseDemoFinale.Home)return false;
+            activeObject=id;interactionObject="";
             if(id=="demo_survivor")
             {
-                activeObject=id;
-                NpcDialogue(new[]{new NpcLine("幸存村民",BaseScriptNames.Portrait("survivor"),
-                    StoryText.Get("story.scene.home_rebuild.survivor","那天西桥那头响过一阵兵刃声。你去桥头看看。"))},
+                NpcDialogue(new[]{new NpcLine("幸存村民","villager","那天的动静是从西桥头传来的。")},
                     Array.Empty<NpcReply>(),onCompleted:ClosePanel);
                 return true;
             }
-            activeObject="demo-sword";
-            NpcDialogue(new[]{
-                new NpcLine("旁白","","断桥旁散着乱箭，一截断剑斜插在泥地里。"),
-                new NpcLine("旁白","","拨开泥，剑柄上露出熟悉的青绳结。这是搭档的剑。"),
-                new NpcLine("旁白","","断口很齐，像是东口那把王室秘银剑留下的。"),
-                new NpcLine("旁白","","桥边有两道车辙，一直往西山去。")
-            },new[]{new NpcReply("记录断剑 · 开始重建",owner.InvestigateDemoSword),new NpcReply("稍后调查",ClosePanel)});return true;
+            if(id==BaseDemoFinale.Builder && BaseDemoFinale.HomeVolunteers(current))
+            {
+                bool first=!current.Demo.Finale.VillageRebuilt;
+                NpcDialogue(new[]{new NpcLine("村民","villager",first?
+                    "走到这一步真不容易，多亏了您。村子往后还要修，我们也能出把力。您吩咐吧。":"还要在哪儿盖房？您指给我看。")},
+                    new[]{new NpcReply("村庄还需要建一些设施……",()=>LeaveVillageTalk(true)),new NpcReply("没什么事了。",()=>LeaveVillageTalk(false))});
+                return true;
+            }
+            if(id!="home"&&id!="farm"&&id!="workshop"&&id!="barracks")return false;
+            if(BaseDemoFinale.HomeRepaired(current,id)){OpenSettlementFacility(id);return true;}
+            if(id=="home"&&current.Demo.Finale.HouseDialogueStep>0){OpenVillageHouse();return true;}
+            string text=id=="farm"?"田埂上全是马蹄印。那天清早，阿禾还蹲在这里清点麦种。":
+                id=="workshop"?"风箱倒在墙根，钳子和铁料被翻了一地。":"自家的门板歪在门框上。";
+            string cost="修理 · 原料 "+BaseDemoDefense.RepairMaterialCost(current)+"　钱币 "+BaseDemoDefense.RepairCoinCost(current);
+            NpcDialogue(new[]{new NpcLine("旁白","",text)},new[]{new NpcReply(cost,()=>{
+                if(!BaseDemoFinale.CanPayRepair(owner.State)){owner.ReportMessage("原料或钱币不足");return;}
+                if(id=="home")
+                {
+                    if(owner.Change(next=>{if(!BaseDemoFinale.BeginHouseTalk(next))throw new InvalidOperationException("请到家门口修理。");},"")) OpenVillageHouse(true);
+                }
+                else FinishVillageRepair(id);
+            }),new NpcReply("稍后再来",ClosePanel)});
+            return true;
+        }
+        private bool GalanAtHouse()
+        {
+            var state=owner.State;var id=state.Demo.Flow?.FirstControllerId;
+            return !string.IsNullOrEmpty(id) && BaseAdventure.Following(state,"partner_recruit:"+id);
+        }
+        private static NpcLine Thug(string line)=>new NpcLine("古裔喽啰","ancient-saber",line);
+        private static NpcLine GalanAside()=>new NpcLine(BaseScriptNames.Galan,BaseScriptNames.Portrait("galan"),"少蛊惑人心，我已经是这位大人的忠仆了。");
+        private void OpenVillageHouse(bool opening=false)
+        {
+            if(owner.State.Demo.Finale.HouseDialogueStep==2){HouseDecision();return;}
+            var lines=new List<NpcLine>();
+            if(opening)
+            {
+                lines.Add(Thug("外边什么动静？人类？！"));
+                lines.Add(new NpcLine("旁白","","你一剑砍服了他们。"));
+            }
+            lines.Add(Thug("小的没眼力见，请问有什么吩咐？"));
+            NpcDialogue(lines.ToArray(),new[]{new NpcReply("你们是上次进攻村子的异族？",HouseConfession),
+                new NpcReply("你们在里面做什么？",HouseConfession)});
+        }
+        private void HouseConfession()
+        {
+            if(!owner.Change(s=>{if(!BaseDemoFinale.HearHouseConfession(s))throw new InvalidOperationException("请到家门口交谈。");},""))return;
+            HouseDecision(new[]{Thug("你是……你不是死了吗？！哎哟，瞧我这乌鸦嘴！"),
+                Thug("我们是跟着来的。动手的是首领和精锐大人，哪轮得着我们？我们几个平日就干些端茶递水的活。"),
+                Thug("那天闻见这屋里有股香味，就钻进来翻点吃的。等我们出来，首领早带人走了，像是有急事，连叫都没叫我们一声。")});
+        }
+        private void HouseDecision(NpcLine[] lines=null)
+        {
+            bool galan=GalanAtHouse();
+            NpcDialogue(lines??new[]{Thug("大人，还有什么吩咐？")},new[]{
+                new NpcReply("滚吧，别让我再见到你们。",()=>{
+                    var goodbye=new List<NpcLine>{Thug("大人慈悲！小的这就告辞，再不踏进村子半步。")};
+                    if(galan){goodbye.Add(Thug("不过，屋外那位可是跟我们一起出的门，半道上就没影了。如今跟了您，您可得留个心眼。"));goodbye.Add(GalanAside());}
+                    ResolveHouse(goodbye);
+                }),new NpcReply(galan?"你们认识他吗？（指向屋外的伽兰）":"你们认不认识一个叫伽兰的古裔？",()=>{
+                    var answer=new List<NpcLine>{Thug("伽兰？当然认识。跟我们一起出发的，半路上就不见了。")};
+                    if(galan){answer.Add(Thug("哎哟，这不就是伽兰队长吗？别来无恙啊！"));answer.Add(GalanAside());}
+                    HouseDecision(answer.ToArray());
+                }),new NpcReply("我信不过你们，受死吧。",()=>ResolveHouse(new List<NpcLine>{Thug("呃啊！")}))
+            });
+        }
+        private void ResolveHouse(List<NpcLine> lines)
+        {
+            if(!RepairVillage("home"))return;
+            NpcDialogue(lines.ToArray(),Array.Empty<NpcReply>(),lockExitUntilFinished:true,onCompleted:()=>owner.RefreshDemoRegion());
+        }
+        private bool RepairVillage(string id)=>owner.Change(s=>{
+            if(!BaseDemoFinale.RepairHome(s,id))throw new InvalidOperationException("请到设施旁修理，并备齐原料和钱币。");
+        },"");
+        private void FinishVillageRepair(string id){if(RepairVillage(id))owner.RefreshDemoRegion();}
+        private void LeaveVillageTalk(bool build)
+        {
+            if(!owner.State.Demo.Finale.VillageRebuilt)
+            {
+                if(!owner.Change(s=>{if(!BaseDemoFinale.FinishRebuild(s))throw new InvalidOperationException("请到麦田旁与村民交谈。");},""))return;
+            }
+            ClosePanel();
+            if(build)owner.ArmVillagePlacement();
+            else FinishVillageConstructionVisit();
+        }
+        internal void FinishVillageConstructionVisit()
+        {
+            if(owner.State.Demo.Stage!=BaseDemoStage.Finished || owner.State.Demo.Finale.EndingSeen)return;
+            OpenDemoStory(showCompletion:true);
         }
 
         private void OpenChenanRoadChat()

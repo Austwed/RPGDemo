@@ -152,7 +152,7 @@ namespace BaseConquest.Base
             if (m.Version != 1 || m.Presets == null || m.Facilities == null || m.Parties == null || m.ReturnedIds == null || m.Presets.Count != 2 || m.Presets.Select(p => p?.Purpose).Distinct().Count() != 2 || new[] { m.KeepMelee, m.KeepRanged, m.KeepCavalry }.Any(n => n < 0 || n > 10000)) throw new ArgumentException("编队数据版本／集合非法");
             foreach (var p in m.Presets) ValidatePreset(s, p);
             if (m.AppliedAppendIds == null || m.AppliedAppendIds.Count > 100000 || m.AppliedAppendIds.Any(string.IsNullOrWhiteSpace) || m.AppliedAppendIds.Distinct().Count() != m.AppliedAppendIds.Count) throw new ArgumentException("追加操作身份非法");
-            if (m.Facilities.Count != 2 && m.Facilities.Count != 3 || m.Facilities.Count == 3 && !m.Facilities.Any(f => f != null && f.FacilityId == "caravan") || m.Facilities.Any(f => f == null || f.FacilityId != "farm" && f.FacilityId != "workshop" && f.FacilityId != "caravan" || f.Priority < 0 || f.Priority > 2 || f.MinimumWorkers < 0 || f.Capacity < f.MinimumWorkers || f.Capacity > 10000 || f.Level < 1 || f.Level > 100 || f.MaxProductLevel < 1 || f.MaxProductLevel > 2) || m.Facilities.Select(f => f.FacilityId).Distinct().Count() != m.Facilities.Count || !m.Facilities.Any(f => f.FacilityId == "farm") || !m.Facilities.Any(f => f.FacilityId == "workshop") || m.Facilities.Any(f => BaseEconomy.WorkersAt(s, f.FacilityId) > f.Capacity)) throw new ArgumentException("设施留守与生产保留非法");
+            if (m.Facilities.Count != 2 && m.Facilities.Count != 3 || m.Facilities.Count == 3 && !m.Facilities.Any(f => f != null && f.FacilityId == "caravan") || m.Facilities.Any(f => f == null || f.FacilityId != "farm" && f.FacilityId != "workshop" && f.FacilityId != "caravan" || f.Priority < 0 || f.Priority > 2 || f.MinimumWorkers < 0 || f.Capacity < f.MinimumWorkers || f.Capacity > 10000 || f.Level < 1 || f.Level > 100 || f.MaxProductLevel < 1 || f.MaxProductLevel > 2) || m.Facilities.Select(f => f.FacilityId).Distinct().Count() != m.Facilities.Count || !m.Facilities.Any(f => f.FacilityId == "farm") || !m.Facilities.Any(f => f.FacilityId == "workshop") || m.Facilities.Any(f => BaseEconomy.WorkersAt(s, f.FacilityId, false) > f.Capacity || BaseEconomy.WorkersAt(s, f.FacilityId, true) > f.Capacity)) throw new ArgumentException("设施留守与生产保留非法");
             if (m.Parties.Count > 2 || m.Parties.Any(p => p == null || string.IsNullOrWhiteSpace(p.Id) || !Purposes.Contains(p.Purpose) || p.StartedDay < 1 || p.StartedDay > s.Day || p.Leaders == null || p.Sources == null || p.Leaders.Count < 1 || p.Leaders.Count > 3) || m.Parties.Select(p => p.Id).Distinct().Count() != m.Parties.Count || m.Parties.Select(p => p.Purpose).Distinct().Count() != m.Parties.Count || m.ReturnedIds.Count > 100000 || m.ReturnedIds.Any(string.IsNullOrWhiteSpace) || m.ReturnedIds.Distinct().Count() != m.ReturnedIds.Count || m.Parties.Any(p => m.ReturnedIds.Contains(p.Id))) throw new ArgumentException("外出队伍身份非法");
             foreach (var party in m.Parties)
             {
@@ -196,6 +196,9 @@ namespace BaseConquest.Base
             parts.Add(string.Join(",",s.Adventure.Members)+"/"+string.Join(",",s.Adventure.Pauses.Select(p=>p.LeaderId+":"+p.MapId+":"+p.Region)));
             parts.AddRange(s.Leaders.Select(l => l.Id + ":" + l.FacilityId + ":" + l.Away + ":" + l.PartyId + ":" + l.UnavailableDay + ":" + N(l.ProductionBonus)+":"+l.Recruited));
             parts.AddRange(s.Workers.Select(w => w.Kind + ":" + w.FacilityId + ":" + string.Join(",",w.SoldierNumbers) + ":" + w.Away + ":" + w.PartyId + ":" + w.SourceId + ":" + w.UnavailableDay+":"+w.Recruited));
+            parts.Add(BaseSettlements.AtVillage(s) + ":" + s.Development.VillagePolicy);
+            parts.AddRange(s.Workers.Select(w => w.VillageResident + ":" + w.Relocating + ":" + w.DepartureFacility));
+            parts.AddRange(s.Leaders.Select(l => l.VillageResident + ":" + l.Relocating + ":" + l.ArrivalFacility));
             parts.AddRange(s.Leaders.Select(l=>l.Id+":training:"+BaseTraining.Key(l.Training)));
             parts.AddRange(s.Inventory.Equipment.Select(e => e.Product + ":" + e.Level + ":" + e.Count));
             parts.AddRange(s.WorkshopProgress.Select(p => p.Product + ":" + N(p.Fraction)));
@@ -242,7 +245,7 @@ namespace BaseConquest.Base
             plan.Selection = selection?.Copy();
             plan.ManualPicks = manualPicks?.Select(p=>p?.Copy()).ToList();
             plan.ManualTeams = manualTeams?.Select(team => team.Copy()).ToList();
-            plan.Leaders = preset.Candidates.Where(id => s.Leaders.Any(l => l.Id == id && BaseDevelopment.CanFight(l))).Take(preset.LeaderCount).ToList(); plan.MissingLeaders = preset.LeaderCount - plan.Leaders.Count;
+            plan.Leaders = preset.Candidates.Where(id => s.Leaders.Any(l => l.Id == id && BaseDevelopment.LocalLeader(s,l) && BaseDevelopment.CanFight(l))).Take(preset.LeaderCount).ToList(); plan.MissingLeaders = preset.LeaderCount - plan.Leaders.Count;
             if(plan.Leaders.Count>0)PrepareProduction(s,plan);
             if(plan.ManualPicks==null&&priorityMode!=""&&plan.Leaders.Count>0)SelectOrderedWorkers(s,plan,preset);
             else if(plan.ManualPicks==null) SelectWorkers(s, plan, preset, Apply, plan.Leaders.Count > 0);
@@ -259,11 +262,11 @@ namespace BaseConquest.Base
         {
             foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
             {
-                int need = requested.Count(kind), total = s.Workers.Where(w => BaseDevelopment.Eligible(plan.Purpose, w) && w.Kind == kind).Sum(w => w.Count);
+                int need = requested.Count(kind), total = s.Workers.Where(w => BaseDevelopment.Eligible(s,plan.Purpose, w) && w.Kind == kind).Sum(w => w.Count);
                 int already=plan.Takes.Where(t=>s.Workers[t.BucketIndex].Kind==kind).Sum(t=>t.Count);
                 int canTake = Math.Min(Math.Max(0,plan.SoldierLimit-plan.Total),plan.IgnoreProtection ? total-already : Math.Max(0, total - s.Muster.Keep(kind)-already));
                 // 2026-11-04 裁决：先按生命比例从高到低取，同档再按「先抽闲置、后抽低产设施」的老次序。
-                var buckets = s.Workers.Select((w, i) => new { Worker = w, Index = i }).Where(x => BaseDevelopment.Eligible(plan.Purpose, x.Worker) && x.Worker.Kind == kind)
+                var buckets = s.Workers.Select((w, i) => new { Worker = w, Index = i }).Where(x => BaseDevelopment.Eligible(s,plan.Purpose, x.Worker) && x.Worker.Kind == kind)
                     .OrderByDescending(x => x.Worker.MaxHealth > 0 ? x.Worker.Health / x.Worker.MaxHealth : 0)
                     .ThenBy(x => x.Worker.FacilityId == "" ? -1 : s.Muster.Facilities.Single(f => f.FacilityId == x.Worker.FacilityId).Priority)
                     .ThenBy(x => x.Worker.UnavailableDay == s.Day ? 0 : x.Worker.FacilityId == "farm" ? s.Rules.FarmPerWorker * (1 + (BaseEconomy.Manager(s, "farm")?.ProductionBonus ?? 0)) : x.Worker.FacilityId == "workshop" ? s.Rules.WorkshopPerWorker * (1 + (BaseEconomy.Manager(s, "workshop")?.ProductionBonus ?? 0)) : 0)

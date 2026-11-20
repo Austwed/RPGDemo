@@ -243,7 +243,6 @@ namespace BaseConquest.Base
         internal static BaseCampaignBattle Begin(BaseState s, string eventId, BattleScenarioDocument document,
             string mode, BaseMusterPlan plan, bool realtime, BasePreparedRoster roster)
         {
-            if(BaseDemoFinale.Rebuilding(s))throw new InvalidOperationException("返乡重建期间不能开始战斗");
             BaseEconomy.Validate(s); BattleScenarioDocument.Validate(document);
             if (document.StartInCombat || document.InitialHealth?.Count > 0 || document.InitialEffects?.Count > 0) throw new ArgumentException("战役模板需从准备阶段开始，不能使用独立倒地／临效预置");
             var e = s.Campaign.Events.Single(x => x.Id == eventId);
@@ -302,20 +301,13 @@ namespace BaseConquest.Base
             if(BaseDesignRoutes.Active(s)&&e.Kind=="defense")location="perimeter";
             raw.Board = realtime&&BaseSceneRules.Active(s)?BaseSceneCombat.Project(s,location):BaseBattlefield.Board(s, location).Clone(); raw.CustomExits = true;
             if(realtime)RealtimeCampaignBattle.ValidateBoard(raw.Board);
-            raw.ExitA = e.Kind == "defense" ? new GridPosition(raw.Board.Width-1,6) : new GridPosition(0,raw.Board.Height-1); raw.ExitB = e.Kind=="defense" ? new GridPosition(0,6) : new GridPosition(raw.Board.Width-1,0);
-            if (hideout)
+            raw.ExitA = BattleSimulation.SideExit(raw.Board,e.Kind != "defense");
+            raw.ExitB = BattleSimulation.SideExit(raw.Board,e.Kind == "defense");
+            if (e.Kind == "defense")
             {
-                // 洞窟外圈是墙。两端的内侧通道可以实际走到，也容得下转向后的骑兵。
-                raw.ExitA = new GridPosition(1, 7);
-                raw.ExitB = new GridPosition(raw.Board.Width - 2, 7);
+                raw.Objective.Kind = ObjectiveKinds.Hold;
+                raw.Objective.HoldRounds = Math.Min(raw.MaxRounds, e.HoldRounds > 0 ? e.HoldRounds : 30);
             }
-            else if (e.Id == BaseDemoRuins.EventId)
-            {
-                var exit = BaseSpatial.Layout(s)?.Objects.FirstOrDefault(o => o.Id == "demo_dungeon_exit");
-                if (exit != null) raw.ExitA = new GridPosition((int)exit.X, (int)exit.Y);
-                else raw.ExitA = new GridPosition(1, Math.Min(7, raw.Board.Height - 2));
-            }
-            if (e.Kind == "defense") { raw.Objective.Kind = ObjectiveKinds.Hold; raw.Objective.HoldRounds = Math.Min(raw.MaxRounds, e.HoldRounds > 0 ? e.HoldRounds : 30); }
             raw.Objective.Title = hideout ? BaseBanditHideout.Objective : e.Kind == "defense" ? "坚守迎敌战场" : "攻克敌点";
             BaseRpg.PrepareEnemies(s,enemies,e.Id);
             BaseThreats.ConfigureEnemy(raw,enemies);
@@ -446,9 +438,8 @@ namespace BaseConquest.Base
             r.GearLost = gear - s.Inventory.Equipment.Sum(x => x.Count);
             foreach (var id in down) { var l = s.Leaders.Single(x => x.Id == id); l.Resting = false; l.UnavailableDay = s.Day; }
             s.Adventure.Members.RemoveAll(id=>id!=s.PlayerLeaderId&&!BaseAdventure.Alive(s.Leaders.Single(l=>l.Id==id)));
-            int personalBeforeCapture=s.PersonalEquipment.Warehouse.Count;
-            BaseAftermath.Capture(s, session, win);
-            if(s.PersonalEquipment.Warehouse.Count>personalBeforeCapture)r.RecoveryNote="俘虏穿戴装备已缴入仓库："+(s.PersonalEquipment.Warehouse.Count-personalBeforeCapture)+"件";
+            var capturedEquipment = BaseAftermath.Capture(s,session,win);
+            if (capturedEquipment.Count > 0) r.RecoveryNote = "缴获装备 " + capturedEquipment.Count + " 件";
             BaseItemRecovery.Record(s,session,e,r,win);
             bool rescueOnly = win && a.EventId == BaseDemoRuins.EventId && a.RuinsFirstClear;
             if(win&&!rescueOnly&&!s.Aftermath.GameOver&&a.EventId!=BaseBanditHideout.EventId){r.DropMaterials=Math.Min(battle.Soldiers.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned&&!u.Escaped&&!u.IsAlive&&BattleSimulation.StableRoll(battle.Scenario.RandomSeed,u.Id,29)<a.Difficulty.DropRate),100000000-s.Inventory.Materials);s.Inventory.Materials+=r.DropMaterials;}
@@ -461,7 +452,7 @@ namespace BaseConquest.Base
             int enemyLeft = battle.Soldiers.Count(u => u.Side == BattleSide.B && u.IsAlive && !u.Escaped);
             BaseRaidLoot.Apply(s, e, r, win, passive, enemyLeft, holdLeft);
             s.Campaign.SettledIds.Add(a.Id); s.Campaign.Reports.Add(r); BaseQuests.RecordVictory(s,r); if(!passive&&!a.Deputy)ToBaseLocation(s);
-            if (!rescueOnly) BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>());
+            if (!rescueOnly) BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>(),capturedEquipment);
             if (a.EventId != BaseBanditHideout.EventId) BaseSceneRules.RememberStrategy(s,session);
             BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
         }
@@ -485,7 +476,6 @@ namespace BaseConquest.Base
         }
         public static bool Rest(BaseState s, int day, Func<string, BattleScenarioDocument> resolve,bool realtime=false)
         {
-            if(BaseDemoFinale.Rebuilding(s))throw new InvalidOperationException("请先完成返乡重建");
             if(BaseDemoDefense.AnyDue(s))throw new InvalidOperationException("敌军已抵营门，此刻无法休息");
             BaseEconomy.Validate(s); if (s.Aftermath.GameOver || s.Day != day || s.LastCompletedDay >= day) return false;
             if (s.Campaign.HasActiveBattle || s.Muster.Parties.Any(p => p.InCombat)) throw new InvalidOperationException("先结束当前战斗");

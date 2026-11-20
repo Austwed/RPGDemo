@@ -78,7 +78,7 @@ namespace BaseConquest.Base
                     initialFormation?.FirstOrDefault(group => group.LeaderId == team.Id)?.Actual.Count(baseKind) ?? 0)).ToArray();
                 int assigned = 0;
                 foreach (var bucket in state.Workers.Select((worker, index) => (worker, index))
-                    .Where(p => p.worker.Kind == baseKind && (party == null ? BaseDevelopment.Eligible(purpose, p.worker)
+                    .Where(p => p.worker.Kind == baseKind && (party == null ? BaseDevelopment.Eligible(state,purpose, p.worker)
                         : p.worker.Away && p.worker.PartyId == party.Id && (TravelingParty || p.worker.Health >= p.worker.MaxHealth * BaseDevelopment.DutyThreshold)))
                     .OrderByDescending(p => p.worker.Health / p.worker.MaxHealth).ThenBy(p => p.index))
                 {

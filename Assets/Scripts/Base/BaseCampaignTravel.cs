@@ -294,11 +294,72 @@ namespace BaseConquest.Base
             string path = SaveDirectory;
             if(!catalogs.TryGetValue(path,out var catalog) || catalog.DemoMode!=DemoMode)
             {
+                if(OpeningProfile==BaseDemo.ReleaseProfile && DemoMode && !CustomMapTestMode)
+                {
+                    string demoRoot=Path.Combine(PlayerDataDirectory,"BaseConquest","RealtimeCampaignExperiment","Demo");
+                    if(Path.GetFullPath(path)==Path.GetFullPath(Path.Combine(demoRoot,BaseDemo.ReleaseProfile,"v"+BaseDemo.SaveVersion)))
+                        RetireOldReleaseSlots(demoRoot);
+                }
                 catalog = new BaseSaveCatalog(path,d=>JsonUtility.ToJson(d),json=>JsonUtility.FromJson<BaseSaveDocument>(json),DemoMode,false,SaveDigest);
                 catalogs[path] = catalog;
             }
             if(checkExisting)catalog.RequestCheck();
             return catalog;
+        }
+        [Serializable] private sealed class SlotHeader
+        {
+            public int SchemaVersion=-1,DemoSaveVersion=-1;
+            public string Kind="";
+        }
+        // Retire only this release profile's named/manual/automatic slots. Custom maps can share its parent.
+        public static int RetireOldReleaseSlots(string demoRoot)
+        {
+            string folder=Path.GetFullPath(Path.Combine(demoRoot,BaseDemo.ReleaseProfile));
+            int removed=0;
+            if(!Directory.Exists(folder))return removed;
+            try
+            {
+                for(var part=new DirectoryInfo(folder);part!=null;part=part.Parent)
+                    if((part.Attributes&FileAttributes.ReparsePoint)!=0)return removed;
+            }
+            catch(IOException){return removed;}
+            catch(UnauthorizedAccessException){return removed;}
+            var slots=BaseSaveCatalog.Slots.Concat(BaseSaveCatalog.AutoSlots)
+                .Concat(new[]{"slot4","slot5","slot6","auto","base-save-v1","before-battle"}).ToArray();
+            for(int version=1;version<BaseDemo.SaveVersion;version++)
+            {
+                var previous=new DirectoryInfo(Path.Combine(folder,"v"+version));
+                FileInfo[] files;
+                try
+                {
+                    if(!previous.Exists||(previous.Attributes&FileAttributes.ReparsePoint)!=0)continue;
+                    files=previous.GetFiles();
+                }
+                catch(IOException){continue;}
+                catch(UnauthorizedAccessException){continue;}
+                foreach(var file in files)
+                {
+                    string name=file.Name;
+                    if(name.EndsWith(".bak",StringComparison.Ordinal))name=name.Substring(0,name.Length-4);
+                    if(!name.EndsWith(".json",StringComparison.Ordinal))continue;
+                    string stem=name.Substring(0,name.Length-5);
+                    if(!slots.Any(slot=>stem==slot || stem.EndsWith("-"+slot,StringComparison.Ordinal)&&
+                        BaseDemoIntro.TryPlayerName(stem.Substring(0,stem.Length-slot.Length-1),out _)))continue;
+                    try
+                    {
+                        if((file.Attributes&FileAttributes.ReparsePoint)!=0)continue;
+                        var header=JsonUtility.FromJson<SlotHeader>(File.ReadAllText(file.FullName));
+                        if(header?.Kind!="base-save" || header.SchemaVersion!=1 ||
+                            header.DemoSaveVersion<=0 || header.DemoSaveVersion>=BaseDemo.SaveVersion)continue;
+                        File.Delete(file.FullName);
+                        removed++;
+                    }
+                    catch(IOException){ }
+                    catch(UnauthorizedAccessException){ }
+                    catch(ArgumentException){ } // A matching filename can belong to an unrelated document.
+                }
+            }
+            return removed;
         }
         private static string SaveDigest(Stream file)
         {

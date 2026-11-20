@@ -17,7 +17,7 @@ namespace BaseConquest.Base
         }
         private static readonly Rule[] Rules={
             new Rule("village","village_house","facility",true),new Rule("village","intro_farm","facility",true),new Rule("village","intro_smith","facility",false),
-            new Rule("village","demo_captain","npc",true),new Rule("village","intro_villager","npc",true),new Rule("village","prologue_report","interaction",true),new Rule("village","prologue_trigger","interaction",true),new Rule("village","demo_home_world","interaction",true),new Rule("village","demo_broken_sword","interaction",true),new Rule("village","demo_survivor","npc",false),
+            new Rule("village","demo_captain","npc",true),new Rule("village","intro_villager","npc",true),new Rule("village","prologue_report","interaction",true),new Rule("village","prologue_trigger","interaction",true),new Rule("village","demo_home_world","interaction",false),new Rule("village","demo_broken_sword","interaction",false),new Rule("village","demo_survivor","npc",false),
             new Rule("village",BaseDemoIntro.DummyId,"interaction",false),
             new Rule("camp","home","facility",true),new Rule("camp","farm","facility",true),new Rule("camp","workshop","facility",true),new Rule("camp","barracks","facility",true),new Rule("camp","demo_rescuer","npc",false),new Rule("camp","demo_chunshen","npc",false),new Rule("camp","demo_ahe","npc",false),new Rule("camp","exit_east","interaction",true),new Rule("camp","demo_defense_exit","interaction",true),new Rule("camp","demo_march_exit","interaction",true),
             new Rule("town","town_quest","npc",true),new Rule("town","town_recruit","facility",true),new Rule("town","town_smith","facility",false),new Rule("town","town_market","facility",false),new Rule("town","town_blacksmith","npc",false),new Rule("town","town_guard","npc",false),new Rule("town","town_peddler","npc",false),new Rule("town","town_girl","npc",false),new Rule("town","demo_azhu","npc",false),new Rule("town","travel_base","interaction",true),new Rule("town","demo_ruins_exit","interaction",true),
@@ -102,32 +102,11 @@ namespace BaseConquest.Base
         // 返乡村庄：设计里的白桦村按劫后版本复用（受损名与两个返乡交互点由剧情状态补）。
         public BaseMapLayout ReturnVillage()
         {
-            Validate();
-            var layout=Map("village").Layout.Copy();
-            layout.Region="custom";layout.ParentMapId=null;layout.Title=BaseScriptNames.Village+" · 劫后余痕";
-            if(Version==2)
-            {
-                layout.Objects.RemoveAll(obj=>!obj.Blocks&&!BaseEnvironment.Decorative(obj.Object)&&!IsReturnMarker(obj.Id));
-                var exit=layout.Objects.Single(obj=>obj.Id=="demo_home_world");
-                var board=Map("village").Board;var objects=layout.Objects.Select(obj=>obj.Object).ToArray();
-                var landing=board.Positions().Select(p=>new BasePoint(p.X+.5,p.Z+.5))
-                    .Where(p=>Walkable(board,objects,p)&&BaseInteraction.WithinReach(board,exit.Object,p.X,p.Y))
-                    .OrderBy(p=>p.Distance(new BasePoint(exit.X,exit.Y))).First();
-                layout.SpawnX=landing.X;layout.SpawnY=landing.Y;
-            }
-            else
-            {
-                layout.SpawnX=21;layout.SpawnY=7;
-                layout.Objects.RemoveAll(obj=>!obj.Blocks&&!BaseEnvironment.Decorative(obj.Object));
-            }
-            foreach(var obj in layout.Objects.Where(obj=>!IsReturnMarker(obj.Id)))
-            {
-                obj.Name="受损的"+obj.Name;
-                if(Version==2){obj.VisualOnly=true;if(obj.Id==BaseDemoIntro.DummyId)obj.Kind="pixel-prop";}
-            }
+            var village=Map("village");
+            var layout=village.Layout.Copy();
+            BaseDemoFinale.PrepareVillage(layout,village.Board);
             return layout;
         }
-        private static bool IsReturnMarker(string id)=>id=="demo_home_world"||id=="demo_broken_sword"||id=="demo_survivor";
 
         private static void Swap(BaseState state,string region,BaseDemoDesignMap design)
         {

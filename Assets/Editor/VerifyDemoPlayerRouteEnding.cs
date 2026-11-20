@@ -74,43 +74,22 @@ namespace BaseConquest.Editor
                 !BaseSpatial.Objects(state).Any(obj => obj.Id == BaseDemoFinale.CampSuppliesMarker), "主动攻寨被识别为第二波自动接管");
             At(state, "demo_direct_home");
             int day = state.Day;
-            Need(BaseCampaign.Travel(state, "custom", "demo_direct_home") && state.Campaign.CurrentMapId == BaseDemoFinale.Home &&
+            Need(BaseCampaign.Travel(state, "custom", "demo_direct_home") && state.Campaign.CurrentMapId == BaseDemoFinale.HomeField &&
                 state.Day == day, "攻寨后的白桦村直达出口未生效");
+            VerifyChenanAndRuins.VerifyOptionalSword(state);
+            At(state,"village_gate_in");
+            Need(BaseCampaign.Travel(state,"custom","village_gate_in")&&state.Campaign.CurrentMapId==BaseDemoFinale.Home,"西桥头未接入原白桦村");
             if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"village");
-            Need(!state.Demo.Flow.HomeEnterSeen, "首次返乡进图时已经标记看过开场");
-            SaveRouteCheckpoint(state, "home-arrival");
-            string galanId = "partner_recruit:" + state.Demo.Flow.FirstControllerId;
-            Note(BaseAdventure.Following(state, galanId)
-                ? "经寨内出口直达白桦村且未扣日程。首通接纳的迦兰仍在随行，满足返乡开场脚印对白条件。"
-                : "经寨内出口直达白桦村且未扣日程。迦兰未随行，返乡开场不应播他的脚印对白。");
-            var field = BaseSpatial.Objects(state).Single(item => item.Id == "intro_farm" || item.Id == "village_field");
-            Need(field.Blocks && !field.VisualOnly, "返乡麦田必须保留碰撞并可调查");
-            At(state, field.Id);
-            Need(BaseInteraction.At(state, "custom", field.Id) && state.Day == day && !BaseDemoFinale.Rebuilding(state),
-                "返乡麦田无法靠近调查，或改变了日程与重建状态");
-            At(state, "demo_survivor");
-            Need(BaseInteraction.At(state, "custom", "demo_survivor"), "不能在白桦村与幸存村民交谈");
-            At(state, "demo_broken_sword");
-            Need(BaseDemoFinale.Investigate(state) && state.Demo.Evidence.Contains(BaseDemoFinale.Sword) &&
-                BaseDemoFinale.Rebuilding(state), "断剑调查没有开启三项重建");
-            VerifyExitFacings(state, "返乡重建中");
-            Need(!BaseDemoFinale.FinishRebuild(state), "未布置设施便能结束 Demo");
-            SaveRouteCheckpoint(state, "rebuild");
-            var board = BaseBattlefield.Board(state, BaseDemoFinale.Home);
-            var names = new[] { "小粮田", "营帐", "仓库" };
-            for (int item = 0; item < names.Length; item++)
-            {
-                int selected = item;
-                var spot = board.Positions().Where(cell => BaseDemoFinale.RebuildProblem(state, selected, cell.X, cell.Z) == "")
-                    .OrderBy(cell => new BasePoint(cell.X + .5, cell.Z + .5).Distance(new BasePoint(state.PlayerX, state.PlayerY)))
-                    .Select(cell => (GridPosition?)cell).FirstOrDefault();
-                Need(spot.HasValue && BaseDemoFinale.PlaceRebuild(state, item, spot.Value.X, spot.Value.Z), names[item] + "重建失败");
-                Note($"返乡重建放置{names[item]}，格 ({spot.Value.X}, {spot.Value.Z})。");
-            }
-            Need(BaseDemoFinale.FinishRebuild(state) && state.Demo.Stage == BaseDemoStage.Finished &&
-                state.Day == day && state.Demo.Finale.VillageRebuilt, "未到达 Demo 结束节点");
-            BaseEconomy.Validate(state);
-            Note($"第 {state.Day} 天拿到断剑证据，完成三项重建，进入 Finished。");
+            Need(!state.Demo.Flow.HomeEnterSeen,"首次入村前已写入已读标志");
+            SaveRouteCheckpoint(state,"home-arrival");
+            At(state,"demo_survivor");
+            Need(BaseInteraction.At(state,"custom","demo_survivor"),"不能靠近幸存村民");
+            VerifyExitFacings(state,"返乡修理");
+            state.Demo.Flow.HomeEnterSeen=true; // The rebuild fixture begins after the separate arrival dialogue.
+            SaveRouteCheckpoint(state,"rebuild");
+            VerifyChenanAndRuins.RepairReturnedVillage(state);
+            Need(!state.Demo.Evidence.Contains(BaseDemoFinale.Sword),"主路线跳过调查却自动拾取断剑");
+            Note($"第 {state.Day} 天经独立西桥头回到白桦村，跳过断剑，修好家、粮田与工坊，接应村民后完成结局。");
             return state;
         }
 
@@ -243,7 +222,7 @@ namespace BaseConquest.Editor
                 BaseWorldJourney.Step(direct, _ => null) && !BaseWorldJourney.Marching(direct),
                 "第二波胜利后的返乡行军不能连续通过黑鸦寨");
             BaseWorldJourney.EnterScene(direct, "home_entry");
-            Need(direct.Campaign.CurrentMapId == BaseDemoFinale.Home && !direct.Campaign.HasActiveBattle &&
+            Need(direct.Campaign.CurrentMapId == BaseDemoFinale.HomeField && !direct.Campaign.HasActiveBattle &&
                 !direct.Demo.Finale.CampSuppliesTaken, "直接返乡触发了黑鸦寨战斗或搜查");
 
             var campPlan = BaseWorldJourney.Plan(branch, null, "bandit");
@@ -271,7 +250,7 @@ namespace BaseConquest.Editor
             Need(restored.Demo.Finale.CampSuppliesTaken && !BaseDemoFinale.ClaimCampSupplies(restored),
                 "读档后重复领到了黑鸦寨物资");
             At(restored, "demo_direct_home");
-            Need(BaseCampaign.Travel(restored, "custom", "demo_direct_home") && restored.Campaign.CurrentMapId == BaseDemoFinale.Home,
+            Need(BaseCampaign.Travel(restored, "custom", "demo_direct_home") && restored.Campaign.CurrentMapId == BaseDemoFinale.HomeField,
                 "搜查黑鸦寨后未能经寨内出口返乡");
             Note("第二波胜利自动占领黑鸦寨，验证直接行军返乡、进寨领取物资、读档防重领及寨内出口。");
         }

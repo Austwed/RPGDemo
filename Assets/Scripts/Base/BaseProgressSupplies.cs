@@ -38,16 +38,14 @@ namespace BaseConquest.Base
         {
             var offer=s.PersonalEquipment.Supplies.FirstOrDefault(o=>o.Item==id);
             if(offer==null||s.Backpack.Revision>=int.MaxValue-1||s.Backpack.NextId>=int.MaxValue-1)return 0;
-            int limit=s.Backpack.Catalog.Single(d=>d.Id==id).MaxStack;
-            int room=0;foreach(var l in BaseAdventure.Members(s).Where(l=>BasePartyInventory.AccessibleLeader(s,l))){room+=s.Backpack.Items.Where(i=>i.ItemId==id&&i.Holder==l.Id).Sum(i=>limit-i.Count);if(BasePartyInventory.FreeCell(s,l.Id)>=0)room+=limit;}
+            int room=BaseBackpack.Room(s,id);
             return Math.Min(room,Math.Min(s.Inventory.Coins/Price(s,id),offer.Remaining));
         }
         public static bool Buy(BaseState s,string id,int count,int revision)
         {
             if(revision!=s.Backpack.Revision||count<1||count>MaxBuy(s,id))return false;
-            int left=count,limit=s.Backpack.Catalog.Single(d=>d.Id==id).MaxStack;foreach(var l in BaseAdventure.Members(s).Where(l=>BasePartyInventory.AccessibleLeader(s,l)))
-            {foreach(var i in s.Backpack.Items.Where(i=>i.ItemId==id&&i.Holder==l.Id)){int n=Math.Min(left,limit-i.Count);i.Count+=n;left-=n;}if(left>0){int cell=BasePartyInventory.FreeCell(s,l.Id);if(cell>=0){int n=Math.Min(left,limit);s.Backpack.Items.Add(new BaseBagItem {Id="bag:"+s.Backpack.NextId++,ItemId=id,Holder=l.Id,Cell=cell,Count=n});left-=n;}}if(left==0)break;}
-            s.Inventory.Coins-=count*Price(s,id);s.PersonalEquipment.Supplies.Single(o=>o.Item==id).Remaining-=count;s.Backpack.Revision++;return true;
+            BaseBackpack.Receive(s,id,count);
+            s.Inventory.Coins-=count*Price(s,id);s.PersonalEquipment.Supplies.Single(o=>o.Item==id).Remaining-=count;return true;
         }
     }
 }

@@ -213,7 +213,7 @@ namespace BaseConquest.Battle
             else if(page==3)
             {
                 Line("经营测试使用当前基地进度，正常存档会保存资源和事件变更。",65);
-                Add("获得营造图册1本（不重置设施）",()=>Base(s=>BaseBackpack.Add(s,BaseBackpack.Blueprint,1),"已追加测试营造图册"),baseOwner!=null);
+                Add("获得营造图册1本（不重置设施）",()=>Base(s=>{BaseBackpack.Receive(s,BaseBackpack.Blueprint,1);return true;},"已追加测试营造图册"),baseOwner!=null);
                 Add("切换营造入门剧情条件",()=>Base(s=>{if(s.Backpack.StoryFlags.Contains(BaseBackpack.Story))s.Backpack.StoryFlags.Remove(BaseBackpack.Story);else s.Backpack.StoryFlags.Add(BaseBackpack.Story);s.Backpack.Revision++;return true;},"已切换剧情条件；道具与升级状态保留"),baseOwner!=null);
                 Add("立即召唤一次入侵（坚守30轮）",()=>Base(s=>BaseDeveloperTools.SummonInvasion(true,s),"测试入侵已出现，前往左侧迎战"),baseOwner!=null);
                 Add("停用产出 → 点粮田或工坊",()=>Arm(()=>target.Production(false)),baseOwner?.AtBase==true);

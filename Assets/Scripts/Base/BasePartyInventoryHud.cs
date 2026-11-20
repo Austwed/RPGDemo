@@ -67,7 +67,15 @@ namespace BaseConquest.Base
             activeObject = warehouse ? "warehouse" : "backpack";
             interactionObject = warehouse ? BasePartyInventory.WarehouseObject(state).Id : "";
             root.GetComponent<Canvas>().sortingOrder = 100;
-            InventoryButton(panel, "Close", null, ClosePanel);
+            var close = InventoryButton(panel, "Close", null, ClosePanel);
+            if (!warehouse && BaseDemo.Active(state) && BaseBattleLoot.Unclaimed(state).Any())
+            {
+                var closeRect = close.GetComponent<RectTransform>();
+                var claim = MakeButton(panel,"待领物品",closeRect.anchoredPosition,closeRect.sizeDelta,OpenUnclaimedRewards,closeRect.anchorMax);
+                var claimRect = claim.GetComponent<RectTransform>();
+                claimRect.anchorMin=closeRect.anchorMin; claimRect.anchorMax=closeRect.anchorMax; claimRect.pivot=closeRect.pivot;
+                claimRect.anchoredPosition=closeRect.anchoredPosition-Vector2.right*(closeRect.rect.width+8);
+            }
 
             var entries = BasePartyInventory.Entries(state).ToArray();
             if (warehouse) BuildWarehouseInventory(people, entries);
@@ -368,8 +376,7 @@ namespace BaseConquest.Base
             drag.Move = (id, target, index, gear) =>
             {
                 if (hidden) { owner.ReportMessage("此格物品被分类隐藏，请先切换全部"); return; }
-                InventoryChange(state => BasePartyInventory.Move(state, id, target,
-                    index == -2 ? BasePartyInventory.FreeCell(state, target) : index, gear), "已移动物品");
+                InventoryChange(state => index == -2 ? BasePartyInventory.MoveToBag(state,id,target) : BasePartyInventory.Move(state,id,target,index,gear), "已移动物品");
             };
         }
 
@@ -385,10 +392,10 @@ namespace BaseConquest.Base
         private void InventoryChange(Func<BaseState, bool> action, string message)
         {
             inventoryClicks.Reset();
-            owner.Change(state =>
+            if (!owner.Change(state =>
             {
                 if (!action(state)) throw new InvalidOperationException("位置、空格、职业或专属条件不允许此操作");
-            }, message);
+            }, message)) return;
             OpenInventory(inventoryWarehouse);
         }
 
@@ -489,8 +496,7 @@ namespace BaseConquest.Base
             else if (entry.Count > 1)
             {
                 primary = "拆分";
-                act = () => InventoryChange(next => BasePartyInventory.Move(next, entry.Id, entry.Holder,
-                    entry.Holder == "" ? -1 : BasePartyInventory.FreeCell(next, entry.Holder), "", inventoryQuantity), "已拆分物品");
+                act = () => InventoryChange(next => BasePartyInventory.MoveToBag(next,entry.Id,entry.Holder,inventoryQuantity), "已拆分物品");
                 allowed = inventoryQuantity < entry.Count;
             }
 
@@ -515,8 +521,7 @@ namespace BaseConquest.Base
             up.gameObject.SetActive(entry.Count > 1);
             UpdateQuantity(inventoryQuantity);
             InventoryButton(details, "Store", entry.Holder == "" ? "取出给" + recipient.Name : "存入仓库", () =>
-                InventoryChange(next => BasePartyInventory.Move(next, entry.Id, entry.Holder == "" ? inventoryPerson : "",
-                    entry.Holder == "" ? BasePartyInventory.FreeCell(next, inventoryPerson) : -1, "", inventoryQuantity), "已完成仓库存取"))
+                InventoryChange(next => BasePartyInventory.MoveToBag(next,entry.Id,entry.Holder == "" ? inventoryPerson : "",inventoryQuantity), "已完成仓库存取"))
                 .gameObject.SetActive(warehouse && !entry.Worn);
             bool transferable = !entry.Worn && string.IsNullOrEmpty(entry.Bound)
                 && BasePartyInventory.People(owner.State, warehouse).Any(person =>
@@ -608,7 +613,7 @@ namespace BaseConquest.Base
             var actions = OpenInventoryChoice("转交物品");
             foreach (var person in BasePartyInventory.People(owner.State, inventoryWarehouse).Where(candidate => candidate.Id != entry.Holder))
                 AddInventoryChoice(actions, "转交给 " + person.Name, () => InventoryChange(state =>
-                    BasePartyInventory.Move(state, entry.Id, person.Id, BasePartyInventory.FreeCell(state, person.Id), "", inventoryQuantity), "已转交物品"));
+                    BasePartyInventory.MoveToBag(state,entry.Id,person.Id,inventoryQuantity), "已转交物品"));
             AddInventoryChoice(actions, "取消", CloseInventoryChoice);
         }
 

@@ -6,7 +6,17 @@ namespace BaseConquest.Battle
 {
     public sealed partial class BattleSimulation
     {
-        public GridPosition ExitCell(BattleSide side) => Scenario.CustomExits ? side == BattleSide.A ? Scenario.ExitA : Scenario.ExitB : side == BattleSide.A ? new GridPosition(0, Board.Height - 1) : new GridPosition(Board.Width - 1, 0);
+        public static GridPosition SideExit(BattleBoard board, bool left)
+        {
+            int edge = left ? 0 : board.Width - 1;
+            int mid = board.Height / 2;
+            var center = new GridPosition(edge,mid);
+            if (board.Walkable(center)) return center;
+            return board.Positions().Where(board.Walkable)
+                .OrderBy(p => Math.Abs(p.X-edge)+Math.Abs(p.Z-mid))
+                .ThenBy(p => Math.Abs(p.Z-mid)).First();
+        }
+        public GridPosition ExitCell(BattleSide side) => Scenario.CustomExits ? side == BattleSide.A ? Scenario.ExitA : Scenario.ExitB : SideExit(Board, side == BattleSide.A);
         public bool IsExit(BattleSide side, GridPosition cell) => ModernRules ? cell == ExitCell(side) : Board.Cell(cell).Zone == (side == BattleSide.A ? DeploymentZone.A : DeploymentZone.B);
         public bool VictoryDeclared { get; private set; }
         public bool RoutInProgress => VictoryDeclared && Soldiers.Any(s => s.Side == BattleSide.B && s.IsActive);

@@ -11,6 +11,8 @@ namespace BaseConquest.Base
         public string AppearanceId = "";
         public BaseConquest.Battle.SquadStrategy PreferredStrategy=BaseConquest.Battle.SquadStrategy.Attack;
         public string AcquisitionSource = "";
+        public bool VillageResident, Relocating;
+        public string ArrivalFacility = "";
         public int AcquisitionDay;
         public RpgCharacter Rpg;
         public BaseCommanderTroops DefaultTroops;
@@ -44,6 +46,8 @@ namespace BaseConquest.Base
         public string PartyId = "", SourceId = "";
         public string HeldBy = "", HeldSourceId = "";
         public int PartyOrder;
+        public bool VillageResident, Relocating;
+        public string DepartureFacility = "";
         public string DesiredFacility = "";
         public bool PostLocked, Resting;
         public bool Recruited;
@@ -172,6 +176,14 @@ namespace BaseConquest.Base
         // Unity按值序列化自定义类；用显式标记区分无报告，避免依赖null的回读行为。
         public bool HasReport;
         public BaseDayReport LastReport = new BaseDayReport();
+        internal BaseState PreviewItemReceipt()
+        {
+            // Item delivery reads party eligibility and only mutates these two inventories.
+            var preview=(BaseState)MemberwiseClone();
+            preview.Backpack=Backpack.Copy();
+            preview.PersonalEquipment=PersonalEquipment.Copy();
+            return preview;
+        }
         public BaseState Copy() => new BaseState {
             Version = Version, Day = Day, FoodPaidDay = FoodPaidDay, LastCompletedDay = LastCompletedDay,
             TodayFoodRequired = TodayFoodRequired, TodayFoodConsumed = TodayFoodConsumed, TodayFoodMissing = TodayFoodMissing,

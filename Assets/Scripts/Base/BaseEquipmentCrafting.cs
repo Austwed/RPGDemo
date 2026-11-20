@@ -50,20 +50,14 @@ namespace BaseConquest.Base
         internal static int PreviewMaxBuy(BaseState s)
         {
             if(s.Backpack.Revision>=int.MaxValue-1||s.Backpack.NextId>=int.MaxValue-1)return 0;
-            int room=0;foreach(var l in BaseAdventure.Members(s).Where(l=>BasePartyInventory.AccessibleLeader(s,l)))
-            {room+=s.Backpack.Items.Where(i=>i.Holder==l.Id&&i.ItemId==Stone).Sum(i=>99-i.Count);if(BasePartyInventory.FreeCell(s,l.Id)>=0)room+=99;}
+            int room=BaseBackpack.Room(s,Stone);
             return Math.Min(room,Math.Min(s.PersonalEquipment.StonesRemaining,s.Inventory.Coins/BuyPrice(s)));
         }
         public static bool Buy(BaseState s,int count,int revision)
         {
             if(revision!=s.Backpack.Revision||count<1||count>MaxBuy(s))return false;
-            int left=count;foreach(var l in BaseAdventure.Members(s).Where(l=>BasePartyInventory.AccessibleLeader(s,l)))
-            {
-                foreach(var i in s.Backpack.Items.Where(i=>i.Holder==l.Id&&i.ItemId==Stone)){int n=Math.Min(left,99-i.Count);i.Count+=n;left-=n;}
-                if(left>0){int cell=BasePartyInventory.FreeCell(s,l.Id);if(cell>=0){s.Backpack.Items.Add(new BaseBagItem {Id="bag:"+s.Backpack.NextId++,ItemId=Stone,Count=left,Holder=l.Id,Cell=cell});left=0;}}
-                if(left==0)break;
-            }
-            s.Inventory.Coins-=count*BuyPrice(s);s.PersonalEquipment.StonesRemaining-=count;s.Backpack.Revision++;return true;
+            BaseBackpack.Receive(s,Stone,count);
+            s.Inventory.Coins-=count*BuyPrice(s);s.PersonalEquipment.StonesRemaining-=count;return true;
         }
         public static bool CanSelectReforge(BaseState s,BaseInventoryEntry entry)=>entry?.Gear!=null&&!entry.Protected&&entry.Category!="accessory"
             &&BaseAdventure.Members(s).Any(l=>l.Id==entry.Holder&&BasePartyInventory.AccessibleLeader(s,l));

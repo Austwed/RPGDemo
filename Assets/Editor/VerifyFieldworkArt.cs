@@ -126,17 +126,118 @@ namespace BaseConquest.Editor
             foreach(var holder in BaseAdventure.Members(state).Where(l=>BasePartyInventory.AccessibleLeader(state,l)))
                 for(int cell=BasePartyInventory.FreeCell(state,holder.Id);cell>=0;cell=BasePartyInventory.FreeCell(state,holder.Id))
                     state.PersonalEquipment.Warehouse.Add(new BasePersonalItem{Id="personal:"+state.PersonalEquipment.NextId++,Template="novice_sword",Holder=holder.Id,Cell=cell});
-            const string overflowId="verify:reward:warehouse";
+            const string overflowId="verify:reward:pending";
             state.Campaign.SettledIds.Add(overflowId);
-            BaseBattleLoot.Create(state,new BaseCampaignReport{BattleId=overflowId,Title="测试入库"},new[]{gift,new BaseLootReward{ItemId="forging_stone",Count=1}});
+            var stone=new BaseLootReward{ItemId="forging_stone",Count=1};
+            BaseBattleLoot.Create(state,new BaseCampaignReport{BattleId=overflowId,Title="测试待领"},new[]{gift,stone});
             var restored=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            var manifest=restored.Aftermath.Loot.Single(m=>m.BattleId==overflowId);
+            Need(manifest.Items.All(i=>i.Status=="pending")&&!manifest.HasReceipt,"背包已满时掉落应保留待领");
+            var player=restored.PlayerLeaderId;
+            var fillers=restored.PersonalEquipment.Warehouse.Where(i=>i.Holder==player && i.Template=="novice_sword" && i.Cell>=0).Take(2).ToArray();
+            restored.PersonalEquipment.Warehouse.Remove(fillers[0]);
+            string before=JsonUtility.ToJson(restored);
+            for(int i=0;i<2;i++)
+            {
+                bool full=false;
+                try { BaseBattleLoot.CollectPending(restored,overflowId); }
+                catch(BagFullException e) { full=e.Message=="背包已满"; }
+                Need(full&&JsonUtility.ToJson(restored)==before,"重复领取整份奖励必须原样保留");
+            }
+            restored.PersonalEquipment.Warehouse.Remove(fillers[1]);
+            BaseBattleLoot.CollectPending(restored,overflowId);
             var receipt=BaseBattleLoot.ConsumeReceipt(restored,overflowId);
-            Need(receipt.Items.All(i=>i.Status=="taken"&&i.ReceiptDestination==BaseBattleLoot.WarehouseReceipt)&&
-                restored.PersonalEquipment.Warehouse.Any(i=>i.Holder==""&&i.Cell==-1&&i.Template=="novice_sword")&&
-                restored.Backpack.Items.Any(i=>i.Holder==""&&i.Cell==-1&&i.ItemId=="forging_stone")&&
-                !BaseBattleLoot.ConsumeReceipt(restored,overflowId).HasReceipt,"满包入库、存档收据或单次展示失败");
-            Debug.Log("[VerifyCampPolish] PASS camp approach, reward destination, once-only delivery and receipt persistence");
+            Need(receipt.Items.All(i=>i.Status=="taken")&&receipt.HasReceipt&&
+                !BaseBattleLoot.ConsumeReceipt(restored,overflowId).HasReceipt,"腾出容量后奖励应只发一次");
+            Need(BasePartyInventory.FreeCell(restored,player)<0&&BaseBackpack.Room(restored,stone.ItemId,player)>0,"满格背包中已有的锻造石仍能叠放");
+            int priorCount=restored.Backpack.Items.Single(i=>i.ItemId==stone.ItemId&&i.Holder==player).Count;
+            BaseBackpack.Receive(restored,stone.ItemId,1,player);
+            Need(restored.Backpack.Items.Single(i=>i.ItemId==stone.ItemId&&i.Holder==player).Count==priorCount+1,"满格时可堆叠物品领取失败");
+            Debug.Log("[VerifyCampPolish] PASS full bag, atomic bundle rejection, partial stacks and once-only collection");
             RunStairGeometry();
+        }
+        public static void RunCapturedEquipment()
+        {
+            var asset = Resources.Load<TextAsset>("DemoStages/defense-male");
+            var donor = JsonUtility.FromJson<BaseState>(asset.text);
+            var session = BaseDemoDefense.Begin(donor,"none");
+            var enemy = session.Opening.Enemies.First(e => e.Kind == SoldierKind.Hero);
+            var fighter = session.UnitForEnemy(session.Opening.Enemies.IndexOf(enemy));
+            var live = donor.Campaign.EnemySites.SelectMany(site => site.Garrison)
+                .First(e => e.Kind == SoldierKind.Hero && e.Equipment.Items.Count > 0);
+            enemy.Id = live.Id;
+            enemy.Equipment = live.Equipment.Copy();
+            var originals = enemy.Equipment.Items.Select(i => i.Copy()).ToArray();
+            foreach (var other in session.Battle.Soldiers.Where(u => u.Side == BattleSide.B && u.Id != fighter.Id))
+                other.Escaped = true;
+            fighter.KnockedDown = true;
+            var captured = BaseAftermath.Capture(donor,session,true);
+            Need(captured.Select(i => i.Id).SequenceEqual(originals.Select(i => i.Id)) &&
+                captured.All(i => i.Holder == "" && i.Slot == "" && i.Cell == -1) &&
+                live.Equipment.Items.Count == 0 &&
+                !captured.Any(i => donor.PersonalEquipment.Warehouse.Any(w => w.Id == i.Id)) &&
+                BaseAftermath.Capture(donor,session,true).Count == 0,"缴械应只转移一次原实例");
+
+            var camp = Resources.Load<TextAsset>("DemoStages/camp-male");
+            var state = JsonUtility.FromJson<BaseState>(camp.text);
+            BaseEconomy.Validate(state);
+            string player = state.PlayerLeaderId;
+            var gear = new BasePersonalItem { Id = "personal:" + state.PersonalEquipment.NextId++, Template = "novice_sword", Quality = 4, BoundLeader = player };
+            foreach (var holder in BaseAdventure.Members(state).Where(l => BasePartyInventory.AccessibleLeader(state,l)))
+                for (int cell = BasePartyInventory.FreeCell(state,holder.Id); cell >= 0; cell = BasePartyInventory.FreeCell(state,holder.Id))
+                    state.PersonalEquipment.Warehouse.Add(new BasePersonalItem { Id = "personal:" + state.PersonalEquipment.NextId++, Template = "basic_helmet", Holder = holder.Id, Cell = cell });
+            int nextId = state.PersonalEquipment.NextId;
+            const string battle = "verify:confiscation";
+            var report = new BaseCampaignReport { BattleId = battle, Title = "缴获装备" };
+            state.Campaign.SettledIds.Add(battle);
+            BaseBattleLoot.Create(state,report,Array.Empty<BaseLootReward>(),new[]{gear});
+            Need(BaseBattleLoot.ShouldPresent(state) && BaseBattleLoot.Pending(state),"首次战果须展示一次");
+            BaseBattleLoot.DeferItems(state,battle);
+            Need(!BaseBattleLoot.ShouldPresent(state) && !BaseBattleLoot.Pending(state) &&
+                BaseBattleLoot.Unclaimed(state).Single().BattleId == battle,"看过的待领清单仍可从背包打开，且不会阻挡返营");
+            const string fresh = "verify:new-report";
+            state.Campaign.SettledIds.Add(fresh);
+            BaseBattleLoot.Create(state,new BaseCampaignReport{BattleId=fresh,Title="下一场战斗"},Array.Empty<BaseLootReward>());
+            Need(BaseBattleLoot.NextResult(state)?.BattleId==fresh,"旧待领不应遮住下一场战报");
+            BaseBattleLoot.ConsumeReceipt(state,fresh);
+            var persisted = JsonUtility.ToJson(state);
+            state = JsonUtility.FromJson<BaseState>(persisted);
+            BaseRpg.Bind(state);
+            BaseItemRecovery.Normalize(state);
+            BaseItemRecovery.Validate(state);
+            var pending = state.Aftermath.Loot.Single(m => m.BattleId == battle).Items.Single();
+            Need(pending.Status == "pending" && pending.CapturedId == gear.Id && pending.CapturedBoundLeader == player &&
+                !state.PersonalEquipment.Warehouse.Any(i => i.Id == gear.Id),"缴获满包应可结算、读档并正确保留待领");
+            Need(!BaseBattleLoot.ShouldPresent(state) && !BaseBattleLoot.Pending(state) &&
+                BaseBattleLoot.Unclaimed(state).Single().BattleId == battle,"读回暂存战利品后应仍可行走与打开待领");
+            string before = JsonUtility.ToJson(state);
+            for (int i = 0; i < 2; i++)
+            {
+                bool full = false;
+                try { BaseBattleLoot.CollectPending(state,battle); }
+                catch (BagFullException ex) { full = ex.Message == "背包已满"; }
+                Need(full && JsonUtility.ToJson(state) == before,"重复满包领取应无副作用");
+            }
+            var filler = state.PersonalEquipment.Warehouse.First(i => i.Holder == player && i.Template == "basic_helmet");
+            state.PersonalEquipment.Warehouse.Remove(filler);
+            BaseBattleLoot.CollectPending(state,battle);
+            var receipt = BaseBattleLoot.ConsumeReceipt(state,battle);
+            BaseBattleLoot.Create(state,report,Array.Empty<BaseLootReward>(),new[]{gear});
+            var item = state.PersonalEquipment.Warehouse.Single(i => i.Id == gear.Id);
+            Need(item.Holder == player && item.Template == gear.Template && item.Quality == gear.Quality && item.BoundLeader == gear.BoundLeader &&
+                receipt.Items.Single().ReceiptDestination == player && !BaseBattleLoot.ConsumeReceipt(state,battle).HasReceipt &&
+                !BaseBattleLoot.Unclaimed(state).Any() && state.PersonalEquipment.NextId == nextId,"缴获装备应保留原编号、品质和绑定，只发放一次");
+            state.PersonalEquipment.Warehouse.Remove(item);
+            item.Holder = ""; item.Cell = -1;
+            var lost = new BaseLostItems { Id = "verify:previous-loss", EventId = state.Campaign.Events.First().Id };
+            lost.Gear.Add(item);
+            state.Aftermath.LostItems.Add(lost);
+            BaseItemRecovery.ReturnForEvent(state,lost.EventId,report);
+            BaseItemRecovery.ReturnForEvent(state,lost.EventId,report);
+            Need(lost.Returned && lost.Gear.Count == 0 && ReferenceEquals(item,state.PersonalEquipment.Warehouse.Single(i => i.Id == gear.Id)) &&
+                item.Holder == "" && item.Cell == -1 && state.PersonalEquipment.NextId == nextId,"夺回原有装备应返还同一物品至仓库且只能一次");
+            BaseItemRecovery.Validate(state);
+            Debug.Log("[VerifyCapturedEquipment] PASS disarm, full bags, save/load, bound instance, duplicate collection and property recovery");
         }
         public static void RunStairGeometry()
         {

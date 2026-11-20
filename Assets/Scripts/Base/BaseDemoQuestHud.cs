@@ -124,7 +124,7 @@ namespace BaseConquest.Base
             var cue = BaseQuestLog.Cue(s);
             bool show = !BaseBattleGateway.MainMenu && !owner.DeploymentWorldActive && !owner.CampPlacementMode && !owner.JourneyMapOpen && cue.Id != null;
             bool hero = show && cue.Control == "hero" && heroChoiceLayer != null && heroChoiceLayer.gameObject.activeInHierarchy;
-            bool showInstruction = show && !hero && !PanelOpen && !owner.ConstructionMode && !owner.HomeRebuildOverview;
+            bool showInstruction = show && !hero && !PanelOpen && !owner.ConstructionMode;
             questBar.gameObject.SetActive(showInstruction);
             if (showInstruction)
             {
@@ -167,19 +167,6 @@ namespace BaseConquest.Base
                     target = panel.Find("Continue") as RectTransform;
             }
             else if (cue.Control == "sword") target = (RectTransform)questBackpackButton.transform;
-            else if (cue.Control == "rebuild")
-            {
-                if (owner.HomeRebuildOverview) target = (RectTransform)rebuildFinish.transform;
-                else if (!owner.ConstructionMode) target = (RectTransform)rebuildResume.transform;
-                else if (rebuildConfirm.IsInteractable()) target = (RectTransform)rebuildConfirm.transform;
-                else if (rebuildPlace.IsInteractable()) target = (RectTransform)rebuildPlace.transform;
-                else if (owner.RebuildProject < 0)
-                {
-                    int mask = s.Demo.Finale.RebuildMask;
-                    for (int i = 0; i < rebuildProjects.Length; i++)
-                        if ((mask & (1 << i)) == 0) { target = (RectTransform)rebuildProjects[i].transform; break; }
-                }
-            }
             else if (cue.ObjectId != null)
             {
                 if (nearbyId == cue.ObjectId && interact.IsInteractable() && interact.gameObject.activeInHierarchy)

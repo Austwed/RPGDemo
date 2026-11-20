@@ -175,6 +175,42 @@ namespace BaseConquest.Editor
             Need(run.OutcomeResolver(run)==BattleOutcome.SideBWin,"第二波我方全部失能后应失败");
             Directory.CreateDirectory("Logs/checkpoint-verification");File.WriteAllText("Logs/checkpoint-verification/second-outcome.txt","PASS: no timed victory, enemy elimination, ally defeat.\n");
         }
+        public static void VerifyVersionedDemoSlots()
+        {
+            string temp=Path.Combine(Path.GetTempPath(),"demo-slot-retirement-"+Guid.NewGuid().ToString("N"));
+            string profile=Path.Combine(temp,BaseDemo.ReleaseProfile),old=Path.Combine(profile,"v"+(BaseDemo.SaveVersion-1));
+            string current=Path.Combine(profile,"v"+BaseDemo.SaveVersion),future=Path.Combine(profile,"v"+(BaseDemo.SaveVersion+1));
+            string other=Path.Combine(temp,BaseDemo.Profile,"v1"),custom=Path.Combine(temp,"custom-map-test","v1"),nested=Path.Combine(old,"maps");
+            var folders=new[]{temp,profile,old,current,future,Path.GetDirectoryName(other),other,Path.GetDirectoryName(custom),custom,nested};
+            var paths=new System.Collections.Generic.List<string>();
+            string Save(int version)=>"{\"SchemaVersion\":1,\"DemoSaveVersion\":"+version+",\"Kind\":\"base-save\",\"State\":{}}";
+            string Write(string dir,string name,string contents)
+            {
+                string file=Path.Combine(dir,name);
+                File.WriteAllText(file,contents);
+                paths.Add(file);
+                return file;
+            }
+            try
+            {
+                foreach(string dir in folders)Directory.CreateDirectory(dir);
+                var remove=new[]{Write(old,"slot1.json",Save(1)),Write(old,"阿-远-auto6.json.bak",Save(2)),
+                    Write(old,"阿禾-slot1.json",Save(3)),Write(old,"base-save-v1.json.bak",Save(1))};
+                var preserve=new[]{Write(old,"notes.json",Save(1)),Write(old,"slot2.json","{\"Kind\":\"map\"}"),
+                    Write(old,"auto1.json.tmp",Save(1)),Write(old,"plot-slot2.json.bak","unrelated"),Write(old,"slot3.json",Save(BaseDemo.SaveVersion+1)),
+                    Write(current,"slot1.json",Save(1)),Write(future,"slot1.json",Save(1)),Write(other,"slot1.json",Save(1)),
+                    Write(custom,"slot1.json",Save(1)),Write(nested,"slot1.json",Save(1))};
+                Need(BaseBattleGateway.RetireOldReleaseSlots(temp)==remove.Length&&!remove.Any(File.Exists)&&preserve.All(File.Exists),
+                    "旧 Demo 正式档清理遗漏，或越过了槽名、版本、档案类型、profile、子目录边界");
+                Need(BaseBattleGateway.RetireOldReleaseSlots(temp)==0,"重复清理并非幂等");
+                Debug.Log("[VersionedDemoSlots] PASS — old release slots and backups only");
+            }
+            finally
+            {
+                foreach(string file in paths)if(File.Exists(file))File.Delete(file);
+                foreach(string dir in folders.Reverse())if(Directory.Exists(dir))Directory.Delete(dir);
+            }
+        }
         public static void VerifySaveCatalog()
         {
             string folder = Path.Combine(Path.GetTempPath(),"base-save-check-"+Guid.NewGuid().ToString("N"));

@@ -54,10 +54,9 @@ namespace BaseConquest.Base
             if(recipient!=null)TradeLine(details,StoryText.Get("story.ui.trade.recipient","收货人：{name}").Replace("{name}",recipient.Name));
             if(remaining==0)TradeLine(details,"今日售罄");
             else if(recipient==null)TradeLine(details,StoryText.Get("story.ui.trade.recipient_missing","当前没有可收货的随行角色"));
-            else if(full)TradeLine(details,StoryText.Get("story.ui.trade.recipient_full","所选角色背包已满，请切换角色"));
             else if(s.Inventory.Coins<price)TradeLine(details,"钱币不足");
-            TradeButton(details,"确认买入 · "+price+"币",()=>TradeCommit(next=>BasePersonalEquipment.Buy(next,id,holder,price),"已购入 "+selected.Name),
-                BasePersonalEquipment.CanBuy(s,id,holder));
+            TradeButton(details,"确认买入 · "+price+"币",()=>{if(full){ShowBagFull();return;}TradeCommit(next=>BasePersonalEquipment.Buy(next,id,holder,price),"已购入 "+selected.Name);},
+                BasePersonalEquipment.CanBuy(s,id,holder)||full&&remaining>0&&s.Inventory.Coins>=price);
             var sample=new BasePersonalItem {Template=id,Quality=2};
             if(BaseRpg.Active(s))TradeLine(details,BaseRpg.GearDescription(s,sample,includeName:false));
             else TradeLine(details,"攻击 "+selected.Damage.ToString("0.##")+" · 防御 "+selected.Defense.ToString("0.##")+" · 生命 "+selected.Health.ToString("0.##")

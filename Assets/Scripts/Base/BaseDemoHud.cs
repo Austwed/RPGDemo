@@ -29,7 +29,6 @@ namespace BaseConquest.Base
         {
             if(OpenIntroStory())return;
             var state=owner.State;if(!BaseDemo.Active(state))return;
-            if(BaseDemoFinale.Rebuilding(state)&&state.Campaign.CurrentMapId==BaseDemoFinale.Home){OpenRebuild();return;}
             if(BaseDemoDefense.Won(state)&&state.Demo.Defense.BatuStoryDay==0){OpenDemoDefenseAftermath();return;}
             if(BaseDemoFinale.SecondRaidReportPending(state)){OpenSecondRaidVictoryReport();return;}
             activeObject="demo-story";interactionObject="";
@@ -52,7 +51,11 @@ namespace BaseConquest.Base
             }
             if(state.Demo.Stage==BaseDemoStage.Finished)
             {
-                NpcDialogue(new[]{new NpcLine("旁白","","营帐边升起了炊烟。村口的车辙一路向西。"),new NpcLine("你","",StoryText.Get("story.scene.home_rebuild.finished", "乡亲们总算有地方落脚了。搭档，等我。我去西山找你。"),true,"望向西山")},
+                var lines=new List<NpcLine>{new NpcLine("旁白","","傍晚，自家的屋顶又飘起炊烟。粮田翻了土，工坊里也点起了灯。")};
+                if(state.Demo.Evidence.Contains(BaseDemoFinale.Sword))
+                    lines.Add(new NpcLine("旁白","","你隔着衣襟摸到那截断剑，青绳结上还沾着泥。"));
+                lines.Add(new NpcLine("旁白","","西桥旁，两道车辙穿过枯草，一直向西山去。"));
+                NpcDialogue(lines.ToArray(),
                     Array.Empty<NpcReply>(),lockExitUntilFinished:showCompletion,
                     onCompleted:showCompletion ? OpenDemoCompletion : ClosePanel);
                 return;

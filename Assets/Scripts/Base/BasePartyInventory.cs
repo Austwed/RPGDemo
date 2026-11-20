@@ -37,15 +37,17 @@ namespace BaseConquest.Base
         }
 
         public static bool Peaceful(BaseState s)=>!s.Aftermath.GameOver&&(!BaseDemoPrologue.Village(s)||BaseDemoIntro.Daily(s))&&string.IsNullOrEmpty(s.SceneBattleId)&&(!s.Campaign.HasActiveBattle||!s.Campaign.ActiveBattle.HasCheckpoint||s.Campaign.ActiveBattle.Checkpoint.Phase==BattlePhase.Deployment);
-        public static bool AccessibleLeader(BaseState s,BaseLeader l)=>BaseAdventure.Alive(l)&&BaseAdventure.PauseFor(s,l.Id)==null&&(s.Campaign.Location=="base"?!l.Away:BaseAdventure.Following(s,l.Id));
-        public static IEnumerable<BaseLeader> People(BaseState s,bool warehouse)=>warehouse?s.Leaders.Where(l=>!l.Away&&BaseAdventure.Alive(l)&&BaseAdventure.Region(l)=="base"):BaseAdventure.Members(s).Where(l=>BaseAdventure.Alive(l));
+        public static bool AccessibleLeader(BaseState s,BaseLeader l) => BaseAdventure.Alive(l) && !l.Relocating &&
+            BaseAdventure.PauseFor(s,l.Id) == null && (BaseAdventure.Following(s,l.Id) ||
+            !l.Away && (s.Campaign.Location == "base" || BaseSettlements.AtVillage(s)) && l.VillageResident == BaseSettlements.AtVillage(s));
+        public static IEnumerable<BaseLeader> People(BaseState s,bool warehouse)=>warehouse?s.Leaders.Where(l=>AccessibleLeader(s,l)):BaseAdventure.Members(s).Where(l=>BaseAdventure.Alive(l));
         public static BaseMapObject WarehouseObject(BaseState s)
         {
-            if(BaseDemo.Active(s))return BaseSpatial.Objects(s,"base").Single(obj=>obj.Id=="home");
+            if(BaseDemo.Active(s))return BaseSpatial.Objects(s,BaseSettlements.AtVillage(s) ? BaseDemoFinale.Home : "base").Single(obj=>obj.Id=="home");
             var authored=BaseSpatial.Objects(s,"base").FirstOrDefault(o=>o.Id=="warehouse");if(authored!=null)return authored;
             var p=BaseSpatial.Nearest(s,new BasePoint(7.5,7.5),"base",new BaseMapObject[0]);return new BaseMapObject("warehouse","基地仓库",p.X,p.Y,.8,.8,false);
         }
-        public static bool AtWarehouse(BaseState s)=>Peaceful(s)&&s.Campaign.Location=="base"&&BaseInteraction.CanReach(s,WarehouseObject(s));
+        public static bool AtWarehouse(BaseState s)=>Peaceful(s)&&(s.Campaign.Location=="base" || BaseSettlements.AtVillage(s) && BaseDemoFinale.HomeRepaired(s,"home"))&&BaseInteraction.CanReach(s,WarehouseObject(s));
         public static IEnumerable<BaseInventoryEntry> Entries(BaseState s)
         {
             string practiceId=s.Demo?.Intro?.PracticeId;
@@ -117,6 +119,27 @@ namespace BaseConquest.Base
         }
         private static bool Access(BaseState s,string holder)=>holder==""?AtWarehouse(s):s.Leaders.Any(l=>l.Id==holder&&AccessibleLeader(s,l));
         private static bool Fits(BaseState s,BaseInventoryEntry e,string holder,string slot)=>e==null||(!(e.Category=="quest"&&holder!=""&&holder!=s.PlayerLeaderId)&&(!string.IsNullOrEmpty(e.Bound)&&holder!=""&&e.Bound!=holder?false:slot==""||e.Gear!=null&&s.Leaders.Any(l=>l.Id==holder&&BasePersonalEquipment.Compatible(l,e.Gear,slot)&&BasePersonalEquipment.WeaponRangeAllowed(l,e.Gear,e.Quality))));
+        public static bool MoveToBag(BaseState state, string id, string holder, int count = 0)
+        {
+            if (string.IsNullOrEmpty(holder)) return Move(state,id,"",-1,"",count);
+            var entry = Find(state,id);
+            if (entry == null || !Peaceful(state) || !Access(state,entry.Holder) || !Access(state,holder) ||
+                !Fits(state,entry,holder,"")) return false;
+            int amount = count == 0 ? entry.Count : count;
+            if (amount < 1 || amount > entry.Count) return false;
+            if (entry.Stack == null || entry.Holder == holder)
+                return Move(state,id,holder,BaseBackpack.RequireGearCell(state,holder),"",amount);
+            string item = entry.Stack.ItemId;
+            if (BaseBackpack.Room(state,item,holder) < amount) throw new BagFullException();
+            if (!state.Backpack.Items.Any(stack => stack.Holder == holder && stack.ItemId == item &&
+                stack.Count < state.Backpack.Catalog.Single(def => def.Id == item).MaxStack))
+                return Move(state,id,holder,BaseBackpack.RequireGearCell(state,holder),"",amount);
+            BaseBackpack.Receive(state,item,amount,holder);
+            entry.Stack.Count -= amount;
+            if (entry.Stack.Count == 0) state.Backpack.Items.Remove(entry.Stack);
+            return true;
+        }
+
         public static bool Move(BaseState s,string id,string holder,int cell,string slot="",int count=0)
         {
             var source=Find(s,id);holder=holder??"";slot=slot??"";

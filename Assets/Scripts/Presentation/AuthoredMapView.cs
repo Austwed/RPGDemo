@@ -40,7 +40,7 @@ namespace BaseConquest.Presentation
             Vector3 propOffset = !roadSign ? Vector3.zero : prop == "road-sign-down"
                 ? Vector3.right * (float)(placement.BoundsWidth * .5 + .15) * BattleBoardView.CellSize
                 : Vector3.forward * (float)(placement.BoundsHeight * .5 + .10) * BattleBoardView.CellSize;
-            var pixelProp=prop==null?null:PixelDemoArt.Prop(root.transform,prop,propOffset,source,roadSign?1.05f:prop=="dungeon-entrance"?3:prop=="dead-tree"?1.25f:1.5f,roadSign?1.15f:prop=="dungeon-entrance"?3:prop=="dead-tree"?2.5f:prop=="ruined-wall"?.75f:1.5f);
+            var pixelProp=prop==null?null:PixelDemoArt.Prop(root.transform,prop,propOffset,source,prop=="broken-sword"?.55f:roadSign?1.05f:prop=="dungeon-entrance"?3:prop=="dead-tree"?1.25f:1.5f,prop=="broken-sword"?.55f:roadSign?1.15f:prop=="dungeon-entrance"?3:prop=="dead-tree"?2.5f:prop=="ruined-wall"?.75f:1.5f);
             if(pixelProp!=null)
             {
                 view.shaped=false;
@@ -91,13 +91,14 @@ namespace BaseConquest.Presentation
                 string asset=string.IsNullOrEmpty(placement.AssetId)?placement.Id:placement.AssetId;
                 var owner=root.GetComponentInParent<BaseSceneController>(true);
                 bool returnedVillage=owner?.State?.Campaign.CurrentMapId==BaseDemoFinale.Home;
-                ravagedField=returnedVillage&&BaseDemoFinale.IsReturnField(placement.Id);
-                if(returnedVillage&&placement.Id=="village_house")asset="damaged-house";
+                ravagedField=returnedVillage&&placement.Id=="farm"&&!BaseDemoFinale.HomeRepaired(owner.State,"farm");
+                if(returnedVillage&&placement.Id=="home"&&!BaseDemoFinale.HomeRepaired(owner.State,"home"))asset="damaged-house";
+                if(returnedVillage&&placement.Id=="workshop"&&!BaseDemoFinale.HomeRepaired(owner.State,"workshop"))asset="ruin-hall";
                 view.farmVisual=!ravagedField&&(asset=="farm"||asset=="farm-small");
                 if(view.farmVisual)asset=FarmAppearance(owner?.State);
                 view.farmAppearance=asset;
                 var texture=ravagedField ? PixelDemoArt.Load("Terrain","field-soil") :
-                    asset=="notice" ? PixelDemoArt.Load("Props","noticeboard")??Resources.Load<Texture2D>("MapSurfaces/Notice-v1") : catalog?.Find(asset)?.Texture;
+                    asset=="notice" ? PixelDemoArt.Load("Props","noticeboard")??Resources.Load<Texture2D>("MapSurfaces/Notice-v1") : catalog?.Find(asset)?.Texture ?? PixelDemoArt.Load("Buildings",asset);
                 bool groundArtwork=ravagedField||asset.StartsWith("farm");
                 if(texture==null&&placement.Blocks)
                 {

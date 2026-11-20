@@ -49,7 +49,7 @@ namespace BaseConquest.Base
     public static class BaseDemo
     {
         // Increment only when Demo progress becomes incompatible; old files are discarded, never migrated.
-        public const int SaveVersion=19;
+        public const int SaveVersion=20;
         public const string Profile="demo-new-camp-v1", ReleaseProfile="demo-complete-v2", BalanceTemplate="35_配表驱动验证.json", Assignment="demo:lord:ruins-assignment";
         public static bool Active(BaseState state) => state?.Demo?.Version==1;
         public static bool ExperimentalManagementHidden(BaseState state) => Active(state) && !RuntimeDeveloperOptions.Enabled;
@@ -93,6 +93,8 @@ namespace BaseConquest.Base
             BaseDemoFinale.PrepareOpening(state);
             state.Leaders.RemoveAll(leader=>leader.Id!=state.PlayerLeaderId);
             state.Workers.Clear();
+            state.Development.Policy = state.Development.VillagePolicy = "manual";
+            state.Development.Automatic = false;
             state.LastSoldierNumber = 0;
             var player=state.Leaders.Single();player.FacilityId=player.DesiredFacility="";player.HasMapPosition=player.HasHomePosition=false;
             player.AcquisitionSource="主角 · "+BaseScriptNames.Village+"序章";player.AcquisitionDay=state.Day;
@@ -282,7 +284,7 @@ namespace BaseConquest.Base
             if(accepted?(progress.AcceptedDay<progress.WakeDay||progress.AcceptedDay>state.Day||(BaseDemoRuins.Enabled(state)?!progress.Evidence.Contains(Assignment):!progress.Evidence.SequenceEqual(new[]{Assignment}))):(progress.AcceptedDay!=0||progress.Evidence.Contains(Assignment)))throw new ArgumentException("Demo调查委托与证据状态不一致");
             bool world=BaseDemoFinale.Opened(state);
             if(!world&&(state.Campaign.InstanceVersion!=0||!string.IsNullOrEmpty(state.Campaign.DesignId)||!new[]{"base","town"}.Contains(state.Campaign.Location)&&!(BaseDemoRuins.Enabled(state)&&state.Campaign.Location=="outpost")&&!BaseSceneRules.Dungeon(state)&&!BaseBanditHideout.InHideout(state)&&!(BaseDemoDefense.Enabled(state)&&state.Campaign.Location=="perimeter"))||!world&&state.Campaign.HasActiveBattle&&!BaseDemoRuins.BattleActive(state)&&!BaseDemoDefense.BattleActive(state)&&!BaseDemoFinale.BattleActive(state)&&!BaseBanditHideout.BattleActive(state)||state.Muster.Parties.Any(party=>party.Purpose=="expedition"?!BaseDemoRuins.Enabled(state):party.Purpose!="defense"||!BaseDemoDefense.Enabled(state))||!world&&state.Campaign.Events.Any(mission=>mission.Kind=="defense"&&mission.Status=="pending"&&(!BaseDemoDefense.Enabled(state)||mission.Id!=BaseDemoDefense.EventId&&mission.Id!=BaseDemoDefense.SecondEventId)))throw new ArgumentException("Demo仅开放指定场景与剧情战");
-            if(state.Campaign.Layouts.Count!=((BaseSceneRules.Active(state)?1:0)+(BaseBanditHideout.Installed(state)?1:0)+(world?7:BaseDemoDefense.Enabled(state)?4:BaseDemoRuins.Enabled(state)?3:2))||!state.Campaign.Layouts.Any(map=>map.Region=="town")||!BaseDemoPrologue.Village(state)&&new[]{"home","barracks"}.Any(id=>!state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Any(obj=>obj.Id==id&&obj.Blocks)))throw new ArgumentException("Demo地图须保留营帐、兵营与领主驻地");
+            if(state.Campaign.Layouts.Count!=((BaseSceneRules.Active(state)?1:0)+(BaseBanditHideout.Installed(state)?1:0)+(world?8:BaseDemoDefense.Enabled(state)?4:BaseDemoRuins.Enabled(state)?3:2))||!state.Campaign.Layouts.Any(map=>map.Region=="town")||!BaseDemoPrologue.Village(state)&&new[]{"home","barracks"}.Any(id=>!state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Any(obj=>obj.Id==id&&obj.Blocks)))throw new ArgumentException("Demo地图须保留营帐、兵营与领主驻地");
             if(!BaseDemoDefense.Repaired(state,"workshop")&&(state.Muster.Facilities.Any(facility=>facility.FacilityId=="workshop"&&(facility.Capacity!=0||facility.MinimumWorkers!=0))||state.Leaders.Any(leader=>leader.FacilityId=="workshop")||state.Workers.Any(worker=>worker.FacilityId=="workshop")))throw new ArgumentException("Demo工坊尚未修复，不能提前生产");
             if(state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Any(obj=>new[]{"workshop","barracks"}.Contains(obj.Id)&&obj.VisualOnly==BaseDemoDefense.Repaired(state,obj.Id)))throw new ArgumentException("Demo建筑外观与实际修复状态不一致");
             BaseDemoPrologue.Validate(state);BaseDemoIntro.Validate(state);BaseDemoIntro.CompleteFarmAssignment(state);
@@ -322,10 +324,9 @@ namespace BaseConquest.Base
             const string sword=BaseBackpack.RoyalSword;
             if(state.Backpack.Catalog.Any(d=>d.Id==sword)||state.Backpack.Catalog.Count>=1000)return false;
             var definition=new BaseBagDefinition {Id=sword,Name=BaseBackpack.RoyalSwordName,Category="quest",Description=BaseBackpack.RoyalSwordDescription,MaxStack=1};
+            BaseBackpack.RequireGearCell(state,state.PlayerLeaderId);
             state.Backpack.Catalog.Add(definition);
-            if(!BaseBackpack.Add(state,sword,1)){state.Backpack.Catalog.Remove(definition);return false;}
-            int cell=BasePartyInventory.FreeCell(state,state.PlayerLeaderId);
-            if(cell>=0){var item=state.Backpack.Items.Single(i=>i.ItemId==sword);item.Holder=state.PlayerLeaderId;item.Cell=cell;}
+            BaseBackpack.Receive(state,sword,1,state.PlayerLeaderId);
             state.Demo.Stage=BaseDemoStage.VisitLord;state.Demo.WakeDay=state.Day;return true;
         }
         public static bool AcceptLordQuest(BaseState state)

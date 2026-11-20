@@ -25,17 +25,18 @@ namespace BaseConquest.Battle
         }
         public static bool Clear(BattleBoard board,GridPosition a,GridPosition b)=>Clear(board,a.X+.5,a.Z+.5,b.X+.5,b.Z+.5);
         public static double ArcherBonus(BattleBoard board,double ax,double az,double bx,double bz)=>Math.Min(6,Math.Max(0,board.SurfaceLevel(ax,az)-board.SurfaceLevel(bx,bz))*2);
-        public static void Compute(BattleBoard board,IEnumerable<GridPosition> observers,bool[] visible,bool[] terrain)
+        public static void Compute(BattleBoard board,IEnumerable<GridPosition> observers,bool[] visible,bool[] terrain,bool limitTerrainToRadius=false)
         {
             Array.Clear(visible,0,visible.Length);Array.Clear(terrain,0,terrain.Length);
             foreach(var observer in observers)
-                if(board.Contains(observer)) Reveal(board, observer, Radius(board,observer), visible, terrain);
+                if(board.Contains(observer)) Reveal(board, observer, Radius(board,observer), visible, terrain, limitTerrainToRadius);
         }
-        internal static void Reveal(BattleBoard board,GridPosition observer,int radius,bool[] visible,bool[] terrain)
+        internal static void Reveal(BattleBoard board,GridPosition observer,int radius,bool[] visible,bool[] terrain,bool limitTerrainToRadius=false)
         {
             foreach(var p in board.Positions())
             {
                 int i=p.Z*board.Width+p.X;int dx=p.X-observer.X,dz=p.Z-observer.Z;bool near=dx*dx+dz*dz<=radius*radius;
+                if(limitTerrainToRadius&&!near)continue;
                 if(terrain[i]&&(!near||visible[i]))continue;
                 if(!Clear(board,observer,p))continue;terrain[i]=true;if(near)visible[i]=true;
             }

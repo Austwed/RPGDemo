@@ -42,7 +42,15 @@ namespace BaseConquest.Presentation
         {
             if (string.IsNullOrEmpty(key)) return default;
             if (!sprites.TryGetValue(key, out var sprite))
-                sprites[key] = sprite = Resources.Load<Sprite>("PixelDemo/ItemIcons/" + key);
+            {
+                if (key == BaseDemoFinale.BrokenSwordItem)
+                {
+                    var art = Resources.Load<Texture2D>("PixelDemo/Props/broken-sword-v1");
+                    if (art != null) sprite = Sprite.Create(art, new Rect(0,0,art.width,art.height), Vector2.one*.5f);
+                }
+                else sprite = Resources.Load<Sprite>("PixelDemo/ItemIcons/" + key);
+                sprites[key] = sprite;
+            }
             return sprite == null ? default : new Icon(sprite, FillFor(key, quality, category));
         }
 

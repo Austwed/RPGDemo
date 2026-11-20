@@ -27,7 +27,7 @@ namespace BaseConquest.Base
         }
         private void SyncCivilianWorkerTravel()
         {
-            if (State.Campaign.Location != "base" || BaseBattleGateway.MainMenu || ReferenceEquals(civilianTravelState, State) ||
+            if ((State.Campaign.Location != "base" && !BaseSettlements.AtVillage(State)) || BaseBattleGateway.MainMenu || ReferenceEquals(civilianTravelState, State) ||
                 workerTravel.CivilianInTransit)
                 return;
 

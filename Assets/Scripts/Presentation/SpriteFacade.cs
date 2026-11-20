@@ -39,6 +39,7 @@ namespace BaseConquest.Presentation
         public void Refresh()
         {if(camera==null)return;Surface.transform.position=Feet+camera.transform.right*(VisibleWidth*(.5f-(metric?.RootX??.5f)))+camera.transform.up*(VisibleHeight*(.5f-(metric?.RootY??0)));Surface.transform.rotation=camera.transform.rotation;MapSpriteOrder.Apply(transform,Feet.z);}
         public void SetRaised(bool raised){Feet=new Vector3(Feet.x,raised?raisedFeetY:0,Feet.z);Refresh();}
+        internal void TranslateFeet(Vector3 offset){Feet+=offset;raisedFeetY+=offset.y;Refresh();}
         private void LateUpdate()=>Refresh();
         private void OnDestroy()=>BattleBoardView.DestroyObject(material);
     }

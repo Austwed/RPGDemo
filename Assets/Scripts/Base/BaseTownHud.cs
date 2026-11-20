@@ -341,6 +341,7 @@ namespace BaseConquest.Base
             var most = TradeButton(controls,"最多",()=>update(maximum),template:"TradeTab");
             var confirm = TradeButton(details,"",()=>
             {
+                if (maximum==0 && blocked==BagFullException.Notice) { ShowBagFull(); return; }
                 int count=tradeQuantity;
                 if (count>0) TradeCommit(next=>submit(next,count),message);
             });
@@ -348,7 +349,7 @@ namespace BaseConquest.Base
 
             update = requested =>
             {
-                tradeQuantity = maximum==0 ? 0 : Mathf.Clamp(requested,1,maximum);
+                tradeQuantity = maximum==0 ? (blocked==BagFullException.Notice ? 1 : 0) : Mathf.Clamp(requested,1,maximum);
                 amount.text = tradeQuantity.ToString();
                 decrease.interactable = tradeQuantity>1;
                 increase.interactable = most.interactable = tradeQuantity<maximum;
@@ -356,7 +357,7 @@ namespace BaseConquest.Base
                 confirmText.text = "确认"+verb+" · "+(long)price*tradeQuantity+"币";
             };
             update(tradeQuantity);
-            if (maximum==0) TradeLine(details,blocked);
+            if (maximum==0 && blocked!=BagFullException.Notice) TradeLine(details,blocked);
         }
 
         private void RenderGoodsTrade(RectTransform offers,RectTransform details)

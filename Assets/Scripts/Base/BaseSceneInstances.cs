@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -34,7 +34,7 @@ namespace BaseConquest.Base
                 if(map.Region=="custom"&&string.IsNullOrEmpty(map.ParentMapId)&&!BaseWorldJourney.Active(state)||map.Region!="custom"&&!string.IsNullOrEmpty(map.ParentMapId))throw new ArgumentException("附属场景须用custom并声明父地图");
                 var seen=new HashSet<string>{map.SourceMapId};var parent=map;
                 while(!string.IsNullOrEmpty(parent.ParentMapId)){parent=maps.SingleOrDefault(value=>value.SourceMapId==parent.ParentMapId);if(parent==null||!seen.Add(parent.SourceMapId))throw new ArgumentException("附属父场景缺失或形成循环");}
-                if(map.Region=="custom"&&map.Objects.Any(obj=>!obj.VisualOnly&&obj.DefinitionId!="map_exit"&&!(BaseDemoFinale.Opened(state)&&(map.SourceMapId==BaseDemoFinale.Home&&(obj.Id=="demo_broken_sword"||obj.Id=="demo_survivor")||map.SourceMapId=="demo_ruins"&&(obj.Id=="demo_ruins_investigate"||obj.Id==BaseBanditHideout.EntryId)||BaseSceneRules.Active(state)&&map.SourceMapId==BaseSceneRules.DungeonId&&(obj.Id=="demo_ruins_investigate"||obj.Id=="demo_dungeon_exit")))))throw new ArgumentException("附属场景仅支持出入口、外观及Demo固定调查点");
+                if(map.Region=="custom"&&map.Objects.Any(obj=>!obj.VisualOnly&&obj.DefinitionId!="map_exit"&&!(BaseDemoFinale.Opened(state)&&(BaseDemoFinale.HomeObject(map.SourceMapId,obj.Id)||map.SourceMapId=="demo_ruins"&&(obj.Id=="demo_ruins_investigate"||obj.Id==BaseBanditHideout.EntryId)||BaseSceneRules.Active(state)&&map.SourceMapId==BaseSceneRules.DungeonId&&(obj.Id=="demo_ruins_investigate"||obj.Id=="demo_dungeon_exit")))))throw new ArgumentException("附属场景仅支持出入口、外观及Demo固定调查点");
             }
             var identities=maps.SelectMany(map=>map.Objects).Select(obj=>obj.SourceObjectId).ToArray();
             if(identities.Any(string.IsNullOrWhiteSpace)||identities.Distinct().Count()!=identities.Length)throw new ArgumentException("跨场景对象实例ID重复或缺失");

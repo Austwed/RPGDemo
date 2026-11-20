@@ -25,9 +25,6 @@ namespace BaseConquest.Base
         public static BaseMapObject Present(BaseState state,BaseMapObject original)
         {
             if(!BaseDemo.Active(state))return original;
-            if(state.Campaign.CurrentMapId==BaseDemoFinale.Home&&BaseDemoFinale.IsReturnField(original.Id))
-                return new BaseMapObject(original.Id,"麦田 · 查看",original.X,original.Y,original.Width,original.Height,
-                    original.Blocks,original.SourceObjectId,original.AssetId,original.Kind,false,original.Shape,original.Rotation);
             string sign = RoadSign(original.Id);
             if (sign != null)
                 return new BaseMapObject(original.Id, original.Id == "exit_east" ? BaseScriptNames.Town + " →" : original.Name, original.X, original.Y, original.Width, original.Height,
@@ -49,7 +46,6 @@ namespace BaseConquest.Base
                     name="报信村民";appearance=ResolveNpcArt("rescued-villager");break;
                 case "demo_ahe":name="阿禾 · 交谈";appearance="ahe";if(BaseDemoFlow.Active(state)&&state.Demo.Flow.FarmWalking)return new BaseMapObject(original.Id,name,state.Demo.Flow.FarmNpcX,state.Demo.Flow.FarmNpcY,.5,.5,false,"demo-npc:ahe-offer","ahe","npc");break;
                 case "demo_azhu":name="阿铸 · 交谈";appearance="azhu";if(BaseDemoFlow.SmithVisit(state))return new BaseMapObject(original.Id,name,BaseDemoFlow.SmithApproach(state).X,BaseDemoFlow.SmithApproach(state).Y,.5,.5,false,"demo-npc:smith","azhu","npc");break;
-                case "demo_broken_sword":if(!BaseDemoRelease.Enabled(state)){name="幸存村民 · 交谈";appearance=ResolveNpcArt("survivor");}break;
                 case "demo_survivor":name="幸存村民 · 交谈";appearance=ResolveNpcArt("survivor");break;
                 case "demo_rescued_1":case "demo_rescued_2":name=original.Name;appearance=ResolveNpcArt("rescued-villager");break;
                 case "town_blacksmith":
@@ -62,8 +58,8 @@ namespace BaseConquest.Base
 
         internal static string RoadSign(string id) => id switch
         {
-            "demo_defense_exit" or "travel_base" or "demo_ruins_return" or "demo_camp_world" or "demo_direct_camp" => "road-sign-left",
-            "exit_east" or "demo_defense_return" or "demo_ruins_exit" or "demo_home_world" or "demo_direct_home" => "road-sign-right",
+            "demo_defense_exit" or "travel_base" or "demo_ruins_return" or "demo_camp_world" or "demo_direct_camp" or "village_gate_out" or "village_world_exit" => "road-sign-left",
+            "exit_east" or "demo_defense_return" or "demo_ruins_exit" or "demo_home_world" or "demo_direct_home" or "village_gate_in" => "road-sign-right",
             "demo_march_exit" => "road-sign-down",
             _ => null
         };
@@ -93,6 +89,8 @@ namespace BaseConquest.Base
         {
             if(!BaseDemo.Active(s))return "";
             if(id==BaseDemoStories.GalanMarker)return "?";
+            if(id=="demo_broken_sword"&&s.Campaign.CurrentMapId==BaseDemoFinale.HomeField)return "!";
+            if(id==BaseDemoFinale.Builder && BaseDemoFinale.HomeVolunteers(s) && s.Demo.Stage!=BaseDemoStage.Finished)return "!";
             if(BaseDemoPrologue.Village(s)&&BaseDemoIntro.Active(s))
             {
                 int step=s.Demo.Intro.Step;
@@ -102,8 +100,7 @@ namespace BaseConquest.Base
                 return "";
             }
             bool main=id=="town_quest"&&(s.Demo.Stage==BaseDemoStage.VisitLord||s.Demo.Stage==BaseDemoStage.RuinsCleared)||id=="demo_rescuer"&&s.Demo.Stage==BaseDemoStage.Waking
-                ||(id=="demo_rescued_1"||id=="demo_rescued_2")&&s.Demo.Rescue?.Stage==1
-                ||id=="demo_survivor"&&s.Demo.Stage!=BaseDemoStage.Finished;
+                ||(id=="demo_rescued_1"||id=="demo_rescued_2")&&s.Demo.Rescue?.Stage==1;
             if(main)return "!";
             bool optional=id=="demo_ahe"&&!s.Leaders.Any(l=>l.Id=="partner_farm")||id=="demo_azhu"&&!s.Leaders.Any(l=>l.Id=="partner_craft");
             return optional||BaseDemoSideQuests.HasMarker(s,id)?"?":"";

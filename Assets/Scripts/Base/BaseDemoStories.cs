@@ -22,9 +22,11 @@ namespace BaseConquest.Base
         public static bool Gift(BaseState s)
         {
             if(!CanOfferSmithGift(s))return false;
+            var gifts=new[]{new BaseLootReward {Template="novice_sword",Quality=2,Count=1},new BaseLootReward {ItemId="forging_stone",Count=1}};
+            BaseBattleLoot.RequireRoom(s,gifts);
             const string id="demo:smith:parting-gift";s.Demo.Flow.SmithGiftOffered=true;
             if(!s.Campaign.SettledIds.Contains(id))s.Campaign.SettledIds.Add(id);
-            BaseBattleLoot.Create(s,new BaseCampaignReport {BattleId=id,Title="老铁匠的托付"},new[]{new BaseLootReward {Template="novice_sword",Quality=2,Count=1},new BaseLootReward {ItemId="forging_stone",Count=1}});return true;
+            BaseBattleLoot.Create(s,new BaseCampaignReport {BattleId=id,Title="老铁匠的托付"},gifts);return true;
         }
     }
 }

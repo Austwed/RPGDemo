@@ -199,7 +199,7 @@ namespace BaseConquest.Base
         }
         public static bool Unequip(BaseState s,string leaderId,string slot)
         {
-            if(s.Backpack.GridVersion==1){var person=s.Leaders.SingleOrDefault(x=>x.Id==leaderId);var worn=person?.PersonalEquipment?.Items.SingleOrDefault(i=>i.Slot==slot);return worn!=null&&BasePartyInventory.Move(s,worn.Id,leaderId,BasePartyInventory.FreeCell(s,leaderId));}
+            if(s.Backpack.GridVersion==1){var person=s.Leaders.SingleOrDefault(x=>x.Id==leaderId);var worn=person?.PersonalEquipment?.Items.SingleOrDefault(i=>i.Slot==slot);return worn!=null&&BasePartyInventory.MoveToBag(s,worn.Id,leaderId);}
             var l=s.Leaders.SingleOrDefault(x=>x.Id==leaderId);
             if(!CanEdit(s,l)||s.PersonalEquipment.Warehouse.Count>=10000)return false;var item=l.PersonalEquipment.Items.SingleOrDefault(i=>i.Slot==slot);if(item==null)return false;
             l.PersonalEquipment.Items.Remove(item);item.Slot="";s.PersonalEquipment.Warehouse.Add(item);UpdateHealth(l);return true;

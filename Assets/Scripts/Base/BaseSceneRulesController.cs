@@ -182,7 +182,7 @@ namespace BaseConquest.Base
             bool sightChanged=explorationFog!=fog||!previousSightObservers.SetEquals(sightObservers);
             if(sightChanged)
             {
-                explorationSight.RefreshExploration(sightObservers,fog);
+                explorationSight.RefreshExploration(sightObservers,fog,State.Campaign.CurrentMapId==BaseDemoFinale.Camp);
                 previousSightObservers.Clear();
                 previousSightObservers.UnionWith(sightObservers);
                 explorationFog=fog;

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using BaseConquest.Base;
 using BaseConquest.Battle;
 using UnityEngine;
@@ -21,8 +22,100 @@ namespace BaseConquest.Editor
             {
                 RuntimeDeveloperOptions.Enabled = true;
                 VerifyFacilitySystems();
+                VerifySettlementStaffing();
             }
             finally { RuntimeDeveloperOptions.Enabled = wasEnabled; }
+        }
+
+        public static void VerifySettlementStaffing()
+        {
+            var asset = Resources.Load<TextAsset>("DemoStages/defense-male");
+            Need(asset != null, "缺少防守阶段档 defense-male");
+            var state = JsonUtility.FromJson<BaseState>(asset.text);
+            var camp = state.Campaign.Layouts.Single(m => m.Region == "base");
+            var village = new BaseMapLayout { SourceMapId = BaseDemoFinale.Home, Region = "custom" };
+            var barracks = new BaseMapPlacement { Id = "barracks" };
+            village.Objects.Add(barracks);
+            state.Campaign.Layouts.Add(village);
+            state.Demo.Finale.WorldOpened = state.Demo.Finale.VolunteersArrived = true;
+            state.Demo.Finale.RebuildMask = 7;
+            state.Demo.Defense.WorkshopRepaired = state.Demo.Defense.BarracksRepaired = true;
+            state.Demo.Stage = BaseDemoStage.AttackWon;
+            foreach (string id in new[] { "farm", "workshop", "barracks" })
+                if (!camp.Objects.Any(o => o.Id == id)) camp.Objects.Add(new BaseMapPlacement { Id = id });
+
+            var farm = state.Muster.Facilities.Single(f => f.FacilityId == "farm");
+            var workshop = state.Muster.Facilities.Single(f => f.FacilityId == "workshop");
+            farm.Capacity = workshop.Capacity = 2;
+            state.Workers.Clear();
+            state.LastSoldierNumber = 0;
+            state.Inventory.Food = 600;
+            state.Inventory.Materials = 500;
+            state.Workers.Add(new BaseWorkerBucket { Count = 5, Health = 50, MaxHealth = 100, Kind = BaseTroopKind.Melee });
+            state.Workers.Add(new BaseWorkerBucket { Count = 1, Health = 100, MaxHealth = 100, Kind = BaseTroopKind.Ranged, VillageResident = true });
+
+            // Bind to the production commands without extending the gameplay API for an editor probe.
+            var settlements = typeof(BaseDevelopment).Assembly.GetType("BaseConquest.Base.BaseSettlements",true);
+            var order = (Action<BaseState,int>)settlements.GetMethod("Order").CreateDelegate(typeof(Action<BaseState,int>));
+            const BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Static;
+            var projectDay = (Func<BaseState,BaseDayPreview>)typeof(BaseEconomy).GetMethod("ProjectDay",flags).CreateDelegate(typeof(Func<BaseState,BaseDayPreview>));
+            var endDay = (Action<BaseState,bool>)typeof(BaseEconomy).GetMethod("CompleteProductionDay",flags).CreateDelegate(typeof(Action<BaseState,bool>));
+            BaseWorkerBucket Soldier(int number) => state.Workers.Single(w => w.SoldierNumbers.Contains(number));
+
+            state.Campaign.Location = "base";
+            state.Campaign.CurrentMapId = camp.SourceMapId;
+            BaseDevelopment.Allocate(state);
+            BaseDevelopment.SetPolicy(state,"food");
+            state.Campaign.Location = "custom";
+            state.Campaign.CurrentMapId = village.SourceMapId;
+            BaseDevelopment.SetPolicy(state,"equipment");
+            Need(Soldier(6).FacilityId == "workshop" && BaseEconomy.CivilianWorkersAt(state,"farm") == 2,
+                "白桦村应优先派士兵进工坊，由两名当地村民补田");
+            Need(state.Development.Policy == "food" && state.Development.VillagePolicy == "equipment","两地策略互相覆盖");
+
+            int selected = state.Workers.First(w => !w.VillageResident && w.FacilityId == "farm").SoldierNumbers[0];
+            int normalRations = BaseEconomy.FoodRequired(state);
+            order(state,selected);
+            Need(Soldier(selected).Relocating && Soldier(selected).FacilityId == "" && !BaseDevelopment.Eligible(state,"defense",Soldier(selected)),
+                "调动中士兵仍可上岗或出战");
+            Need(BaseEconomy.FoodRequired(state) == normalRations + BaseEconomy.Ration(state,Soldier(selected)),"路粮应增加该兵种的一份口粮");
+            Need(state.Workers.Where(w => !w.VillageResident && w.FacilityId == "farm").Sum(w => w.Count) == 2 &&
+                BaseEconomy.WorkersAt(state,"workshop") == 1,"原岗应由本地士兵补足，目的地不应预占岗位");
+
+            order(state,selected);
+            Need(!Soldier(selected).Relocating && !Soldier(selected).VillageResident && BaseEconomy.FoodRequired(state) == normalRations,
+                "撤销调动应恢复原地资格并撤回路粮");
+            village.Objects.Remove(barracks);
+            bool refused = false;
+            try { order(state,selected); }
+            catch (InvalidOperationException) { refused = true; }
+            Need(refused && !Soldier(selected).Relocating,"目的地没有兵营也接受了调令");
+            village.Objects.Add(barracks);
+
+            order(state,selected);
+            var preview = projectDay(state);
+            endDay(state,false);
+            Need(Soldier(selected).VillageResident && !Soldier(selected).Relocating && Soldier(selected).FacilityId == "workshop",
+                "次日抵达后没有按白桦村策略就岗");
+            Need(state.LastReport.FoodProduced == preview.FoodProduced && state.LastReport.FoodRequired == preview.FoodRequired &&
+                state.Inventory.Food == preview.NextFood && state.LastReport.ProductsMade == preview.ProductsMade,"两地日结与预估不符");
+            Need(BaseEconomy.MoveWorker(state,selected,"workshop","") && state.Development.VillagePolicy == "manual" &&
+                state.Development.Policy == "food","手动调人应只改变当地策略");
+            BaseDevelopment.Allocate(state);
+            Need(Soldier(selected).FacilityId == "" && state.Workers.SelectMany(w => w.SoldierNumbers).OrderBy(n => n).SequenceEqual(Enumerable.Range(1,6)),
+                "手动模式抢占了闲置人员，或人员编号丢失、重复");
+
+            foreach (var worker in state.Workers)
+            {
+                worker.VillageResident = true;
+                worker.FacilityId = worker.DesiredFacility = "";
+            }
+            farm.Capacity = workshop.Capacity = 6;
+            state.Inventory.Materials = BaseConstruction.MaterialCost(state,state.WorkshopProduct);
+            BaseDevelopment.SetPolicy(state,"equipment");
+            Need(projectDay(state).ProductsMade == 1 && BaseEconomy.WorkersAt(state,"farm") > 0,
+                "共享材料只够一件军需时，应做足一件并释放多余士兵补田");
+            Debug.Log("[SettlementStaffing] PASS 12/12");
         }
 
         private static void VerifyFacilitySystems()
@@ -31,56 +124,26 @@ namespace BaseConquest.Editor
             BaseEconomy.Validate(s);
             VerifyCaptainRations(s);
             VerifyCivilianWork(s);
-            Need(!BaseFacilityLayout.OfficeBuilt(s), "阶段档不应预先拥有办公设施");
-            Need(BaseDevelopment.EffectivePolicy(s) == "manual", "办公设施未建成时应按手动执行");
-            bool rejected = false;
-            try { BaseDevelopment.SetPolicy(s, "auto"); } catch (InvalidOperationException) { rejected = true; }
-            Need(rejected, "办公设施未建成时不允许切换到自动策略");
-            Need(!s.Workers.Any(w => w.FacilityId == "caravan"), "未建成商队时不应有人占商队岗位");
-
-            // 旧策略迁移：均衡→自动分配、自定优先→手动分配。
-            var migrated = s.Copy(); migrated.Development.Version = 2; migrated.Development.Policy = "balanced";
-            BaseDevelopment.Normalize(migrated);
-            Need(migrated.Development.Version == 3 && migrated.Development.Policy == "auto", "均衡应迁移为自动分配");
-            migrated.Development.Version = 2; migrated.Development.Policy = "custom";
-            BaseDevelopment.Normalize(migrated);
-            Need(migrated.Development.Policy == "manual", "自定优先应迁移为手动分配");
-            migrated.Development.Version = 2; migrated.Development.Policy = "food";
-            BaseDevelopment.Normalize(migrated);
-            Need(migrated.Development.Policy == "food", "粮食优先应保留原值");
-
-            // 办公设施：免费放置、可收存、收存后保留策略设置但按手动执行。
-            s.Inventory.Materials = Math.Max(s.Inventory.Materials, 50); s.Inventory.Coins = Math.Max(s.Inventory.Coins, 50);
-            int materials = s.Inventory.Materials, coins = s.Inventory.Coins;
-            Need(BaseFacilityLayout.Problem(s, "office", 2, 2).Contains("建设许可"), "未领取许可时不能放置办公设施");
-            s.Layout.OfficeGift = true;
-            Need(BaseFacilityLayout.AutoPlace(s, "office", out string officeProblem, out _, out _), "办公设施放置失败：" + officeProblem);
-            Need(BaseFacilityLayout.OfficeBuilt(s), "办公设施应已放置");
-            Need(s.Inventory.Materials == materials && s.Inventory.Coins == coins, "赠送的办公设施不应扣材料或钱币");
-            BaseEconomy.Validate(s);
-            BaseDevelopment.SetPolicy(s, "food");
-            Need(s.Development.Policy == "food" && BaseDevelopment.AutoAssign(s), "办公设施建成后应能选择粮食优先");
-            Need(BaseFacilityLayout.Store(s, "office", out _) && !BaseFacilityLayout.OfficeBuilt(s), "办公设施应能收存");
-            Need(s.Development.Policy == "manual" && s.Layout.PausedPolicy == "food", "收存办公设施应暂停策略并保留设置");
-            Need(BaseDevelopment.EffectivePolicy(s) == "manual" && !BaseDevelopment.AutoAssign(s), "收存办公设施后应按手动执行");
-            Need(!BaseFacilityLayout.Store(s, "home", out string homeProblem) && homeProblem == "必需设施不能收存", "营帐属于必需设施，不能收存");
-            Need(BaseFacilityLayout.AutoPlace(s, "office", out _, out _, out _) && s.Inventory.Materials == materials, "重新放置已拥有的办公设施不应再次扣费");
-            Need(s.Development.Policy == "manual" && s.Layout.PausedPolicy == "food", "重新放置办公设施不应自动恢复策略");
-
-            // 自动分配：有缺口时先排粮田；工坊要留够三天原料；商队吃双份只在有盈余时排人。
+            Need(!BaseFacilityLayout.OfficeBuilt(s) && !BaseFacilityLayout.AutoPlace(s,"office",out _,out _,out _),
+                "营帐应直接提供策略，开发者模式也不能新建办公设施");
+            var defaults = s.Workers.SelectMany(w=>w.SoldierNumbers).OrderBy(n=>n).ToArray();
+            BaseDevelopment.SetPolicy(s,"food");
+            Need(BaseDevelopment.AutoAssign(s) && BaseDevelopment.PolicyOrder(s).SequenceEqual(new[]{"farm","workshop"}),
+                "灰岩营帐的粮田优先未生效");
+            BaseDevelopment.SetPolicy(s,"equipment");
+            Need(BaseDevelopment.PolicyOrder(s).SequenceEqual(new[]{"workshop","farm"}) && s.Development.VillagePolicy=="manual",
+                "选择灰岩策略改动了白桦村");
+            BaseDevelopment.SetPolicy(s,"manual");
+            Need(!BaseDevelopment.AutoAssign(s) && defaults.SequenceEqual(s.Workers.SelectMany(w=>w.SoldierNumbers).OrderBy(n=>n)),
+                "切换手动策略改变人员身份");
+            Need(!BaseFacilityLayout.Store(s,"home",out _),"营帐不能收存");
+            s.Layout.OfficeGift=true;
+            s.Inventory.Materials=Math.Max(s.Inventory.Materials,50);
+            s.Inventory.Coins=Math.Max(s.Inventory.Coins,50);
             s.Workers.Clear();
-            s.Workers.Add(new BaseWorkerBucket { Kind = BaseTroopKind.Melee, Count = 6, MaxHealth = 100, Health = 100, FarmEfficiency = 1, WorkshopEfficiency = 1 });
-            BaseDevelopment.SetPolicy(s, "auto");
-            Need(s.Layout.PausedPolicy == "", "确认策略后应清掉暂停值");
-            BaseDevelopment.Allocate(s);
-            Need(Workers(s, "farm") > 0, "自动分配应先保证粮食生产");
-            Need(Workers(s, "farm") + Workers(s, "workshop") + Workers(s, "caravan") <= 6, "自动分配不能超过可用人数");
-            s.Inventory.Materials = 0;
-            BaseDevelopment.Allocate(s);
-            Need(Workers(s, "workshop") == 0, "原料不够三天时不应继续往工坊排人");
-            Need(BaseDevelopment.PolicyOrder(s).SequenceEqual(new[] { "farm", "workshop", "caravan" }), "粮食优先的顺序应为粮田→工坊→商队");
-            BaseDevelopment.SetPolicy(s, "equipment");
-            Need(BaseDevelopment.PolicyOrder(s).SequenceEqual(new[] { "workshop", "farm", "caravan" }), "军需优先的顺序应为工坊→粮田→商队");
+            s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=6,Health=100,MaxHealth=100});
+            BaseDevelopment.SetPolicy(s,"food");
+            Need(Workers(s,"farm")>0,"粮田优先未安排本地士兵");
 
             // 收存生产设施：立即停产、不能继续派人，重新放置后恢复。
             Need(BaseFacilityLayout.Store(s, "farm", out _), "粮田应能收存");
@@ -165,12 +228,12 @@ namespace BaseConquest.Editor
             // 存档往返：布局与商队状态随存档保留；旧档缺字段时补默认。
             var saved = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));
             BaseEconomy.Validate(saved);
-            Need(BaseFacilityLayout.Stored(saved, "caravan") && BaseFacilityLayout.Built(saved, "office"), "布局状态应随存档保留");
+            Need(BaseFacilityLayout.Stored(saved, "caravan") && !BaseFacilityLayout.Built(saved, "office"), "布局状态应随存档保留");
             var legacy = saved.Copy(); legacy.Layout = null; legacy.Caravan = null;
             BaseFacilityLayout.Normalize(legacy); BaseCaravan.Normalize(legacy);
             Need(legacy.Layout.Version == BaseFacilityLayout.Version && legacy.Caravan.Version == BaseCaravan.Version, "旧档缺布局／商队字段时应补默认");
             BaseEconomy.Validate(legacy);
-            Debug.Log("[BaseFacilities] 办公门禁、策略迁移、设施收存、自动分配、商队往返与存档往返 PASS");
+            Debug.Log("[BaseFacilities] 营帐策略、设施收存、自动分配、商队往返与存档往返 PASS");
         }
 
         private static void VerifyFormalManagement(BaseState legacy)
@@ -182,15 +245,11 @@ namespace BaseConquest.Editor
             RuntimeDeveloperOptions.Enabled = false;
             try
             {
-                Need(!BaseDevelopment.AutoAssign(s), "正式 Demo 不应执行旧自动策略");
-                Need(!BaseFacilityLayout.AutoPlace(s, "office", out _, out _, out _), "正式 Demo 不应放置办公设施");
-                bool rejected = false;
-                try { BaseDevelopment.SetPolicy(s, "auto"); } catch (InvalidOperationException) { rejected = true; }
-                Need(rejected, "正式 Demo 不应切换到自动策略");
+                Need(!BaseFacilityLayout.AutoPlace(s,"office",out _,out _,out _),"Demo 不提供办公设施");
+                BaseDevelopment.SetPolicy(s,"manual");
                 BaseDevelopment.Normalize(s);
                 BaseDevelopment.Allocate(s);
-                Need(s.Layout.PausedPolicy == "equipment" && s.Development.Policy == "manual" && Workers(s, "farm") == 1,
-                    "停用旧策略时应保留已在岗人员");
+                Need(!BaseDevelopment.AutoAssign(s) && Workers(s,"farm")==1,"手动模式应保留已指定岗位");
                 BaseCaravan.Validate(s);
                 Need(s.Caravan.Route == "" && s.Caravan.Phase == "" && Workers(s, "caravan") == 0,
                     "正式 Demo 应结束旧远途事务并让商队人员回营");

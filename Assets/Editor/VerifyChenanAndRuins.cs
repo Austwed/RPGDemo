@@ -34,29 +34,73 @@ namespace BaseConquest.Editor
             var attack=BaseDemoFinale.Begin(s,"none");BattleScenePlacement.Start(s,attack);var battle=new RealtimeCampaignBattle(attack);BattleScenePlacement.Snap(s,battle);BaseDemoFinale.Configure(battle);
             foreach(var enemy in battle.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))enemy.Escaped=true;
             battle.Model.SetPaused(false);battle.Tick(.02);Need(BaseDemoFinale.Complete(s,battle),"攻营结算");ClearRebuildTestLoot(s);
-            var world=s.Campaign.WorldJourney;world.NodeId="home";world.LastEntryId="home_entry";s.Campaign.CurrentMapId=BaseDemoFinale.Home;s.Campaign.Location="custom";s.PlayerX=21;s.PlayerY=7;BaseAdventure.Arrive(s);At(s,"demo_broken_sword");
-            int day=s.Day,food=s.Inventory.Food,materials=s.Inventory.Materials,coins=s.Inventory.Coins;
-            Need(BaseDemoFinale.Investigate(s)&&BaseDemoFinale.Rebuilding(s)&&s.Demo.Stage==BaseDemoStage.AttackWon,"调查断剑应开始重建而非结束");
-            BaseEconomy.Validate(s);Need(!BaseDemoFinale.FinishRebuild(s),"未放齐设施不能结束");
-            Need(!BaseDemoFinale.PlaceRebuild(s,0,-1,-1)&&s.Demo.Finale.RebuildMask==0,"非法位置不能改变重建状态");
-            var tampered=s.Copy();tampered.Demo.Finale.RebuildMask=7;Need(!BaseDemoFinale.FinishRebuild(tampered),"缺少实际设施不能仅凭标记结束");
-            bool restBlocked=false;try{BaseEconomy.Rest(s,s.Day);}catch(InvalidOperationException){restBlocked=true;}Need(restBlocked&&s.Day==day,"重建期间不得跨日");
-            for(int item=0;item<3;item++)
-            {
-                int slot=item;var board=BaseBattlefield.Board(s,BaseDemoFinale.Home);
-                var position=board.Positions().Where(p=>BaseDemoFinale.RebuildProblem(s,slot,p.X,p.Z)=="").Select(p=>(GridPosition?)p).FirstOrDefault();
-                Need(position.HasValue&&BaseDemoFinale.PlaceRebuild(s,item,position.Value.X,position.Value.Z),"设施应能放置");
-                Need(!BaseDemoFinale.PlaceRebuild(s,item,position.Value.X,position.Value.Z),"设施不能重复放置");BaseEconomy.Validate(s);
-                if(item==0){s=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));BaseEconomy.Validate(s);Need(s.Demo.Finale.RebuildMask==1,"中途存档应保留单项进度");Need(BaseDemoFinale.RemoveRebuild(s,0)&&s.Demo.Finale.RebuildMask==0&&!BaseDemoFinale.RemoveRebuild(s,0),"已放置设施应能撤回，且不能重复撤回");Need(BaseDemoFinale.PlaceRebuild(s,0,position.Value.X,position.Value.Z),"撤回后应能重新放置");}
-            }
-            var saved=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));BaseEconomy.Validate(saved);
-            Need(saved.Demo.Finale.RebuildMask==7&&saved.Campaign.Layouts.Single(m=>m.SourceMapId==BaseDemoFinale.Home).Objects.Count(o=>o.Id.StartsWith("demo_rebuild_"))==3,"三处位置须随存档保留");
-            var overlap=saved.Copy();var objects=overlap.Campaign.Layouts.Single(m=>m.SourceMapId==BaseDemoFinale.Home).Objects.Where(o=>o.Id.StartsWith("demo_rebuild_")).ToArray();objects[1].X=objects[0].X;objects[1].Y=objects[0].Y;
-            Need(!BaseDemoFinale.FinishRebuild(overlap),"重叠的设施不能确认完成");bool invalidRejected=false;try{BaseEconomy.Validate(overlap);}catch(ArgumentException){invalidRejected=true;}Need(invalidRejected,"存档中重叠的重建设施应被拒绝");
-            Need(BaseDemoFinale.FinishRebuild(saved)&&saved.Demo.Finale.VillageRebuilt&&saved.Demo.Stage==BaseDemoStage.Finished&&!BaseDemoFinale.FinishRebuild(saved),"完成节点须一次性提交");
-            Need(saved.Day==day&&saved.Inventory.Food==food&&saved.Inventory.Materials==materials&&saved.Inventory.Coins==coins,"重建不能耗日或扣除资源");BaseEconomy.Validate(saved);
-            var legacy=saved.Copy();legacy.Demo.Finale.ReconstructionVersion=legacy.Demo.Finale.RebuildDay=legacy.Demo.Finale.RebuildMask=0;legacy.Demo.Finale.VillageRebuilt=false;legacy.Campaign.Layouts.Single(m=>m.SourceMapId==BaseDemoFinale.Home).Objects.RemoveAll(o=>o.Id.StartsWith("demo_rebuild_"));BaseEconomy.Validate(legacy);
+            At(s,"demo_camp_world");BaseWorldJourney.EnterWorld(s,"bandit_entry");
+            BaseWorldJourney.Start(s,new[]{"bandit","home"});Need(BaseWorldJourney.Step(s,_=>null),"前往白桦村");
+            BaseWorldJourney.EnterScene(s,"home_entry");
+            Need(s.Campaign.CurrentMapId==BaseDemoFinale.HomeField,"返乡须先到白桦村外");
+            VerifyOptionalSword(s);
+            At(s,"village_gate_in");
+            Need(BaseCampaign.Travel(s,"custom","village_gate_in"),"不能经西桥头入村");
+            RepairReturnedVillage(s);
             Debug.Log("[HomeReconstruction] PASS");
+        }
+
+        internal static void VerifyOptionalSword(BaseState bridge)
+        {
+            var s=bridge.Copy();At(s,"demo_broken_sword");
+            var full=s.Copy();
+            string filler=full.Backpack.Catalog.First(i=>i.Category=="material"&&i.MaxStack>0&&string.IsNullOrEmpty(i.ExclusiveLeaderId)).Id;
+            int room=BaseBackpack.Room(full,filler,full.PlayerLeaderId);
+            if(room>0)BaseBackpack.Receive(full,filler,room,full.PlayerLeaderId);
+            for(int i=0;i<2;i++)
+            {
+                bool blocked=false;
+                try{BaseDemoFinale.Investigate(full);}catch(BagFullException){blocked=true;}
+                Need(blocked&&!full.Demo.Evidence.Contains(BaseDemoFinale.Sword)&&BaseSpatial.Objects(full).Any(o=>o.Id=="demo_broken_sword"),"满包重复拾取应保留地面断剑和剧情状态");
+            }
+            Need(BaseDemoFinale.Investigate(s)&&BaseBackpack.Count(s,BaseDemoFinale.BrokenSwordItem)==1,"断剑未进入背包");
+            Need(!BaseSpatial.Objects(s).Any(o=>o.Id=="demo_broken_sword")&&!BaseDemoFinale.Investigate(s),"重新拾取了地面断剑");
+            BaseEconomy.Validate(s);
+        }
+
+        internal static void RepairReturnedVillage(BaseState s)
+        {
+            Need(BaseDemoFinale.Rebuilding(s)&&!BaseDemoFinale.FinishRebuild(s),"不能从村庄开始修理");
+            int day=s.Day,materials=s.Inventory.Materials,coins=s.Inventory.Coins;
+            bool foundSword=s.Demo.Evidence.Contains(BaseDemoFinale.Sword);
+            At(s,"home");
+            Need(!BaseDemoFinale.RepairHome(s,"home")&&BaseDemoFinale.BeginHouseTalk(s),"修家时漏掉了喽啰");
+            var paused=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));BaseEconomy.Validate(paused);
+            Need(paused.Demo.Finale.HouseDialogueStep==1&&BaseDemoFinale.HearHouseConfession(paused),"家门口的问话不能读档续接");
+            Need(BaseDemoFinale.HearHouseConfession(s)&&!BaseDemoFinale.HearHouseConfession(s),"喽啰供述状态不合法");
+            foreach(string id in new[]{"home","farm","workshop"})
+            {
+                At(s,id);
+                var poor=s.Copy();poor.Inventory.Materials=0;
+                Need(!BaseDemoFinale.RepairHome(poor,id)&&!BaseDemoFinale.HomeRepaired(poor,id),"材料不足也能修理 "+id);
+                Need(BaseDemoFinale.RepairHome(s,id)&&BaseDemoFinale.HomeRepaired(s,id)&&!BaseDemoFinale.RepairHome(s,id),"修理或防重复扣款失败 "+id);
+                BaseEconomy.Validate(s);
+            }
+            Need(s.Day==day&&s.Inventory.Materials==materials-3*BaseDemoDefense.RepairMaterialCost(s)&&s.Inventory.Coins==coins-3*BaseDemoDefense.RepairCoinCost(s),"三处修理耗日或费用错误");
+            Need(!BaseDemoFinale.FinishRebuild(s)&&!BaseDemoFinale.WelcomeVolunteers(s),"村民未到麦田便可结局");
+            var residents=BaseSceneInstances.Layout(s,BaseDemoFinale.Home).Objects;
+            for(int i=0;i<2;i++)
+            {
+                var npc=residents.Single(o=>o.Id==(i==0?BaseDemoFinale.Builder:BaseDemoFinale.Helper));
+                var from=new BasePoint(npc.X,npc.Y);var to=BaseDemoFinale.VolunteerPost(s,i);
+                Need(from.Distance(to)>1&&BaseStageWalk.Route(s,from,to).Count>0,"村口到麦田没有可行路线");
+                BaseStageWalk.Advance(s,ref npc.X,ref npc.Y,to,.3);
+                var saved=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));
+                BaseEconomy.Validate(saved);
+                var savedNpc=BaseSceneInstances.Layout(saved,BaseDemoFinale.Home).Objects.Single(o=>o.Id==npc.Id);
+                Need(savedNpc.X==npc.X&&savedNpc.Y==npc.Y&&!BaseDemoFinale.HomeVolunteers(saved),"村民走到一半读档丢失位置");
+                Need(BaseStageWalk.Advance(saved,ref savedNpc.X,ref savedNpc.Y,to,120),"村民读档后不能走到麦田");
+                Need(BaseStageWalk.Advance(s,ref npc.X,ref npc.Y,to,120),"村民不能沿路线走到麦田");
+            }
+            Need(BaseDemoFinale.WelcomeVolunteers(s),"村民到麦田后未解锁对话");At(s,BaseDemoFinale.Builder);
+            Need(BaseDemoFinale.FinishRebuild(s)&&!BaseDemoFinale.FinishRebuild(s)&&s.Demo.Stage==BaseDemoStage.Finished&&s.Demo.Finale.VillageRebuilt,"村民对话不能一次性收尾");
+            Need(s.Demo.Evidence.Contains(BaseDemoFinale.Sword)==foundSword,"修理擅自更改断剑的收集状态");
+            BaseEconomy.Validate(s);
         }
         public static void VerifyIntelPricingWorkbook()
         {
@@ -478,7 +522,7 @@ namespace BaseConquest.Editor
         private static void At(BaseState state,string id)
         {
             var obj=BaseSpatial.Objects(state).Single(o=>o.Id==id);var p=obj.Blocks?BaseStageWalk.Door(state,id):new BasePoint(obj.X,obj.Y);
-            state.PlayerX=p.X;state.PlayerY=p.Y;BaseAdventure.Arrive(state);
+            state.PlayerX=p.X;state.PlayerY=p.Y;BaseInteraction.Walk(new BasePoint(obj.X-p.X,obj.Y-p.Y));BaseAdventure.Arrive(state);
         }
         // P5/P6（2026-11-02）：序章队长外观、七个场景的队长外观白名单、wilderness 旧档回退、
         // 村民攻击图与 NPC 行为入口。一律按「行为定义动作、贴图只是表现层」口径断言。

@@ -10,6 +10,30 @@ namespace BaseConquest.Base
     public sealed partial class BaseHud
     {
         private string achievementTab="main";
+        private RectTransform bagNotice;
+        private Coroutine bagNoticeTimer;
+        internal void ShowBagFull()
+        {
+            if (bagNotice == null)
+            {
+                bagNotice = Solid("BagFullNotice", root, new Vector2(.5f,.72f), Vector2.zero,
+                    new Vector2(160,42), new Color(.18f,.13f,.08f,.88f));
+                bagNotice.GetComponent<Image>().raycastTarget = false;
+                var label = Label(bagNotice, BagFullException.Notice, Vector2.zero, new Vector2(152,38), 22);
+                label.color = DemoUiTheme.Current.Panel;
+                label.raycastTarget = false;
+            }
+            bagNotice.SetAsLastSibling();
+            bagNotice.gameObject.SetActive(true);
+            if (bagNoticeTimer != null) owner.StopCoroutine(bagNoticeTimer);
+            bagNoticeTimer = owner.StartCoroutine(HideBagNotice());
+        }
+        private System.Collections.IEnumerator HideBagNotice()
+        {
+            yield return new WaitForSecondsRealtime(1.4f);
+            if (bagNotice != null) bagNotice.gameObject.SetActive(false);
+            bagNoticeTimer = null;
+        }
         private GameObject achievementToast;
         private Text achievementToastText;
         // 成就归在「任务与成就」面板的第三页；非 Demo 局没有任务列表，退回独立面板。
@@ -70,10 +94,10 @@ namespace BaseConquest.Base
             reward.color=DemoUiTheme.Current.Muted;
             if(claimed)return;
             string id=d.Id;
-            var button=MakeButton(card,"领取",new Vector2(60,-108),new Vector2(96,28),()=>{owner.Change(next=>{if(!BaseAchievements.Claim(next,id))throw new InvalidOperationException(BaseAchievements.ClaimProblem(next,id));},"成就奖励已领取："+d.Name);RepaintAchievements();},new Vector2(0,1));
+            var button=MakeButton(card,"领取",new Vector2(60,-108),new Vector2(96,28),()=>{if(problem==BagFullException.Notice){ShowBagFull();return;}owner.Change(next=>{if(!BaseAchievements.Claim(next,id))throw new InvalidOperationException(BaseAchievements.ClaimProblem(next,id));},"成就奖励已领取："+d.Name);RepaintAchievements();},new Vector2(0,1));
             var label=button.GetComponentInChildren<Text>();if(label!=null)label.fontSize=DemoUiMetrics.FontCaption;
-            button.interactable=claimable;
-            if(!claimable)Label(card,problem,new Vector2(222,-108),new Vector2(120,16),DemoUiMetrics.FontCaption,TextAnchor.MiddleLeft,new Vector2(0,1)).color=DemoUiTheme.Current.Muted;
+            button.interactable=claimable||problem==BagFullException.Notice;
+            if(!claimable&&problem!=BagFullException.Notice)Label(card,problem,new Vector2(222,-108),new Vector2(120,16),DemoUiMetrics.FontCaption,TextAnchor.MiddleLeft,new Vector2(0,1)).color=DemoUiTheme.Current.Muted;
         }
         public void RefreshAchievementNotice(double seconds)
         {

@@ -93,7 +93,7 @@ namespace BaseConquest.Base
                 rewards.PendingBattleId = battleId;
                 rewards.PendingFirstClear = firstClear;
             }
-            if (PendingFirstClear(s, route) && !Claim(s, route)) throw new InvalidOperationException(ClaimProblem(s, route));
+            if (PendingFirstClear(s, route) && !Claim(s, route, automatic: true)) throw new InvalidOperationException(ClaimProblem(s, route));
         }
         public static string ClaimProblem(BaseState s, BasePrepRoute route = BasePrepRoute.Ruins)
         {
@@ -108,7 +108,7 @@ namespace BaseConquest.Base
             if(s.Inventory.Coins>100000000-r.Coins-(first?r.FirstCoins:0)||first&&(s.Inventory.Food>100000000-r.FirstFood||s.Inventory.Materials>100000000-r.FirstMaterials))return "资源库存已满";
             return "";
         }
-        public static bool Claim(BaseState s, BasePrepRoute route = BasePrepRoute.Ruins)
+        public static bool Claim(BaseState s, BasePrepRoute route = BasePrepRoute.Ruins, bool automatic = false)
         {
             if(ClaimProblem(s,route)!="")return false;
             var r=s.Demo.RuinsRewards;
@@ -127,6 +127,7 @@ namespace BaseConquest.Base
                 rewards.Add(new BaseLootReward {ItemId=BaseTraining.Book(kind,2),Count=1});
             }
             if(rewards.Any(reward=>!BaseBattleLoot.ValidReward(s,reward)))throw new InvalidOperationException("遗迹默认掉落未接入现有道具目录");
+            if (!automatic) BaseBattleLoot.RequireRoom(s,rewards);
             s.Campaign.SettledIds.Add(id);
             int coins=r.Coins+(first?r.FirstCoins:0),food=first?r.FirstFood:0,materials=first?r.FirstMaterials:0;
             string title = route == BasePrepRoute.Hideout ? BaseBanditHideout.Title+" · 挑战奖励" : "遗迹挑战奖励";

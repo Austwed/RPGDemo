@@ -126,8 +126,8 @@ namespace BaseConquest.Base
                     if (!BaseDemoFinale.Opened(s)) return ToCamp(s, id, "从营地南侧出口进入世界道路", "demo_march_exit");
                     if (s.Campaign.CurrentMapId == BaseDemoFinale.Camp)
                         return new BaseQuestCue(id, "搜查黑鸦寨剩下的物资", BaseDemoFinale.CampSuppliesMarker);
-                    if (s.Campaign.CurrentMapId == BaseDemoFinale.Home)
-                        return new BaseQuestCue(id, "返回黑鸦寨搜查剩下的物资", "demo_direct_camp");
+                    if (s.Campaign.CurrentMapId == BaseDemoFinale.Home) return new BaseQuestCue(id,"前往西桥头","village_gate_out");
+                    if (s.Campaign.CurrentMapId == BaseDemoFinale.HomeField) return new BaseQuestCue(id,"返回黑鸦寨搜查剩下的物资","demo_direct_camp");
                     if (s.Campaign.Location == "world") return new BaseQuestCue(id, "沿官道前往黑鸦寨", "bandit_entry");
                     return ToCamp(s, id, "前往黑鸦寨搜查剩下的物资", "demo_march_exit");
             }
@@ -143,7 +143,7 @@ namespace BaseConquest.Base
             {
                 "base" => campTarget, "town" => "travel_base", "perimeter" => "demo_defense_return",
                 "world" => "camp_entry", _ => s.Campaign.CurrentMapId == BaseDemoFinale.Camp ? "demo_camp_world" :
-                    s.Campaign.CurrentMapId == BaseDemoFinale.Home ? "demo_home_world" : null
+                    s.Campaign.CurrentMapId == BaseDemoFinale.Home ? "village_gate_out" : s.Campaign.CurrentMapId == BaseDemoFinale.HomeField ? "village_world_exit" : null
             };
             return new BaseQuestCue(id, goal, target);
         }
@@ -214,8 +214,9 @@ namespace BaseConquest.Base
             if (!BaseDemoFinale.Enabled(s)) return default;
             if (!BaseDemoFinale.Opened(s)) return ToCamp(s, attack, "从营地南侧出口进入世界道路", "demo_march_exit");
             if (s.Campaign.CurrentMapId == BaseDemoFinale.Home)
-                return BaseDemoFinale.Rebuilding(s) ? new BaseQuestCue(attack, "建好小粮田、营帐和仓库", control: "rebuild") :
-                    new BaseQuestCue(attack, "调查村中的断剑", "demo_broken_sword");
+                return s.Demo.Finale.RebuildMask!=7 ? new BaseQuestCue(attack,"在村里修好家、粮田和工坊") :
+                    new BaseQuestCue(attack,BaseDemoFinale.HomeVolunteers(s)?"与麦田边的村民交谈":"等村民走到麦田边",BaseDemoFinale.HomeVolunteers(s)?BaseDemoFinale.Builder:null);
+            if(s.Campaign.CurrentMapId==BaseDemoFinale.HomeField) return new BaseQuestCue(attack,"从西桥头进入白桦村","village_gate_in");
             if (BaseDemoFinale.Later(s))
             {
                 if (s.Campaign.Location == "world") return new BaseQuestCue(attack, "沿世界道路前往" + BaseScriptNames.Village, "home_entry");

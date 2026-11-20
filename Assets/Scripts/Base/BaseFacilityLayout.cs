@@ -83,7 +83,7 @@ namespace BaseConquest.Base
             !BaseBattleLoot.Pending(s) && !BaseDemoPrologue.Village(s);
         internal static IEnumerable<BaseFacilityDef> CampProjects(BaseState s) => Catalog.Where(def => !def.Required &&
             (def.Id != "workshop" || BaseDemoDefense.Repaired(s, def.Id)) &&
-            (def.Id != "office" || !BaseDemo.ExperimentalManagementHidden(s) || Built(s, def.Id)) &&
+            (def.Id != "office" || !BaseDemo.Active(s)) &&
             (def.Id != "office" && def.Id != "caravan" || Owned(s, def.Id) || s.Layout.OfficeGift));
         public static bool OfficeBuilt(BaseState s) => Built(s, "office");
         private static bool Overlaps(BaseMapPlacement obj, double x, double y, double width, double height)
@@ -94,7 +94,7 @@ namespace BaseConquest.Base
         {
             var def = Find(id);
             if (def == null) return "未知设施";
-            if (id == "office" && BaseDemo.ExperimentalManagementHidden(s)) return "当前无法放置办公设施";
+            if (id == "office" && BaseDemo.Active(s)) return "发展策略在营帐调整";
             if (!Editable(s)) return "只能在营地和平状态下调整布局";
             // 办公与商队要在首防后从领主处领到建设许可，不能提前白拿。
             if ((id == "office" || id == "caravan") && !Owned(s, id) && s.Layout?.OfficeGift != true) return "尚未取得建设许可：首防结束后由领主赠送";
@@ -162,15 +162,15 @@ namespace BaseConquest.Base
             // 收存办公设施：暂停策略但保留设置，其他岗位保持现状（先落成手动意向再重排）。
             if (id == "office") BaseDevelopment.PausePolicy(s);
             if (id == "caravan") { BaseCaravan.Stop(s, "商队设施已收存，事务结束"); BaseMuster.RemoveCaravan(s); }
-            foreach (var worker in s.Workers.Where(w => w.FacilityId == id)) { worker.FacilityId = ""; worker.DesiredFacility = ""; worker.PostLocked = false; }
-            foreach (var leader in s.Leaders.Where(l => l.FacilityId == id)) { leader.FacilityId = ""; leader.DesiredFacility = ""; leader.PostLocked = false; }
+            foreach (var worker in s.Workers.Where(w => !w.VillageResident && w.FacilityId == id)) { worker.FacilityId = ""; worker.DesiredFacility = ""; worker.PostLocked = false; }
+            foreach (var leader in s.Leaders.Where(l => !l.VillageResident && l.FacilityId == id)) { leader.FacilityId = ""; leader.DesiredFacility = ""; leader.PostLocked = false; }
             BaseDevelopment.Allocate(s);
             message = def.Name + "已收存";
             return true;
         }
-        private static void RefreshFootprint(BaseState state, string id, BaseMapPlacement placement)
+        internal static void RefreshFootprint(BaseState state, string id, BaseMapPlacement placement, string region = "base")
         {
-            var board = BaseBattlefield.Board(state, "base");
+            var board = BaseBattlefield.Board(state, region);
             foreach (var cell in board.Cells.Where(c => c.Terrain == TerrainKind.Building && c.BuildingId == id))
             {
                 cell.Terrain = TerrainKind.Ground;
@@ -189,7 +189,7 @@ namespace BaseConquest.Base
         public static bool AutoPlace(BaseState s, string id, out string message, out double x, out double y)
         {
             var layout = BaseLayout(s); x = 0; y = 0;
-            if (id == "office" && BaseDemo.ExperimentalManagementHidden(s)) { message = "当前无法放置办公设施"; return false; }
+            if (id == "office" && BaseDemo.Active(s)) { message = "发展策略在营帐调整"; return false; }
             if (layout == null) { message = "缺少营地布局"; return false; }
             for (double row = 1; row < layout.Rows; row += .5)
                 for (double column = 1; column < layout.Columns; column += .5)

@@ -30,7 +30,7 @@ namespace BaseConquest.Battle
         public bool Visible(BattleSide side, GridPosition p) => map.Contains(p) && (FullVision(side) || visible[(int)side][Index(p)]);
         public bool Explored(BattleSide side, GridPosition p) => map.Contains(p) && (FullVision(side) || explored[(int)side][Index(p)]);
         public bool TerrainVisible(BattleSide side,GridPosition p)=>map.Contains(p)&&(FullVision(side)||(HeightMode?terrain[(int)side][Index(p)]||explored[(int)side][Index(p)]:Explored(side,p)));
-        public void RefreshExploration(IEnumerable<GridPosition> observers,bool fogEnabled=true){explorationFullVision=!fogEnabled;BattleHeightSight.Compute(map,fogEnabled?observers:Enumerable.Empty<GridPosition>(),visible[0],terrain[0]);for(int n=0;n<visible[0].Length;n++)explored[0][n]|=terrain[0][n]||visible[0][n];Revision++;}
+        public void RefreshExploration(IEnumerable<GridPosition> observers,bool fogEnabled=true,bool limitTerrainToRadius=false){explorationFullVision=!fogEnabled;BattleHeightSight.Compute(map,fogEnabled?observers:Enumerable.Empty<GridPosition>(),visible[0],terrain[0],limitTerrainToRadius);for(int n=0;n<visible[0].Length;n++)explored[0][n]|=terrain[0][n]||visible[0][n];Revision++;}
         public bool[] KnownTerrain(BattleSide side)=>FullVision(side)?Enumerable.Repeat(true,map.Width*map.Height).ToArray():explored[(int)side].ToArray();
         public void RememberTerrain(BattleSide side,bool[] known)
         {if(known==null)return;if(known.Length!=map.Width*map.Height)throw new ArgumentException("已知地形尺寸不符");for(int n=0;n<known.Length;n++)explored[(int)side][n]|=known[n];Revision++;}
@@ -68,7 +68,7 @@ namespace BaseConquest.Battle
                     foreach (var unit in battle.Soldiers.Where(s => s.Side == side && s.IsActive && map.Contains(s.Cell)))
                     {
                         int radius = SightRadius(unit);
-                        if (HeightMode) { BattleHeightSight.Reveal(map,unit.Cell,radius,visible[i],terrain[i]); continue; }
+                        if (HeightMode) { BattleHeightSight.Reveal(map,unit.Cell,radius,visible[i],terrain[i],battle.Scenario.DefenderVisionEnabled); continue; }
                         for (int z=Math.Max(0,unit.Cell.Z-radius);z<=Math.Min(map.Height-1,unit.Cell.Z+radius);z++)
                         {
                             int span=radius-Math.Abs(z-unit.Cell.Z);

@@ -40,17 +40,27 @@ namespace BaseConquest.Base
             if(all.Count>1000||all.Any(x=>x==null||string.IsNullOrWhiteSpace(x.Id)||string.IsNullOrWhiteSpace(x.EventId)||x.Gear==null||x.Stacks==null||!s.Campaign.Events.Any(e=>e.Id==x.EventId)||x.Returned&&(x.Gear.Count>0||x.Stacks.Count>0)||!BaseMap.Walkable(x.WorldX,x.WorldY,null,false))||all.Select(x=>x.Id).Distinct().Count()!=all.Count)throw new ArgumentException("遗失清单或反击目标非法");
             var gear=BasePartyInventory.Entries(s).Where(x=>x.Gear!=null).Select(x=>x.Gear).Concat(all.SelectMany(x=>x.Gear)).Concat(LiveEnemies(s).Where(e=>e.Equipment!=null).SelectMany(e=>e.Equipment.Items)).ToArray();
             if(gear.Any(i=>i==null||i.Id==null||!i.Id.StartsWith("personal:")||!int.TryParse(i.Id.Substring(9),out int n)||n<1||n>=s.PersonalEquipment.NextId||BasePersonalEquipment.Definition(i.Template)==null||i.Quality<0||i.Quality>5)||gear.Select(i=>i.Id).Distinct().Count()!=gear.Length)throw new ArgumentException("个人装备在仓库、敌人或遗失清单中重复／非法");
+            var pending = s.Aftermath.Loot.SelectMany(m => m.Items).Where(i => i.Status == "pending" && !string.IsNullOrEmpty(i.CapturedId)).ToArray();
+            var ids = gear.Select(i => i.Id).ToHashSet();
+            if (pending.Any(i => !i.CapturedId.StartsWith("personal:",StringComparison.Ordinal) ||
+                !int.TryParse(i.CapturedId.Substring(9),out int n) || n < 1 || n >= s.PersonalEquipment.NextId || !ids.Add(i.CapturedId)))
+                throw new ArgumentException("待领取装备占用的实例编号非法或重复");
             var stacks=s.Backpack.Items.Concat(all.SelectMany(x=>x.Stacks)).ToArray();if(stacks.Any(i=>i==null||i.Id==null||!i.Id.StartsWith("bag:")||!int.TryParse(i.Id.Substring(4),out int n)||n<1||n>=s.Backpack.NextId||!s.Backpack.Catalog.Any(d=>d.Id==i.ItemId&&i.Count>0&&i.Count<=d.MaxStack))||stacks.Select(i=>i.Id).Distinct().Count()!=stacks.Length)throw new ArgumentException("遗失背包物品重复／非法");
             if(all.Any(x=>x.Gear.Any(i=>i.Slot!=""||i.Holder!=""||i.Cell!=-1)||x.Stacks.Any(i=>i.Holder!=""||i.Cell!=-1)))throw new ArgumentException("遗失物不得同时占人物格子或穿戴槽");
             foreach(var e in s.Campaign.Events.Where(e=>e.Id.StartsWith("recovery:")&&e.Status=="pending"))if(e.EnemyArmy==null||e.EnemyArmy.Count>93||!e.EnemyArmy.Any(u=>u.Kind==SoldierKind.Hero)||e.EnemyArmy.Any(u=>u==null||string.IsNullOrEmpty(u.Id)||!BaseAftermath.ValidStats(u.Stats)||float.IsNaN(u.Health)||float.IsInfinity(u.Health)||u.Health<=0||u.Health>u.Stats.Health)||e.EnemyArmy.Select(u=>u.Id).Distinct().Count()!=e.EnemyArmy.Count)throw new ArgumentException("临时残部实际编制非法");
             foreach(var e in LiveEnemies(s).Where(e=>e.Equipment!=null))if(e.Kind!=SoldierKind.Hero||e.Equipment.Version!=1||!BaseAftermath.ValidStats(e.Equipment.BaseStats)||e.Equipment.Items.Any(i=>!BasePersonalEquipment.Slots.Contains(i.Slot)||i.Template=="captains_ring"))throw new ArgumentException("敌人个人装备或裸属性非法");
         }
-        public static SoldierStats Disarm(BaseState s,BaseCampaignSession session,BattleSoldier unit)
+        internal static SoldierStats Disarm(BaseState s,BaseCampaignSession session,BattleSoldier unit,List<BasePersonalItem> captured)
         {
             var origin=session.Opening.Enemies.FirstOrDefault(e=>session.UnitForEnemy(session.Opening.Enemies.IndexOf(e))?.Id==unit.Id);
             if(unit.Kind!=SoldierKind.Hero||origin?.Equipment==null)return unit.Stats.Clone();
-            foreach(var source in origin.Equipment.Items)
-            {if(s.PersonalEquipment.Warehouse.Any(i=>i.Id==source.Id))continue;var item=source.Copy();item.Slot="";item.Holder="";item.Cell=-1;s.PersonalEquipment.Warehouse.Add(item);}
+            foreach (var source in origin.Equipment.Items)
+            {
+                var item = source.Copy();
+                item.Slot = item.Holder = "";
+                item.Cell = -1;
+                captured.Add(item);
+            }
             var live=LiveEnemies(s).FirstOrDefault(e=>e.Id==origin.Id);if(live?.Equipment!=null){live.Equipment.Items.Clear();live.Stats=origin.Equipment.BaseStats.Clone();live.Health=Math.Min(live.Health,live.Stats.Health);}
             return origin.Equipment.BaseStats.Clone();
         }

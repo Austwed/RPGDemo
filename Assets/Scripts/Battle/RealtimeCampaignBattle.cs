@@ -123,17 +123,6 @@ namespace BaseConquest.Battle
             var arena=new PrototypeArena(board.Cells.Select(cell=>!cell.Walkable).ToArray(),board.Cells.Select(cell=>cell.BlocksShots).ToArray(),Cross,board.Width,board.Height);
             arena.TravelCost=cell=>board.Cell(Coarse(cell)).FootworkCost;
             Model=new RealtimeBattlePrototype(arena) {AutonomousOutcome=false,DamageResolver=Damage,LeaderlessEnemyAssault=Battle.Scenario.BanditHideout};
-            int[] banditApproach=Array.Empty<int>();
-            if(Battle.Scenario.BanditHideout)
-            {
-                var zone=board.Positions().Where(cell=>board.Walkable(cell)&&board.Cell(cell).Zone==DeploymentZone.A).ToArray();
-                if(zone.Length>0)
-                {
-                    double centerX=zone.Average(cell=>cell.X),centerZ=zone.Average(cell=>cell.Z);
-                    banditApproach=zone.OrderBy(cell=>Math.Abs(cell.X-centerX)+Math.Abs(cell.Z-centerZ))
-                        .Select(cell=>arena.CellAt(new PrototypePoint(cell.X+.25,cell.Z+.25))).ToArray();
-                }
-            }
             Model.CellEntered=(actor,cellIndex)=>
             {
                 var cell=board.Cell(Coarse(cellIndex));
@@ -150,13 +139,6 @@ namespace BaseConquest.Battle
             Model.DefaultDestination=source=>
             {
                 var side=source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B;
-                if(Battle.Scenario.Leaderless(side))
-                {
-                    foreach(int cell in banditApproach)
-                        if(!double.IsPositiveInfinity(arena.Distances(cell)[source.Cell]))return cell;
-                    return -1;
-                }
-                if((int)side==Battle.Scenario.DefenderSide)return -1;
                 var exit=Battle.ExitCell(side==BattleSide.A?BattleSide.B:BattleSide.A);return arena.CellAt(new PrototypePoint(exit.X+.25,exit.Z+.25));
             };
             if(session.Opening.HasRealtimeState)

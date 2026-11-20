@@ -76,10 +76,10 @@ namespace BaseConquest.Base
             {
                 if(reset){agent.Motion=new BaseMotionAssist();agent.SightWait=0;agent.GuardVisible=true;agent.LastObserver=new BasePoint(double.NegativeInfinity,0);}
                 var person = People(state).FirstOrDefault(p => p.Id == agent.Id);agent.SceneOnly=BaseDemoPrologue.Followers(state).Any(follower=>follower.Id==agent.Id);
-                if (person == null) { agent.Visible = false; continue; }
+                if (person == null || person.Relocating) { agent.Visible = false; agent.Route.Clear(); continue; }
                 bool managedCamp = BaseDemo.Active(state) && !BaseDemoPrologue.Village(state) && !agent.SceneOnly;
                 bool resident = BaseAdventure.CampResident(state, person.Id);
-                if (managedCamp && !person.CampPostSet)
+                if (managedCamp && !person.VillageResident && !person.CampPostSet)
                 {
                     var post = BaseAdventure.CampPost(state,person);
                     person.CampPostSet = person.HasHomePosition = true;
@@ -92,8 +92,8 @@ namespace BaseConquest.Base
                 var pause=person==null?null:BaseAdventure.PauseFor(state,person.Id);
                 bool following = person != null && (BaseAdventure.Following(state,person.Id)||agent.SceneOnly&&BaseDemoPrologue.FollowingPlayer(state));
                 bool waiting = BaseAdventure.WaitingHere(state,person);
-                string region = following || waiting ? state.Campaign.Location : pause?.Region??"base";
-                string mapId=BaseSceneInstances.Active(state)?following||waiting?state.Campaign.CurrentMapId:pause?.MapId??BaseSpatial.Layout(state,"base").SourceMapId:null;
+                string region = following || waiting ? state.Campaign.Location : pause?.Region??(person.VillageResident ? "custom" : "base");
+                string mapId=BaseSceneInstances.Active(state)?following||waiting?state.Campaign.CurrentMapId:pause?.MapId??(person.VillageResident ? BaseDemoFinale.Home : BaseSpatial.Layout(state,"base").SourceMapId):null;
                 if (reset || agent.Region != region || agent.MapId!=mapId) agent.Position = person?.HasMapPosition == true && BaseAdventure.Region(person)==region && BaseSpatial.Walkable(state,person.MapX,person.MapY,mapId??region)
                     ? new BasePoint(person.MapX, person.MapY) : new BasePoint(home.X, home.Y);
                 agent.Region = region;agent.MapId=mapId;
@@ -126,7 +126,7 @@ namespace BaseConquest.Base
                 }
                 agent.VillageWalk = null;
                 if (following) { agent.FacilityId = job; if(changed || reset) {agent.Route.Clear();agent.Arrived=true;agent.ReturningToGuard=false;agent.PatrolStep=0;agent.PauseRemaining=PauseMinimum+PauseRange*Sample(agent,53);agent.RepathSeconds=.3;} continue; }
-                BasePoint goal = job == "" ? new BasePoint(home.X, home.Y) : BaseSpatial.WorkPost(state,job);
+                BasePoint goal = person.VillageResident ? BaseSettlements.VillagePost(state,job == "" ? "home" : job) : job == "" ? new BasePoint(home.X, home.Y) : BaseSpatial.WorkPost(state,job);
                 if (reset || changed || agent.FacilityId != job || agent.Destination.Distance(goal) > 0.01)
                 {
                     agent.FacilityId = job; Route(state,agent,goal);
@@ -138,7 +138,7 @@ namespace BaseConquest.Base
             foreach (var agent in Agents)
             {
                 var person = People(state).FirstOrDefault(p => p.Id == agent.Id);
-                if (person == null) continue;
+                if (person == null || !agent.Visible) continue;
                 person.HasMapPosition = true; person.MapX = agent.Position.X; person.MapY = agent.Position.Y; person.MapRegion=agent.Region;
                 person.MapId=agent.MapId;
             }

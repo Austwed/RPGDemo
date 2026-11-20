@@ -12,7 +12,7 @@ namespace BaseConquest.Base
     {
         private string lootTab="items",lootSelected="",lootConfirmation="",lootBattle;
         private void LootChange(Func<BaseState,bool> action,string message)
-        {owner.Change(s=>{if(!action(s))throw new InvalidOperationException("操作未完成：请检查背包空格、人数上限或当前条目状态。");},message);OpenLoot();}
+        {if(owner.Change(s=>{if(!action(s))throw new InvalidOperationException("操作未完成");},message))OpenLoot();}
         public void OpenLoot() => OpenLoot(activeObject=="loot" ? lootBattle : null);
         internal void OpenLoot(string battle)
         {
@@ -69,7 +69,7 @@ namespace BaseConquest.Base
         private void OpenDemoReward(string battle)
         {
             var state=owner.State;
-            var manifest=state.Aftermath.Loot.FirstOrDefault(m=>(!m.Closed||m.HasReceipt)&&(battle==null||m.BattleId==battle));
+            var manifest=battle==null ? BaseBattleLoot.NextResult(state) : state.Aftermath.Loot.FirstOrDefault(m=>m.BattleId==battle && (!m.Closed||m.HasReceipt));
             if(manifest==null)
             {
                 if(battle!=null&&state.Aftermath.Prisoners.Any(p=>p.BattleId==battle&&p.Status=="held"))OpenRewardPrisoners(battle);
@@ -78,6 +78,27 @@ namespace BaseConquest.Base
             }
             battle=manifest.BattleId;
             interactionObject="";
+            if (!manifest.HasReceipt && manifest.Items.Any(i=>i.Status=="pending"))
+            {
+                if (!manifest.DeferredItems && !owner.Change(next=>BaseBattleLoot.DeferItems(next,battle),"")) return;
+                bool hasPrisoners=owner.State.Aftermath.Prisoners.Any(p=>p.BattleId==battle && p.Status=="held");
+                activeObject="loot";
+                BeginPanel(manifest.Title,"loot-pending:"+battle);
+                if (BaseRpg.Active(owner.State) || !hasPrisoners)
+                {
+                    var close = panel.GetComponentsInChildren<Button>(true).FirstOrDefault(b=>b.name=="Close" || b.name=="关闭");
+                    if (close!=null) close.interactable=true;
+                }
+                foreach(var item in manifest.Items.Where(i=>i.Status=="pending"))
+                    Line(BaseBattleLoot.Name(state,item),36,18);
+                RowButton("领取",hasPrisoners?-290:-180,hasPrisoners?270:320,()=>{
+                    if(owner.Change(next=>BaseBattleLoot.CollectPending(next,battle),"")) OpenDemoReward(battle);
+                });
+                RowButton("整理背包",hasPrisoners?0:180,hasPrisoners?270:320,OpenBackpack);
+                if (hasPrisoners) RowButton("处理俘虏",290,270,()=>OpenRewardPrisoners(battle));
+                row+=60; EndPanel();
+                return;
+            }
             BaseLootManifest receipt=null;
             if(!owner.Change(next=>receipt=BaseBattleLoot.ConsumeReceipt(next,battle),""))return;
             bool held=owner.State.Aftermath.Prisoners.Any(p=>p.BattleId==battle&&p.Status=="held");
@@ -85,12 +106,28 @@ namespace BaseConquest.Base
             owner.OpeningAudio?.Play(VillageOpeningAudio.Cue.Reward);
             var lines=receipt.Items.Where(i=>!string.IsNullOrEmpty(i.ReceiptDestination)).Select(i=>(
                 Item: BaseBattleLoot.Name(owner.State,i),
-                Destination: i.ReceiptDestination==BaseBattleLoot.WarehouseReceipt?StoryText.Get("ui.reward.warehouse","仓库"):
+                Destination: i.ReceiptDestination==BaseBattleLoot.PartyReceipt?"随行背包":i.ReceiptDestination==BaseBattleLoot.WarehouseReceipt?StoryText.Get("ui.reward.warehouse","仓库"):
                     (owner.State.Leaders.FirstOrDefault(l=>l.Id==i.ReceiptDestination)?.Name??"")+StoryText.Get("ui.reward.backpack","的背包"))).ToList();
             if(receipt.ReceiptFood>0)lines.Insert(0,(StoryText.Get("ui.reward.food","粮食")+" +"+receipt.ReceiptFood,""));
             if(receipt.ReceiptMaterials>0)lines.Insert(0,(StoryText.Get("ui.reward.materials","原料")+" +"+receipt.ReceiptMaterials,""));
             if(receipt.ReceiptCoins>0)lines.Insert(0,(StoryText.Get("ui.reward.coins","钱币")+" +"+receipt.ReceiptCoins,""));
             OpenRewardReceipt(receipt.Title,lines.ToArray(),held?()=>OpenRewardPrisoners(battle):(Action)null);
+        }
+        private void OpenUnclaimedRewards()
+        {
+            var rewards = BaseBattleLoot.Unclaimed(owner.State).ToArray();
+            if (rewards.Length == 0) { OpenBackpack(); return; }
+            if (rewards.Length == 1) { OpenDemoReward(rewards[0].BattleId); return; }
+            activeObject = "unclaimed-rewards";
+            BeginPanel("待领物品","unclaimed-rewards");
+            foreach (var manifest in rewards)
+            {
+                string battle = manifest.BattleId;
+                int count = manifest.Items.Count(i=>i.Status=="pending");
+                RowButton(manifest.Title+" · "+count+"项",0,800,()=>OpenDemoReward(battle));
+                row+=54;
+            }
+            EndPanel();
         }
         private void OpenRewardReceipt(string title,(string Item,string Destination)[] lines,Action prisoners)
         {

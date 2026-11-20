@@ -560,7 +560,7 @@ namespace BaseConquest.Editor
                     if(worldJourneyOnly) Finish(0,"OK"); else LoadRouteView("home-arrival");
                     break;
                 case "route-home-arrival":
-                    if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Home && !BaseDemoFinale.Rebuilding(state))) return;
+                    if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Home && !state.Demo.Flow.HomeEnterSeen)) return;
                     if (H.PanelOpen && (string)Field(H, "panelViewKey") == "reward-receipt")
                     {
                         H.ClosePanel();
@@ -568,12 +568,62 @@ namespace BaseConquest.Editor
                         return;
                     }
                     CheckHomeArrival();
-                    if (homeCopyOnly) Finish(0, "OK");
-                    else LoadRouteView("rebuild");
+                    LoadRouteView("rebuild");
                     break;
                 case "route-rebuild":
                     if (!RouteViewReady(state => state.Campaign.CurrentMapId == BaseDemoFinale.Home && BaseDemoFinale.Rebuilding(state))) return;
+                    if(H.DialogueOpen)FinishDialogue();
                     CheckHomeRebuild();
+                    stage="route-home-walkers";stageAt=EditorApplication.timeSinceStartup;nextLog=0;
+                    break;
+                case "route-home-walkers":
+                    if(!BaseDemoFinale.HomeVolunteers(controller.State))
+                    {
+                        var live=controller.State;
+                        bool timedOut=EditorApplication.timeSinceStartup-stageAt>45;
+                        if(!timedOut && EditorApplication.timeSinceStartup<nextLog)return;
+                        string positions=string.Join(" / ",BaseSceneInstances.Layout(live,BaseDemoFinale.Home).Objects
+                            .Where(o=>o.Id==BaseDemoFinale.Builder||o.Id==BaseDemoFinale.Helper).Select(o=>o.Id+" "+o.X.ToString("F2")+","+o.Y.ToString("F2")));
+                        string detail=positions+" panel="+Field(H,"panelViewKey")+" open="+H.PanelOpen+" arrival="+live.Demo.Flow.HomeEnterSeen+
+                            " day="+live.Day+" busy="+controller.Busy+" delta="+Time.deltaTime+" frame="+Time.frameCount+" message="+controller.Message;
+                        Note(detail);
+                        if(timedOut)throw new InvalidOperationException("村民未到麦田："+detail);
+                        return;
+                    }
+                    if(H.PanelOpen && (string)Field(H,"panelViewKey")=="reward-receipt")
+                    {
+                        H.ClosePanel();
+                        return;
+                    }
+                    if(H.DialogueOpen && RequirePanel("NpcDialogue").Find("SpeakerName").GetComponent<Text>().text==BaseScriptNames.Recruiter)
+                    {
+                        FinishDialogue();
+                        Click("回营地安排生产");
+                        return;
+                    }
+                    Approach(BaseDemoFinale.Builder,besideNpc:true);H.OpenObject(BaseDemoFinale.Builder);FinishDialogue();
+                    var welcome=RequirePanel("NpcDialogue");
+                    if(!welcome.Find("DialogueText").GetComponent<Text>().text.Contains("您吩咐吧。")||
+                        !welcome.GetComponentsInChildren<Button>().Any(b=>b.interactable&&b.GetComponentInChildren<Text>()?.text=="村庄还需要建一些设施……"))
+                        throw new InvalidOperationException("田边村民的对白或建设选项尚未显示");
+                    CaptureViewports("ui-player-route-home-volunteers");
+                    Click("没什么事了。");
+                    if(!controller.State.Demo.Finale.VillageRebuilt)throw new InvalidOperationException("村民对话未完成结局");
+                    FinishDialogue();
+                    if((string)Field(H,"panelViewKey")!="demo-completion" || !controller.SaveStore.Load().Demo.Finale.EndingSeen)
+                        throw new InvalidOperationException("结尾旁白读完后未显示或保存试玩完成卡");
+                    stage="route-home-completion";stageAt=EditorApplication.timeSinceStartup;
+                    break;
+                case "route-home-completion":
+                    var ending=((RectTransform)Field(H,"panel")).GetComponent<CanvasGroup>();
+                    if(!ending.interactable||ending.alpha<.999f)
+                    {
+                        if(EditorApplication.timeSinceStartup-stageAt>5)throw new InvalidOperationException("试玩完成卡未显现");
+                        return;
+                    }
+                    CaptureViewports("ui-player-route-home-ending");
+                    Click("继续探索");
+                    if(H.PanelOpen||controller.State.Campaign.CurrentMapId!=BaseDemoFinale.Home)throw new InvalidOperationException("完成卡无法返回白桦村探索");
                     Finish(0, "OK");
                     break;
                 case "boot":
@@ -827,27 +877,21 @@ namespace BaseConquest.Editor
                         throw new InvalidOperationException("返回备战没有恢复遗迹入口");
                     Press(RequirePanel("BattlePreparation"), "Continue");
                     var cancelRuins = RequireBattleDraft();
-                    var cancelDraft = (BaseBattlePreparation)Field(H, "battleDraft");
-                    var cancelPositions = cancelDraft.Positions.ToDictionary(pair => pair.Key, pair => pair.Value);
                     Press(BattleSafeArea(cancelRuins), "DraftPreparationControls/Start");
                     FinishDialogue();
-                    Click("他们自己能走？还是得你发话？");
-                    FinishDialogue();
-                    Click("暂不交战");
-                    if (RequireBattleDraft() != cancelRuins || H.PanelOpen ||
-                        !cancelPositions.OrderBy(pair => pair.Key).SequenceEqual(cancelDraft.Positions.OrderBy(pair => pair.Key)))
-                        throw new InvalidOperationException("古窟追问后取消没有保留战场和落点");
+                    Click("先退出去准备一下");
+                    if (!BaseSceneRules.Entrance(controller.State) || H.PanelOpen || controller.State.Campaign.HasActiveBattle ||
+                        Object.FindObjectsByType<BattleSceneController>().Any(b=>b.DeploymentDraftActive))
+                        throw new InvalidOperationException("暂缓初遇没有退回遗迹入口");
                     if (BaseAchievements.Record(controller.State, BaseAchievements.Caution) != null)
                         throw new InvalidOperationException("免疫队伍误触发了古窟危险警告");
-                    Press(BattleSafeArea(cancelRuins), "DraftPreparationControls/Back");
-                    H.ClosePanel();
                     if (!controller.Change(state => VerifyBanditHideout.AddSoldiers(state, 1, 0, 0), "界面检查"))
                         throw new InvalidOperationException(controller.Message);
                     VerifyRuinsWarning();
                     if (H.PanelOpen || controller.State.Campaign.CurrentMapId != ruinsEntranceMap ||
                         controller.State.Campaign.HasActiveBattle || Object.FindObjectsByType<BattleSceneController>().Any(b => b.DeploymentDraftActive))
                         throw new InvalidOperationException("退出部署后没有恢复遗迹入口");
-                    Log.Add("[PASS] 古窟免疫队伍跳过警告、普通士兵弹出确认，追问后取消保留部署及落点，退出备战返回入口");
+                    Log.Add("[PASS] 古窟免疫队伍跳过警告、普通士兵弹出确认，退出初遇后返回入口");
                     VerifyRuinsSoloRetreat();
                     VerifyHideoutUi();
                     controller.LoadDemoStage("defense", "female");
@@ -1410,138 +1454,35 @@ namespace BaseConquest.Editor
                 !controller.SaveStore.Load().Demo.Flow.HomeEnterSeen)
                 throw new InvalidOperationException("返乡开场没有按迦兰实际随行情况播放，或读完没有回到探索并保存");
 
-            var field = BaseSpatial.Objects(controller.State).Single(item => item.Id == "intro_farm" || item.Id == "village_field");
-            Approach(field.Id);
-            var day = controller.State.Day;
-            H.OpenObject(field.Id);
-            H.ContinueDialogue();
-            if (!RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("马蹄印"))
-                throw new InvalidOperationException("麦田未播放可选独白");
-            CaptureViewports("ui-player-route-home-field");
-            FinishDialogue();
-            if (H.PanelOpen || controller.State.Day != day || BaseDemoFinale.Rebuilding(controller.State))
-                throw new InvalidOperationException("麦田独白改变了日程或重建进度");
-
             Approach("demo_survivor");
-            var initialPosition = new BasePoint(controller.State.PlayerX, controller.State.PlayerY);
             H.OpenObject("demo_survivor");
-            var dialogue = RequirePanel("NpcDialogue");
-            var speech = dialogue.Find("DialogueText").GetComponent<Text>();
-            bool bridgeMentioned = false;
-            for (int i = 0; i < 24 && H.DialogueOpen; i++)
-            {
-                H.ContinueDialogue();
-                if (speech.text.Contains("西桥") && speech.text.Contains("桥头") && dialogue.Find("SpeakerName").GetComponent<Text>().text == "幸存村民")
-                {
-                    bridgeMentioned = true;
-                    CaptureViewports("ui-player-route-home-survivor");
-                    break;
-                }
-            }
-            if (!bridgeMentioned) throw new InvalidOperationException("幸存村民对白未指向西桥头");
             FinishDialogue();
-            if (H.PanelOpen || BaseDemoFinale.Rebuilding(controller.State) ||
-                new BasePoint(controller.State.PlayerX, controller.State.PlayerY).Distance(initialPosition) > .01)
-                throw new InvalidOperationException("幸存者对话未退回原地探索");
-            Approach("demo_broken_sword");
-            H.OpenObject("demo_broken_sword");
-            FinishDialogue();
-            Click("记录断剑 · 开始重建");
-            if (!controller.RebuildPlacementMode || !BaseDemoFinale.Rebuilding(controller.State))
-                throw new InvalidOperationException("未从断剑调查进入地图重建");
-            Log.Add("[PASS] 首次入村独立播放并保存，迦兰按实际随行发言，麦田可选独白不改变进度，调查断剑进入返乡重建");
+            if(H.PanelOpen||controller.State.Demo.Finale.RebuildMask!=0)
+                throw new InvalidOperationException("幸存者把玩家送进了重建");
+            Log.Add("[PASS] 返乡开场与随行人的反应按实际阵容显示，幸存者只指向西桥头");
         }
 
         private static void CheckHomeRebuild()
         {
-            var source = (RectTransform)controller.transform.Find("UI 布局源/BaseShell/Controls/HomeRebuildProjects");
-            if (source == null) throw new InvalidOperationException("返乡重建缺少场景布局源");
-            var rebuildHud = typeof(BaseSceneController).GetMethod("RebuildHud", BindingFlags.Instance | BindingFlags.NonPublic);
-            var sourceImage = source.GetComponent<Image>();
-            var authoredPosition = source.anchoredPosition;
-            var authoredColor = sourceImage.color;
-            try
+            var s=controller.State;
+            string cost="修理 · 原料 "+BaseDemoDefense.RepairMaterialCost(s)+"　钱币 "+BaseDemoDefense.RepairCoinCost(s);
+            foreach(var id in new[]{"farm","workshop","home"})
             {
-                source.anchoredPosition += new Vector2(8, 0);
-                sourceImage.color = new Color(.82f, .67f, .47f);
-                rebuildHud.Invoke(controller, null);
-                var moved = (RectTransform)Field(H, "rebuildPalette");
-                if (moved.anchoredPosition != source.anchoredPosition || moved.GetComponent<Image>().color != sourceImage.color)
-                    throw new InvalidOperationException("返乡工具栏未读取场景保存的位置和颜色");
-            }
-            finally
-            {
-                source.anchoredPosition = authoredPosition;
-                sourceImage.color = authoredColor;
-                rebuildHud.Invoke(controller, null);
-            }
-            ClickHudButton((Field(H, "rebuildResume") as Button)?.transform);
-            var palette = (RectTransform)Field(H, "rebuildPalette");
-            if (H.PanelOpen || !controller.RebuildPlacementMode || !palette.gameObject.activeInHierarchy ||
-                ((Button)Field(H, "interact")).gameObject.activeInHierarchy || ((Text)Field(H, "hint")).gameObject.activeInHierarchy)
-                throw new InvalidOperationException("返乡重建没有显示场景操作栏");
-            var state = controller.State;
-            var occupied = new GridPosition((int)state.PlayerX, (int)state.PlayerY);
-            var view = (BattleBoardView)Field(controller, "regionView");
-            var pick = typeof(BaseSceneController).GetMethod("SelectScreenPoint", BindingFlags.Instance | BindingFlags.NonPublic);
-            void PickCell(GridPosition cell)
-            {
-                var screen = (Vector2)controller.WorldCamera.WorldToScreenPoint(controller.WorldPoint(cell.X + .5, cell.Z + .5));
-                pick.Invoke(controller, new object[] { screen });
-                if (!((BattleBoardView)Field(controller, "regionView")).SelectedCell.Equals((GridPosition?)cell))
-                    throw new InvalidOperationException("点击地图后未预览目标格：" + cell);
-            }
-            PickCell(occupied);
-            if (palette.Find("放置").GetComponent<Button>().interactable || controller.ConfirmRebuildPlacement() || state.Demo.Finale.RebuildMask != 0)
-                throw new InvalidOperationException("占用格未阻止设施放置");
-            CaptureViewports("ui-player-route-home-rebuild-blocked");
-            var placedCells = new List<GridPosition>();
-            for (int item = 0; item < 3; item++)
-            {
-                view = (BattleBoardView)Field(controller, "regionView");
-                state = controller.State;
-                var cell = view.Board.Positions().Where(p => BaseDemoFinale.RebuildProblem(state, item, p.X, p.Z) == "" &&
-                    placedCells.All(other => Mathf.Abs(p.X - other.X) + Mathf.Abs(p.Z - other.Z) > 2))
-                    .OrderBy(p => Mathf.Abs(p.X - occupied.X) + Mathf.Abs(p.Z - occupied.Z))
-                    .First(p =>
-                    {
-                        var screen = controller.WorldCamera.WorldToScreenPoint(controller.WorldPoint(p.X + .5, p.Z + .5));
-                        return view.Pick(screen, out var hit) && hit.Equals(p);
-                    });
-                PickCell(cell);
-                if (item == 0) CaptureViewports("ui-player-route-home-rebuild");
-                if (state.Demo.Finale.RebuildMask != (1 << item) - 1)
-                    throw new InvalidOperationException("仅点击预览就提前提交了重建");
-                ClickHudButton(((RectTransform)Field(H, "rebuildPalette")).Find("放置"));
-                placedCells.Add(cell);
-                if (item == 0)
+                Approach(id);H.OpenObject(id);FinishDialogue();
+                Click(cost);
+                if(id=="home")
                 {
-                    controller.SelectRebuildProject(0);
-                    ClickHudButton(((RectTransform)Field(H, "rebuildPalette")).Find("撤回"));
-                    if (controller.State.Demo.Finale.RebuildMask != 0) throw new InvalidOperationException("重建设施未撤回");
-                    PickCell(cell);
-                    ClickHudButton(((RectTransform)Field(H, "rebuildPalette")).Find("放置"));
+                    FinishDialogue();Click("你们在里面做什么？");FinishDialogue();
+                    var choices=((RectTransform)Field(H,"panel")).GetComponentsInChildren<Button>()
+                        .Where(b=>b.interactable).Select(b=>b.GetComponentInChildren<Text>()?.text).ToArray();
+                    var ask=choices.Single(label=>label!=null&&label.StartsWith("你们认"));
+                    for(int i=0;i<2;i++){Click(ask);FinishDialogue();}
+                    CaptureViewports("ui-player-route-home-rebuild");
+                    Click("滚吧，别让我再见到你们。");FinishDialogue();
                 }
+                if(!BaseDemoFinale.HomeRepaired(controller.State,id))throw new InvalidOperationException(id+" 尚未修复");
             }
-            var saved = controller.SaveStore.Load();
-            if (saved.Demo.Finale.RebuildMask != 7 || saved.Demo.Stage == BaseDemoStage.Finished)
-                throw new InvalidOperationException("重建落位未保存，或提前结束 Demo");
-            var landmarks = ((BattleBoardView)Field(controller, "regionView")).Root.transform.Find("RegionLandmarks");
-            foreach (var facility in new[] { ("demo_rebuild_tent", "camp-tent-v1"), ("demo_rebuild_warehouse", "warehouse-v1") })
-            {
-                var landmark = landmarks.Cast<Transform>().SingleOrDefault(obj => obj.name.StartsWith(facility.Item1 + " · ", StringComparison.Ordinal));
-                var texture = landmark?.GetComponentInChildren<SpriteFacade>()?.Surface.sharedMaterial.GetTexture("_BaseMap");
-                if (texture == null || texture.name != facility.Item2) throw new InvalidOperationException("重建设施未加载正式贴图：" + facility.Item1);
-            }
-            ClickHudButton(((RectTransform)Field(H, "rebuildPalette")).Find("确认完成"));
-            if (!controller.HomeRebuildOverview || H.PanelOpen) throw new InvalidOperationException("完成前缺少村庄全景");
             CaptureViewports("ui-player-route-home-rebuilt-village");
-            ClickHudButton(((RectTransform)Field(H, "rebuildOverview")).Find("结束 Demo"));
-            if (controller.State.Demo.Stage != BaseDemoStage.Finished || controller.HomeRebuildOverview || !H.DialogueOpen)
-                throw new InvalidOperationException("村庄全景未接完成状态和收尾对白");
-            H.ContinueDialogue();
-            CaptureViewports("ui-player-route-home-ending");
-            Log.Add("[PASS] 重建实际点格预览、占用格拒绝、撤回重放、保存三处设施并先展示全景再接收尾对白");
         }
 
         private static void VerifyResourceHud()
@@ -2306,27 +2247,21 @@ namespace BaseConquest.Editor
             void Open() => H.OpenRuinsConfrontation(() => battleStarts++);
             Open();
             FinishDialogue();
-            Click("他们自己能走？还是得你发话？");
-            H.ContinueDialogue();
             var view = RequirePanel("NpcDialogue");
-            if (view.Find("SpeakerName").GetComponent<Text>().text != "迦兰" || battleStarts != 0)
-                throw new InvalidOperationException("点过追问后没有直接听见迦兰回答");
-            FinishDialogue();
-            if (!view.Find("DialogueText").GetComponent<Text>().text.Contains("我就叫他们拦你") ||
-                view.Find("Replies").GetComponentsInChildren<Button>().Count(button => button.interactable) != 2 ||
-                battleStarts != 0)
-                throw new InvalidOperationException("古窟追问没有回到开战或暂缓");
-            Click("暂不交战");
-            if (H.DialogueOpen || battleStarts != 0)
-                throw new InvalidOperationException("暂缓古窟没有返回原处");
+            if (view.Find("SpeakerName").GetComponent<Text>().text != "？？？" ||
+                !view.Find("DialogueText").GetComponent<Text>().text.Contains("何人聒噪"))
+                throw new InvalidOperationException("未见面的伽兰应当在暗处喊话");
+            Click("先退出去准备一下");
+            if (H.DialogueOpen || battleStarts != 0) throw new InvalidOperationException("退出古窟误触发战斗");
             Open();
             FinishDialogue();
-            Click("他们自己能走？还是得你发话？");
+            Click("继续推进");
+            if (battleStarts != 0) throw new InvalidOperationException("伽兰喊话前就开始了战斗");
             FinishDialogue();
-            Click("准备交战");
-            if (battleStarts != 1) throw new InvalidOperationException("追问支线没有调用原战斗入口");
+            if (battleStarts == 0) H.ContinueDialogue();
+            if (battleStarts != 1) throw new InvalidOperationException("喊话结束后未开战或开战多次");
             H.ClosePanel();
-            Log.Add("[PASS] 古窟对峙追问直接听答复，播完可暂缓或从原入口开战");
+            Log.Add("[PASS] 古窟初遇匿名喊话，暂缓返回和继续开战");
         }
 
         private static void ApproachMerchantAwayFromStall()
@@ -2701,7 +2636,7 @@ namespace BaseConquest.Editor
         {
             if (!controller.Change(state =>
             {
-                if (!BaseBackpack.Add(state, BaseEquipmentCrafting.Stone, 3)) throw new InvalidOperationException("检查用锻造石发放失败");
+                if (!BaseBackpack.AddToWarehouse(state, BaseEquipmentCrafting.Stone, 3)) throw new InvalidOperationException("检查用锻造石发放失败");
             }, "界面检查")) throw new InvalidOperationException(controller.Message);
             H.OpenWarehouse();
             var view = RequirePanel("PartyWarehouse");
@@ -3555,12 +3490,13 @@ namespace BaseConquest.Editor
                 .Invoke(controller, new object[] { direction, .05 });
         }
 
-        private static void Approach(string id)
+        private static void Approach(string id,bool besideNpc=false)
         {
             if (!controller.Change(s =>
             {
                 var target = BaseSpatial.Objects(s).Single(o => o.Id == id);
-                var point = target.Blocks ? BaseStageWalk.Door(s, id) : new BasePoint(target.X, target.Y);
+                var point = target.Blocks ? BaseStageWalk.Door(s, id) : besideNpc ?
+                    BaseSpatial.Nearest(s,new BasePoint(target.X-.9,target.Y)) : new BasePoint(target.X, target.Y);
                 s.PlayerX = point.X; s.PlayerY = point.Y;
                 BaseInteraction.Walk(new BasePoint(target.X - point.X, target.Y - point.Y));
                 BaseAdventure.Arrive(s);

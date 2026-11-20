@@ -36,7 +36,7 @@ namespace BaseConquest.Base
                 var w=entry.Worker;
                 var stats=w.HasCombatProfile ? w.CombatStats.Clone() : new ArmyDefinition().Stats(BaseCampaign.ToBattle(kind)).Clone();
                 stats.Health=(float)w.MaxHealth;
-                string reason=w.Away ? "已外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.Eligible(purpose,w) ? "" : "生命低于30%，不能主动出战";
+                string reason=w.Relocating ? "调动中" : !BaseSettlements.Local(s,w) ? "异地" : w.Away ? "已外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.Eligible(s,purpose,w) ? "" : "生命低于30%，不能主动出战";
                 for(int n=0;n<w.Count;n++) yield return new BaseSoldierRow {Pick=BaseSoldierPick.At(s,entry.Index,n),Kind=kind,Stats=stats,
                     Health=w.Health,MaxHealth=w.MaxHealth,Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),EffectiveWorker=BaseDevelopment.Effective(s,w),Recruited=w.Recruited,UnavailableReason=reason};
             }
@@ -45,11 +45,11 @@ namespace BaseConquest.Base
         {
             var picks=plan.ManualPicks;
             if(picks.Count>90||picks.Any(p=>p==null||p.BucketIndex<0||p.BucketIndex>=s.Workers.Count||p.Ordinal<0||p.Ordinal>=s.Workers[p.BucketIndex].Count||
-                p.SoldierNumber!=0 && s.Workers[p.BucketIndex].SoldierNumbers[p.Ordinal]!=p.SoldierNumber || !BaseDevelopment.Eligible(plan.Purpose,s.Workers[p.BucketIndex]))||picks.Select(p=>p.Key).Distinct().Count()!=picks.Count)
+                p.SoldierNumber!=0 && s.Workers[p.BucketIndex].SoldierNumbers[p.Ordinal]!=p.SoldierNumber || !BaseDevelopment.Eligible(s,plan.Purpose,s.Workers[p.BucketIndex]))||picks.Select(p=>p.Key).Distinct().Count()!=picks.Count)
                 throw new ArgumentException("逐兵选择已变化或包含不可出战／重复单位，请重新选择");
             foreach(var kind in Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>())
             {
-                int selected=picks.Count(p=>s.Workers[p.BucketIndex].Kind==kind),available=s.Workers.Where(w=>w.Kind==kind&&BaseDevelopment.Eligible(plan.Purpose,w)).Sum(w=>w.Count);
+                int selected=picks.Count(p=>s.Workers[p.BucketIndex].Kind==kind),available=s.Workers.Where(w=>w.Kind==kind&&BaseDevelopment.Eligible(s,plan.Purpose,w)).Sum(w=>w.Count);
                 if(selected!=preset.Count(kind)||selected>Math.Min(30,available))throw new ArgumentException("所选人数不能超过可用兵力或本队兵种上限");
                 if(!plan.IgnoreProtection&&selected>Math.Max(0,available-s.Muster.Keep(kind)))throw new InvalidOperationException("已达到留守限制：本兵种须留在基地 "+s.Muster.Keep(kind)+"人；可切换为允许抽调留守和生产人员");
             }
@@ -107,7 +107,7 @@ namespace BaseConquest.Base
             if(delta<0){var pick=Picks.LastOrDefault(p=>s.Workers[p.BucketIndex].Kind==kind);return pick!=null&&Toggle(s,pick,bypass,out error);}
             if(Count(s,kind)>=30){error="已达本队兵种上限";return false;}
             // 加人与自动编队同一口径：生命比例高的先上。
-            foreach(var entry in s.Workers.Select((w,i)=>new {Worker=w,Index=i}).Where(x=>x.Worker.Kind==kind&&BaseDevelopment.Eligible(Preset.Purpose,x.Worker))
+            foreach(var entry in s.Workers.Select((w,i)=>new {Worker=w,Index=i}).Where(x=>x.Worker.Kind==kind&&BaseDevelopment.Eligible(s,Preset.Purpose,x.Worker))
                 .OrderByDescending(x=>x.Worker.MaxHealth>0 ? x.Worker.Health/x.Worker.MaxHealth : 0)
                 .ThenBy(x=>x.Worker.FacilityId=="" ? -1 : s.Muster.Facilities.FirstOrDefault(f=>f.FacilityId==x.Worker.FacilityId)?.Priority??0).ThenBy(x=>x.Index))
             {
@@ -119,7 +119,7 @@ namespace BaseConquest.Base
         public bool CanAdd(BaseState s,BaseTroopKind kind,bool bypass) => Copy().Adjust(s,kind,1,bypass,out _);
         public BaseDepartureCapacity Capacity(BaseState s,BaseTroopKind kind,bool bypass)
         {
-            var trial=Copy();int selected=Count(s,kind),ready=s.Workers.Where(w=>w.Kind==kind&&BaseDevelopment.Eligible(Preset.Purpose,w)).Sum(w=>w.Count);
+            var trial=Copy();int selected=Count(s,kind),ready=s.Workers.Where(w=>w.Kind==kind&&BaseDevelopment.Eligible(s,Preset.Purpose,w)).Sum(w=>w.Count);
             string reason="";while(trial.Count(s,kind)<30&&trial.Adjust(s,kind,1,bypass,out reason)) {}
             int limit=trial.Count(s,kind);
             if(limit==30)reason="每种兵最多携带30人";

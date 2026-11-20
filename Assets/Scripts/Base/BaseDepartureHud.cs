@@ -27,7 +27,7 @@ namespace BaseConquest.Base
             {
                 int carried=s.Workers.Where(w=>w.PartyId==existing.Id&&w.Away).Sum(w=>w.Count);
                 Line("队长："+string.Join("、",existing.Leaders.Select(x=>BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==x.LeaderId)))),60);
-                Line("已携带／可调总量（含本队）："+carried+"／"+(carried+s.Workers.Where(w=>BaseDevelopment.Eligible(purpose,w)).Sum(w=>w.Count)),54);
+                Line("已携带／可调总量（含本队）："+carried+"／"+(carried+s.Workers.Where(w=>BaseDevelopment.Eligible(s,purpose,w)).Sum(w=>w.Count)),54);
                 var groups=BaseMuster.CurrentFormation(s,existing);if(groups!=null)foreach(var group in groups)Line(BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==group.LeaderId))+" · "+TroopsText(group.Actual),50,18);
                 RowButton("查看本队／军需／战外追加",0,800,()=>OpenParty(existing.Id,()=>OpenDepartureReview(location,eventId,mode,bypass)));row+=60;EndPanel();return;
             }

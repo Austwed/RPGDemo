@@ -41,7 +41,7 @@ namespace BaseConquest.Base
         {
             if (benchSeat != null) return StandBenchTarget;
             if (benchTargets.Count == 0 || BaseDemoPrologue.Evacuating(State) || BaseSceneCombat.Active(State) ||
-                State.Aftermath.GameOver || ConstructionMode || RebuildPlacementMode) return other;
+                State.Aftermath.GameOver || ConstructionMode) return other;
 
             double nearest = System.Math.Min(.65, other?.Distance(State.PlayerX, State.PlayerY) ?? double.PositiveInfinity);
             var result = other;

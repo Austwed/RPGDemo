@@ -17,13 +17,13 @@ namespace BaseConquest.Base
         private void TickDemoFlow(double seconds=-1)
         {
             if(!BaseDemoFlow.Active(State)||State.Demo.Stage==BaseDemoStage.Waking||BaseDemoPrologue.Village(State)||BaseBattleGateway.MainMenu||Hud.PanelOpen||BaseBattleLoot.Pending(State)||ConstructionMode)return;
-            if(BaseDemoFinale.Rebuilding(State))return;
             var f=State.Demo.Flow;
             var due=State.Campaign.Events.FirstOrDefault(e=>e.Kind=="defense"&&e.Status=="pending"&&e.AvailableDay<=State.Day&&!(f.NotifiedRaids??new System.Collections.Generic.List<string>()).Contains(e.Id+":"+e.AvailableDay));
             if(due!=null){string key=due.Id+":"+due.AvailableDay;if(Change(s=>{s.Demo.Flow.NotifiedRaids??=new System.Collections.Generic.List<string>();s.Demo.Flow.NotifiedRaids.Add(key);},"袭击通知"))Hud.OpenDemoScoutWarning();return;}
             if(State.Campaign.Location=="base"&&BaseDemoDefense.Won(State)&&State.Demo.Defense.BatuStoryDay>0&&!State.Demo.Defense.MerchantDone)
             {TickDemoMerchant(seconds);return;}
-            if(BaseDemoFlow.Recruited(State)&&!f.RecruitmentNotice)
+            if(BaseDemoFlow.Recruited(State)&&!f.RecruitmentNotice&&!BaseDemoDefense.Won(State)&&
+                State.Campaign.Location=="town"&&BaseInteraction.At(State,"town","town_recruit"))
             {if(Change(s=>s.Demo.Flow.RecruitmentNotice=true,"招募建设人手已完成"))Hud.OpenRecruitmentComplete();return;}
             if(State.Campaign.Location=="town"&&State.Demo.RuinsDay>0&&!f.NoviceShop&&new BasePoint(State.PlayerX,State.PlayerY).Distance(BaseDemoFlow.SmithApproach(State))<=2)
             {if(Change(s=>s.Demo.Flow.NoviceShop=true,"铁匠铺已开放新手装备"))Hud.OpenSmithGoods();return;}

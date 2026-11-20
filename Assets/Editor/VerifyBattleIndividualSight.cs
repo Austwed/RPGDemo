@@ -11,6 +11,7 @@ namespace BaseConquest.Editor
     {
         public static void Run()
         {
+            VerifyBanditField();
             var guard = new SoldierStats { SightRadius = 5 };
             var scout = guard.Clone();
             scout.SightRadius = 8;
@@ -28,6 +29,28 @@ namespace BaseConquest.Editor
         private static void Check(bool pass, string message)
         {
             if (!pass) throw new InvalidOperationException(message);
+        }
+
+        private static void VerifyBanditField()
+        {
+            var scenario=new BattleScenario { Board=BattleBoard.CreateDefault(32,14), TestAutoDeployment=false };
+            BaseSceneRules.ApplyBanditSight(scenario);
+            var battle=new BattleSimulation(scenario);
+            var near=new GridPosition(2,5);
+            var far=new GridPosition(27,5);
+            var scout=battle.DeveloperSpawn(true,near,SoldierKind.Melee,BattleSide.A);
+            var enemy=battle.DeveloperSpawn(true,far,SoldierKind.Melee,BattleSide.B);
+            scout.Stats.SightRadius=2;
+            battle.Vision.Refresh();
+            Check(battle.Vision.FullVision(BattleSide.B)&&!battle.Vision.FullVision(BattleSide.A),"黑鸦寨守方视野");
+            Check(!battle.Vision.Explored(BattleSide.A,far)&&!battle.Vision.CanSee(BattleSide.A,enemy),"未侦察区域应有浓雾");
+            scout.Cell=new GridPosition(26,5);
+            battle.Vision.Refresh();
+            Check(battle.Vision.CanSee(BattleSide.A,enemy),"进入视野后应可见敌军");
+            scout.Cell=near;
+            battle.Vision.Refresh();
+            Check(battle.Vision.TerrainVisible(BattleSide.A,far)&&!battle.Vision.CanSee(BattleSide.A,enemy),"撤出后薄雾应只显示地形");
+            Check(battle.ExitCell(BattleSide.A)==new GridPosition(0,7)&&battle.ExitCell(BattleSide.B)==new GridPosition(31,7),"两侧撤离点应居中");
         }
 
         private static void VerifyHeightMap(SoldierKind kind, BattleSide side)

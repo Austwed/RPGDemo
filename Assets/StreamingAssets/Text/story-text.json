@@ -693,36 +693,6 @@
       "notes": "旧交互已失效、无法重复搜查时显示，20 字以内。"
     },
     {
-      "key": "story.ui.finale.rebuild_title",
-      "group": "界面／返乡重建",
-      "text": "返乡重建",
-      "notes": "地图左侧工具栏标题，8 字以内。"
-    },
-    {
-      "key": "story.ui.finale.rebuild_select_project",
-      "group": "界面／返乡重建",
-      "text": "请先选择设施",
-      "notes": "工具栏未选中设施时显示，16 字以内。"
-    },
-    {
-      "key": "story.ui.finale.rebuild_select_cell",
-      "group": "界面／返乡重建",
-      "text": "点击地图选择空地",
-      "notes": "选中未放置设施、尚未点地图时显示，16 字以内。"
-    },
-    {
-      "key": "story.ui.finale.rebuild_available",
-      "group": "界面／返乡重建",
-      "text": "可放置 · 确认此处",
-      "notes": "选中的格子合法时显示，16 字以内。"
-    },
-    {
-      "key": "story.ui.finale.rebuild_ready",
-      "group": "界面／返乡重建",
-      "text": "三项设施已就位",
-      "notes": "三项重建均已保存，尚未查看全景时显示，16 字以内。"
-    },
-    {
       "key": "story.ui.menu.tasks",
       "group": "界面／菜单",
       "text": "任务 · N",
@@ -985,20 +955,6 @@
       "text": "对方人多势众，优势不在我，或许镇上那位年轻铁匠可以帮忙。",
       "notes": "首通前独战半血自动撤回入口后独白。用户原句。",
       "revision": 2
-    },
-    {
-      "key": "story.scene.home_rebuild.survivor",
-      "group": "剧情／返乡断剑",
-      "text": "那天西桥那头响过一阵兵刃声。你去桥头看看。",
-      "notes": "返乡后、调查断剑前与幸存村民交谈。对白结束后回到原地探索，保留西桥头指向，24 字以内。",
-      "revision": 3
-    },
-    {
-      "key": "story.scene.home_rebuild.finished",
-      "group": "剧情／返乡断剑",
-      "text": "乡亲们总算有地方落脚了。搭档，等我。我去西山找你。",
-      "notes": "三项设施修好后，确认结束 Demo 时的主角独白。",
-      "revision": 3
     },
     {
       "key": "story.ui.hideout.recruiter_clue_1",

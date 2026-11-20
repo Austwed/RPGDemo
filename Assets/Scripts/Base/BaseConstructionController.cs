@@ -15,37 +15,45 @@ namespace BaseConquest.Base
         private GridPosition? constructionHoverCell;
         private float constructionHoverAt;
         private string constructionHoverProblem="";
-        private BaseState campLayoutDraft;
+        private SettlementLayoutDraft campLayout;
         private string campProject, campPlacementMessage;
         private float campViewBefore;
         private Vector2 campPinchCenter;
-        private readonly List<(string Id, GridPosition? Position)> campChanges = new();
-        public bool CampPlacementMode => campLayoutDraft != null;
+        private readonly Dictionary<string, GameObject> hiddenBuildings = new();
+        private readonly Dictionary<string, (GameObject Root, Vector3 Anchor, LineRenderer Frame)> buildingPreviews = new();
+        private string draggedFacility;
+        private Vector2 campStart, campLast, campGrabOffset;
+        private bool campPressed, campDragged, paletteDragging;
+        private BaseMapPlacement placementBeforeDrag;
+        public bool CampPlacementMode => campLayout != null;
         internal bool CampConstructionAvailable => State?.Demo?.Flow?.CampConstructionOrdered == true && !Busy && !ConstructionMode &&
             BaseFacilityLayout.Editable(State) && BaseFacilityLayout.CanOrder(State);
         internal bool CampConstructionReturnReminder => State?.Demo?.Flow?.CampConstructionOrdered == true && State.Campaign.Location == "town";
-        internal BaseState CampLayoutDraft => campLayoutDraft;
+        internal SettlementLayoutDraft CampLayoutDraft => campLayout;
         internal string CampProject => campProject;
         internal string CampPlacementMessage => campPlacementMessage;
-        internal bool CampLayoutChanged => campChanges.Count > 0;
+        internal bool CampLayoutChanged => campLayout?.Changed == true;
         public bool ConstructionMode => constructionOpen;
         public ConstructionProject SelectedConstructionProject => constructionBrush.Project;
         public string ConstructionHoverText {get;private set;}="点击地图连续施工；右键／Esc退出";
         public void StopConstruction()
         {
-            bool returningFromHome=RebuildPlacementMode;
             if (CampPlacementMode)
             {
-                campLayoutDraft = null;
-                campChanges.Clear();
-                campProject = null;
+                foreach (var view in hiddenBuildings.Values) if (view != null) view.SetActive(true);
+                foreach (var preview in buildingPreviews.Values)
+                    if (preview.Root != null) { preview.Root.SetActive(false); Destroy(preview.Root); }
+                hiddenBuildings.Clear();
+                buildingPreviews.Clear();
+                campLayout = null;
+                campProject = draggedFacility = null;
+                paletteDragging = campPressed = campDragged = false;
+                placementBeforeDrag = null;
                 regionView.SetViewSize(campViewBefore);
                 regionView.Follow(PlayerCameraTarget);
             }
-            ResetHomeRebuildOverview();RebuildPlacementMode=false;rebuildProject=-1;rebuildCell=null;
             constructionOpen=false;constructionBrush.Cancel();constructionTouch=-1;mouseTap=null;touches.Clear();
             regionView?.SelectCell(null);regionView?.TintSelection(new Color(1,.89f,.28f));Hud?.RefreshConstructionPalette();
-            if(returningFromHome)Hud?.RefreshSummary();
         }
         internal void OrderCampConstruction(bool caravanPermit = false)
         {
@@ -60,102 +68,220 @@ namespace BaseConquest.Base
         internal void ArmCampPlacement()
         {
             if (!CampConstructionAvailable || Hud.PanelOpen) return;
-            campLayoutDraft = State.Copy();
-            campChanges.Clear();
+            StartSettlementPlacement(false);
+        }
+
+        internal void ArmVillagePlacement()
+        {
+            if (Busy || ConstructionMode || State.Campaign.CurrentMapId != BaseDemoFinale.Home || !State.Demo.Finale.VillageRebuilt) return;
+            Hud.ClosePanel();
+            StartSettlementPlacement(true);
+        }
+
+        private void StartSettlementPlacement(bool village)
+        {
+            campLayout = new SettlementLayoutDraft(State,village);
             constructionOpen = true;
             campViewBefore = WorldCamera.orthographicSize;
             ClearSelection();
-            regionView.UpdateCamera(0, 0);
-            regionView.SetViewSize(regionView.FullViewSize);
-            regionView.Follow(Vector3.zero);
-            SelectCampProject(BaseFacilityLayout.CampProjects(campLayoutDraft).FirstOrDefault()?.Id);
+            regionView.UpdateCamera(0,0);
+            var landmarks = regionView.Root.transform.Find("RegionLandmarks");
+            foreach (var def in campLayout.Projects)
+            {
+                if (landmarks == null) break;
+                foreach (Transform item in landmarks)
+                    if (item.name.StartsWith(def.Id+" · ",StringComparison.Ordinal))
+                    {
+                        hiddenBuildings[def.Id] = item.gameObject;
+                        item.gameObject.SetActive(false);
+                        break;
+                    }
+            }
+            SelectCampProject(village ? "barracks" : campLayout.Projects.FirstOrDefault()?.Id);
             Hud.RefreshSummary();
         }
 
         internal void SelectCampProject(string id)
         {
-            if (!CampPlacementMode) return;
+            if (campLayout == null || !campLayout.Projects.Any(d=>d.Id==id)) return;
             campProject = id;
-            campPlacementMessage = "在地图上选择空地";
-            regionView.SelectCell(null);
-            var current = BaseFacilityLayout.BaseLayout(campLayoutDraft).Objects.FirstOrDefault(obj => obj.Id == id);
-            if (current != null && campChanges.Any(change => change.Id == id))
-                ShowCampPlacementFootprint(current.X, current.Y, current.Object.BoundsWidth, current.Object.BoundsHeight, true);
-            Hud.RefreshConstructionPalette();
+            RefreshLayoutPreview();
         }
 
-        internal void PlaceCampProjectFromPointer(Vector2 point)
+        private void RefreshLayoutPreview()
         {
-            if (CampPlacementMode && !IsUiPoint(point) && regionView.Pick(point, out var cell)) PlaceCampProject(cell);
-        }
-
-        private void PlaceCampProject(GridPosition cell)
-        {
-            var definition = BaseFacilityLayout.Find(campProject);
-            if (definition == null) return;
-            double x = cell.X + .5, y = cell.Z + .5;
-            var current = BaseFacilityLayout.BaseLayout(campLayoutDraft).Objects.FirstOrDefault(obj => obj.Id == campProject);
-            var footprint = current?.Object;
-            double width = footprint?.BoundsWidth ?? definition.Width, height = footprint?.BoundsHeight ?? definition.Height;
-            if (!string.IsNullOrEmpty(current?.Shape))
+            campPlacementMessage = campLayout.LayoutProblem(State);
+            foreach (var def in campLayout.Projects)
             {
-                x = cell.X + width / 2 % 1;
-                y = cell.Z + height / 2 % 1;
+                var obj = campLayout.Placed(def.Id);
+                if (obj == null)
+                {
+                    if (buildingPreviews.TryGetValue(def.Id,out var old)) old.Root.SetActive(false);
+                    continue;
+                }
+                Vector3 anchor = WorldPoint(obj.X,obj.Y);
+                if (!buildingPreviews.TryGetValue(def.Id,out var preview))
+                {
+                    var view = BaseConquest.Presentation.AuthoredMapView.Create(regionView.Root.transform,obj.Object,anchor,mapMaterial,regionView.ObliqueExploration);
+                    var edge = new GameObject("DraftFootprint").AddComponent<LineRenderer>();
+                    edge.transform.SetParent(view.transform,false);
+                    edge.sharedMaterial = regionView.Root.transform.Find("ClickedCellSelection").GetComponent<LineRenderer>().sharedMaterial;
+                    edge.positionCount=4; edge.loop=true; edge.widthMultiplier=.045f;
+                    preview=(view.gameObject,anchor,edge);
+                }
+                else
+                {
+                    preview.Root.SetActive(true);
+                    var delta=anchor-preview.Anchor;
+                    if(delta.sqrMagnitude>0.000001f)
+                    {
+                        preview.Root.transform.position+=delta;
+                        foreach(var facade in preview.Root.GetComponentsInChildren<BaseConquest.Presentation.SpriteFacade>())
+                            facade.TranslateFeet(delta);
+                    }
+                }
+                buildingPreviews[def.Id]=(preview.Root,anchor,preview.Frame);
+                bool invalid=campLayout.Problem(State,def.Id).Length>0;
+                preview.Frame.enabled=invalid||def.Id==campProject;
+                if(!preview.Frame.enabled)continue;
+                Vector3 w=Vector3.right*(float)obj.Object.BoundsWidth*BattleBoardView.CellSize*.5f;
+                Vector3 h=Vector3.forward*(float)obj.Object.BoundsHeight*BattleBoardView.CellSize*.5f;
+                var c=anchor+Vector3.up*.07f;
+                preview.Frame.SetPositions(new[]{c-w-h,c-w+h,c+w+h,c+w-h});
+                preview.Frame.startColor=preview.Frame.endColor=invalid?new Color(1,.23f,.17f):Color.white;
             }
-            if (current != null && current.X == x && current.Y == y) return;
-            bool applied = BaseFacilityLayout.Place(campLayoutDraft, campProject, x, y, out campPlacementMessage);
-            if (applied)
-                campChanges.Add((campProject, new GridPosition((int)(x * 2), (int)(y * 2))));
-            ShowCampPlacementFootprint(x, y, width, height, applied);
             Hud.RefreshConstructionPalette();
         }
 
-        private void ShowCampPlacementFootprint(double x, double y, double width, double height, bool legal)
+        private bool TryBuildPoint(Vector2 point,out Vector2 grid)
         {
-            var center = WorldPoint(x, y) + Vector3.up * .05f;
-            regionView.ShowFacilitySelection(center, (float)width, (float)height, legal ? Color.white : new Color(1, .32f, .25f));
+            grid=default;
+            if (!CampPlacementMode || IsUiPoint(point) || !regionView.Pick(point,out var cell)) return false;
+            var ray=WorldCamera.ScreenPointToRay(point);
+            var plane=new Plane(Vector3.up,WorldPoint(cell.X+.5,cell.Z+.5));
+            if (!plane.Raycast(ray,out var distance)) return false;
+            var hit=ray.GetPoint(distance);
+            grid=new Vector2(hit.x/BattleBoardView.CellSize+regionView.Board.Width*.5f,
+                             hit.z/BattleBoardView.CellSize+regionView.Board.Height*.5f);
+            return true;
         }
+
+        internal void DragPaletteProject(string id,Vector2 point,bool finished)
+        {
+            if (!CampPlacementMode) return;
+            if (!paletteDragging)
+            {
+                SelectCampProject(id);
+                placementBeforeDrag=campLayout.Placed(id)?.Copy();
+            }
+            if (TryBuildPoint(point,out var grid)) MoveCampProject(id,grid);
+            else if (finished)
+            {
+                campLayout.RestorePlacement(id,placementBeforeDrag);
+                RefreshLayoutPreview();
+            }
+            paletteDragging=!finished;
+            if(finished)placementBeforeDrag=null;
+        }
+
+        private void MoveCampProject(string id,Vector2 grid)
+        {
+            int before=campLayout.Revision;
+            campLayout.Move(id,grid.x,grid.y);
+            if(campLayout.Revision!=before)RefreshLayoutPreview();
+        }
+
+        private void PlaceCampProject(GridPosition cell) => MoveCampProject(campProject,new Vector2(cell.X+.5f,cell.Z+.5f));
 
         internal void StoreCampProject()
         {
-            if (!CampPlacementMode || string.IsNullOrEmpty(campProject)) return;
-            if (BaseFacilityLayout.Store(campLayoutDraft, campProject, out campPlacementMessage))
-            {
-                campChanges.Add((campProject, null));
-                regionView.SelectCell(null);
-            }
-            Hud.RefreshConstructionPalette();
+            if (campLayout==null || !campLayout.CanStore(campProject)) return;
+            campLayout.Store(campProject);
+            RefreshLayoutPreview();
         }
 
         internal bool ConfirmCampLayout()
         {
-            if (!CampPlacementMode || !CampLayoutChanged || Hud.PanelOpen) return false;
-            if (!Change(state =>
-            {
-                foreach (var change in campChanges)
-                {
-                    string problem;
-                    bool applied = change.Position is GridPosition halfCell
-                        ? BaseFacilityLayout.Place(state, change.Id, halfCell.X * .5, halfCell.Z * .5, out problem)
-                        : BaseFacilityLayout.Store(state, change.Id, out problem);
-                    if (!applied) throw new InvalidOperationException(problem);
-                }
-                state.Demo.Flow.CampConstructionOrdered = false;
-            }, "营地布局已保存"))
-            {
-                campPlacementMessage = Message;
-                Hud.RefreshConstructionPalette();
-                return false;
-            }
+            if (!CampLayoutChanged || Hud.PanelOpen || campPlacementMessage.Length>0) return false;
+            bool village=campLayout.Village;
+            if (!Change(campLayout.Commit,"已保存布局")) {campPlacementMessage=Message;Hud.RefreshConstructionPalette();return false;}
             StopConstruction();
             RefreshDemoRegion();
+            if(village)Hud.FinishVillageConstructionVisit();
             return true;
         }
 
         internal void RequestExitCampPlacement()
         {
+            bool village=campLayout?.Village==true;
             StopConstruction();
             Hud.RefreshSummary();
+            if(village)Hud.FinishVillageConstructionVisit();
+        }
+
+        private void ReadSettlementPointer()
+        {
+            if (paletteDragging) return;
+            var screen = Touchscreen.current;
+            if (screen != null)
+            {
+                var pair = screen.touches.Where(t=>t.press.isPressed).Take(2).ToArray();
+                if (pair.Length==2)
+                {
+                    var a=pair[0].position.ReadValue();var b=pair[1].position.ReadValue();
+                    var center=(a+b)*.5f;var span=Vector2.Distance(a,b);
+                    if (!IsUiPoint(a) && !IsUiPoint(b) && explorationPinchSpan>0)
+                    {
+                        ZoomExplorationFactor(center,explorationPinchSpan/Mathf.Max(1,span));
+                        regionView.Pan(center-campPinchCenter);
+                    }
+                    explorationPinchSpan=span;campPinchCenter=center;campPressed=false;
+                    return;
+                }
+                explorationPinchSpan=0;
+                foreach(var t in screen.touches)
+                    if (t.press.isPressed || t.press.wasReleasedThisFrame)
+                    {
+                        if (t.phase.ReadValue()==UnityEngine.InputSystem.TouchPhase.Canceled) {campPressed=false;return;}
+                        HandleSettlementPointer(t.position.ReadValue(),t.press.wasPressedThisFrame,t.press.wasReleasedThisFrame);
+                        return;
+                    }
+            }
+            var mouse=Mouse.current;
+            if(mouse==null)return;
+            var point=mouse.position.ReadValue();
+            float scroll=mouse.scroll.ReadValue().y;
+            if(Mathf.Abs(scroll)>.01f)ZoomExploration(point,scroll);
+            HandleSettlementPointer(point,mouse.leftButton.wasPressedThisFrame,mouse.leftButton.wasReleasedThisFrame);
+        }
+
+        private void HandleSettlementPointer(Vector2 point,bool down,bool up)
+        {
+            if(down)
+            {
+                campPressed=TryBuildPoint(point,out var start);
+                if(!campPressed)return;
+                campStart=campLast=point;campDragged=false;
+                var hit=campLayout.Projects.Select(d=>campLayout.Placed(d.Id)).Where(o=>o!=null && o.Object.Contains(start.x,start.y))
+                    .OrderByDescending(o=>o.Id==campProject).FirstOrDefault();
+                draggedFacility=hit?.Id;
+                if(hit!=null)
+                {
+                    campGrabOffset=new Vector2((float)hit.X,(float)hit.Y)-start;
+                    SelectCampProject(hit.Id);
+                }
+            }
+            if(!campPressed)return;
+            campDragged |= Vector2.Distance(point,campStart)>Mathf.Max(6,Screen.height*.009f);
+            if(campDragged && point!=campLast)
+            {
+                if(draggedFacility==null)regionView.Pan(point-campLast);
+                else if(TryBuildPoint(point,out var grid))MoveCampProject(draggedFacility,grid+campGrabOffset);
+            }
+            campLast=point;
+            if(!up)return;
+            if(!campDragged && draggedFacility==null && TryBuildPoint(point,out var tap)) MoveCampProject(campProject,tap);
+            campPressed=false;
         }
 
         public void ArmConstruction()
@@ -191,15 +317,7 @@ namespace BaseConquest.Base
             if (CampPlacementMode)
             {
                 if (Mouse.current?.rightButton.wasPressedThisFrame == true) { RequestExitCampPlacement(); return; }
-                ReadPointer();
-                if (Mouse.current != null && mouseTap != null && mouseTap.Travel > Mathf.Max(10, Screen.height / 720f * 16))
-                    regionView.Pan(Mouse.current.delta.ReadValue());
-                return;
-            }
-            if(RebuildPlacementMode)
-            {
-                if(Mouse.current?.rightButton.wasPressedThisFrame==true)StopConstruction();
-                else ReadPointer();
+                ReadSettlementPointer();
                 return;
             }
             // Construction consumes primary pointer only; wheel and two-finger zoom remain available.
@@ -244,7 +362,6 @@ namespace BaseConquest.Base
         {
             if(!ConstructionMode)return;
             if (CampPlacementMode) { PlaceCampProject(cell); return; }
-            if(RebuildPlacementMode){SelectRebuildCell(cell);return;}
             constructionBrush.BeginStroke();PaintConstructionCells(constructionBrush.Sample(cell));constructionBrush.EndStroke();Hud.RefreshConstructionPalette();
         }
     }

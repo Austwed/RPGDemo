@@ -44,7 +44,7 @@ namespace BaseConquest.Base
             if (r.LeaderFood < 0 || r.LeaderFood > 100 || new[] { r.SoldierFood, r.CavalryFood, r.SwordMaterial, r.BowMaterial, r.ArmorMaterial }.Any(x => x < 1 || x > 100) || new[] { r.FarmPerWorker, r.WorkshopPerWorker }.Any(x => !Finite(x) || x <= 0 || x > 100) || new[] { r.HungerProductionPenalty, r.HungerAttackPenalty }.Any(x => !Finite(x) || x < 0 || x >= 1)) throw new ArgumentException("经济规则越界");
             if (s.Leaders.Count < 1 || s.Leaders.Count > 100 || s.Leaders.Any(x => x == null || string.IsNullOrWhiteSpace(x.Id) || string.IsNullOrWhiteSpace(x.Name) || !Facilities.Contains(x.FacilityId) || x.UnavailableDay < 0 || x.UnavailableDay > s.Day || !Finite(x.ProductionBonus) || x.ProductionBonus < 0 || x.ProductionBonus > 1) || s.Leaders.Select(x => x.Id).Distinct().Count() != s.Leaders.Count || !s.Leaders.Any(x => x.Id == s.PlayerLeaderId)) throw new ArgumentException("人物身份／任职非法");
             if(s.Leaders.Any(l=>l.HasMapPosition&&(!BaseSceneInstances.LocationValid(s,BaseAdventure.Region(l))||!Finite(l.MapX)||!Finite(l.MapY)||!BaseSpatial.Geometry(s,l.MapX,l.MapY,BaseAdventure.MapKey(s,l))))) throw new ArgumentException("伙伴存档坐标不可通行");
-            if (s.Leaders.Where(x => x.FacilityId != "").GroupBy(x => x.FacilityId).Any(g => g.Count() > 1)) throw new ArgumentException("同一设施只能有一名负责人");
+            if (s.Leaders.Where(x => x.FacilityId != "").GroupBy(x => (x.VillageResident,x.FacilityId)).Any(g => g.Count() > 1)) throw new ArgumentException("同一设施只能有一名负责人");
             if (s.Workers.Any(x => x == null || !Enum.IsDefined(typeof(BaseTroopKind), x.Kind) || !Facilities.Contains(x.FacilityId) || x.Count < 0 || x.Count > 10000 || x.UnavailableDay < 0 || x.UnavailableDay > s.Day) || s.Workers.Sum(x => (long)x.Count) > 10000) throw new ArgumentException("兵力数量或生产资格非法");
             s.EnsureSoldierNumbers(validate: true);
             if (s.Inventory.Equipment.Count != ProductsFor(s).Length*2 || s.Inventory.Equipment.Any(x => x == null || !ProductsFor(s).Contains(x.Product) || x.Level < 1 || x.Level > 2 || x.Count < 0 || x.Count > 100000000) || s.Inventory.Equipment.Select(x => x.Product + x.Level).Distinct().Count() != ProductsFor(s).Length*2) throw new ArgumentException("装备库存非法");
@@ -65,40 +65,44 @@ namespace BaseConquest.Base
             BaseDemo.Validate(s);BaseAchievements.Validate(s);
             BaseSceneCombat.Validate(s);
         }
-        public static int FoodRequired(BaseState s) => checked(s.Workers.Sum(x => x.Count * (x.FacilityId == "caravan" ? 2 : 1) * (x.Kind == BaseTroopKind.Cavalry ? s.Rules.CavalryFood : x.Kind == BaseTroopKind.Ranged && BaseRpg.Active(s) ? s.Demo.Rpg.ArcherFood : s.Rules.SoldierFood)) + s.Leaders.Count(x => x.Health > 0) * (BaseRpg.Active(s)?s.Demo.Rpg.LeaderFood:s.Rules.LeaderFood));
+        public static int Ration(BaseState s, BaseWorkerBucket w) => w.Kind == BaseTroopKind.Cavalry ? s.Rules.CavalryFood : w.Kind == BaseTroopKind.Ranged && BaseRpg.Active(s) ? s.Demo.Rpg.ArcherFood : s.Rules.SoldierFood;
+        public static int FoodRequired(BaseState s) => checked(s.Workers.Sum(x => x.Count * (x.FacilityId == "caravan" || x.Relocating ? 2 : 1) * Ration(s,x)) + s.Leaders.Count(x => x.Health > 0) * (BaseRpg.Active(s)?s.Demo.Rpg.LeaderFood:s.Rules.LeaderFood));
         public static double Hunger(BaseState s) => s.TodayFoodRequired == 0 ? 0 : (double)s.TodayFoodMissing / s.TodayFoodRequired;
         public static double ProductionFactor(BaseState s) => 1 - s.Rules.HungerProductionPenalty * Hunger(s);
         public static double AttackFactor(BaseState s) => 1 - s.Rules.HungerAttackPenalty * Hunger(s);
-        public static int WorkersAt(BaseState s, string facility, BaseTroopKind? kind = null) => s.Workers.Where(x => !x.Away && x.FacilityId == facility && (facility == "" || BaseDevelopment.Effective(s, x)) && (!kind.HasValue || x.Kind == kind)).Sum(x => x.Count);
-        public static int EligibleWorkers(BaseState s, string facility) => s.Workers.Where(x => BaseDevelopment.Effective(s, x) && x.FacilityId == facility).Sum(x => x.Count);
-        public static int CivilianWorkersAt(BaseState s, string facility)
+        public static int WorkersAt(BaseState s, string facility, BaseTroopKind? kind = null)
+            => WorkersAt(s, facility, BaseSettlements.AtVillage(s),kind);
+        internal static int WorkersAt(BaseState s, string facility, bool village, BaseTroopKind? kind = null)
+            => s.Workers.Where(w => w.VillageResident == village && !w.Relocating && !w.Away && w.FacilityId == facility
+                && (facility == "" || BaseDevelopment.Effective(s,w)) && (!kind.HasValue || w.Kind == kind)).Sum(w => w.Count);
+        public static int EligibleWorkers(BaseState s,string facility) => WorkersAt(s,facility);
+        public static int CivilianWorkersAt(BaseState s,string facility) => CivilianWorkersAt(s,facility,BaseSettlements.AtVillage(s));
+        private static int CivilianWorkersAt(BaseState s,string facility,bool village)
         {
-            const int availableCivilians = 2;
             if (!BaseDemo.Active(s) || (facility != "farm" && facility != "workshop") ||
-                !BaseDemo.FacilityAvailable(s, "farm")) return 0;
-
-            int farming = Math.Min(availableCivilians, Vacancies("farm"));
+                village && !BaseDemoFinale.HomeVolunteers(s) || !BaseSettlements.Available(s,"farm",village)) return 0;
+            int farming = Math.Min(2, Vacancies("farm"));
             if (facility == "farm") return farming;
-            if (farming == availableCivilians || !BaseDemo.FacilityAvailable(s, "workshop")) return 0;
-            return Math.Min(availableCivilians - farming, Vacancies("workshop"));
-
-            int Vacancies(string id)
-            {
-                var post = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == id);
-                return post == null ? 0 : Math.Max(0, post.Capacity - WorkersAt(s, id));
-            }
+            return BaseSettlements.Available(s,"workshop",village) ? Math.Min(2 - farming,Vacancies("workshop")) : 0;
+            int Vacancies(string id) => Math.Max(0,(s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == id)?.Capacity ?? 0) - WorkersAt(s,id,village));
         }
-        public static int ProductionWorkersAt(BaseState s, string facility)
-            => EligibleWorkers(s, facility) + CivilianWorkersAt(s, facility);
-        public static BaseLeader Manager(BaseState s, string facility) => s.Leaders.FirstOrDefault(x => BaseDevelopment.Effective(s, x) && x.FacilityId == facility);
-        private static double Bonus(BaseState s, string facility) { var chief = Manager(s, facility); return chief == null ? 1 : 1 + BaseDevelopment.Bonus(chief, facility); }
-        public static bool ProductionPaused(BaseState s,string facility) => s.Muster.Facilities.Any(f=>f.FacilityId==facility&&f.DeveloperProductionPaused);
+        public static int ProductionWorkersAt(BaseState s,string facility) => EligibleWorkers(s,facility) + CivilianWorkersAt(s,facility);
+        public static BaseLeader Manager(BaseState s,string facility) => s.Leaders.FirstOrDefault(l =>
+            l.VillageResident == BaseSettlements.AtVillage(s) && BaseDevelopment.Effective(s,l) && l.FacilityId == facility);
+        public static bool ProductionPaused(BaseState s, string facility) => s.Muster.Facilities.Any(f=>f.FacilityId==facility&&f.DeveloperProductionPaused);
         private static double Work(BaseState s, string facility, double soldierFactor)
         {
-            if (ProductionPaused(s, facility) || !BaseDemo.FacilityAvailable(s, facility)) return 0;
-            double soldierWork = s.Workers.Where(w => BaseDevelopment.Effective(s, w) && w.FacilityId == facility)
-                .Sum(w => w.Count * BaseDevelopment.Efficiency(w, facility));
-            return soldierWork * soldierFactor + CivilianWorkersAt(s, facility) * .5;
+            if (ProductionPaused(s,facility)) return 0;
+            return LocalWork(false) + (BaseDemo.Active(s) ? LocalWork(true) : 0);
+            double LocalWork(bool village)
+            {
+                if (!BaseSettlements.Available(s,facility,village)) return 0;
+                var chief = s.Leaders.FirstOrDefault(l => l.VillageResident == village && BaseDevelopment.Effective(s,l) && l.FacilityId == facility);
+                double bonus = chief == null ? 1 : 1 + BaseDevelopment.Bonus(chief,facility);
+                double work = s.Workers.Where(w => w.VillageResident == village && BaseDevelopment.Effective(s,w) && w.FacilityId == facility)
+                    .Sum(w => w.Count * BaseDevelopment.Efficiency(w,facility)) * soldierFactor;
+                return (work + CivilianWorkersAt(s,facility,village)*.5) * bonus;
+            }
         }
         public static bool PayMorningFood(BaseState s)
         {
@@ -117,8 +121,8 @@ namespace BaseConquest.Base
         internal static BaseDayPreview ProjectDay(BaseState s)
         {
             double factor = ProductionFactor(s);
-            double food = s.FarmFraction + Work(s, "farm", factor) * s.Rules.FarmPerWorker * Bonus(s, "farm");
-            double work = BaseConstruction.Progress(s,s.WorkshopProduct).Fraction + Work(s, "workshop", factor) * s.Rules.WorkshopPerWorker * Bonus(s, "workshop") / BaseConstruction.ProductLevel(s);
+            double food = s.FarmFraction + Work(s, "farm", factor) * s.Rules.FarmPerWorker;
+            double work = BaseConstruction.Progress(s,s.WorkshopProduct).Fraction + Work(s, "workshop", factor) * s.Rules.WorkshopPerWorker / BaseConstruction.ProductLevel(s);
             int foodWhole = (int)Math.Floor(food + 1e-9), workWhole = (int)Math.Floor(work + 1e-9);
             int made = Math.Min(workWhole, s.Inventory.Materials / BaseConstruction.MaterialCost(s,s.WorkshopProduct)), need = FoodRequired(s);
             int nextFood = checked(s.Inventory.Food + foodWhole);
@@ -130,7 +134,6 @@ namespace BaseConquest.Base
         // expectedDay来自打开休息预览时的日期；同一确认重复到达不能结算第二次。
         public static bool Rest(BaseState s, int expectedDay)
         {
-            if(BaseDemoFinale.Rebuilding(s))throw new InvalidOperationException("请先完成返乡重建");
             if(BaseSceneCombat.Active(s)||BaseDemoPrologue.Village(s))throw new InvalidOperationException("当前撤离／交战中不能推进经营日");
             if(s.Aftermath?.GameOver==true)return false;
             if (s.Day != expectedDay || s.LastCompletedDay >= expectedDay) return false;
@@ -139,12 +142,11 @@ namespace BaseConquest.Base
             BaseCampaign.Normalize(s);
             if (BaseCampaign.Due(s).Any()) throw new InvalidOperationException("需先处理本日入侵，再结算生产");
             if(BaseDemoFlow.Recruited(s)&&s.Day>=2)s.Demo.Flow.RestLessonDone=true;
-            bool camp=BaseInteraction.At(s,"base","home");CompleteProductionDay(s,true);if(camp)BaseAchievements.Unlock(s,BaseAchievements.Dawn);return true;
+            bool camp=BaseSettlements.AtHomeDoor(s);CompleteProductionDay(s,true);if(camp)BaseAchievements.Unlock(s,BaseAchievements.Dawn);return true;
         }
         // Economic projection and real rest share production, recovery and morning-food order.
         internal static void CompleteProductionDay(BaseState s,bool advanceThreats)
         {
-            if(advanceThreats&&BaseDemoFinale.Rebuilding(s))throw new InvalidOperationException("返乡重建期间不能推进日程");
             if(s.Day>=1000000)throw new InvalidOperationException("已达日期上限");
             BaseCaravan.RecallHiddenRoute(s);
             BaseDevelopment.Allocate(s);
@@ -169,6 +171,7 @@ namespace BaseConquest.Base
             if(advanceThreats)BaseDemoRaids.AdvanceDay(s);
             BaseDevelopment.Allocate(s);
             PayMorningFood(s);
+            if (BaseDemo.Active(s)) BaseSettlements.Arrive(s);
             // 商队按新一天结算：本地跑商进金币，黑鸦寨线推进"出发／抵达／回营"；口粮不足则解散。
             BaseCaravan.AdvanceDay(s);
             report.FoodRequired = s.TodayFoodRequired; report.FoodConsumed = s.TodayFoodConsumed; report.FoodMissing = s.TodayFoodMissing; report.FoodAfter = s.Inventory.Food;
@@ -179,17 +182,27 @@ namespace BaseConquest.Base
         {
             if(!CanAssignLeader(s,leaderId,facility))return false;
             var leader=s.Leaders.Single(x=>x.Id==leaderId);
+            bool village = BaseSettlements.AtVillage(s);
+            bool following = BaseAdventure.Contains(s,leaderId);
+            if (facility != "" && !following && !leader.WaitingAtRecruitment && leader.VillageResident != village)
+            {
+                leader.Relocating = true;
+                leader.ArrivalFacility = facility;
+                leader.DesiredFacility = leader.FacilityId = "";
+                return true;
+            }
             if(facility!=""&&BaseAdventure.Contains(s,leaderId)&&!BaseAdventure.SetMember(s,leaderId,false))return false;
             if (facility != "" && leader.WaitingAtRecruitment) BaseAdventure.StationAtCamp(s,leader);
-            leader.FacilityId = leader.DesiredFacility = facility; leader.PostLocked = true; return true;
+            leader.FacilityId = leader.DesiredFacility = facility; leader.PostLocked = true; leader.VillageResident = village;
+            return true;
         }
         public static bool CanAssignLeader(BaseState s,string leaderId,string facility)
         {
-            if(!Facilities.Contains(facility)||!BaseDemo.FacilityAvailable(s,facility))return false;
+            if(!Facilities.Contains(facility)||!BaseSettlements.Available(s,facility,BaseSettlements.AtVillage(s)))return false;
             var l=s.Leaders.FirstOrDefault(x=>x.Id==leaderId);
-            if(l==null||l.Away)return false;
+            if(l==null||l.Away||l.Relocating)return false;
             if(facility=="")return true;
-            if(s.Leaders.Any(x=>x.Id!=leaderId&&x.FacilityId==facility))return false;
+            if(s.Leaders.Any(x=>x.Id!=leaderId && (x.VillageResident == BaseSettlements.AtVillage(s) && x.FacilityId == facility || x.Relocating && x.VillageResident != BaseSettlements.AtVillage(s) && x.ArrivalFacility == facility)))return false;
             if (l.WaitingAtRecruitment) return s.Campaign.Location == "base" && BaseAdventure.WaitingHere(s,l) && BaseDevelopment.CanFight(l);
             if(BaseAdventure.Contains(s,leaderId))return BaseAdventure.ChangeProblem(s,leaderId,false)==""&&BaseAdventure.Alive(l)&&l.Health>0&&!BaseTraining.Busy(l.Training);
             return BaseDevelopment.CanManage(s,l);
@@ -213,11 +226,13 @@ namespace BaseConquest.Base
 
         private static bool MoveWorkers(BaseState s, BaseTroopKind kind, string from, string to, int count, int? bucket, int ordinal)
         {
-            if (count <= 0 || from == to || !Facilities.Contains(from) || !Facilities.Contains(to)||!BaseDemo.FacilityAvailable(s,to)) return false;
+            if (count <= 0 || from == to || !Facilities.Contains(from) || !Facilities.Contains(to)||!BaseSettlements.Available(s,to,BaseSettlements.AtVillage(s))) return false;
             if (bucket.HasValue && (bucket.Value < 0 || bucket.Value >= s.Workers.Count)) return false;
             var sources = s.Workers.Where((x, index) => (!bucket.HasValue || bucket.Value == index) &&
-                !x.Away && x.FacilityId == from && x.Kind == kind && (to == "" || BaseDevelopment.Effective(s, x))).ToArray();
+                !x.Away && !x.Relocating && x.VillageResident == BaseSettlements.AtVillage(s) && x.FacilityId == from && x.Kind == kind && (to == "" || BaseDevelopment.Effective(s, x))).ToArray();
             if (sources.Sum(x => x.Count) < count || to != "" && WorkersAt(s, to) + count > s.Muster.Facilities.Single(f => f.FacilityId == to).Capacity) return false;
+            if (BaseDemo.Active(s) && BaseDevelopment.EffectivePolicy(s) != "manual")
+                BaseSettlements.RecordPolicy(s,"manual");
             int left = count;
             // 资格随数量批次转移，换岗不能洗掉当天停工状态。
             foreach (var source in sources)

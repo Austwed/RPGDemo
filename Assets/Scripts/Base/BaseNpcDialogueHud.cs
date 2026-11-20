@@ -81,6 +81,9 @@ namespace BaseConquest.Base
             interactionObject = "";
             var portrait = Ui<RectTransform>(view, "PortraitFrame");
             var avatar = Ui<RectTransform>(portrait, "SpeakerPortrait").gameObject.GetOrAdd<BattleAvatarGraphic>();
+            var unknownPortrait = Label(portrait,"？",Vector2.zero,new Vector2(100,100),52,TextAnchor.MiddleCenter);
+            unknownPortrait.raycastTarget=false;
+            unknownPortrait.gameObject.SetActive(false);
             avatar.raycastTarget = false;
             var name = Ui<Text>(view, "SpeakerName");
             var speech = Ui<Text>(view, "DialogueText");
@@ -233,8 +236,11 @@ namespace BaseConquest.Base
             void PresentLine(int index, int end, bool immediate = false)
             {
                 var line = lines[index];
+                bool unknown = line.Appearance=="unknown-speaker";
+                unknownPortrait.gameObject.SetActive(unknown);
+                avatar.enabled = !unknown;
                 avatar.PlayerHero = line.Player;
-                avatar.AppearanceId = line.Player ? BaseDemoIntro.PlayerArt(owner.State) : line.Appearance;
+                avatar.AppearanceId = line.Player ? BaseDemoIntro.PlayerArt(owner.State) : unknown ? "" : line.Appearance;
                 portrait.gameObject.SetActive(line.Player || !string.IsNullOrEmpty(line.Appearance));
                 name.text = line.Name;
                 var fullText = Resolve(line.Text);

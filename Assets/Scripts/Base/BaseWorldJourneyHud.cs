@@ -221,15 +221,13 @@ namespace BaseConquest.Base
                 marching?$"行军中 · 剩余 {days} 天":atOrigin?"选择地图上的目的地":string.Join(" → ",route.Select(owner.WorldNodeTitle))+$"   ·   {days} 天";
             var raid=state.Campaign.Events.FirstOrDefault(e=>e.Id==BaseDemoDefense.SecondEventId&&e.Status=="pending");
             conditions.text=raid!=null&&BaseRaidIntel.Known(state,raid)?$"第二波来袭还剩 {Math.Max(0,raid.AvailableDay-state.Day)} 天":"";
-            bool rebuilding=BaseDemoFinale.Rebuilding(state);
-            if(rebuilding)conditions.text="先完成白桦村重建";
             if(marching && !owner.WorldMarchRunning && (owner.Message.Contains("失败") || owner.Message.Contains("未保存")))conditions.text=owner.Message;
             var entries=world.Entries.Where(entry=>entry.NodeId==Origin&&world.Discovered.Contains(entry.Id)).ToArray();
             if(!entries.Any(entry=>entry.Id==entryId))entryId=entries.FirstOrDefault()?.Id;
             enterAction.gameObject.SetActive(atOrigin && departureEntry==null && !marching && entryId!=null);
             if(entryId!=null)enterLabel.text=entries.Length>1?"选择入口":"进入";
             marchAction.GetComponentInChildren<Text>().text=marching?(owner.WorldMarchRunning?"行军中":"继续行军"):"整备出征";
-            marchAction.interactable=!owner.WorldMarchRunning&&!owner.Busy&&!rebuilding&&(marching||!atOrigin&&reachable);
+            marchAction.interactable=!owner.WorldMarchRunning&&!owner.Busy&&(marching||!atOrigin&&reachable);
             returnAction.interactable=!owner.Busy&&!owner.WorldMarchRunning&&(!marching||world.RoadDay==0&&entries.Length>0);
             foreach(var node in world.Nodes)
             {

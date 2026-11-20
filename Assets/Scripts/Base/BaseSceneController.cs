@@ -280,10 +280,8 @@ namespace BaseConquest.Base
             }
             if (ambientPositions.Count > 0) { InvalidateObjects(); objects = MapObjects; }
             authoredMotionObjects=objects.Where(BaseDemoNpcs.IsStoryShell).ToArray();
-            bool hasSwordProp=objects.Any(o=>o.Id=="demo_sword_prop");
             foreach(var obj in objects.Where(o=>!BaseDemoNpcs.IsStoryShell(o)&&!o.Id.StartsWith("partner")&&(!o.Blocks||!string.IsNullOrEmpty(o.SourceObjectId)||!string.IsNullOrEmpty(o.AssetId))))
             {
-                if(hasSwordProp&&obj.Id=="demo_broken_sword")continue;
                 if(!string.IsNullOrEmpty(obj.SourceObjectId)||!string.IsNullOrEmpty(obj.AssetId))
                 {
                     var feet=WorldPoint(obj.X,obj.Y);if(!string.IsNullOrEmpty(obj.Shape))feet.y=WorldPoint(obj.Parts[0].X,obj.Parts[0].Y).y;
@@ -355,6 +353,7 @@ namespace BaseConquest.Base
         }
         private void RebuildRegion()
         {
+            ResetVolunteerRoutes();
             ClearBenchSeat();
             InvalidateObjects();
             RemoveDeveloperDiagnostics();
@@ -379,7 +378,7 @@ namespace BaseConquest.Base
             if (RuntimeMissing()) { BeginSession(); return; }
             RefreshOpeningAudio();
             if (DeploymentWorldActive) { UpdateDeploymentWorld(); return; }
-            if(combatController==null) regionView?.UpdateCamera(RebuildPlacementMode&&!HomeRebuildOverview ? Hud.HomeRebuildMapInset : 0,0);
+            if(combatController==null) regionView?.UpdateCamera(0,0);
             if(State!=null&&!Busy&&runtimeRoot!=null&&runtimeRoot.gameObject.activeInHierarchy)Hud.RefreshAchievementNotice(Time.unscaledDeltaTime);
             if(State!=null&&!Busy)
             {
@@ -396,6 +395,7 @@ namespace BaseConquest.Base
             if (State == null || combatController != null) {if(workerTravelMap!=null)ClearWorkerTravel();return;}
             if (Busy) return;
             TickWorkerTravel(Math.Min(Time.deltaTime,.05));
+            TickVillageReturn();
             TickDemoIntro(Math.Min(Time.deltaTime,.05));if(!Hud.PanelOpen)TickRescueJourney(Math.Min(Time.deltaTime,.05));
             if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==0&&!BaseBattleGateway.MainMenu&&!Hud.PanelOpen){TickHeroChoice(Time.deltaTime);return;}
             AdvanceExplorationCompanions(Time.deltaTime);PlaceCompanions();
@@ -424,13 +424,11 @@ namespace BaseConquest.Base
                 return;
             }
             if(keyboard!=null&&HandlePanelShortcuts(keyboard.bKey.wasPressedThisFrame,keyboard.nKey.wasPressedThisFrame,keyboard.mKey.wasPressedThisFrame))return;
-            if(HomeRebuildOverview&&escape&&!Hud.PanelOpen){ReturnToHomeRebuild();return;}
             if(ConstructionMode&&escape){StopConstruction();if(Hud.PanelOpen)Hud.ClosePanel();Message="已退出营造";Hud.RefreshSummary();return;}
             if (escape) { if (Hud.PanelOpen) Hud.ClosePanel(); else if (SelectedCell != null) ClearSelection(); else Hud.OpenMenu(); return; }
             if (Hud.PanelOpen) explorationPinchSpan = 0;
             if (Hud.PanelOpen || PlayerAway || State.Campaign.HasActiveBattle || State.Aftermath.GameOver || BaseBattleGateway.MainMenu) { touches.Clear(); mouseTap = null; return; }
             if (Hud.ResourcePopoverOpen) ReadResourceDismissPointer();
-            if(HomeRebuildOverview)return;
             // A UI click may close its modal before this Update sees the same input sample.
             if (Hud.PanelClosedFrame == Time.frameCount) { touches.Clear(); mouseTap = null; explorationPinchSpan = 0; }
             else if(ConstructionMode)UpdateConstructionPointer();else ReadPointer();
@@ -440,7 +438,7 @@ namespace BaseConquest.Base
             {
                 input += new Vector2((keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0),
                     (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1 : 0));
-                if (keyboard.eKey.wasPressedThisFrame&&!RebuildPlacementMode) { Interact(); return; }
+                if (keyboard.eKey.wasPressedThisFrame) { Interact(); return; }
             }
             MoveExploration(input,Math.Min(Time.deltaTime,.05));
         }
@@ -462,7 +460,7 @@ namespace BaseConquest.Base
             double previousX = State.PlayerX, previousY = State.PlayerY;
             State.PlayerX = x; State.PlayerY = y; PlacePlayer(cardinal?BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(input.x,input.y,BaseConquest.Presentation.HeroFacing.South):null);
             CheckPrologueTrigger();
-            if ((movedX != 0 || movedY != 0) && !Busy && !Hud.PanelOpen && !ConstructionMode && !RebuildPlacementMode &&
+            if ((movedX != 0 || movedY != 0) && !Busy && !Hud.PanelOpen && !ConstructionMode &&
                 BaseDemo.Active(State) && !BaseDemoPrologue.Village(State))
             {
                 if (lastTouchedRoad != null && !lastTouchedRoad.Contains(x, y)) lastTouchedRoad = null;
@@ -743,11 +741,12 @@ namespace BaseConquest.Base
             if (nearby?.Kind == BenchSeatKind) UseBenchSeat(nearby);
             else if (nearby != null) Hud.OpenObject(nearby.Id);
         }
-        public bool Change(Action<BaseState> edit, string message)
+        public bool Change(Action<BaseState> edit, string message) => CommitChange(edit,message,true);
+        private bool CommitChange(Action<BaseState> edit, string message, bool fromInteraction)
         {
             if (State == null || Busy) return false;
             if(!string.IsNullOrEmpty(State.SceneBattleId)){ReportMessage("战斗中不能使用设施或修改经营");return false;}
-            if(Hud?.InteractionProblem is string problem&&problem!=""){ReportMessage(problem);return false;}
+            if(fromInteraction && Hud?.InteractionProblem is string problem && problem!=""){ReportMessage(problem);return false;}
             if (State.Aftermath.GameOver || BaseBattleGateway.MainMenu) { Message="游戏已结束，只能读档或回主菜单"; return false; }
             if (State.Campaign.HasActiveBattle&&(preparationInventoryClosed==null||!BasePartyInventory.Peaceful(State))) { Message = "先恢复并结束当前战斗"; Hud.RefreshSummary(); return false; }
             try
@@ -756,7 +755,7 @@ namespace BaseConquest.Base
                 bool changedMap = State.Campaign.Location != next.Campaign.Location ||
                     State.Campaign.CurrentMapId != next.Campaign.CurrentMapId || BaseDemoPrologue.Village(State) != BaseDemoPrologue.Village(next);
                 if(!deploymentChangedMap&&!changedMap)BaseBattlefield.KeepLiveBoard(next,MapSession.Board);
-                State = next; Message = message;
+                State = next; if(fromInteraction)Message = message;
                 // Landing coordinates and followers belong to the destination board.
                 if (changedMap)
                 {
@@ -770,12 +769,13 @@ namespace BaseConquest.Base
                 if (!DeploymentWorldActive) { PlaceCompanions(); PlacePlayer(); }
                 RefreshFarmVisuals(); if (PlayerAway) ClearSelection(); Hud.RefreshSummary(); return true;
             }
+            catch (BagFullException) { Hud.ShowBagFull(); return false; }
             catch (Exception e) { Message = "操作未保存，原状态保留：" + e.Message; Hud.RefreshSummary(); return false; }
         }
         public void Rest(int expectedDay)
         {
             if (State == null || State.Day != expectedDay || Busy) return;
-            if(!BaseInteraction.At(State,"base","home")){ReportMessage("请在家边缘一格以内、与地基同层休息");return;}
+            if(!BaseSettlements.AtHomeDoor(State)){ReportMessage("请在家边缘一格以内、与地基同层休息");return;}
             StartCoroutine(RestCampaign(expectedDay));
         }
         public void Save()

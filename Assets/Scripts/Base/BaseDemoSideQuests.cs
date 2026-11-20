@@ -48,6 +48,7 @@ namespace BaseConquest.Base
         public static bool AcceptSmith(BaseState s)
         {
             if (!SmithOffer(s) || !BasePersonalEquipment.AtSmith(s) || BaseBattleLoot.Pending(s)) return false;
+            BaseBattleLoot.RequireRoom(s, new[] { new BaseLootReward { ItemId = BaseEquipmentCrafting.Stone, Count = TrialStones } });
             s.Demo.Flow.SmithLesson = BaseSideQuestStage.Accepted;
             Reward(s, SmithStonesId, SmithTitle, BaseEquipmentCrafting.Stone, TrialStones);
             return true;
@@ -61,6 +62,7 @@ namespace BaseConquest.Base
         public static bool FinishSmith(BaseState s)
         {
             if (Smith(s) != BaseSideQuestStage.Ready || !BasePersonalEquipment.AtSmith(s) || BaseBattleLoot.Pending(s)) return false;
+            BaseBattleLoot.RequireRoom(s, new[] { new BaseLootReward { ItemId = BaseEquipmentCrafting.Stone, Count = RewardStones } });
             s.Demo.Flow.SmithLesson = BaseSideQuestStage.Complete;
             Reward(s, SmithId, SmithTitle, BaseEquipmentCrafting.Stone, RewardStones);
             return true;
@@ -76,6 +78,7 @@ namespace BaseConquest.Base
         public static bool FinishZhou(BaseState s)
         {
             if (Zhou(s) != BaseSideQuestStage.Ready || !BaseInteraction.At(s, "base", "demo_rescuer") || BaseBattleLoot.Pending(s)) return false;
+            BaseBattleLoot.RequireRoom(s, new[] { new BaseLootReward { ItemId = ZhouBook(s, 3), Count = 1 } });
             s.Demo.Flow.ZhouTraining = BaseSideQuestStage.Complete;
             Reward(s, ZhouId, ZhouTitle, ZhouBook(s, 3), 1);
             return true;

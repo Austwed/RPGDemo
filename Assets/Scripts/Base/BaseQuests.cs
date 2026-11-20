@@ -72,15 +72,14 @@ namespace BaseConquest.Base
             if(!Ready(s))return q.AcceptedDay==0 ? "先与镇务官接取委托" : "亲自取得一场迎战／进攻胜利，或攻占荒野据点";
             if(q.Revision>=int.MaxValue-1)return "委托记录已达上限";
             if(!s.Backpack.StoryFlags.Contains(BaseBackpack.Story)&&s.Backpack.StoryFlags.Count>=1000)return "剧情条件记录已满";
-            if(!BasePartyInventory.PartyFreeCell(s,out _,out _))return "随行成员背包已满，请先腾出一格";
+            if(BaseBackpack.Room(s,BaseBackpack.Blueprint)<1)return BagFullException.Notice;
             if(s.Backpack.NextId>=int.MaxValue-1||s.Backpack.Revision>=int.MaxValue-1)return "物品记录已满";
             return "";
         }
         public static bool Claim(BaseState s)
         {
             if(ClaimProblem(s)!="")return false;
-            if(!BasePartyInventory.PartyFreeCell(s,out var holder,out int cell))return false;
-            s.Backpack.Items.Add(new BaseBagItem {Id="bag:"+s.Backpack.NextId++,ItemId=BaseBackpack.Blueprint,Count=1,Holder=holder,Cell=cell});s.Backpack.Revision++;
+            BaseBackpack.Receive(s,BaseBackpack.Blueprint,1);
             var q=s.Quests;if(q.ProofDay==0){q.ProofDay=s.Day;q.ProofSiteId=OwnedSite(s);}
             if(!s.Backpack.StoryFlags.Contains(BaseBackpack.Story))s.Backpack.StoryFlags.Add(BaseBackpack.Story);
             q.ClaimedDay=s.Day;q.Revision++;return true;

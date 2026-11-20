@@ -167,7 +167,7 @@ namespace BaseConquest.Base
         {
             if(!Daily(s)||s.Demo.Intro.Step!=10||!At(s,"demo_captain"))return false;
             var player=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId);var i=s.Demo.Intro;
-            int cell=BasePartyInventory.FreeCell(s,player.Id);if(cell<0)throw new InvalidOperationException("请先腾出一格背包");
+            int cell=BaseBackpack.RequireGearCell(s,player.Id);
             var captain=s.Leaders.Single(l=>l.Id=="demo_captain");i.Captain=captain.Copy();i.CaptainX=captain.MapX;i.CaptainY=captain.MapY;
             s.Leaders.Remove(captain);s.Adventure.Members.Remove(captain.Id);
             // The temporary companion takes their own possessions when leaving the party.

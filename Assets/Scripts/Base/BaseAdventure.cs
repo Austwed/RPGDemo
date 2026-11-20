@@ -104,7 +104,8 @@ namespace BaseConquest.Base
             if (join && Full(state) && !Contains(state,id)) return FullPartyReply;
             if(PauseFor(state,id)!=null)return "请与暂离伙伴交谈，选择恢复随行";
             if(join&&state.Adventure.Pauses.Count>0&&!Contains(state,id))return "暂离伙伴占位期间不能添加新成员，请先让暂离者归队";
-            bool local = state.Campaign.Location == "base" || invited && state.Campaign.Location == "town";
+            if (leader.Relocating || join && !leader.WaitingAtRecruitment && !invited && leader.VillageResident != BaseSettlements.AtVillage(state)) return "伙伴在异地";
+            bool local = BaseSettlements.AtVillage(state) || state.Campaign.Location == "base" || invited && state.Campaign.Location == "town";
             if (state.Aftermath.GameOver || state.Campaign.HasActiveBattle || !local || state.Muster.Parties.Count != 0) return "请先返回基地并结束外出队伍，再对话调整伙伴";
             if (join && (!Alive(leader) || leader.Health <= 0)) return "阵亡或失联者不能加入";
             if (leader.Away) return "该伙伴尚未返营";
@@ -122,7 +123,8 @@ namespace BaseConquest.Base
             var leader = state.Leaders.Single(l => l.Id == id);
             if (join) state.Adventure.Members.Add(id); else state.Adventure.Members.Remove(id);
             leader.WaitingAtRecruitment = false;
-            leader.FacilityId = "";
+            leader.VillageResident = BaseSettlements.AtVillage(state);
+            leader.DesiredFacility = leader.FacilityId = "";
             BaseDevelopment.Allocate(state);BaseAchievements.PartyChanged(state);
             return true;
         }

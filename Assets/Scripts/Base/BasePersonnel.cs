@@ -8,6 +8,7 @@ namespace BaseConquest.Base
     {
         public string Key,Name,Facility,State,Effects,LeaderId;
         public int BucketIndex=-1,Ordinal,SoldierNumber;
+        public bool Remote,Relocating;
         public bool IsLeader,Recruited,Effective,Resting,Away,Locked;
         public SoldierKind Kind;
         public double Health,MaxHealth,FarmEfficiency,WorkshopEfficiency;
@@ -16,7 +17,7 @@ namespace BaseConquest.Base
     public static class BasePersonnel
     {
         public static string LeaderName(BaseLeader l)=>UnitDisplayNames.Mark(l.Name,l.Recruited);
-        public static string State(BaseState s,BaseLeader l)=>!BaseAdventure.Alive(l)||l.Health<=0 ? l.Fate=="dead" ? "已阵亡" : l.Fate=="missing" ? "失联／未救出" : "无法行动" : l.WaitingAtRecruitment?"暂留原地":BaseAdventure.PauseFor(s,l.Id)!=null?"暂离 · 保留队伍名额":l.Away ? "外出" : BaseAdventure.Contains(s,l.Id) ? "冒险小队 · 随行" : BaseDevelopment.Effective(s,l) ? l.FacilityId=="" ? "闲置 · 今日可生产" : BaseEconomy.FacilityName(l.FacilityId)+"管理员" : "训练中";
+        public static string State(BaseState s,BaseLeader l)=>!BaseAdventure.Alive(l)||l.Health<=0 ? l.Fate=="dead" ? "已阵亡" : l.Fate=="missing" ? "失联／未救出" : "无法行动" : l.Relocating ? "调动中 · "+BaseSettlements.Name(!l.VillageResident) : !BaseAdventure.Contains(s,l.Id) && l.VillageResident != BaseSettlements.AtVillage(s) ? "异地 · "+BaseSettlements.Name(l.VillageResident) : l.WaitingAtRecruitment?"暂留原地":BaseAdventure.PauseFor(s,l.Id)!=null?"暂离 · 保留队伍名额":l.Away ? "外出" : BaseAdventure.Contains(s,l.Id) ? "冒险小队 · 随行" : BaseDevelopment.Effective(s,l) ? l.FacilityId=="" ? "闲置 · 今日可生产" : BaseEconomy.FacilityName(l.FacilityId)+"管理员" : "训练中";
         private static void Effects(BaseState s,BasePersonnelUnit unit,string party)
         {
             var q=s.Supply.Quotas.FirstOrDefault(q=>q.PartyId==party&&!string.IsNullOrEmpty(party));
@@ -48,7 +49,7 @@ namespace BaseConquest.Base
                 for(int n=0;n<w.Count;n++)
                 {
                     int number=w.SoldierNumbers[n];
-                    var u=new BasePersonnelUnit {Key="soldier:"+number,SoldierNumber=number,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+number,w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),State=w.Away ? "外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.Effective(s,w) ? "今日可生产" : "重伤 · 强制空闲",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
+                    var u=new BasePersonnelUnit {Key="soldier:"+number,SoldierNumber=number,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+number,w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),Remote=!BaseSettlements.Local(s,w),Relocating=w.Relocating,State=w.Relocating ? "调动中 · "+BaseSettlements.Name(!w.VillageResident) : !BaseSettlements.Local(s,w) ? "异地 · "+BaseSettlements.Name(w.VillageResident) : w.Away ? "外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.Effective(s,w) ? "今日可生产" : "重伤 · 强制空闲",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
                     Effects(s,u,w.PartyId);yield return u;
                 }
             }

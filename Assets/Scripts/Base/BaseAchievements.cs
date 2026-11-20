@@ -77,7 +77,7 @@ namespace BaseConquest.Base
             if(s.Inventory.Coins>100000000-d.Coins||s.Inventory.Food>100000000-d.Food||s.Inventory.Materials>100000000-d.Materials)return "资源库存已满，奖励仍保留";
             if(d.Template!=""||d.ItemId!="")
             {
-                if(!BasePartyInventory.PartyFreeCell(s,out _,out _))return "随行背包已满，奖励仍保留";
+                if(d.Template!="" ? !BasePartyInventory.PartyFreeCell(s,out _,out _) : BaseBackpack.Room(s,d.ItemId)<1)return BagFullException.Notice;
                 if(s.Backpack.Revision>=int.MaxValue-1||s.PersonalEquipment.NextId>=int.MaxValue-401||s.Backpack.NextId>=int.MaxValue-1)return "物品记录已满";
             }
             return "";
@@ -88,10 +88,13 @@ namespace BaseConquest.Base
             var d=s.Achievements.Definitions.Single(x=>x.Id==id);var r=Record(s,id);
             if(d.Template!=""||d.ItemId!="")
             {
-                BasePartyInventory.PartyFreeCell(s,out string holder,out int cell);
-                if(d.Template!="")s.PersonalEquipment.Warehouse.Add(new BasePersonalItem {Id="personal:"+s.PersonalEquipment.NextId++,Template=d.Template,Quality=2,Holder=holder,Cell=cell});
-                else s.Backpack.Items.Add(new BaseBagItem {Id="bag:"+s.Backpack.NextId++,ItemId=d.ItemId,Count=1,Holder=holder,Cell=cell});
-                s.Backpack.Revision++;
+                if(d.Template!="")
+                {
+                    BasePartyInventory.PartyFreeCell(s,out string holder,out int cell);
+                    s.PersonalEquipment.Warehouse.Add(new BasePersonalItem {Id="personal:"+s.PersonalEquipment.NextId++,Template=d.Template,Quality=2,Holder=holder,Cell=cell});
+                    s.Backpack.Revision++;
+                }
+                else BaseBackpack.Receive(s,d.ItemId,1);
             }
             s.Inventory.Coins+=d.Coins;s.Inventory.Food+=d.Food;s.Inventory.Materials+=d.Materials;r.ClaimedDay=s.Day;return true;
         }

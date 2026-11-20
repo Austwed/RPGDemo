@@ -11,6 +11,7 @@ namespace BaseConquest.Base
 
         private void OpenDemoCompletion()
         {
+            if(!owner.State.Demo.Finale.EndingSeen && !owner.Change(next=>next.Demo.Finale.EndingSeen=true,""))return;
             ResetScenePanel(DemoCompletionView);
             var shade = modal.GetComponent<UnityEngine.UI.Image>();
             shade.color = new Color(.13f, .08f, .04f, .26f);

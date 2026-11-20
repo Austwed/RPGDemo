@@ -10,21 +10,203 @@ namespace BaseConquest.Base
         public int Version;
         public bool Automatic = true;
         public string Policy = "food";
+        public string VillagePolicy = "manual";
         // 2026-11-03：由“每日固定生命”改为“最大生命的固定比例”，比例随营帐等级叠加。
         public double RecoveryFraction = .3;
         // 2026-11-04 裁决：30%～100% 生命预警线，默认 50%；拖到 30%（＝可出战下限）即等同关闭。
         public double WarningThreshold = .5;
         public BaseDevelopmentState Copy() => (BaseDevelopmentState)MemberwiseClone();
     }
+    internal static class BaseSettlements
+    {
+        public static bool AtVillage(BaseState s) => s.Campaign?.CurrentMapId == BaseDemoFinale.Home;
+        public static bool AtHomeDoor(BaseState s) => BaseInteraction.At(s,AtVillage(s) ? "custom" : "base","home");
+        public static bool Local(BaseState s, BaseWorkerBucket w) => w.VillageResident == (AtVillage(s) || s.Campaign?.CurrentMapId == BaseDemoFinale.HomeField);
+        public static string Name(bool village) => village ? "白桦村" : "灰岩营地";
+        public static bool Available(BaseState s, string facility, bool village)
+            => facility == "" || (village ? BaseDemoFinale.HomeRepaired(s, facility) : BaseDemo.FacilityAvailable(s, facility));
+        public static string Policy(BaseState s, bool village)
+            => (village ? s.Development?.VillagePolicy : s.Development?.Policy) ?? "manual";
+        public static void SetPolicy(BaseState s, string policy)
+        {
+            if (policy != "manual" && policy != "food" && policy != "equipment")
+                throw new ArgumentException("未知据点策略");
+            RecordPolicy(s,policy);
+            Allocate(s);
+        }
+        internal static void RecordPolicy(BaseState s,string policy)
+        {
+            bool village = AtVillage(s);
+            if (village) s.Development.VillagePolicy = policy;
+            else
+            {
+                s.Development.Policy = policy;
+                s.Development.Automatic = policy != "manual";
+            }
+            foreach (var worker in s.Workers.Where(w => w.VillageResident == village && !w.Away))
+            {
+                worker.DesiredFacility = worker.FacilityId;
+                worker.PostLocked = policy == "manual";
+            }
+        }
+        public static void Allocate(BaseState s)
+        {
+            s.EnsureSoldierNumbers();
+            foreach (bool village in new[] { false, true })
+            {
+                string policy = Policy(s, village);
+                var workers = s.Workers.Where(w => w.VillageResident == village && !w.Away && w.Count > 0).ToArray();
+                if (policy == "manual")
+                {
+                    var room = s.Muster.Facilities.ToDictionary(f => f.FacilityId,f => f.Capacity);
+                    foreach (var worker in workers.OrderByDescending(w => w.FacilityId != "" && w.FacilityId == w.DesiredFacility))
+                    {
+                        string post = worker.DesiredFacility;
+                        worker.FacilityId = "";
+                        if (string.IsNullOrEmpty(post) || !room.TryGetValue(post,out int capacity) || capacity <= 0 ||
+                            !BaseDevelopment.Effective(s,worker) || !Available(s,post,village)) continue;
+                        int count = Math.Min(worker.Count,capacity);
+                        var assigned = worker;
+                        if (count < worker.Count) { assigned = worker.Take(0,count); s.Workers.Add(assigned); }
+                        assigned.FacilityId = post;
+                        room[post] -= count;
+                    }
+                    continue;
+                }
+                var available = workers.Where(w => BaseDevelopment.Effective(s,w)).ToList();
+                var oldPosts = workers.ToDictionary(w => w, w => w.FacilityId);
+                foreach (var w in workers) w.FacilityId = w.DesiredFacility = "";
+                foreach (string post in policy == "equipment" ? new[] {"workshop","farm"} : new[] {"farm","workshop"})
+                {
+                    if (!Available(s, post, village)) continue;
+                    int room = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == post)?.Capacity ?? 0;
+                    if (post == "workshop" && s.Inventory.Materials < BaseConstruction.MaterialCost(s,s.WorkshopProduct)) continue;
+                    foreach (var w in available.Where(w => w.FacilityId == "" && w.Count > 0)
+                        .OrderByDescending(w => BaseDevelopment.Efficiency(w,post))
+                        .ThenBy(w => BaseDevelopment.Efficiency(w,post == "farm" ? "workshop" : "farm"))
+                        .ThenByDescending(w => oldPosts[w] == post).ToArray())
+                    {
+                        if (room == 0) break;
+                        int take = Math.Min(w.Count,room);
+                        var assigned = w;
+                        if (take < w.Count) { assigned = w.Take(0,take); s.Workers.Add(assigned); }
+                        assigned.FacilityId = assigned.DesiredFacility = post;
+                        room -= take;
+                    }
+                }
+            }
+            ReassignExcessWorkshopStaff(s);
+            BaseDevelopment.Merge(s);
+        }
+        private static void ReassignExcessWorkshopStaff(BaseState s)
+        {
+            int capacity = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == "farm")?.Capacity ?? 0;
+            var candidates = s.Workers.Where(w => w.FacilityId == "workshop" && BaseDevelopment.Effective(s,w) &&
+                Policy(s,w.VillageResident) == "equipment" && Available(s,"farm",w.VillageResident) &&
+                BaseEconomy.WorkersAt(s,"farm",w.VillageResident) < capacity)
+                .OrderBy(w => w.WorkshopEfficiency / w.FarmEfficiency).ToArray();
+            if (candidates.Length == 0) return;
+            var preview = BaseEconomy.ProjectDay(s);
+            if (preview.ProductsMade >= preview.WorkCapacity) return;
+
+            foreach (var bucket in candidates)
+            {
+                int room = capacity - BaseEconomy.WorkersAt(s,"farm",bucket.VillageResident);
+                while (room-- > 0 && bucket.Count > 0)
+                {
+                    var worker = bucket.Take(0,1);
+                    s.Workers.Add(worker);
+                    worker.FacilityId = worker.DesiredFacility = "farm";
+                    if (BaseEconomy.ProjectDay(s).ProductsMade >= preview.ProductsMade) continue;
+                    worker.FacilityId = worker.DesiredFacility = "workshop";
+                    break;
+                }
+            }
+        }
+        public static string TransferProblem(BaseState s, BaseWorkerBucket w)
+        {
+            if (!Available(s,"barracks",true)) return "白桦村缺少兵营";
+            if (!Available(s,"barracks",false)) return "灰岩营地缺少兵营";
+            if (w.Away || w.Health <= 0 || s.Campaign.HasActiveBattle) return "当前无法调动";
+            return "";
+        }
+        public static void Order(BaseState s, int number)
+        {
+            var bucket = s.Workers.First(w => w.SoldierNumbers.Contains(number));
+            if (!bucket.Relocating)
+            {
+                string problem = TransferProblem(s,bucket);
+                if (problem.Length > 0) throw new InvalidOperationException(problem);
+            }
+            var w = bucket.Take(bucket.SoldierNumbers.IndexOf(number),1);
+            s.Workers.Add(w);
+            if (w.Relocating)
+            {
+                w.Relocating = false;
+                var origin = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == w.DepartureFacility);
+                if (origin != null && BaseEconomy.WorkersAt(s,origin.FacilityId,w.VillageResident) < origin.Capacity)
+                    w.FacilityId = w.DesiredFacility = w.DepartureFacility;
+                w.DepartureFacility = "";
+            }
+            else
+            {
+                w.DepartureFacility = w.FacilityId;
+                w.FacilityId = w.DesiredFacility = "";
+                w.Relocating = true;
+            }
+            Allocate(s);
+        }
+        public static void Arrive(BaseState s)
+        {
+            foreach (var w in s.Workers.Where(w => w.Relocating))
+            {
+                w.VillageResident = !w.VillageResident;
+                w.Relocating = false;
+                w.DepartureFacility = "";
+            }
+            foreach (var l in s.Leaders.Where(l => l.Relocating))
+            {
+                l.VillageResident = !l.VillageResident;
+                l.Relocating = false;
+                l.DesiredFacility = l.FacilityId = l.ArrivalFacility;
+                l.ArrivalFacility = "";
+                PositionManager(s,l);
+            }
+            Allocate(s);
+        }
+        public static BasePoint VillagePost(BaseState s, string id)
+        {
+            var map = BaseDemoFinale.Home;
+            var site = BaseSpatial.Objects(s,map).First(o => o.Id == id);
+            return BaseSpatial.Nearest(s,new BasePoint(site.X,site.Y-site.Height/2-.6),map);
+        }
+        public static void PositionManager(BaseState s, BaseLeader leader)
+        {
+            if (!BaseDemo.Active(s) || leader.FacilityId == "" || !BaseDemoFinale.Opened(s)) return;
+            string map = leader.VillageResident ? BaseDemoFinale.Home : "base";
+            bool watching = leader.VillageResident ? AtVillage(s) : s.Campaign.Location == "base";
+            string start = watching ? "home" : leader.FacilityId;
+            var site = BaseSpatial.Objects(s,map).FirstOrDefault(o => o.Id == start);
+            if (site == null) return;
+            var point = BaseSpatial.Nearest(s,new BasePoint(site.X,site.Y-site.Height/2-.6),map);
+            leader.MapX = point.X; leader.MapY = point.Y;
+            leader.MapRegion = leader.VillageResident ? "custom" : "base";
+            leader.MapId = leader.VillageResident ? BaseDemoFinale.Home : BaseSpatial.Layout(s,"base").SourceMapId;
+            leader.HasMapPosition = true;
+        }
+    }
+
     public static class BaseDevelopment
     {
         // P40（2026-11-06）：办公设施建成前只能逐人手动；建成后四档策略。旧 balanced／custom 迁移为自动／手动。
         public static readonly string[] Policies = { "food", "equipment", "auto", "manual" };
         public static bool OfficeBuilt(BaseState s) => BaseFacilityLayout.OfficeBuilt(s);
-        public static string EffectivePolicy(BaseState s) => OfficeBuilt(s) && !BaseDemo.ExperimentalManagementHidden(s) ? (s?.Development?.Policy ?? "manual") : "manual";
+        public static string EffectivePolicy(BaseState s) => BaseDemo.Active(s) ? BaseSettlements.Policy(s, BaseSettlements.AtVillage(s)) : OfficeBuilt(s) ? (s?.Development?.Policy ?? "manual") : "manual";
         public static bool AutoAssign(BaseState s) => EffectivePolicy(s) != "manual";
         // 策略顺序：粮草优先／军需优先按固定顺序填满；自动分配另行试算配额；手动不自动补位。
-        public static string[] PolicyOrder(BaseState s) => EffectivePolicy(s) == "equipment"
+        public static string[] PolicyOrder(BaseState s) => BaseDemo.Active(s)
+            ? EffectivePolicy(s) == "equipment" ? new[] { "workshop","farm" } : new[] { "farm","workshop" }
+            : EffectivePolicy(s) == "equipment"
             ? new[] { "workshop", "farm", "caravan" }
             : new[] { "farm", "workshop", "caravan" };
         // 营帐每升一级额外 +10 个百分点：1／2／3 级 ＝ 30%／40%／50%（比例本身由配表 recovery_per_day 提供）。
@@ -41,15 +223,17 @@ namespace BaseConquest.Base
         public const double DutyThreshold = .3;
         public const double WarningDefault = .5, WarningFloor = .3, WarningCeiling = 1;
         public static bool HeavilyWounded(BaseWorkerBucket w) => w.Health > 0 && w.Health < w.MaxHealth * DutyThreshold;
-        public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
-        public static bool CanManage(BaseState s, BaseLeader l) => !l.Away && !l.WaitingAtRecruitment && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && !BaseTraining.Busy(l.Training) && l.Health > 0;
+        public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
+        public static bool CanManage(BaseState s, BaseLeader l) => !l.Relocating && !l.Away && !l.WaitingAtRecruitment && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && !BaseTraining.Busy(l.Training) && l.Health > 0;
         public static bool Effective(BaseState s, BaseLeader l) => CanManage(s,l);
-        public static bool CanFight(BaseWorkerBucket w) => !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
+        public static bool CanFight(BaseWorkerBucket w) => !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
         // 遇袭防守例外：守家时只要还能行动就上，不受 30% 门槛限制。
-        public static bool CanDefend(BaseWorkerBucket w) => !w.Away && w.Health > 0;
+        public static bool CanDefend(BaseWorkerBucket w) => !w.Relocating && !w.Away && w.Health > 0;
         // 编队资格：防守用途放宽到 CanDefend，其余用途一律 CanFight。
+        public static bool Eligible(BaseState s, string purpose, BaseWorkerBucket w) => BaseSettlements.Local(s,w) && Eligible(purpose,w);
         public static bool Eligible(string purpose, BaseWorkerBucket w) => purpose == "defense" ? CanDefend(w) : CanFight(w);
-        public static bool CanFight(BaseLeader l) => !l.Away && BaseAdventure.Alive(l) && !BaseTraining.Busy(l.Training) && l.Health > 0;
+        public static bool LocalLeader(BaseState s,BaseLeader l) => !BaseDemo.Active(s) || BaseAdventure.Contains(s,l.Id) || l.VillageResident == (BaseSettlements.AtVillage(s) || s.Campaign?.CurrentMapId == BaseDemoFinale.HomeField);
+        public static bool CanFight(BaseLeader l) => !l.Relocating && !l.Away && BaseAdventure.Alive(l) && !BaseTraining.Busy(l.Training) && l.Health > 0;
         // 预警线：0 表示旧档未写该字段，回落到默认 50%；拖到 30% 即关闭（低无可低）。
         public static double WarningThreshold(BaseState s)
         {
@@ -77,6 +261,7 @@ namespace BaseConquest.Base
         public static void Normalize(BaseState s)
         {
             var d = s.Development;
+            if (d != null && string.IsNullOrEmpty(d.VillagePolicy)) d.VillagePolicy = "manual";
             // 旧档迁移：Resting 由「玩家手动休养」改为「重伤闲置」派生标记，统一按 <30% 重算（幂等）。
             // 只重算营内工人：外出幸存者在返营流程里先清 Away 再置标记，这里抢先置会构成「外出且休养」非法态。
             foreach (var w in s.Workers.Where(x => x != null)) if (w.MaxHealth > 0 && w.Health > 0 && !w.Away) w.Resting = w.Health < w.MaxHealth * DutyThreshold;
@@ -91,12 +276,7 @@ namespace BaseConquest.Base
                 if (d.Policy == "balanced") d.Policy = "auto";
                 else if (d.Policy == "custom" || string.IsNullOrEmpty(d.Policy) || !Policies.Contains(d.Policy)) d.Policy = "manual";
             }
-            if (d != null && d.Version != 0)
-            {
-                if (d.Version == 3 && d.Policy != "manual" && Policies.Contains(d.Policy) && BaseDemo.ExperimentalManagementHidden(s))
-                    PausePolicy(s);
-                return;
-            }
+            if (d != null && d.Version != 0) return;
             // 旧进度保留手动意向，不在读档时偷偷把伙伴和工作兵全部重排。
             s.Development = new BaseDevelopmentState { Version = 3, Automatic = false, Policy = "manual" };
             foreach (var l in s.Leaders.Where(x => x != null))
@@ -118,6 +298,10 @@ namespace BaseConquest.Base
         public static void Validate(BaseState s)
         {
             var d = s.Development;
+            if (BaseDemo.Active(s) && (d.VillagePolicy != "manual" && d.VillagePolicy != "food" && d.VillagePolicy != "equipment" ||
+                s.Workers.Any(w => w.Relocating && (w.Away || w.FacilityId != "" || w.DesiredFacility != "" || !BaseEconomy.Facilities.Contains(w.DepartureFacility))) ||
+                s.Leaders.Any(l => l.Relocating && (l.Away || l.FacilityId != "" || !BaseEconomy.Facilities.Contains(l.ArrivalFacility)))))
+                throw new ArgumentException("据点策略或人员调令非法");
             if (d.Version != 3 || !Policies.Contains(d.Policy) || !Number(d.RecoveryFraction, 1) || d.RecoveryFraction <= 0 || !Number(d.WarningThreshold, 1)) throw new ArgumentException("发展策略或回血规则非法");
             foreach (var l in s.Leaders)
             { if(l.HasCombatProfile&&(!BaseAftermath.ValidStats(l.CombatStats)||l.PersonalEquipment?.Version!=1&&l.CombatStats.Health!=l.MaxHealth)) throw new ArgumentException("人物战斗属性非法");
@@ -130,8 +314,8 @@ namespace BaseConquest.Base
         }
         public static void SetPolicy(BaseState s, string policy)
         {
+            if (BaseDemo.Active(s)) { BaseSettlements.SetPolicy(s, policy); return; }
             if (!Policies.Contains(policy)) throw new ArgumentException("未知发展策略");
-            if (policy != "manual" && BaseDemo.ExperimentalManagementHidden(s)) throw new InvalidOperationException("当前只能手动安排岗位");
             if (policy != "manual" && !OfficeBuilt(s)) throw new InvalidOperationException("办公设施未建成，只能逐人手动安排");
             s.Development.Policy = policy;
             if (s.Layout != null) s.Layout.PausedPolicy = "";
@@ -149,12 +333,13 @@ namespace BaseConquest.Base
             s.Development.Policy = "manual";
             s.Development.Automatic = false;
             foreach (var worker in s.Workers.Where(w => !w.Away && !w.PostLocked)) worker.DesiredFacility = worker.FacilityId;
-            foreach (var leader in s.Leaders.Where(l => !l.Away && !l.PostLocked)) leader.DesiredFacility = leader.FacilityId;
+            foreach (var leader in s.Leaders.Where(l => !l.Relocating && !l.Away && !l.PostLocked)) leader.DesiredFacility = leader.FacilityId;
         }
         public static void Allocate(BaseState s)
         {
             s.EnsureSoldierNumbers();
             Normalize(s);
+            if (BaseDemo.Active(s)) { BaseSettlements.Allocate(s); return; }
             bool auto = AutoAssign(s);
             var order = PolicyOrder(s);
             int Rank(string id) { int index = Array.IndexOf(order, id); return index < 0 ? 9 : index; }
@@ -252,6 +437,7 @@ namespace BaseConquest.Base
             {
                 if (w.SoldierNumbers == null || w.SoldierNumbers.Count == 0) s.EnsureSoldierNumbers();
                 string key = w.Kind + "|" + w.FacilityId + "|" + w.DesiredFacility + "|" + w.PostLocked + "|" + w.Resting + "|" + w.Away + "|" + w.PartyId + "|" + w.SourceId + "|" + w.UnavailableDay + "|" + w.Health.ToString("R", CultureInfo.InvariantCulture) + "|" + w.MaxHealth.ToString("R", CultureInfo.InvariantCulture) + "|" + w.FarmEfficiency.ToString("R", CultureInfo.InvariantCulture) + "|" + w.WorkshopEfficiency.ToString("R", CultureInfo.InvariantCulture);
+                key += "|" + w.VillageResident + "|" + w.Relocating + "|" + w.DepartureFacility;
                 key += "|" + w.Recruited + "|" + ProfileKey(w.HasCombatProfile,w.CombatStats) + "|" + w.HeldBy + "|" + w.HeldSourceId + "|" + w.PartyOrder;
                 if (groups.TryGetValue(key, out var found)) { found.SoldierNumbers.AddRange(w.SoldierNumbers); found.Count += w.Count; }
                 else { groups.Add(key, w); merged.Add(w); }
@@ -275,7 +461,7 @@ namespace BaseConquest.Base
             foreach (var l in s.Leaders.Where(l => BaseAdventure.Alive(l) && l.Health > 0 && l.Health < l.MaxHealth))
             { l.Health = Math.Min(l.MaxHealth, l.Health + l.MaxHealth * ratio); l.Resting = false; count++; }
             // 2026-11-04 选A：恢复不再是休养专属——营内所有伤兵每天自动恢复；Resting 只作重伤闲置标记。
-            foreach (var w in s.Workers.Where(w => !w.Away && w.Health > 0 && w.Health < w.MaxHealth))
+            foreach (var w in s.Workers.Where(w => !w.Relocating && !w.Away && w.Health > 0 && w.Health < w.MaxHealth))
             { w.Health = Math.Min(w.MaxHealth, w.Health + w.MaxHealth * ratio); count += w.Count; w.Resting = w.Health < w.MaxHealth * DutyThreshold; }
             return count;
         }

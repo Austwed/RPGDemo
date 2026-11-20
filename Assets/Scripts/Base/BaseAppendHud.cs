@@ -35,7 +35,7 @@ namespace BaseConquest.Base
                 var troop = kind;
                 int existing = owner.State.Workers.Where(w => w.Away && w.PartyId == id && w.Kind == kind).Sum(w => w.Count);
                 int count = kind == BaseTroopKind.Melee ? appendMelee : kind == BaseTroopKind.Ranged ? appendRanged : appendCavalry;
-                ArmyCounter(BaseEconomy.TroopName(kind) + "（本队已有" + existing + "）追加", count, 0, Math.Min(Math.Max(0,30-existing),owner.State.Workers.Where(w=>w.Kind==kind&&BaseDevelopment.CanFight(w)).Sum(w=>w.Count)), n =>
+                ArmyCounter(BaseEconomy.TroopName(kind) + "（本队已有" + existing + "）追加", count, 0, Math.Min(Math.Max(0,30-existing),owner.State.Workers.Where(w=>w.Kind==kind&&BaseSettlements.Local(owner.State,w)&&BaseDevelopment.CanFight(w)).Sum(w=>w.Count)), n =>
                 {
                     if (troop == BaseTroopKind.Melee) appendMelee = n; else if (troop == BaseTroopKind.Ranged) appendRanged = n; else appendCavalry = n;
                     OpenAppend(id, back, bypass);

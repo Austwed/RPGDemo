@@ -132,6 +132,7 @@ namespace BaseConquest.Base
         public static bool FogEnabled(BaseState s)
         {
             if(BaseWorldJourney.OnWorld(s)||s.Campaign.Location=="perimeter")return false;
+            if(s.Campaign.CurrentMapId==BaseDemoFinale.Camp&&!BaseDemoFinale.Later(s))return true;
             if(BaseDemoPrologue.Evacuating(s)||BaseDemoPrologue.Pursuit(s))return true;
             var layout=BaseSpatial.Layout(s);
             if(layout?.Safety=="safe")return false;if(layout?.Safety=="dangerous")return true;
@@ -206,6 +207,8 @@ namespace BaseConquest.Base
             scenario.FogEnabled=FogEnabled(s);
             scenario.DefenderVisionEnabled=false;
             if(atHomeField)BaseDemoDefense.ApplyHomeSight(scenario);
+            else if (s.Campaign.CurrentMapId==BaseDemoFinale.Camp)
+                ApplyBanditSight(scenario);
             scenario.VisionRadius=BattleHeightSight.DefaultRadius;
             while(scenario.A.Commanders.Count<scenario.A.HeroCount)scenario.A.Commanders.Add(new CommanderLoadout());
             BaseMuster.Validate(s);
@@ -214,6 +217,14 @@ namespace BaseConquest.Base
                 var c=scenario.A.Commanders[n];c.Strategy=Tier((SquadStrategy)s.Muster.Strategies[n]);
                 c.GuardRange=s.Muster.Ranges[n*3];c.AlertRange=s.Muster.Ranges[n*3+1];c.AttackRange=s.Muster.Ranges[n*3+2];
             }
+        }
+        public static void ApplyBanditSight(BattleScenario scenario)
+        {
+            scenario.HeightVision=true;
+            scenario.FogEnabled=true;
+            scenario.DefenderVisionEnabled=true;
+            scenario.DefenderSide=(int)BattleSide.B;
+            scenario.ShowEnemiesThroughFog=false;
         }
         public static void RememberStrategy(BaseState s,BaseCampaignSession session)
         {

@@ -148,6 +148,7 @@ namespace BaseConquest.Base
 
         private static void ApplyNamedTransfers(BaseState next, KeyValuePair<int,(BaseTroopKind kind,string from,string to)>[] moves)
         {
+            if (BaseDemo.Active(next)) BaseSettlements.SetPolicy(next,"manual");
             LockCurrentPosts(next);
             // 先空出旧岗位，满员时才能在同一份草案内换人。
             foreach (var (number, move) in moves)
@@ -180,6 +181,20 @@ namespace BaseConquest.Base
         }
 
         private ProductionFacilityView productionView;
+
+        internal void OpenSettlementFacility(string facility)
+        {
+            if (!BaseSettlements.Available(owner.State,facility,true)) return;
+            activeObject = interactionObject = facility;
+            activePage = "workers";
+            switch (facility)
+            {
+                case "home": OpenHome(); break;
+                case "farm":
+                case "workshop": OpenFacility(); break;
+                case "barracks": OpenBarracksFacility(); break;
+            }
+        }
 
         private void OpenProductionFacility()
         {
@@ -227,7 +242,7 @@ namespace BaseConquest.Base
             if (rebuildActions)
             {
                 ClearPanelChildren(view.Actions);
-                var manager = state.Leaders.FirstOrDefault(leader => leader.FacilityId == id);
+                var manager = BaseEconomy.Manager(state,id);
                 view.UpdateManagerAvailability = BindFacilityManager(view.Portrait, state, id, manager);
                 view.RefreshActions = BuildProductionActions(view.Actions, id, state, facility, manager, hidePostLock);
                 view.State = state;
@@ -251,7 +266,10 @@ namespace BaseConquest.Base
                 old.SetParent(null);
                 UiPrefabBinding.DestroyView(old.gameObject);
             }
-            if (manager != null)
+            var incoming = state.Leaders.FirstOrDefault(l => l.Relocating && l.VillageResident != BaseSettlements.AtVillage(state) && l.ArrivalFacility == facility);
+            if (incoming != null)
+                ShowFacilityLeader(column,incoming,"调动中 · 次日到岗");
+            else if (manager != null)
                 ShowFacilityLeader(column, manager, "产能 +" + BaseDevelopment.Bonus(manager, facility).ToString("P0"));
             else ShowFacilityPortrait(column, "负责人 · 未安排", "", "");
 
@@ -265,7 +283,7 @@ namespace BaseConquest.Base
                 options.name = "ManagerOptions";
                 var list = options.GetComponent<ScrollRect>().content;
                 foreach (var leader in candidates)
-                    FacilityButton(list, leader.Id, BasePersonnel.LeaderName(leader), () => ConfirmManager(leader.Id, facility, OpenFacility));
+                    FacilityButton(list, leader.Id, BasePersonnel.LeaderName(leader) + (!BaseAdventure.Contains(state,leader.Id) && leader.VillageResident != BaseSettlements.AtVillage(state) ? " · 异地 1天" : ""), () => ConfirmManager(leader.Id, facility, OpenFacility));
                 options.gameObject.SetActive(false);
             }
 
@@ -330,11 +348,11 @@ namespace BaseConquest.Base
                 if (hidePostLock) unlock.gameObject.SetActive(false);
                 else
                 {
-                    canUnlock = state.Workers.Any(w => w.Kind == kind && w.PostLocked &&
+                    canUnlock = state.Workers.Any(w => BaseSettlements.Local(state,w) && w.Kind == kind && w.PostLocked &&
                         (w.FacilityId == id || w.DesiredFacility == id));
                     unlock.onClick.AddListener(() => FacilityChange(next =>
                     {
-                        foreach (var worker in next.Workers.Where(w => w.Kind == kind && (w.FacilityId == id || w.DesiredFacility == id)))
+                        foreach (var worker in next.Workers.Where(w => BaseSettlements.Local(next,w) && w.Kind == kind && (w.FacilityId == id || w.DesiredFacility == id)))
                             worker.PostLocked = false;
                     }, "已解锁工人，由策略安排", OpenFacility));
                 }
@@ -359,10 +377,11 @@ namespace BaseConquest.Base
             return (draft, preview, count, pending) =>
             {
                 int producing = BaseEconomy.ProductionWorkersAt(draft, id);
-                staff.text = $"岗位 {producing}/{facility.Capacity} · 今日生产 {producing} 人";
+                staff.text = $"岗位 {producing}/{facility.Capacity} · {BaseDevelopment.PolicyName(BaseDevelopment.EffectivePolicy(draft))}";
+                string scope = BaseDemoFinale.HomeVolunteers(draft) ? "两地" : "";
                 output.text = workshop
-                    ? $"预计产出 {preview.ProductLevel}级{BaseEconomy.ProductName(draft.WorkshopProduct)} {preview.ProductsMade} 件 · 原料 {preview.MaterialsSpent}"
-                    : $"预计产粮 {preview.FoodProduced} · 扣粮后库存 {preview.NextFood}";
+                    ? $"{scope}预计产出 {preview.ProductLevel}级{BaseEconomy.ProductName(draft.WorkshopProduct)} {preview.ProductsMade} 件 · 原料 {preview.MaterialsSpent}"
+                    : $"{scope}预计产粮 {preview.FoodProduced} · 扣粮后库存 {preview.NextFood}";
                 if (workshop) shortage.gameObject.SetActive(preview.ProductsMade < preview.WorkCapacity);
                 apply.interactable = cancel.interactable = pending;
                 applyImage.color = pending ? DemoUiTheme.Current.Gold : applyColor;
@@ -373,7 +392,7 @@ namespace BaseConquest.Base
                     label.text = BaseEconomy.TroopName(kind) + "  " + assigned;
                     minus.interactable = assigned > 0;
                     plus.interactable = count < facility.Capacity && draft.Workers.Any(w => w.Kind == kind &&
-                        w.FacilityId == "" && BaseDevelopment.Effective(draft, w));
+                        BaseSettlements.Local(draft,w) && w.FacilityId == "" && BaseDevelopment.Effective(draft, w));
                     unlock.interactable = !pending && canUnlock;
                 }
                 foreach (var control in draftLocks) control.interactable = !pending;
@@ -407,6 +426,8 @@ namespace BaseConquest.Base
         {
             if (workerMoves.TryGetValue(unit.SoldierNumber, out var move))
                 return "待调 " + BaseEconomy.FacilityName(move.from) + "→" + BaseEconomy.FacilityName(move.to) + " · 可生产";
+            if (unit.Relocating) return unit.State;
+            if (unit.Remote) return unit.State;
             if (unit.Away) return "外出 · 无法生产";
             if (!unit.Effective) return unit.Health <= 0 ? "倒地 · 无法生产" : "重伤 · 无法生产";
             return unit.Facility + " · 今日可生产";
@@ -436,7 +457,7 @@ namespace BaseConquest.Base
                 }
                 else UpdatePersonnelRow(card, unit, status, showFacility:false);
                 var select = card.GetComponent<Button>();
-                select.interactable = unit.Effective;
+                select.interactable = unit.Effective && !unit.Remote && !unit.Relocating;
                 select.targetGraphic.color = workerMoves.ContainsKey(number) ? Color.Lerp(view.RosterColor, DemoUiTheme.Current.Gold, .38f) : view.RosterColor;
                 bool visible = !view.Filter.HasValue || view.Filter.Value == unit.Kind;
                 card.gameObject.SetActive(visible);
@@ -692,6 +713,16 @@ namespace BaseConquest.Base
             FacilityText(list, $"基础攻击 {unit.Basic.Damage:0.##} · 防御 {unit.Basic.Defense:0.##}");
             FacilityText(list, unit.Facility + " · " + (unit.Locked ? "手动锁定" : "自动安排"));
             FacilityButton(list, "CompleteDetail", "完整属性", openComplete);
+            var state = owner.State;
+            if (BaseDemoFinale.Opened(state) && BaseDemoFinale.Later(state))
+            {
+                var worker = state.Workers[unit.BucketIndex];
+                bool cancel = worker.Relocating;
+                string reason = cancel ? "" : BaseSettlements.TransferProblem(state,worker);
+                string label = cancel ? "取消调动" : "调往" + BaseSettlements.Name(!worker.VillageResident) + " · 1天停工 · 路粮 " + BaseEconomy.Ration(state,worker);
+                FacilityButton(list,"Relocate",reason == "" ? label : reason, () =>
+                    FacilityChange(next => BaseSettlements.Order(next,unit.SoldierNumber),"", () => OpenBarracksFacility()),reason == "");
+            }
         }
 
         private void SetFacilityCommanderTroops(string leaderId, BaseTroopKind kind, int count, Action refresh) => FacilityChange(next =>
@@ -707,12 +738,31 @@ namespace BaseConquest.Base
             var state = owner.State;
             int day = state.Day;
             var raids = BaseCampaign.Due(state).ToArray();
-            var (actions, filters, list) = OpenFacilityPanel("facility:home", "营帐", "休息与管理", "队长名册");
+            var (actions, filters, list) = OpenFacilityPanel("facility:home", BaseSettlements.AtVillage(state) ? "家" : "营帐", "休息与管理", "队长名册");
             var portrait = Ui<RectTransform>(panel, "PortraitColumn");
             var cards = new Dictionary<string, (RectTransform Card, Color DefaultColor)>();
             var partyCapacity = FacilityText(filters, "", true);
             partyCapacity.name = "PartyCapacity";
             FacilityButton(actions, "Rest", "休息至明天", () => owner.Rest(day), selected: true);
+            Action updatePolicy = null;
+            var policies = CloneSceneUi("FacilityActionRow",actions);
+            var policyButtons = new List<(string id,Button button,Color normal)>();
+            foreach (var option in new[] { ("manual","手动"), ("food","粮田优先"), ("equipment","工坊优先") })
+            {
+                string id = option.Item1;
+                var button = FacilityButton(policies,id,option.Item2,() =>
+                {
+                    if (BaseDevelopment.EffectivePolicy(owner.State) != id)
+                        FacilityChange(next => BaseDevelopment.SetPolicy(next,id),"",() => updatePolicy?.Invoke());
+                });
+                policyButtons.Add((id,button,button.targetGraphic.color));
+            }
+            void RefreshPolicy()
+            {
+                foreach (var item in policyButtons)
+                    item.button.targetGraphic.color = BaseDevelopment.EffectivePolicy(owner.State) == item.id ? DemoUiTheme.Current.Gold : item.normal;
+                RefreshHome();
+            }
             var restAdvice = FacilityText(actions, "");
             if (BasePartyInventory.AtWarehouse(state)) FacilityButton(actions, "Warehouse", "仓库", OpenWarehouse);
             if (BaseDeputy.Unlocked(state)) FacilityButton(actions, "Deputy", "副手 · " + (BaseDeputy.Leader(state)?.Name ?? "未指定"), OpenDeputy);
@@ -731,7 +781,7 @@ namespace BaseConquest.Base
             }, "已请离基地，物品已返仓", RefreshHome));
             FacilityButton(actions, "Training", "等级训练", OpenTraining);
 
-            if (BaseRpg.Active(state))
+            if (BaseRpg.Active(state) && !BaseSettlements.AtVillage(state))
             {
                 var rules = state.Demo.Rpg;
                 capacity = FacilityText(actions, "", true);
@@ -765,7 +815,8 @@ namespace BaseConquest.Base
                 FacilityText(list, "待处理入侵", true);
                 foreach (var raid in raids) FacilityText(list, raid.Title);
             }
-            RefreshHome();
+            updatePolicy = RefreshPolicy;
+            RefreshPolicy();
             FinishFacilityPanel();
 
             void RefreshSelection(BaseState current)

@@ -236,14 +236,14 @@ namespace BaseConquest.Base
         {
             var s = owner.State; feedback.text = owner.Message;feedback.gameObject.SetActive(owner.Message.Contains("失败")||owner.Message.Contains("未保存"));
             bool selectingHero = heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf;
-            summary.transform.parent.gameObject.SetActive(!selectingHero && !owner.HomeRebuildOverview &&
+            summary.transform.parent.gameObject.SetActive(!selectingHero &&
                 (!PanelOpen || panelViewKey != "npc-dialogue" && panelViewKey != DemoCompletionView));
             if (reserveRules != null) reserveRules.interactable = s != null && !s.Aftermath.GameOver && !owner.Busy;
             if (panelFeedback != null) panelFeedback.text = owner.Message;
             owner.InvalidateObjects();
             if (resourceStrip != null) RefreshResourceStrip(s);
             if (s == null) { summary.text = owner.Busy ? "正在读取据点…" : "没有有效进度，请选择新开局或恢复备份"; regionStatus.text = ""; interact.interactable = false; construction.gameObject.SetActive(false); Joystick.gameObject.SetActive(false); mapLabels.gameObject.SetActive(false); return; }
-            mapLabels.gameObject.SetActive(!selectingHero && !PanelOpen && !owner.RebuildPlacementMode); controls.gameObject.SetActive(!selectingHero && !PanelOpen);
+            mapLabels.gameObject.SetActive(!selectingHero && !PanelOpen && !owner.CampPlacementMode); controls.gameObject.SetActive(!selectingHero && !PanelOpen);
             if (resourceStrip == null)
             {
                 var delta=BaseDailyDelta.Read(s);summary.supportRichText=true;
@@ -280,7 +280,7 @@ namespace BaseConquest.Base
             bool canBuild=owner.State!=null&&BaseDemoFlow.Active(owner.State)&&owner.State.Campaign.Location=="perimeter"&&!owner.State.Campaign.HasActiveBattle&&!owner.State.Aftermath.GameOver&&!owner.Busy&&!PanelOpen&&!owner.ConstructionMode;
             construction.gameObject.SetActive(canBuild);
             construction.interactable=canBuild;
-            Joystick.gameObject.SetActive(Application.isMobilePlatform&&!PanelOpen&&!owner.HomeRebuildOverview&&!owner.Busy&&!owner.PlayerAway&&owner.State?.Campaign.HasActiveBattle!=true);
+            Joystick.gameObject.SetActive(Application.isMobilePlatform&&!PanelOpen&&!owner.Busy&&!owner.PlayerAway&&owner.State?.Campaign.HasActiveBattle!=true);
             interact.interactable = nearby != null && !PanelOpen && !owner.Busy;
             string id = nearby?.Id ?? "";
             if (nearbyId != id)
@@ -641,7 +641,7 @@ namespace BaseConquest.Base
         }
         public void OpenHome()
         {
-            if(!BaseInteraction.At(owner.State,"base","home")){owner.ReportMessage("请在家边缘一格以内、与地基同层交互");return;}
+            if(!BaseSettlements.AtHomeDoor(owner.State)){owner.ReportMessage("请在家边缘一格以内、与地基同层交互");return;}
             if(BaseDemo.Active(owner.State)&&owner.State.Demo.Stage==BaseDemoStage.Waking){OpenDemoStory();return;}
             if (UseFacilityPanel) { OpenHomeFacility(); return; }
             activeObject=interactionObject="home";
@@ -775,7 +775,7 @@ namespace BaseConquest.Base
             new System.Collections.Generic.Dictionary<int,(BaseTroopKind,string,string)>();
         private static void LockCurrentPosts(BaseState state)
         {
-            foreach (var worker in state.Workers)
+            foreach (var worker in state.Workers.Where(w => !w.Relocating && w.VillageResident == BaseSettlements.AtVillage(state)))
             {
                 worker.DesiredFacility = worker.FacilityId;
                 worker.PostLocked = true;
@@ -840,7 +840,7 @@ namespace BaseConquest.Base
         private void Adjust(BaseTroopKind kind, string from, string to, Action refresh)
         {
             var candidate = BasePersonnel.Soldiers(workerDraft).Where(u => u.Effective &&
-                workerDraft.Workers[u.BucketIndex].Kind == kind && workerDraft.Workers[u.BucketIndex].FacilityId == from)
+                BaseSettlements.Local(workerDraft,workerDraft.Workers[u.BucketIndex]) && workerDraft.Workers[u.BucketIndex].Kind == kind && workerDraft.Workers[u.BucketIndex].FacilityId == from)
                 .OrderByDescending(u => workerMoves.TryGetValue(u.SoldierNumber, out var move) && move.from == to)
                 .ThenBy(u => u.SoldierNumber).FirstOrDefault();
             if (candidate != null) MoveDraftWorker(candidate, to, refresh);
@@ -848,7 +848,7 @@ namespace BaseConquest.Base
         private void ToggleWorker(int number, string facility, Action refresh)
         {
             var unit = BasePersonnel.Soldiers(workerDraft).FirstOrDefault(u => u.SoldierNumber == number);
-            if (unit == null || !unit.Effective) return;
+            if (unit == null || !unit.Effective || !BaseSettlements.Local(workerDraft,workerDraft.Workers[unit.BucketIndex])) return;
             string from = workerDraft.Workers[unit.BucketIndex].FacilityId;
             string to = workerMoves.TryGetValue(number, out var move) ? move.from : from == facility ? "" : facility;
             MoveDraftWorker(unit, to, refresh);
@@ -870,6 +870,8 @@ namespace BaseConquest.Base
             string original = workerMoves.TryGetValue(unit.SoldierNumber, out var move) ? move.from : from;
             if (to == original) workerMoves.Remove(unit.SoldierNumber);
             else workerMoves[unit.SoldierNumber] = (worker.Kind, original, to);
+            if (BaseDemo.Active(workerDraft) && workerMoves.Count > 0) BaseSettlements.SetPolicy(workerDraft,"manual");
+            if (workerMoves.Count == 0) ResetWorkerDraft();
             refresh();
         }
         private void ConfirmManager(string leaderId,string facility,Action refresh)

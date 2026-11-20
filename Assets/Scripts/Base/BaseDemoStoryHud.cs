@@ -43,7 +43,7 @@ namespace BaseConquest.Base
                 if (!BaseDemoStories.Gift(state)) throw new InvalidOperationException("赠礼已领取或阿铸尚未加入");
             }, "");
             if (awarded) OpenLoot();
-            else OpenSmithFather();
+
         }
         private void RecruitPrisoner(string id,Action back)
         {

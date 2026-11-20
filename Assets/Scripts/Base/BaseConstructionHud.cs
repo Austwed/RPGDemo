@@ -15,7 +15,7 @@ namespace BaseConquest.Base
         private Button campConstructionResume, campStore, campConfirm, campExit;
         private Button[] campProjectButtons;
         private Text campBuildStatus, campReturnReminder;
-        private (BaseState Draft, int Revision, string Project, string Status) campPaletteContent;
+        private (SettlementLayoutDraft Draft, int Revision, string Project, string Status) campPaletteContent;
         private void BuildConstructionPalette()
         {
             var theme=DemoUiTheme.Current;
@@ -31,7 +31,6 @@ namespace BaseConquest.Base
             constructionStatus.GetComponent<Shadow>().enabled=false;
             constructionResources.GetComponent<Shadow>().enabled=false;
             constructionPalette.gameObject.SetActive(false);constructionCaption.gameObject.SetActive(false);
-            BuildHomeRebuildPalette();
             BuildCampConstructionPalette();
         }
         private void BuildCampConstructionPalette()
@@ -42,42 +41,39 @@ namespace BaseConquest.Base
             campConstructionResume.name = "CampConstructionResume";
             campReturnReminder = Label(controls, "从西口返回灰岩营地", new Vector2(-156, 115), new Vector2(245, 38),
                 20, TextAnchor.MiddleCenter, new Vector2(1, 0));
-            campConstructionPalette = Box("CampConstructionPalette", controls, new Vector2(.5f, 0), new Vector2(0, 88),
-                new Vector2(1140, 120), theme.Panel);
-            campBuildStatus = Label(campConstructionPalette, "", new Vector2(-195, 34), new Vector2(710, 40), 18);
-            campBuildStatus.GetComponent<Shadow>().enabled = false;
-            campBuildStatus.color = theme.Ink;
-            campConfirm = MakeButton(campConstructionPalette, "确认布局", new Vector2(349, 34), new Vector2(146, 40),
-                () => owner.ConfirmCampLayout());
-            campConfirm.name = "ConfirmLayout";
-            campExit = MakeButton(campConstructionPalette, "退出", new Vector2(490, 34), new Vector2(116, 40), owner.RequestExitCampPlacement);
-            campExit.name = "ExitLayout";
-            var projects = BaseFacilityLayout.Catalog.Where(def => !def.Required).ToArray();
-            campProjectButtons = new Button[projects.Length];
-            for (int i = 0; i < projects.Length; i++)
+            var tint=theme.Panel;
+            tint.a=.82f;
+            campConstructionPalette = Solid("CampConstructionPalette",controls,new Vector2(.5f,0),new Vector2(0,43),
+                new Vector2(780,58),tint);
+            campBuildStatus=Label(campConstructionPalette,"",Vector2.zero,new Vector2(205,44),16,TextAnchor.MiddleCenter);
+            campBuildStatus.GetComponent<Shadow>().enabled=false;
+            campBuildStatus.color=theme.Ink;
+            campConfirm=MakeButton(campConstructionPalette,"确认布局",Vector2.zero,new Vector2(103,42),()=>owner.ConfirmCampLayout());
+            campConfirm.name="ConfirmLayout";
+            campExit=MakeButton(campConstructionPalette,"退出",Vector2.zero,new Vector2(75,42),owner.RequestExitCampPlacement);
+            campExit.name="ExitLayout";
+            var projects=BaseFacilityLayout.Catalog;
+            campProjectButtons=new Button[projects.Length];
+            for(int i=0;i<projects.Length;i++)
             {
-                string id = projects[i].Id;
-                var button = MakeButton(campConstructionPalette, projects[i].Name, new Vector2(-438 + i * 203, -23),
-                    new Vector2(193, 52), () => owner.SelectCampProject(id));
-                button.name = "Project-" + id;
-                var drag = button.gameObject.AddComponent<EventTrigger>();
-                var start = new EventTrigger.Entry { eventID = EventTriggerType.BeginDrag };
-                start.callback.AddListener(_ => { if (button.interactable) owner.SelectCampProject(id); });
-                var drop = new EventTrigger.Entry { eventID = EventTriggerType.EndDrag };
-                drop.callback.AddListener(data =>
+                string id=projects[i].Id;
+                var button=MakeButton(campConstructionPalette,projects[i].Name,Vector2.zero,new Vector2(82,42),()=>owner.SelectCampProject(id));
+                button.name="Project-"+id;
+                var trigger=button.gameObject.AddComponent<EventTrigger>();
+                foreach (var type in new[]{EventTriggerType.BeginDrag,EventTriggerType.Drag,EventTriggerType.EndDrag})
                 {
-                    if (button.interactable && data is PointerEventData pointer) owner.PlaceCampProjectFromPointer(pointer.position);
-                });
-                drag.triggers.Add(start);
-                drag.triggers.Add(drop);
-                var text = button.GetComponentInChildren<Text>();
-                text.fontSize = 18;
-                text.GetComponent<Shadow>().enabled = false;
-                campProjectButtons[i] = button;
+                    var entry=new EventTrigger.Entry{eventID=type};
+                    entry.callback.AddListener(data=>
+                    {
+                        if (!button.interactable || !(data is PointerEventData pointer)) return;
+                        owner.DragPaletteProject(id,pointer.position,type==EventTriggerType.EndDrag);
+                    });
+                    trigger.triggers.Add(entry);
+                }
+                campProjectButtons[i]=button;
             }
-            campStore = MakeButton(campConstructionPalette, "收存设施", new Vector2(473, -23), new Vector2(150, 52),
-                owner.StoreCampProject);
-            campStore.name = "StoreProject";
+            campStore=MakeButton(campConstructionPalette,"收存",Vector2.zero,new Vector2(72,42),owner.StoreCampProject);
+            campStore.name="StoreProject";
             campConstructionPalette.gameObject.SetActive(false);
             campConstructionResume.gameObject.SetActive(false);
             campReturnReminder.gameObject.SetActive(false);
@@ -89,38 +85,49 @@ namespace BaseConquest.Base
             campConstructionPalette.gameObject.SetActive(show);
             if (!show) return;
             var draft = owner.CampLayoutDraft;
-            var content = (draft, draft.Layout.Revision, owner.CampProject, owner.CampPlacementMessage);
-            if (content == campPaletteContent) return;
-            campPaletteContent = content;
-            var projects = BaseFacilityLayout.CampProjects(draft).ToArray();
-            foreach (var button in campProjectButtons)
+            var content=(draft,draft.Revision,owner.CampProject,owner.CampPlacementMessage);
+            if(content==campPaletteContent)return;
+            campPaletteContent=content;
+            bool store=draft.CanStore(owner.CampProject);
+            float width=12+draft.Projects.Length*86+(store?76:0)+205+107+79;
+            campConstructionPalette.sizeDelta=new Vector2(width,58);
+            float x=-width*.5f+6;
+            void Place(RectTransform rect,float w)
             {
-                string id = button.name.Substring("Project-".Length);
-                var project = projects.FirstOrDefault(def => def.Id == id);
-                button.gameObject.SetActive(project != null);
-                if (project == null) continue;
-                button.interactable = id != "office" || !BaseDemo.ExperimentalManagementHidden(draft) || BaseFacilityLayout.Built(draft, id);
-                button.targetGraphic.color = owner.CampProject == id ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;
-                int cost = BaseFacilityLayout.Owned(draft, id) ? 0 : project.Materials;
-                button.GetComponentInChildren<Text>().text = project.Name +
-                    $" {BaseFacilityLayout.Count(draft, id)}/{project.MaxCount}\n收存 {(BaseFacilityLayout.Stored(draft, id) ? 1 : 0)} · 原料 {cost}";
+                rect.anchoredPosition=new Vector2(x+w*.5f,0);
+                x+=w+4;
             }
-            campConfirm.interactable = owner.CampLayoutChanged;
-            campExit.GetComponentInChildren<Text>().text = owner.CampLayoutChanged ? "放弃布局" : "退出";
-            campStore.interactable = BaseFacilityLayout.Built(draft, owner.CampProject);
-            campBuildStatus.text = $"营地建设 · 原料 {owner.State.Inventory.Materials - draft.Inventory.Materials}/{owner.State.Inventory.Materials}    {owner.CampPlacementMessage}";
+            foreach(var button in campProjectButtons)
+            {
+                var id=button.name.Substring("Project-".Length);
+                var project=draft.Projects.FirstOrDefault(d=>d.Id==id);
+                button.gameObject.SetActive(project!=null);
+                if(project==null)continue;
+                button.targetGraphic.color=owner.CampProject==id?DemoUiTheme.Current.Gold:DemoUiTheme.Current.Button;
+                Place((RectTransform)button.transform,82);
+            }
+            campStore.gameObject.SetActive(store);
+            if(store)Place((RectTransform)campStore.transform,72);
+            string problem=owner.CampPlacementMessage;
+            int materials=draft.Cost(owner.State,false),money=draft.Cost(owner.State,true);
+            string cost=money>0 ? $"原料 {materials} · 钱币 {money}" : $"原料 {materials}/{owner.State.Inventory.Materials}";
+            if (!owner.CampLayoutChanged && draft.Village && draft.Placed("barracks")==null && owner.CampProject=="barracks")
+                cost=$"原料 {draft.Price(owner.State,"barracks",false)} · 钱币 {draft.Price(owner.State,"barracks",true)}";
+            campBuildStatus.text=string.IsNullOrEmpty(problem)?cost:problem;
+            Place(campBuildStatus.rectTransform,201);
+            campConfirm.interactable=owner.CampLayoutChanged&&string.IsNullOrEmpty(problem);
+            Place((RectTransform)campConfirm.transform,103);
+            Place((RectTransform)campExit.transform,75);
         }
         public void RefreshConstructionPalette()
         {
             if(constructionPalette==null)return;
             bool active=owner.ConstructionMode&&!PanelOpen&&!owner.Busy&&owner.State!=null&&!owner.State.Campaign.HasActiveBattle&&!owner.State.Aftermath.GameOver;
-            bool show=active&&!owner.RebuildPlacementMode&&!owner.CampPlacementMode;
-            bool showRebuild=active&&owner.RebuildPlacementMode;
+            bool show=active&&!owner.CampPlacementMode;
             bool showCamp=active&&owner.CampPlacementMode;
-            RefreshHomeRebuildPalette(showRebuild);
             RefreshCampConstructionPalette(showCamp);
             constructionPalette.gameObject.SetActive(show);constructionCaption.gameObject.SetActive(show);
-            mapLabels.offsetMin=new Vector2(showRebuild&&!owner.HomeRebuildOverview ? HomeRebuildGutter : 12,showCamp ? 154 : ExplorationHudLayout.FooterHeight);
+            mapLabels.offsetMin=new Vector2(12,showCamp ? 154 : ExplorationHudLayout.FooterHeight);
             if(!show)return;
             trapProject.gameObject.SetActive(true);sandbagProject.gameObject.SetActive(true);
             trapProject.GetComponent<Image>().color=owner.SelectedConstructionProject==ConstructionProject.Trap ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;

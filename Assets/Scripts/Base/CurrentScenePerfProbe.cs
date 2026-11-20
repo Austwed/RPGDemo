@@ -261,7 +261,7 @@ namespace BaseConquest.Perf
                 s.PlayerY = point.Y;
                 BaseInteraction.Walk(new BasePoint(target.X - point.X, target.Y - point.Y));
                 BaseAdventure.Arrive(s);
-                if (!BaseBackpack.Add(s, BaseEquipmentCrafting.Stone, 3))
+                if (!BaseBackpack.AddToWarehouse(s, BaseEquipmentCrafting.Stone, 3))
                     throw new InvalidOperationException("fixture stock");
             }, "warehouse fixture"), "prepare warehouse");
             scene.Hud.ClosePanel();

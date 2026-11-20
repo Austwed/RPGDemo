@@ -12,23 +12,20 @@ namespace BaseConquest.Base
             var s=owner.State;var lines=new List<NpcLine>();
             if(BaseAdventure.Following(s,"partner_farm"))lines.Add(new NpcLine("阿禾","ahe","［咳了两声］这风一吸进去，胸口烧得慌。"));
             if(BaseAdventure.Following(s,"partner_craft"))lines.Add(new NpcLine("阿铸","azhu","这股黑风我扛得住。寻常人进去，可得当心。"));
-            lines.Add(new NpcLine(BaseScriptNames.Ruins+"警告","","严重警告：当前出战队伍有普通人。仅副本内，非异族、非异能者每秒损失最大生命的"+(BaseRuinsRewards.Exposure(s)*100).ToString("0.##")+"%；异族和异能者免受侵蚀伤害；"+BaseScriptNames.Ruins+"中受迦兰魂丝保护的村民暂免侵蚀。入口野外没有侵蚀，暂离成员不会进入副本。战斗中存在真实战损，请谨慎决定。"));
+            lines.Add(new NpcLine(BaseScriptNames.Ruins+"警告","","严重警告：当前出战队伍有普通人。仅副本内，非异族、非异能者每秒损失最大生命的"+(BaseRuinsRewards.Exposure(s)*100).ToString("0.##")+"%；异族和异能者免受侵蚀伤害；"+BaseScriptNames.Ruins+"中受法术保护的村民暂免侵蚀。入口野外没有侵蚀，暂离成员不会进入副本。战斗中存在真实战损，请谨慎决定。"));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("知晓危险，仍让当前队伍进入",proceed),new NpcReply("暂不进入，先调整随行",owner.CancelRuinsEntry)});
         }
         public void OpenRuinsConfrontation(Action proceed)
         {
-            var fight=new NpcReply("准备交战",proceed);
-            var defer=new NpcReply("暂不交战",CloseRuinsBriefing);
-            NpcDialogue(new[]{
-                new NpcLine("迦兰","galan","站住。他们吸了瘴气，全靠我护着。"),
-                new NpcLine("迦兰","galan","我一收手，他们就撑不住了。")
-            },new[]{
-                fight,
-                new NpcReply("他们自己能走？还是得你发话？",()=>NpcDialogue(new[]{
-                    new NpcLine("迦兰","galan","再走一步，我就叫他们拦你。")
-                },new[]{fight,defer})),
-                defer
+            var retreat = new NpcReply("先退出去准备一下", () =>
+            {
+                if (owner.DeploymentWorldActive) owner.EndDeploymentWorld();
+                ExitBattleDeployment();
             });
+            NpcDialogue(new[]{new NpcLine("？？？","unknown-speaker","何人聒噪，吾乃古裔精锐伽兰是也，外来者速速退去，此地不是尔等所能沾染的。")},
+                new[]{new NpcReply("继续推进",()=>NpcDialogue(new[]{
+                    new NpcLine("？？？","unknown-speaker","敬酒不吃吃罚酒，哼，可惜不能继续增加人数了，你们两个跟我上。")
+                },Array.Empty<NpcReply>(),lockExitUntilFinished:true,onCompleted:proceed)),retreat});
         }
         internal void CloseRuinsBriefing()
         {
