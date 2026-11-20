@@ -32,7 +32,7 @@ namespace BaseConquest.Editor
 
     public static class DemoBalanceImporter
     {
-        public const string WorkbookPath="../策划/DEMO/DEMO数值配置表.xlsx";
+        public const string WorkbookPath="../归档/文档/2026-11-20_旧数值配表/DEMO数值配置表.xlsx";
         public const string OutputPath="Assets/Resources/DemoBalance/DemoBalance.json";
         public static DemoBalanceImport Read(string workbookPath,string seedPath,string outputPath,Func<string,BaseScenarioDocument> deserializeSeed)
         {
@@ -185,9 +185,7 @@ namespace BaseConquest.Editor
     public sealed class DemoBalanceWindow:EditorWindow
     {
         private bool professions;private string workbookPath,error="";private DemoBalanceImport imported;private Vector2 scroll;
-        [MenuItem("SLG/其他工具/导入/Demo数值表（校验与预览）")]
         public static void Open(){var w=GetWindow<DemoBalanceWindow>("Demo数值表");w.professions=false;w.imported=null;w.workbookPath=Path.GetFullPath(DemoBalanceImporter.WorkbookPath);w.minSize=new Vector2(600,420);w.Show();}
-        [MenuItem("SLG/其他工具/导入/Demo职业扩展表（完整职业配置）")]
         public static void OpenProfessions()
         {
             var window=GetWindow<DemoBalanceWindow>("Demo数值表");
@@ -195,16 +193,15 @@ namespace BaseConquest.Editor
             window.workbookPath=Path.GetFullPath(ProfessionBalanceImporter.WorkbookPath);
             window.minSize=new Vector2(600,420);window.Show();
         }
-        [MenuItem("SLG/其他工具/生成/Demo数值快照与阶段档")]
         public static void GenerateDefault()
         {
             if(EditorApplication.isPlayingOrWillChangePlaymode||EditorApplication.isCompiling)throw new InvalidOperationException("请保持停止Play并等待编译");
             const string log="Logs/Demo/balance-import.log";Directory.CreateDirectory("Logs/Demo");File.WriteAllText(log,"RUNNING "+DateTime.UtcNow.ToString("o"));
             try
             {
-                var result=DemoBalanceImporter.Read(DemoBalanceImporter.WorkbookPath,PlanningBalanceImporter.OutputPath,DemoBalanceImporter.OutputPath,JsonUtility.FromJson<BaseScenarioDocument>);
-                DemoBalanceImporter.WriteWithStages(result);AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-                File.WriteAllText(log,"PASS "+result.WorkbookHash+"\n"+result.Preview);
+                var result=PlanningWorkbookWindow.BuildPreview(PlanningWorkbook.MasterPath);
+                PlanningWorkbookWindow.Commit(result);
+                File.WriteAllText(log,"PASS "+result.Package.WorkbookSha256+"\n"+string.Join("\n",result.Changes));
             }
             catch(Exception error){File.WriteAllText(log,"FAIL "+error);throw;}
         }

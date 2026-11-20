@@ -14,7 +14,7 @@ namespace BaseConquest.Editor
 {
     public static class ProfessionBalanceImporter
     {
-        public const string WorkbookPath="../策划/DEMO/DEMO职业扩展表.xlsx";
+        public const string WorkbookPath="../归档/文档/2026-11-20_旧数值配表/DEMO职业扩展表.xlsx";
         private static readonly string[] Classes={"warrior","archer","knight","mage"};
         private static readonly string[] Identities={"soldier","captain_normal","captain_awakened"};
         private static readonly string[] Weapons={"sword","bow","spear","staff"};

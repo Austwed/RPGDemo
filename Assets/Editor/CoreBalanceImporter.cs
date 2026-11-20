@@ -30,7 +30,7 @@ namespace BaseConquest.Editor
 
     public static class CoreBalanceImporter
     {
-        public const string WorkbookPath="../策划/DEMO/DEMO核心数值表.xlsx";
+        public const string WorkbookPath="../归档/文档/2026-11-20_旧数值配表/DEMO核心数值表.xlsx";
         private const string EquipmentPatch = "EquipmentPatch";
         private const string CorePatch = "SixSheetPatch";
         private static string SourcePath(string output,bool equipmentOnly)
@@ -216,10 +216,8 @@ namespace BaseConquest.Editor
         private CoreBalanceImport imported;
         private Vector2 scroll;
         [SerializeField] private bool equipmentOnly;
-        [MenuItem("SLG/其他工具/导入/Demo核心六页表（局部覆盖）")]
         public static void Open()=>Open(false);
 
-        [MenuItem("SLG/其他工具/导入/Demo个人装备与价格（局部覆盖）")]
         public static void OpenEquipment()=>Open(true);
 
         private static void Open(bool equipmentOnly)

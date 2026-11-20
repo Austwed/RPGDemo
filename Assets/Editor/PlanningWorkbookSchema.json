@@ -1,0 +1,2691 @@
+{
+  "version": 1,
+  "fixed": {
+    "GenerationSeed": 0,
+    "SceneRulesVersion": 0,
+    "IntelPricingConfigured": true,
+    "ThreeDayIntelPrice": null,
+    "FiveDayIntelPrice": null,
+    "Version": 1,
+    "CampLevel": 1,
+    "InnDailyFee": 2,
+    "LeaderFood": 0,
+    "ArcherFood": null,
+    "SupplyMaterial": null,
+    "SupplyWorkValue": null,
+    "FacilityRepairMaterials": null,
+    "FacilityRepairCoins": null,
+    "AwakenedChance": null,
+    "EnemyLeaderDeath": null,
+    "SoldierDeathBase": null,
+    "SoldierDeathSensitivity": null,
+    "HideoutEnemyCount": null,
+    "RuinsFirstControllerTemplate": null,
+    "RecruitSupplyFactor": null,
+    "RecruitPriceSensitivity": null,
+    "SweepLossAtParity": null,
+    "SweepSecondsAtParity": null,
+    "SweepMinimumSeconds": null,
+    "FoodValue": null,
+    "MaterialValue": null,
+    "BookValue": null,
+    "AdvancedBookValue": null,
+    "StoneValue": null,
+    "WineValue": null,
+    "OtherValue": null,
+    "WeaponValues": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "HelmetValues": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "ArmorValues": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "AccessoryValues": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "DropQuality": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "EquipmentQuality": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "BowQualityRange": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "SupplyAttackLow": null,
+    "SupplyAttackHigh": null,
+    "SupplyDefenseLow": null,
+    "SupplyDefenseHigh": null,
+    "ArmorK": null,
+    "ArmorCap": null,
+    "CriticalMultiplier": null,
+    "BaseInterval": null,
+    "MinimumInterval": null,
+    "ArrowSpeed": null,
+    "HeightAdvantage": null,
+    "HealThreshold": null,
+    "AttackEquipmentScale": null,
+    "HealthEquipmentScale": null,
+    "DefenseEquipmentScale": null,
+    "BuyFactor": null,
+    "SellFactor": null,
+    "WeaponAttackScale": null,
+    "Hit": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "Evasion": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "Capacity": [
+      null,
+      null,
+      null
+    ],
+    "CampMaterials": [
+      null,
+      null
+    ],
+    "CampCoins": [
+      null,
+      null
+    ],
+    "TroopBaseline": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "RecruitBasePrices": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "TrainingDays": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "TrainingBooks": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "Range": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "Speed": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "Growth": [
+      1,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "QualityValue": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "AttributeGrowthVersion": 1,
+    "AttackGrowth": [
+      1,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "DefenseGrowth": [
+      1,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "Templates": [],
+    "Skills": [],
+    "Traits": [],
+    "Equipment": [],
+    "StoryPresets": [],
+    "OpeningEconomy": {
+      "SoldierFood": null,
+      "CavalryFood": null,
+      "LeaderFood": null,
+      "FarmPerWorker": null,
+      "WorkshopPerWorker": null,
+      "HungerProductionPenalty": null,
+      "HungerAttackPenalty": null,
+      "SwordMaterial": 2,
+      "BowMaterial": 2,
+      "ArmorMaterial": 3
+    },
+    "OpeningEconomyVersion": 1,
+    "OpeningRecoveryPerDay": null,
+    "OpeningAuxVersion": 1,
+    "OpeningTactical": {
+      "Version": 1,
+      "TreeLength": null,
+      "RockDistance": null,
+      "TreeHits": null,
+      "RockSpeed": null,
+      "RockDamage": null
+    },
+    "OpeningRewards": {
+      "Version": 1,
+      "MaximumEnergy": null,
+      "RewardCost": null,
+      "Energy": 120,
+      "EnergyDay": 1,
+      "Coins": null,
+      "ItemCount": null,
+      "ExposureFraction": null,
+      "PendingBattleId": "",
+      "PendingFirstClear": false,
+      "FirstCoins": null,
+      "FirstFood": null,
+      "FirstMaterials": null,
+      "EnemyGeneration": 0
+    },
+    "OpeningSupplyWearVersion": 1,
+    "OpeningReturnedWear": 0.1,
+    "OpeningLostWear": 0.7,
+    "OpeningLordReward": {
+      "Food": null,
+      "Materials": null,
+      "Coins": null,
+      "Equipment": []
+    },
+    "OpeningBattleRewardVersion": 1,
+    "OpeningDefenseReward": {
+      "Food": null,
+      "Materials": null,
+      "Coins": null,
+      "Equipment": []
+    },
+    "OpeningCampReward": {
+      "Food": null,
+      "Materials": null,
+      "Coins": null,
+      "Equipment": []
+    },
+    "OpeningDefenseLoss": {
+      "Food": null,
+      "Materials": null,
+      "Coins": null,
+      "Equipment": []
+    },
+    "OpeningInventory": {
+      "Food": null,
+      "Materials": null,
+      "Coins": null,
+      "Equipment": [
+        {
+          "Product": "supply",
+          "Level": 1,
+          "Count": null
+        },
+        {
+          "Product": "supply",
+          "Level": 2,
+          "Count": null
+        }
+      ]
+    },
+    "SecondRaidDays": null,
+    "OpeningFacilityCapacity": [
+      null,
+      null
+    ],
+    "OpeningFacilityMinimum": [
+      null,
+      null
+    ],
+    "OpeningTownStock": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "ReforgeUp": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "ReforgeDown": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "ForgeDailyStock": null,
+    "Professions": [],
+    "EncounterUnits": [],
+    "TemplateDefenseCaps": [
+      null,
+      null,
+      null
+    ],
+    "MageFood": null,
+    "EnemySupplies": []
+  },
+  "mirrors": {
+    "LeaderFood": "OpeningEconomy/LeaderFood",
+    "OpeningRewards/Energy": "OpeningRewards/MaximumEnergy"
+  },
+  "group": [
+    {
+      "name": "职业与单位",
+      "sheets": [
+        "职业",
+        "单位模板",
+        "人物预设"
+      ]
+    },
+    {
+      "name": "战斗与关卡",
+      "sheets": [
+        "战斗规则",
+        "地形与视野",
+        "军需效果",
+        "关卡编制与配装"
+      ]
+    },
+    {
+      "name": "装备与成长",
+      "sheets": [
+        "装备与商店",
+        "装备品质",
+        "队长成长与训练"
+      ]
+    },
+    {
+      "name": "经营与兵源",
+      "sheets": [
+        "营地与设施",
+        "兵源",
+        "商品与配方"
+      ]
+    },
+    {
+      "name": "技能与特性",
+      "sheets": [
+        "技能",
+        "特性"
+      ]
+    },
+    {
+      "name": "开局与进程",
+      "sheets": [
+        "开局资源",
+        "奖励与遗迹",
+        "阶段参数"
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "id": "cfg_profession",
+      "sheet": "职业",
+      "path": "Professions",
+      "key": "Id",
+      "fields": [
+        {
+          "id": "Name",
+          "label": "职业名称",
+          "type": "s"
+        },
+        {
+          "id": "AttackMode",
+          "label": "攻击方式",
+          "type": "s"
+        },
+        {
+          "id": "DamageType",
+          "label": "伤害类型",
+          "type": "s"
+        },
+        {
+          "id": "Weapon",
+          "label": "武器类型",
+          "type": "s"
+        },
+        {
+          "id": "TrainingBasic",
+          "label": "基础兵书 ID",
+          "type": "s"
+        },
+        {
+          "id": "TrainingAdvanced",
+          "label": "高阶兵书 ID",
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "id": "cfg_profession_stats",
+      "sheet": "职业",
+      "fields": [
+        {
+          "id": "Hit",
+          "label": "命中点",
+          "type": "i"
+        },
+        {
+          "id": "Evasion",
+          "label": "闪避点",
+          "type": "i"
+        },
+        {
+          "id": "Range",
+          "label": "职业普攻距离（细格）",
+          "type": "d"
+        },
+        {
+          "id": "Speed",
+          "label": "移速（细格/秒）",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "warrior",
+          "label": "剑士",
+          "paths": [
+            "Hit/0",
+            "Evasion/0",
+            "Range/0",
+            "Speed/0"
+          ]
+        },
+        {
+          "id": "archer",
+          "label": "弓兵",
+          "paths": [
+            "Hit/1",
+            "Evasion/1",
+            "Range/1",
+            "Speed/1"
+          ]
+        },
+        {
+          "id": "knight",
+          "label": "骑兵",
+          "paths": [
+            "Hit/2",
+            "Evasion/2",
+            "Range/2",
+            "Speed/2"
+          ]
+        },
+        {
+          "id": "mage",
+          "label": "法师",
+          "paths": [
+            "Hit/3",
+            "Evasion/3",
+            "Range/3",
+            "Speed/3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_units",
+      "sheet": "单位模板",
+      "path": "Templates",
+      "key": "Id",
+      "fields": [
+        {
+          "id": "Name",
+          "label": "名称",
+          "type": "s"
+        },
+        {
+          "id": "ProfessionId",
+          "label": "职业 ID",
+          "type": "s"
+        },
+        {
+          "id": "Identity",
+          "label": "单位身份",
+          "type": "s"
+        },
+        {
+          "id": "Health",
+          "label": "生命",
+          "type": "d"
+        },
+        {
+          "id": "Attack",
+          "label": "攻击",
+          "type": "d"
+        },
+        {
+          "id": "Defense",
+          "label": "防御",
+          "type": "d"
+        },
+        {
+          "id": "SightRadius",
+          "label": "基础视野（格）",
+          "type": "i"
+        },
+        {
+          "id": "IsDefault",
+          "label": "默认模板",
+          "type": "b"
+        }
+      ]
+    },
+    {
+      "id": "cfg_people",
+      "sheet": "人物预设",
+      "path": "StoryPresets",
+      "key": "Id",
+      "fields": [
+        {
+          "id": "SkillId",
+          "label": "技能 ID",
+          "type": "s"
+        },
+        {
+          "id": "TraitId",
+          "label": "主特性 ID",
+          "type": "s?"
+        },
+        {
+          "id": "TraitValue",
+          "label": "主特性数值",
+          "type": "d"
+        }
+      ],
+      "labels": {
+        "player": "主角",
+        "partner_farm": "阿禾",
+        "partner_craft": "阿铸"
+      },
+      "defaults": {
+        "ExtraTraits": []
+      }
+    },
+    {
+      "id": "cfg_combat",
+      "sheet": "战斗规则",
+      "fields": [
+        {
+          "id": "value",
+          "label": "数值",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "ArmorK",
+          "label": "护甲系数 K",
+          "paths": [
+            "ArmorK"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "ArmorCap",
+          "label": "法术减伤上限",
+          "paths": [
+            "ArmorCap"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "CriticalMultiplier",
+          "label": "基础暴击倍率",
+          "paths": [
+            "CriticalMultiplier"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "BaseInterval",
+          "label": "普攻前摇（秒）",
+          "paths": [
+            "BaseInterval"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "MinimumInterval",
+          "label": "最短普攻间隔（秒）",
+          "paths": [
+            "MinimumInterval"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "HealThreshold",
+          "label": "自动治愈阈值",
+          "paths": [
+            "HealThreshold"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "SweepLossAtParity",
+          "label": "等势扫荡战损系数",
+          "paths": [
+            "SweepLossAtParity"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "SweepSecondsAtParity",
+          "label": "等势预计时长（秒）",
+          "paths": [
+            "SweepSecondsAtParity"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "SweepMinimumSeconds",
+          "label": "最低预计时长（秒）",
+          "paths": [
+            "SweepMinimumSeconds"
+          ],
+          "types": [
+            "d"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_defense_caps",
+      "sheet": "战斗规则",
+      "fields": [
+        {
+          "id": "max",
+          "label": "基础防御上限",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "soldier",
+          "label": "普通兵",
+          "paths": [
+            "TemplateDefenseCaps/0"
+          ]
+        },
+        {
+          "id": "captain_normal",
+          "label": "普通队长",
+          "paths": [
+            "TemplateDefenseCaps/1"
+          ]
+        },
+        {
+          "id": "captain_awakened",
+          "label": "异能队长",
+          "paths": [
+            "TemplateDefenseCaps/2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_terrain",
+      "sheet": "地形与视野",
+      "fields": [
+        {
+          "id": "value",
+          "label": "数值",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "ArrowSpeed",
+          "label": "弹道速度（细格/秒）",
+          "paths": [
+            "ArrowSpeed"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "HeightAdvantage",
+          "label": "高低差判定（细格）",
+          "paths": [
+            "HeightAdvantage"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "OpeningTactical_TreeLength",
+          "label": "倒木长度（细格）",
+          "paths": [
+            "OpeningTactical/TreeLength"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "OpeningTactical_TreeHits",
+          "label": "倒木破坏所需命中",
+          "paths": [
+            "OpeningTactical/TreeHits"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "OpeningTactical_RockDistance",
+          "label": "滚石距离（细格）",
+          "paths": [
+            "OpeningTactical/RockDistance"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "OpeningTactical_RockSpeed",
+          "label": "滚石速度（细格/秒）",
+          "paths": [
+            "OpeningTactical/RockSpeed"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "OpeningTactical_RockDamage",
+          "label": "滚石伤害倍率",
+          "paths": [
+            "OpeningTactical/RockDamage"
+          ],
+          "types": [
+            "d"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_supply",
+      "sheet": "军需效果",
+      "fields": [
+        {
+          "id": "atk",
+          "label": "攻击加值",
+          "type": "d"
+        },
+        {
+          "id": "def",
+          "label": "防御加值",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "grade_1",
+          "label": "一级军需",
+          "paths": [
+            "SupplyAttackLow",
+            "SupplyDefenseLow"
+          ]
+        },
+        {
+          "id": "grade_2",
+          "label": "二级军需",
+          "paths": [
+            "SupplyAttackHigh",
+            "SupplyDefenseHigh"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_encounters",
+      "sheet": "关卡编制与配装",
+      "path": "EncounterUnits",
+      "key": null,
+      "fields": [
+        {
+          "id": "Scene",
+          "label": "关卡 ID",
+          "type": "s"
+        },
+        {
+          "id": "Slot",
+          "label": "部署槽位",
+          "type": "s"
+        },
+        {
+          "id": "TemplateId",
+          "label": "模板 ID",
+          "type": "s"
+        }
+      ],
+      "natural": [
+        "Scene",
+        "Slot"
+      ],
+      "sceneLabels": {
+        "hideout": "土匪窝点",
+        "defense": "首防",
+        "bandit": "黑鸦寨",
+        "second": "第二波",
+        "ruins": "沉眠古窟",
+        "ruins_repeat": "古窟重战"
+      }
+    },
+    {
+      "id": "cfg_enemy_exact",
+      "sheet": "关卡编制与配装",
+      "path": "EnemySupplies",
+      "key": null,
+      "fields": [
+        {
+          "id": "Scene",
+          "label": "关卡 ID",
+          "type": "s"
+        },
+        {
+          "id": "Slot",
+          "label": "部署槽位",
+          "type": "s"
+        },
+        {
+          "id": "Tier",
+          "label": "军需档",
+          "type": "i"
+        }
+      ],
+      "filter": "slot",
+      "natural": [
+        "Scene",
+        "Slot"
+      ],
+      "defaults": {
+        "Profession": "",
+        "Count": 1
+      },
+      "sceneLabels": {
+        "hideout": "土匪窝点",
+        "defense": "首防",
+        "bandit": "黑鸦寨",
+        "second": "第二波",
+        "ruins": "沉眠古窟",
+        "ruins_repeat": "古窟重战"
+      }
+    },
+    {
+      "id": "cfg_enemy_group",
+      "sheet": "关卡编制与配装",
+      "path": "EnemySupplies",
+      "key": null,
+      "fields": [
+        {
+          "id": "Scene",
+          "label": "关卡 ID",
+          "type": "s"
+        },
+        {
+          "id": "Profession",
+          "label": "职业 ID",
+          "type": "s?"
+        },
+        {
+          "id": "Count",
+          "label": "配装人数",
+          "type": "i"
+        },
+        {
+          "id": "Tier",
+          "label": "军需档",
+          "type": "i"
+        }
+      ],
+      "filter": "group",
+      "natural": [
+        "Scene",
+        "Profession",
+        "Tier"
+      ],
+      "defaults": {
+        "Slot": ""
+      },
+      "sceneLabels": {
+        "hideout": "土匪窝点",
+        "defense": "首防",
+        "bandit": "黑鸦寨",
+        "second": "第二波",
+        "ruins": "沉眠古窟",
+        "ruins_repeat": "古窟重战"
+      }
+    },
+    {
+      "id": "cfg_encounter_rules",
+      "sheet": "关卡编制与配装",
+      "fields": [
+        {
+          "id": "value",
+          "label": "数值",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "HideoutEnemyCount",
+          "label": "窝点守军人数",
+          "paths": [
+            "HideoutEnemyCount"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "RuinsFirstControllerTemplate",
+          "label": "古窟首战队长模板 ID",
+          "paths": [
+            "RuinsFirstControllerTemplate"
+          ],
+          "types": [
+            "s"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_gear",
+      "sheet": "装备与商店",
+      "path": "Equipment",
+      "key": "Id",
+      "fields": [
+        {
+          "id": "Damage",
+          "label": "攻击加值",
+          "type": "f"
+        },
+        {
+          "id": "Defense",
+          "label": "防御加值",
+          "type": "f"
+        },
+        {
+          "id": "Health",
+          "label": "生命加值",
+          "type": "f"
+        },
+        {
+          "id": "CritMultiplier",
+          "label": "暴伤倍率加值",
+          "type": "f"
+        },
+        {
+          "id": "Movement",
+          "label": "移速加值（细格/秒）",
+          "type": "f"
+        },
+        {
+          "id": "Stage",
+          "label": "价值阶段",
+          "type": "i"
+        }
+      ],
+      "labels": {
+        "basic_sword": "短剑",
+        "basic_bow": "木弓",
+        "basic_staff": "木法杖",
+        "basic_spear": "旧长枪",
+        "basic_helmet": "布帽",
+        "basic_armor": "布甲",
+        "novice_sword": "新手短剑",
+        "novice_bow": "新手短弓",
+        "novice_spear": "新手长枪",
+        "novice_light_helmet": "新手轻盔",
+        "novice_light_armor": "新手轻甲",
+        "novice_heavy_helmet": "新手重盔",
+        "novice_heavy_armor": "新手重甲",
+        "captains_ring": "队长赠予的指环"
+      },
+      "prices": {
+        "basic_sword": "weapon",
+        "basic_bow": "weapon",
+        "basic_staff": "weapon",
+        "basic_spear": "weapon",
+        "basic_helmet": "helmet",
+        "basic_armor": "armor",
+        "novice_sword": "weapon",
+        "novice_bow": "weapon",
+        "novice_spear": "weapon",
+        "novice_light_helmet": "helmet",
+        "novice_light_armor": "armor",
+        "novice_heavy_helmet": "helmet",
+        "novice_heavy_armor": "armor",
+        "captains_ring": "accessory"
+      }
+    },
+    {
+      "id": "cfg_gear_value",
+      "sheet": "装备与商店",
+      "fields": [
+        {
+          "id": "weapon",
+          "label": "武器（币）",
+          "type": "i"
+        },
+        {
+          "id": "helmet",
+          "label": "头盔（币）",
+          "type": "i"
+        },
+        {
+          "id": "armor",
+          "label": "护甲（币）",
+          "type": "i"
+        },
+        {
+          "id": "accessory",
+          "label": "饰品（币）",
+          "type": "i"
+        }
+      ],
+      "rows": [
+        {
+          "id": "0",
+          "label": "阶段 0",
+          "paths": [
+            "WeaponValues/0",
+            "HelmetValues/0",
+            "ArmorValues/0",
+            "AccessoryValues/0"
+          ]
+        },
+        {
+          "id": "1",
+          "label": "阶段 1",
+          "paths": [
+            "WeaponValues/1",
+            "HelmetValues/1",
+            "ArmorValues/1",
+            "AccessoryValues/1"
+          ]
+        },
+        {
+          "id": "2",
+          "label": "阶段 2",
+          "paths": [
+            "WeaponValues/2",
+            "HelmetValues/2",
+            "ArmorValues/2",
+            "AccessoryValues/2"
+          ]
+        },
+        {
+          "id": "3",
+          "label": "阶段 3",
+          "paths": [
+            "WeaponValues/3",
+            "HelmetValues/3",
+            "ArmorValues/3",
+            "AccessoryValues/3"
+          ]
+        },
+        {
+          "id": "4",
+          "label": "阶段 4",
+          "paths": [
+            "WeaponValues/4",
+            "HelmetValues/4",
+            "ArmorValues/4",
+            "AccessoryValues/4"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_gear_scale",
+      "sheet": "装备与商店",
+      "fields": [
+        {
+          "id": "value",
+          "label": "数值",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "WeaponAttackScale",
+          "label": "武器攻击换算",
+          "paths": [
+            "WeaponAttackScale"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "AttackEquipmentScale",
+          "label": "其他装备攻击换算",
+          "paths": [
+            "AttackEquipmentScale"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "DefenseEquipmentScale",
+          "label": "装备防御换算",
+          "paths": [
+            "DefenseEquipmentScale"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "HealthEquipmentScale",
+          "label": "装备生命换算",
+          "paths": [
+            "HealthEquipmentScale"
+          ],
+          "types": [
+            "d"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_quality",
+      "sheet": "装备品质",
+      "fields": [
+        {
+          "id": "stats",
+          "label": "属性倍率",
+          "type": "d"
+        },
+        {
+          "id": "value",
+          "label": "价值倍率",
+          "type": "d"
+        },
+        {
+          "id": "range",
+          "label": "弓射程加值（细格）",
+          "type": "i"
+        },
+        {
+          "id": "drop",
+          "label": "掉落概率",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "broken",
+          "label": "破损",
+          "paths": [
+            "EquipmentQuality/0",
+            "QualityValue/0",
+            "BowQualityRange/0",
+            "DropQuality/0"
+          ]
+        },
+        {
+          "id": "poor",
+          "label": "较差",
+          "paths": [
+            "EquipmentQuality/1",
+            "QualityValue/1",
+            "BowQualityRange/1",
+            "DropQuality/1"
+          ]
+        },
+        {
+          "id": "normal",
+          "label": "一般",
+          "paths": [
+            "EquipmentQuality/2",
+            "QualityValue/2",
+            "BowQualityRange/2",
+            "DropQuality/2"
+          ]
+        },
+        {
+          "id": "good",
+          "label": "良好",
+          "paths": [
+            "EquipmentQuality/3",
+            "QualityValue/3",
+            "BowQualityRange/3",
+            "DropQuality/3"
+          ]
+        },
+        {
+          "id": "excellent",
+          "label": "极佳",
+          "paths": [
+            "EquipmentQuality/4",
+            "QualityValue/4",
+            "BowQualityRange/4",
+            "DropQuality/4"
+          ]
+        },
+        {
+          "id": "legendary",
+          "label": "传奇",
+          "paths": [
+            "EquipmentQuality/5",
+            "QualityValue/5",
+            "BowQualityRange/5",
+            "DropQuality/5"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_reforge",
+      "sheet": "装备品质",
+      "fields": [
+        {
+          "id": "up",
+          "label": "升档率（基点）",
+          "type": "i"
+        },
+        {
+          "id": "down",
+          "label": "降档率（基点）",
+          "type": "i"
+        }
+      ],
+      "rows": [
+        {
+          "id": "1",
+          "label": "1 枚锻造石",
+          "paths": [
+            "ReforgeUp/0",
+            "ReforgeDown/0"
+          ]
+        },
+        {
+          "id": "3",
+          "label": "3 枚锻造石",
+          "paths": [
+            "ReforgeUp/1",
+            "ReforgeDown/1"
+          ]
+        },
+        {
+          "id": "5",
+          "label": "5 枚锻造石",
+          "paths": [
+            "ReforgeUp/2",
+            "ReforgeDown/2"
+          ]
+        },
+        {
+          "id": "10",
+          "label": "10 枚锻造石",
+          "paths": [
+            "ReforgeUp/3",
+            "ReforgeDown/3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_growth",
+      "sheet": "队长成长与训练",
+      "fields": [
+        {
+          "id": "hp",
+          "label": "生命倍率",
+          "type": "d"
+        },
+        {
+          "id": "atk",
+          "label": "攻击倍率",
+          "type": "d"
+        },
+        {
+          "id": "def",
+          "label": "防御倍率",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "2",
+          "label": "2 级",
+          "paths": [
+            "Growth/1",
+            "AttackGrowth/1",
+            "DefenseGrowth/1"
+          ]
+        },
+        {
+          "id": "3",
+          "label": "3 级",
+          "paths": [
+            "Growth/2",
+            "AttackGrowth/2",
+            "DefenseGrowth/2"
+          ]
+        },
+        {
+          "id": "4",
+          "label": "4 级",
+          "paths": [
+            "Growth/3",
+            "AttackGrowth/3",
+            "DefenseGrowth/3"
+          ]
+        },
+        {
+          "id": "5",
+          "label": "5 级",
+          "paths": [
+            "Growth/4",
+            "AttackGrowth/4",
+            "DefenseGrowth/4"
+          ]
+        },
+        {
+          "id": "6",
+          "label": "6 级",
+          "paths": [
+            "Growth/5",
+            "AttackGrowth/5",
+            "DefenseGrowth/5"
+          ]
+        },
+        {
+          "id": "7",
+          "label": "7 级",
+          "paths": [
+            "Growth/6",
+            "AttackGrowth/6",
+            "DefenseGrowth/6"
+          ]
+        },
+        {
+          "id": "8",
+          "label": "8 级",
+          "paths": [
+            "Growth/7",
+            "AttackGrowth/7",
+            "DefenseGrowth/7"
+          ]
+        },
+        {
+          "id": "9",
+          "label": "9 级",
+          "paths": [
+            "Growth/8",
+            "AttackGrowth/8",
+            "DefenseGrowth/8"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_training_cost",
+      "sheet": "队长成长与训练",
+      "fields": [
+        {
+          "id": "days",
+          "label": "训练天数",
+          "type": "i"
+        },
+        {
+          "id": "books",
+          "label": "兵书数量（本）",
+          "type": "i"
+        }
+      ],
+      "rows": [
+        {
+          "id": "warrior_2",
+          "label": "剑士 · 2 级",
+          "paths": [
+            "TrainingDays/0",
+            "TrainingBooks/0"
+          ]
+        },
+        {
+          "id": "warrior_3",
+          "label": "剑士 · 3 级",
+          "paths": [
+            "TrainingDays/1",
+            "TrainingBooks/1"
+          ]
+        },
+        {
+          "id": "warrior_4",
+          "label": "剑士 · 4 级",
+          "paths": [
+            "TrainingDays/2",
+            "TrainingBooks/2"
+          ]
+        },
+        {
+          "id": "warrior_5",
+          "label": "剑士 · 5 级",
+          "paths": [
+            "TrainingDays/3",
+            "TrainingBooks/3"
+          ]
+        },
+        {
+          "id": "warrior_6",
+          "label": "剑士 · 6 级",
+          "paths": [
+            "TrainingDays/4",
+            "TrainingBooks/4"
+          ]
+        },
+        {
+          "id": "warrior_7",
+          "label": "剑士 · 7 级",
+          "paths": [
+            "TrainingDays/5",
+            "TrainingBooks/5"
+          ]
+        },
+        {
+          "id": "warrior_8",
+          "label": "剑士 · 8 级",
+          "paths": [
+            "TrainingDays/6",
+            "TrainingBooks/6"
+          ]
+        },
+        {
+          "id": "warrior_9",
+          "label": "剑士 · 9 级",
+          "paths": [
+            "TrainingDays/7",
+            "TrainingBooks/7"
+          ]
+        },
+        {
+          "id": "archer_2",
+          "label": "弓兵 · 2 级",
+          "paths": [
+            "TrainingDays/8",
+            "TrainingBooks/8"
+          ]
+        },
+        {
+          "id": "archer_3",
+          "label": "弓兵 · 3 级",
+          "paths": [
+            "TrainingDays/9",
+            "TrainingBooks/9"
+          ]
+        },
+        {
+          "id": "archer_4",
+          "label": "弓兵 · 4 级",
+          "paths": [
+            "TrainingDays/10",
+            "TrainingBooks/10"
+          ]
+        },
+        {
+          "id": "archer_5",
+          "label": "弓兵 · 5 级",
+          "paths": [
+            "TrainingDays/11",
+            "TrainingBooks/11"
+          ]
+        },
+        {
+          "id": "archer_6",
+          "label": "弓兵 · 6 级",
+          "paths": [
+            "TrainingDays/12",
+            "TrainingBooks/12"
+          ]
+        },
+        {
+          "id": "archer_7",
+          "label": "弓兵 · 7 级",
+          "paths": [
+            "TrainingDays/13",
+            "TrainingBooks/13"
+          ]
+        },
+        {
+          "id": "archer_8",
+          "label": "弓兵 · 8 级",
+          "paths": [
+            "TrainingDays/14",
+            "TrainingBooks/14"
+          ]
+        },
+        {
+          "id": "archer_9",
+          "label": "弓兵 · 9 级",
+          "paths": [
+            "TrainingDays/15",
+            "TrainingBooks/15"
+          ]
+        },
+        {
+          "id": "knight_2",
+          "label": "骑兵 · 2 级",
+          "paths": [
+            "TrainingDays/16",
+            "TrainingBooks/16"
+          ]
+        },
+        {
+          "id": "knight_3",
+          "label": "骑兵 · 3 级",
+          "paths": [
+            "TrainingDays/17",
+            "TrainingBooks/17"
+          ]
+        },
+        {
+          "id": "knight_4",
+          "label": "骑兵 · 4 级",
+          "paths": [
+            "TrainingDays/18",
+            "TrainingBooks/18"
+          ]
+        },
+        {
+          "id": "knight_5",
+          "label": "骑兵 · 5 级",
+          "paths": [
+            "TrainingDays/19",
+            "TrainingBooks/19"
+          ]
+        },
+        {
+          "id": "knight_6",
+          "label": "骑兵 · 6 级",
+          "paths": [
+            "TrainingDays/20",
+            "TrainingBooks/20"
+          ]
+        },
+        {
+          "id": "knight_7",
+          "label": "骑兵 · 7 级",
+          "paths": [
+            "TrainingDays/21",
+            "TrainingBooks/21"
+          ]
+        },
+        {
+          "id": "knight_8",
+          "label": "骑兵 · 8 级",
+          "paths": [
+            "TrainingDays/22",
+            "TrainingBooks/22"
+          ]
+        },
+        {
+          "id": "knight_9",
+          "label": "骑兵 · 9 级",
+          "paths": [
+            "TrainingDays/23",
+            "TrainingBooks/23"
+          ]
+        },
+        {
+          "id": "mage_2",
+          "label": "法师 · 2 级",
+          "paths": [
+            "TrainingDays/24",
+            "TrainingBooks/24"
+          ]
+        },
+        {
+          "id": "mage_3",
+          "label": "法师 · 3 级",
+          "paths": [
+            "TrainingDays/25",
+            "TrainingBooks/25"
+          ]
+        },
+        {
+          "id": "mage_4",
+          "label": "法师 · 4 级",
+          "paths": [
+            "TrainingDays/26",
+            "TrainingBooks/26"
+          ]
+        },
+        {
+          "id": "mage_5",
+          "label": "法师 · 5 级",
+          "paths": [
+            "TrainingDays/27",
+            "TrainingBooks/27"
+          ]
+        },
+        {
+          "id": "mage_6",
+          "label": "法师 · 6 级",
+          "paths": [
+            "TrainingDays/28",
+            "TrainingBooks/28"
+          ]
+        },
+        {
+          "id": "mage_7",
+          "label": "法师 · 7 级",
+          "paths": [
+            "TrainingDays/29",
+            "TrainingBooks/29"
+          ]
+        },
+        {
+          "id": "mage_8",
+          "label": "法师 · 8 级",
+          "paths": [
+            "TrainingDays/30",
+            "TrainingBooks/30"
+          ]
+        },
+        {
+          "id": "mage_9",
+          "label": "法师 · 9 级",
+          "paths": [
+            "TrainingDays/31",
+            "TrainingBooks/31"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_facility",
+      "sheet": "营地与设施",
+      "fields": [
+        {
+          "id": "capacity",
+          "label": "岗位上限（人）",
+          "type": "i"
+        },
+        {
+          "id": "minimum",
+          "label": "最低完工岗位（人）",
+          "type": "i"
+        },
+        {
+          "id": "output",
+          "label": "每人日产量",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "farm",
+          "label": "粮田（粮）",
+          "paths": [
+            "OpeningFacilityCapacity/0",
+            "OpeningFacilityMinimum/0",
+            "OpeningEconomy/FarmPerWorker"
+          ]
+        },
+        {
+          "id": "workshop",
+          "label": "工坊（工作点）",
+          "paths": [
+            "OpeningFacilityCapacity/1",
+            "OpeningFacilityMinimum/1",
+            "OpeningEconomy/WorkshopPerWorker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_camp",
+      "sheet": "营地与设施",
+      "fields": [
+        {
+          "id": "capacity",
+          "label": "队长容量（人）",
+          "type": "i"
+        },
+        {
+          "id": "material",
+          "label": "升级原料",
+          "type": "i?"
+        },
+        {
+          "id": "coins",
+          "label": "升级钱币",
+          "type": "i?"
+        }
+      ],
+      "rows": [
+        {
+          "id": "1",
+          "label": "1 级",
+          "paths": [
+            "Capacity/0",
+            null,
+            null
+          ]
+        },
+        {
+          "id": "2",
+          "label": "2 级",
+          "paths": [
+            "Capacity/1",
+            "CampMaterials/0",
+            "CampCoins/0"
+          ]
+        },
+        {
+          "id": "3",
+          "label": "3 级",
+          "paths": [
+            "Capacity/2",
+            "CampMaterials/1",
+            "CampCoins/1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_facility_params",
+      "sheet": "营地与设施",
+      "fields": [
+        {
+          "id": "value",
+          "label": "数值",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "OpeningEconomy_HungerProductionPenalty",
+          "label": "缺粮产能惩罚上限",
+          "paths": [
+            "OpeningEconomy/HungerProductionPenalty"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "OpeningEconomy_HungerAttackPenalty",
+          "label": "缺粮攻击惩罚上限",
+          "paths": [
+            "OpeningEconomy/HungerAttackPenalty"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "OpeningRecoveryPerDay",
+          "label": "日恢复生命比例",
+          "paths": [
+            "OpeningRecoveryPerDay"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "FacilityRepairMaterials",
+          "label": "单设施修复原料",
+          "paths": [
+            "FacilityRepairMaterials"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "FacilityRepairCoins",
+          "label": "单设施修复钱币",
+          "paths": [
+            "FacilityRepairCoins"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "OpeningEconomy_LeaderFood",
+          "label": "队长日口粮",
+          "paths": [
+            "OpeningEconomy/LeaderFood"
+          ],
+          "types": [
+            "i"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_recruitment",
+      "sheet": "兵源",
+      "fields": [
+        {
+          "id": "baseline",
+          "label": "兵力基准（人）",
+          "type": "i"
+        },
+        {
+          "id": "price",
+          "label": "基础招募价（币）",
+          "type": "i"
+        },
+        {
+          "id": "food",
+          "label": "每人日口粮",
+          "type": "i"
+        }
+      ],
+      "rows": [
+        {
+          "id": "warrior",
+          "label": "剑士",
+          "paths": [
+            "TroopBaseline/0",
+            "RecruitBasePrices/0",
+            "OpeningEconomy/SoldierFood"
+          ]
+        },
+        {
+          "id": "archer",
+          "label": "弓兵",
+          "paths": [
+            "TroopBaseline/1",
+            "RecruitBasePrices/1",
+            "ArcherFood"
+          ]
+        },
+        {
+          "id": "knight",
+          "label": "骑兵",
+          "paths": [
+            "TroopBaseline/2",
+            "RecruitBasePrices/2",
+            "OpeningEconomy/CavalryFood"
+          ]
+        },
+        {
+          "id": "mage",
+          "label": "法师",
+          "paths": [
+            "TroopBaseline/3",
+            "RecruitBasePrices/3",
+            "MageFood"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_recruit_params",
+      "sheet": "兵源",
+      "fields": [
+        {
+          "id": "value",
+          "label": "数值",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "RecruitSupplyFactor",
+          "label": "兵源系数",
+          "paths": [
+            "RecruitSupplyFactor"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "RecruitPriceSensitivity",
+          "label": "招募报价敏感度",
+          "paths": [
+            "RecruitPriceSensitivity"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "SoldierDeathBase",
+          "label": "普通兵基础即死率",
+          "paths": [
+            "SoldierDeathBase"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "SoldierDeathSensitivity",
+          "label": "普通兵即死率敏感度",
+          "paths": [
+            "SoldierDeathSensitivity"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "EnemyLeaderDeath",
+          "label": "敌方队长即死率",
+          "paths": [
+            "EnemyLeaderDeath"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "AwakenedChance",
+          "label": "队长异能者概率",
+          "paths": [
+            "AwakenedChance"
+          ],
+          "types": [
+            "d"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_trade",
+      "sheet": "商品与配方",
+      "fields": [
+        {
+          "id": "value",
+          "label": "数值",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "BuyFactor",
+          "label": "购买倍率",
+          "paths": [
+            "BuyFactor"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "SellFactor",
+          "label": "出售倍率",
+          "paths": [
+            "SellFactor"
+          ],
+          "types": [
+            "d"
+          ]
+        },
+        {
+          "id": "SupplyMaterial",
+          "label": "每份一级军需原料（份）",
+          "paths": [
+            "SupplyMaterial"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "SupplyWorkValue",
+          "label": "军需工作点价值（币）",
+          "paths": [
+            "SupplyWorkValue"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "FoodValue",
+          "label": "粮食基础价值（币）",
+          "paths": [
+            "FoodValue"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "MaterialValue",
+          "label": "原料基础价值（币）",
+          "paths": [
+            "MaterialValue"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "BookValue",
+          "label": "基础兵书价值（币）",
+          "paths": [
+            "BookValue"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "AdvancedBookValue",
+          "label": "高阶兵书价值（币）",
+          "paths": [
+            "AdvancedBookValue"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "StoneValue",
+          "label": "锻造石价值（币）",
+          "paths": [
+            "StoneValue"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "WineValue",
+          "label": "酒基础价值（币）",
+          "paths": [
+            "WineValue"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "OtherValue",
+          "label": "其他商品基础价值（币）",
+          "paths": [
+            "OtherValue"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "ThreeDayIntelPrice",
+          "label": "三日情报价格（币）",
+          "paths": [
+            "ThreeDayIntelPrice"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "FiveDayIntelPrice",
+          "label": "五日情报价格（币）",
+          "paths": [
+            "FiveDayIntelPrice"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "ForgeDailyStock",
+          "label": "锻造石日库存",
+          "paths": [
+            "ForgeDailyStock"
+          ],
+          "types": [
+            "i"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_stock",
+      "sheet": "商品与配方",
+      "fields": [
+        {
+          "id": "count",
+          "label": "日供应（份）",
+          "type": "i"
+        }
+      ],
+      "rows": [
+        {
+          "id": "food",
+          "label": "粮食",
+          "paths": [
+            "OpeningTownStock/0"
+          ]
+        },
+        {
+          "id": "materials",
+          "label": "原料",
+          "paths": [
+            "OpeningTownStock/1"
+          ]
+        },
+        {
+          "id": "supply1",
+          "label": "一级军需",
+          "paths": [
+            "OpeningTownStock/2"
+          ]
+        },
+        {
+          "id": "supply2",
+          "label": "二级军需",
+          "paths": [
+            "OpeningTownStock/3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_skills",
+      "sheet": "技能",
+      "path": "Skills",
+      "key": "Id",
+      "fields": [
+        {
+          "id": "Name",
+          "label": "技能名称",
+          "type": "s"
+        },
+        {
+          "id": "DamageType",
+          "label": "伤害类型",
+          "type": "s"
+        },
+        {
+          "id": "Amount",
+          "label": "效果参数",
+          "type": "d"
+        },
+        {
+          "id": "Duration",
+          "label": "持续（秒）",
+          "type": "d"
+        },
+        {
+          "id": "Cooldown",
+          "label": "冷却（秒）",
+          "type": "d"
+        },
+        {
+          "id": "Opening",
+          "label": "开场冷却（秒）",
+          "type": "d"
+        },
+        {
+          "id": "Radius",
+          "label": "半径（细格）",
+          "type": "d"
+        },
+        {
+          "id": "SpeedBonus",
+          "label": "移速增益比例",
+          "type": "d"
+        }
+      ],
+      "constantsById": {
+        "inspire": {
+          "Profession": -1
+        },
+        "march": {
+          "Profession": -1
+        },
+        "heal": {
+          "Profession": -1
+        },
+        "sweep": {
+          "Profession": 0
+        },
+        "charge": {
+          "Profession": 2
+        },
+        "rapid_fire": {
+          "Profession": 1
+        }
+      }
+    },
+    {
+      "id": "cfg_traits",
+      "sheet": "特性",
+      "path": "Traits",
+      "key": "Id",
+      "fields": [
+        {
+          "id": "Name",
+          "label": "特性名称",
+          "type": "s"
+        },
+        {
+          "id": "Conflict",
+          "label": "互斥组",
+          "type": "s?"
+        },
+        {
+          "id": "Min",
+          "label": "最小值",
+          "type": "d"
+        },
+        {
+          "id": "Max",
+          "label": "最大值",
+          "type": "d"
+        },
+        {
+          "id": "Step",
+          "label": "步长",
+          "type": "d"
+        },
+        {
+          "id": "Weight",
+          "label": "抽取权重",
+          "type": "d"
+        }
+      ]
+    },
+    {
+      "id": "cfg_open_inv",
+      "sheet": "开局资源",
+      "fields": [
+        {
+          "id": "quantity",
+          "label": "初始数量",
+          "type": "i"
+        }
+      ],
+      "rows": [
+        {
+          "id": "food",
+          "label": "粮食",
+          "paths": [
+            "OpeningInventory/Food"
+          ]
+        },
+        {
+          "id": "materials",
+          "label": "原料",
+          "paths": [
+            "OpeningInventory/Materials"
+          ]
+        },
+        {
+          "id": "coins",
+          "label": "钱币",
+          "paths": [
+            "OpeningInventory/Coins"
+          ]
+        },
+        {
+          "id": "supply1",
+          "label": "一级军需",
+          "paths": [
+            "OpeningInventory/Equipment/0/Count"
+          ]
+        },
+        {
+          "id": "supply2",
+          "label": "二级军需",
+          "paths": [
+            "OpeningInventory/Equipment/1/Count"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_rewards",
+      "sheet": "奖励与遗迹",
+      "fields": [
+        {
+          "id": "food",
+          "label": "粮食",
+          "type": "i"
+        },
+        {
+          "id": "material",
+          "label": "原料",
+          "type": "i"
+        },
+        {
+          "id": "coins",
+          "label": "钱币",
+          "type": "i"
+        }
+      ],
+      "rows": [
+        {
+          "id": "ruins_first",
+          "label": "副本首次额外奖励",
+          "paths": [
+            "OpeningRewards/FirstFood",
+            "OpeningRewards/FirstMaterials",
+            "OpeningRewards/FirstCoins"
+          ]
+        },
+        {
+          "id": "lord",
+          "label": "领主交付",
+          "paths": [
+            "OpeningLordReward/Food",
+            "OpeningLordReward/Materials",
+            "OpeningLordReward/Coins"
+          ]
+        },
+        {
+          "id": "defense",
+          "label": "首防胜利",
+          "paths": [
+            "OpeningDefenseReward/Food",
+            "OpeningDefenseReward/Materials",
+            "OpeningDefenseReward/Coins"
+          ]
+        },
+        {
+          "id": "camp",
+          "label": "攻营胜利",
+          "paths": [
+            "OpeningCampReward/Food",
+            "OpeningCampReward/Materials",
+            "OpeningCampReward/Coins"
+          ]
+        },
+        {
+          "id": "exposure",
+          "label": "首防败退每敌兵资源损失",
+          "paths": [
+            "OpeningDefenseLoss/Food",
+            "OpeningDefenseLoss/Materials",
+            "OpeningDefenseLoss/Coins"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_ruins",
+      "sheet": "奖励与遗迹",
+      "fields": [
+        {
+          "id": "value",
+          "label": "数值",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "OpeningRewards_MaximumEnergy",
+          "label": "体力上限",
+          "paths": [
+            "OpeningRewards/MaximumEnergy"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "OpeningRewards_RewardCost",
+          "label": "重复领奖体力",
+          "paths": [
+            "OpeningRewards/RewardCost"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "OpeningRewards_Coins",
+          "label": "每次领奖基础钱币",
+          "paths": [
+            "OpeningRewards/Coins"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "OpeningRewards_ItemCount",
+          "label": "每次领奖锻造石",
+          "paths": [
+            "OpeningRewards/ItemCount"
+          ],
+          "types": [
+            "i"
+          ]
+        },
+        {
+          "id": "OpeningRewards_ExposureFraction",
+          "label": "侵蚀每秒生命比例",
+          "paths": [
+            "OpeningRewards/ExposureFraction"
+          ],
+          "types": [
+            "d"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cfg_stage",
+      "sheet": "阶段参数",
+      "fields": [
+        {
+          "id": "value",
+          "label": "数值",
+          "type": "d"
+        }
+      ],
+      "rows": [
+        {
+          "id": "SecondRaidDays",
+          "label": "第二波间隔（天）",
+          "paths": [
+            "SecondRaidDays"
+          ],
+          "types": [
+            "i"
+          ]
+        }
+      ]
+    }
+  ],
+  "quickSheets": [
+    "职业与单位",
+    "装备与商店",
+    "营地产出",
+    "关卡与军需"
+  ],
+  "quick": [
+    {
+      "id": "cfg_try_units",
+      "sheet": "职业与单位",
+      "type": "unit"
+    },
+    {
+      "id": "cfg_try_gear",
+      "sheet": "装备与商店",
+      "source": "cfg_gear",
+      "fields": [
+        "Damage",
+        "Defense",
+        "Health",
+        "CritMultiplier",
+        "Movement",
+        "Stage"
+      ],
+      "filterIds": [
+        "basic_sword",
+        "basic_bow",
+        "basic_spear",
+        "basic_helmet",
+        "basic_armor",
+        "novice_sword",
+        "novice_bow",
+        "novice_spear",
+        "novice_light_helmet",
+        "novice_light_armor",
+        "novice_heavy_helmet",
+        "novice_heavy_armor",
+        "basic_staff"
+      ]
+    },
+    {
+      "id": "cfg_try_value",
+      "sheet": "装备与商店",
+      "source": "cfg_gear_value",
+      "fields": [
+        "weapon",
+        "helmet",
+        "armor",
+        "accessory"
+      ],
+      "filterIds": null
+    },
+    {
+      "id": "cfg_try_facility",
+      "sheet": "营地产出",
+      "source": "cfg_facility",
+      "fields": [
+        "capacity",
+        "output"
+      ],
+      "filterIds": null
+    },
+    {
+      "id": "cfg_try_material",
+      "sheet": "营地产出",
+      "source": "cfg_trade",
+      "fields": [
+        "value"
+      ],
+      "filterIds": [
+        "SupplyMaterial"
+      ]
+    },
+    {
+      "id": "cfg_try_supply",
+      "sheet": "关卡与军需",
+      "source": "cfg_supply",
+      "fields": [
+        "atk",
+        "def"
+      ],
+      "filterIds": null
+    },
+    {
+      "id": "cfg_try_exact",
+      "sheet": "关卡与军需",
+      "source": "cfg_enemy_exact",
+      "fields": [
+        "Tier"
+      ],
+      "filterIds": null
+    },
+    {
+      "id": "cfg_try_group",
+      "sheet": "关卡与军需",
+      "source": "cfg_enemy_group",
+      "fields": [
+        "Count",
+        "Tier"
+      ],
+      "filterIds": null
+    }
+  ],
+  "classes": [
+    [
+      "warrior",
+      "剑士"
+    ],
+    [
+      "archer",
+      "弓兵"
+    ],
+    [
+      "knight",
+      "骑兵"
+    ],
+    [
+      "mage",
+      "法师"
+    ]
+  ],
+  "sceneLabels": {
+    "hideout": "土匪窝点",
+    "defense": "首防",
+    "bandit": "黑鸦寨",
+    "second": "第二波",
+    "ruins": "沉眠古窟",
+    "ruins_repeat": "古窟重战"
+  },
+  "gearSlots": {
+    "basic_sword": "weapon",
+    "basic_bow": "weapon",
+    "basic_staff": "weapon",
+    "basic_spear": "weapon",
+    "basic_helmet": "helmet",
+    "basic_armor": "armor",
+    "novice_sword": "weapon",
+    "novice_bow": "weapon",
+    "novice_spear": "weapon",
+    "novice_light_helmet": "helmet",
+    "novice_light_armor": "armor",
+    "novice_heavy_helmet": "helmet",
+    "novice_heavy_armor": "armor",
+    "captains_ring": "accessory"
+  }
+}

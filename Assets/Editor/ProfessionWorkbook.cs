@@ -15,6 +15,8 @@ namespace BaseConquest.Editor
         internal sealed class Row
         {
             internal string Location;
+            internal string Part;
+            internal readonly Dictionary<string,string> Addresses=new Dictionary<string,string>(StringComparer.Ordinal);
             internal Dictionary<string,string> Values=new Dictionary<string,string>(StringComparer.Ordinal);
             internal Dictionary<string,string> Types=new Dictionary<string,string>(StringComparer.Ordinal);
             internal InvalidDataException Error(string field,string problem)=>new InvalidDataException(Location+" · "+field+"："+problem);
@@ -63,8 +65,8 @@ namespace BaseConquest.Editor
         }
         private static readonly XNamespace Main="http://schemas.openxmlformats.org/spreadsheetml/2006/main";
         private static readonly XNamespace Rel="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-        private readonly Dictionary<string,(XDocument sheet,string title,string range)> regions=
-            new Dictionary<string,(XDocument,string,string)>(StringComparer.Ordinal);
+        private readonly Dictionary<string,(XDocument sheet,string title,string range,string part)> regions=
+            new Dictionary<string,(XDocument,string,string,string)>(StringComparer.Ordinal);
         private readonly string[] shared;
         internal static XDocument Xml(ZipArchive zip,string path)
         {
@@ -93,18 +95,20 @@ namespace BaseConquest.Editor
             var book=Xml(zip,"xl/workbook.xml");
             var links=Relations(zip,"xl/workbook.xml");
             var sheets=new Dictionary<string,XDocument>(StringComparer.Ordinal);
+            var parts=new Dictionary<string,string>(StringComparer.Ordinal);
             foreach(var tab in book.Descendants(Main+"sheet"))
             {
                 string title=(string)tab.Attribute("name"),part=links[(string)tab.Attribute(Rel+"id")];
                 var sheet=Xml(zip,part);
                 sheets.Add(title,sheet);
+                parts.Add(title,part);
                 var tables=Relations(zip,part);
                 foreach(var tag in sheet.Descendants(Main+"tablePart"))
                 {
                     var table=Xml(zip,tables[(string)tag.Attribute(Rel+"id")]).Root;
                     string name=(string)table.Attribute("displayName")??(string)table.Attribute("name");
                     if(name.StartsWith("cfg_",StringComparison.Ordinal))
-                        Add(name,sheet,title,(string)table.Attribute("ref"));
+                        Add(name,sheet,title,(string)table.Attribute("ref"),part);
                 }
             }
             foreach(var def in book.Descendants(Main+"definedName"))
@@ -115,13 +119,13 @@ namespace BaseConquest.Editor
                 if(split<0)throw new InvalidDataException(name+"：须引用连续的数据区");
                 var title=def.Value.Substring(0,split).Trim('\'').Replace("''","'");
                 if(!sheets.TryGetValue(title,out var sheet))throw new InvalidDataException(name+"：工作表不存在");
-                Add(name,sheet,title,def.Value.Substring(split+1));
+                Add(name,sheet,title,def.Value.Substring(split+1),parts[title]);
             }
         }
-        private void Add(string name,XDocument sheet,string title,string range)
+        private void Add(string name,XDocument sheet,string title,string range,string part)
         {
             if(regions.ContainsKey(name))throw new InvalidDataException(name+"：区域重名");
-            regions.Add(name,(sheet,title,range.Replace("$","")));
+            regions.Add(name,(sheet,title,range.Replace("$",""),part));
         }
         private string Text(XElement c)
         {
@@ -138,7 +142,9 @@ namespace BaseConquest.Editor
         }
         internal bool HasTable(string name) => regions.ContainsKey(name);
 
-        internal List<Row> Rows(string name,string fields)
+        internal List<Row> Rows(string name,string fields)=>Rows(name,fields.Split(' '),false);
+
+        internal List<Row> Rows(string name,IEnumerable<string> fields,bool inputsOnly)
         {
             if(!regions.TryGetValue(name,out var region))throw new InvalidDataException("缺少配置区 "+name);
             var bounds=Regex.Match(region.range,@"^([A-Z]+)([1-9][0-9]*):([A-Z]+)([1-9][0-9]*)$");
@@ -155,16 +161,19 @@ namespace BaseConquest.Editor
                 if(headers.ContainsValue(key))throw new InvalidDataException(name+" · "+key+"：列名重复");
                 headers[col]=key;
             }
-            foreach(var f in fields.Split(' '))if(!headers.ContainsValue(f))throw new InvalidDataException(name+" · "+f+"：缺少字段列");
+            var required=new HashSet<string>(fields,StringComparer.Ordinal);
+            foreach(var f in required)if(!headers.ContainsValue(f))throw new InvalidDataException(name+" · "+f+"：缺少字段列");
             var result=new List<Row>();
             foreach(var entry in rows.Where(pair=>pair.Key>top&&pair.Key<=bottom).OrderBy(pair=>pair.Key))
             {
                 int n=entry.Key;
                 var cells=entry.Value;
-                var row=new Row{Location=name+"（"+region.title+" 第"+n+"行）"};
+                var row=new Row{Location=name+"（"+region.title+" 第"+n+"行）",Part=region.part};
+                foreach(var pair in headers) row.Addresses[pair.Value]=Address(pair.Key,n);
                 foreach(var c in cells.Elements(Main+"c"))
                 {
                     if(!headers.TryGetValue(Column((string)c.Attribute("r")),out var key))continue;
+                    if(inputsOnly&&!required.Contains(key))continue;
                     if(c.Element(Main+"f")!=null)throw row.Error(key,"配置输入须为直接值");
                     string val=Text(c);if(val.Length==0)continue;
                     row.Values[key]=val;row.Types[key]=(string)c.Attribute("t")??"n";
@@ -172,6 +181,12 @@ namespace BaseConquest.Editor
                 if(row.Values.Count>0)result.Add(row);
             }
             return result;
+        }
+        private static string Address(int column,int row)
+        {
+            var letters="";
+            for(;column>0;column=(column-1)/26)letters=(char)('A'+(column-1)%26)+letters;
+            return letters+row.ToString(CultureInfo.InvariantCulture);
         }
     }
 }

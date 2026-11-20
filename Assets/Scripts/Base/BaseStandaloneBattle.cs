@@ -49,6 +49,56 @@ namespace BaseConquest.Base
             return session;
         }
 
+        public static BaseCampaignSession CreateTuningBattle(BaseState state)
+        {
+            if (state?.Demo?.Rpg?.HasProfessionCatalog != true) throw new InvalidOperationException("调参备战档缺少职业配置");
+            var rules = state.Demo.Rpg.Copy();
+            var left = Army(state, BaseStandaloneBattlePreset.Mixed, true);
+            var right = Army(state, BaseStandaloneBattlePreset.Mixed, false);
+            left.MeleeCount = left.RangedCount = left.CavalryCount = 0;
+            right.MeleeCount = right.RangedCount = right.CavalryCount = 0;
+            left.MageCount = 1;
+            left.Commanders[0] = new CommanderLoadout { Mage = 1 };
+            right.Commanders[0] = new CommanderLoadout();
+            var mage = rules.Templates.Single(t => t.Id == rules.DefaultTemplateId("soldier", BaseRpg.Profession(SoldierKind.Mage)));
+            left.Mage.Health = (float)mage.Health;
+            left.Mage.Damage = (float)mage.Attack;
+            left.Mage.Defense = (float)mage.Defense;
+            var board = BattleBoard.CreateDefault(12, 8);
+            var casterCell = new GridPosition(3, 2);
+            var targetCell = new GridPosition(7, 2);
+            board.Cell(casterCell).Zone = DeploymentZone.A;
+            board.Cell(targetCell).Zone = DeploymentZone.B;
+            var scenario = new BattleScenario
+            {
+                Board = board, A = left, B = right, MaxRounds = 90,
+                Objective = new ObjectiveConfig { Title = "调参备战" },
+                RandomSeed = 12345, CommanderControl = true, MobileBattleRules = true, CampaignRules = true,
+                Placements = new List<UnitPlacement>
+                {
+                    new UnitPlacement { Side = BattleSide.A, Kind = SoldierKind.Hero, Cell = new GridPosition(1, 5), CommanderSlot = 0 },
+                    new UnitPlacement { Side = BattleSide.A, Kind = SoldierKind.Mage, Cell = casterCell, CommanderSlot = 0 },
+                    new UnitPlacement { Side = BattleSide.B, Kind = SoldierKind.Hero, Cell = targetCell, CommanderSlot = 0 },
+                },
+            };
+            var opening = new BaseCampaignBattle
+            {
+                Id = Prefix + "planning", EventId = Prefix + "planning", StartedDay = state.Day, Scenario = scenario,
+                Rpg = rules, RealtimeRules = true, RealtimeRulesVersion = 1, DemoCombat = true,
+                PlayerTroopCounts = new[] { 0, 0, 0, 1 },
+            };
+            opening.Leaders.Add(Leader("developer:planning:captain", "测试队长", left.Hero, rules));
+            var worker = Troops(opening.Leaders[0].Id, left).Single();
+            worker.TemplateId = mage.Id;
+            opening.Troops.Add(worker);
+            opening.Enemies.Add(Enemy("developer:planning:target", "训练目标", SoldierKind.Hero, 0, right.Hero, rules));
+            var session = new BaseCampaignSession(opening);
+            session.Bind();
+            if (!session.Battle.Start(out string reason)) throw new InvalidOperationException("调参备战部署失败 " + reason);
+            foreach (var unit in session.Battle.Soldiers) unit.DeveloperImmobile = true;
+            return session;
+        }
+
         private static ArmyDefinition Army(BaseState state,BaseStandaloneBattlePreset preset,bool ally)
         {
             var source=state.Demo?.Defense?.Army?.Clone()??new ArmyDefinition();

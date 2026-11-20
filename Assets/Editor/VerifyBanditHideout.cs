@@ -58,7 +58,7 @@ namespace BaseConquest.Editor
                     int count = DemoBalanceRuntime.Load().Rules.HideoutEnemyCount;
                     Need(count > 0 && new BaseBattlePreparation(fixture, BasePrepRoute.Hideout, 91101).KnownEnemyCount() == count,
                         "运行快照与旧档读取的窝点兵力不同");
-                    string workbook = "../策划/DEMO/DEMO数值配置表.xlsx";
+                    string workbook = DemoBalanceImporter.WorkbookPath;
                     if (File.Exists(workbook))
                         Need(DemoBalanceTableReader.ReadVerifiedTables(workbook).HideoutEnemyCount == count, "正式配表与运行配置的窝点兵力不同");
                     VerifyRoute(fixture);

@@ -121,7 +121,7 @@ namespace BaseConquest.Editor
         }
         public static void VerifyIntelPricingWorkbook()
         {
-            var rules=DemoBalanceTableReader.ReadVerifiedTables(System.IO.Path.GetFullPath("../策划/DEMO数值配置表.xlsx"));
+            var rules=DemoBalanceTableReader.ReadVerifiedTables(System.IO.Path.GetFullPath(DemoBalanceImporter.WorkbookPath));
             Need(!rules.IntelPricingConfigured||rules.ThreeDayIntelPrice>=0&&rules.FiveDayIntelPrice>=0,"消息价格配置非法");
             Debug.Log("[IntelPricingWorkbook] PASS configured="+rules.IntelPricingConfigured);
         }
