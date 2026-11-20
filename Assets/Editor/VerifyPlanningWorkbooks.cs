@@ -17,6 +17,28 @@ namespace BaseConquest.Editor
     {
         private const string Snapshot = DemoBalanceImporter.OutputPath;
 
+        public static void ExportFieldReference()
+        {
+            if (!Directory.Exists("../.isolated-workbook-verification"))
+                throw new InvalidOperationException("仅在隔离工程生成表格副本");
+            var schema = Schema.Read();
+            var grid = ReadMaster(schema, Bytes(MasterPath));
+            Need(ReadTrial(schema, Bytes(TrialPath), grid).Count == 0, "已有试调值需要保留");
+            var master = PlanningWorkbookFile.Create(schema, grid, false);
+            var trial = PlanningWorkbookFile.Create(schema, grid, true);
+            var exported = ReadMaster(schema, master);
+            Need(JsonUtility.ToJson(Compile(schema, grid)) == JsonUtility.ToJson(Compile(schema, exported)), "字段定义或列顺序改变了有效配置");
+            Need(ReadTrial(schema, trial, exported).Count == 0, "试玩批注改变了导入值");
+            var edited = Edit(trial, "cfg_try_units", "mage", "职业普攻距离（细格）", new JValue(8));
+            var changes = ReadTrial(schema, edited, exported);
+            Need(changes.Count == 1 && changes[0].Key == "mage" && changes[0].Column == "Range", "试玩射程未准确定位");
+            Apply(schema, exported, changes);
+            Need(Compile(schema, exported).Range[3] == 8, "试玩射程未被读回");
+            File.WriteAllBytes("../field-reference-master.xlsx", master);
+            File.WriteAllBytes("../field-reference-trial.xlsx", trial);
+            Debug.Log("[VerifyPlanningWorkbooks] PASS field reference export, identical full config, one-cell range patch");
+        }
+
         public static void VerifyExcelSaved()
         {
             const string sortedMaster = "../excel-sorted-master.xlsx";

@@ -26,14 +26,14 @@ namespace BaseConquest.Editor
 
         internal sealed class Field
         {
-            public string Id, Label, Type;
+            public string Id, Label, Type, Description;
             public Field() { }
             internal Field(string id, string label, string type) { Id = id; Label = label; Type = type; }
         }
 
         internal sealed class FixedRow
         {
-            public string Id, Label;
+            public string Id, Label, Description;
             public string[] Paths, Types;
         }
 
@@ -166,7 +166,7 @@ namespace BaseConquest.Editor
             }
         }
 
-        private static string RowType(FixedRow row, Field field, int index)
+        internal static string RowType(FixedRow row, Field field, int index)
             => row?.Types == null ? field.Type : row.Types[index];
 
         internal static string GetKind(byte[] bytes, Schema schema)

@@ -453,32 +453,38 @@
         {
           "id": "Name",
           "label": "职业名称",
-          "type": "s"
+          "type": "s",
+          "description": "游戏中显示的职业名称。"
         },
         {
           "id": "AttackMode",
           "label": "攻击方式",
-          "type": "s"
+          "type": "s",
+          "description": "melee 为近战，ranged 为远程。"
         },
         {
           "id": "DamageType",
           "label": "伤害类型",
-          "type": "s"
+          "type": "s",
+          "description": "physical 为物理，magic 为法术。"
         },
         {
           "id": "Weapon",
           "label": "武器类型",
-          "type": "s"
+          "type": "s",
+          "description": "职业绑定的武器类型，须与现行职业规则匹配。"
         },
         {
           "id": "TrainingBasic",
           "label": "基础兵书 ID",
-          "type": "s"
+          "type": "s",
+          "description": "该职业低阶训练所用物品 ID，须与训练规则匹配。"
         },
         {
           "id": "TrainingAdvanced",
           "label": "高阶兵书 ID",
-          "type": "s"
+          "type": "s",
+          "description": "该职业高阶训练所用物品 ID，须与训练规则匹配。"
         }
       ]
     },
@@ -489,22 +495,26 @@
         {
           "id": "Hit",
           "label": "命中点",
-          "type": "i"
+          "type": "i",
+          "description": "参与普攻命中判定的点数，0～10。"
         },
         {
           "id": "Evasion",
           "label": "闪避点",
-          "type": "i"
+          "type": "i",
+          "description": "参与受击判定的点数，0～10。"
         },
         {
           "id": "Range",
           "label": "职业普攻距离（细格）",
-          "type": "d"
+          "type": "d",
+          "description": "该职业各身份共用的普攻基础距离，允许小数，0 < 值 ≤ 24。弓兵叠加品质射程后也不得超过 24。"
         },
         {
           "id": "Speed",
           "label": "移速（细格/秒）",
-          "type": "d"
+          "type": "d",
+          "description": "该职业各身份共用的基础移速，0 < 值 ≤ 24。"
         }
       ],
       "rows": [
@@ -559,42 +569,50 @@
         {
           "id": "Name",
           "label": "名称",
-          "type": "s"
+          "type": "s",
+          "description": "单位模板的显示名称。"
         },
         {
           "id": "ProfessionId",
           "label": "职业 ID",
-          "type": "s"
+          "type": "s",
+          "description": "引用「职业」的记录 ID，例如 mage。"
         },
         {
           "id": "Identity",
           "label": "单位身份",
-          "type": "s"
+          "type": "s",
+          "description": "soldier 普通兵、captain_normal 普通队长、captain_awakened 异能者队长。"
         },
         {
           "id": "Health",
           "label": "生命",
-          "type": "d"
+          "type": "d",
+          "description": "模板的基础生命，至少为 1。"
         },
         {
           "id": "Attack",
           "label": "攻击",
-          "type": "d"
+          "type": "d",
+          "description": "模板的基础攻击，不能为负。"
         },
         {
           "id": "Defense",
           "label": "防御",
-          "type": "d"
+          "type": "d",
+          "description": "模板的基础防御，0 至该身份的基础防御上限。"
         },
         {
           "id": "SightRadius",
           "label": "基础视野（格）",
-          "type": "i"
+          "type": "i",
+          "description": "覆盖单位的基础视野，整数 0～32；0 使用战场默认视野。"
         },
         {
           "id": "IsDefault",
           "label": "默认模板",
-          "type": "b"
+          "type": "b",
+          "description": "填 TRUE 或 FALSE。每个职业与身份组合须有且仅有一个默认模板。"
         }
       ]
     },
@@ -607,17 +625,20 @@
         {
           "id": "SkillId",
           "label": "技能 ID",
-          "type": "s"
+          "type": "s",
+          "description": "引用「技能」的记录 ID。"
         },
         {
           "id": "TraitId",
           "label": "主特性 ID",
-          "type": "s?"
+          "type": "s?",
+          "description": "引用「特性」的记录 ID，留空表示没有主特性。"
         },
         {
           "id": "TraitValue",
           "label": "主特性数值",
-          "type": "d"
+          "type": "d",
+          "description": "该人物的主特性取值，按对应特性的范围和步长填写。"
         }
       ],
       "labels": {
@@ -648,7 +669,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "法术比例减伤公式的护甲系数，必须为正。"
         },
         {
           "id": "ArmorCap",
@@ -658,7 +680,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "法术伤害的减伤比例上限，0 ≤ 值 < 1；例如 0.8 表示 80%。"
         },
         {
           "id": "CriticalMultiplier",
@@ -668,7 +691,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "暴击时使用的基础伤害倍率，至少为 1。"
         },
         {
           "id": "BaseInterval",
@@ -678,7 +702,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "普攻触发到出手的基础时间，不能低于最短普攻间隔。"
         },
         {
           "id": "MinimumInterval",
@@ -688,7 +713,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "加速后允许的最短普攻间隔，必须为正。"
         },
         {
           "id": "HealThreshold",
@@ -698,7 +724,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "低生命触发自动治愈的生命比例阈值，0 < 值 ≤ 1。"
         },
         {
           "id": "SweepLossAtParity",
@@ -708,7 +735,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "双方战力相当时，扫荡预计采用的战损比例，0～1。"
         },
         {
           "id": "SweepSecondsAtParity",
@@ -718,7 +746,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "双方战力相当时的预计扫荡时间，不低于最低预计时长，最多 90 秒。"
         },
         {
           "id": "SweepMinimumSeconds",
@@ -728,7 +757,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "扫荡预计时间的下限，必须为正。"
         }
       ]
     },
@@ -739,7 +769,8 @@
         {
           "id": "max",
           "label": "基础防御上限",
-          "type": "d"
+          "type": "d",
+          "description": "该身份的单位模板基础防御上限，不能为负。"
         }
       ],
       "rows": [
@@ -785,7 +816,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "远程弹道每秒飞行的细格数，必须为正。"
         },
         {
           "id": "HeightAdvantage",
@@ -795,7 +827,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "判定高低差优势时使用的距离参数，不能为负。"
         },
         {
           "id": "OpeningTactical_TreeLength",
@@ -805,7 +838,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "倒木覆盖的细格长度。"
         },
         {
           "id": "OpeningTactical_TreeHits",
@@ -815,7 +849,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "倒木耐久使用的命中量参数。"
         },
         {
           "id": "OpeningTactical_RockDistance",
@@ -825,7 +860,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "滚石在战场上的行进距离。"
         },
         {
           "id": "OpeningTactical_RockSpeed",
@@ -835,7 +871,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "滚石每秒移动的细格数。"
         },
         {
           "id": "OpeningTactical_RockDamage",
@@ -845,7 +882,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "滚石伤害计算使用的倍率。"
         }
       ]
     },
@@ -856,12 +894,14 @@
         {
           "id": "atk",
           "label": "攻击加值",
-          "type": "d"
+          "type": "d",
+          "description": "分发该档军需后获得的攻击加值，0～1000。"
         },
         {
           "id": "def",
           "label": "防御加值",
-          "type": "d"
+          "type": "d",
+          "description": "分发该档军需后获得的防御加值，0～1000。"
         }
       ],
       "rows": [
@@ -892,17 +932,20 @@
         {
           "id": "Scene",
           "label": "关卡 ID",
-          "type": "s"
+          "type": "s",
+          "description": "引用关卡 ID。"
         },
         {
           "id": "Slot",
           "label": "部署槽位",
-          "type": "s"
+          "type": "s",
+          "description": "该关卡中已存在的普通兵部署槽位。"
         },
         {
           "id": "TemplateId",
           "label": "模板 ID",
-          "type": "s"
+          "type": "s",
+          "description": "引用「单位模板」中普通兵的记录 ID。第二波变体需保留对应槽位的原职业。"
         }
       ],
       "natural": [
@@ -927,17 +970,20 @@
         {
           "id": "Scene",
           "label": "关卡 ID",
-          "type": "s"
+          "type": "s",
+          "description": "引用关卡 ID。"
         },
         {
           "id": "Slot",
           "label": "部署槽位",
-          "type": "s"
+          "type": "s",
+          "description": "该关卡中已存在的普通兵部署槽位，每槽一人。"
         },
         {
           "id": "Tier",
           "label": "军需档",
-          "type": "i"
+          "type": "i",
+          "description": "指定槽位的军需档位，0 无军需，1 一级，2 二级。"
         }
       ],
       "filter": "slot",
@@ -967,22 +1013,26 @@
         {
           "id": "Scene",
           "label": "关卡 ID",
-          "type": "s"
+          "type": "s",
+          "description": "引用关卡 ID。"
         },
         {
           "id": "Profession",
           "label": "职业 ID",
-          "type": "s?"
+          "type": "s?",
+          "description": "引用「职业」的记录 ID；留空表示从全军可分配单位中选取。"
         },
         {
           "id": "Count",
           "label": "配装人数",
-          "type": "i"
+          "type": "i",
+          "description": "按职业或全军配发的名额，填整数 1～999，先处理指定槽位。"
         },
         {
           "id": "Tier",
           "label": "军需档",
-          "type": "i"
+          "type": "i",
+          "description": "按人数分配的军需档位，0 无军需，1 一级，2 二级。"
         }
       ],
       "filter": "group",
@@ -1022,7 +1072,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "土匪窝点的普通守军人数，受该关卡的兵力上限约束。"
         },
         {
           "id": "RuinsFirstControllerTemplate",
@@ -1032,7 +1083,8 @@
           ],
           "types": [
             "s"
-          ]
+          ],
+          "description": "引用「单位模板」中的异能者法师队长，作为古窟首战队长。"
         }
       ]
     },
@@ -1045,32 +1097,38 @@
         {
           "id": "Damage",
           "label": "攻击加值",
-          "type": "f"
+          "type": "f",
+          "description": "装备原始攻击加值，参与品质与攻击换算。"
         },
         {
           "id": "Defense",
           "label": "防御加值",
-          "type": "f"
+          "type": "f",
+          "description": "装备原始防御加值，参与品质与防御换算。"
         },
         {
           "id": "Health",
           "label": "生命加值",
-          "type": "f"
+          "type": "f",
+          "description": "装备原始生命加值，参与品质与生命换算。"
         },
         {
           "id": "CritMultiplier",
           "label": "暴伤倍率加值",
-          "type": "f"
+          "type": "f",
+          "description": "暴击伤害倍率的附加量，不能为负。"
         },
         {
           "id": "Movement",
           "label": "移速加值（细格/秒）",
-          "type": "f"
+          "type": "f",
+          "description": "装备附加的基础移动速度，受品质倍率影响。"
         },
         {
           "id": "Stage",
           "label": "价值阶段",
-          "type": "i"
+          "type": "i",
+          "description": "整数 0～4，和装备槽位一起决定所用基础价值。"
         }
       ],
       "labels": {
@@ -1113,22 +1171,26 @@
         {
           "id": "weapon",
           "label": "武器（币）",
-          "type": "i"
+          "type": "i",
+          "description": "同价值阶段武器共用的基础价值，1～1000000 币。"
         },
         {
           "id": "helmet",
           "label": "头盔（币）",
-          "type": "i"
+          "type": "i",
+          "description": "同价值阶段头盔共用的基础价值，1～1000000 币。"
         },
         {
           "id": "armor",
           "label": "护甲（币）",
-          "type": "i"
+          "type": "i",
+          "description": "同价值阶段护甲共用的基础价值，1～1000000 币。"
         },
         {
           "id": "accessory",
           "label": "饰品（币）",
-          "type": "i"
+          "type": "i",
+          "description": "同价值阶段饰品共用的基础价值，1～1000000 币。"
         }
       ],
       "rows": [
@@ -1203,7 +1265,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "武器原始攻击加值的换算倍率，不能为负。"
         },
         {
           "id": "AttackEquipmentScale",
@@ -1213,7 +1276,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "非武器装备攻击加值的换算倍率，不能为负。"
         },
         {
           "id": "DefenseEquipmentScale",
@@ -1223,7 +1287,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "装备原始防御加值的换算倍率，不能为负。"
         },
         {
           "id": "HealthEquipmentScale",
@@ -1233,7 +1298,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "装备原始生命加值的换算倍率，不能为负。"
         }
       ]
     },
@@ -1244,22 +1310,26 @@
         {
           "id": "stats",
           "label": "属性倍率",
-          "type": "d"
+          "type": "d",
+          "description": "该品质装备的属性修正倍率，0 < 值 ≤ 100。"
         },
         {
           "id": "value",
           "label": "价值倍率",
-          "type": "d"
+          "type": "d",
+          "description": "该品质对装备基础价值的乘数，必须为正。"
         },
         {
           "id": "range",
           "label": "弓射程加值（细格）",
-          "type": "i"
+          "type": "i",
+          "description": "叠加到弓兵职业射程的细格数，合计最多 24。"
         },
         {
           "id": "drop",
           "label": "掉落概率",
-          "type": "d"
+          "type": "d",
+          "description": "获得该品质的基础概率。20% 对应 0.2，六个品质的概率合计为 100%。"
         }
       ],
       "rows": [
@@ -1332,12 +1402,14 @@
         {
           "id": "up",
           "label": "升档率（基点）",
-          "type": "i"
+          "type": "i",
+          "description": "该投入档位升档的概率，100 基点为 1%，与降档合计最多 10000 基点。"
         },
         {
           "id": "down",
           "label": "降档率（基点）",
-          "type": "i"
+          "type": "i",
+          "description": "该投入档位降档的概率，100 基点为 1%，与升档合计最多 10000 基点。"
         }
       ],
       "rows": [
@@ -1382,17 +1454,20 @@
         {
           "id": "hp",
           "label": "生命倍率",
-          "type": "d"
+          "type": "d",
+          "description": "该等级的生命倍率，以 1 级为 1 倍，必须为正。"
         },
         {
           "id": "atk",
           "label": "攻击倍率",
-          "type": "d"
+          "type": "d",
+          "description": "该等级的攻击倍率，以 1 级为 1 倍，0 < 值 ≤ 100。"
         },
         {
           "id": "def",
           "label": "防御倍率",
-          "type": "d"
+          "type": "d",
+          "description": "该等级的防御倍率，以 1 级为 1 倍，0 < 值 ≤ 100。"
         }
       ],
       "rows": [
@@ -1477,12 +1552,14 @@
         {
           "id": "days",
           "label": "训练天数",
-          "type": "i"
+          "type": "i",
+          "description": "达到该职业目标等级所需训练天数，1～365。"
         },
         {
           "id": "books",
           "label": "兵书数量（本）",
-          "type": "i"
+          "type": "i",
+          "description": "达到该职业目标等级消耗的兵书数量，1～1000。"
         }
       ],
       "rows": [
@@ -1751,17 +1828,20 @@
         {
           "id": "capacity",
           "label": "岗位上限（人）",
-          "type": "i"
+          "type": "i",
+          "description": "设施可安排的人数上限，1～10000。"
         },
         {
           "id": "minimum",
           "label": "最低完工岗位（人）",
-          "type": "i"
+          "type": "i",
+          "description": "设施用于完工的最低岗位，0 至该设施岗位上限。"
         },
         {
           "id": "output",
           "label": "每人日产量",
-          "type": "d"
+          "type": "d",
+          "description": "每人每日基础产量，粮田以粮计、工坊以工作点计，0 < 值 ≤ 100。"
         }
       ],
       "rows": [
@@ -1792,17 +1872,20 @@
         {
           "id": "capacity",
           "label": "队长容量（人）",
-          "type": "i"
+          "type": "i",
+          "description": "对应营帐等级的队长人数上限，1～10000，随等级不下降。"
         },
         {
           "id": "material",
           "label": "升级原料",
-          "type": "i?"
+          "type": "i?",
+          "description": "升到本行等级所需的原料，0～1000000；1 级留空。"
         },
         {
           "id": "coins",
           "label": "升级钱币",
-          "type": "i?"
+          "type": "i?",
+          "description": "升到本行等级所需的钱币，0～1000000；1 级留空。"
         }
       ],
       "rows": [
@@ -1854,7 +1937,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "缺粮造成的产能下降比例上限，0 ≤ 值 < 1。"
         },
         {
           "id": "OpeningEconomy_HungerAttackPenalty",
@@ -1864,7 +1948,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "缺粮造成的攻击下降比例上限，0 ≤ 值 < 1。"
         },
         {
           "id": "OpeningRecoveryPerDay",
@@ -1874,7 +1959,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "每日恢复的生命比例，0 < 值 ≤ 1。"
         },
         {
           "id": "FacilityRepairMaterials",
@@ -1884,7 +1970,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "修复一处设施所需原料，0～1000000。"
         },
         {
           "id": "FacilityRepairCoins",
@@ -1894,7 +1981,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "修复一处设施所需钱币，0～1000000。"
         },
         {
           "id": "OpeningEconomy_LeaderFood",
@@ -1904,7 +1992,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "每名队长每日消耗的粮食，0～100。"
         }
       ]
     },
@@ -1915,17 +2004,20 @@
         {
           "id": "baseline",
           "label": "兵力基准（人）",
-          "type": "i"
+          "type": "i",
+          "description": "用于计算该职业兵源与报价的兵力基准，1～10000。"
         },
         {
           "id": "price",
           "label": "基础招募价（币）",
-          "type": "i"
+          "type": "i",
+          "description": "该职业招募报价的基础钱币，1～1000000。"
         },
         {
           "id": "food",
           "label": "每人日口粮",
-          "type": "i"
+          "type": "i",
+          "description": "该职业普通兵每人每日消耗的粮食。"
         }
       ],
       "rows": [
@@ -1986,7 +2078,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "影响可招募兵源的系数，0～1。"
         },
         {
           "id": "RecruitPriceSensitivity",
@@ -1996,7 +2089,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "控制兵力变化对招募报价影响的幅度，0～10。"
         },
         {
           "id": "SoldierDeathBase",
@@ -2006,7 +2100,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "普通兵倒地时进入即死计算的基础概率，0～1。"
         },
         {
           "id": "SoldierDeathSensitivity",
@@ -2016,7 +2111,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "调节兵力对比对普通兵即死概率的影响，0～10。"
         },
         {
           "id": "EnemyLeaderDeath",
@@ -2026,7 +2122,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "敌方队长的即死概率，0～1。"
         },
         {
           "id": "AwakenedChance",
@@ -2036,7 +2133,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "生成队长时成为异能者的概率，0～1。"
         }
       ]
     },
@@ -2059,7 +2157,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "由基础价值计玩家购入价的倍率，须高于出售倍率。"
         },
         {
           "id": "SellFactor",
@@ -2069,7 +2168,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "由基础价值计玩家出售所得的倍率。"
         },
         {
           "id": "SupplyMaterial",
@@ -2079,7 +2179,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "工坊制造一份一级军需消耗的原料，整数，至少为 1。"
         },
         {
           "id": "SupplyWorkValue",
@@ -2089,7 +2190,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "参与军需计价的固定工作点价值，1～1000000 币。"
         },
         {
           "id": "FoodValue",
@@ -2099,7 +2201,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "粮食每份的基础价值，参与交易计价。"
         },
         {
           "id": "MaterialValue",
@@ -2109,7 +2212,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "原料每份的基础价值，参与交易和军需计价。"
         },
         {
           "id": "BookValue",
@@ -2119,7 +2223,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "每本基础兵书的基础价值。"
         },
         {
           "id": "AdvancedBookValue",
@@ -2129,7 +2234,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "每本高阶兵书的基础价值。"
         },
         {
           "id": "StoneValue",
@@ -2139,7 +2245,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "每颗锻造石的基础价值。"
         },
         {
           "id": "WineValue",
@@ -2149,7 +2256,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "每份酒的基础价值。"
         },
         {
           "id": "OtherValue",
@@ -2159,7 +2267,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "其他商品回退到的基础价值。"
         },
         {
           "id": "ThreeDayIntelPrice",
@@ -2169,7 +2278,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "购买三日情报所需钱币。"
         },
         {
           "id": "FiveDayIntelPrice",
@@ -2179,7 +2289,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "购买五日情报所需钱币。"
         },
         {
           "id": "ForgeDailyStock",
@@ -2189,7 +2300,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "商店每日补充的锻造石数量，0～99。"
         }
       ]
     },
@@ -2200,7 +2312,8 @@
         {
           "id": "count",
           "label": "日供应（份）",
-          "type": "i"
+          "type": "i",
+          "description": "城镇每天供应的对应商品数量，1～100000。"
         }
       ],
       "rows": [
@@ -2243,42 +2356,50 @@
         {
           "id": "Name",
           "label": "技能名称",
-          "type": "s"
+          "type": "s",
+          "description": "游戏中显示的技能名称。"
         },
         {
           "id": "DamageType",
           "label": "伤害类型",
-          "type": "s"
+          "type": "s",
+          "description": "技能的伤害类型，physical 物理、magic 法术、none 无伤害。"
         },
         {
           "id": "Amount",
           "label": "效果参数",
-          "type": "d"
+          "type": "d",
+          "description": "由各技能读取的核心效果值，须大于 0，单位随技能效果。"
         },
         {
           "id": "Duration",
           "label": "持续（秒）",
-          "type": "d"
+          "type": "d",
+          "description": "技能效果维持的秒数，不能为负。"
         },
         {
           "id": "Cooldown",
           "label": "冷却（秒）",
-          "type": "d"
+          "type": "d",
+          "description": "再次使用技能前的冷却时间，必须为正。"
         },
         {
           "id": "Opening",
           "label": "开场冷却（秒）",
-          "type": "d"
+          "type": "d",
+          "description": "进入战斗后首次可用前的等待时间，不能为负。"
         },
         {
           "id": "Radius",
           "label": "半径（细格）",
-          "type": "d"
+          "type": "d",
+          "description": "技能效果覆盖的半径，不能为负。"
         },
         {
           "id": "SpeedBonus",
           "label": "移速增益比例",
-          "type": "d"
+          "type": "d",
+          "description": "技能带来的额外移动速度比例，不能为负。"
         }
       ],
       "constantsById": {
@@ -2311,32 +2432,38 @@
         {
           "id": "Name",
           "label": "特性名称",
-          "type": "s"
+          "type": "s",
+          "description": "游戏中显示的特性名称。"
         },
         {
           "id": "Conflict",
           "label": "互斥组",
-          "type": "s?"
+          "type": "s?",
+          "description": "相同组的特性互斥，留空表示未指定互斥组。"
         },
         {
           "id": "Min",
           "label": "最小值",
-          "type": "d"
+          "type": "d",
+          "description": "生成或指定该特性时的最低数值。"
         },
         {
           "id": "Max",
           "label": "最大值",
-          "type": "d"
+          "type": "d",
+          "description": "可取的最高数值，须不小于最小值。"
         },
         {
           "id": "Step",
           "label": "步长",
-          "type": "d"
+          "type": "d",
+          "description": "相邻可取值的差，须大于 0 且能整除取值区间。"
         },
         {
           "id": "Weight",
           "label": "抽取权重",
-          "type": "d"
+          "type": "d",
+          "description": "随机抽到该特性的相对权重，须大于 0。"
         }
       ]
     },
@@ -2347,7 +2474,8 @@
         {
           "id": "quantity",
           "label": "初始数量",
-          "type": "i"
+          "type": "i",
+          "description": "新局开始时入库的资源或军需数量，0～100000000。"
         }
       ],
       "rows": [
@@ -2395,17 +2523,20 @@
         {
           "id": "food",
           "label": "粮食",
-          "type": "i"
+          "type": "i",
+          "description": "对应关卡或任务奖励的粮食；败退损失行按每名敌人计。"
         },
         {
           "id": "material",
           "label": "原料",
-          "type": "i"
+          "type": "i",
+          "description": "对应关卡或任务奖励的原料；败退损失行按每名敌人计。"
         },
         {
           "id": "coins",
           "label": "钱币",
-          "type": "i"
+          "type": "i",
+          "description": "对应关卡或任务奖励的钱币；败退损失行按每名敌人计。"
         }
       ],
       "rows": [
@@ -2475,7 +2606,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "古窟奖励系统可储存的最大体力。"
         },
         {
           "id": "OpeningRewards_RewardCost",
@@ -2485,7 +2617,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "重复领取古窟奖励时扣除的体力。"
         },
         {
           "id": "OpeningRewards_Coins",
@@ -2495,7 +2628,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "每次领取古窟奖励所获的基础钱币。"
         },
         {
           "id": "OpeningRewards_ItemCount",
@@ -2505,7 +2639,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "每次领取古窟奖励所获的锻造石数量。"
         },
         {
           "id": "OpeningRewards_ExposureFraction",
@@ -2515,7 +2650,8 @@
           ],
           "types": [
             "d"
-          ]
+          ],
+          "description": "受侵蚀时每秒扣除的生命比例。"
         }
       ]
     },
@@ -2538,7 +2674,8 @@
           ],
           "types": [
             "i"
-          ]
+          ],
+          "description": "第二波袭击倒计时，1～365 天。"
         }
       ]
     }
