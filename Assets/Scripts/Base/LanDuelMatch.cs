@@ -75,7 +75,7 @@ namespace BaseConquest.Base
         private static void AddSide(BaseCampaignBattle opening, LanDuelRoster roster, BattleSide side,
             Dictionary<GridPosition, LanDuelMember> deployments)
         {
-            string problem = roster == null ? "缺少演武编队" : roster.Problem();
+            string problem = roster == null ? "缺少演武编队" : roster.Problem(opening.Rpg);
             if (problem != "") throw new ArgumentException(problem);
             var captains = roster.units.Where(u => u.kind == (int)SoldierKind.Hero).ToArray();
             var army = opening.Scenario.Army(side);
@@ -119,7 +119,8 @@ namespace BaseConquest.Base
                         Rpg = kind == SoldierKind.Hero ? m.profile.Copy() : new RpgCharacter
                         {
                             Version = 1, Id = m.id, Profession = BaseRpg.Profession(kind),
-                            TemplateId = opening.Rpg.DefaultTemplateId("soldier", BaseRpg.Profession(kind))
+                            TemplateId = string.IsNullOrEmpty(m.soldierTemplateId)
+                                ? opening.Rpg.DefaultTemplateId("soldier", BaseRpg.Profession(kind)) : m.soldierTemplateId
                         } });
                 }
                 else if (kind == SoldierKind.Hero)
@@ -131,7 +132,7 @@ namespace BaseConquest.Base
                 }
                 else
                 {
-                    opening.Troops.Add(new BaseWorkerBucket { Kind = BaseCampaign.ToBase(kind), Count = 1,
+                    opening.Troops.Add(new BaseWorkerBucket { Kind = BaseCampaign.ToBase(kind), Count = 1, TemplateId = m.soldierTemplateId,
                         Health = m.hp, MaxHealth = m.stats.Health, CombatStats = m.stats.Clone(), HasCombatProfile = true });
                     opening.TroopSlots.Add(slot);
                 }
@@ -231,6 +232,21 @@ namespace BaseConquest.Base
                 frame.aStanding = run.Model.Units.Count(u => u.Side == PrototypeSide.Ally && u.Alive);
                 frame.bStanding = run.Model.Units.Count(u => u.Side == PrototypeSide.Enemy && u.Alive);
             }
+#if UNITY_EDITOR || LAN_DUEL_QA
+            if (finished && LanDuelDeviceCheck.TraceMatchups)
+            {
+                var hits = run.RpgAttackHistory.Where(p => p.TargetId > 0 && p.Settled && (!p.Hit || p.ImpactApplied && p.DamageApplied > 0))
+                    .OrderByDescending(p => p.ImpactApplied);
+                var arrows = hits.Where(p => run.Battle.Soldier(p.SourceId-1).ProfessionKind == SoldierKind.Ranged);
+                frame.matchupRolls = new[]
+                {
+                    arrows.FirstOrDefault(p => p.Context.HasFlag(RpgShotContext.MovingCavalry)),
+                    arrows.FirstOrDefault(p => p.Context == RpgShotContext.None && run.Battle.Soldier(p.TargetId-1).ProfessionKind == SoldierKind.Cavalry),
+                    arrows.FirstOrDefault(p => p.Context.HasFlag(RpgShotContext.MeleePressure)),
+                    hits.FirstOrDefault(p => p.DamageType == "magic" && p.Context != RpgShotContext.None)
+                };
+            }
+#endif
             MageSpellVisual.Collect(run, observer, spellFrame);
             frame.spells = spellFrame.ToArray();
             frame.units = run.Model.Units.Where(u => (int)u.Side == side ||
@@ -243,6 +259,9 @@ namespace BaseConquest.Base
                 var facing = attacking ? u.AttackFacing : u.Facing;
                 return new LanDuelActor { id = u.Id, side = (int)u.Side, kind = m.kind, slot = u.Squad,
                     name = m.name, appearance = m.appearance, footprintCells=u.FootprintLength,
+#if UNITY_EDITOR || LAN_DUEL_QA
+                    verifiedTemplate = LanDuelDeviceCheck.TraceMatchups ? run.Battle.Soldier(u.Id - 1).Rpg?.TemplateId : null,
+#endif
                     attackRangeFine=(float)(u.Reach*PrototypeArena.Subdivision), x = (float)u.Position.X, z = (float)u.Position.Z,
                     fx = (float)facing.X, fz = (float)facing.Z, hp = u.Alive ? (float)u.Health : 0,
                     moving = u.Moving, attackPose = attacking ? (float)u.AttackPoseTime(run.Model.Elapsed, windup / (windup + .16)) : -1,

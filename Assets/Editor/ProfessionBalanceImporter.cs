@@ -118,6 +118,13 @@ namespace BaseConquest.Editor
                 if(!rules.Templates.Any(t=>t.Id==template&&t.Identity=="soldier"))throw row.Error("template_id","须引用已登记的普通兵模板："+template);
                 rules.EncounterUnits.Add(new RpgEncounterUnit{Scene=scene,Slot=slot,TemplateId=template});
             }
+            if(data.HasTable("cfg_enemy_supply"))
+            {
+                rules.EnemySupplies=new List<RpgEnemySupply>();
+                foreach(var row in data.Rows("cfg_enemy_supply","scene_id slot class_id count supply_tier"))
+                    rules.EnemySupplies.Add(new RpgEnemySupply {Scene=row.Key("scene_id"),Slot=row.Values.TryGetValue("slot",out var slot)?slot:"",
+                        Profession=row.Values.TryGetValue("class_id",out var profession)?profession:"",Count=row.Int("count",1,999),Tier=row.Int("supply_tier",0,2)});
+            }
             foreach(var row in training)
             {
                 var id=row.OneOf("class_id",Classes);int cls=Array.IndexOf(Classes,id),level=row.Int("target_level",2,9),n=cls*8+level-2;
@@ -160,7 +167,7 @@ namespace BaseConquest.Editor
             var before=CoreJsonSpans.Parse(original);
             var serialized=JsonUtility.ToJson(package,true);
             var after=CoreJsonSpans.Parse(serialized);
-            var paths=new[]{"Professions","EncounterUnits","TemplateDefenseCaps","MageFood","ArcherFood","OpeningEconomy/SoldierFood","OpeningEconomy/CavalryFood",
+            var paths=new[]{"Professions","EncounterUnits","EnemySupplies","TemplateDefenseCaps","MageFood","ArcherFood","OpeningEconomy/SoldierFood","OpeningEconomy/CavalryFood",
                 "Hit","Evasion","Range","Speed","TroopBaseline","RecruitBasePrices","TrainingDays","TrainingBooks","Templates","Skills","Equipment","ArmorK","ArmorCap","RuinsFirstControllerTemplate"};
             var edits=new List<(int position,int length,string text)>();
             var additions=new StringBuilder();

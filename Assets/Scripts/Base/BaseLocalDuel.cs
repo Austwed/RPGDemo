@@ -21,7 +21,7 @@ namespace BaseConquest.Base
             GridPosition Nearest(double x,double y,GridPosition? avoid=null)=>board.Positions().Where(p=>board.Walkable(p)&&(!avoid.HasValue||p!=avoid.Value)).OrderBy(p=>(p.X+.5-x)*(p.X+.5-x)+(p.Z+.5-y)*(p.Z+.5-y)).ThenBy(p=>p.Z).ThenBy(p=>p.X).First();
             var a=Nearest(state.PlayerX,state.PlayerY);var b=Nearest(marker.X,marker.Y,a);board.Cell(a).Zone=DeploymentZone.A;board.Cell(b).Zone=DeploymentZone.B;
             var stats=BaseCommanderIdentity.Stats(player,new ArmyDefinition().Hero);var opponent=BaseCommanderIdentity.Stats(enemy,new ArmyDefinition().Hero);
-            var scenario=new BattleScenario{Board=board,CampaignRules=true,PlayerHeroAppearance=true,PlayerLeaderSlot=0,MaxRounds=180,InstantDeathEnabled=false,
+            var scenario=new BattleScenario{RandomSeed=Guid.NewGuid().GetHashCode(),Board=board,CampaignRules=true,PlayerHeroAppearance=true,PlayerLeaderSlot=0,MaxRounds=180,InstantDeathEnabled=false,
                 A=new ArmyDefinition{HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=stats},B=new ArmyDefinition{HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=opponent},
                 Objective=new ObjectiveConfig{Title="与阿铸比武 · 点到为止"},Placements=new List<UnitPlacement>{new UnitPlacement{Side=BattleSide.A,Kind=SoldierKind.Hero,CommanderSlot=0,Cell=a},new UnitPlacement{Side=BattleSide.B,Kind=SoldierKind.Hero,CommanderSlot=0,Cell=b}}};
             scenario.A.CommanderNames=new List<string>{BasePersonnel.LeaderName(player)};

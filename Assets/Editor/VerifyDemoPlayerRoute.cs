@@ -262,21 +262,24 @@ namespace BaseConquest.Editor
         {
             var hero=grown.Leaders.Single(l=>l.Id==grown.PlayerLeaderId);
             hero.Training.Origin=hero.PersonalEquipment.BaseStats.Clone();
-            hero.Training.Target=2;hero.Training.EndDay=grown.Day;
-            BaseTraining.AdvanceDay(grown);
+            for(int level=2;level<=3;level++)
+            {
+                hero.Training.Target=level;hero.Training.EndDay=grown.Day;
+                BaseTraining.AdvanceDay(grown);
+            }
             for(int day=0;day<10&&hero.Health<hero.MaxHealth;day++)BaseDevelopment.Recover(grown);
             var draft=new BaseBattlePreparation(grown,BasePrepRoute.Ruins);
             draft.AutoPlace();
-            var encounter=draft.Begin(grown);
             const string difficultyKey="BaseConquest.GlobalDifficulty";
             var previous=PlayerPrefs.GetString(difficultyKey,"normal");
             try
             {
                 PlayerPrefs.SetString(difficultyKey,"easy");
+                var encounter=draft.Begin(grown);
                 var run=new RealtimeCampaignBattle(encounter);
                 BaseDemoRuins.Configure(run);
                 ApproachController(run,true,5400,()=>BaseDemoRuins.SoloRetreatGuide(run));
-                Need(run.Session.Opening.Leaders.Count==1&&BaseDemoRuins.Complete(grown,run),"成长主角合法独胜失败："+run.Battle.Report?.Outcome);
+                Need(run.Session.Opening.Leaders.Count==1&&BaseDemoRuins.Complete(grown,run),"三级主角手动指挥独胜失败："+run.Battle.Report?.Outcome);
             }
             finally{PlayerPrefs.SetString(difficultyKey,previous);}
             Need(grown.Demo.Stage==BaseDemoStage.RuinsCleared&&grown.Demo.AcceptedDay==0,
@@ -287,7 +290,7 @@ namespace BaseConquest.Editor
             At(grown,"town_quest");
             Need(BaseDemoRuins.Deliver(grown)&&grown.Demo.AcceptedDay==grown.Day&&BaseDemoDefense.Delivered(grown)&&
                 !BaseDemoRuins.Deliver(grown),"先救人交差未能补记委托，或可重复发放许可");
-            Note("沉眠古窟旁支：未领委托，简单难度二级主角独自实战取胜。返镇交差时补记委托，许可仅发一次。");
+            Note("沉眠古窟旁支：未领委托，简单难度三级主角独自实战取胜。返镇交差时补记委托，许可仅发一次。");
         }
 
         private static void VerifyFullCampInvitation(BaseState state)

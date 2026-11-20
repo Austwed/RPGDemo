@@ -55,7 +55,10 @@ namespace BaseConquest.Editor
         public static BaseState Defense(string raw,string gender,RpgRules rules=null)
         {
             var s=OpenFirstRuins(raw,gender,rules);
-            var session=BaseDemoRuins.Begin(s,"none");var run=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(run);run.Model.SetPaused(false);
+            var session=BaseDemoRuins.Begin(s,"none");
+            // The bundled stage is a reproducible fixture; playthroughs keep their fresh battle seeds.
+            s.Campaign.ActiveBattle.Scenario.RandomSeed = session.Opening.Scenario.RandomSeed = session.Battle.Scenario.RandomSeed = StageGenerationSeed;
+            var run=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(run);run.Model.SetPaused(false);
             CompleteFirstRuins(s,run);
             // Fixed test starts are healthy; resources and progress use the actual transaction results.
             foreach(var l in s.Leaders){l.Health=l.MaxHealth;l.Fate="active";}

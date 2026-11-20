@@ -32,6 +32,7 @@ namespace BaseConquest.Editor
                 Directory.CreateDirectory(Output);
                 if (phase == "smoke")
                 {
+                    VerifySquadInspiration(fixture);
                     VerifyRoute(fixture);
                     VerifyVictory(fixture);
                     Debug.Log("[VerifyBanditHideout] PASS route, entrance migration, checkpoint, survivor recruitment, rewards and sweep");
@@ -126,7 +127,7 @@ namespace BaseConquest.Editor
             BaseAdventure.Arrive(state);
         }
 
-        private static BaseBattlePreparation Draft(BaseState state, int seed, int? count = null)
+        private static BaseBattlePreparation Draft(BaseState state, int? seed, int? count = null)
         {
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Hideout, seed, count) { SupplyGrade = 1 };
             foreach (var unit in draft.Units)
@@ -196,17 +197,52 @@ namespace BaseConquest.Editor
             return run.Battle.Report?.Outcome ?? BattleOutcome.RoundLimit;
         }
 
+        private static void VerifySquadInspiration(BaseState fixture)
+        {
+            double Check(string skillId)
+            {
+                var state = fixture.Copy();
+                state.Leaders.Single(leader => leader.Id == state.PlayerLeaderId).Rpg.SkillId = skillId;
+                var draft = Draft(state, 31701);
+                var preview = draft.Power(state, true);
+                var run = Start(state, draft);
+                var encounter = BaseAutoResolve.Evaluate(run.Session);
+                Need(Math.Abs(preview.ally - encounter.AllyPower) < .001 &&
+                    Math.Abs(preview.enemy.Value - encounter.EnemyPower) < .001, "军需与队长技能的预览／开战战力不一致");
+                var troops = run.Battle.Soldiers.Where(unit => unit.Side == BattleSide.A && unit.Kind != SoldierKind.Hero).ToList();
+                foreach (var unit in troops) unit.OriginCommanderSlot = 1;
+                double detached = BaseAutoResolve.Evaluate(run.Session).AllyPower;
+                foreach (var unit in troops) unit.OriginCommanderSlot = 0;
+                Need(skillId == "inspire" ? detached < encounter.AllyPower : detached == encounter.AllyPower,
+                    "鼓舞预估应仅提高施法队长所属士兵的攻击");
+                run.SetAutoSkill(0, false);
+                for (int i = 0; i < 300 && !run.CanCastSkill(BattleSide.A, 0); i++) run.Tick(1d / 60);
+                var recipient = run.Model.Units.Single(actor => actor.Id == troops[0].Id + 1);
+                double before = run.Model.AttackPower(recipient);
+                Need(run.CastSkill(BattleSide.A, 0) && (run.Model.AttackPower(recipient) > before) == (skillId == "inspire"),
+                    "正式出手的同队士兵未按队长技能获得攻击加成");
+                return preview.ally;
+            }
+            Need(Check("inspire") > Check("march"), "十名士兵的带队鼓舞未反映在备战预览");
+        }
+
         private static void VerifyRoute(BaseState fixture)
         {
             var state = VerifyEntranceMigration(fixture);
             BaseBanditHideout.Install(state);
             Need(BaseSpatial.Objects(state).Count(node => node.Id == BaseBanditHideout.EntryId) == 1, "补挂入口不幂等");
-            var first = Draft(state, 31701);
+            var first = Draft(state, null);
+            var reopened = Draft(state, null);
+            int expected = BaseCampaign.NextBattleSeed(state, BaseBanditHideout.EventId);
+            var restoredDraft = Draft(JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state)), null);
+            Need(BattleSimulation.TroopKinds.All(kind => first.KnownEnemyCount(kind) == reopened.KnownEnemyCount(kind) &&
+                first.KnownEnemyCount(kind) == restoredDraft.KnownEnemyCount(kind)), "关闭备战或读档重抽了窝点兵种");
             Need(first.KnownEnemyPower(state) > 0 && !state.Campaign.HasActiveBattle && state.Supply.Quotas.Count == 0, "查看或布置消耗了资源");
             var different = Enumerable.Range(31702, 12).Select(seed => new BaseBattlePreparation(state, BasePrepRoute.Hideout, seed)).Any(d =>
                 BattleSimulation.TroopKinds.Any(kind => d.KnownEnemyCount(kind) != first.KnownEnemyCount(kind)));
-            Need(different, "多次重新交互没有抽取不同阵容");
+            Need(different, "显式指定不同种子未能抽出不同阵容");
             var run = Start(state, first);
+            Need(run.Battle.Scenario.RandomSeed == expected, "实际开战未沿用预览种子");
             run.SaveCheckpoint(state);
             var roundtrip = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
             BaseEconomy.Validate(roundtrip);
@@ -220,6 +256,7 @@ namespace BaseConquest.Editor
                 state.Muster.Strategies.SequenceEqual(fixture.Muster.Strategies),
                 "窝点退败没有返回入口或改动古窟剧情与体力");
             Need(!BaseBanditHideout.Complete(state, restored), "窝点战果可以重复结算");
+            Need(BaseCampaign.NextBattleSeed(state, BaseBanditHideout.EventId) != expected, "撤出窝点后下一场仍使用旧种子");
         }
 
         private static BaseState VerifyEntranceMigration(BaseState fixture)
@@ -402,6 +439,9 @@ namespace BaseConquest.Editor
             var result = draft.Sweep(state);
             string id = BaseRuinsRewards.PendingBattle(state, BasePrepRoute.Hideout);
             var report = state.Campaign.Reports.Single(entry => entry.BattleId == id);
+            Need(preview.Losses.Count == result.Losses.Count &&
+                preview.Losses.Zip(result.Losses, (a,b) => a.UnitId == b.UnitId && a.Before == b.Before &&
+                    a.After == b.After && a.Dead == b.Dead).All(equal => equal), "扫荡预览的逐人战损与提交不符");
             Need(result.BattleId == id && report.EventId == BaseBanditHideout.EventId && report.Passive &&
                 result.EnemyPower == preview.EnemyPower && result.AllyPower == preview.AllyPower &&
                 BaseSceneRules.Entrance(state) && !state.Campaign.HasActiveBattle && state.Supply.Quotas.Count == 0 &&

@@ -181,6 +181,7 @@ namespace BaseConquest.Base
             foreach (var unit in repeat.Units.Where(u => u.Kind == SoldierKind.Melee))
             {
                 unit.Kind = SoldierKind.Mage;
+                unit.AuthoredSlot ??= unit.Id;
                 unit.Id = "mage-" + (++number);
             }
             return repeat;

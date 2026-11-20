@@ -97,7 +97,7 @@ namespace BaseConquest.Base
             var player=state.Leaders.Single(person=>person.Id==state.PlayerLeaderId).Copy();
             var stats=BaseCommanderIdentity.Stats(player,new ArmyDefinition().Hero);var elite=stats.Clone();elite.Health*=1.2f;elite.Damage*=.35f;elite.Defense*=.7f;elite.CritChance=0;elite.HasProfessionKind=elite.HasCombatKind=true;elite.ProfessionKind=elite.CombatKind=SoldierKind.Melee;
             var board=BaseSceneCombat.Project(state);
-            var scenario=new BattleScenario {Board=board,CampaignRules=true,FogEnabled=false,PlayerHeroAppearance=true,PlayerLeaderSlot=0,CustomExits=true,ExitA=BattleSimulation.SideExit(board,false),ExitB=BattleSimulation.SideExit(board,true),MaxRounds=90,InstantDeathEnabled=false,
+            var scenario=new BattleScenario {RandomSeed=Guid.NewGuid().GetHashCode(),Board=board,CampaignRules=true,FogEnabled=false,PlayerHeroAppearance=true,PlayerLeaderSlot=0,CustomExits=true,ExitA=BattleSimulation.SideExit(board,false),ExitB=BattleSimulation.SideExit(board,true),MaxRounds=90,InstantDeathEnabled=false,
                 A=new ArmyDefinition {HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=stats},
                 B=new ArmyDefinition {HeroCount=2,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=elite,CommanderNames=new List<string>{"受伤精英追兵","受伤精英追兵"},CommanderAppearances=new List<string>{"galan","galan"}},
                 Objective=new ObjectiveConfig {Title="掩护撤离 · 追兵交战"},Placements=new List<UnitPlacement>()};

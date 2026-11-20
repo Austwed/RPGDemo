@@ -89,6 +89,7 @@ namespace BaseConquest.Base
         public double WorldX = 12, WorldY = 6.5;
         public List<BaseCampaignEvent> Events = new List<BaseCampaignEvent>();
         public List<string> SettledIds = new List<string>();
+        public long SettledBattleCount;
         public List<BaseCampaignReport> Reports = new List<BaseCampaignReport>();
         public bool HasActiveBattle;
         public bool ContentInitialized;
@@ -99,7 +100,7 @@ namespace BaseConquest.Base
         public List<BaseRegionMap> RegionMaps = new List<BaseRegionMap>();
         public List<BaseMapLayout> Layouts = new List<BaseMapLayout>();
         public BaseCampaignState Copy() => new BaseCampaignState { Version = Version, MapVersion=MapVersion, Location = Location, DesignId=DesignId,InstanceVersion=InstanceVersion,CurrentMapId=CurrentMapId,WorldJourney=WorldJourney?.Copy(),DesignLinks=(DesignLinks??new List<BaseDesignLink>()).Select(link=>link.Copy()).ToList(), BaseX = BaseX, BaseY = BaseY,WorldX=WorldX,WorldY=WorldY,
-            Events = Events.Select(e => e.Copy()).ToList(), SettledIds = SettledIds.ToList(), Reports = Reports.Select(r => r.Copy()).ToList(),
+            Events = Events.Select(e => e.Copy()).ToList(), SettledIds = SettledIds.ToList(), SettledBattleCount = SettledBattleCount, Reports = Reports.Select(r => r.Copy()).ToList(),
             HasActiveBattle = HasActiveBattle, ContentInitialized = ContentInitialized, ThreatVersion=ThreatVersion,ThreatDay=ThreatDay,EnemySites=(EnemySites??new List<BaseEnemySite>()).Select(x=>x.Copy()).ToList(), ActiveBattle = HasActiveBattle ? ActiveBattle.Copy() : new BaseCampaignBattle(), PerimeterBoard = PerimeterBoard?.Clone(), RegionMaps = (RegionMaps??new List<BaseRegionMap>()).Select(m=>m.Copy()).ToList(), Layouts=(Layouts??new List<BaseMapLayout>()).Select(m=>m.Copy()).ToList() };
     }
     public static class BaseCampaign
@@ -107,6 +108,21 @@ namespace BaseConquest.Base
         public static readonly string[] Locations = { "base", "perimeter", "town", "world", "outpost", "dungeon", BaseBanditHideout.Region };
         public static string LocationName(string id) => id == "base" ? "基地" : id == "perimeter" ? "迎敌战场" : id == "town" ? "城镇" : id=="outpost" ? "荒野据点区域" : "世界地图";
         public static string LocationName(BaseState state)=>BaseSceneInstances.Active(state)||BaseDemo.Active(state)?BaseSpatial.Layout(state).Title:LocationName(state.Campaign.Location);
+        // Plans and save reloads must reproduce the pending fight. Real victories and retreats create reports.
+        public static int NextBattleSeed(BaseState state, string eventId)
+        {
+            long sequence = Math.Max(state.Campaign.SettledBattleCount, state.Campaign.Reports.Count);
+            int campaignSalt = state.Demo.Rpg?.GenerationSeed ?? 0;
+            return unchecked((campaignSalt ^ BaseAftermath.StableIdentity(eventId)) + (int)sequence * (int)0x9E3779B9u);
+        }
+
+        private static void RecordSettlement(BaseCampaignState campaign, BaseCampaignReport report)
+        {
+            campaign.SettledBattleCount = checked(Math.Max(campaign.SettledBattleCount, campaign.Reports.Count) + 1);
+            campaign.SettledIds.Add(report.BattleId);
+            campaign.Reports.Add(report);
+        }
+
         public static string OutcomeName(string id) => id == "SideAWin" ? "胜利" : id == "SideBWin" ? "战败" : id == "Draw" ? "双方失能" : id == "Retreat" ? "撤离" : id == "Stalemate" ? "僵持退兵" : id == "RoundLimit" ? "到达上限退兵" : id=="Occupied" ? "接管据点" : "无守军失守";
         public static void SeedContent(BaseState s)
         {
@@ -127,7 +143,13 @@ namespace BaseConquest.Base
         } : new[] { new BaseMapObject("travel_base", "← 基地", 0.7, 6.5, 1.2, 2, false), new BaseMapObject("town_market", "交易摊位", 9, 8, 3, 2, false), new BaseMapObject("town_recruit", "募兵处", 16, 8, 3, 2, false), new BaseMapObject("town_quest", "镇务官 · 委托", 16, 4.5, 2, 1.5, false) };
         public static void Normalize(BaseState s)
         {
-            if (s.Campaign != null && s.Campaign.Version != 0) return;
+            if (s.Campaign != null && s.Campaign.Version != 0)
+            {
+                // Older saves contain the retained reports but no lifetime sequence.
+                if (s.Campaign.SettledBattleCount == 0 && s.Campaign.Reports?.Count > 0)
+                    s.Campaign.SettledBattleCount = s.Campaign.Reports.Count;
+                return;
+            }
             if (s.Campaign != null && (s.Campaign.HasActiveBattle || s.Campaign.Events?.Count > 0 || s.Campaign.SettledIds?.Count > 0 || s.Campaign.Reports?.Count > 0)) throw new ArgumentException("战役数据缺版本，拒绝清空");
             s.Campaign = new BaseCampaignState { Version = 1, BaseX = s.PlayerX, BaseY = s.PlayerY };
         }
@@ -139,7 +161,7 @@ namespace BaseConquest.Base
             BaseBattlefield.MigrateLegacyMap(s);
             var field=c.PerimeterBoard;bool storyField=s.Demo?.StoryScene?.Valid==true;
             if((storyField?(field.Width<10||field.Width>64||field.Height<10||field.Height>64):(field.Width!=(BaseDemoRelease.Enabled(s)?32:24)||field.Height!=(BaseDemoRelease.Enabled(s)?24:14)))||field.Cells?.Length!=field.Width*field.Height||field.Cells.Any(x=>x==null||!x.MetadataValid||!Enum.IsDefined(typeof(TerrainKind),x.Terrain)||!Enum.IsDefined(typeof(DeploymentZone),x.Zone))||!field.Walkable(new GridPosition(field.Width-1,6))||!field.Walkable(new GridPosition(0,6)))throw new ArgumentException("迎战地图数据非法");
-            if (c.Version != 1 || c.InstanceVersion<0||c.InstanceVersion>1||!BaseSceneInstances.LocationValid(s,c.Location) || !Finite(c.BaseX) || !Finite(c.BaseY) || !Finite(c.WorldX) || !Finite(c.WorldY) || !BaseMap.Walkable(c.WorldX,c.WorldY,null,false) || c.Events == null || c.SettledIds == null || c.Reports == null || c.Events.Count > 1000 || c.Reports.Count > 1000 || c.SettledIds.Count > 100000) throw new ArgumentException("战役版本／位置／集合非法");
+            if (c.Version != 1 || c.InstanceVersion<0||c.InstanceVersion>1||c.SettledBattleCount<0||!BaseSceneInstances.LocationValid(s,c.Location) || !Finite(c.BaseX) || !Finite(c.BaseY) || !Finite(c.WorldX) || !Finite(c.WorldY) || !BaseMap.Walkable(c.WorldX,c.WorldY,null,false) || c.Events == null || c.SettledIds == null || c.Reports == null || c.Events.Count > 1000 || c.Reports.Count > 1000 || c.SettledIds.Count > 100000) throw new ArgumentException("战役版本／位置／集合非法");
             if (c.Events.Any(e => e == null || string.IsNullOrWhiteSpace(e.Id) || string.IsNullOrWhiteSpace(e.Title) || e.Kind != "defense" && e.Kind != "attack" || e.Status != "pending" && e.Status != "resolved" || e.AvailableDay < 1 || e.DeadlineDay < e.AvailableDay || string.IsNullOrWhiteSpace(e.ScenarioFile) || Path.GetFileName(e.ScenarioFile) != e.ScenarioFile || !e.ScenarioFile.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || new[] { e.FoodReward, e.MaterialReward, e.CoinReward, e.FoodRaid, e.MaterialRaid, e.CoinRaid }.Any(n => n < 0 || n > 1000000)) || c.Events.Select(e => e.Id).Distinct().Count() != c.Events.Count) throw new ArgumentException("战役事件非法");
             if (c.SettledIds.Any(string.IsNullOrWhiteSpace) || c.SettledIds.Distinct().Count() != c.SettledIds.Count || c.Reports.Any(r => r == null || string.IsNullOrWhiteSpace(r.BattleId) || !c.SettledIds.Contains(r.BattleId) || r.Day < 1 || r.Day > s.Day || new[] { r.Rounds, r.Deployed, r.Killed, r.Missing, r.Returned, r.Wounded, r.LeadersDown, r.GearLost }.Any(n => n < 0)) || c.Reports.Select(r => r.BattleId).Distinct().Count() != c.Reports.Count) throw new ArgumentException("战役结算记录非法");
             BaseThreats.Validate(s);
@@ -294,6 +316,7 @@ namespace BaseConquest.Base
                 if(s.Campaign.Location!="outpost"){s.Campaign.Location="outpost";var entrance=BaseSpatial.Layout(s);s.PlayerX=entrance?.SpawnX??.5;s.PlayerY=entrance?.SpawnY??BaseBattlefield.Board(s).Height-.5;BaseAdventure.Arrive(s);}
             }
             var raw = document.Scenario.Clone(); raw.Placements.Clear(); raw.SupplyBattleId = ""; raw.TestAutoDeployment = false;
+            if (!hideout && BaseDemo.Active(s)) raw.RandomSeed = NextBattleSeed(s, e.Id);
             raw.MaxRounds = Math.Min(raw.MaxRounds, 300); raw.ShowEnemiesThroughFog = false;
             raw.DefenderSide = e.Kind == "defense" ? 0 : 1; raw.DefenderVisionEnabled = raw.CampaignRules = true; raw.FogEnabled = true;
             raw.InstantDeathEnabled = true; raw.LeaderInstantDeath = s.Aftermath.Difficulty.LeaderDeath; raw.TroopInstantDeath = s.Aftermath.Difficulty.TroopDeath;
@@ -454,7 +477,7 @@ namespace BaseConquest.Base
             double holdLeft = Math.Max(0, (battle.Scenario.Objective?.HoldRounds ?? e.HoldRounds) - (a.RealtimeRules ? (a.RealtimeState?.Seconds ?? 0) : battle.RoundNumber));
             int enemyLeft = battle.Soldiers.Count(u => u.Side == BattleSide.B && u.IsAlive && !u.Escaped);
             BaseRaidLoot.Apply(s, e, r, win, passive, enemyLeft, holdLeft);
-            s.Campaign.SettledIds.Add(a.Id); s.Campaign.Reports.Add(r); BaseQuests.RecordVictory(s,r); if(!passive&&!a.Deputy)ToBaseLocation(s);
+            RecordSettlement(s.Campaign, r); BaseQuests.RecordVictory(s,r); if(!passive&&!a.Deputy)ToBaseLocation(s);
             if (!rescueOnly) BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>(),capturedEquipment);
             if (a.EventId != BaseBanditHideout.EventId) BaseSceneRules.RememberStrategy(s,session);
             BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
@@ -475,7 +498,7 @@ namespace BaseConquest.Base
             var report=new BaseCampaignReport {BattleId=id,EventId=e.Id,Title=e.Title,Day=s.Day,Outcome="Occupied",SourceSiteId=site.Id,EnemyDispersed=site.Garrison.Count};
             ApplyEventInventory(s,e,true,report);site.Owner="player";site.CapturedDay=s.Day;site.Garrison.Clear();e.Status="resolved";
             BaseItemRecovery.ReturnForEvent(s,e.Id,report);
-            s.Campaign.SettledIds.Add(id);s.Campaign.Reports.Add(report);BaseEconomy.Validate(s);return true;
+            RecordSettlement(s.Campaign, report);BaseEconomy.Validate(s);return true;
         }
         public static bool Rest(BaseState s, int day, Func<string, BattleScenarioDocument> resolve,bool realtime=false)
         {
@@ -493,7 +516,7 @@ namespace BaseConquest.Base
                     // 没人迎战等于全营被翻一遍：按敌方人头走重掠档，然后才把残军退回来源据点。
                     BaseRaidLoot.Apply(s, e, r, false, true, e.EnemyArmy.Count(u => !u.Dead), e.HoldRounds > 0 ? e.HoldRounds : 30);
                     var source=BaseThreats.Site(s,e.SourceSiteId);if(source!=null){r.SourceSiteId=source.Id;if(source.Owner=="enemy"){source.Garrison.AddRange(e.EnemyArmy.Select(u=>u.Copy()));r.EnemyReturned=e.EnemyArmy.Count;}else r.EnemyDispersed=e.EnemyArmy.Count;e.EnemyArmy.Clear();}
-                    s.Campaign.SettledIds.Add(id); s.Campaign.Reports.Add(r); continue;
+                    RecordSettlement(s.Campaign, r); continue;
                 }
                 var a = Begin(s, e.Id, resolve(e.ScenarioFile), "full", plan,realtime); var session = new BaseCampaignSession(a); session.Battle.AutoDeploy(BattleSide.A); session.Bind();
                 if (!session.Battle.Start(out var reason)) throw new InvalidOperationException("被动部署不能开始：" + reason);
@@ -611,6 +634,9 @@ namespace BaseConquest.Base
                     var source=Opening.Troops[sourceIndex];
                     unit.Recruited=source.Recruited;
                     unit.SoldierNumber=source.SoldierNumbers?.FirstOrDefault()??0;
+                    if(unit.Rpg?.Version!=1 && Opening.Rpg!=null && !string.IsNullOrEmpty(source.TemplateId))
+                        unit.Rpg=new RpgCharacter { Version=1, Id=Opening.Id+":soldier:"+unit.Id,
+                            Profession=BaseRpg.Profession(unit.Kind), TemplateId=source.TemplateId };
                 }
                 unit.BattlePower = unit.Stats.BaseBattlePower;
             }
@@ -636,7 +662,7 @@ namespace BaseConquest.Base
                 int index=Enumerable.Range(0,Opening.Enemies.Count).First(n=>Opening.Enemies[n].Kind==unit.Kind&&Opening.Enemies[n].CommanderSlot==unit.OriginCommanderSlot&&!enemies.ContainsValue(n));
                 enemies.Add(unit.Id,index);var source=Opening.Enemies[index];
                 if (source.IsControlled) unit.AppearanceId = "villager";
-                unit.Stats=source.Stats.Clone();unit.Health=source.Health;unit.KnockedDown=source.KnockedDown;unit.InstantDead=source.Dead;unit.DeathResolved=source.KnockedDown||source.Dead;unit.BattlePower=unit.Stats.BaseBattlePower;
+                unit.Stats=source.EffectiveStats(Opening.Rpg);unit.Health=source.Health;unit.KnockedDown=source.KnockedDown;unit.InstantDead=source.Dead;unit.DeathResolved=source.KnockedDown||source.Dead;unit.BattlePower=unit.Stats.BaseBattlePower;
             }
         }
         public BattleSoldier UnitForEnemy(int index) => enemies.Where(x=>x.Value==index).Select(x=>Battle.Soldier(x.Key)).SingleOrDefault();

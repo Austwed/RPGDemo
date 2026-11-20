@@ -80,9 +80,9 @@
                 "ExtraAccessory": true,
                 "BaseStats": {
                     "Level": 1,
-                    "Health": 600.0,
-                    "Damage": 36.0,
-                    "Defense": 12.0,
+                    "Health": 235.0,
+                    "Damage": 14.0,
+                    "Defense": 4.0,
                     "Penetration": 0.0,
                     "Resistance": 0.0,
                     "HasCombatKind": true,
@@ -169,8 +169,8 @@
             "HasAffinity": false,
             "IsAwakened": true,
             "IsAlien": false,
-            "Health": 605.0,
-            "MaxHealth": 605.0,
+            "Health": 240.0,
+            "MaxHealth": 240.0,
             "FarmBonus": 0.05,
             "WorkshopBonus": 0.05,
             "HasCombatProfile": true,
@@ -428,6 +428,7 @@
             }
         ],
         "SettledIds": [],
+        "SettledBattleCount": 0,
         "Reports": [],
         "HasActiveBattle": false,
         "ContentInitialized": true,
@@ -586,6 +587,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -594,7 +596,7 @@
                                 "Z": 0
                             }
                         },
-                        "Health": 300.0,
+                        "Health": 175.0,
                         "KnockedDown": false,
                         "Dead": false,
                         "IsAlien": false,
@@ -602,9 +604,9 @@
                         "IsControlled": false,
                         "Stats": {
                             "Level": 1,
-                            "Health": 300.0,
-                            "Damage": 24.0,
-                            "Defense": 8.0,
+                            "Health": 175.0,
+                            "Damage": 13.0,
+                            "Defense": 4.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -624,9 +626,9 @@
                             "ExtraAccessory": false,
                             "BaseStats": {
                                 "Level": 1,
-                                "Health": 300.0,
-                                "Damage": 24.0,
-                                "Defense": 8.0,
+                                "Health": 175.0,
+                                "Damage": 13.0,
+                                "Defense": 4.0,
                                 "Penetration": 0.0,
                                 "Resistance": 0.0,
                                 "HasCombatKind": true,
@@ -668,7 +670,9 @@
                                     "Cell": -1
                                 }
                             ]
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:2",
@@ -700,6 +704,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -708,7 +713,7 @@
                                 "Z": 0
                             }
                         },
-                        "Health": 600.0,
+                        "Health": 235.0,
                         "KnockedDown": false,
                         "Dead": false,
                         "IsAlien": false,
@@ -716,9 +721,9 @@
                         "IsControlled": false,
                         "Stats": {
                             "Level": 1,
-                            "Health": 600.0,
-                            "Damage": 36.0,
-                            "Defense": 12.0,
+                            "Health": 235.0,
+                            "Damage": 14.0,
+                            "Defense": 4.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -738,9 +743,9 @@
                             "ExtraAccessory": false,
                             "BaseStats": {
                                 "Level": 1,
-                                "Health": 600.0,
-                                "Damage": 36.0,
-                                "Defense": 12.0,
+                                "Health": 235.0,
+                                "Damage": 14.0,
+                                "Defense": 4.0,
                                 "Penetration": 0.0,
                                 "Resistance": 0.0,
                                 "HasCombatKind": true,
@@ -782,7 +787,9 @@
                                     "Cell": -1
                                 }
                             ]
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:3",
@@ -805,6 +812,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -859,7 +867,9 @@
                                 "CritMultiplier": 1.5
                             },
                             "Items": []
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:4",
@@ -882,6 +892,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -936,7 +947,9 @@
                                 "CritMultiplier": 1.5
                             },
                             "Items": []
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:5",
@@ -959,6 +972,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -1013,7 +1027,9 @@
                                 "CritMultiplier": 1.5
                             },
                             "Items": []
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:6",
@@ -1036,6 +1052,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -1090,7 +1107,9 @@
                                 "CritMultiplier": 1.5
                             },
                             "Items": []
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:7",
@@ -1113,6 +1132,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -1167,7 +1187,9 @@
                                 "CritMultiplier": 1.5
                             },
                             "Items": []
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:8",
@@ -1190,6 +1212,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -1244,7 +1267,9 @@
                                 "CritMultiplier": 1.5
                             },
                             "Items": []
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:9",
@@ -1267,6 +1292,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -1321,7 +1347,9 @@
                                 "CritMultiplier": 1.5
                             },
                             "Items": []
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:10",
@@ -1344,6 +1372,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -1398,7 +1427,9 @@
                                 "CritMultiplier": 1.5
                             },
                             "Items": []
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:11",
@@ -1421,6 +1452,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -1475,7 +1507,9 @@
                                 "CritMultiplier": 1.5
                             },
                             "Items": []
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     },
                     {
                         "Id": "outpost:12",
@@ -1498,6 +1532,7 @@
                         "PresetSlot": -1,
                         "Deployment": {
                             "TemplateId": "",
+                            "AuthoredSlot": "",
                             "Id": "",
                             "Kind": 0,
                             "CommanderSlot": 0,
@@ -1552,7 +1587,9 @@
                                 "CritMultiplier": 1.5
                             },
                             "Items": []
-                        }
+                        },
+                        "SupplyTier": 0,
+                        "SupplyScene": ""
                     }
                 ],
                 "Stock": 0
@@ -7160,6 +7197,7 @@
             },
             "Rpg": {
                 "Professions": [],
+                "EnemySupplies": [],
                 "EncounterUnits": [],
                 "TemplateDefenseCaps": [],
                 "MageFood": 1,
@@ -92000,11 +92038,70 @@
                     "TrainingAdvanced": "training_mage_advanced"
                 }
             ],
+            "EnemySupplies": [
+                {
+                    "Scene": "hideout",
+                    "Slot": "",
+                    "Profession": "warrior",
+                    "Count": 1,
+                    "Tier": 1
+                },
+                {
+                    "Scene": "defense",
+                    "Slot": "",
+                    "Profession": "warrior",
+                    "Count": 2,
+                    "Tier": 1
+                },
+                {
+                    "Scene": "bandit",
+                    "Slot": "ranged-3",
+                    "Profession": "",
+                    "Count": 1,
+                    "Tier": 1
+                },
+                {
+                    "Scene": "bandit",
+                    "Slot": "",
+                    "Profession": "warrior",
+                    "Count": 2,
+                    "Tier": 1
+                },
+                {
+                    "Scene": "bandit",
+                    "Slot": "",
+                    "Profession": "archer",
+                    "Count": 1,
+                    "Tier": 1
+                },
+                {
+                    "Scene": "second",
+                    "Slot": "",
+                    "Profession": "",
+                    "Count": 8,
+                    "Tier": 2
+                }
+            ],
             "EncounterUnits": [
                 {
                     "Scene": "bandit",
                     "Slot": "ranged-3",
                     "TemplateId": "blackcrow_watch_mage"
+                },
+                {
+                    "Scene": "second",
+                    "Slot": "melee-1",
+                    "TemplateId": "blackcrow_armored_elite"
+                },
+                {
+                    "Scene": "second",
+                    "Slot": "melee-2",
+                    "TemplateId": "blackcrow_armored_elite"
+                },
+                {
+                    "Scene": "second",
+                    "Slot": "melee-3",
+                    "TemplateId": "blackcrow_armored_elite"
                 }
             ],
             "TemplateDefenseCaps": [
@@ -92223,7 +92320,7 @@
                 1.0,
                 12.0,
                 2.0,
-                12.0
+                6.0
             ],
             "Speed": [
                 4.0,
@@ -92313,9 +92410,9 @@
                     "ProfessionId": "mage",
                     "Identity": "soldier",
                     "IsDefault": true,
-                    "Health": 75.0,
-                    "Attack": 14.0,
-                    "Defense": 2.0,
+                    "Health": 60.0,
+                    "Attack": 9.0,
+                    "Defense": 1.0,
                     "SightRadius": 0
                 },
                 {
@@ -92324,9 +92421,9 @@
                     "ProfessionId": "warrior",
                     "Identity": "captain_normal",
                     "IsDefault": true,
-                    "Health": 300.0,
-                    "Attack": 24.0,
-                    "Defense": 8.0,
+                    "Health": 175.0,
+                    "Attack": 13.0,
+                    "Defense": 4.0,
                     "SightRadius": 0
                 },
                 {
@@ -92335,9 +92432,9 @@
                     "ProfessionId": "archer",
                     "Identity": "captain_normal",
                     "IsDefault": true,
-                    "Health": 225.0,
-                    "Attack": 28.0,
-                    "Defense": 4.0,
+                    "Health": 150.0,
+                    "Attack": 22.0,
+                    "Defense": 2.0,
                     "SightRadius": 0
                 },
                 {
@@ -92346,9 +92443,9 @@
                     "ProfessionId": "knight",
                     "Identity": "captain_normal",
                     "IsDefault": true,
-                    "Health": 300.0,
-                    "Attack": 20.0,
-                    "Defense": 6.0,
+                    "Health": 165.0,
+                    "Attack": 14.0,
+                    "Defense": 3.0,
                     "SightRadius": 0
                 },
                 {
@@ -92357,9 +92454,9 @@
                     "ProfessionId": "mage",
                     "Identity": "captain_normal",
                     "IsDefault": true,
-                    "Health": 225.0,
-                    "Attack": 28.0,
-                    "Defense": 4.0,
+                    "Health": 132.0,
+                    "Attack": 14.0,
+                    "Defense": 2.0,
                     "SightRadius": 0
                 },
                 {
@@ -92368,9 +92465,9 @@
                     "ProfessionId": "warrior",
                     "Identity": "captain_awakened",
                     "IsDefault": true,
-                    "Health": 600.0,
-                    "Attack": 36.0,
-                    "Defense": 12.0,
+                    "Health": 235.0,
+                    "Attack": 14.0,
+                    "Defense": 4.0,
                     "SightRadius": 0
                 },
                 {
@@ -92379,9 +92476,9 @@
                     "ProfessionId": "archer",
                     "Identity": "captain_awakened",
                     "IsDefault": true,
-                    "Health": 450.0,
-                    "Attack": 42.0,
-                    "Defense": 6.0,
+                    "Health": 226.0,
+                    "Attack": 24.0,
+                    "Defense": 3.0,
                     "SightRadius": 0
                 },
                 {
@@ -92390,9 +92487,9 @@
                     "ProfessionId": "knight",
                     "Identity": "captain_awakened",
                     "IsDefault": true,
-                    "Health": 600.0,
-                    "Attack": 30.0,
-                    "Defense": 9.0,
+                    "Health": 223.0,
+                    "Attack": 16.0,
+                    "Defense": 3.0,
                     "SightRadius": 0
                 },
                 {
@@ -92401,9 +92498,9 @@
                     "ProfessionId": "mage",
                     "Identity": "captain_awakened",
                     "IsDefault": true,
-                    "Health": 450.0,
-                    "Attack": 42.0,
-                    "Defense": 6.0,
+                    "Health": 216.0,
+                    "Attack": 18.0,
+                    "Defense": 3.0,
                     "SightRadius": 0
                 },
                 {
@@ -92416,6 +92513,17 @@
                     "Attack": 17.0,
                     "Defense": 3.0,
                     "SightRadius": 4
+                },
+                {
+                    "Id": "blackcrow_armored_elite",
+                    "Name": "黑鸦寨重甲精锐",
+                    "ProfessionId": "warrior",
+                    "Identity": "soldier",
+                    "IsDefault": false,
+                    "Health": 175.0,
+                    "Attack": 12.0,
+                    "Defense": 8.0,
+                    "SightRadius": 0
                 }
             ],
             "Skills": [
@@ -92952,7 +93060,7 @@
         "Stage": 0,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "c23d35742a36be3d790561b943b0be1478918da9837c4e861b85bed250e6b33e",
-        "ConfigHash": "02cb797d832018ef6c970810ea850673033e4c7fb4a24646b279d299d5b047fa",
+        "ConfigHash": "acd7267606501da3d679a306721835e87166052e5052fb0dabcb949e8e0b1af2",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -93179,9 +93287,9 @@
                     "ExtraAccessory": false,
                     "BaseStats": {
                         "Level": 1,
-                        "Health": 225.0,
-                        "Damage": 28.0,
-                        "Defense": 4.0,
+                        "Health": 150.0,
+                        "Damage": 22.0,
+                        "Defense": 2.0,
                         "Penetration": 0.0,
                         "Resistance": 0.0,
                         "HasCombatKind": true,
@@ -93259,8 +93367,8 @@
                 "HasAffinity": true,
                 "IsAwakened": false,
                 "IsAlien": false,
-                "Health": 225.0,
-                "MaxHealth": 225.0,
+                "Health": 150.0,
+                "MaxHealth": 150.0,
                 "FarmBonus": 0.3,
                 "WorkshopBonus": 0.05,
                 "HasCombatProfile": true,
@@ -93339,9 +93447,9 @@
                     "ExtraAccessory": false,
                     "BaseStats": {
                         "Level": 1,
-                        "Health": 600.0,
-                        "Damage": 30.0,
-                        "Defense": 9.0,
+                        "Health": 223.0,
+                        "Damage": 16.0,
+                        "Defense": 3.0,
                         "Penetration": 0.0,
                         "Resistance": 0.0,
                         "HasCombatKind": true,
@@ -93419,8 +93527,8 @@
                 "HasAffinity": true,
                 "IsAwakened": true,
                 "IsAlien": false,
-                "Health": 600.0,
-                "MaxHealth": 600.0,
+                "Health": 223.0,
+                "MaxHealth": 223.0,
                 "FarmBonus": 0.05,
                 "WorkshopBonus": 0.35,
                 "HasCombatProfile": true,
@@ -114860,6 +114968,7 @@
                 "Units": [
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "",
                         "Id": "commander-1",
                         "Kind": 2,
                         "CommanderSlot": 0,
@@ -114870,6 +114979,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "",
                         "Id": "melee-1",
                         "Kind": 0,
                         "CommanderSlot": 0,
@@ -114880,6 +114990,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "",
                         "Id": "melee-2",
                         "Kind": 0,
                         "CommanderSlot": 0,
@@ -114918,6 +115029,7 @@
                 "Units": [
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "",
                         "Id": "commander-1",
                         "Kind": 2,
                         "CommanderSlot": 0,
@@ -114928,6 +115040,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "",
                         "Id": "melee-1",
                         "Kind": 0,
                         "CommanderSlot": 0,
@@ -114938,6 +115051,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "",
                         "Id": "melee-2",
                         "Kind": 0,
                         "CommanderSlot": 0,
@@ -114948,6 +115062,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "",
                         "Id": "melee-3",
                         "Kind": 0,
                         "CommanderSlot": 0,
@@ -114958,6 +115073,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "",
                         "Id": "melee-4",
                         "Kind": 0,
                         "CommanderSlot": 0,
@@ -114968,6 +115084,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "",
                         "Id": "ranged-1",
                         "Kind": 1,
                         "CommanderSlot": 0,
@@ -114978,6 +115095,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "",
                         "Id": "ranged-2",
                         "Kind": 1,
                         "CommanderSlot": 0,
@@ -115050,6 +115168,7 @@
                 "Units": [
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "commander-1",
                         "Id": "commander-1",
                         "Kind": 2,
                         "CommanderSlot": 0,
@@ -115060,6 +115179,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "commander-2",
                         "Id": "commander-2",
                         "Kind": 2,
                         "CommanderSlot": 1,
@@ -115070,6 +115190,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "commander-3",
                         "Id": "commander-3",
                         "Kind": 2,
                         "CommanderSlot": 2,
@@ -115080,6 +115201,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "melee-1",
                         "Id": "melee-1",
                         "Kind": 0,
                         "CommanderSlot": 0,
@@ -115090,6 +115212,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "melee-2",
                         "Id": "melee-2",
                         "Kind": 0,
                         "CommanderSlot": 0,
@@ -115100,6 +115223,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "melee-3",
                         "Id": "melee-3",
                         "Kind": 0,
                         "CommanderSlot": 0,
@@ -115110,6 +115234,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "melee-4",
                         "Id": "melee-4",
                         "Kind": 0,
                         "CommanderSlot": 0,
@@ -115120,6 +115245,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "ranged-1",
                         "Id": "ranged-1",
                         "Kind": 1,
                         "CommanderSlot": 2,
@@ -115130,6 +115256,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "ranged-2",
                         "Id": "ranged-2",
                         "Kind": 1,
                         "CommanderSlot": 2,
@@ -115140,6 +115267,7 @@
                     },
                     {
                         "TemplateId": "blackcrow_watch_mage",
+                        "AuthoredSlot": "ranged-3",
                         "Id": "mage-1",
                         "Kind": 4,
                         "CommanderSlot": 2,
@@ -115150,6 +115278,7 @@
                     },
                     {
                         "TemplateId": "",
+                        "AuthoredSlot": "cavalry-1",
                         "Id": "cavalry-1",
                         "Kind": 3,
                         "CommanderSlot": 0,

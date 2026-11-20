@@ -176,6 +176,7 @@ namespace BaseConquest.Base
                 enemies.Add(new BaseEnemyMember { Id = id, Name = BattleSimulation.KindName(kind), Kind = kind,
                     CommanderSlot = -1, Health = stats.Health, Stats = stats, Rpg = character });
             }
+            BaseEnemySupply.Assign(state.Demo.Rpg,"hideout",enemies);
             return enemies;
         }
 

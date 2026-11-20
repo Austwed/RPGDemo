@@ -17,6 +17,8 @@ namespace BaseConquest.Base
         private float firstVoteSeconds, frozenSeconds;
         private bool sentVote, resumed, sawUnilateral, sawPaused, sawResume, ordered, finished, checkedScout;
         private bool sawRider;
+        private readonly bool[] sawMageTemplate = new bool[2];
+        internal static bool TraceMatchups { get; private set; }
         private bool sawMageCast, sawMageFlight, sawMageImpact, sawHealthChange;
         private int frozenTick, lastTarget = -1, nextReport;
         private BaseSceneController scene;
@@ -45,6 +47,7 @@ namespace BaseConquest.Base
 #endif
 #if UNITY_EDITOR || UNITY_ANDROID
             if (role != "host" && role != "guest") return;
+            TraceMatchups = mode == "matchups";
             var go = new GameObject("DeviceDuelAcceptance");
             DontDestroyOnLoad(go);
             var check = go.AddComponent<LanDuelDeviceCheck>();
@@ -70,13 +73,16 @@ namespace BaseConquest.Base
                 scene=FindAnyObjectByType<BaseSceneController>();
                 if(scene?.Hud==null || scene.Busy || FindAnyObjectByType<SceneLoadingCover>()!=null) return;
                 var fixture=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/defense-male").text);
-                if (mode == "mage")
+                if (mode == "mage" || TraceMatchups)
                 {
                     var rules = fixture.Demo.Rpg;
-                    var worker = fixture.Workers.First(w => w.Count > 0 && !w.Away && !w.VillageResident);
+                    var worker = fixture.Workers.First(w => w.Count > 0 && !w.Away && !w.VillageResident && w.Kind == BaseTroopKind.Melee);
                     worker.Kind = BaseTroopKind.Mage;
-                    var mage = new RpgCharacter { Profession = 3, TemplateId = rules.DefaultTemplateId("soldier", 3) };
+                    worker.TemplateId = TraceMatchups && role == "guest" ? "blackcrow_watch_mage" : rules.DefaultTemplateId("soldier", 3);
+                    var mage = new RpgCharacter { Profession = 3, TemplateId = worker.TemplateId };
                     worker.CombatStats = rules.Bare(mage, 1);
+                    // A captured recruit keeps their personal stats when joining a duel.
+                    if (TraceMatchups && role == "guest") worker.CombatStats.Health -= 2;
                     worker.Health = worker.MaxHealth = worker.CombatStats.Health;
                     worker.HasCombatProfile = true;
                 }
@@ -138,7 +144,23 @@ namespace BaseConquest.Base
                 var draft=screen.Draft;
                 var soldier=draft.Units.First(u=>mode=="mage" ? u.Kind==SoldierKind.Mage : mode=="cavalry" ? u.Kind==SoldierKind.Cavalry : u.Kind!=SoldierKind.Hero);
                 foreach(var unit in draft.Units) unit.Selected=unit.Id==draft.PlayerId || unit==soldier;
-                soldier.TeamId=draft.PlayerId;draft.SupplyGrade=0;
+                soldier.TeamId=draft.PlayerId;
+                if (TraceMatchups)
+                {
+                    var rider = draft.Units.First(u=>u.Id=="partner_craft");
+                    rider.Selected=true;
+                    rider.TeamId=rider.Id;
+                    foreach (var kind in new[]{SoldierKind.Ranged, SoldierKind.Cavalry, SoldierKind.Mage})
+                    {
+                        var member = draft.Units.First(u => u.Kind == kind);
+                        member.Selected = true;
+                        member.TeamId = draft.PlayerId;
+                    }
+                    foreach (var other in draft.Units.Where(u => u.Kind != SoldierKind.Hero &&
+                             u.Kind != SoldierKind.Mage && u.Kind != SoldierKind.Cavalry && u.Kind != SoldierKind.Ranged))
+                        other.Selected = false;
+                }
+                draft.SupplyGrade=0;
                 screen.Ready(); if(screen.Phase=="preparing") throw new InvalidOperationException("备战被拒"); started=now;phase="battle";Debug.Log("[DuelQA] ready");return;
             }
             if(phase!="battle")return;
@@ -158,25 +180,44 @@ namespace BaseConquest.Base
                     if(rider.side!=screen.LocalSide) sawRider=true;
                 }
             }
-            if (mode == "mage")
+            if (TraceMatchups)
+            {
+                foreach (var member in f.units.Where(u => u.kind == (int)SoldierKind.Mage))
+                {
+                    var rules = scene.State.Demo.Rpg;
+                    string expectedId = member.side == 0 ? rules.DefaultTemplateId("soldier", 3) : "blackcrow_watch_mage";
+                    double maxHp = rules.Templates.Single(t => t.Id == expectedId).Health - (member.side == 1 ? 2 : 0);
+                    if (member.verifiedTemplate != expectedId || Math.Abs(member.maxHp - maxHp) > .01)
+                        throw new InvalidOperationException("降兵入场后模板或实名数值发生变化");
+                    sawMageTemplate[member.side] = true;
+                }
+            }
+            if (mode == "mage" || TraceMatchups)
             {
                 sawMageCast |= f.units.Any(u => u.kind == (int)SoldierKind.Mage && u.appearance == "mage" && u.attackPose >= 0);
                 sawMageFlight |= f.spells != null && f.spells.Any(s => !s.impact);
                 sawMageImpact |= f.spells != null && f.spells.Any(s => s.impact);
                 sawHealthChange |= f.units.Any(u => u.hp < u.maxHp);
             }
-            if(f.result!=0 && (f.aDeployed!=2 || f.bDeployed!=2))throw new InvalidOperationException("出战单位数量错误");
+            int expected = TraceMatchups ? 5 : 2;
+            if(f.result!=0 && (f.aDeployed!=expected || f.bDeployed!=expected))throw new InvalidOperationException("出战单位数量错误");
             if(screen.Phase=="result")
             {
                 if(mode=="cavalry"&&!sawRider)throw new InvalidOperationException("未观测到对方骑兵");
                 if (mode == "mage" && !(sawMageCast && sawMageFlight && sawMageImpact && sawHealthChange))
                     throw new InvalidOperationException($"法师联机观测 cast={sawMageCast} flight={sawMageFlight} hit={sawMageImpact} hp={sawHealthChange}");
+                if (TraceMatchups && finishAt == 0)
+                {
+                    if (!sawMageTemplate.All(seen => seen) || !(sawMageCast && sawMageFlight && sawMageImpact && sawHealthChange))
+                        throw new InvalidOperationException("两方模板或法球施法、命中、血量观测不全");
+                    CheckMatchups(f);
+                }
                 if(!ordered||!sawPaused||!sawResume||!sawUnilateral) throw new InvalidOperationException("未覆盖暂停/指挥");
                 if(finishAt==0){finishAt=now;Debug.Log("[DuelQA] result "+f.result+" tick "+f.tick+" survivors "+f.aStanding+"/"+f.bStanding);}
                 if(now-finishAt>1.5)
                 {
                     string observed=mode=="cavalry" ? " cavalry cells=1 rangeFine=2 seenOpponent="+sawRider :
-                        mode=="mage" ? $" mage cast={sawMageCast} flight={sawMageFlight} impact={sawMageImpact} hpChanged={sawHealthChange}" : "";
+                        mode=="mage" || TraceMatchups ? $" mage cast={sawMageCast} flight={sawMageFlight} impact={sawMageImpact} hpChanged={sawHealthChange}" : "";
                     Complete("result="+f.result+" tick="+f.tick+" survivors="+f.aStanding+"/"+f.bStanding+observed);
                 }
                 return;
@@ -221,10 +262,64 @@ namespace BaseConquest.Base
             if(!sawPaused || f.seconds<=frozenSeconds) return;
             sawResume=true;
             if(mode=="drop" && role=="guest"){Complete("deliberate leave");return;}
+            if (TraceMatchups && leader!=null)
+            {
+                DirectMatchups(f,leader);
+                return;
+            }
             if(leader!=null)
             {
                 var enemy=f.units.FirstOrDefault(u=>u.side!=screen.LocalSide&&u.hp>0);
                 if(enemy!=null && enemy.id!=lastTarget){lastTarget=enemy.id;screen.Order("attack",leader.id,enemy.id,enemy.x,enemy.z);screen.Order("skill",leader.id,enemy.id,enemy.x,enemy.z);}
+            }
+        }
+
+        private int lastPhase=-1, mountedPhase=-1, mountedTarget=-1;
+        private void DirectMatchups(LanDuelFrame f,LanDuelActor leader)
+        {
+            var rider=f.units.FirstOrDefault(u=>u.side==screen.LocalSide && u.name=="阿铸" && u.hp>0);
+            if(rider!=null)
+            {
+                int step=f.seconds<22 ? (int)(f.seconds/1.7) : 40;
+                if(step!=mountedPhase)
+                {
+                    mountedPhase=step;
+                    if(step==40) screen.Order("guard",rider.id,-1,rider.x,rider.z);
+                    else screen.Order("move",rider.id,-1,(float)(f.width*.5+(screen.LocalSide==0?-1:1)),(float)(f.height*.5+(step%2==0?2:-2)));
+                }
+            }
+            int phase=f.seconds<26?0:f.seconds<42?1:f.seconds<56?2:3;
+            var foe=f.units.Where(u=>u.side!=screen.LocalSide && u.hp>0);
+            var target=phase==0 ? foe.FirstOrDefault(u=>u.name=="阿铸")
+                : phase==1 ? foe.FirstOrDefault(u=>u.kind==(int)SoldierKind.Ranged)
+                : phase==2 ? foe.FirstOrDefault(u=>u.kind==(int)SoldierKind.Mage) : foe.FirstOrDefault();
+            if(target!=null && (target.id!=lastTarget||phase!=lastPhase))
+            {
+                lastTarget=target.id;lastPhase=phase;
+                screen.Order("attack",leader.id,target.id,target.x,target.z);
+            }
+            if(phase==3 && rider!=null && target!=null && rider.id!=leader.id && mountedTarget!=target.id)
+            {
+                mountedTarget=target.id;
+                screen.Order("attack",rider.id,target.id,target.x,target.z);
+            }
+        }
+
+        private static void CheckMatchups(LanDuelFrame frame)
+        {
+            var samples=frame.matchupRolls;
+            if(samples==null||samples.Length!=4)throw new InvalidOperationException("缺少四类实际对战出手");
+            var names=new[]{"弓射移动骑兵","弓射停步目标","弓被近身","法师同情境"};
+            for(int i=0;i<samples.Length;i++)
+            {
+                var shot=samples[i];
+                if(shot==null||shot.Id<=0)throw new InvalidOperationException("未观测到"+names[i]);
+                bool penalized=i==0||i==2;
+                var die=new RpgAttackRoll(shot.HitPoints,shot.EvasionPoints,0,penalized?1:0,shot.First,shot.Second);
+                if(shot.NetAdvantage!=(penalized?-1:0)||shot.Hit!=die.Hit||shot.Critical!=die.Critical||shot.Selected!=die.Selected||
+                    !shot.Settled||shot.ImpactApplied!=shot.Hit||shot.ImpactApplied!=(shot.DamageApplied>0)||shot.HealthAfter<0)
+                    throw new InvalidOperationException(names[i]+"的命中、扣血与骰子不符");
+                Debug.Log("[DuelQA] "+names[i]+" "+JsonUtility.ToJson(shot));
             }
         }
 

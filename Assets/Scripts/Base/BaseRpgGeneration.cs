@@ -42,11 +42,14 @@ namespace BaseConquest.Base
             foreach(var skill in skills){cursor-=1;if(cursor<0){c.SkillId=skill.Id;break;}}
             return c;
         }
-        public static void PrepareEnemies(BaseState state,IEnumerable<BaseEnemyMember> enemies,string eventId)
+        public static void PrepareEnemies(BaseState state,IEnumerable<BaseEnemyMember> enemies,string eventId,bool applyWaveTemplates=true)
         {
             if(!Active(state))return;var r=state.Demo.Rpg;
-            foreach(var e in enemies)
+            var members=enemies as List<BaseEnemyMember>??enemies.ToList();
+            foreach(var e in members)
             {
+                if(applyWaveTemplates && eventId==BaseDemoDefense.SecondEventId && e.Kind!=SoldierKind.Hero)
+                    ApplyWaveTemplate(e,r);
                 bool firstController=eventId==BaseDemoRuins.EventId&&state.Demo.RuinsDay==0&&e.Kind==SoldierKind.Hero&&e.CommanderSlot==0;
                 string firstTemplate=firstController?(string.IsNullOrEmpty(r.RuinsFirstControllerTemplate)?RpgRules.Template("captain_awakened",0):r.RuinsFirstControllerTemplate):null;
                 if(e.Rpg?.Version==1&&(!firstController||e.Rpg.TemplateId==firstTemplate)){e.Rpg.Rules=r;continue;}
@@ -85,7 +88,23 @@ namespace BaseConquest.Base
                 e.Stats=r.Bare(e.Rpg,e.Rpg.Level);e.Health=e.Dead?0:e.KnockedDown?1:(float)(fraction*e.Stats.Health);
                 if(e.Equipment!=null){e.Equipment.Weapon=e.Equipment.InitialWeapon=Weapon(p);e.Equipment.BaseStats=e.Stats.Clone();}
             }
+            BaseEnemySupply.Assign(r,BaseEnemySupply.Scene(state,eventId),members);
         }
+        // The attacking column can contain veterans in slots occupied by ordinary soldiers back in camp.
+        // The wave owns a copy of the garrison. Casualties and remaining HP stay with the same member ID.
+        private static void ApplyWaveTemplate(BaseEnemyMember member,RpgRules rules)
+        {
+            if(!member.HasDeployment)return;
+            string slot=string.IsNullOrEmpty(member.Deployment.AuthoredSlot)?member.Deployment.Id:member.Deployment.AuthoredSlot;
+            var row=rules.EncounterUnits?.Find(refUnit=>refUnit.Scene=="second" && refUnit.Slot==slot);
+            if(row==null || member.Rpg?.TemplateId==row.TemplateId)return;
+            var template=rules.Templates.Single(t=>t.Id==row.TemplateId && t.Identity=="soldier");
+            if(!rules.MatchesTemplate(template.Id,Profession(member.Kind)))
+                throw new ArgumentException("第二波精锐须与原出征士兵同职业："+slot);
+            member.Deployment.TemplateId=template.Id;
+            member.Rpg=null;
+        }
+
         public static void BindBattle(BaseCampaignSession session)
         {
             var r=session.Opening.Rpg;if(r==null)return;

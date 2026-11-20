@@ -117,6 +117,7 @@ namespace BaseConquest.Base
                 {
                     BaseThreats.InstallPreset(site,preset);
                     if(state.Demo.Defense.MainForce?.Count>0){site.Garrison=state.Demo.Defense.MainForce.Select(unit=>unit.Copy()).ToList();site.NextUnitNumber=Math.Max(site.NextUnitNumber,site.Garrison.Count+1);}
+                    BaseEnemySupply.Assign(state.Demo.Rpg,"bandit",site.Garrison);
                 }
             }
             foreach(var mission in campaign.Events.Where(mission=>mission.SourceSiteId==oldSite))mission.SourceSiteId=Camp;

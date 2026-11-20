@@ -328,7 +328,8 @@ namespace BaseConquest.Base
                 if (!Number(l.MaxHealth, 100000) || l.MaxHealth < 1 || !Number(l.Health, l.MaxHealth) || !BaseEconomy.Facilities.Contains(l.DesiredFacility) || !Number(l.FarmBonus, 1) || !Number(l.WorkshopBonus, 1) || l.Resting && (l.Away || l.Health <= 0)) throw new ArgumentException("队长健康／岗位意向非法");
             }
             foreach (var w in s.Workers)
-            { if(w.HasCombatProfile&&(!BaseAftermath.ValidStats(w.CombatStats)||w.CombatStats.Health!=w.MaxHealth)) throw new ArgumentException("工兵战斗属性非法");
+            { if(!string.IsNullOrEmpty(w.TemplateId)&&BaseRpg.Active(s)&&!s.Demo.Rpg.Templates.Any(t=>t.Id==w.TemplateId&&s.Demo.Rpg.MatchesTemplate(t.Id,BaseRpg.Profession(BaseCampaign.ToBattle(w.Kind)))&&s.Demo.Rpg.TemplateIdentity(t.Id)=="soldier"))throw new ArgumentException("士兵模板与兵种不符");
+              if(w.HasCombatProfile&&(!BaseAftermath.ValidStats(w.CombatStats)||w.CombatStats.Health!=w.MaxHealth)) throw new ArgumentException("工兵战斗属性非法");
                 if (!Number(w.MaxHealth, 100000) || w.MaxHealth <= 0 || !Number(w.Health, w.MaxHealth) || !BaseEconomy.Facilities.Contains(w.DesiredFacility) || !Number(w.FarmEfficiency, 10) || !Number(w.WorkshopEfficiency, 10) || w.FarmEfficiency <= 0 || w.WorkshopEfficiency <= 0 || w.Resting && (w.Away || w.Health <= 0)) throw new ArgumentException("工人健康／岗位意向非法");
             }
         }

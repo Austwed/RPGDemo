@@ -128,7 +128,7 @@ namespace BaseConquest.Editor
         {
             var original=CoreJsonSpans.Parse(source);
             var actual=CoreJsonSpans.Parse(result);
-            var owned=new[]{"Professions","EncounterUnits","TemplateDefenseCaps","MageFood","ArcherFood","OpeningEconomy/SoldierFood","OpeningEconomy/CavalryFood","Hit","Evasion","Range","Speed",
+            var owned=new[]{"Professions","EncounterUnits","EnemySupplies","TemplateDefenseCaps","MageFood","ArcherFood","OpeningEconomy/SoldierFood","OpeningEconomy/CavalryFood","Hit","Evasion","Range","Speed",
                 "TroopBaseline","RecruitBasePrices","TrainingDays","TrainingBooks","Templates","Skills","Equipment","ArmorK","ArmorCap","RuinsFirstControllerTemplate"};
             foreach(string key in original.Keys.Concat(actual.Keys).Distinct())
             {
@@ -162,7 +162,7 @@ namespace BaseConquest.Editor
             int index=fight.Opening.Enemies.FindIndex(e=>e.Rpg?.TemplateId==variant);
             var mage=index<0?null:fight.UnitForEnemy(index);
             Check(mage!=null&&mage.Kind==SoldierKind.Mage&&live.Battle.UnitName(mage).Contains(template.Name)&&
-                mage.Stats.Health==template.Health&&mage.Stats.Damage==template.Attack&&mage.Stats.Defense==template.Defense,
+                mage.Stats.Health==template.Health&&fight.Opening.Enemies[index].Stats.Damage==template.Attack&&mage.Stats.Damage==fight.Opening.Enemies[index].EffectiveStats(rules).Damage&&mage.Stats.Defense==fight.Opening.Enemies[index].EffectiveStats(rules).Defense,
                 "实际首防没有从配置生成指定普通兵及属性");
             ExpectInvalid(WithEncounter(workbook,"defense","ranged-3"),baseline,"slot","cfg_encounter_unit");
             ExpectInvalid(WithEncounter(workbook,"defense","commander-1"),baseline,"slot","cfg_encounter_unit");
@@ -187,6 +187,12 @@ namespace BaseConquest.Editor
                 state.Town.Recruits.All(offer=>offer.Kind!=BaseTroopKind.Mage),"城镇募兵使用了关卡变体");
             Check(state.Demo.Encounters.Camp.Units.Single(u=>u.TemplateId==id).Kind==SoldierKind.Mage,"阶段档缺少关卡模板引用");
             VerifyChenanAndRuins.ReachBlackCrowFromFirstDefense(state);
+            var column=state.Campaign.Events.Single(m=>m.Id==BaseDemoDefense.SecondEventId).EnemyArmy;
+            const string elite="blackcrow_armored_elite";
+            Check(column.Where(m=>m.Kind!=SoldierKind.Hero).All(m=>m.SupplyTier==2) &&
+                column.Count(m=>m.Rpg?.TemplateId==elite && m.EffectiveStats(level).Defense==12)==3,
+                "第二波缺少三名实装精锐");
+            Check(state.Demo.Defense.MainForce.All(m=>m.Rpg?.TemplateId!=elite),"第二波替换污染寨内守军");
             var fight=BaseDemoFinale.Begin(state,"none");
             BattleScenePlacement.Start(state,fight);
             var run=new RealtimeCampaignBattle(fight);BattleScenePlacement.Snap(state,run);BaseDemoFinale.Configure(run);
@@ -195,10 +201,63 @@ namespace BaseConquest.Editor
             var enemy=fight.Opening.Enemies[enemyIndex];
             var unit=fight.UnitForEnemy(enemyIndex);
             Check(enemy.Name==entry.Name&&unit!=null&&unit.Kind==SoldierKind.Mage&&unit.Rpg?.TemplateId==id&&
-                run.Battle.UnitName(unit).Contains(entry.Name)&&unit.Stats.Health==entry.Health&&unit.Stats.Damage==entry.Attack&&unit.Stats.Defense==entry.Defense,
+                run.Battle.UnitName(unit).Contains(entry.Name)&&unit.Stats.Health==entry.Health&&enemy.Stats.Damage==entry.Attack&&enemy.Stats.Defense==entry.Defense&&unit.Stats.Damage==enemy.EffectiveStats(level).Damage&&unit.Stats.Defense==enemy.EffectiveStats(level).Defense,
                 "黑鸦寨战内名称、普通兵身份或实装数值与表不一致");
+            VerifyEnemySupply(state, run, enemyIndex);
             Debug.Log("[P52BlackCrow] PASS · "+id+" / "+run.Battle.UnitName(unit)+" / HP "+unit.Stats.Health+" / 攻 "+unit.Stats.Damage+" / 防 "+unit.Stats.Defense);
         }
+        private static void VerifyEnemySupply(BaseState state, RealtimeCampaignBattle run, int index)
+        {
+            var opening=run.Session.Opening;
+            var guest=opening.Enemies[index];
+            Check(guest.SupplyTier>0 && opening.Enemies.Any(m=>m.Kind!=SoldierKind.Hero&&m.SupplyTier==0),"黑鸦寨须混装");
+            var roster=opening.Enemies.Select(m=>m.Id+"="+m.SupplyTier).OrderBy(id=>id).ToArray();
+            run.SaveCheckpoint(state);
+            var loaded=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            BaseEconomy.Validate(loaded);
+            var resumed=new RealtimeCampaignBattle(new BaseCampaignSession(loaded.Campaign.ActiveBattle));
+            var soldier=resumed.Session.UnitForEnemy(index);
+            Check(soldier.Stats.Damage==guest.EffectiveStats(opening.Rpg).Damage,"读档叠加或遗失敌兵军需");
+            Check(resumed.RetreatAll() && BaseCampaign.Settle(loaded,resumed.Session),"黑鸦寨撤退结算失败");
+            var retry=BaseDemoFinale.Begin(loaded,"none");
+            Check(retry.Opening.Enemies.Select(m=>m.Id+"="+m.SupplyTier).OrderBy(id=>id).SequenceEqual(roster),
+                "残军再战后军需改变");
+
+            // Force the capture roll on a separate fixture so the equipment assertion is independent of luck.
+            opening.Difficulty.DropRate=1;
+            var unit=run.Session.UnitForEnemy(index);
+            unit.Health=17;
+            BaseAftermath.Capture(state,run.Session,true);
+            var prisoner=state.Aftermath.Prisoners.Single(p=>p.Id==opening.Id+":"+unit.Id);
+            Check(prisoner.Rpg.TemplateId==guest.Rpg.TemplateId && prisoner.Stats.Damage==guest.Stats.Damage &&
+                prisoner.Stats.Defense==guest.Stats.Defense&&prisoner.Health==17,"俘虏带出临时军需或生命改变");
+            var camp=JsonUtility.FromJson<BaseState>(File.ReadAllText("Assets/Resources/DemoStages/camp-male.json"));
+            camp.Aftermath.Prisoners.Add(prisoner.Copy());
+            Check(BaseAftermath.Decide(camp,prisoner.Id,"recruit"),"普通俘虏未能归队");
+            camp=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(camp));
+            BaseEconomy.Validate(camp);
+            Check(camp.Workers.Any(w=>w.TemplateId==guest.Rpg.TemplateId && w.Health==17 &&
+                w.CombatStats.Damage==guest.Stats.Damage && w.CombatStats.Defense==guest.Stats.Defense),"归队后模板、生命或攻防错误");
+            var sorted=opening.Enemies.Where(m=>m.Kind!=SoldierKind.Hero).Reverse().Select(m=>m.Copy()).ToList();
+            var testRules=opening.Rpg.Copy();
+            testRules.EnemySupplies=new System.Collections.Generic.List<RpgEnemySupply>{
+                new RpgEnemySupply{Scene="bandit",Slot="ranged-3",Count=1,Tier=2},
+                new RpgEnemySupply{Scene="bandit",Profession="warrior",Count=1,Tier=1},
+                new RpgEnemySupply{Scene="bandit",Count=1,Tier=2}};
+            foreach(var m in sorted){m.SupplyScene=null;m.SupplyTier=0;}
+            BaseEnemySupply.Assign(testRules,"bandit",sorted);
+            Check(sorted.Single(m=>m.Rpg.TemplateId==guest.Rpg.TemplateId).SupplyTier==2&&
+                sorted.Count(m=>m.SupplyTier==1)==1 && sorted.Count(m=>m.SupplyTier==2)==2,"变体原槽位或混装名额错误");
+            sorted.RemoveAll(m=>m.SupplyTier==1);
+            BaseEnemySupply.Assign(testRules,"bandit",sorted);
+            Check(sorted.All(m=>m.SupplyTier!=1),"阵亡士兵军需分配给了存活士兵");
+            testRules.EnemySupplies.Add(testRules.EnemySupplies[0].Copy());
+            bool rejected=false;
+            try { BaseEnemySupply.Validate(testRules); } catch(ArgumentException) { rejected=true; }
+            Check(rejected,"重复军需槽位应阻止导入");
+            Debug.Log("[P54Supply] PASS · 混装、槽位优先、读档、撤退再战、实际生命与招降裸属性");
+        }
+
         [MenuItem("SLG/其他工具/验证/P52 职业配表与阶段档")]
         public static void RunAndGenerate()
         {
@@ -220,7 +279,7 @@ namespace BaseConquest.Editor
             ExpectInvalid(WithExtraTemplate(input,defense:999999),rules,"def");
             var old=DemoBalanceTableReader.ReadVerifiedTables(DemoBalanceImporter.WorkbookPath);
             Check(old.ProfessionCount==3&&old.Templates.Count==9,"旧完整导入改变原三职业");
-            Check(old.Range.SequenceEqual(new double[]{1,12,2}) && rules.Range.SequenceEqual(new double[]{1,12,2,12}),
+            Check(old.Range.SequenceEqual(new double[]{1,12,2}) && rules.Range.SequenceEqual(new double[]{1,12,2,6}),
                 "完整配表与职业扩展表的细格攻击距离不一致");
             var original=JsonUtility.ToJson(additional);
             var patched=DemoBalanceTableReader.ReadCoreTables(CoreBalanceImporter.WorkbookPath,additional);
@@ -242,7 +301,7 @@ namespace BaseConquest.Editor
             VerifyDefenseMapping(input,rules);
             VerifyBlackCrow(patched);
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-            Debug.Log("[P52Workbook] PASS · 4职业 / 12默认模板+黑鸦寨普通法师 / B16 / 同职模板 / 3个坏例 / 旧完整与局部导入 / 快照与4阶段档 / 重导幂等");
+            Debug.Log("[P52Workbook] PASS · 4职业 / 12默认模板+黑鸦法师及重甲精锐 / B16 / 同职模板 / 3个坏例 / 旧完整与局部导入 / 快照与4阶段档 / 重导幂等");
         }
     }
 }

@@ -52,9 +52,10 @@ namespace BaseConquest.Base
             var site=new BaseEnemySite {Id=BaseDemoFinale.Camp};BaseThreats.InstallPreset(site,preset);
             if(state.Demo.Defense.BatuFate=="dead")site.Garrison.RemoveAll(unit=>unit.Kind==SoldierKind.Hero&&unit.PresetSlot==1);
             foreach(var unit in site.Garrison){unit.CommanderSlot=unit.Kind==SoldierKind.Hero?unit.PresetSlot:unit.Deployment.CommanderSlot;if(unit.Kind==SoldierKind.Hero)unit.Name=unit.PresetSlot==0?"大当家":unit.PresetSlot==1?"巴图":"豁牙";}
-            BaseRpg.PrepareEnemies(state,site.Garrison,SecondEventId);
+            BaseRpg.PrepareEnemies(state,site.Garrison,SecondEventId,applyWaveTemplates:false);
             state.Demo.Defense.MainForce=site.Garrison.Select(unit=>unit.Copy()).ToList();state.Demo.Defense.BatuStoryDay=state.Day;
             var mission=state.Demo.Defense.Mission.Copy();mission.Id=SecondEventId;mission.Title="黑鸦寨第二波入侵";mission.SourceSiteId="";mission.DepartedDay=state.Day;mission.AvailableDay=mission.DeadlineDay=arrival;mission.EnemyArmy=site.Garrison.Select(unit=>unit.Copy()).ToList();mission.EnemyRecoveryDay=0;mission.Status="pending";
+            BaseRpg.PrepareEnemies(state,mission.EnemyArmy,SecondEventId);
             state.Campaign.Events.Add(mission);
         }
         public static bool MerchantReminderDue(BaseState state) =>

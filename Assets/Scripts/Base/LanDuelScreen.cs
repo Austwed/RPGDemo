@@ -37,7 +37,7 @@ namespace BaseConquest.Base
             public LanDuelCommand command;
             public LanDuelFrame frame;
         }
-        private const int Protocol = 3;
+        private const int Protocol = 4;
         private BaseSceneController owner;
         private BaseState camp;
         private Font font;
@@ -114,7 +114,7 @@ namespace BaseConquest.Base
             try
             {
                 mine = MakeRoster();
-                string error = mine.Problem();
+                string error = mine.Problem(camp.Demo.Rpg);
                 if (!string.IsNullOrEmpty(error)) { Hint(error); return; }
                 localReady = true;
                 if (!IsHost && !Send(new Packet { type = "ready", roster = mine })) return;
@@ -143,7 +143,7 @@ namespace BaseConquest.Base
             {
                 if (packet.type == "ready" && theirs == null && (Phase == "preparing" || Phase == "waiting"))
                 {
-                    if (packet.roster == null || !string.IsNullOrEmpty(packet.roster.Problem()))
+                    if (packet.roster == null || !string.IsNullOrEmpty(packet.roster.Problem(camp.Demo.Rpg)))
                     { Fail("对方的编队无法进入演武。"); return; }
                     theirs = packet.roster;
                     Hint("对方已就绪。"); StartIfReady();

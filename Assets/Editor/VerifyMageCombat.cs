@@ -69,10 +69,11 @@ namespace BaseConquest.Editor
             var saved=resumed.RpgAttackHistory.Single(a=>a.Id==pending.Id);
             Need(saved.DamageType=="magic"&&saved.LaunchedAt==pending.LaunchedAt&&saved.ArriveAt==pending.ArriveAt&&saved.Hit==pending.Hit,"战斗存读档保留攻击类型、时间与掷骰");
 
-            var cleared=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/defense-male").text);
+            DemoStageSaveTools.CompleteFirstRuins(state,run);
+            var cleared=state.Copy();
             BaseEconomy.Validate(cleared);
             var captive=cleared.Aftermath.Prisoners.Single(p=>p.Id==cleared.Demo.Flow.FirstControllerId);
-            Need(captive.IsAlien&&captive.IsAwakened&&captive.Rpg.Profession==3,"实际阶段档中的古窟俘虏");
+            Need(captive.IsAlien&&captive.IsAwakened&&captive.Rpg.Profession==3,"首通后的古窟俘虏");
             Need(BaseDemoStories.AcceptController(cleared,captive.Id),"招降伽兰");
             var loaded=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(cleared));BaseEconomy.Validate(loaded);
             var leader=loaded.Leaders.Single(l=>l.Id=="partner_recruit:"+captive.Id);
@@ -94,19 +95,24 @@ namespace BaseConquest.Editor
                 var point=obj.Blocks?BaseStageWalk.Door(s,objectId):new BasePoint(obj.X,obj.Y);
                 s.PlayerX=point.X;s.PlayerY=point.Y;BaseAdventure.Arrive(s);
             }
-            At(loaded,"demo_defense_return");Need(BaseCampaign.Travel(loaded,"base"),"返回营地接人");
+            At(loaded,"demo_ruins_return");Need(BaseCampaign.Travel(loaded,"town"),"离开遗迹入口");
+            At(loaded,"town_quest");Need(BaseDemoRuins.Deliver(loaded),"回镇交付遗迹");
+            At(loaded,"travel_base");Need(BaseCampaign.Travel(loaded,"base"),"返回营地接人");
+            At(loaded,"home");
+            Need(BaseEconomy.Rest(loaded,loaded.Day) && leader.Health>1,"招募后在营地过日恢复生命");
             if(!BaseAdventure.Contains(loaded,leader.Id))
             {
                 if(BaseAdventure.Full(loaded))
                     Need(BaseAdventure.SetMember(loaded,loaded.Adventure.Members.Last(),false),"给伽兰腾出随行位置");
                 Need(BaseAdventure.SetMember(loaded,leader.Id,true),"伽兰随行："+BaseAdventure.ChangeProblem(loaded,leader.Id,true));
             }
-            At(loaded,"demo_defense_exit");Need(BaseCampaign.Travel(loaded,"perimeter"),"随行军返回迎敌战场");
-            At(loaded,"demo_defense_start");
-            var defense=new BaseBattlePreparation(loaded,BasePrepRoute.Defense);
-            foreach(var unit in defense.Units)unit.Selected=unit.Kind==SoldierKind.Hero;
-            Need(defense.AutoPlace()>0&&defense.Problem(loaded,true)=="","部署我方队长："+defense.Problem(loaded,true));
-            var allied=new RealtimeCampaignBattle(defense.Begin(loaded));BaseDemoDefense.Configure(allied);
+            At(loaded,"exit_east");Need(BaseCampaign.Travel(loaded,"town"),"随行队伍进镇");
+            At(loaded,"demo_ruins_exit");Need(BaseCampaign.Travel(loaded,"outpost"),"前往遗迹");
+            At(loaded,"demo_ruins_investigate");
+            VerifyDemoPlayerRoute.VerifyRuinsSweepSeed(loaded.Copy());
+            var rematch=new BaseBattlePreparation(loaded,BasePrepRoute.Ruins);
+            Need(rematch.AutoPlace()>0&&rematch.Problem(loaded,true)=="","重返遗迹部署："+rematch.Problem(loaded,true));
+            var allied=new RealtimeCampaignBattle(rematch.Begin(loaded));BaseDemoRuins.Configure(allied);
             var newCaster=allied.Battle.Soldiers.Single(u=>u.Side==BattleSide.A&&u.Kind==SoldierKind.Hero&&u.Rpg?.Id==leader.Rpg.Id);
             Need(newCaster.ProfessionKind==SoldierKind.Mage&&newCaster.AppearanceId=="galan","我方出征身份");
             var actor=allied.Model.Units.Single(u=>u.Id==newCaster.Id+1);
@@ -126,7 +132,6 @@ namespace BaseConquest.Editor
             }
             Need(allied.RpgAttackHistory.Any(p=>p.SourceId==actor.Id&&p.DamageType=="magic"&&p.ImpactApplied),
                 $"读档后伽兰出战命中：生命 {actor.Health}/{actor.MaxHealth}，战局 {allied.Battle.Phase}，{allied.Model.Elapsed:0.0}s，距离 {actor.Reach}，位置 {actor.Position.X:0.0},{actor.Position.Z:0.0}，目标 {actor.TargetId}，出手 {allied.RpgAttackHistory.Count(p=>p.SourceId==actor.Id)}");
-            DemoStageSaveTools.CompleteFirstRuins(state,run);
             string controller=state.Demo.Flow.FirstControllerId;
             Need(BaseDemoStories.AcceptController(state,controller),"招降初次通关的伽兰后回营训练");
             At(state,"demo_ruins_return");Need(BaseCampaign.Travel(state,"town"),"训练前返回城镇");

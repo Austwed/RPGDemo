@@ -68,7 +68,7 @@ namespace BaseConquest.Editor
             BattleScenePlacement.Snap(state,run);
             BaseDemoDefense.Configure(run);
             Need(run.Model.Units.All(u=>u.FootprintLength==1),"正式部署使用了多格单位");
-            Need(state.Demo.Rpg.Range.SequenceEqual(new double[]{1,12,2,12}),"正式射程与配表不符");
+            Need(state.Demo.Rpg.Range.Length==4 && state.Demo.Rpg.Range.Take(3).SequenceEqual(new double[]{1,12,2}),"剑弓骑正式攻击距离与配表不符");
             var swamp=session.Battle.Board.Positions().First(p=>session.Battle.Board.Cell(p).Terrain==TerrainKind.Swamp);
             var point=new PrototypePoint(swamp.X+.25,swamp.Z+.25);
             int origin=run.Model.Arena.CellAt(point);
@@ -102,6 +102,73 @@ namespace BaseConquest.Editor
             Debug.Log("[P53Batu] terrain="+swamp+" tree="+tree?.Id+" riderDistance="+(rider.Position-start).Length+
                 " shots="+shots.Length+" impact="+shots.Count(p=>p.ImpactApplied)+" target="+
                 string.Join(",",shots.Select(p=>run.Battle.UnitName(run.Battle.Soldier(p.TargetId-1))).Distinct()));
+        }
+
+        public static void RunShotContexts()
+        {
+            var state=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/defense-male").text);
+            var session=BaseDemoDefense.Begin(state,"none");
+            BattleScenePlacement.Start(state,session);
+            var run=new RealtimeCampaignBattle(session);
+            BattleScenePlacement.Snap(state,run);
+            BaseDemoDefense.Configure(run);
+            var bow=run.Model.Units.First(u=>u.Side==PrototypeSide.Enemy && u.Role==PrototypeRole.Leader && u.Ranged);
+            var rider=run.Model.Units.First(u=>u.Side==PrototypeSide.Ally);
+            var press=run.Model.Units.First(u=>u.Side==PrototypeSide.Ally && u.Id!=rider.Id);
+            var archer=run.Battle.Soldier(bow.Id-1);
+            archer.Stats.HasProfessionKind=true; archer.Stats.ProfessionKind=SoldierKind.Ranged;
+            archer.Rpg?.Traits.Clear();
+            var mounted=run.Battle.Soldier(rider.Id-1);
+            var from = new PrototypePoint(6.25,6.25);
+            // This fixture can pick an ordinary soldier; combat kind falls back to its roster kind.
+            if(mounted.Kind!=SoldierKind.Hero) mounted.Kind=SoldierKind.Cavalry;
+            mounted.Stats.HasProfessionKind=true; mounted.Stats.ProfessionKind=SoldierKind.Cavalry;
+            bow.Position=from; rider.Position=from+new PrototypePoint(3,0);
+            bow.WindupTarget=rider.Id; rider.NextCell=run.Model.Arena.CellAt(rider.Position)+1;
+            press.UsesRangedWeapon=false; press.Role=PrototypeRole.Melee; press.Order=PrototypeOrder.Guard;
+            press.Position=from+new PrototypePoint(.5,0);
+            press.AttackRange=.5;
+            bool blocked=false;
+            run.Model.CanTarget=(a,b)=>ReferenceEquals(a,press)&&ReferenceEquals(b,bow);
+            run.Model.HeightShotClear=(a,b)=>!blocked;
+            session.Opening.Rpg.HeightAdvantage=100;
+            RpgAttackPacket Fire()
+            {
+                run.Model.AttackTriggered(bow);
+                return run.RpgAttackHistory.Last();
+            }
+            var both=Fire();
+            Need(both.NetAdvantage==-1 && both.Context==(RpgShotContext.MovingCavalry|RpgShotContext.MeleePressure),"移动骑兵与第三方近战同时施压");
+            blocked=true;
+            var moving=Fire();
+            Need(moving.NetAdvantage==-1 && moving.Context==RpgShotContext.MovingCavalry,"枯树隔断的近战单位不能施压");
+            rider.NextCell=-1;
+            var clear=Fire();
+            Need(clear.NetAdvantage==0&&clear.Second==0&&clear.Context==RpgShotContext.None,"停止移动后立即回普通骰");
+            blocked=false;
+            var pressure=Fire();
+            Need(pressure.NetAdvantage==-1&&pressure.Context==RpgShotContext.MeleePressure,"第三方贴身时射向别处也取劣势");
+            press.KnockedDown=true;
+            Need(Fire().Context==RpgShotContext.None,"倒地单位不施压");
+            archer.Rpg.Traits.Add(new RpgTrait { Id="advantage", Value=1 });
+            rider.NextCell=run.Model.Arena.CellAt(rider.Position)+1;
+            Need(Fire().NetAdvantage==0,"单项优势抵消对移动骑兵射击的劣势");
+            press.KnockedDown=false;
+            Need(Fire().NetAdvantage==-1,"一次优势不能同时抵消两项劣势");
+            archer.Rpg.Traits.Clear();
+            archer.Stats.HasProfessionKind=true; archer.Stats.ProfessionKind=SoldierKind.Mage;
+            rider.NextCell=run.Model.Arena.CellAt(rider.Position)+1;
+            var spell=Fire();
+            Need(spell.Context==both.Context&&spell.NetAdvantage==0&&spell.Second==0&&spell.DamageType=="magic","法师在相同环境下仍用普通骰");
+            var melee=run.Battle.Soldier(press.Id-1);
+            melee.Rpg?.Traits.Clear();
+            if(melee.Kind!=SoldierKind.Hero) melee.Kind=SoldierKind.Melee;
+            melee.Stats.HasProfessionKind=true;
+            melee.Stats.ProfessionKind=SoldierKind.Melee;
+            press.WindupTarget=bow.Id;
+            run.Model.AttackTriggered(press);
+            Need(run.RpgAttackHistory.Last().NetAdvantage==1,"近战攻击法师仍获优势");
+            Debug.Log("[P54ShotContexts] PASS moving, stopped, third-party pressure, blocked, incapacitated, cancellation, magic exemption, melee advantage");
         }
 
         private static bool Tally(RealtimeBattlePrototype model,string key)=>model.ShoveStats.ContainsKey(key);

@@ -123,9 +123,9 @@ namespace BaseConquest.Base
                     StringComparer.Ordinal),StringComparer.Ordinal);
             });
 
-        public static bool HasEditableEncounter(string scene)=>scene!=null&&EditableEncounters.ContainsKey(scene);
+        public static bool HasEditableEncounter(string scene)=>scene=="second"||scene!=null&&EditableEncounters.ContainsKey(scene);
         public static bool HasEditableSoldierSlot(string scene,string slot)=>
-            scene!=null&&slot!=null&&EditableSoldierSlots.Value.TryGetValue(scene,out var slots)&&slots.Contains(slot);
+            scene!=null&&slot!=null&&EditableSoldierSlots.Value.TryGetValue(scene=="second"?"bandit":scene,out var slots)&&slots.Contains(slot);
 
         private static BaseDemoEncounterConfig CreateDefaultEncounters(bool mageController)
         {
@@ -163,6 +163,7 @@ namespace BaseConquest.Base
         {
             var references=rules.EncounterUnits?.Where(entry=>entry.Scene==scene).ToArray();
             if(references==null||references.Length==0)return;
+            foreach(var unit in preset.Units)unit.AuthoredSlot=unit.Id;
             foreach(var entry in references)
             {
                 var unit=preset.Units.SingleOrDefault(u=>u.Id==entry.Slot&&u.Kind!=SoldierKind.Hero);
@@ -374,7 +375,7 @@ namespace BaseConquest.Base
             var board=BaseSceneCombat.Project(s);foreach(var c in board.Cells)c.Zone=DeploymentZone.None;
             GridPosition Nearest(double x,double y,GridPosition? avoid=null)=>board.Positions().Where(p=>board.Walkable(p)&&(!avoid.HasValue||p!=avoid.Value)).OrderBy(p=>(p.X+.5-x)*(p.X+.5-x)+(p.Z+.5-y)*(p.Z+.5-y)).First();
             var a=Nearest(s.PlayerX,s.PlayerY);var b=Nearest(s.Demo.Intro.CaptainX,s.Demo.Intro.CaptainY,a);board.Cell(a).Zone=DeploymentZone.A;board.Cell(b).Zone=DeploymentZone.B;
-            var scenario=new BattleScenario {Board=board,CampaignRules=true,FogEnabled=false,PlayerHeroAppearance=true,PlayerLeaderSlot=0,MaxRounds=360,InstantDeathEnabled=false,
+            var scenario=new BattleScenario {RandomSeed=Guid.NewGuid().GetHashCode(),Board=board,CampaignRules=true,FogEnabled=false,PlayerHeroAppearance=true,PlayerLeaderSlot=0,MaxRounds=360,InstantDeathEnabled=false,
                 A=new ArmyDefinition {HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=stats},B=new ArmyDefinition {HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=target},
                 Objective=new ObjectiveConfig {Title="村庄演练 · 选人、暂停、移动、木桩、攻击"},Placements=new List<UnitPlacement>{new UnitPlacement {Side=BattleSide.A,Kind=SoldierKind.Hero,CommanderSlot=0,Cell=a},new UnitPlacement {Side=BattleSide.B,Kind=SoldierKind.Hero,CommanderSlot=0,Cell=b}}};
             BaseSceneRules.Configure(s,scenario,new[]{player});

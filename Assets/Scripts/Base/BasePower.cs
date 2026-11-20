@@ -16,9 +16,7 @@ namespace BaseConquest.Base
     //
     // 胜负：战力大者胜（与损耗指数无关的解析结论）。
     // 剩余血量比：1 −（弱方战力／强方战力）²。
-    // 系数与验证：Logs/power-calibration/ 与 .workbuddy/工具/power_fit.py。
-    // 真值对照（136 场，多种子平均）：胜负准确率 78.7%（旧 79.4%），
-    // 剩余血量预测 RMSE 0.179（旧 0.314，误差降约四成）。
+    // 四职业系数用 PowerCalibrationMatrix 的训练种子拟合，留出种子另行验证。
     public sealed class BaseEngagement
     {
         public string Problem = "";
@@ -37,30 +35,53 @@ namespace BaseConquest.Base
         public const double MaxSeconds = 300;         // 与真实战斗 MaxRounds 对齐的僵持上限
         private const int Subdivision = 2;           // PrototypeArena.Subdivision：1 格 = 2 细格
 
+        // 平地训练的 48 场镜像对战共记录 9471 次弓兵出手。分母是对剑、弓、骑、法各自的射击次数。
+        private static readonly double[] ArcherMoving = {0, 0, 253.0/3434, 0};
+        private static readonly double[] ArcherPressed = {9.0/2618, 0, 193.0/3434, 0};
+        private static readonly double[] ArcherBoth = {0, 0, 10.0/3434, 0};
+
         // 单兵「内在战力」：对手无关，用于养成展示。保留旧形态（√(生命×输出÷承伤)），
         // 补齐攻速与暴伤对称两处遗漏。
-        public static double Rating(BattleSoldier soldier, RpgRules rules)
+        public static double Rating(BattleSoldier soldier, RpgRules rules) => Rating(soldier, rules, null);
+
+        public static double FormationRating(BattleSoldier[] soldiers, RpgRules rules)
+        {
+            var inspiration = SquadInspiration(soldiers, rules);
+            return soldiers.Sum(unit => Rating(unit, rules, inspiration.GetValueOrDefault(unit.OriginCommanderSlot))
+                * Math.Sqrt(unit.Health / unit.Stats.Health));
+        }
+
+        private static Dictionary<int,RpgSkillDefinition> SquadInspiration(IEnumerable<BattleSoldier> units, RpgRules rules)
+        {
+            var squads = new Dictionary<int,RpgSkillDefinition>();
+            foreach (var leader in units.Where(unit => unit.IsAlive && unit.Kind == SoldierKind.Hero && unit.OriginCommanderSlot >= 0))
+            {
+                var skill = Skill(leader, rules);
+                if (skill?.Id == "inspire") squads[leader.OriginCommanderSlot] = skill;
+            }
+            return squads;
+        }
+
+        private static double Rating(BattleSoldier soldier, RpgRules rules, RpgSkillDefinition inspiration)
         {
             if (soldier?.Stats == null || rules == null) return 0;
             var stats = soldier.Stats;
             int profession = Profession(soldier);
             var reference = rules.Templates.FirstOrDefault(t => t.Id == rules.DefaultTemplateId("soldier",0));
             if (reference == null) return 0;
-            double received = 1 + ((soldier.Rpg?.Trait("fragile") ?? 0) - (soldier.Rpg?.Trait("tough") ?? 0)) / 100;
-            double outgoing = 0, incoming = 0;
-            for (int die = 1; die <= 10; die++)
+            var referenceUnit = new BattleSoldier
             {
-                var attack = new RpgAttackRoll((int)rules.Hit[profession], (int)rules.Evasion[0], 0, 0, die);
-                var defense = new RpgAttackRoll((int)rules.Hit[0], (int)rules.Evasion[profession], 0, 0, die);
-                if (attack.Hit) outgoing += RpgCombatRules.Damage(rules.AttackDamageType(profession),stats.Damage, reference.Defense,
-                    rules.ArmorK * stats.Level, rules.ArmorCap, attack.Critical ? stats.CritMultiplier : 1) / 10;
-                // 参照兵打我时按同一条暴击规则取暴伤（旧公式这里只用规则默认值，装备暴伤只算给己方）
-                if (defense.Hit) incoming += RpgCombatRules.Damage(rules.AttackDamageType(0),reference.Attack, stats.Defense,
-                    rules.ArmorK, rules.ArmorCap, defense.Critical ? Math.Max(1, rules.HasProfessionCatalog?rules.CriticalMultiplier:stats.CritMultiplier) : 1,received) / 10;
-            }
-            double interval = AttackInterval(soldier, rules);
-            return Math.Sqrt(Math.Max(0, stats.Health) * (outgoing / interval)
-                / (reference.Health * Math.Max(1e-6, incoming / interval)));
+                Kind = SoldierKind.Melee,
+                Stats = new SoldierStats
+                {
+                    Level = 1, Damage = (float)reference.Attack, Defense = (float)reference.Defense,
+                    Health = (float)reference.Health, CritMultiplier = (float)rules.CriticalMultiplier
+                },
+                Health = (float)reference.Health
+            };
+            double outgoing = ExpectedDps(soldier, referenceUnit, rules, 1, true, inspiration: inspiration);
+            double incoming = ExpectedDps(referenceUnit, soldier, rules, 1, !rules.IsRanged(profession));
+            return Math.Sqrt(Math.Max(0, stats.Health) * outgoing / (reference.Health * Math.Max(1e-6, incoming)));
         }
 
         public static BaseEngagement Engage(IEnumerable<BattleSoldier> allies, IEnumerable<BattleSoldier> enemies,
@@ -95,6 +116,12 @@ namespace BaseConquest.Base
             // 坚守目标：只要撑过规定秒数就算达成，不要求歼灭。
             result.AllyWins = holdSeconds > 0 ? surviveA >= holdSeconds : result.AllyPower > result.EnemyPower;
             result.Seconds = holdSeconds > 0 ? holdSeconds : Math.Min(killB, surviveA);
+            if (holdSeconds == 0 && rules.HasProfessionCatalog)
+            {
+                // 连续输出只计交火。用 264 场训练对局折算接敌、换目标和残局耗时，参战规模上限取训练样本的 16 人。
+                int engaged = Math.Min(16, Math.Min(a.Count, b.Count));
+                result.Seconds = .62 + 1.69 * result.Seconds + 1.16 * engaged;
+            }
             result.TimedOut = result.Seconds > MaxSeconds;
             if (holdSeconds > 0)
             {
@@ -127,15 +154,23 @@ namespace BaseConquest.Base
             double weight = defenders.Sum(d => Math.Max(0, d.Health));
             if (weight <= 0) weight = defenders.Count;
             double total = 0;
+            int meleeTargets = defenders.Count(unit => !rules.IsRanged(BaseRpg.Profession(unit.CombatKind)));
+            int frontline = attackers.Count(unit => !rules.IsRanged(BaseRpg.Profession(unit.CombatKind)));
+            var inspiration = SquadInspiration(attackers, rules);
             foreach (var attacker in attackers)
             {
                 double perSecond = 0;
+                var skill = Skill(attacker, rules);
+                var squadBuff = inspiration.GetValueOrDefault(attacker.OriginCommanderSlot);
+                // 半径四细格的横扫，训练局中打中集群约六人，五名前排时约四人。多个近战分摊同一批前排。
+                double swept = skill?.Id == "sweep" ? Math.Max(1, Math.Min(defenders.Count, Math.Min(
+                    6 * Math.Pow(skill.Radius / 4, 2), .8 * meleeTargets / Math.Max(1, frontline)))) : 1;
                 foreach (var target in defenders)
                 {
                     double share = Math.Max(0, target.Health) / weight;
                     if (rules.HasProfessionCatalog)
                     {
-                        perSecond += share * ExpectedDps(attacker,target,rules,difficulty);
+                        perSecond += share * ExpectedDps(attacker,target,rules,difficulty,meleeTargets > 0,swept,squadBuff);
                         continue;
                     }
                     double sum = 0;
@@ -155,7 +190,7 @@ namespace BaseConquest.Base
             return total;
         }
 
-        private static double ExpectedDps(BattleSoldier attacker,BattleSoldier target,RpgRules rules,double difficulty)
+        private static double ExpectedDps(BattleSoldier attacker,BattleSoldier target,RpgRules rules,double difficulty,bool meleePresent,double sweepTargets=1,RpgSkillDefinition inspiration=null)
         {
             if(target.DeveloperInvulnerable)return 0;
             int profession=Profession(attacker), enemy=Profession(target);
@@ -163,33 +198,56 @@ namespace BaseConquest.Base
             var skill=Skill(attacker,rules);
             string normalType=rules.AttackDamageType(profession);
             double received=Received(target);
+            bool ranged=rules.IsRanged(BaseRpg.Profession(attacker.CombatKind));
+            int baseEdge=(int)(attacker.Rpg?.Trait("advantage")??0)-(int)(attacker.Rpg?.Trait("disadvantage")??0);
+            if(!ranged && rules.IsRanged(BaseRpg.Profession(target.CombatKind))) baseEdge++;
+            bool archer=ranged && attacker.ProfessionKind==SoldierKind.Ranged;
+            double pressure = meleePresent ? ArcherPressed[enemy] : 0;
+            double overlap = meleePresent ? ArcherBoth[enemy] : 0;
+            double once = ArcherMoving[enemy] + pressure - 2*overlap;
             double Expected(string damageType,double power)
             {
                 double sum=0;
                 for(int die=1;die<=10;die++)
                 {
                     var roll=new RpgAttackRoll((int)rules.Hit[profession],(int)rules.Evasion[enemy],0,0,die);
-                    if(roll.Hit)sum+=RpgCombatRules.Damage(damageType,power,target.Stats.Defense,rules.ArmorK*attacker.Stats.Level,
+                    if(!roll.Hit) continue;
+                    double probability=SelectedProbability(die,baseEdge);
+                    if(archer && damageType!="magic")
+                        probability=(1-once-overlap)*probability + once*SelectedProbability(die,baseEdge-1)
+                            + overlap*SelectedProbability(die,baseEdge-2);
+                    sum+=probability*RpgCombatRules.Damage(damageType,power,target.Stats.Defense,rules.ArmorK*attacker.Stats.Level,
                         rules.ArmorCap,roll.Critical?Math.Max(1,attacker.Stats.CritMultiplier):1,received,difficulty);
                 }
-                return sum/10;
+                return sum;
             }
             double normal=Expected(normalType,raw),rate=1/AttackInterval(attacker,rules);
+            if (inspiration == null && skill?.Id == "inspire") inspiration = skill;
+            if (inspiration != null)
+            {
+                double uptime = Duty(inspiration);
+                normal = normal * (1 - uptime) + Expected(normalType,raw * (1 + inspiration.Amount)) * uptime;
+            }
             if(skill==null)return normal*rate;
-            if(skill.Id=="sweep")return normal*rate+Expected(skill.DamageType,raw*skill.Amount)/skill.Cooldown;
+            if(skill.Id=="sweep")return normal*rate+sweepTargets*Expected(skill.DamageType,raw*skill.Amount)/skill.Cooldown;
             if(skill.Id=="charge")
             {
                 double chargedRate=Math.Min(rate,1/skill.Cooldown);
                 return normal*(rate-chargedRate)+Expected(skill.DamageType,raw*skill.Amount)*chargedRate;
             }
-            if(skill.Id=="inspire")return rate*(normal*(1-Duty(skill))+Expected(normalType,raw*(1+skill.Amount))*Duty(skill));
             return normal*rate;
         }
 
+        // P(max(d1,d2)=face) or P(min(d1,d2)=face), for two independent D10.
+        private static double SelectedProbability(int face,int edge) =>
+            edge > 0 ? (2*face-1)/100.0 : edge < 0 ? (21-2*face)/100.0 : .1;
+
         private static double AttackInterval(BattleSoldier soldier, RpgRules rules)
         {
-            double speed = (soldier.Rpg?.Trait("frenzy") ?? 0) / 100
-                + (Skill(soldier, rules)?.Id == "rapid_fire" ? rules.Skills.First(s => s.Id == "rapid_fire").Amount : 0);
+            var skill = Skill(soldier, rules);
+            double speed = (soldier.Rpg?.Trait("frenzy") ?? 0) / 100;
+            if (skill?.Id == "rapid_fire")
+                speed += skill.Amount * (rules.HasProfessionCatalog ? Duty(skill) : 1);
             return RpgCombatRules.Interval(rules.BaseInterval, speed, rules.MinimumInterval);
         }
 

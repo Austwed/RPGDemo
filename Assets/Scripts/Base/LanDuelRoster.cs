@@ -9,7 +9,7 @@ namespace BaseConquest.Base
     // the same local soldier ID. The battle gives every placed unit its own match ID.
     [Serializable] public sealed class LanDuelMember
     {
-        public string id, name, team, appearance;
+        public string id, name, team, appearance, soldierTemplateId;
         public int kind, x, z;
         public float hp;
         public SoldierStats stats;
@@ -56,19 +56,19 @@ namespace BaseConquest.Base
                 {
                     id = unit.Id, team = unit.TeamId, name = unit.Leader?.Name ?? unit.Name, kind = (int)unit.Kind,
                     x = LanDuelMatch.DeploymentWidth - 1 - index / lanes.Length, z = lanes[index % lanes.Length],
-                    hp = (float)unit.Health, stats = stats, appearance = appearance,
+                    hp = (float)unit.Health, stats = stats, appearance = appearance, soldierTemplateId = unit.SoldierTemplateId,
                     profile = unit.Leader?.Rpg?.Copy(),
                     gear = unit.Leader?.PersonalEquipment?.Items.Select(i =>
                         new BasePersonalItem { Template = i.Template, Quality = i.Quality, Slot = i.Slot }).ToArray()
                 });
             }
             var roster = new LanDuelRoster { units = rows.ToArray() };
-            problem = roster.Problem();
+            problem = roster.Problem(state.Demo.Rpg);
             if (problem != "") throw new InvalidOperationException(problem);
             return roster;
         }
 
-        public string Problem()
+        public string Problem(RpgRules rules = null)
         {
             if (units == null || units.Length == 0 || units.Length > BaseMuster.BattleSoldierLimit + 3)
                 return "演武编队人数无效";
@@ -86,13 +86,16 @@ namespace BaseConquest.Base
                     !cells.Add(new GridPosition(u.x, u.z))) return "请在己方区域内分开部署每名单位";
                 if (u.kind == (int)SoldierKind.Hero)
                 {
-                    if (u.team != u.id || u.profile?.Version != 1 || u.profile.Traits == null || u.profile.Traits.Count > 3 ||
+                    if (!string.IsNullOrEmpty(u.soldierTemplateId) || u.team != u.id || u.profile?.Version != 1 || u.profile.Traits == null || u.profile.Traits.Count > 3 ||
                         u.gear?.Length > 6 || (u.gear ?? Array.Empty<BasePersonalItem>()).Any(i => i == null ||
                         string.IsNullOrEmpty(i.Template) || i.Template.Length > 80 || !BasePersonalEquipment.Slots.Contains(i.Slot) ||
                         i.Quality < 0 || i.Quality > 5)) return "演武队长资料无效";
                     captains.Add(u.id);
                 }
-                else if (u.profile?.Version > 0 || u.gear?.Length > 0) return "普通士兵资料无效";
+                else if (u.profile?.Version > 0 || u.gear?.Length > 0 || !string.IsNullOrEmpty(u.soldierTemplateId) &&
+                    (u.soldierTemplateId.Length > 128 || rules != null && (rules.TemplateIdentity(u.soldierTemplateId) != "soldier" ||
+                     !rules.MatchesTemplate(u.soldierTemplateId, BaseRpg.Profession((SoldierKind)u.kind)))))
+                    return "普通士兵资料无效";
             }
             if (captains.Count < 1 || captains.Count > 3 || units.Length - captains.Count > BaseMuster.BattleSoldierLimit ||
                 units.Any(u => !captains.Contains(u.team))) return "请为出战士兵指定一名出战队长";
@@ -114,6 +117,9 @@ namespace BaseConquest.Base
         public string name, appearance, skill;
         public float hp, maxHp, x, z, fx, fz, cooldown, attackPose;
         public bool moving;
+#if UNITY_EDITOR || LAN_DUEL_QA
+        public string verifiedTemplate;
+#endif
     }
 
     [Serializable] public sealed class LanDuelFrame
@@ -124,5 +130,8 @@ namespace BaseConquest.Base
         public bool[] visibleCells;
         public LanDuelActor[] units;
         public MageSpellVisual[] spells;
+#if UNITY_EDITOR || LAN_DUEL_QA
+        public RpgAttackPacket[] matchupRolls;
+#endif
     }
 }

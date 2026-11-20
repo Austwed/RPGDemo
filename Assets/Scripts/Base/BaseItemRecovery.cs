@@ -53,7 +53,8 @@ namespace BaseConquest.Base
         internal static SoldierStats Disarm(BaseState s,BaseCampaignSession session,BattleSoldier unit,List<BasePersonalItem> captured)
         {
             var origin=session.Opening.Enemies.FirstOrDefault(e=>session.UnitForEnemy(session.Opening.Enemies.IndexOf(e))?.Id==unit.Id);
-            if(unit.Kind!=SoldierKind.Hero||origin?.Equipment==null)return unit.Stats.Clone();
+            if(unit.Kind!=SoldierKind.Hero)return (origin?.Stats??unit.Stats).Clone();
+            if(origin?.Equipment==null)return unit.Stats.Clone();
             foreach (var source in origin.Equipment.Items)
             {
                 var item = source.Copy();

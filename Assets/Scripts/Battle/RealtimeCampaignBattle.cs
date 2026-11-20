@@ -110,10 +110,11 @@ namespace BaseConquest.Battle
         }
         public BattleTacticalRuntime Tactics {get;private set;}
         private readonly string hideoutDifficulty;
-        public RealtimeCampaignBattle(BaseCampaignSession session)
+        public RealtimeCampaignBattle(BaseCampaignSession session) : this(session,null) { }
+        internal RealtimeCampaignBattle(BaseCampaignSession session,string difficultySnapshot)
         {
             Session=session??throw new ArgumentNullException(nameof(session));
-            if (Battle.Scenario.BanditHideout) hideoutDifficulty = session.Opening.Difficulty.Preset;
+            hideoutDifficulty = difficultySnapshot ?? (Battle.Scenario.BanditHideout ? session.Opening.Difficulty.Preset : null);
             if(session.Opening.RealtimeRulesVersion<0||session.Opening.RealtimeRulesVersion>1)throw new ArgumentException("未知即时战斗数值版本");
             if(!session.Opening.RealtimeRules||Battle.Phase==BattlePhase.Deployment)throw new InvalidOperationException("即时战斗需已确认开战的真实队伍");
             ValidateBoard(Battle.Board);session.Bind();
@@ -128,7 +129,7 @@ namespace BaseConquest.Battle
             }
             var arena=new PrototypeArena(board.Cells.Select(cell=>!cell.Walkable).ToArray(),board.Cells.Select(cell=>cell.BlocksShots).ToArray(),Cross,board.Width,board.Height);
             arena.TravelCost=cell=>board.Cell(Coarse(cell)).FootworkCost;
-            Model=new RealtimeBattlePrototype(arena) {AutonomousOutcome=false,DamageResolver=Damage,LeaderlessEnemyAssault=Battle.Scenario.BanditHideout};
+            Model=new RealtimeBattlePrototype(arena) {AutonomousOutcome=false,DamageResolver=Damage,LeaderlessEnemyAssault=Battle.Scenario.Leaderless(BattleSide.B),LeaderlessAllyAssault=Battle.Scenario.Leaderless(BattleSide.A)};
             Model.CellEntered=(actor,cellIndex)=>
             {
                 var cell=board.Cell(Coarse(cellIndex));
@@ -182,7 +183,7 @@ namespace BaseConquest.Battle
             foreach(var actor in Model.Units.Where(u=>u.DoctrineVersion==0))
             {
                 actor.DoctrineVersion=1;
-                if(Model.LeaderlessEnemyAssault&&actor.Side==PrototypeSide.Enemy)continue;
+                if(Model.IndependentAssault(actor.Side))continue;
                 var config=Battle.Scenario.Army(actor.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B).Commanders[actor.Squad];
                 actor.Strategy=(PrototypeStrategy)(int)config.Strategy;actor.GuardRadius=config.GuardRange;actor.ThreatRadius=config.AlertRange;actor.CommandRadius=config.AttackRange;
             }

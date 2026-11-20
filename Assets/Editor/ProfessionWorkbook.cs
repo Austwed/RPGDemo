@@ -136,6 +136,8 @@ namespace BaseConquest.Editor
             foreach(char ch in address.TakeWhile(c=>c>='A'&&c<='Z'))index=checked(index*26+ch-'A'+1);
             return index;
         }
+        internal bool HasTable(string name) => regions.ContainsKey(name);
+
         internal List<Row> Rows(string name,string fields)
         {
             if(!regions.TryGetValue(name,out var region))throw new InvalidDataException("缺少配置区 "+name);

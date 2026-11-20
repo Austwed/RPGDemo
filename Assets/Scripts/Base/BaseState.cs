@@ -42,6 +42,7 @@ namespace BaseConquest.Base
     }
     [Serializable] public sealed class BaseWorkerBucket
     {
+        public string TemplateId;
         public BaseTroopKind Kind;
         public string FacilityId = "";
         public string PartyId = "", SourceId = "";

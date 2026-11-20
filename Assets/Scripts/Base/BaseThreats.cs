@@ -66,7 +66,7 @@ namespace BaseConquest.Base
                 var used=new HashSet<string>(site.Garrison.Concat(away??Enumerable.Empty<BaseEnemyMember>()).Where(unit=>unit.HasDeployment).Select(unit=>unit.Deployment.Id));
                 deployment=preset.Units.First(unit=>unit.Kind==kind&&!used.Contains(unit.Id)&&(kind!=SoldierKind.Hero||unit.CommanderSlot==slot)).Copy();
             }
-            return new BaseEnemyMember {Deployment=deployment,Id=site.Id+":unit:"+number,Name=kind==SoldierKind.Hero ? "荒野队长"+number : BattleSimulation.KindName(kind)+" "+number,Kind=kind,PresetSlot=slot,Stats=stats,Health=stats.Health};
+            return new BaseEnemyMember {Deployment=deployment,Id=site.Id+":unit:"+number,Name=kind==SoldierKind.Hero ? "荒野队长"+number : BattleSimulation.KindName(kind)+" "+number,Kind=kind,PresetSlot=slot,CommanderSlot=kind==SoldierKind.Hero?Math.Max(0,slot):deployment?.CommanderSlot??0,Stats=stats,Health=stats.Health};
         }
         public static void AdvanceDay(BaseState s)
         {
@@ -227,7 +227,7 @@ namespace BaseConquest.Base
         private static bool Finite(float x)=>!float.IsNaN(x)&&!float.IsInfinity(x);
         private static void ValidateMembers(List<BaseEnemyMember> units)
         {
-            if(units==null||units.Count>93||units.Any(u=>u==null||string.IsNullOrWhiteSpace(u.Id)||u.Id.Length>120||string.IsNullOrWhiteSpace(u.Name)||u.Name.Length>40||!Enum.IsDefined(typeof(SoldierKind),u.Kind)||!Finite(u.Health)||u.Health<0||u.Health==0&&!u.Dead||u.KnockedDown&&(u.Dead||u.Health!=1)||u.Dead&&u.Health!=0||u.Stats==null||!u.Stats.EquipmentStatsValid||!Finite(u.Stats.Health)||u.Stats.Health<1||u.Health>u.Stats.Health||!Finite(u.Stats.Damage)||u.Stats.Damage<0||!Finite(u.Stats.Defense)||u.Stats.Defense<0||u.Stats.Range<1||u.Stats.Range>12||u.Stats.MoveDistance<1||u.Stats.MoveDistance>12||!Finite(u.Stats.CritChance)||u.Stats.CritChance<0||u.Stats.CritChance>1||!Finite(u.Stats.CritMultiplier)||u.Stats.CritMultiplier<1||u.Stats.CritMultiplier>10)||units.Select(u=>u.Id).Distinct().Count()!=units.Count||units.Count(u=>u.Kind==SoldierKind.Hero)>3||BattleSimulation.TroopKinds.Any(k=>units.Count(u=>u.Kind==k)>30))throw new ArgumentException("敌军实际人员／属性非法");
+            if(units==null||units.Count>93||units.Any(u=>u==null||u.SupplyTier<0||u.SupplyTier>2||u.SupplyTier>0&&(u.Kind==SoldierKind.Hero||string.IsNullOrEmpty(u.SupplyScene))||string.IsNullOrWhiteSpace(u.Id)||u.Id.Length>120||string.IsNullOrWhiteSpace(u.Name)||u.Name.Length>40||!Enum.IsDefined(typeof(SoldierKind),u.Kind)||!Finite(u.Health)||u.Health<0||u.Health==0&&!u.Dead||u.KnockedDown&&(u.Dead||u.Health!=1)||u.Dead&&u.Health!=0||u.Stats==null||!u.Stats.EquipmentStatsValid||!Finite(u.Stats.Health)||u.Stats.Health<1||u.Health>u.Stats.Health||!Finite(u.Stats.Damage)||u.Stats.Damage<0||!Finite(u.Stats.Defense)||u.Stats.Defense<0||u.Stats.Range<1||u.Stats.Range>12||u.Stats.MoveDistance<1||u.Stats.MoveDistance>12||!Finite(u.Stats.CritChance)||u.Stats.CritChance<0||u.Stats.CritChance>1||!Finite(u.Stats.CritMultiplier)||u.Stats.CritMultiplier<1||u.Stats.CritMultiplier>10)||units.Select(u=>u.Id).Distinct().Count()!=units.Count||units.Count(u=>u.Kind==SoldierKind.Hero)>3||BattleSimulation.TroopKinds.Any(k=>units.Count(u=>u.Kind==k)>30))throw new ArgumentException("敌军实际人员／属性非法");
         }
         public static void Validate(BaseState s)
         {

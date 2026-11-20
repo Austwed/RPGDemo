@@ -208,7 +208,7 @@ namespace BaseConquest.Battle
         {
             if (Phase != BattlePhase.Deployment) { message = "当前已开战"; return false; }
             if (!Soldiers.Exists(s => s.Side == BattleSide.A) || !Soldiers.Exists(s => s.Side == BattleSide.B)) { message = "双方各至少需要投放一名单位"; return false; }
-            if (Scenario.CommanderControl && (!Soldiers.Any(s => s.Side == BattleSide.A && s.Kind == SoldierKind.Hero) || !Scenario.BanditHideout && !Soldiers.Any(s => s.Side == BattleSide.B && s.Kind == SoldierKind.Hero)))
+            if (Scenario.CommanderControl && (!Scenario.Leaderless(BattleSide.A) && !Soldiers.Any(s => s.Side == BattleSide.A && s.Kind == SoldierKind.Hero) || !Scenario.Leaderless(BattleSide.B) && !Soldiers.Any(s => s.Side == BattleSide.B && s.Kind == SoldierKind.Hero)))
             { message = Scenario.BanditHideout ? "请先部署我方队长" : "双方至少各部署一名小队长"; return false; }
             if (Scenario.BanditHideout && TroopKinds.Any(kind => Remaining(BattleSide.B, kind) > 0)) { message = "敌军部署未完成"; return false; }
             foreach (BattleSoldier s in Soldiers) s.BattlePower = s.Stats.BaseBattlePower;

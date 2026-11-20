@@ -56,6 +56,12 @@ namespace BaseConquest.Base
         public double Trait(string id)=>Traits.Where(t=>t.Id==id).Sum(t=>t.Value);
         public RpgCharacter Copy(){if(Version==0)return null;var c=(RpgCharacter)MemberwiseClone();c.Traits=Traits.Select(t=>t.Copy()).ToList();return c;}
     }
+    [Serializable] public sealed class RpgEnemySupply
+    {
+        public string Scene, Slot, Profession;
+        public int Count, Tier;
+        public RpgEnemySupply Copy() => (RpgEnemySupply)MemberwiseClone();
+    }
     [Serializable] public sealed class RpgEncounterUnit
     {
         public string Scene,Slot,TemplateId;
@@ -71,6 +77,7 @@ namespace BaseConquest.Base
         internal static readonly string[] ProfessionIds = { "warrior", "archer", "knight", "mage" };
         internal static readonly string[] Identities = { "soldier", "captain_normal", "captain_awakened" };
         public List<RpgProfessionDefinition> Professions = new List<RpgProfessionDefinition>();
+        public List<RpgEnemySupply> EnemySupplies = new List<RpgEnemySupply>();
         public List<RpgEncounterUnit> EncounterUnits = new List<RpgEncounterUnit>();
         public double[] TemplateDefenseCaps;
         public int MageFood = 1;
@@ -116,6 +123,14 @@ namespace BaseConquest.Base
                     !Templates.Any(t=>t.Id==refUnit.TemplateId&&t.Identity=="soldier"))||
                 EncounterUnits.GroupBy(refUnit=>(refUnit.Scene,refUnit.Slot)).Any(g=>g.Count()>1)))
                 throw new ArgumentException("关卡普通兵槽位或模板引用无效");
+            foreach(var wave in EncounterUnits?.Where(unit=>unit.Scene=="second")??Enumerable.Empty<RpgEncounterUnit>())
+            {
+                var camp=EncounterUnits.Find(unit=>unit.Scene=="bandit" && unit.Slot==wave.Slot);
+                string profession=camp==null?wave.Slot.StartsWith("melee-")?"warrior":wave.Slot.StartsWith("ranged-")?"archer":"knight":
+                    Templates.Single(t=>t.Id==camp.TemplateId).ProfessionId;
+                if(Templates.Single(t=>t.Id==wave.TemplateId).ProfessionId!=profession)
+                    throw new ArgumentException("第二波精锐与据点原士兵的职业不同："+wave.Slot);
+            }
             if (!Templates.Any(t => t.Id == RuinsFirstControllerTemplate && t.Identity == "captain_awakened" && t.ProfessionId == "mage"))
                 throw new ArgumentException("遗迹首战迦兰须引用异能者法师模板");
             foreach (var skill in Skills)
@@ -188,7 +203,7 @@ namespace BaseConquest.Base
         {
             if(Version==0)return null;var c=(RpgRules)MemberwiseClone();c.Hit=Hit.ToArray();c.Evasion=Evasion.ToArray();c.Capacity=Capacity.ToArray();c.CampMaterials=CampMaterials.ToArray();c.CampCoins=CampCoins.ToArray();c.Range=Range.ToArray();c.Speed=Speed.ToArray();c.Growth=Growth.ToArray();c.QualityValue=QualityValue.ToArray();
             c.WeaponValues=WeaponValues.ToArray();c.HelmetValues=HelmetValues.ToArray();c.ArmorValues=ArmorValues.ToArray();c.AccessoryValues=AccessoryValues.ToArray();c.DropQuality=DropQuality.ToArray();c.EquipmentQuality=EquipmentQuality.ToArray();c.BowQualityRange=BowQualityRange.ToArray();c.TroopBaseline=TroopBaseline.ToArray();c.RecruitBasePrices=RecruitBasePrices.ToArray();c.TrainingDays=TrainingDays.ToArray();c.TrainingBooks=TrainingBooks.ToArray();c.AttackGrowth=AttackGrowth?.ToArray();c.DefenseGrowth=DefenseGrowth?.ToArray();
-            c.EncounterUnits=EncounterUnits?.Select(p=>p.Copy()).ToList();c.Professions=Professions?.Select(p=>p.Copy()).ToList();c.TemplateDefenseCaps=TemplateDefenseCaps?.ToArray();
+            c.EnemySupplies=EnemySupplies?.Select(p=>p.Copy()).ToList();c.EncounterUnits=EncounterUnits?.Select(p=>p.Copy()).ToList();c.Professions=Professions?.Select(p=>p.Copy()).ToList();c.TemplateDefenseCaps=TemplateDefenseCaps?.ToArray();
             c.Templates=Templates.Select(x=>x.Copy()).ToList();c.Skills=Skills.Select(x=>x.Copy()).ToList();c.Traits=Traits.Select(x=>x.Copy()).ToList();c.Equipment=Equipment?.Select(x=>x.Copy()).ToList();c.OpeningEconomy=OpeningEconomy?.Copy();c.OpeningTactical=OpeningTactical?.Copy();c.OpeningRewards=OpeningRewards?.Copy();c.OpeningLordReward=OpeningLordReward?.Copy();c.OpeningDefenseReward=OpeningBattleRewardVersion==1?OpeningDefenseReward?.Copy():null;c.OpeningDefenseLoss=OpeningBattleRewardVersion==1?OpeningDefenseLoss?.Copy():null;c.OpeningCampReward=OpeningBattleRewardVersion==1?OpeningCampReward?.Copy():null;c.OpeningInventory=OpeningInventory?.Copy();c.OpeningFacilityCapacity=OpeningFacilityCapacity?.ToArray();c.OpeningFacilityMinimum=OpeningFacilityMinimum?.ToArray();c.OpeningTownStock=OpeningTownStock?.ToArray();c.ReforgeUp=ReforgeUp?.ToArray();c.ReforgeDown=ReforgeDown?.ToArray();c.StoryPresets=StoryPresets?.Select(x=>x.Copy()).ToList();return c;
         }
         public static string Template(string category,int profession)=>category+"_"+ProfessionIds[profession];
@@ -212,6 +227,7 @@ namespace BaseConquest.Base
         public void Validate()
         {
             ValidateProfessions();
+            BaseEnemySupply.Validate(this);
             if (HideoutEnemyCount < 0 || HideoutEnemyCount > BaseBanditHideout.EnemyCountCap)
                 throw new ArgumentException("土匪窝点兵力配置非法");
             if(OpeningSupplyWearVersion<0||OpeningSupplyWearVersion>1||OpeningSupplyWearVersion==1&&(!Finite(OpeningReturnedWear)||OpeningReturnedWear<0||OpeningReturnedWear>1||!Finite(OpeningLostWear)||OpeningLostWear<0||OpeningLostWear>1))throw new ArgumentException("Demo军需磨损比例非法");

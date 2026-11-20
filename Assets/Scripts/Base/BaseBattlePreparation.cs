@@ -19,6 +19,7 @@ namespace BaseConquest.Base
         internal int SelectionOrder;
         internal BaseSoldierPick Pick;
         internal SoldierStats Stats;
+        internal string SoldierTemplateId;
         internal BaseLeader Leader;
     }
 
@@ -130,7 +131,7 @@ namespace BaseConquest.Base
                             assigned++;
                         }
                         rows.Add(new BasePrepUnit { Id = "soldier:" + pick.SoldierNumber, Name = BattleSimulation.KindName(kind) + " #" + pick.SoldierNumber,
-                            TeamId = team, Kind = kind, Pick = pick, Health = worker.Health, MaxHealth = worker.MaxHealth,
+                            SoldierTemplateId = worker.TemplateId, TeamId = team, Kind = kind, Pick = pick, Health = worker.Health, MaxHealth = worker.MaxHealth,
                             Stats = worker.HasCombatProfile ? worker.CombatStats.Clone() : new ArmyDefinition().Stats(kind).Clone(), Selected = chosen });
                     }
                 }
@@ -145,10 +146,10 @@ namespace BaseConquest.Base
             }
             if (route == BasePrepRoute.Hideout)
             {
-                this.hideoutSeed = hideoutSeed ?? Guid.NewGuid().GetHashCode();
+                this.hideoutSeed = hideoutSeed ?? BaseCampaign.NextBattleSeed(state, BaseBanditHideout.EventId);
                 hideoutEnemies = BaseBanditHideout.DrawEnemies(state, this.hideoutSeed, hideoutEnemyCount);
                 enemyReference = hideoutEnemies.Select(e => new BattleSoldier { Kind = e.Kind, Health = e.Health,
-                    Stats = e.Stats, Rpg = e.Rpg }).ToArray();
+                    Stats = e.EffectiveStats(state.Demo.Rpg), Rpg = e.Rpg, OriginCommanderSlot = e.CommanderSlot }).ToArray();
             }
             else if (route == BasePrepRoute.Ruins && BaseRuinsSweep.Problem(state) == "")
             {
@@ -373,6 +374,7 @@ namespace BaseConquest.Base
         {
             var rule = state.Supply.Rules.FirstOrDefault(r => r.Product == "supply");
             var chosen = Taking(deployed).ToArray();
+            var leaders = chosen.Where(unit => unit.Kind == SoldierKind.Hero).ToArray();
             double attackBonus = SupplyGrade == 1 ? rule?.LowBonus ?? 0 : SupplyGrade == 2 ? rule?.HighBonus ?? 0 : 0;
             double defenseBonus = SupplyGrade == 1 ? rule?.LowDefense ?? 0 : SupplyGrade == 2 ? rule?.HighDefense ?? 0 : 0;
             var allies = chosen.Select(u =>
@@ -385,10 +387,10 @@ namespace BaseConquest.Base
                     stats.Defense += (float)defenseBonus;
                 }
                 stats.Damage *= (float)BaseEconomy.AttackFactor(state);
-                var actor = new BattleSoldier { Kind = u.Kind, Health = (float)u.Health, Stats = stats,
+                int slot = Array.FindIndex(leaders, team => team.Id == u.TeamId);
+                var actor = new BattleSoldier { Kind = u.Kind, Health = (float)u.Health, Stats = stats, OriginCommanderSlot = slot,
                     Rpg = u.Leader?.Rpg, AppearanceId = u.Leader == null ? "" : BaseCommanderIdentity.Appearance(u.Leader) };
-                var leader = units.FirstOrDefault(team => team.Id == u.TeamId)?.Leader;
-                if (leader != null) BaseWine.Apply(actor, leader, state.Day);
+                if (slot >= 0) BaseWine.Apply(actor, leaders[slot].Leader, state.Day);
                 return actor;
             }).ToArray();
             var rules = state.Demo?.Rpg;
@@ -397,8 +399,7 @@ namespace BaseConquest.Base
                 var comparison = BasePower.Engage(allies, enemyReference, rules,0,state.Aftermath.Difficulty.Preset);
                 return (comparison.AllyPower, comparison.EnemyPower);
             }
-            return (allies.Sum(u => rules == null ? u.Stats.BaseBattlePower :
-                BasePower.Rating(u, rules) * Math.Sqrt(u.Health / u.Stats.Health)), null);
+            return (rules == null ? allies.Sum(u => u.Stats.BaseBattlePower) : BasePower.FormationRating(allies, rules), null);
         }
 
         public double AllyPower(BaseState state, bool deployed) => Power(state, deployed).ally;

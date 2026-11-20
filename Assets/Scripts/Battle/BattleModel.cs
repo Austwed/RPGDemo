@@ -268,7 +268,9 @@ namespace BaseConquest.Battle
         public bool ShowEnemiesThroughFog = true;
         public bool TestAutoDeployment = true;
         public ArmyDefinition Army(BattleSide side) => side == BattleSide.A ? A : B;
-        internal bool Leaderless(BattleSide side) => BanditHideout && side == BattleSide.B;
+        // Isolated force calibration uses the same independent-soldier deployment as the hideout.
+        [NonSerialized] internal bool IndependentArmyA, IndependentArmyB;
+        internal bool Leaderless(BattleSide side) => side == BattleSide.A ? IndependentArmyA : BanditHideout || IndependentArmyB;
         public BattleScenario Clone()
         {
             var copy = new BattleScenario { Effects = (Effects ?? new BattleEffectRules()).Clone(), Board = (Board ?? BattleBoard.CreateDefault()).Clone(), A = (A ?? new ArmyDefinition()).Clone(), B = (B ?? new ArmyDefinition()).Clone(), MaxRounds = Math.Max(1, MaxRounds), StalemateRounds = Math.Max(1, StalemateRounds), SkillRange = Math.Max(1, SkillRange), SkillRadius = Math.Max(0, SkillRadius), SkillDamage = Math.Max(0, SkillDamage), SkillCooldown = Math.Max(1, SkillCooldown), RandomSeed = RandomSeed, HeightVision=HeightVision, FogEnabled = FogEnabled, VisionRadius = Math.Max(1, Math.Min(32, VisionRadius)) };
@@ -277,7 +279,7 @@ namespace BaseConquest.Battle
             copy.PlayerLeaderSlot = PlayerLeaderSlot;
             copy.PlayerHeroAppearance = PlayerHeroAppearance;
             copy.DefenderVisionEnabled = DefenderVisionEnabled; copy.CampaignRules = CampaignRules;
-            copy.BanditHideout = BanditHideout;
+            copy.BanditHideout = BanditHideout; copy.IndependentArmyA = IndependentArmyA; copy.IndependentArmyB = IndependentArmyB;
             copy.InstantDeathEnabled = InstantDeathEnabled; copy.LeaderInstantDeath = LeaderInstantDeath; copy.TroopInstantDeath = TroopInstantDeath;
             copy.SupplyBattleId = SupplyBattleId ?? "";
             copy.MobileBattleRules = MobileBattleRules; copy.ShowEnemiesThroughFog = ShowEnemiesThroughFog; copy.TestAutoDeployment = TestAutoDeployment;

@@ -48,7 +48,10 @@ namespace BaseConquest.Editor
             public Side A = new Side(), B = new Side();
         }
 
-        [MenuItem("基地征服/战力标定/跑一批对局")]
+        [MenuItem("基地征服/战力标定/四职业基准兵力")]
+        public static void RunFourProfession() => PowerCalibrationMatrix.Run();
+
+        [MenuItem("基地征服/战力标定/历史三职业对局")]
         public static void Run()
         {
             Directory.CreateDirectory(OutDir);

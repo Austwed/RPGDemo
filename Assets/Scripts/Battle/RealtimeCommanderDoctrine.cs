@@ -21,6 +21,8 @@ namespace BaseConquest.RealtimePrototype
         public bool CommanderDoctrine;
         public bool BothSidesHuman;
         public bool LeaderlessEnemyAssault;
+        internal bool LeaderlessAllyAssault;
+        internal bool IndependentAssault(PrototypeSide side) => side == PrototypeSide.Enemy ? LeaderlessEnemyAssault : LeaderlessAllyAssault;
         public Func<PrototypeUnit,PrototypeUnit,PrototypePoint,double> HeightRangeBonus;
         public Func<PrototypePoint,PrototypePoint,bool> HeightShotClear;
         public double ReachFor(PrototypeUnit actor,PrototypeUnit target,PrototypePoint? origin=null)=>actor.Reach+(HeightRangeBonus?.Invoke(actor,target,origin??actor.Position)??0);
@@ -120,7 +122,7 @@ namespace BaseConquest.RealtimePrototype
                     .OrderBy(c=>d[c]).DefaultIfEmpty(Arena.CellAt(u.Goal)).First();
                 u.Goal=Arena.Center(goal);u.MoveGoal=goal;return;
             }
-            if(LeaderlessEnemyAssault&&u.Side==PrototypeSide.Enemy)
+            if(IndependentAssault(u.Side))
             {
                 var assaultTarget=Target(u);
                 if(assaultTarget!=null)DoctrinePursue(u,assaultTarget);
