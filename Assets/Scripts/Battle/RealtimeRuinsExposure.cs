@@ -109,7 +109,7 @@ namespace BaseConquest.Battle
         internal void RecordEnvironmentHit(int targetId,float damage,string cause="遗迹侵蚀")
         {
             var target=Soldier(targetId);target.LastHitSourceId=-1;target.Health=Math.Max(0,target.Health-damage);target.LastDamageTaken=damage;ResolveCasualties();
-            AddEvent(new BattleEvent {SourceId=-1,TargetId=targetId,Damage=damage,RemainingHealth=target.Health,Message=cause+"："+UnitName(target)+"受到 "+damage.ToString("0.#")+" 伤害",Lethal=target.InstantDead,Downed=target.KnockedDown,SeenByA=Vision.CanSee(BattleSide.A,target),SeenByB=Vision.CanSee(BattleSide.B,target)});
+            AddEvent(new BattleEvent {SourceId=-1,TargetId=targetId,Damage=damage,RemainingHealth=target.Health,Message=cause+"："+UnitName(target)+"受到 "+damage.ToString("0")+" 伤害",Lethal=target.InstantDead,Downed=target.KnockedDown,SeenByA=Vision.CanSee(BattleSide.A,target),SeenByB=Vision.CanSee(BattleSide.B,target)});
         }
     }
 }

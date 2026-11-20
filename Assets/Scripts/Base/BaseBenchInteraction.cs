@@ -89,7 +89,16 @@ namespace BaseConquest.Base
                 try
                 {
                     Companions.Capture(State);
-                    BaseBattleGateway.Session().SaveExplorationNode(State, "长椅休息");
+                    var next = State;
+                    bool ending = BaseDemoFinale.EndingBench(State) != null;
+                    if (ending)
+                    {
+                        next = State.Copy();
+                        ending = BaseDemoFinale.FinishAtBench(next, benchSeat.Id);
+                    }
+                    BaseBattleGateway.Session().SaveExplorationNode(next, ending ? "白桦村 · 试玩篇完" : "长椅休息");
+                    State = next;
+                    if (ending) Hud.OpenDemoStory(showCompletion:true);
                     ReportMessage("已自动存档");
                 }
                 catch (System.Exception error) { ReportMessage("自动存档失败：" + error.Message); }

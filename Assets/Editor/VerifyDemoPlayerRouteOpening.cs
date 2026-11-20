@@ -84,9 +84,11 @@ namespace BaseConquest.Editor
             Need(BaseDemoPrologue.Evacuating(state) && BaseDemoPrologue.Followers(state).Count() == 3, "民兵离开后未推进三人撤离");
             Need(BasePartyInventory.Find(state, state.Demo.Intro.PracticeId) != null, "撤离时丢失了搭档赠送的短剑");
             WalkToOpeningObject(state, "prologue_trigger");
+            if (saveFixture) SaveRouteCheckpoint(state, "pursuit-arrival");
             Need(BaseDemoPrologue.BeginPursuit(state), "抵达东侧撤离点未触发追兵");
             CheckPursuitDefeat(state.Copy());
             PlayOpeningPursuit(state);
+            if (saveFixture) SaveRouteCheckpoint(state, "pursuit-wounded");
             Need(BaseDemoPrologue.Recover(state), "重伤后无法进入灰岩营地");
             if(story!=null)CheckAuthoredBoard(state,story,"camp");
             else At(state, "home");

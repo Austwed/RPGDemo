@@ -8,6 +8,7 @@ namespace BaseConquest.Base
 {
     public static class BaseBanditHideout
     {
+        private static readonly SoldierKind[] HideoutKinds = { SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry };
         public const string EntryId = "demo_bandit_hideout";
         public const string MapId = "demo_bandit_hideout_map";
         public const string EventId = "demo:bandit-hideout";
@@ -166,7 +167,7 @@ namespace BaseConquest.Base
             var enemies = new List<BaseEnemyMember>(size);
             for (int i = 0; i < size; i++)
             {
-                var kind = BattleSimulation.TroopKinds[random.Next(BattleSimulation.TroopKinds.Length)];
+                var kind = HideoutKinds[random.Next(HideoutKinds.Length)];
                 int profession = BaseRpg.Profession(kind);
                 var id = $"{EventId}:{seed}:unit:{i}";
                 var character = new RpgCharacter { Version = 1, Id = id, Profession = profession,

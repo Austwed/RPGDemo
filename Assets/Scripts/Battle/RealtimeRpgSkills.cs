@@ -99,23 +99,23 @@ namespace BaseConquest.Battle
         private string RpgSkillDescription(BattleSide side,int slot)
         {
             var skill=Skill(side,slot);if(skill==null)return "无主动技能";var d=Rpg.Skills.Single(s=>s.Id==skill.Id);
-            return d.Name + " · " + SkillEffect(d) + $" · 冷却 {d.Cooldown} 秒 · 自动施放" + (skill.Auto ? "开启" : "关闭") +
-                (skill.ActiveUntil > Model.Elapsed ? "\n效果剩余 " + (skill.ActiveUntil - Model.Elapsed).ToString("0.0") + " 秒" : "");
+            return d.Name + " · " + SkillEffect(d) + $" · 冷却 {CombatNumbers.Duration(d.Cooldown)} · 自动施放" + (skill.Auto ? "开启" : "关闭") +
+                (skill.ActiveUntil > Model.Elapsed ? "\n效果剩余 " + CombatNumbers.Duration(skill.ActiveUntil - Model.Elapsed) : "");
         }
 
         private static string SkillEffect(RpgSkillDefinition skill)
         {
             string effect = skill.Id switch
             {
-                "inspire" => $"攻击 +{skill.Amount:0.##%}",
+                "inspire" => $"攻击 +{skill.Amount:0%}",
                 "march" => $"移速 +{skill.Amount} 细格／秒，免地形减速",
                 "heal" => $"每秒恢复 {skill.Amount} 生命，共 {Math.Floor(skill.Duration)} 次",
-                "sweep" => $"半径 {skill.Radius} 细格，{skill.Amount} 倍攻击，逐目标掷 D10",
-                "charge" => $"移速 +{skill.SpeedBonus:0.##%}，下一击 {skill.Amount} 倍",
-                "rapid_fire" => $"自身攻速 +{skill.Amount:0.##%}",
+                "sweep" => $"半径 {skill.Radius} 细格，{skill.Amount:P0} 攻击，逐目标掷 D10",
+                "charge" => $"移速 +{skill.SpeedBonus:0%}，下一击 {skill.Amount:P0}",
+                "rapid_fire" => $"自身攻速 +{skill.Amount:0%}",
                 _ => $"效果 {skill.Amount}"
             };
-            return skill.Duration > 0 ? effect + $"，持续 {skill.Duration} 秒" : effect;
+            return skill.Duration > 0 ? effect + $"，持续 {CombatNumbers.Duration(skill.Duration)}" : effect;
         }
     }
     public sealed partial class BattleSimulation

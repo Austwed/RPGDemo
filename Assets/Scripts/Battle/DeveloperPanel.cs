@@ -169,14 +169,14 @@ namespace BaseConquest.Battle
         private void Render()
         {
             var battle=battleOwner?.PreviewSimulation;bool realtime=battleOwner?.IsRealtimeCampaign==true;var unit=battle?.Soldier(unitId);targetText.fontSize=17;
-            targetText.text="单位："+(unit==null ? "未选" : battle.UnitName(unit)+" #"+unit.Id+" 生命 "+unit.Health.ToString("0.#")+"/"+unit.Stats.Health.ToString("0.#"))+"\n格子："+(cell.HasValue ? cell.Value.ToString() : "未选")+"；"+(target.Kind==DeveloperTargetKind.None ? "先选择效果" : "待执行："+target.Title);
+            targetText.text="单位："+(unit==null ? "未选" : battle.UnitName(unit)+" #"+unit.Id+" 生命 "+CombatNumbers.RemainingHealth(unit.Health)+"/"+unit.Stats.Health.ToString("0"))+"\n格子："+(cell.HasValue ? cell.Value.ToString() : "未选")+"；"+(target.Kind==DeveloperTargetKind.None ? "先选择效果" : "待执行："+target.Title);
             instructionText.text=page==4 ? "编辑对话与剧情；保存立即生效，不修改游戏进度。" : "先选效果，再点地图目标；同格多人时再选具体单位。";
             float offset=body.anchoredPosition.y;foreach(Transform child in body.Cast<Transform>().ToArray()){child.gameObject.SetActive(false);UiPrefabBinding.DestroyView(child.gameObject);}y=8;
             if(target.Kind==DeveloperTargetKind.Unit&&cell.HasValue)
             {
                 Line("已选效果："+target.Title+"；选择此格内的具体单位。",60);
                 foreach(var u in battle.Soldiers.Where(u=>u.Cell==cell.Value&&!u.Escaped).OrderBy(u=>u.Id))
-                {int id=u.Id;Add(battle.UnitName(u)+" #"+id+" · 生命 "+u.Health.ToString("0.#")+"/"+u.Stats.Health.ToString("0.#"),()=>ApplyUnit(id));}
+                {int id=u.Id;Add(battle.UnitName(u)+" #"+id+" · 生命 "+u.Health.ToString("0")+"/"+u.Stats.Health.ToString("0"),()=>ApplyUnit(id));}
                 Add("取消此效果",()=>{target.Cancel();cell=null;Render();});
             }
             else if(page==0)

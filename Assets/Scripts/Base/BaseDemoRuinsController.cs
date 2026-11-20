@@ -52,6 +52,7 @@ namespace BaseConquest.Base
                 {
                     double elapsed = Time.unscaledTimeAsDouble - galanFallStarted;
                     sprite.Preview(HeroPose.Down, elapsed, fallenGalanFacing);
+                    MapSpriteOrder.Apply(body.transform, body.transform.position.z, true);
                     if (elapsed >= 1) yield break;
                     yield return null;
                 }
@@ -185,7 +186,7 @@ namespace BaseConquest.Base
                 if (!BaseRuinsRewards.Skip(next, route)) throw new InvalidOperationException(BaseRuinsRewards.ClaimProblem(next, route));
             }, "已放弃本次副本奖励")) return;
             Hud.ClosePanel();
-            if (route == BasePrepRoute.Hideout && State.Aftermath.Loot.Any(item => item.BattleId == battle && !item.Closed))
+            if (BaseHud.HasDungeonAftermath(State, battle))
                 Hud.OpenLoot(battle);
         }
     }

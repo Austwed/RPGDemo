@@ -56,14 +56,23 @@ namespace BaseConquest.Battle
             var colors = new[] { new Color(0.2f, 1, 0.4f), new Color(1, 0.68f, 0.12f), new Color(1, 0.18f, 0.18f), new Color(0.25f, 0.65f, 1) };
             for (int i = 0; i < 4; i++) { var color = HighlightedRange == i ? colors[i] : colors[i] * 0.42f; properties.SetColor("_BaseColor", color); properties.SetColor("_Color", color); borders[i].SetPropertyBlock(properties); }
         }
+        public static bool IncludesAttackCell(RealtimeCampaignBattle run, PrototypeUnit unit, PrototypePoint point)
+        {
+            var origin=unit.Position;
+            double reach=unit.Reach;
+            if(run.Battle.Scenario.HeightVision && unit.UsesRangedWeapon)
+                reach+=BattleHeightSight.ArcherBonus(run.Battle.Board,origin.X,origin.Z,point.X,point.Z)/PrototypeArena.Subdivision;
+            return (point-origin).Length<=reach+1e-9 && run.Model.ClearAttack(origin,point);
+        }
+
         public void RefreshRealtime(RealtimeCampaignBattle run,PrototypeUnit unit)
         {
             bool show=unit!=null&&unit.Alive&&run.Battle.Phase==BattlePhase.Fighting&&run.Battle.Vision.CanSee(BattleSide.A,run.Battle.Soldier(unit.Id-1));
             Root.SetActive(show);Description="";if(!show)return;
             bool guard=unit.Role==PrototypeRole.Leader&&run.Model.CommanderDoctrine;
             HighlightedRange=2;
-            Description="范围："+run.Battle.UnitName(run.Battle.Soldier(unit.Id-1))+"\n蓝：攻击距离 "+(unit.Reach*2).ToString("0.#")+"细格（高度／墙体遮挡处截断，高处最多＋6细格）";
-            if(guard)Description+="\n绿：驻守 "+(unit.GuardRadius*2).ToString("0.#")+"；橙：威胁 "+(unit.ThreatRadius*2).ToString("0.#")+"；红：主动攻击 "+(unit.CommandRadius*2).ToString("0.#")+"细格\n士兵围绕队长，守护／驻守队长围绕驻守点。策略："+BattleSimulation.StrategyName((SquadStrategy)(int)unit.Strategy);
+            Description="范围："+run.Battle.UnitName(run.Battle.Soldier(unit.Id-1))+"\n蓝：攻击距离 "+(unit.Reach*2).ToString("0")+"细格（高度／墙体遮挡处截断，高处最多＋6细格）";
+            if(guard)Description+="\n绿：驻守 "+(unit.GuardRadius*2).ToString("0")+"；橙：威胁 "+(unit.ThreatRadius*2).ToString("0")+"；红：主动攻击 "+(unit.CommandRadius*2).ToString("0")+"细格\n士兵围绕队长，守护／驻守队长围绕驻守点。策略："+BattleSimulation.StrategyName((SquadStrategy)(int)unit.Strategy);
             string key="rt|"+unit.Id+"|"+unit.Position.X+"|"+unit.Position.Z+"|"+unit.Anchor.X+"|"+unit.Anchor.Z+"|"+guard+"|"+unit.Strategy+"|"+unit.Order+"|"+unit.Reach+"|"+unit.Cell+"|"+run.Battle.Vision.Revision+"|"+run.Battle.TerrainRevision+"|"+run.Tactics.Revision;
             if(geometryKey==key)return;geometryKey=key;
             var arena=run.Model.Arena;var board=run.Battle.Board;
@@ -79,9 +88,12 @@ namespace BaseConquest.Battle
                 for(int z=minZ;z<=maxZ;z++)for(int x=minX;x<=maxX;x++)
                 {
                     int cell=z*arena.FineColumns+x;var point=arena.Center(cell);
-                    double effectiveRadius=range==3&&run.Battle.Scenario.HeightVision&&unit.UsesRangedWeapon?unit.Reach+BattleHeightSight.ArcherBonus(board,center.X,center.Z,point.X,point.Z)/2:radius;
-                    if((point-center).Length>effectiveRadius+1e-9||!run.Battle.Vision.Visible(BattleSide.A,new GridPosition(x/2,z/2)))continue;
-                    if(range==3?!(run.Battle.Scenario.HeightVision?BattleHeightSight.Clear(board,center.X,center.Z,point.X,point.Z):double.IsPositiveInfinity(arena.WallFraction(center,point))):!arena.FineWalkable(cell)||double.IsPositiveInfinity(reachable[cell]))continue;
+                    if(!run.Battle.Vision.Visible(BattleSide.A,new GridPosition(x/2,z/2)))continue;
+                    if(range==3)
+                    {
+                        if(!IncludesAttackCell(run,unit,point))continue;
+                    }
+                    else if((point-center).Length>radius+1e-9||!arena.FineWalkable(cell)||double.IsPositiveInfinity(reachable[cell]))continue;
                     cells.Add(new GridPosition(x,z));
                 }
                 var vertices=new List<Vector3>();var indices=new List<int>();float r=BattleBoardView.CellSize*.25f;

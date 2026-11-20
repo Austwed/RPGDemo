@@ -69,15 +69,14 @@ namespace BaseConquest.Editor
                     for(int col=0;col<directions.Length;col++)
                     {
                         var direction = directions[col];
-                        var actor = new PrototypeUnit{ Facing=direction,FootprintLength=2,Side=row==0?PrototypeSide.Ally:PrototypeSide.Enemy,Health=100};
+                        var actor = new PrototypeUnit{ Facing=direction,Mounted=true,Side=row==0?PrototypeSide.Ally:PrototypeSide.Enemy,Health=100};
                         pawn.SyncRealtime(session.Battle,actor,0,center);
                         var graphic = pawn.transform.Find("PixelDemoCharacter").GetComponent<Renderer>();
                         var ground = pawn.transform.Find("GroundOccupation").GetComponent<Renderer>();
                         var bounds = ground.bounds;
-                        bool vertical=direction.Z!=0;
                         Need(Math.Abs(bounds.center.x-center.x)<.001f && Math.Abs(bounds.center.z-center.z)<.001f &&
-                            Math.Abs(bounds.size.x-2*actor.BodyHalf.X*BattleBoardView.CellSize)<.001f &&
-                            Math.Abs(bounds.size.z-2*actor.BodyHalf.Z*BattleBoardView.CellSize)<.001f,"阵营色偏离实际双格碰撞范围");
+                            Math.Abs(bounds.size.x-BattleBoardView.CellSize/PrototypeArena.Subdivision)<.001f &&
+                            Math.Abs(bounds.size.z-BattleBoardView.CellSize/PrototypeArena.Subdivision)<.001f,"阵营色偏离实际单细格占位");
                         var dressed=Capture(); Keep(col,row,dressed); graphic.enabled=false; var bare=Capture(); graphic.enabled=true;
                         var vp=camera.WorldToViewportPoint(center);
                         int groundY=Mathf.FloorToInt(vp.y*size), mid=Mathf.FloorToInt(vp.x*size);
@@ -88,7 +87,7 @@ namespace BaseConquest.Editor
                             for(int x=mid-22;x<=mid+22;x++)
                                 if(Delta(dressed[y*size+x],bare[y*size+x])>36){bottom=y;break;}
                         float hoof=(bottom+.5f-groundY)*2*camera.orthographicSize/size/BattleBoardView.CellSize;
-                        Need(bottom>=0 && (vertical?hoof>-.5f && hoof<-.02f:Math.Abs(hoof)<.22f),
+                        Need(bottom>=0 && Math.Abs(hoof)<.25f,
                             soldier.AppearanceId+" 朝向"+direction.X+","+direction.Z+"，蹄底偏移 "+hoof+" 格");
                         Debug.Log($"[CombatArt] {soldier.AppearanceId} {direction.X},{direction.Z} hoof {hoof:F3} cells");
                     }
@@ -209,6 +208,7 @@ namespace BaseConquest.Editor
             var shover=shoveModel.AddUnit(PrototypeSide.Ally,PrototypeRole.Melee,new PrototypePoint(3.25,3.25));
             Need(shoveModel.SetFootprint(shover,2),"斜向挤开骑兵初始化失败");
             var blocker=shoveModel.AddUnit(PrototypeSide.Ally,PrototypeRole.Melee,new PrototypePoint(3.75,3.75));
+            shover.Mounted=true;
             int wanted=blocker.Cell;
             var shove=typeof(RealtimeBattlePrototype).GetMethod("TryShoveThrough",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
             Need(shove!=null&&(bool)shove.Invoke(shoveModel,new object[]{shover,wanted}),"斜向前方友军未让位");

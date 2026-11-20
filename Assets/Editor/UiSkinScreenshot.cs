@@ -24,7 +24,7 @@ namespace BaseConquest.Editor
     // 产物：Logs/wood-ui/。
     // RunPlayerRouteViews 通过连续路线的存档补拍首防后对白、世界地图与返乡重建。
     // 截图沿用 UiInventoryCapture 的双遍合成：世界相机渲一张，屏幕空间 Overlay 的 Canvas 再单独渲到透明底按 alpha 叠回。
-    public static class UiSkinScreenshot
+    public static partial class UiSkinScreenshot
     {
         private static readonly string OutDir = Path.Combine("Logs", "wood-ui");
         private static double deadline, stageAt, nextLog;
@@ -82,6 +82,12 @@ namespace BaseConquest.Editor
             Run();
         }
 
+        public static void RunPursuitPresentation()
+        {
+            stage = "pursuit-boot";
+            Run();
+        }
+
         public static void RunOpeningCopy()
         {
             stage = "opening-copy";
@@ -123,9 +129,95 @@ namespace BaseConquest.Editor
                 stage = "mage-roster-open";
                 return;
             }
+            if (stage == "mage-roster-camp")
+            {
+                if (controller.State.Campaign.Location != "base") return;
+                foreach (string id in new[]{"farm","workshop"})
+                {
+                    var facility = OpenCivilianFacility(id);
+                    var actions = facility.Find("Left/List").GetComponent<ScrollRect>().content;
+                    foreach (var kind in BattleSimulation.TroopKinds)
+                    {
+                        var counter=actions.Find(BaseCampaign.ToBase(kind).ToString());
+                        if (counter.Find("Minus").gameObject.activeSelf || counter.Find("Plus").gameObject.activeSelf ||
+                            counter.Find("Input").GetComponent<InputField>()==null) throw new InvalidOperationException("设施缺少四兵种数字框");
+                    }
+                    var rows=facility.Find("Right/List").GetComponent<ScrollRect>().content;
+                    if (RosterUnits(rows).Length!=BasePersonnel.Soldiers(controller.State).Count() ||
+                        rows.GetComponentsInChildren<Text>().Any(t=>t.text.Contains("村民 ×"))) throw new InvalidOperationException("设施名册不同步");
+                    foreach (var row in RosterUnits(rows)) VerifyRosterRow(row,false);
+                    var workers=RosterUnits(rows);
+                    var assigned=workers.FirstOrDefault(r=>r.GetComponent<Button>().interactable && r.Find("Status").GetComponent<Text>().text.StartsWith(BaseEconomy.FacilityName(id)));
+                    if (assigned!=null && assigned.GetComponent<Image>().color.g<=assigned.GetComponent<Image>().color.r)
+                        throw new InvalidOperationException("本设施士兵未显示淡绿");
+                    var blocked=workers.First(r=>!r.GetComponent<Button>().interactable);
+                    if (blocked.GetComponent<Image>().color.r<=blocked.GetComponent<Image>().color.g)
+                        throw new InvalidOperationException("不合资格士兵未显示淡红");
+                    Press(facility,"Right/Filters/Status");
+                    Capture("p53-"+id+"-1920x1080",1920,1080);
+                    Capture("p53-"+id+"-960x540",960,540);
+                    Capture("p53-"+id+"-960x432",960,432);
+                }
+                H.ClosePanel();
+                Approach("barracks"); H.OpenObject("barracks");
+                var barracks=RequirePanel("FacilityPanel");
+                var controls=barracks.Find("Left/List").GetComponent<ScrollRect>().content;
+                Press(controls,"EditFormation");
+                var barracksRoster=barracks.Find("Right/List").GetComponent<ScrollRect>().content;
+                var pick=RosterUnits(barracksRoster).First(r=>r.GetComponent<Button>().interactable);
+                ClickHudButton(pick);
+                if (RequirePanel("FacilityPanel")!=barracks || !pick.gameObject.activeInHierarchy ||
+                    !pick.Find("Status").GetComponent<Text>().text.Contains("已编入"))
+                    throw new InvalidOperationException("兵营点名未就地保存编队偏好");
+                Capture("p53-barracks-960x540",960,540);
+                H.ClosePanel();
+                Approach("home"); H.OpenHome();
+                var tent = RequirePanel("FacilityPanel");
+                var captains = RosterUnits(tent.Find("Right/List").GetComponent<ScrollRect>().content);
+                var dashboard = tent.Find("Left/List").GetComponent<ScrollRect>().content;
+                if (!captains.Any() || tent.Find("PortraitColumn/FacilityActionRow/farm")==null || !dashboard.GetComponentsInChildren<Text>().Any(t=>t.text.Contains("日结预览")) ||
+                    SceneRect(tent.Find("Right"),tent).center.x >= SceneRect(tent.Find("PortraitColumn"),tent).center.x ||
+                    SceneRect(tent.Find("PortraitColumn"),tent).center.x >= SceneRect(tent.Find("Left"),tent).center.x)
+                    throw new InvalidOperationException("营帐三栏或固定日结预览缺失");
+                if (captains.Length>1) ClickHudButton(captains[1]);
+                if (RequirePanel("FacilityPanel")!=tent || !Object.ReferenceEquals(dashboard,tent.Find("Left/List").GetComponent<ScrollRect>().content))
+                    throw new InvalidOperationException("切队长时重建了营帐");
+                Capture("p53-tent-1920x1080",1920,1080);
+                Capture("p53-tent-960x540",960,540);
+                Capture("p53-tent-960x432",960,432);
+                H.ClosePanel();
+                var duel = H.OpenLanDuel();
+                if (duel == null) throw new InvalidOperationException("营地模拟对抗入口未开放");
+                typeof(LanDuelScreen).GetMethod("ShowPreparation",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(duel,null);
+                var duelPage = duel.transform.Cast<Transform>().Last(t=>t.gameObject.activeSelf && t.name=="DuelPage");
+                var duelList = duelPage.Find("Soldiers").GetComponent<ScrollRect>().content;
+                if (RosterUnits(duelList).Length != BasePersonnel.Soldiers(controller.State).Count() ||
+                    !Enumerable.Range(0,3).All(i=>duelPage.Find("Captain"+i)!=null) ||
+                    !Enumerable.Range(0,4).All(i=>duelPage.Find("Filter"+i)!=null) ||
+                    duelPage.Find("Captain0").GetComponentsInChildren<InputField>().Length!=4)
+                    throw new InvalidOperationException("模拟对抗名册、筛选或数字编队布局缺失");
+                var duelPick=RosterUnits(duelList).First(r=>r.GetComponent<Button>().interactable);
+                var duelUnit=duel.Draft.Units.Single(u=>u.Id==duelPick.name);
+                bool previous=duelUnit.Selected;
+                ClickHudButton(duelPick);
+                if (previous==duelUnit.Selected && duelUnit.TeamId==duel.Draft.PlayerId)
+                    throw new InvalidOperationException("模拟对抗名册点选未调整当前队长编队");
+                Capture("p53-lan-960x540",960,540);
+                duel.Leave();
+                Finish(0,"P53 名册、备战、设施和营帐三分辨率及联机备战面板通过"); return;
+            }
             if (controller.State.Campaign.Location != "perimeter") return;
             if (stage == "mage-roster-open")
             {
+                if (!controller.Change(state =>
+                {
+                    if (!state.Workers.Any(w=>w.Kind==BaseTroopKind.Mage && !w.VillageResident))
+                        state.Workers.Add(new BaseWorkerBucket { Kind=BaseTroopKind.Mage,Count=3,Health=80,MaxHealth=80 });
+                    state.Workers.Add(new BaseWorkerBucket { Kind=BaseTroopKind.Mage,Count=1,Health=80,MaxHealth=80,VillageResident=true });
+                    state.Workers.Add(new BaseWorkerBucket { Kind=BaseTroopKind.Melee,Count=30,Health=100,MaxHealth=100 });
+                    state.Workers.Add(new BaseWorkerBucket { Kind=BaseTroopKind.Ranged,Count=1,Health=10,MaxHealth=100 });
+                    BaseDevelopment.SetPolicy(state,"food");
+                },"")) throw new InvalidOperationException("无法载入实名整备检查人员 "+controller.Message);
                 Approach("demo_defense_start");
                 H.OpenObject("demo_defense_start");
                 stage = "mage-roster-layout";
@@ -151,24 +243,24 @@ namespace BaseConquest.Editor
                     var header = SceneRect((RectTransform)prep.Find(kind + "Heading"), prep);
                     var column = SceneRect((RectTransform)card.Find(kind), prep);
                     if (bounds.xMin < edge - 1 || bounds.xMax > card.rect.xMax + 1 || Mathf.Abs(header.center.x - column.center.x) > 1)
-                        throw new InvalidOperationException("备战兵种列溢出、重叠或表头不齐：" + kind);
+                        throw new InvalidOperationException($"备战兵种列 {kind} 左 {bounds.xMin} 上一列右 {edge} 右 {bounds.xMax} 卡片右 {card.rect.xMax} 表头中心 {header.center.x} 内容中心 {column.center.x}");
                     edge = bounds.xMax;
                 }
             }
             var candidates = (RectTransform)prep.Find("Candidates");
             float last = candidates.rect.xMin;
-            foreach (var kind in kinds.Prepend("All"))
+            foreach (var kind in new[] {"All","Melee","SortHealth","SortStatus"})
             {
                 var rect = SceneRect((RectTransform)candidates.Find(kind), candidates);
                 if (rect.xMin < last - 1 || rect.xMax > candidates.rect.xMax + 1)
                     throw new InvalidOperationException("名册筛选超出内容区：" + kind);
                 last = rect.xMax;
             }
-            Press(candidates, "Mage");
+            for(int i=0;i<4;i++) Press(candidates, "Melee");
             var list = candidates.Find("List").GetComponent<ScrollRect>().content;
             var mages = RosterUnits(list);
             if (mages.Length != BasePersonnel.Soldiers(controller.State, SoldierKind.Mage).Count() || mages.Length == 0)
-                throw new InvalidOperationException("法师筛选人数与实际状态不同");
+                throw new InvalidOperationException($"法师筛选人数与实际状态不同 当前 {mages.Length} 应有 {BasePersonnel.Soldiers(controller.State, SoldierKind.Mage).Count()} 筛选 {candidates.Find("Melee/Label").GetComponent<Text>().text}");
             foreach (var row in mages)
             {
                 VerifyRosterRow(row, true);
@@ -181,7 +273,27 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("全部筛选未恢复完整名册");
             Capture("p52-preparation-all-960x540", 960, 540);
             if (failed) throw new InvalidOperationException("备战截图失败");
-            Finish(0, "P52 三名队长、四列兵力、五个筛选及单行名册已核对");
+            var master=cards.First();
+            var input=master.Find("Melee/Input").GetComponent<InputField>();
+            input.onEndEdit.Invoke("0");
+            if (input.text!="0") throw new InvalidOperationException("实名输入不能减至零");
+            input.onEndEdit.Invoke("999");
+            if (!int.TryParse(input.text,out int actual) || actual<1 || actual>BaseMuster.BattleSoldierLimit)
+                throw new InvalidOperationException("出战人数上限错误");
+            var remote=RosterUnits(list).First(row=>row.Find("Status").GetComponent<Text>().text.Contains("异地"));
+            if(remote.GetComponent<Button>().interactable || remote.GetComponent<Image>().color.g>=remote.GetComponent<Image>().color.r)
+                throw new InvalidOperationException("异地士兵不可参战状态或底色错误");
+            Capture("p53-preparation-1920x1080",1920,1080);
+            Capture("p53-preparation-960x540",960,540);
+            Capture("p53-preparation-960x432",960,432);
+            foreach(var card in cards)
+                foreach(var kind in kinds)
+                    if(card.Find(kind+"/Plus").gameObject.activeInHierarchy || card.Find(kind+"/Minus").gameObject.activeInHierarchy)
+                        throw new InvalidOperationException("备战仍显示加减控件");
+            H.ClosePanel();
+            Approach("demo_defense_return");
+            controller.TravelDemo("base");
+            stage="mage-roster-camp";
         }
 
         public static void RunSoldierRoster()
@@ -310,6 +422,7 @@ namespace BaseConquest.Editor
         {
             if (failed || EditorApplication.timeSinceStartup > deadline) { Finish(2, "超时或前置失败：" + stage); return; }
             if (!EditorApplication.isPlaying) { Note("等待进入 playmode"); return; }
+            if (stage.StartsWith("footstep-",StringComparison.Ordinal)){TickFootstepRecording();return;}
             if (stage.StartsWith("civilian-", StringComparison.Ordinal)) { TickCivilianWork(); return; }
             if (stage.StartsWith("ruins-exit-", StringComparison.Ordinal)) { TickRuinsExit(); return; }
             if(stage.StartsWith("road-",StringComparison.Ordinal)){TickRoadContacts();return;}
@@ -451,6 +564,33 @@ namespace BaseConquest.Editor
                     if (H.DialogueOpen) throw new InvalidOperationException("无答复的独白跳过后未收起");
                     Finish(0, "苏醒与王室剑须主动发言，招募、交易及领主接取等待选择，纯叙述可跳过 PASS");
                     break;
+                case "pursuit-boot":
+                    controller = C;
+                    if (controller?.State == null || controller.Busy) return;
+                    LoadRouteView("pursuit-arrival");
+                    break;
+                case "route-pursuit-arrival":
+                    if (!RouteViewReady(BaseDemoPrologue.Evacuating)) return;
+                    if (!H.DialogueOpen)
+                    {
+                        H.ClosePanel();
+                        MoveSceneExplorer(Vector2.zero);
+                    }
+                    if (!H.DialogueOpen || Field(Object.FindAnyObjectByType<VillageOpeningAudio>(), "place").ToString() != "Battle")
+                        throw new InvalidOperationException("追兵出现时未播放战斗曲");
+                    Capture("p53-pursuit-arrival", 960, 540);
+                    LoadRouteView("pursuit-wounded");
+                    break;
+                case "route-pursuit-wounded":
+                    if (!RouteViewReady(s => s.Demo.Stage == BaseDemoStage.PrologueWounded)) return;
+                    if (!H.DialogueOpen) H.OpenDemoStory();
+                    var background = ((RectTransform)Field(H, "modal")).GetComponent<Image>();
+                    var choice = (RectTransform)Field(H, "heroChoiceLayer");
+                    if (background.color != Color.black || (choice != null && choice.gameObject.activeInHierarchy))
+                        throw new InvalidOperationException("剑伤旁白底色未完全遮住场景和选角控件");
+                    Capture("p53-pursuit-blackout", 960, 540);
+                    Finish(0, "追兵出现切曲、剑伤段落黑底 PASS");
+                    break;
                 case "opening-copy":
                     controller = C;
                     if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
@@ -486,16 +626,15 @@ namespace BaseConquest.Editor
                     break;
                 case "route-merchant":
                     if (!RouteViewReady(state => state.Campaign.Location == "base" && BaseDemoDefense.Won(state))) return;
-                    H.ClosePanel();
-                    H.OpenDemoMerchant();
-                    var merchantLine = RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>();
-                    if (!H.ContinueDialogue() || !merchantLine.text.Contains("巴图") || !merchantLine.text.Contains("黑鸦寨"))
-                        throw new InvalidOperationException("首防后老莫的第一句缺少来袭线索");
-                    if (!H.ContinueDialogue() || !H.ContinueDialogue() ||
-                        !merchantLine.text.Contains("南口") || !merchantLine.text.Contains("一天"))
-                        throw new InvalidOperationException("首防后老莫的第二句未交代寨址走法");
-                    CaptureViewports("ui-player-route-merchant-after-defense");
-                    Log.Add("[PASS] 首防后老莫在对白交代巴图、黑鸦寨与出征线索");
+                    if(!H.DialogueOpen)return;
+                    var merchantView=RequirePanel("NpcDialogue");
+                    var merchantLine=merchantView.Find("DialogueText").GetComponent<Text>();
+                    if(!merchantLine.text.Contains("来找我"))H.ContinueDialogue();
+                    if(merchantView.Find("SpeakerName").GetComponent<Text>().text!=BaseScriptNames.Merchant ||
+                        !merchantLine.text.Contains("黑鸦寨") || !merchantLine.text.Contains("钱") || !controller.State.Demo.Defense.MerchantDone)
+                        throw new InvalidOperationException("第七天的行商未主动提示付费消息");
+                    CaptureViewports("ui-player-route-merchant");
+                    Log.Add("[PASS] 第七日老莫主动报信，交易留在镇上");
                     H.ClosePanel();
                     LoadRouteView("second-occupation");
                     break;
@@ -686,7 +825,14 @@ namespace BaseConquest.Editor
                         throw new InvalidOperationException("田边村民的对白或建设选项尚未显示");
                     CaptureViewports("ui-player-route-home-volunteers");
                     Click("没什么事了。");
-                    if(!controller.State.Demo.Finale.VillageRebuilt)throw new InvalidOperationException("村民对话未完成结局");
+                    if(!controller.State.Demo.Finale.VillageRebuilt || controller.State.Demo.Finale.EndingSeen || H.PanelOpen)
+                        throw new InvalidOperationException("村民对话后应等玩家前往长椅");
+                    var finaleBench=controller.MapObjects.Single(o=>o.Id==BaseDemoFinale.EndingBench(controller.State));
+                    if(!controller.Change(s=>{s.PlayerX=finaleBench.X+finaleBench.Width*.29;s.PlayerY=finaleBench.Y-finaleBench.Height*.5-BaseMap.Radius-.06;},"") ||
+                        controller.Nearby?.Id!=finaleBench.Id+":seat:right")throw new InvalidOperationException("返乡长椅座位不可达");
+                    controller.Interact();
+                    var settleOnBench=typeof(BaseSceneController).GetMethod("MoveExploration",BindingFlags.Instance|BindingFlags.NonPublic);
+                    for(int frame=0;frame<9;frame++)settleOnBench.Invoke(controller,new object[]{Vector2.zero,.05});
                     FinishDialogue();
                     if((string)Field(H,"panelViewKey")!="demo-completion" || !controller.SaveStore.Load().Demo.Finale.EndingSeen)
                         throw new InvalidOperationException("结尾旁白读完后未显示或保存试玩完成卡");
@@ -1022,9 +1168,9 @@ namespace BaseConquest.Editor
                     if (Time.frameCount < frameDeadline) return;
                     var preparation = RequirePanel("BattlePreparation");
                     VerifyBelowTopBar(preparation);
-                    if (preparation.Find("Backpack") != null || ((RectTransform)preparation.Find("Continue")).anchoredPosition.x >
+                    if (preparation.Find("Backpack") != null || ((RectTransform)preparation.Find("Continue")).anchoredPosition.x <
                         ((RectTransform)preparation.Find("Reset")).anchoredPosition.x)
-                        throw new InvalidOperationException("备战页仍有额外背包按钮或部署按钮没有置左");
+                        throw new InvalidOperationException("备战页多出背包按钮或按钮顺序不是恢复后进入");
                     if (Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVED_LAYOUT") == "1" &&
                         ((RectTransform)preparation.Find("Close")).anchoredPosition != new Vector2(1025, -9))
                         throw new InvalidOperationException("启动后备战关闭按钮未读取保存的位置");
@@ -1033,8 +1179,8 @@ namespace BaseConquest.Editor
                     if (preparedPortraits.Length == 0 || preparedPortraits.Any(avatar => avatar.mainTexture.width != 256) ||
                         preparation.GetComponentsInChildren<RawImage>().Any(image => image.transform.parent.name == "全身像" || image.name == "全身像"))
                         throw new InvalidOperationException("战前编队未统一使用半身像");
-                    if (defenseDraft.RequiredSupply(false) <= 0 || preparation.Find("Continue").GetComponent<Button>().interactable)
-                        throw new InvalidOperationException("编入士兵后仍可未选军需进场");
+                    if (defenseDraft.RequiredSupply(false) <= 0 || defenseDraft.SupplyGrade!=1)
+                        throw new InvalidOperationException("首防测试编队缺少普通兵或未以一级军需起步");
                     Press(preparation, "Help");
                     if (!preparation.Find("HelpOverlay").gameObject.activeInHierarchy)
                         throw new InvalidOperationException("备战说明未打开");
@@ -1055,13 +1201,9 @@ namespace BaseConquest.Editor
                     preparation = RequirePanel("BattlePreparation");
                     if (defenseDraft.AvailableSupply(controller.State, 2) >= defenseDraft.RequiredSupply(false))
                         throw new InvalidOperationException("检查用首防阵容没有二级军需缺口");
-                    var gradeTwo = preparation.Find("Supply/Grade2").GetComponent<Button>();
-                    if (gradeTwo.interactable)
-                    {
-                        Press(preparation, "Supply/Grade2");
-                        if (preparation.Find("Continue").GetComponent<Button>().interactable)
-                            throw new InvalidOperationException("二级军需不足仍可进场");
-                    }
+                    SetPreparationSupply(preparation,2);
+                    if (preparation.Find("Continue").GetComponent<Button>().interactable)
+                        throw new InvalidOperationException("二级军需不足仍可进场");
                     if (defenseDraft.AvailableSupply(controller.State, 1) < defenseDraft.RequiredSupply(false))
                     {
                         // The stage fixture can start with one more soldier than the level I stock.
@@ -1072,7 +1214,7 @@ namespace BaseConquest.Editor
                         H.OpenObject("demo_defense_start");
                         preparation = RequirePanel("BattlePreparation");
                     }
-                    Press(preparation, "Supply/Grade1");
+                    SetPreparationSupply(preparation,1);
                     if (((BaseBattlePreparation)Field(H, "battleDraft")).SupplyGrade != 1)
                         throw new InvalidOperationException("一级军需未作为整场档位保存");
                     var teamRows = preparation.Find("Teams");
@@ -1084,16 +1226,16 @@ namespace BaseConquest.Editor
                         throw new InvalidOperationException("点击队长整行后，分配目标没有变为金色");
                     ClickHudButton(teamRows.GetChild(0));
                     var firstTeam = teamRows.GetChild(0);
-                    var role = new[] { "Melee", "Ranged", "Cavalry" }.FirstOrDefault(kind =>
-                        firstTeam.Find(kind + "/Minus").GetComponent<Button>().interactable);
+                    var role = new[] { "Melee", "Ranged", "Cavalry", "Mage" }.FirstOrDefault(kind =>
+                        int.Parse(firstTeam.Find(kind + "/Input").GetComponent<InputField>().text)>0);
                     if (role != null)
                     {
                         var field = firstTeam.Find(role + "/Input").GetComponent<InputField>();
                         string initial = field.text;
-                        Press(firstTeam, role + "/Minus");
+                        field.onEndEdit.Invoke((int.Parse(initial)-1).ToString());
                         if (RequirePanel("BattlePreparation") != preparation || field.text == initial)
                             throw new InvalidOperationException("备战减兵未原位更新");
-                        Press(firstTeam, role + "/Plus");
+                        field.onEndEdit.Invoke(initial);
                         if (RequirePanel("BattlePreparation") != preparation || field.text != initial)
                             throw new InvalidOperationException("备战连续加减没有保留原数量控件");
                     }
@@ -1257,7 +1399,7 @@ namespace BaseConquest.Editor
                     if(!controller.Change(s=>s.Inventory.Equipment.Single(e=>e.Product=="supply"&&e.Level==1).Count+=8,"检查首防"))
                         throw new InvalidOperationException(controller.Message);
                     Approach("demo_defense_start");H.OpenObject("demo_defense_start");
-                    var prep=RequirePanel("BattlePreparation");Press(prep,"Supply/Grade1");Press(prep,"Continue");
+                    var prep=RequirePanel("BattlePreparation");SetPreparationSupply(prep,1);Press(prep,"Continue");
                     stage="home-field-deploy";frameDeadline=Time.frameCount+12;return;
                 case "home-field-deploy":
                     if(Time.frameCount<frameDeadline)return;
@@ -1532,12 +1674,9 @@ namespace BaseConquest.Editor
                 !controller.SaveStore.Load().Demo.Flow.HomeEnterSeen)
                 throw new InvalidOperationException("返乡开场没有按迦兰实际随行情况播放，或读完没有回到探索并保存");
 
-            Approach("demo_survivor");
-            H.OpenObject("demo_survivor");
-            FinishDialogue();
-            if(H.PanelOpen||controller.State.Demo.Finale.RebuildMask!=0)
-                throw new InvalidOperationException("幸存者把玩家送进了重建");
-            Log.Add("[PASS] 返乡开场与随行人的反应按实际阵容显示，幸存者只指向西桥头");
+            if(BaseSpatial.Objects(controller.State).Any(o=>o.Id=="demo_survivor"))
+                throw new InvalidOperationException("村中仍有旧的指路人");
+            Log.Add("[PASS] 返乡开场按实际阵容显示，村中恢复自由探索");
         }
 
         private static void CheckHomeRebuild()
@@ -1741,8 +1880,13 @@ namespace BaseConquest.Editor
             H.OpenObject("intro_farm");
             var villageFarm = RequirePanel("FacilityPanel");
             var villageActions = villageFarm.Find("Left/List").GetComponent<ScrollRect>().content;
-            if (((RectTransform)villageFarm).rect.height > 400 || villageActions.Find("VillageFarmWorkers/Unlock").gameObject.activeSelf)
-                throw new InvalidOperationException("村庄派工没有使用紧凑布局，或显示了尚未开放的解锁操作");
+            foreach (string row in new[] { "VillageFarmWorkers", "Ranged", "Cavalry", "Mage" })
+            {
+                var target = villageActions.Find(row);
+                if (target == null || !target.gameObject.activeInHierarchy || !target.Find("Input").gameObject.activeInHierarchy ||
+                    target.Find("Unlock").gameObject.activeSelf)
+                    throw new InvalidOperationException("序章派工缺少预留兵种数量框，或显示了未开放的解锁操作：" + row);
+            }
             Canvas.ForceUpdateCanvases();
             typeof(BaseHud).GetMethod("RefreshQuestCue", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(H, null);
             Capture("ui-village-farm-compact");
@@ -1750,9 +1894,34 @@ namespace BaseConquest.Editor
             var villageRows = RosterUnits(villageList);
             if (villageRows.Length != 4) throw new InvalidOperationException("序章没有显示四名护村剑士");
             foreach (var card in villageRows) VerifyRosterRow(card, false);
-            foreach (var card in villageRows.Where(r => r.Find("Status").GetComponent<Text>().text.Contains("铁匠铺")).ToArray())
-                ClickHudButton(card);
-            Click("确认方案");
+            var quantity = villageActions.Find("VillageFarmWorkers/Input").GetComponent<InputField>();
+            var submit = villageActions.Find("Apply").GetComponent<Button>();
+            var cancelStaff = villageActions.Find("Cancel").GetComponent<Button>();
+            Transform Guided() => (RectTransform)Field(H, "questFarmTarget");
+            if (!quantity.isActiveAndEnabled || !quantity.interactable || quantity.text != "2" || submit.interactable)
+                throw new InvalidOperationException("序章初始派工人数或控件状态错误");
+            void EnterCount(string value)
+            {
+                quantity.text = value;
+                quantity.onEndEdit.Invoke(value);
+            }
+            EnterCount("4");
+            if (quantity.text != "2" || submit.interactable)
+                throw new InvalidOperationException("数字输入抢走了铁匠铺的在岗工人");
+            EnterCount("1");
+            if (quantity.text != "1" || !submit.interactable) throw new InvalidOperationException("输入人数没有暂时调出在岗士兵");
+            EnterCount("2");
+            if (quantity.text != "2" || submit.interactable) throw new InvalidOperationException("数字未重新匹配同一名闲置士兵");
+            var guidedFirst = Guided();
+            if (!villageRows.Contains(guidedFirst) || !guidedFirst.Find("Status").GetComponent<Text>().text.Contains("铁匠铺"))
+                throw new InvalidOperationException("序章箭头没有指向第一名可调士兵");
+            ClickHudButton(guidedFirst);
+            if (quantity.text != "3" || Guided() == guidedFirst || Guided() == submit.transform || !cancelStaff.interactable)
+                throw new InvalidOperationException("点名后人数或下一人指引未更新");
+            ClickHudButton(Guided());
+            if (quantity.text != "4" || Guided() != submit.transform || !submit.interactable || controller.State.Demo.Intro.FarmWorkers != 2)
+                throw new InvalidOperationException("第四名士兵后未指向确认方案，或草案提前提交");
+            ClickHudButton(submit.transform);
             H.ContinueDialogue();
             if (controller.State.Demo.Intro.Step != 10 || controller.State.Demo.Intro.FarmWorkers != 4 ||
                 !RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text.Contains("晚麦"))
@@ -1764,7 +1933,7 @@ namespace BaseConquest.Editor
             FinishDialogue();
             if (H.DialogueOpen || BaseQuestLog.Cue(controller.State).ObjectId != "demo_captain")
                 throw new InvalidOperationException("调工回应结束后未继续领剑主线");
-            Log.Add("[PASS] 长椅旧事汇回原主线，粮田实际调到四人后接阿禾与搭档对白");
+            Log.Add("[PASS] 长椅旧事汇回主线；粮田数字调出与匹配闲置士兵、按引导逐名调入铁匠铺两人、确认四人后接阿禾与搭档对白");
         }
 
         private static void VerifyBenchInteraction()
@@ -1960,13 +2129,13 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("窝点首战没有显示体力规则，或提前显示扫荡及待领奖");
             if (draft.RequiredSupply(false) == 0)
             {
-                Press(preparation.Find("Teams").GetChild(0), "Melee/Plus");
+                preparation.Find("Teams").GetChild(0).Find("Melee/Input").GetComponent<InputField>().onEndEdit.Invoke("1");
                 preparation = RequirePanel("BattlePreparation");
             }
             var supply = preparation.Find("Supply");
-            if (new[] { "Grade1", "Grade2", "Stock1", "Stock2" }.Any(path => ((RectTransform)supply.Find(path)).rect.width != 144))
-                throw new InvalidOperationException("军需档位按钮或库存标签没有按三列尺寸排布");
-            Press(preparation, "Supply/Grade1");
+            if (supply.Find("Grade2").gameObject.activeSelf || !supply.Find("Grade1").gameObject.activeInHierarchy)
+                throw new InvalidOperationException("军需没有合成单一切换按钮");
+            SetPreparationSupply(preparation,1);
             preparation = RequirePanel("BattlePreparation");
             CaptureViewports("ui-bandit-hideout-preparation");
             Press(preparation, "Continue");
@@ -1998,15 +2167,17 @@ namespace BaseConquest.Editor
         {
             Approach("demo_ruins_investigate");
             H.OpenObject("demo_ruins_investigate");
+            if (H.DialogueOpen) FinishDialogue();
             var prep = RequirePanel("BattlePreparation");
             if (((BaseBattlePreparation)Field(H, "battleDraft")).RequiredSupply(false) > 0)
-                Press(prep, "Supply/Grade1");
+                SetPreparationSupply(prep,1);
             Press(RequirePanel("BattlePreparation"), "Continue");
             var battle = RequireBattleDraft();
             VerifyDeploymentPointer(battle);
             Press(BattleSafeArea(battle), "DraftPreparationControls/Start");
             FinishDialogue();
-            Click("准备交战");
+            Click("继续推进");
+            if (H.DialogueOpen) FinishDialogue();
             CaptureViewports("ui-skin-ruins-combat", mobile: true);
             var player = battle.Realtime.Model.Player;
             player.Health = player.MaxHealth * .5;
@@ -2056,7 +2227,7 @@ namespace BaseConquest.Editor
                     var east = controller.MapObjects.Single(obj => obj.Id == "exit_east");
                     controller.State.PlayerX = east.X - east.Width / 2 - BaseMap.Radius - .16;
                     controller.State.PlayerY = east.Y;
-                    MoveSceneExplorer(Vector2.right);
+                    for (int step = 0; step < 32 && controller.State.Campaign.Location == "base"; step++) MoveSceneExplorer(Vector2.right);
                     stage = "ruins-exit-town";
                     break;
                 case "ruins-exit-town":
@@ -2073,6 +2244,32 @@ namespace BaseConquest.Editor
                     if (!BaseSceneRules.Entrance(state)) throw new InvalidOperationException(controller.Message);
                     Approach("demo_ruins_investigate");
                     controller.Interact();
+                    if (H.ContinueDialogue() || controller.State.Demo.RuinsPlayerHeard)
+                        throw new InvalidOperationException("洞口的主角独白在玩家选择前已播放");
+                    Click("这遗迹不对劲，我感觉身体很热");
+                    if (!controller.State.Demo.RuinsPlayerHeard || controller.State.Demo.RuinsAzhuHeard || controller.State.Demo.RuinsAheHeard)
+                        throw new InvalidOperationException("独自到达应只记录主角标记");
+                    Press(RequirePanel("BattlePreparation"), "Continue");
+                    stage = "ruins-exit-first-greeting";
+                    break;
+                case "ruins-exit-first-greeting":
+                    var firstDraft = RequireBattleDraft();
+                    VerifyDeploymentPointer(firstDraft);
+                    Press(BattleSafeArea(firstDraft), "DraftPreparationControls/Start");
+                    FinishDialogue();
+                    var firstGreeting = RequirePanel("NpcDialogue");
+                    if (firstGreeting.Find("SpeakerName").GetComponent<Text>().text != BaseScriptNames.Galan ||
+                        firstGreeting.Find("PortraitFrame/SpeakerPortrait").GetComponent<BattleAvatarGraphic>().enabled)
+                        throw new InvalidOperationException("首次隔空喊话必须自报姓名并保留未知肖像");
+                    Click("先退出去准备一下");
+                    if (controller.State.Campaign.HasActiveBattle || !controller.State.Demo.RuinsControllerHeard)
+                        throw new InvalidOperationException("暂缓开战后未保留初遇标记");
+                    BaseBattleGateway.Catalog().SaveSlot("slot2", controller.State, "迦兰自报姓名后暂缓开战");
+                    stage = "ruins-exit-reenter";
+                    break;
+                case "ruins-exit-reenter":
+                    Approach("demo_ruins_investigate");
+                    H.OpenObject("demo_ruins_investigate");
                     Press(RequirePanel("BattlePreparation"), "Continue");
                     stage = "ruins-exit-deploy";
                     break;
@@ -2081,7 +2278,12 @@ namespace BaseConquest.Editor
                     VerifyDeploymentPointer(draft);
                     Press(BattleSafeArea(draft), "DraftPreparationControls/Start");
                     FinishDialogue();
-                    Click("准备交战");
+                    var known = RequirePanel("NpcDialogue");
+                    if (known.Find("DialogueText").GetComponent<Text>().text != "怎么又是你，没完了是吧" ||
+                        !known.Find("PortraitFrame/SpeakerPortrait").GetComponent<BattleAvatarGraphic>().enabled)
+                        throw new InvalidOperationException("首通前重进缺少迦兰肖像或重遇台词");
+                    Click("继续推进");
+                    if (H.DialogueOpen) FinishDialogue();
                     // This regression begins with the controller's defeat; all extraction movement uses the battlefield input.
                     var encounter = Object.FindObjectsByType<BattleSceneController>().Single(b => b.IsDemoRuins);
                     var model = encounter.Realtime;
@@ -2230,7 +2432,11 @@ namespace BaseConquest.Editor
                 case "ruins-exit-root-verdict":
                 case "ruins-exit-recruit":
                     if (!BaseSceneRules.Entrance(state) || !BaseDemoStories.ControllerDialogue(state, state.Demo.Flow.FirstControllerId)) return;
-                    if (stage == "ruins-exit-recruit") PrepareFullPartyAtEntrance();
+                    if (stage == "ruins-exit-recruit")
+                    {
+                        PrepareFullPartyAtEntrance();
+                        VerifyCompanionRuinsArrival();
+                    }
                     Approach(BaseDemoStories.GalanMarker);
                     H.OpenObject(BaseDemoStories.GalanMarker);
                     FinishDialogue();
@@ -2283,6 +2489,35 @@ namespace BaseConquest.Editor
             }
         }
 
+        private static void VerifyCompanionRuinsArrival()
+        {
+            Approach("demo_ruins_investigate");
+            H.OpenObject("demo_ruins_investigate");
+            var view = RequirePanel("NpcDialogue");
+            if (view.Find("SpeakerName").GetComponent<Text>().text != "阿铸") throw new InvalidOperationException("阿铸首次抵达未发言");
+            FinishDialogue();
+            var ahe = RequirePanel("NpcDialogue");
+            var player = controller.State.Leaders.Single(l => l.Id == controller.State.PlayerLeaderId);
+            if (!ahe.Find("DialogueText").GetComponent<Text>().text.StartsWith(player.Name)) throw new InvalidOperationException("阿禾没有称呼实际主角名");
+            Click("在洞口等我。");
+            BaseBattleGateway.Catalog().SaveSlot("slot3", controller.State, "阿禾在古窟洞口等候");
+            var saved = BaseBattleGateway.Catalog().LoadSlot("slot3");
+            if (!saved.Demo.RuinsPlayerHeard || !saved.Demo.RuinsAzhuHeard || !saved.Demo.RuinsAheHeard ||
+                BaseAdventure.PauseFor(saved, "partner_farm") == null || BaseAdventure.Following(saved, "partner_farm"))
+                throw new InvalidOperationException("三人到达标记或洞外等候未保存");
+            RequirePanel("BattlePreparation");
+            H.ClosePanel();
+            TalkToPresentRecruit("partner_farm");
+            Click("恢复随行");
+            if (!BaseAdventure.Following(controller.State, "partner_farm")) throw new InvalidOperationException("洞口未能重新邀回阿禾");
+            H.ClosePanel();
+            Approach("demo_ruins_investigate");
+            H.OpenObject("demo_ruins_investigate");
+            RequirePanel("BattlePreparation");
+            H.ClosePanel();
+            Log.Add("[PASS] 洞口三人独立对白、阿禾洞外等候、当面重新随行与再次直接备战");
+        }
+
         private static void PrepareFullPartyAtEntrance()
         {
             if (!controller.Change(s =>
@@ -2326,20 +2561,19 @@ namespace BaseConquest.Editor
             Open();
             FinishDialogue();
             var view = RequirePanel("NpcDialogue");
-            if (view.Find("SpeakerName").GetComponent<Text>().text != "？？？" ||
+            if (view.Find("SpeakerName").GetComponent<Text>().text != BaseScriptNames.Galan ||
                 !view.Find("DialogueText").GetComponent<Text>().text.Contains("何人聒噪"))
                 throw new InvalidOperationException("未见面的伽兰应当在暗处喊话");
             Click("先退出去准备一下");
             if (H.DialogueOpen || battleStarts != 0) throw new InvalidOperationException("退出古窟误触发战斗");
             Open();
             FinishDialogue();
+            if (RequirePanel("NpcDialogue").Find("DialogueText").GetComponent<Text>().text != "怎么又是你，没完了是吧")
+                throw new InvalidOperationException("古窟重进未识别迦兰");
             Click("继续推进");
-            if (battleStarts != 0) throw new InvalidOperationException("伽兰喊话前就开始了战斗");
-            FinishDialogue();
-            if (battleStarts == 0) H.ContinueDialogue();
             if (battleStarts != 1) throw new InvalidOperationException("喊话结束后未开战或开战多次");
             H.ClosePanel();
-            Log.Add("[PASS] 古窟初遇匿名喊话，暂缓返回和继续开战");
+            Log.Add("[PASS] 古窟初遇自报姓名，暂缓返回和继续开战");
         }
 
         private static void ApproachMerchantAwayFromStall()
@@ -2622,10 +2856,10 @@ namespace BaseConquest.Editor
             var draft = (BaseBattlePreparation)Field(H, "battleDraft");
             if (draft.RequiredSupply(false) == 0)
             {
-                Press(preparation.Find("Teams").GetChild(0), "Melee/Plus");
+                preparation.Find("Teams").GetChild(0).Find("Melee/Input").GetComponent<InputField>().onEndEdit.Invoke("1");
                 preparation = RequirePanel("BattlePreparation");
             }
-            Press(preparation, "Supply/Grade1");
+            SetPreparationSupply(preparation,1);
             Press(RequirePanel("BattlePreparation"), "Continue");
             var deployed = RequireBattleDraft();
             var field = BattleSafeArea(deployed);
@@ -2830,8 +3064,10 @@ namespace BaseConquest.Editor
             var list = farm.Find("Right/List").GetComponent<ScrollRect>().content;
             var actions = farm.Find("Left/List").GetComponent<ScrollRect>().content;
             var rows = RosterUnits(list);
-            if (rows.Length != 6 || actions.Find("Melee/Plus").GetComponent<Button>().interactable)
-                throw new InvalidOperationException($"工坊全员案例：粮田列出 {rows.Length}/6 人，加号可用 {actions.Find("Melee/Plus").GetComponent<Button>().interactable}，实岗 {string.Join(",", original.Select(u => u.Facility))}");
+            var target=actions.Find("Melee/Input").GetComponent<InputField>();
+            target.onEndEdit.Invoke("1");
+            if (rows.Length!=6 || target.text!="0")
+                throw new InvalidOperationException("工坊全员时粮田数字输入抽走了已在岗人员或名册缺人");
             foreach (var row in rows) VerifyRosterRow(row, false);
             var chosen = rows.Single(row => row.Find("Label").GetComponent<Text>().text.StartsWith(pick.Name, StringComparison.Ordinal));
             string originalStatus = chosen.Find("Status").GetComponent<Text>().text;
@@ -3156,9 +3392,8 @@ namespace BaseConquest.Editor
         private static void RequireCivilianRoster(Transform view, int civilians)
         {
             var list = view.Find("Right/List").GetComponent<ScrollRect>().content;
-            var expected = civilians == 0 ? Array.Empty<string>() : new[] { $"村民 ×{civilians} · 补位" };
-            if (!list.GetComponentsInChildren<Text>().Select(t => t.text).Where(t => t.StartsWith("村民 ×", StringComparison.Ordinal)).SequenceEqual(expected))
-                throw new InvalidOperationException("实际设施名册的村民人数与预期不符");
+            if (list.GetComponentsInChildren<Text>().Any(t=>t.text.StartsWith("村民 ×",StringComparison.Ordinal)))
+                throw new InvalidOperationException("自动补位村民不应进入实名士兵名册");
         }
 
         private static void ChangeCivilianFarmPost(string adjustment, int expected)
@@ -3166,7 +3401,8 @@ namespace BaseConquest.Editor
             var farm = OpenCivilianFacility("farm");
             var actions = farm.Find("Left/List").GetComponent<ScrollRect>().content;
             int old = BaseEconomy.CivilianWorkersAt(controller.State, "farm");
-            Press(actions, "Melee/" + adjustment);
+            var field=actions.Find("Melee/Input").GetComponent<InputField>();
+            field.onEndEdit.Invoke((int.Parse(field.text)+(adjustment=="Plus"?1:-1)).ToString());
             farm = RequirePanel("FacilityPanel");
             RequireCivilianRoster(farm, expected);
             if (BaseEconomy.CivilianWorkersAt(controller.State, "farm") != old)
@@ -3204,7 +3440,7 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("粮田名册没有独立滚动");
             list.verticalNormalizedPosition = 1;
             int assigned = BaseEconomy.WorkersAt(controller.State, "farm");
-            var farmAdjuster = actions.Find("Melee/Plus");
+            var farmAdjuster = actions.Find("Melee/Input");
             ClickHudButton(rows.First(row => row.GetComponent<Button>().interactable));
             if (BaseEconomy.WorkersAt(controller.State, "farm") != assigned)
                 throw new InvalidOperationException("点名调配未确认就写入了岗位");
@@ -3212,7 +3448,7 @@ namespace BaseConquest.Editor
             if (BaseEconomy.WorkersAt(draft, "farm") == assigned)
                 throw new InvalidOperationException("点名没有更新设施草案");
             if (RequirePanel("FacilityPanel") != view || farmAdjuster == null ||
-                actions.Find("Melee/Plus") != farmAdjuster || view.Find("Right/List").GetComponent<ScrollRect>() != list)
+                actions.Find("Melee/Input") != farmAdjuster || view.Find("Right/List").GetComponent<ScrollRect>() != list)
                 throw new InvalidOperationException("粮田点名时重建了窗口或固定控件");
             Press(actions, "FacilityActionRow/Cancel");
             if (BaseEconomy.WorkersAt(controller.State, "farm") != assigned ||
@@ -3247,7 +3483,7 @@ namespace BaseConquest.Editor
             VerifyFacilityPortrait(view);
             var rangeDraft = view.Find("Left").GetComponentsInChildren<InputField>().First();
             rangeDraft.text = "17";
-            Press(view, "Right/Filters/Melee");
+            Press(view, "Right/Filters/Kind");
             if (RequirePanel("FacilityPanel") != view || rangeDraft == null || rangeDraft.text != "17")
                 throw new InvalidOperationException("兵营切筛选时丢失左侧范围草案");
             list = view.Find("Right/List").GetComponent<ScrollRect>();
@@ -3267,7 +3503,7 @@ namespace BaseConquest.Editor
             VerifyFacilityPortrait(view);
             actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
             list = view.Find("Right/List").GetComponent<ScrollRect>();
-            if (actions.Find("Rest") == null || !list.content.GetComponentsInChildren<Text>().Any(t =>
+            if (actions.Find("Rest") == null || !actions.GetComponentsInChildren<Text>().Any(t =>
                 t.text.Contains("扣粮后库存 " + BaseEconomy.Preview(controller.State).NextFood)))
                 throw new InvalidOperationException("营帐休息操作或日结预估缺失");
             if (actions.Find("Warehouse") == null || actions.Find("Deputy") != null || actions.Find("Government") != null)
@@ -3628,6 +3864,13 @@ namespace BaseConquest.Editor
             if (starts != 1) throw new InvalidOperationException("东口迎敌未交还战斗入口");
             H.ClosePanel();
         }
+        private static void SetPreparationSupply(Transform preparation,int grade)
+        {
+            var draft=(BaseBattlePreparation)Field(H,"battleDraft");
+            if (draft.SupplyGrade!=grade) Press(preparation,"Supply/Grade1");
+            if (draft.SupplyGrade!=grade) throw new InvalidOperationException("军需切换失败");
+        }
+
         private static void Press(Transform root, string path)
         {
             var button = root.Find(path)?.GetComponent<Button>();
@@ -4305,9 +4548,12 @@ namespace BaseConquest.Editor
 
         private static void Finish(int code, string message)
         {
+            if(stage.StartsWith("footstep-",StringComparison.Ordinal))StopFootstepCapture();
             EditorApplication.update -= Tick;
             Log.Insert(0, "exit=" + code + " " + message + " ｜ " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
             string report = campSceneryOnly ? "ui-exploration-framing-report.txt" : androidTouch ? "ui-android-touch-report.txt" :
+                stage.StartsWith("footstep-",StringComparison.Ordinal) ? "footstep-recording-report.txt" :
+                stage.StartsWith("route-pursuit-",StringComparison.Ordinal) ? "pursuit-presentation-report.txt" :
                 stage == "opening-copy" ? "ui-opening-copy-report.txt" :
                 stage.StartsWith("ruins-exit-", StringComparison.Ordinal) ? "ui-ruins-exit-report.txt" :
                 stage.StartsWith("mage-roster-", StringComparison.Ordinal) ? "p52-roster-report.txt" :

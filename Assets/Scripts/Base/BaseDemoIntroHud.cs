@@ -193,23 +193,14 @@ namespace BaseConquest.Base
             var draft = actual.ToArray();
             activeObject=id;
             var (actions,filters,list)=OpenFacilityPanel(id,farm?"村庄粮田":"小铁匠铺","岗位与生产",FacilityCopy("workers", "士兵名册"));
-            const float height = 370;
-            float shrink = panel.rect.height - height;
-            panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-            foreach (string path in new[] { "PortraitColumn", "Left", "Left/List", "Right", "Right/List" })
-            {
-                var rect = (RectTransform)panel.Find(path);
-                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, rect.rect.height - shrink);
-            }
-            var feedbackPosition = panelFeedback.rectTransform.anchoredPosition;
-            panelFeedback.rectTransform.anchoredPosition = feedbackPosition + Vector2.up * shrink;
             questFarmTarget=null;
             var manager = BaseDemoIntro.VillageManager(id);
             ShowFacilityPortrait(Ui<RectTransform>(panel, "PortraitColumn"), manager.Name, "负责人", manager.Art);
             var posts = FacilityText(actions,"");
             var foodLabel = FacilityText(actions,"");
             var smithLabel = FacilityText(actions,"");
-            var rosterHeading = FacilityText(filters,"",true);
+            var rosterFilter = new SoldierRosterFilter();
+            var order = new System.Collections.Generic.List<int>();
             RectTransform counter = null;
             Button apply = null, cancel = null;
             var soldiers = new BasePersonnelUnit[4];
@@ -218,11 +209,13 @@ namespace BaseConquest.Base
             for (int n = 0; n < soldiers.Length; n++)
             {
                 int index = n;
-                var unit = new BasePersonnelUnit { SoldierNumber=n+1, Name="剑士 #" + (n+1), Health=100, MaxHealth=100, Kind=SoldierKind.Melee };
+                var unit = new BasePersonnelUnit { SoldierNumber=n+1, Name="剑士 #" + (n+1), Health=100, MaxHealth=100, Effective=true, CanBattle=true, Kind=SoldierKind.Melee };
                 soldiers[n] = unit;
                 cards[n] = AddPersonnelRow(list, unit, "", () =>
                 {
                     draft[index] = draft[index] != actual[index] ? actual[index] : draft[index] == id ? "" : id;
+                    order.Remove(index);
+                    if (draft[index] == id) order.Add(index);
                     RefreshStaffing();
                 }, canAssign, showFacility:false);
                 cards[n].name = "Soldier" + (n+1);
@@ -230,9 +223,17 @@ namespace BaseConquest.Base
             }
             if(canAssign)
             {
-                counter=FacilityCounter(actions,"VillageFarmWorkers","",
-                    ()=>AdjustCount(id, ""),()=>AdjustCount("", id),false,false);
-                counter.Find("Unlock").gameObject.SetActive(false);
+                foreach (var kind in BattleSimulation.TroopKinds)
+                {
+                    bool melee = kind == SoldierKind.Melee;
+                    var target = FacilityTarget(actions, melee ? "VillageFarmWorkers" : kind.ToString(),
+                        BattleSimulation.KindName(kind), count => { if (melee) AdjustCount(count); });
+                    target.Find("Unlock").gameObject.SetActive(false);
+                    var input = Ui<InputField>(target, "Input");
+                    input.interactable = melee;
+                    input.SetTextWithoutNotify("0");
+                    if (melee) counter = target;
+                }
                 apply=FacilityButton(actions,"Apply","确认方案",()=>{
                     int step=owner.State.Demo.Intro.Step;
                     if (!owner.Change(next =>
@@ -256,14 +257,23 @@ namespace BaseConquest.Base
                 cancel=FacilityButton(actions,"Cancel","取消方案",()=>{draft=actual.ToArray();RefreshStaffing();},false);
             }
             else FacilityText(actions,BaseDemoIntro.Daily(s)?"先到田埂边听阿禾说说今天的人手安排。":"村民正准备撤离，暂时不派工。");
+            RosterToolbar(filters,rosterFilter,RefreshStaffing);
             RefreshStaffing();
             FinishFacilityPanel();
 
-            void AdjustCount(string from, string to)
+            void AdjustCount(int requested)
             {
-                int index = Array.FindIndex(draft, post => post == from);
-                if (index < 0) return;
-                draft[index] = to;
+                int change = Mathf.Clamp(requested, 0, draft.Length) - draft.Count(post => post == id);
+                bool adding = change > 0;
+                var matches = Enumerable.Range(0, draft.Length).Where(n => draft[n] == (adding ? "" : id));
+                var chosen = (adding ? matches.OrderBy(n => n) : matches.OrderByDescending(n => order.IndexOf(n)).ThenByDescending(n => n))
+                    .Take(Math.Abs(change)).ToArray();
+                foreach (int n in chosen)
+                {
+                    draft[n] = adding ? id : "";
+                    order.Remove(n);
+                    if (adding) order.Add(n);
+                }
                 RefreshStaffing();
             }
 
@@ -277,20 +287,20 @@ namespace BaseConquest.Base
                 int food=(int)Math.Floor(farmWorkers*current.Rules.FarmPerWorker),need=BaseDemoIntro.VillageFood(current);
                 posts.text=$"岗位 · {onsite}/4";
                 foodLabel.text=$"粮食预计 +{food} · 口粮 {need} · 净增 {(food-need):+0;-0;0}";
-                smithLabel.text=$"铁匠铺预计 {smithWorkers*current.Rules.WorkshopPerWorker:0.#} 工作点／日";
-                rosterHeading.text=$"粮田 {farmWorkers} 人 · 铁匠铺 {smithWorkers} 人";
+                smithLabel.text=$"铁匠铺预计 {smithWorkers*current.Rules.WorkshopPerWorker:0} 工作点／日";
+
                 for (int n=0;n<cards.Length;n++)
                 {
                     bool changed = actual[n] != draft[n];
                     string status = changed ? "待调 " + PostName(actual[n]) + "→" + PostName(draft[n]) + " · 可生产"
                         : PostName(actual[n]) + " · 今日可生产";
+                    soldiers[n].Post = draft[n];
                     UpdatePersonnelRow(cards[n], soldiers[n], status, showFacility:false);
-                    cards[n].GetComponent<Button>().targetGraphic.color = changed ? Color.Lerp(rosterColor, DemoUiTheme.Current.Gold, .38f) : rosterColor;
+                    TintRoster(cards[n], true, draft[n] == id, changed);
+                    cards[n].gameObject.SetActive(!rosterFilter.Kind.HasValue || rosterFilter.Kind == SoldierKind.Melee);
                 }
                 if(counter==null)return;
-                Ui<Text>(counter,"Label").text=$"剑士  {onsite}";
-                Ui<Button>(counter,"Minus").interactable=onsite>0;
-                Ui<Button>(counter,"Plus").interactable=Array.IndexOf(draft, "") >= 0;
+                Ui<InputField>(counter,"Input").SetTextWithoutNotify(onsite.ToString());
                 bool pending=!draft.SequenceEqual(actual);
                 apply.interactable=cancel.interactable=pending;
                 apply.targetGraphic.color=pending ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;

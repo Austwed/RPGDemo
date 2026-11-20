@@ -73,7 +73,7 @@ namespace BaseConquest.Battle
                 if (s.Kind != SoldierKind.Hero) enemies = enemies.Where(e => AttackAreaContains(s, e.Cell)).ToList();
                 if (enemies.Count > 0 || s.Id == leader.Id) return PlanWithoutCommander(s, enemies, occupied, intent);
                 if (GridPosition.Distance(s.Cell, leader.Cell) > FollowRadius || s.IsTransit) SetMove(intent, ReturnToCommander(s, leader, occupied, FollowRadius - 1));
-                intent.Destination = intent.Action == RoundAction.Move ? intent.Destination : s.Cell; intent.GoalCell = leader.Cell; intent.Decision = "进攻：随队侦察"; return intent;
+                intent.Destination = intent.Action == RoundAction.Move ? intent.Destination : s.Cell; intent.GoalCell = leader.Cell; intent.Decision = "进攻：跟随队长"; return intent;
             }
             var anchor = StrategyAnchor(leader); var centre = c.Strategy == SquadStrategy.Flee ? leader.Cell : StrategyCentre(leader);
             int inner = StrategyGuardRadius(q, centre), alert = Math.Max(c.AlertRange, inner + 1), outer = Math.Max(c.AttackRange, alert + 1);

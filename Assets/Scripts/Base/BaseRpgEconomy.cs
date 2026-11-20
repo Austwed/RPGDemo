@@ -86,23 +86,25 @@ namespace BaseConquest.Base
             var c=leader.Rpg;var r=c.Rules;
             return (r.Speed[c.Profession]+BasePersonalEquipment.Movement(leader))*(1+(c.Trait("hasty")-c.Trait("slow"))/100);
         }
-        private static string TraitUnit(string id)=>id=="advantage"||id=="disadvantage"?"层":id=="taunt"||id=="inconspicuous"||id=="drunkard"?"倍":"%";
+        private static string TraitValue(string id,double value) => id=="advantage"||id=="disadvantage"
+            ? value.ToString("0")+"层" : id=="taunt"||id=="inconspicuous"||id=="drunkard"
+            ? value.ToString("P0") : value.ToString("0")+"%";
         public static string Describe(RpgCharacter c)
         {
             if(c==null)return "";var r=c.Rules;
-            return "共享模板："+(r.TemplateIdentity(c.TemplateId)=="captain_awakened"?"异能者队长":r.TemplateIdentity(c.TemplateId)=="captain_normal"?"普通队长":"普通士兵")+" · "+(r.HasProfessionCatalog?r.Professions[c.Profession].Name:BasePersonalEquipment.Profession(BaseRpg.Weapon(c.Profession)))+" · 等级"+c.Level+"\n主动："+r.Skills.Single(s=>s.Id==c.SkillId).Name+"\n特性："+(c.Traits.Count==0?"无":string.Join("；",c.Traits.Select(t=>r.Traits.Single(d=>d.Id==t.Id).Name+" "+t.Value.ToString("0.##")+TraitUnit(t.Id))))+"\n命中／闪避点数："+r.Hit[c.Profession]+" / "+r.Evasion[c.Profession];
+            return "共享模板："+(r.TemplateIdentity(c.TemplateId)=="captain_awakened"?"异能者队长":r.TemplateIdentity(c.TemplateId)=="captain_normal"?"普通队长":"普通士兵")+" · "+(r.HasProfessionCatalog?r.Professions[c.Profession].Name:BasePersonalEquipment.Profession(BaseRpg.Weapon(c.Profession)))+" · 等级"+c.Level+"\n主动："+r.Skills.Single(s=>s.Id==c.SkillId).Name+"\n特性："+(c.Traits.Count==0?"无":string.Join("；",c.Traits.Select(t=>r.Traits.Single(d=>d.Id==t.Id).Name+" "+TraitValue(t.Id,t.Value))))+"\n命中／闪避点数："+r.Hit[c.Profession]+" / "+r.Evasion[c.Profession];
         }
         public static string GearDescription(BaseState s,BasePersonalItem item,bool includeName=true)
         {
             var r=s.Demo.Rpg;var d=BasePersonalEquipment.Definition(r,item.Template);int q=item.Quality;
             string type=d.Slot=="weapon"?BasePersonalEquipment.Profession(d.Weapon)+"专用":"";
             string heading=includeName ? d.Name+(type==""?"":" · "+type)+"\n" : (type==""?"":type+"\n");
-            return heading+"攻击 "+r.EquipmentAttack(d,q).ToString("+0.##;-0.##;0")+
-                "／防御 "+(r.EquipmentScale(d.Defense,q)*r.DefenseEquipmentScale).ToString("+0.##;-0.##;0")+
-                "／生命 "+(r.EquipmentScale(d.Health,q)*r.HealthEquipmentScale).ToString("+0.##;-0.##;0")+
-                (d.Slot=="weapon"?"\n攻击距离 "+(r.Range[BaseRpg.Profession(BasePersonalEquipment.WeaponKind(d.Weapon))]+(d.Weapon=="bow"?r.BowQualityRange[q]:0)).ToString("0.##")+"细格":"")+
-                "\n暴伤 +"+r.EquipmentScale(d.CritMultiplier,q).ToString("0.##%")+"；移动 "+r.EquipmentScale(d.Movement,q).ToString("+0.##;-0.##;0")+
-                "；基础价值 "+Value(s,item.Template,q).ToString("0.##");
+            return heading+"攻击 "+r.EquipmentAttack(d,q).ToString("+0;-0;0")+
+                "／防御 "+(r.EquipmentScale(d.Defense,q)*r.DefenseEquipmentScale).ToString("+0;-0;0")+
+                "／生命 "+(r.EquipmentScale(d.Health,q)*r.HealthEquipmentScale).ToString("+0;-0;0")+
+                (d.Slot=="weapon"?"\n攻击距离 "+(r.Range[BaseRpg.Profession(BasePersonalEquipment.WeaponKind(d.Weapon))]+(d.Weapon=="bow"?r.BowQualityRange[q]:0)).ToString("0")+"细格":"")+
+                "\n暴伤 +"+r.EquipmentScale(d.CritMultiplier,q).ToString("0%")+"；移动 "+r.EquipmentScale(d.Movement,q).ToString("+0;-0;0")+
+                "；基础价值 "+Value(s,item.Template,q).ToString("0");
         }
         public static string GearComparison(BaseState s,BasePersonalItem item,string holder=null)
         {
@@ -112,7 +114,7 @@ namespace BaseConquest.Base
             string slot=d.Slot=="accessory"?"accessory1":d.Slot;var preview=l.Copy();preview.PersonalEquipment.Items.RemoveAll(g=>g.Slot==slot);
             var gear=item.Copy();gear.Slot=slot;preview.PersonalEquipment.Items.Add(gear);
             var a=Stats(l);var b=Stats(preview);
-            return "\n"+l.Name+"换装：攻击 "+a.Damage.ToString("0.##")+" → "+b.Damage.ToString("0.##")+" · 防御 "+a.Defense.ToString("0.##")+" → "+b.Defense.ToString("0.##")+" · 生命 "+a.Health.ToString("0.##")+" → "+b.Health.ToString("0.##")+(d.Slot=="weapon"?" · 攻击距离 "+BasePersonalEquipment.RealtimeRange(l).ToString("0.##")+" → "+BasePersonalEquipment.RealtimeRange(preview).ToString("0.##")+"细格":"");
+            return "\n"+l.Name+"换装：攻击 "+a.Damage.ToString("0")+" → "+b.Damage.ToString("0")+" · 防御 "+a.Defense.ToString("0")+" → "+b.Defense.ToString("0")+" · 生命 "+a.Health.ToString("0")+" → "+b.Health.ToString("0")+(d.Slot=="weapon"?" · 攻击距离 "+BasePersonalEquipment.RealtimeRange(l).ToString("0")+" → "+BasePersonalEquipment.RealtimeRange(preview).ToString("0")+"细格":"");
         }
     }
 }

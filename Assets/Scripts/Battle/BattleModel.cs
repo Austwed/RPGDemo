@@ -141,6 +141,10 @@ namespace BaseConquest.Battle
 
     public static class CombatNumbers
     {
+        public static int RemainingHealth(double value) => value <= 0 ? 0 : Math.Max(1,(int)Math.Floor(value));
+        public static string Duration(double seconds) => seconds > 0 && seconds < 1
+            ? Math.Max(1,(int)Math.Round(seconds * 1000)) + " 毫秒"
+            : Math.Round(seconds) + " 秒";
         public const float DefenseK=40, MaximumMitigation=.8f;
         public static float ArmorFactor(SoldierStats attacker,SoldierStats defender)
         {

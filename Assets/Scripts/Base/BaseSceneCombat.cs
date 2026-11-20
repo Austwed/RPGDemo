@@ -84,8 +84,8 @@ namespace BaseConquest.Base
                     var stats=(kind==SoldierKind.Hero?army.CommanderProfile(n):army.Stats(kind)).Clone();
                     var deployment=preset?.Units.Where(unit=>unit.Kind==kind).ElementAt(n).Copy();
                     result.Add(new BaseEnemyMember {Deployment=deployment,PresetSlot=kind==SoldierKind.Hero?n:-1,Id=eventId+":unit:"+result.Count,Kind=kind,CommanderSlot=kind==SoldierKind.Hero?n:n%army.HeroCount,
-                        IsAlien=eventId==BaseDemoRuins.EventId&&kind==SoldierKind.Hero&&n==0,IsControlled=eventId==BaseDemoRuins.EventId&&(kind!=SoldierKind.Hero||n!=0),
-                        Name=kind==SoldierKind.Hero&&n<army.CommanderNames.Count?army.CommanderNames[n]:eventId==BaseDemoRuins.EventId?"受控村民"+(n+1):BattleSimulation.KindName(kind),Stats=stats,Health=stats.Health,
+                        IsAlien=eventId==BaseDemoRuins.EventId&&kind==SoldierKind.Hero&&n==0,IsControlled=eventId==BaseDemoRuins.EventId&&kind==SoldierKind.Melee,
+                        Name=kind==SoldierKind.Hero&&n<army.CommanderNames.Count?army.CommanderNames[n]:eventId==BaseDemoRuins.EventId&&kind==SoldierKind.Melee?"受控村民"+(n+1):BattleSimulation.KindName(kind),Stats=stats,Health=stats.Health,
                         // 队长立绘：随机入侵用已有队长形象；其余战斗留空走通用队长图。
                         Appearance=kind==SoldierKind.Hero&&n<army.CommanderAppearances.Count?army.CommanderAppearances[n]??"":"",
                         Equipment=kind==SoldierKind.Hero?new BasePersonalLoadout {Version=1,Weapon="sword",InitialWeapon="sword",BaseStats=stats.Clone()}:null});
@@ -167,7 +167,24 @@ namespace BaseConquest.Base
             Ruins.Validate();Defense.Validate();if(Version==2)Camp.Validate();
             if(Ruins.Commanders.Count!=1||(Ruins.Commanders[0].Profession!=SoldierKind.Melee&&Ruins.Commanders[0].Profession!=SoldierKind.Mage)||Ruins.Commanders[0].Level!=1||Ruins.Melee!=2||Ruins.Ranged!=0||Ruins.Cavalry!=0||Ruins.Mage!=0)throw new ArgumentException("遗迹固定一名异族队长和两名受控近战村民，只编辑站位");
         }
-        public static BaseEnemyPreset Preset(BaseState state,string eventId)=>(state.Demo?.Encounters?.Version??0)==0?null:eventId==BaseDemoRuins.EventId?state.Demo.Encounters.Ruins:eventId==BaseDemoDefense.EventId?state.Demo.Encounters.Defense:null;
+        public static BaseEnemyPreset Preset(BaseState state,string eventId)
+        {
+            var encounters = state.Demo?.Encounters;
+            if (encounters == null || encounters.Version == 0) return null;
+            if (eventId != BaseDemoRuins.EventId) return eventId == BaseDemoDefense.EventId ? encounters.Defense : null;
+            if (!BaseDemoRuins.RepeatMages(state)) return encounters.Ruins;
+            // Keep the authored positions and command slots for the repeat encounter.
+            var repeat = encounters.Ruins.Copy();
+            repeat.Mage = repeat.Melee;
+            repeat.Melee = 0;
+            int number = 0;
+            foreach (var unit in repeat.Units.Where(u => u.Kind == SoldierKind.Melee))
+            {
+                unit.Kind = SoldierKind.Mage;
+                unit.Id = "mage-" + (++number);
+            }
+            return repeat;
+        }
         public static void ConfigureArmy(BaseState state,string eventId,ArmyDefinition army)
         {
             var preset=Preset(state,eventId);if(preset==null)return;
@@ -184,6 +201,8 @@ namespace BaseConquest.Base
         public static void ValidateRoster(BaseState state,BaseCampaignEvent mission)
         {
             var preset=Preset(state,mission.Id);if(preset==null||mission.EnemyArmy.Count==0)return;
+            if (mission.Id == BaseDemoRuins.EventId && mission.EnemyArmy.Any(u=>u.IsControlled))
+                preset = state.Demo.Encounters.Ruins;
             if(mission.EnemyArmy.Count!=preset.Units.Count||mission.EnemyArmy.Any(unit=>!unit.HasDeployment||!preset.Units.Any(source=>source.Id==unit.Deployment.Id&&source.Kind==unit.Kind&&source.Cell==unit.Deployment.Cell&&source.CommanderSlot==unit.Deployment.CommanderSlot))||mission.EnemyArmy.Select(unit=>unit.Deployment.Id).Distinct().Count()!=mission.EnemyArmy.Count)throw new ArgumentException("Demo残军的逐兵身份或站位与本局配置不一致");
         }
     }

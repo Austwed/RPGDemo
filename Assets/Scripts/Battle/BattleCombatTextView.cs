@@ -31,7 +31,7 @@ namespace BaseConquest.Battle
                 var origin=new Vector3(((float)p.X-battle.Board.Width*.5f)*BattleBoardView.CellSize,0,((float)p.Z-battle.Board.Height*.5f)*BattleBoardView.CellSize);
                 var host=new GameObject("物件伤害浮字");host.transform.SetParent(parent,false);
                 var entry=new Entry {Root=host.transform,Origin=origin,Color=new Color(1,.9f,.65f),Began=seconds};
-                string value=packet.Attack.ToString("0.#");entry.Shadow=Label(host.transform,"Outline",value,32760,new Vector3(.014f,-.014f,.01f));entry.Label=Label(host.transform,"Text",value,32761,Vector3.zero);entries.Add(entry);
+                string value=packet.Attack.ToString("0");entry.Shadow=Label(host.transform,"Outline",value,32760,new Vector3(.014f,-.014f,.01f));entry.Label=Label(host.transform,"Text",value,32761,Vector3.zero);entries.Add(entry);
             }
             if(attacks!=null&&attacks.Count>0)lastObjectAttack=attacks[attacks.Count-1].Id;
             int start=last==null?0:battle.Events.IndexOf(last)+1;

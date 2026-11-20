@@ -473,10 +473,10 @@ namespace BaseConquest.RealtimePrototype
                 AdvanceTransit(unit,FixedSeconds);
             RebuildReservations();
             foreach(var unit in Units.Where(actor=>actor.Alive&&!actor.Moving))Think(unit);
-            // 起步顺序：骑兵先挑格子。体积占两格的马一旦被步兵抢先占住通路就再也排不开，
+            // 起步顺序：骑兵先挑格子。给冲锋中的骑兵优先选择通路，
             // 让它先手等价于给它的寻路优先级，其余单位只会从剩下的格子里挑，不会因此卡死。
             foreach(var unit in Units.Where(actor=>actor.Alive&&!actor.Moving&&actor.MoveGoal>=0)
-                .OrderBy(actor=>CavalryPathPriority&&actor.FootprintLength==2?0:1).ThenByDescending(actor=>actor.BlockedFor).ThenBy(actor=>actor.Id).ToArray())
+                .OrderBy(actor=>CavalryPathPriority&&IsCavalry(actor)?0:1).ThenByDescending(actor=>actor.BlockedFor).ThenBy(actor=>actor.Id).ToArray())
             {
                 if(unit.Moving)continue;
                 var distances=Arena.Distances(unit.MoveGoal);
@@ -497,7 +497,7 @@ namespace BaseConquest.RealtimePrototype
                 }
                 if(started)continue;unit.BlockedFor+=FixedSeconds;
                 // 骑兵堵够了就把挡路的人挤开一格，然后再试一次。被挤者瞬移，落点仍走完整校验。
-                if(CavalryShove&&unit.FootprintLength==2&&unit.BlockedFor>=ShoveBlockedDelay)
+                if(CavalryShove&&IsCavalry(unit)&&unit.BlockedFor>=ShoveBlockedDelay)
                     foreach(int cell in candidates)if(TryShoveThrough(unit,cell)&&TryBeginStep(unit,cell)){started=true;break;}
                 if(started)continue;
                 if(unit.BlockedFor>.35)

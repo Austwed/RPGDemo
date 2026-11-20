@@ -390,14 +390,14 @@ namespace BaseConquest.Base
             if (!a.DemoCombat && (wiped || main != null && !main.IsAlive && !main.Rescued))
             { s.Aftermath.GameOver = true; s.Aftermath.Reason = wiped ? "主角队伍团灭，无人成功撤离" : "倒地主角未被救出"; }
             var r = new BaseCampaignReport { BattleId = a.Id, EventId = e.Id, Title = e.Title + (a.Deputy ? " · 副手迎战" : ""), Deputy = a.Deputy, Day = s.Day, Rounds = battle.RoundNumber, Outcome = battle.Report.Outcome.ToString(), Passive = passive,Realtime=a.RealtimeRules,Seconds=a.RealtimeState?.Seconds??0 };
-            var outcome = new BaseSupplyOutcome(); var survivors = new List<BaseWorkerBucket>(); var forcedRest = new HashSet<BaseWorkerBucket>();
+            var outcome = new BaseSupplyOutcome(); var foughtNumbers = new List<int>(); var survivors = new List<BaseWorkerBucket>(); var forcedRest = new HashSet<BaseWorkerBucket>();
             for (int i = 0; i < a.Troops.Count; i++)
             {
                 var snapshot = a.Troops[i]; var unit = session.UnitForTroop(i);
                 bool lost = unit != null && (unit.InstantDead || !a.DemoCombat && lostField && !unit.Escaped && !unit.Rescued);
-                if (unit != null) r.Deployed++;
+                if (unit != null) { r.Deployed++; if (!lost) foughtNumbers.AddRange(snapshot.SoldierNumbers); }
                 if (lost) { if (unit.InstantDead) r.Killed++; else r.Missing++; }
-                else { var survivor = snapshot.Copy(); survivor.Health = unit == null ? snapshot.Health : Math.Max(1, Math.Min(snapshot.MaxHealth, unit.Health)); if (unit != null && !a.DemoCombat && survivor.Health < survivor.MaxHealth * BaseDevelopment.DutyThreshold) forcedRest.Add(survivor); survivors.Add(survivor); r.Returned++; if (survivor.Health < survivor.MaxHealth) r.Wounded++; }
+                else { var survivor = snapshot.Copy(); survivor.Health = unit == null ? snapshot.Health : Math.Max(1, CombatNumbers.RemainingHealth(Math.Min(snapshot.MaxHealth, unit.Health))); if (unit != null && !a.DemoCombat && survivor.Health < survivor.MaxHealth * BaseDevelopment.DutyThreshold) forcedRest.Add(survivor); survivors.Add(survivor); r.Returned++; if (survivor.Health < survivor.MaxHealth) r.Wounded++; }
                 if (unit != null)
                 {
                     if (a.SupplySnapshot?.ByTeam == true) outcome.RecordTeam(unit.OriginCommanderSlot, lost);
@@ -412,7 +412,8 @@ namespace BaseConquest.Base
             {
                 var leader = s.Leaders.Single(l => l.Id == a.Leaders[i].Id); var unit = battle.Soldiers.SingleOrDefault(w => w.Side == BattleSide.A && w.Kind == SoldierKind.Hero && w.OriginCommanderSlot == i);
                 bool lost = false;
-                leader.Health = unit == null ? Math.Max(1,a.Leaders[i].Health) : lost ? 0 : unit.IsAlive ? Math.Max(1,Math.Min(leader.MaxHealth, unit.Health)) : 1;
+                leader.Health = unit == null ? a.Leaders[i].Health : unit.InstantDead ? 0 : unit.IsAlive ? CombatNumbers.RemainingHealth(Math.Min(leader.MaxHealth, unit.Health)) : 1;
+                lost = leader.Health == 0;
                 leader.Fate=lost ? unit.InstantDead ? "dead" : "missing" : "active";
                 if (unit != null && !unit.IsAlive) { r.LeadersDown++; if (leader.Health > 0) down.Add(leader.Id); }
             }
@@ -436,6 +437,7 @@ namespace BaseConquest.Base
             bool keepExpedition=BaseWorldJourney.Active(s)&&returning.Purpose=="expedition"&&a.EventId!=BaseDemoRuins.EventId
                 && (a.EventId != BaseBanditHideout.EventId || a.SupplySnapshot?.PartySubset == true);
             if (!BaseSupply.Finish(s, a.Id, outcome) || !keepExpedition&&!BaseMuster.Return(s, a.PartyId, w=> {if(forcedRest.Contains(w))w.Resting=true;})) throw new InvalidOperationException("未能回写真实军需／返营");
+            BaseDevelopment.MarkFoughtToday(s, foughtNumbers);
             r.GearLost = gear - s.Inventory.Equipment.Sum(x => x.Count);
             foreach (var id in down) { var l = s.Leaders.Single(x => x.Id == id); l.Resting = false; l.UnavailableDay = s.Day; }
             s.Adventure.Members.RemoveAll(id=>id!=s.PlayerLeaderId&&!BaseAdventure.Alive(s.Leaders.Single(l=>l.Id==id)));
@@ -621,7 +623,7 @@ namespace BaseConquest.Base
             {
                 // 决斗、序章、遗迹及匪寨使用对应角色形象；随机敌营已作废（2026-11-02）。
                 bool chiefLead=Opening.EventId==BaseDemoDefense.EventId||Opening.EventId==BaseDemoDefense.SecondEventId||Opening.MapId==BaseDemoFinale.Camp;
-                hero.AppearanceId=Opening.EventId==BaseLocalDuel.Id?"azhu":Opening.EventId==BaseDemoIntro.BattleId?(Opening.Leaders.First().AppearanceId=="female"?"player":"female"):Opening.EventId==BaseDemoRuins.EventId?"galan":chiefLead?"chief":hero.AppearanceId;
+                hero.AppearanceId=Opening.EventId==BaseLocalDuel.Id?"azhu":Opening.EventId==BaseDemoIntro.BattleId?(Opening.Leaders.First().AppearanceId=="female"?"player":"female"):Opening.EventId==BaseDemoRuins.EventId&&Opening.RuinsFirstClear?"galan":chiefLead?"chief":hero.AppearanceId;
             }
             if(Opening.Enemies.Count==0)return;
             foreach(var unit in Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned).OrderBy(u=>u.Id))

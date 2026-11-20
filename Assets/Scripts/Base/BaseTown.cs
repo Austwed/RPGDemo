@@ -48,15 +48,6 @@ namespace BaseConquest.Base
         public static IReadOnlyList<BaseTroopKind> TroopKinds(BaseState state) =>
             state?.Demo?.Rpg?.HasProfessionCatalog == true ? AllKinds : LegacyKinds;
 
-        internal static void EnsureMageRecruit(BaseState state)
-        {
-            var rules = state.Demo.Rpg;
-            if (!rules.HasProfessionCatalog || state.Town.Recruits.Any(r => r.Kind == BaseTroopKind.Mage)) return;
-            state.Town.Recruits.Add(new BaseTownRecruit {
-                Kind = BaseTroopKind.Mage, Price = rules.RecruitBasePrices[(int)BaseTroopKind.Mage],
-                Stats = rules.Bare(new RpgCharacter { TemplateId = rules.DefaultTemplateId("soldier", 3), Profession = 3 }, 1)
-            });
-        }
         public static int TroopCount(BaseState s,BaseTroopKind kind)=>s.Workers.Where(worker=>worker.Kind==kind).Sum(worker=>worker.Count);
         public static int TroopTotal(BaseState s)=>s.Workers.Sum(worker=>worker.Count);
         // 2026-11-04 起与普通兵即死率共用同一个合计口径：N 与 B 都是全部普通兵职业之和，编队不影响概率。
@@ -81,10 +72,10 @@ namespace BaseConquest.Base
         public static void AllocateStock(BaseState s)
         {
             var offers=s.Town.Recruits.OrderBy(item=>item.Kind).ToList();
-            if(offers.Count!=TroopKinds(s).Count)throw new InvalidOperationException("城镇兵源与职业配置不一致");
+            if(offers.Count!=LegacyKinds.Length)throw new InvalidOperationException("城镇兵源与职业配置不一致");
             if(s.Day<=1)
             {
-                foreach(var offer in offers){offer.DailyCount=offer.Remaining=offer.Kind==BaseTroopKind.Mage ? 0 : FirstDayStock;offer.MissingDays=0;}
+                foreach(var offer in offers){offer.DailyCount=offer.Remaining=FirstDayStock;offer.MissingDays=0;}
                 return;
             }
             int total=DemoDailyTotal(s),left=total;
@@ -125,7 +116,12 @@ namespace BaseConquest.Base
         }
         public static void Normalize(BaseState s)
         {
-            if(s.Town!=null && s.Town.Version!=0)return;
+            if(s.Town!=null && s.Town.Version!=0)
+            {
+                // P52 stage saves carried a fourth shop row. Existing soldiers keep their identities.
+                if(s.Town.RecruitRulesVersion==2) s.Town.Recruits?.RemoveAll(row=>row?.Kind==BaseTroopKind.Mage);
+                return;
+            }
             if(s.Town!=null && (s.Town.StockDay!=0 || s.Town.Revision!=0 || s.Town.RecruitRulesVersion!=0 || s.Town.Goods?.Count>0 || s.Town.Recruits?.Count>0))throw new ArgumentException("城镇数据缺版本，拒绝重置已有余量");
             var town=new BaseTownState { Version=1,StockDay=s.Day };
             foreach(string id in Goods)
@@ -137,7 +133,7 @@ namespace BaseConquest.Base
                 town.Goods.Add(new BaseTownGood {Id=id,BuyPrice=buy,SellPrice=sell,DailyStock=stock,Remaining=stock});
             }
             var army=new ArmyDefinition();
-            foreach(BaseTroopKind kind in TroopKinds(s))
+            foreach(BaseTroopKind kind in LegacyKinds)
             {
                 int count=kind==BaseTroopKind.Melee ? 4 : kind==BaseTroopKind.Ranged ? 3 : 1;
                 town.Recruits.Add(new BaseTownRecruit {Kind=kind,Price=kind==BaseTroopKind.Melee ? 30 : kind==BaseTroopKind.Ranged ? 40 : 60,DailyCount=count,Remaining=count,Stats=army.Stats(ToBattle(kind)).Clone()});
@@ -150,7 +146,7 @@ namespace BaseConquest.Base
             if(t.RecruitRulesVersion<0||t.RecruitRulesVersion>2||t.RecruitRulesVersion>0&&!BaseDemo.Active(s))throw new ArgumentException("城镇招兵规则版本非法");
             if(t.Version!=1 || t.StockDay!=s.Day || t.Revision<0 || t.Revision>=int.MaxValue || t.Goods==null || t.Recruits==null)throw new ArgumentException("城镇版本、日期或交易序号非法");
             if(t.Goods.Count!=GoodsFor(s).Length || t.Goods.Any(g=>g==null || !GoodsFor(s).Contains(g.Id) || g.BuyPrice<1 || g.BuyPrice>1000000 || g.SellPrice<1 || g.SellPrice>=g.BuyPrice || g.DailyStock<1 || g.DailyStock>100000 || g.Remaining<0 || g.Remaining>g.DailyStock) || t.Goods.Select(g=>g.Id).Distinct().Count()!=GoodsFor(s).Length)throw new ArgumentException("城镇商品价格或供货余量非法");
-            if(t.Recruits.Count!=TroopKinds(s).Count || t.Recruits.Any(r=>r==null || !TroopKinds(s).Contains(r.Kind) || r.Price<1 || r.Price>1000000 || r.DailyCount<(DemoRecruitment(s)?0:1) || r.DailyCount>10000 || r.Remaining<0 || r.Remaining>r.DailyCount || r.MissingDays<0 || r.MissingDays>999 || !BaseAftermath.ValidStats(r.Stats)) || t.Recruits.Select(r=>r.Kind).Distinct().Count()!=TroopKinds(s).Count)throw new ArgumentException("城镇兵源价格、属性或余量非法");
+            if(t.Recruits.Count!=LegacyKinds.Length || t.Recruits.Any(r=>r==null || !LegacyKinds.Contains(r.Kind) || r.Price<1 || r.Price>1000000 || r.DailyCount<(DemoRecruitment(s)?0:1) || r.DailyCount>10000 || r.Remaining<0 || r.Remaining>r.DailyCount || r.MissingDays<0 || r.MissingDays>999 || !BaseAftermath.ValidStats(r.Stats)) || t.Recruits.Select(r=>r.Kind).Distinct().Count()!=LegacyKinds.Length)throw new ArgumentException("城镇兵源价格、属性或余量非法");
         }
         public static void AdvanceDay(BaseState s)
         {

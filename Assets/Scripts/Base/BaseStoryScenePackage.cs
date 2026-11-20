@@ -17,7 +17,7 @@ namespace BaseConquest.Base
         }
         private static readonly Rule[] Rules={
             new Rule("village","village_house","facility",true),new Rule("village","intro_farm","facility",true),new Rule("village","intro_smith","facility",false),
-            new Rule("village","demo_captain","npc",true),new Rule("village","intro_villager","npc",true),new Rule("village","prologue_report","interaction",true),new Rule("village","prologue_trigger","interaction",true),new Rule("village","demo_home_world","interaction",false),new Rule("village","demo_broken_sword","interaction",false),new Rule("village","demo_survivor","npc",false),
+            new Rule("village","demo_captain","npc",true),new Rule("village","intro_villager","npc",true),new Rule("village","prologue_report","interaction",true),new Rule("village","prologue_trigger","interaction",true),new Rule("village","demo_home_world","interaction",false),new Rule("village","demo_broken_sword","interaction",false),
             new Rule("village",BaseDemoIntro.DummyId,"interaction",false),
             new Rule("camp","home","facility",true),new Rule("camp","farm","facility",true),new Rule("camp","workshop","facility",true),new Rule("camp","barracks","facility",true),new Rule("camp","demo_rescuer","npc",false),new Rule("camp","demo_chunshen","npc",false),new Rule("camp","demo_ahe","npc",false),new Rule("camp","exit_east","interaction",true),new Rule("camp","demo_defense_exit","interaction",true),new Rule("camp","demo_march_exit","interaction",true),
             new Rule("town","town_quest","npc",true),new Rule("town","town_recruit","facility",true),new Rule("town","town_smith","facility",false),new Rule("town","town_market","facility",false),new Rule("town","town_blacksmith","npc",false),new Rule("town","town_guard","npc",false),new Rule("town","town_peddler","npc",false),new Rule("town","town_girl","npc",false),new Rule("town","demo_azhu","npc",false),new Rule("town","travel_base","interaction",true),new Rule("town","demo_ruins_exit","interaction",true),
@@ -25,11 +25,13 @@ namespace BaseConquest.Base
             new Rule("dungeon","demo_dungeon_exit","interaction",true),new Rule("dungeon","demo_ruins_investigate","interaction",true),
             new Rule("field","demo_defense_return","interaction",true),new Rule("field","demo_defense_start","interaction",true),new Rule("bandit","demo_camp_world","interaction",true),new Rule("bandit","demo_camp_attack","interaction",true)
         };
+        internal static bool IsRetiredVillageNpc(BaseMapPlacement obj) =>
+            obj.Id=="demo_survivor" || obj.DefinitionId=="story_village_demo_survivor";
         public string Format,Id;
         public int Version;
         public List<BaseDemoDesignMap> Maps;
         private static readonly HashSet<string> RequiredModern=new HashSet<string> {
-            "intro_smith",BaseDemoIntro.DummyId,"demo_survivor","demo_rescuer","demo_chunshen","demo_ahe",
+            "intro_smith",BaseDemoIntro.DummyId,"demo_rescuer","demo_chunshen","demo_ahe",
             "town_smith","town_market","town_blacksmith","town_peddler","demo_azhu","demo_bandit_hideout"
         };
         // JsonUtility 把 null 的嵌套对象写成 {}，读回来是空壳。判「有没有设计」一律用 Valid，
@@ -44,7 +46,7 @@ namespace BaseConquest.Base
             var authored=Maps.Single(map=>map.Role=="village");var layout=authored.Layout.Copy();var board=authored.Board.Clone();
             var captain=layout.Objects.Single(obj=>obj.Id=="demo_captain");
             // 两名剧情人物由序章状态管理；返乡对象只在返乡阶段出现。
-            layout.Objects.RemoveAll(obj=>new[]{"demo_captain","intro_villager","demo_home_world","demo_broken_sword","demo_survivor"}.Contains(obj.Id));
+            layout.Objects.RemoveAll(obj=>IsRetiredVillageNpc(obj)||new[]{"demo_captain","intro_villager","demo_home_world","demo_broken_sword"}.Contains(obj.Id));
             if(Version==2)
             {
                 layout.ForbidSoldiers=true;
@@ -144,6 +146,9 @@ namespace BaseConquest.Base
                     if(!map.Objects.Any(obj=>obj.Id==rule.Id&&obj.DefinitionId==rule.Definition&&!obj.VisualOnly))throw new ArgumentException("缺少剧情必需对象："+rule.Id);
                 foreach(var obj in map.Objects)
                 {
+                    // Previously exported layouts may still contain the guide and its visual copies.
+                    // Both village installs discard these retired objects.
+                    if(entry.Role=="village" && IsRetiredVillageNpc(obj) && obj.Kind=="npc" && !obj.Blocks)continue;
                     var rule=Rules.FirstOrDefault(item=>item.Role==entry.Role&&item.Definition==obj.DefinitionId);
                     if(rule!=null)
                     {

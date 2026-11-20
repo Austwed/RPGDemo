@@ -45,7 +45,7 @@ namespace BaseConquest.Editor
                 var state = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/defense-male").text);
                 var bind = type.GetMethod("BindBattle", Private);
                 var release = type.GetMethod("ReleaseBattle", Private);
-                foreach (var (id, place) in new[] { (BaseDemoIntro.BattleId, "Practice"), (BaseDemoRuins.EventId, "Dungeon"), (BaseDemoDefense.SecondEventId, "Battle") })
+                foreach (var (id, place) in new[] { (BaseDemoIntro.BattleId, "Practice"), (BaseDemoRuins.EventId, "Dungeon"), (BaseDemoDefense.SecondEventId, "Battle"), (BaseDemoPrologue.BattleId, "Battle") })
                 {
                     var session = BaseStandaloneBattle.Create(state, BaseStandaloneBattlePreset.Mixed);
                     var run = new RealtimeCampaignBattle(session);
@@ -115,12 +115,19 @@ namespace BaseConquest.Editor
                 type.GetProperty("RoadEdges", Private).SetValue(view, edges);
                 var lookup = type.GetMethod("FootstepSurfaceAt", Private);
                 GroundSurface At(double x, double z) => (GroundSurface)lookup.Invoke(view, new object[] { x, z });
+                string Samples() => $"stoneCenter={At(2.5, 3.5)}, stoneStraight={At(2.5, 2.98)}, stoneSeam={At(2.5, 2.5)}, clearGrass={At(2.5, 2.25)}, stoneCorner={At(1.98, 2.98)}, dirtCenter={At(5.5, 3.5)}, dirtEdge={At(4.98, 3.5)}, grassByDirt={At(4.5, 3.5)}";
+                Debug.Log($"[DemoAudio] road samples ({SystemInfo.graphicsDeviceType}, original): {Samples()}");
+                // At z=2.5 the center falls in a seam, but the front of the foot (z=2.6)
+                // touches a painted paver. At z=2.25 the full contact patch is on grass.
                 Need(At(2.5, 3.5) == GroundSurface.Cobble && At(2.5, 2.98) == GroundSurface.Cobble &&
-                    At(2.5, 2.5) == GroundSurface.Grass && At(1.98, 2.98) == GroundSurface.Cobble,
+                    At(2.5, 2.5) == GroundSurface.Cobble && At(2.5, 2.25) == GroundSurface.Grass &&
+                    At(1.98, 2.98) == GroundSurface.Cobble,
                     "石路正中、铺进草格的直边及转角须随实际铺面发声");
                 Need(At(4.98, 3.5) == GroundSurface.DirtPath && At(4.5, 3.5) == GroundSurface.Grass,
                     "原版泥路路缘应与未铺路的草面区分");
-                Need(view.SetHomeTerrainTrial(true) && At(5.5, 3.5) == GroundSurface.Cobble &&
+                bool switched = view.SetHomeTerrainTrial(true);
+                Debug.Log($"[DemoAudio] road samples ({SystemInfo.graphicsDeviceType}, stone trial): {Samples()}");
+                Need(switched && At(5.5, 3.5) == GroundSurface.Cobble &&
                     At(4.98, 3.5) == GroundSurface.Cobble && At(4.5, 3.5) == GroundSurface.Grass,
                     "换成石板外观后，路面与铺进邻格的路缘都应响石面脚步");
             }

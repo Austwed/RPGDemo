@@ -36,9 +36,9 @@ namespace BaseConquest.Base
                 // 达到战力比即视为可跳：不再叠加「推算能取胜」「僵持超时」两道旧门槛，
                 // 否则 1.5 倍以上仍可能被拒，玩家看到的数与判定口径就不一致了。
                 if (!(e.Advantage > minAdvantage))
-                    return "我方战力需严格超过敌方 " + minAdvantage.ToString("0.##") + " 倍（当前 "
-                        + e.AllyPower.ToString("0.##") + " / " + e.EnemyPower.ToString("0.##")
-                        + " ≈ " + e.Advantage.ToString("0.##") + " 倍）";
+                    return "我方战力需严格超过敌方 " + minAdvantage.ToString("P0") + "（当前 "
+                        + e.AllyPower.ToString("0") + " / " + e.EnemyPower.ToString("0")
+                        + " ≈ " + e.Advantage.ToString("P0") + "）";
                 return "";
             }
             if (!e.AllyWins) return "推算显示无法取胜，请亲自指挥";

@@ -6,25 +6,15 @@ namespace BaseConquest.RealtimePrototype
     public sealed partial class PrototypeUnit
     {
         // 被骑兵挤开后的静置期：防止同一单位被反复推搡造成抖动。
+        public bool Mounted;
         public double ShoveReadyAt;
         public int ShovedTimes;
     }
     public sealed partial class RealtimeBattlePrototype
     {
-        // 骑兵（FootprintLength==2）身体长约0.98格，前进要两格同时空出，起步时还要保证
-        // 扫掠体不与任何单位相交。密集队形里它既排不开也绕不动：实测8骑冲8弓时，
-        // 5/8的骑兵「被堵帧」占存活时间的75~80%，全程只走0.5~2格。
-        // 这里给骑兵两项特权，都可用开关关闭：
-        //   CavalryPathPriority —— 起步顺序提前，骑兵先挑格子；
-        //   CavalryShove        —— 把挡路的单位顶开一格（被顶者瞬移，等同"被顶超速"）。
-        public bool CavalryPathPriority=true;   // 起步顺序：骑兵先手，其余单位再从剩下的格子里挑
-        // 默认开启（韦德 2026-11-01 拍板方向：接受「其他单位被顶超速」的代价）。
-        // 2026-11-06 裁决：骑兵要能横冲直撞、直取高嘲讽目标，所以默认连敌方也撞。
-        // 关掉只需把这一项置 false；证据与档位对比见 策划/战斗系统_骑兵挤开与寻路优先级_v1.md。
-        public bool CavalryShove=true;          // 骑兵可以挤开挡路者
-        public bool ShoveEnemies=true;          // 可撞敌方步兵与敌方队长（含正在前摇的敌人，撞开即打断）
-        public bool ShoveEnemyCavalry=false;    // 敌军骑兵不互撞：两匹马同体积互顶，谁也顶不动谁
-        public bool ShoveAllyCavalry=true;      // 友军骑兵必须能互挤，否则 8 骑起步会互相堵死
+        public bool CavalryPathPriority=true;
+        public bool CavalryShove=true;
+        public bool ShoveEnemies=true;
         public double ShoveBlockedDelay=.15;    // 堵住这么久之后才允许挤人，避免一有擦碰就乱推
         public double ShoveCooldown=.5;         // 同一单位被顶之后的免疫时间
         public int ShoveMoves;                  // 挤开次数（诊断用）
@@ -32,7 +22,7 @@ namespace BaseConquest.RealtimePrototype
         public readonly Dictionary<string,int> ShoveStats=new Dictionary<string,int>();
         private void Tally(string key){ShoveStats.TryGetValue(key,out int n);ShoveStats[key]=n+1;}
 
-        public static bool IsCavalry(PrototypeUnit unit)=>unit!=null&&unit.FootprintLength==2;
+        public static bool IsCavalry(PrototypeUnit unit)=>unit!=null&&unit.Mounted;
 
         // wanted 是骑兵下一步想踏进去的格。挡路有三种：占着格子、挡住扫掠体、挡住转向后的身体。
         private bool TryShoveThrough(PrototypeUnit rider,int wanted)
@@ -71,9 +61,8 @@ namespace BaseConquest.RealtimePrototype
         private bool TryShove(PrototypeUnit rider,PrototypeUnit blocker,HashSet<int> claimed,int wanted)
         {
             if(blocker==null||!blocker.Alive||blocker.Moving||blocker.Id==rider.Id||blocker==rider){Tally("skip:busy");return false;}
-            // 敌我分开判：敌方步兵与队长可撞，敌方骑兵不撞；友军骑兵必须能互挤。
             if(blocker.Side!=rider.Side&&!ShoveEnemies){Tally("skip:enemy");return false;}
-            if(IsCavalry(blocker)&&(blocker.Side==rider.Side?!ShoveAllyCavalry:!ShoveEnemyCavalry)){Tally("skip:cavalry");return false;}
+            if(IsCavalry(blocker)){Tally("skip:cavalry");return false;}
             // 唯一豁免是玩家自己的主角：被自家骑兵顶开会让操作者莫名其妙。其余队长（含敌方）都能撞。
             if(blocker.Player){Tally("skip:player");return false;}
             if(Elapsed<blocker.ShoveReadyAt){Tally("skip:cooldown");return false;}
@@ -82,7 +71,7 @@ namespace BaseConquest.RealtimePrototype
             var away=(from-rider.BodyCenter).Normalized;
             if(away.Length<.000001)away=(from-rider.Position).Normalized;
             if(away.Length<.000001)return false;
-            var options=CandidateCells(blocker)
+            var options=Arena.Neighbours(blocker.Cell)
                 .Where(cell=>!claimed.Contains(cell)&&Shovable(blocker,cell))
                 .Select(cell=>new {Cell=cell,Align=PrototypePoint.Dot((Arena.Center(cell)-from).Normalized,away)})
                 // 只能往"离开推者"的方向顶，绝不能迎着马头顶；侧向允许，但优先级最低
@@ -102,21 +91,6 @@ namespace BaseConquest.RealtimePrototype
                 Displace(blocker,cell);Tally("shoved");return true;
             }
             return false;
-        }
-        // 步兵可以往八个方向让；马只能沿身体轴向平移，否则瞬移就等于凭空转向。
-        // 平移量必须是一个身长（2 个细格 = 1 个粗格）：只挪半个身长的话落点仍与推者重叠，
-        // 表现为「友军骑兵永远挤不开」，两匹马卡死在原地。
-        private IEnumerable<int> CandidateCells(PrototypeUnit blocker)
-        {
-            if(!IsCavalry(blocker))return Arena.Neighbours(blocker.Cell);
-            var axis=blocker.BodyAxis;var result=new List<int>();
-            foreach(int sign in new[]{1,-1})
-            {
-                int x=blocker.Cell%Arena.FineColumns+(int)axis.X*sign*PrototypeArena.Subdivision;
-                int z=blocker.Cell/Arena.FineColumns+(int)axis.Z*sign*PrototypeArena.Subdivision;
-                if(x>=0&&x<Arena.FineColumns&&z>=0&&z<Arena.FineRows)result.Add(z*Arena.FineColumns+x);
-            }
-            return result;
         }
         private bool Shovable(PrototypeUnit blocker,int cell)
         {

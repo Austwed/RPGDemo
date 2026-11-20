@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using BaseConquest.RealtimePrototype;
+using BaseConquest.Base;
+using BaseConquest.Battle;
 using UnityEditor;
 using UnityEngine;
 
@@ -13,16 +15,95 @@ namespace BaseConquest.Editor
         private static readonly MethodInfo Shove=typeof(RealtimeBattlePrototype).GetMethod("TryShoveThrough",BindingFlags.Instance|BindingFlags.NonPublic);
         private static bool Try(RealtimeBattlePrototype model,PrototypeUnit rider,int wanted)=>(bool)Shove.Invoke(model,new object[]{rider,wanted});
         private static void Need(bool condition,string reason){if(!condition)throw new InvalidOperationException(reason);}
-        // 敌方步兵放在马头前一格；骑兵阻挡者要再远一格，否则两匹马的体积在夹具里就重叠了。
+        // 阻挡者位于骑兵正前方的相邻细格。
         private static RealtimeBattlePrototype Fixture(out PrototypeUnit rider,out PrototypeUnit blocker,bool enemy=false,bool cavalryBlocker=false)
         {
             var model=new RealtimeBattlePrototype(new PrototypeArena(PrototypeLayout.Open));
-            rider=model.AddUnit(PrototypeSide.Ally,PrototypeRole.Melee,new PrototypePoint(cavalryBlocker?2.25:3.25,3.25));
-            Need(model.SetFootprint(rider,2),"骑兵夹具落位失败");
-            blocker=model.AddUnit(enemy?PrototypeSide.Enemy:PrototypeSide.Ally,PrototypeRole.Melee,new PrototypePoint(cavalryBlocker?4.25:3.75,3.25));
-            if(cavalryBlocker)Need(model.SetFootprint(blocker,2),"被撞骑兵夹具落位失败");
+            rider=model.AddUnit(PrototypeSide.Ally,PrototypeRole.Melee,new PrototypePoint(3.25,3.25));
+            rider.Mounted=true;
+            blocker=model.AddUnit(enemy?PrototypeSide.Enemy:PrototypeSide.Ally,PrototypeRole.Melee,new PrototypePoint(3.75,3.25));
+            blocker.Mounted=cavalryBlocker;
             return model;
         }
+        [MenuItem("SLG/其他工具/验证/P53 骑兵与战术")]
+        public static void RunP53()
+        {
+            Run();
+            VerifyUnseen(false);
+            VerifyUnseen(true);
+            VerifyBatu();
+            Need(CombatNumbers.RemainingHealth(0)==0 && CombatNumbers.RemainingHealth(.4)==1 &&
+                CombatNumbers.RemainingHealth(12.99)==12,"战后生命取整");
+            Debug.Log("[P53Combat] PASS");
+        }
+
+        private static void VerifyUnseen(bool lan)
+        {
+            var arena=new PrototypeArena(PrototypeLayout.Open);
+            var model=new RealtimeBattlePrototype(arena){CommanderDoctrine=true,AutonomousOutcome=false,BothSidesHuman=lan};
+            var ally=model.AddUnit(PrototypeSide.Ally,PrototypeRole.Leader,new PrototypePoint(2.25,5.25),0,true);
+            var escort=model.AddUnit(PrototypeSide.Ally,PrototypeRole.Leader,new PrototypePoint(9.25,6.25),1);
+            var enemy=model.AddUnit(PrototypeSide.Enemy,PrototypeRole.Leader,new PrototypePoint(20.25,6.25),0);
+            enemy.Player=lan;
+            var exit=new PrototypePoint(1.25,6.25);
+            ally.CommandRadius=2;
+            var home=ally.Position;var start=enemy.Position;
+            model.CanTarget=(a,b)=>false;
+            model.DefaultDestination=u=>arena.CellAt(exit);
+            model.SetPaused(false);
+            for(int tick=0;tick<1200;tick++)model.Tick(.02);
+            Need((home-ally.Position).Length<1.65 && (escort.Position-ally.Position).Length<=3,
+                "无敌情时本方队长巡游／随行越界");
+            Need(lan ? (enemy.Position-start).Length<1.65 : (enemy.Position-exit).Length<2,
+                "单机敌方推进或联机客方待命错误");
+            Need(model.Shots==0 && model.Hits==0,"无目标时发生攻击");
+        }
+
+        private static void VerifyBatu()
+        {
+            var state=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/defense-male").text);
+            var session=BaseDemoDefense.Begin(state,"none");
+            BattleScenePlacement.Start(state,session);
+            var run=new RealtimeCampaignBattle(session);
+            BattleScenePlacement.Snap(state,run);
+            BaseDemoDefense.Configure(run);
+            Need(run.Model.Units.All(u=>u.FootprintLength==1),"正式部署使用了多格单位");
+            Need(state.Demo.Rpg.Range.SequenceEqual(new double[]{1,12,2,12}),"正式射程与配表不符");
+            var swamp=session.Battle.Board.Positions().First(p=>session.Battle.Board.Cell(p).Terrain==TerrainKind.Swamp);
+            var point=new PrototypePoint(swamp.X+.25,swamp.Z+.25);
+            int origin=run.Model.Arena.CellAt(point);
+            Need(run.Model.Arena.FineWalkable(origin)&&run.Model.Arena.TravelCost(origin)==2,"首防沼泽应通行并减速");
+            var rider=run.Model.Units.FirstOrDefault(u=>u.Mounted);
+            Need(rider!=null&&Math.Abs(rider.Reach*2-2)<1e-8,"缺少单格骑兵的正式编制或攻击距离错误");
+            Need(run.Model.PlaceNearest(rider,point),"骑兵无法进入首防沼泽");
+            var batu=run.Model.Units.Single(u=>u.Side==PrototypeSide.Enemy&&u.Role==PrototypeRole.Leader);
+            var hero=run.Model.Player;
+            var tree=run.Tactics.Objects.FirstOrDefault(o=>o.Kind=="tree");
+            Need(tree!=null,"首防缺少枯树遮挡物");
+            {
+                var treePoint=new PrototypePoint(tree.X+.5,tree.Y+.5);
+                Need(run.Tactics.At(treePoint)==null,"枯树被识别为攻击对象");
+                // Put the commander and his opponent on opposite sides of the actual tree.
+                run.Model.PlaceNearest(batu,treePoint+new PrototypePoint(-2,0));
+                run.Model.PlaceNearest(hero,treePoint+new PrototypePoint(2,0));
+                Need(!run.Model.ClearAttack(batu.Position,hero.Position) &&
+                     !BattleRangeOverlay.IncludesAttackCell(run,batu,hero.Position),"枯树后的攻击预览与实战遮挡不一致");
+                Need(BattleRangeOverlay.IncludesAttackCell(run,batu,batu.Position),"预览错误地阻挡了起点");
+            }
+            var start=rider.Position;
+            run.Model.SetPaused(false);
+            for(int tick=0;tick<3000&&session.Battle.Phase==BattlePhase.Fighting;tick++)run.Tick(.02);
+            var shots=run.RpgAttackHistory.Where(p=>p.SourceId==batu.Id).ToArray();
+            Need((rider.Position-start).Length>1,"骑兵未走出首防沼泽");
+            Need(shots.Any(p=>p.ImpactApplied),"巴图未能重新取得射击位置并命中敌方单位");
+            Need(shots.All(p=>p.TargetId>=0 && string.IsNullOrEmpty(p.ObjectId) &&
+                run.Battle.Soldier(p.TargetId-1)?.Side==BattleSide.A &&
+                run.Model.ClearAttack(p.Origin,p.Destination)),"巴图打中了场景物件或隔障出手");
+            Debug.Log("[P53Batu] terrain="+swamp+" tree="+tree?.Id+" riderDistance="+(rider.Position-start).Length+
+                " shots="+shots.Length+" impact="+shots.Count(p=>p.ImpactApplied)+" target="+
+                string.Join(",",shots.Select(p=>run.Battle.UnitName(run.Battle.Soldier(p.TargetId-1))).Distinct()));
+        }
+
         private static bool Tally(RealtimeBattlePrototype model,string key)=>model.ShoveStats.ContainsKey(key);
         [MenuItem("SLG/其他工具/验证/骑兵安全挤开")]
         public static void Run()
@@ -48,10 +129,8 @@ namespace BaseConquest.Editor
             model=Fixture(out rider,out blocker,true,true);wanted=blocker.Cell;
             Need(!Try(model,rider,wanted)&&blocker.Cell==wanted&&model.ShoveMoves==0&&Tally(model,"skip:cavalry"),"敌军骑兵不应被撞开");
 
-            // 4) 友军骑兵：必须能互挤，否则密集骑兵起步会互相堵死。
             model=Fixture(out rider,out blocker,false,true);wanted=blocker.Cell;
-            bool allyCavalry=Try(model,rider,wanted);
-            Need(allyCavalry&&blocker.Cell!=wanted&&model.ShoveMoves==1,"友军骑兵应能互挤：结果 "+allyCavalry+" 移动 "+(blocker.Cell!=wanted)+" 次数 "+model.ShoveMoves+" 原因 "+string.Join(" ",model.ShoveStats.Select(kv=>kv.Key+kv.Value))+" 骑位 "+rider.Cell+" 挡位 "+blocker.Cell+" 目标 "+wanted);
+            Need(!Try(model,rider,wanted)&&blocker.Cell==wanted&&model.ShoveMoves==0,"友军骑兵不能被顶开");
 
             // 5) 正在前摇的敌人：撞开即打断前摇，不另加眩晕。
             model=Fixture(out rider,out blocker,true);wanted=blocker.Cell;
@@ -74,7 +153,7 @@ namespace BaseConquest.Editor
             Need(!Try(model,rider,wanted)&&blocker.Cell==wanted,"无安全空位时应等待，不能覆盖预约");
             model.Restore(model.Capture());
             Directory.CreateDirectory("Logs");
-            File.WriteAllText("Logs/cavalry-safety-verification.txt","PASS: ally and enemy infantry displaced; enemy cavalry and player leader exempt; wounded/ally cavalry interplay; windup interrupted; cooldown; fully reserved surroundings wait.\n");
+            File.WriteAllText("Logs/cavalry-safety-verification.txt","PASS: ally and enemy infantry displaced; enemy cavalry and player leader exempt; ally cavalry exempt; windup interrupted; cooldown; fully reserved surroundings wait.\n");
             Debug.Log("[VerifyCavalrySafety] PASS");
         }
     }

@@ -71,7 +71,7 @@ namespace BaseConquest.Battle
 {
     public static class RealtimeCombatRules
     {
-        public static int Range(SoldierKind kind,int quality=2)=>kind==SoldierKind.Ranged ? 12+BasePersonalEquipment.ExtraRange(quality) : kind==SoldierKind.Mage ? 12 : kind==SoldierKind.Cavalry ? 3 : 2;
+        public static int Range(SoldierKind kind,int quality=2)=>kind==SoldierKind.Ranged ? 12+BasePersonalEquipment.ExtraRange(quality) : kind==SoldierKind.Mage ? 12 : kind==SoldierKind.Cavalry ? 2 : 1;
         public static double Speed(SoldierKind kind)=>kind==SoldierKind.Cavalry ? 6 : (kind==SoldierKind.Ranged||kind==SoldierKind.Mage) ? 3 : 4;
     }
     public sealed partial class RealtimeCampaignBattle
@@ -152,26 +152,30 @@ namespace BaseConquest.Battle
                 Battle.RuinsCivilianDamaged=session.Opening.RealtimeState.RuinsCivilianDamaged;
                 Model.Restore(session.Opening.RealtimeState,session.Opening.Rpg!=null?RealtimeBattlePrototype.RpgAttackDamageLimit:1000000);hitSerial=session.Opening.RealtimeState.HitSerial;
                 if(Model.Units.Count!=Battle.Soldiers.Count)throw new ArgumentException("即时检查点与真实编制数量不一致");
-                foreach(var unit in Model.Units)ValidateIdentity(unit);
+                foreach(var unit in Model.Units)
+                {
+                    unit.Mounted=Battle.Soldier(unit.Id-1)?.CombatKind==SoldierKind.Cavalry;
+                    ValidateIdentity(unit);
+                    if(unit.FootprintLength!=1)throw new ArgumentException("战场单位应占一个细格");
+                }
             }
             else foreach(var soldier in Battle.Soldiers.OrderBy(unit=>unit.Id))
             {
-                int length=soldier.CombatKind==SoldierKind.Cavalry?2:1;
-                var probe=new PrototypeUnit {Id=soldier.Id+1,FootprintLength=length,Facing=new PrototypePoint(soldier.Side==BattleSide.A?1:-1,0)};
+                var probe=new PrototypeUnit {Id=soldier.Id+1,Facing=new PrototypePoint(soldier.Side==BattleSide.A?1:-1,0)};
                 var positions=new[]{new PrototypePoint(soldier.Cell.X+(soldier.Side==BattleSide.A?.75:.25),soldier.Cell.Z+.25),new PrototypePoint(soldier.Cell.X+(soldier.Side==BattleSide.A?.75:.25),soldier.Cell.Z+.75),new PrototypePoint(soldier.Cell.X+.25,soldier.Cell.Z+.25),new PrototypePoint(soldier.Cell.X+.75,soldier.Cell.Z+.75)};
                 var position=session.Opening.ManualDeployment&&soldier.Side==BattleSide.A
                     ? BaseBattlePreparation.Anchor(soldier.Cell) : positions.First(point=>Model.Fits(probe,arena.CellAt(point),probe.Facing));
                 var actor=Model.AddUnit(soldier.Side==BattleSide.A ? PrototypeSide.Ally : PrototypeSide.Enemy,
                     soldier.Kind==SoldierKind.Hero ? PrototypeRole.Leader : UsesRangedAttack(session,soldier) ? PrototypeRole.Archer : PrototypeRole.Melee,
                     position,Math.Max(0,soldier.OriginCommanderSlot),soldier.Side==BattleSide.A&&soldier.Kind==SoldierKind.Hero&&soldier.OriginCommanderSlot==Battle.Scenario.PlayerLeaderSlot,soldier.Id+1);
-                if(!Model.SetFootprint(actor,length))throw new InvalidOperationException("骑兵部署体积不足");
+                actor.Mounted=soldier.CombatKind==SoldierKind.Cavalry;
                 if(soldier.Kind==SoldierKind.Hero && soldier.Side==BattleSide.A)soldier.ProtectFromInstantDeath=true;
                 actor.Health=soldier.Health;actor.KnockedDown=soldier.KnockedDown;actor.MaxHealth=soldier.Stats.Health;actor.MoveSpeed=SpeedCells(session,soldier)/PrototypeArena.Subdivision;
                 actor.AttackDamage=soldier.Stats.Damage*soldier.DrinkMultiplier;actor.AttackRange=RangeCells(session,soldier)/PrototypeArena.Subdivision;actor.AttackInterval=1;actor.UsesRangedWeapon=UsesRangedAttack(session,soldier);
             }
             if(Battle.Scenario.HeightVision)
             {
-                Model.HeightShotClear=(a,b)=>BattleHeightSight.Clear(board,a.X,a.Z,b.X,b.Z);
+                Model.HeightShotClear=(a,b)=>BattleHeightSight.Clear(board,a.X,a.Z,b.X,b.Z,cell=>Tactics?.BlocksShot(cell)==true);
                 Model.HeightRangeBonus=(a,b,p)=>a.Ranged?BattleHeightSight.ArcherBonus(board,p.X,p.Z,b.Position.X,b.Position.Z)/PrototypeArena.Subdivision:0;
             }
             Model.CommanderDoctrine=true;
@@ -183,7 +187,7 @@ namespace BaseConquest.Battle
                 actor.Strategy=(PrototypeStrategy)(int)config.Strategy;actor.GuardRadius=config.GuardRange;actor.ThreatRadius=config.AlertRange;actor.CommandRadius=config.AttackRange;
             }
             foreach(var actor in Model.Units.Where(u=>u.Role==PrototypeRole.Leader))Battle.Scenario.Army(actor.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B).Commanders[actor.Squad].Strategy=(SquadStrategy)(int)actor.Strategy;
-            Model.ExploredCell=(actor,cell)=>Battle.Vision.Explored(actor.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B,Coarse(cell));
+
             Model.OtherSquadVision=(actor,cell)=>Model.Units.Any(other=>other.Alive&&other.Side==actor.Side&&other.Squad!=actor.Squad&&Battle.Vision.Observes(Battle.Soldier(other.Id-1),Coarse(cell)));
             InitializeSkills();InitializeRpgCombat();Tactics=new BattleTacticalRuntime(this);
             Synchronize(true);
@@ -339,7 +343,7 @@ namespace BaseConquest.Battle
         public bool RuinsCivilianDamaged;
         internal bool RealtimeVictorySatisfied=>CommanderVictorySatisfied;
         internal void RecordRealtimeOrder()=>CommandsIssued++;
-        internal void SetRealtimeClock(double seconds){RoundNumber=(int)Math.Floor(seconds+1e-8);LastRoundSummary="即时作战 "+seconds.ToString("0.0")+"秒";}
+        internal void SetRealtimeClock(double seconds){RoundNumber=(int)Math.Floor(seconds+1e-8);LastRoundSummary="即时作战 "+seconds.ToString("0")+"秒";}
         internal void FinishRealtime(BattleOutcome outcome)
         {Phase=BattlePhase.Finished;VictoryDeclared=outcome==BattleOutcome.SideAWin;Report=new BattleReport {Outcome=outcome};RefreshBattleReport();InvalidateUndo();}
         internal void RecordRealtimeHit(int sourceId,int targetId,float damage,float health)

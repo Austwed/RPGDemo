@@ -16,6 +16,7 @@ namespace BaseConquest.Base
         public int AcquisitionDay;
         public RpgCharacter Rpg;
         public BaseCommanderTroops DefaultTroops;
+        public List<int> PreferredSoldiers = new List<int>();
         public BasePersonalLoadout PersonalEquipment;
         public BaseTrainingProgress Training=new BaseTrainingProgress();
         public BaseWineStatus Wine=new BaseWineStatus();
@@ -37,7 +38,7 @@ namespace BaseConquest.Base
         public double MapX, MapY;
         public int UnavailableDay;
         public double ProductionBonus = 0.2;
-        public BaseLeader Copy() { var x = (BaseLeader)MemberwiseClone(); x.CombatStats = CombatStats?.Clone(); x.DefaultTroops=DefaultTroops?.Copy(); x.PersonalEquipment=PersonalEquipment?.Copy();x.Training=Training?.Copy();x.Wine=Wine?.Copy();x.Rpg=Rpg?.Copy(); return x; }
+        public BaseLeader Copy() { var x = (BaseLeader)MemberwiseClone(); x.CombatStats = CombatStats?.Clone(); x.DefaultTroops=DefaultTroops?.Copy(); x.PreferredSoldiers=PreferredSoldiers?.ToList() ?? new List<int>(); x.PersonalEquipment=PersonalEquipment?.Copy();x.Training=Training?.Copy();x.Wine=Wine?.Copy();x.Rpg=Rpg?.Copy(); return x; }
     }
     [Serializable] public sealed class BaseWorkerBucket
     {
@@ -55,7 +56,7 @@ namespace BaseConquest.Base
         public bool HasCombatProfile;
         public BaseConquest.Battle.SoldierStats CombatStats;
         public bool Away;
-        public int Count, UnavailableDay;
+        public int Count, UnavailableDay, LastBattleDay;
         public List<int> SoldierNumbers;
 
         private BaseWorkerBucket CopyWith(List<int> numbers, int count)

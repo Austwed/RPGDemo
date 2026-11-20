@@ -9,7 +9,7 @@ namespace BaseConquest.RealtimePrototype
     {
         public int DoctrineVersion, SquadTargetId=-1, PatrolGoal=-1;
         public PrototypeStrategy Strategy;
-        public bool ManualOrder, ObjectOrder;
+        public bool ManualOrder, ObjectOrder, DirectCaptain;
         [NonSerialized] public bool Steering;
         public bool SteeringStopped;
         public string ObjectTargetId="";
@@ -19,6 +19,7 @@ namespace BaseConquest.RealtimePrototype
     public sealed partial class RealtimeBattlePrototype
     {
         public bool CommanderDoctrine;
+        public bool BothSidesHuman;
         public bool LeaderlessEnemyAssault;
         public Func<PrototypeUnit,PrototypeUnit,PrototypePoint,double> HeightRangeBonus;
         public Func<PrototypePoint,PrototypePoint,bool> HeightShotClear;
@@ -26,7 +27,7 @@ namespace BaseConquest.RealtimePrototype
         public bool ClearAttack(PrototypePoint origin,PrototypePoint target)=>HeightShotClear?.Invoke(origin,target)??double.IsPositiveInfinity(Arena.WallFraction(origin,target));
         public void NotifyAttack(PrototypeUnit source,PrototypeUnit target)
         {var first=Owner(source);var second=Owner(target);if(first!=null)first.EngagedUntil=Elapsed+3;if(second!=null)second.EngagedUntil=Elapsed+3;}
-        public Func<PrototypeUnit,int,bool> ExploredCell, OtherSquadVision;
+        public Func<PrototypeUnit,int,bool> OtherSquadVision;
         private PrototypeUnit Owner(PrototypeUnit u)=>u.Role==PrototypeRole.Leader?u:Units.FirstOrDefault(l=>l.Role==PrototypeRole.Leader&&l.Side==u.Side&&l.Squad==u.Squad);
         public void SetStrategy(PrototypeUnit leader,PrototypeStrategy strategy)
         {
@@ -37,6 +38,7 @@ namespace BaseConquest.RealtimePrototype
         {
             var u=Units.FirstOrDefault(actor=>actor.Id==id&&actor.Alive&&actor.Side==PrototypeSide.Ally&&actor.Role==PrototypeRole.Leader);
             if(Paused||Outcome!=PrototypeOutcome.Fighting||u==null||direction.Length<.15||!(CanMove?.Invoke(u)??true))return false;
+            SelectDirectCaptain(u);
             u.SteeringStopped=false;
             if(u.Moving)
             {u.Steering=true;u.ManualOrder=true;u.Order=PrototypeOrder.Move;u.Goal=u.Anchor=Arena.Center(u.NextCell);u.MoveGoal=u.NextCell;u.TargetId=-1;u.SquadTargetId=-1;u.ObjectOrder=false;u.ObjectTargetId="";return true;}
@@ -53,8 +55,15 @@ namespace BaseConquest.RealtimePrototype
         {var u=Units.FirstOrDefault(actor=>actor.Id==id);if(u==null||!u.Steering)return;u.Steering=false;u.SteeringStopped=u.Moving;u.MoveGoal=-1;u.Goal=u.Anchor=u.Position;u.NextThinkAt=0;}
         public void MarkDirectOrder(IEnumerable<int> squads,PrototypeOrder order,int target,bool focusSquad,PrototypeSide side=PrototypeSide.Ally)
         {
-            foreach(var l in Units.Where(u=>u.Alive&&u.Side==side&&u.Role==PrototypeRole.Leader&&squads.Contains(u.Squad)))
+            var selected=Units.Where(u=>u.Alive&&u.Side==side&&u.Role==PrototypeRole.Leader&&squads.Contains(u.Squad)).ToArray();
+            if(selected.Length==1&&order!=PrototypeOrder.Auto)SelectDirectCaptain(selected[0]);
+            foreach(var l in selected)
             {l.Steering=false;l.SteeringStopped=false;l.ManualOrder=order!=PrototypeOrder.Auto;l.ObjectOrder=false;l.ObjectTargetId="";l.SquadTargetId=focusSquad?target:-1;l.NextThinkAt=0;l.PatrolGoal=-1;}
+        }
+        private void SelectDirectCaptain(PrototypeUnit captain)
+        {
+            foreach(var unit in Units.Where(u=>u.Side==captain.Side&&u.Role==PrototypeRole.Leader))
+                unit.DirectCaptain=unit==captain;
         }
         private static bool Guards(PrototypeUnit leader)=>leader.Strategy!=PrototypeStrategy.Attack||leader.ManualOrder&&leader.Order==PrototypeOrder.Guard;
         private bool DoctrineSlotAllowed(PrototypeUnit u,PrototypePoint point)
@@ -182,22 +191,39 @@ namespace BaseConquest.RealtimePrototype
             u.TargetId=-1;u.AttackSlot=-1;
             if(captain&&!guarding)
             {
-                if(Elapsed>=u.NextPatrolAt||u.PatrolGoal>=0&&u.Cell==u.PatrolGoal)
+                if(u.Side==PrototypeSide.Enemy&&!BothSidesHuman)
                 {
-                    var d=Arena.Distances(u.Cell,true);u.PatrolGoal=Enumerable.Range(0,d.Length).Where(c=>!double.IsPositiveInfinity(d[c])&&!(ExploredCell?.Invoke(u,c)??true)&&Fits(u,c,u.Facing))
-                        .OrderBy(c=>d[c]).ThenBy(c=>c).DefaultIfEmpty(DefaultDestination?.Invoke(u)??-1).First();u.NextPatrolAt=Elapsed+2;
+                    u.MoveGoal=DefaultDestination?.Invoke(u)??-1;
+                    if(u.MoveGoal==u.Cell)u.MoveGoal=-1;
+                    return;
                 }
-                u.MoveGoal=u.PatrolGoal;return;
+                var direct=Units.FirstOrDefault(c=>c.Alive&&c.Side==u.Side&&c.DirectCaptain)
+                    ??Units.FirstOrDefault(c=>c.Alive&&c.Side==u.Side&&c.Player);
+                if(direct!=null&&direct!=u&&(u.Position-direct.Position).Length>direct.CommandRadius)
+                {
+                    u.MoveGoal=NearestFree(u,direct.Position,Math.Max(.5,direct.CommandRadius-.5));
+                    u.PatrolGoal=-1;
+                    return;
+                }
+                if(direct!=null&&direct!=u&&(u.Anchor-direct.Position).Length>direct.CommandRadius-.8)
+                    u.Anchor=u.Position;
+                Patrol(u,u.Anchor,Math.Min(l.GuardRadius,.8));
+                return;
             }
             Patrol(u,center,l.GuardRadius);
         }
         private void Patrol(PrototypeUnit u,PrototypePoint center,double radius)
         {
             if((u.Position-center).Length>radius){u.MoveGoal=NearestFree(u,center,radius);return;}
+            if(u.PatrolGoal<0)
+            {
+                if(u.NextPatrolAt<=0)u.NextPatrolAt=Elapsed+2+u.Id%4;
+                if(Elapsed<u.NextPatrolAt){u.MoveGoal=-1;return;}
+            }
             if(Elapsed>=u.NextPatrolAt||u.PatrolGoal<0||(Arena.Center(u.PatrolGoal)-center).Length>radius)
             {
-                double angle=(u.Id*2.399963+Math.Floor(Elapsed/3)*1.7);var point=center+new PrototypePoint(Math.Cos(angle),Math.Sin(angle))*Math.Min(radius,.8);
-                u.PatrolGoal=NearestFree(u,point,Math.Min(radius,.8));u.NextPatrolAt=Elapsed+3;
+                double angle=(u.Id*2.399963+Math.Floor(Elapsed/6)*1.7);var point=center+new PrototypePoint(Math.Cos(angle),Math.Sin(angle))*Math.Min(radius,.8);
+                u.PatrolGoal=NearestFree(u,point,Math.Min(radius,.8));u.NextPatrolAt=Elapsed+6+u.Id%3;
             }
             u.MoveGoal=u.PatrolGoal==u.Cell?-1:u.PatrolGoal;
         }

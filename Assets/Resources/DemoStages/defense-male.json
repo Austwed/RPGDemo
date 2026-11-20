@@ -3,8 +3,8 @@
     "Day": 6,
     "FoodPaidDay": 6,
     "LastCompletedDay": 5,
-    "TodayFoodRequired": 13,
-    "TodayFoodConsumed": 13,
+    "TodayFoodRequired": 15,
+    "TodayFoodConsumed": 15,
     "TodayFoodMissing": 0,
     "PlayerLeaderId": "player",
     "TemplateTitle": "Demo · 序章与灰岩营地",
@@ -13,9 +13,9 @@
     "PlayerY": 6.5,
     "FarmFraction": 0.0,
     "Inventory": {
-        "Food": 218,
+        "Food": 210,
         "Materials": 72,
-        "Coins": 747,
+        "Coins": 735,
         "Equipment": [
             {
                 "Product": "supply",
@@ -72,6 +72,7 @@
                 "Cavalry": 0,
                 "Mage": 0
             },
+            "PreferredSoldiers": [],
             "PersonalEquipment": {
                 "Version": 1,
                 "Weapon": "sword",
@@ -240,6 +241,7 @@
                 "Cavalry": 0,
                 "Mage": 0
             },
+            "PreferredSoldiers": [],
             "PersonalEquipment": {
                 "Version": 1,
                 "Weapon": "bow",
@@ -399,6 +401,7 @@
                 "Cavalry": 2,
                 "Mage": 0
             },
+            "PreferredSoldiers": [],
             "PersonalEquipment": {
                 "Version": 1,
                 "Weapon": "spear",
@@ -416,7 +419,7 @@
                     "HasProfessionKind": true,
                     "ProfessionKind": 3,
                     "SightRadius": 0,
-                    "Range": 2,
+                    "Range": 1,
                     "MoveDistance": 3,
                     "CritChance": 0.0,
                     "CritMultiplier": 1.5
@@ -563,11 +566,14 @@
                 "CritMultiplier": 1.5
             },
             "Away": false,
-            "Count": 2,
+            "Count": 4,
             "UnavailableDay": 0,
+            "LastBattleDay": 0,
             "SoldierNumbers": [
                 1,
-                4
+                4,
+                7,
+                10
             ]
         },
         {
@@ -608,14 +614,13 @@
                 "CritMultiplier": 1.5
             },
             "Away": false,
-            "Count": 5,
+            "Count": 3,
             "UnavailableDay": 0,
+            "LastBattleDay": 0,
             "SoldierNumbers": [
                 2,
                 5,
-                7,
-                9,
-                11
+                8
             ]
         },
         {
@@ -650,62 +655,20 @@
                 "HasProfessionKind": true,
                 "ProfessionKind": 3,
                 "SightRadius": 0,
-                "Range": 2,
+                "Range": 1,
                 "MoveDistance": 3,
                 "CritChance": 0.0,
                 "CritMultiplier": 1.5
             },
             "Away": false,
-            "Count": 2,
+            "Count": 4,
             "UnavailableDay": 0,
+            "LastBattleDay": 0,
             "SoldierNumbers": [
                 3,
-                6
-            ]
-        },
-        {
-            "Kind": 3,
-            "FacilityId": "",
-            "PartyId": "",
-            "SourceId": "",
-            "HeldBy": "",
-            "HeldSourceId": "",
-            "PartyOrder": 0,
-            "VillageResident": false,
-            "Relocating": false,
-            "DepartureFacility": "",
-            "DesiredFacility": "",
-            "PostLocked": true,
-            "Resting": false,
-            "Recruited": false,
-            "Health": 75.0,
-            "MaxHealth": 75.0,
-            "FarmEfficiency": 1.0,
-            "WorkshopEfficiency": 1.0,
-            "HasCombatProfile": true,
-            "CombatStats": {
-                "Level": 1,
-                "Health": 75.0,
-                "Damage": 14.0,
-                "Defense": 2.0,
-                "Penetration": 0.0,
-                "Resistance": 0.0,
-                "HasCombatKind": true,
-                "CombatKind": 4,
-                "HasProfessionKind": true,
-                "ProfessionKind": 4,
-                "SightRadius": 0,
-                "Range": 6,
-                "MoveDistance": 2,
-                "CritChance": 0.0,
-                "CritMultiplier": 1.5
-            },
-            "Away": false,
-            "Count": 2,
-            "UnavailableDay": 0,
-            "SoldierNumbers": [
-                8,
-                10
+                6,
+                9,
+                11
             ]
         }
     ],
@@ -790,7 +753,7 @@
         ],
         "Parties": [],
         "ReturnedIds": [
-            "be4edc1a7d08428ea551b7c45c34b2e6"
+            "eea3d55b99b24ab0b21a697193b2851b"
         ],
         "AppliedAppendIds": []
     },
@@ -829,7 +792,7 @@
             }
         ],
         "FinishedIds": [
-            "f04ea758a6af40e29c33504b22dada6b"
+            "cae7fcc0e8354721be8927fd8be676f0"
         ]
     },
     "Campaign": {
@@ -1195,16 +1158,16 @@
         ],
         "SettledIds": [
             "demo:smith:parting-gift",
-            "f04ea758a6af40e29c33504b22dada6b"
+            "cae7fcc0e8354721be8927fd8be676f0"
         ],
         "Reports": [
             {
-                "BattleId": "f04ea758a6af40e29c33504b22dada6b",
+                "BattleId": "cae7fcc0e8354721be8927fd8be676f0",
                 "EventId": "demo:ruins:rescue",
                 "Title": "沉眠古窟 · 制服受控者并击败控制来源",
                 "Outcome": "SideAWin",
                 "Day": 1,
-                "Rounds": 24,
+                "Rounds": 26,
                 "Deployed": 0,
                 "Killed": 0,
                 "Missing": 0,
@@ -1227,7 +1190,7 @@
                 "Passive": false,
                 "Deputy": false,
                 "Realtime": true,
-                "Seconds": 24.399999999999896
+                "Seconds": 26.966666666666416
             }
         ],
         "HasActiveBattle": false,
@@ -2325,7 +2288,7 @@
                             "HasProfessionKind": true,
                             "ProfessionKind": 3,
                             "SightRadius": 0,
-                            "Range": 2,
+                            "Range": 1,
                             "MoveDistance": 3,
                             "CritChance": 0.0,
                             "CritMultiplier": 1.5
@@ -8151,9 +8114,9 @@
                     10
                 ],
                 "Range": [
-                    2.0,
+                    1.0,
                     12.0,
-                    3.0
+                    2.0
                 ],
                 "Speed": [
                     4.0,
@@ -92340,8 +92303,8 @@
         },
         "Prisoners": [
             {
-                "Id": "f04ea758a6af40e29c33504b22dada6b:0",
-                "BattleId": "f04ea758a6af40e29c33504b22dada6b",
+                "Id": "cae7fcc0e8354721be8927fd8be676f0:0",
+                "BattleId": "cae7fcc0e8354721be8927fd8be676f0",
                 "Name": "敌方迦兰",
                 "Status": "awaiting-story",
                 "CaptureSource": "沉眠古窟 · 制服受控者并击败控制来源",
@@ -92491,9 +92454,9 @@
             {
                 "Kind": 1,
                 "Price": 40,
-                "DailyCount": 0,
-                "Remaining": 0,
-                "MissingDays": 1,
+                "DailyCount": 1,
+                "Remaining": 1,
+                "MissingDays": 0,
                 "Stats": {
                     "Level": 1,
                     "Health": 75.0,
@@ -92530,32 +92493,8 @@
                     "HasProfessionKind": true,
                     "ProfessionKind": 3,
                     "SightRadius": 0,
-                    "Range": 2,
+                    "Range": 1,
                     "MoveDistance": 3,
-                    "CritChance": 0.0,
-                    "CritMultiplier": 1.5
-                }
-            },
-            {
-                "Kind": 3,
-                "Price": 40,
-                "DailyCount": 1,
-                "Remaining": 1,
-                "MissingDays": 0,
-                "Stats": {
-                    "Level": 1,
-                    "Health": 75.0,
-                    "Damage": 14.0,
-                    "Defense": 2.0,
-                    "Penetration": 0.0,
-                    "Resistance": 0.0,
-                    "HasCombatKind": true,
-                    "CombatKind": 4,
-                    "HasProfessionKind": true,
-                    "ProfessionKind": 4,
-                    "SightRadius": 0,
-                    "Range": 6,
-                    "MoveDistance": 2,
                     "CritChance": 0.0,
                     "CritMultiplier": 1.5
                 }
@@ -93102,9 +93041,9 @@
                 10
             ],
             "Range": [
-                2.0,
+                1.0,
                 12.0,
-                3.0,
+                2.0,
                 12.0
             ],
             "Speed": [
@@ -93834,7 +93773,7 @@
         "Stage": 9,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "c23d35742a36be3d790561b943b0be1478918da9837c4e861b85bed250e6b33e",
-        "ConfigHash": "9deb76bf4d53a87df3feea91692c23a52344416192fdac7eaf9ad523cf6b440b",
+        "ConfigHash": "02cb797d832018ef6c970810ea850673033e4c7fb4a24646b279d299d5b047fa",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -93876,6 +93815,7 @@
                     "Cavalry": 0,
                     "Mage": 0
                 },
+                "PreferredSoldiers": [],
                 "PersonalEquipment": {
                     "Version": 0,
                     "Weapon": "",
@@ -94363,6 +94303,7 @@
                     true,
                     true,
                     true,
+                    false,
                     true,
                     true,
                     true,
@@ -94394,6 +94335,7 @@
                     true,
                     true,
                     true,
+                    false,
                     true,
                     true,
                     true,
@@ -94425,6 +94367,7 @@
                     true,
                     true,
                     true,
+                    false,
                     true,
                     true,
                     true,
@@ -94456,6 +94399,7 @@
                     true,
                     true,
                     true,
+                    false,
                     true,
                     true,
                     true,
@@ -94487,6 +94431,7 @@
                     true,
                     true,
                     true,
+                    false,
                     true,
                     true,
                     true,
@@ -94518,6 +94463,7 @@
                     true,
                     true,
                     true,
+                    false,
                     true,
                     true,
                     true,
@@ -94548,14 +94494,8 @@
                     true,
                     true,
                     true,
-                    true,
-                    true,
-                    true,
-                    true,
-                    true,
-                    true,
-                    true,
-                    true,
+                    false,
+                    false,
                     true,
                     true,
                     true,
@@ -94788,6 +94728,10 @@
         "RuinsVersion": 1,
         "RuinsDay": 1,
         "DeliveredDay": 1,
+        "RuinsPlayerHeard": false,
+        "RuinsAzhuHeard": false,
+        "RuinsAheHeard": false,
+        "RuinsControllerHeard": false,
         "Candidates": [
             {
                 "Id": "partner_farm",
@@ -94824,6 +94768,7 @@
                     "Cavalry": 0,
                     "Mage": 0
                 },
+                "PreferredSoldiers": [],
                 "PersonalEquipment": {
                     "Version": 1,
                     "Weapon": "bow",
@@ -94983,6 +94928,7 @@
                     "Cavalry": 2,
                     "Mage": 0
                 },
+                "PreferredSoldiers": [],
                 "PersonalEquipment": {
                     "Version": 1,
                     "Weapon": "spear",
@@ -95000,7 +94946,7 @@
                         "HasProfessionKind": true,
                         "ProfessionKind": 3,
                         "SightRadius": 0,
-                        "Range": 2,
+                        "Range": 1,
                         "MoveDistance": 3,
                         "CritChance": 0.0,
                         "CritMultiplier": 1.5
@@ -95237,8 +95183,6 @@
             "SecondBriefingSeen": false,
             "BattleIntelSeen": false,
             "SecondVictoryReportSeen": false,
-            "MerchantX": 0.0,
-            "MerchantY": 0.0,
             "MainForce": [],
             "Workshop": {
                 "FacilityId": "workshop",
@@ -116862,7 +116806,7 @@
             "BanditCleared": false,
             "SmithLesson": 0,
             "ZhouTraining": 0,
-            "FirstControllerId": "f04ea758a6af40e29c33504b22dada6b:0",
+            "FirstControllerId": "cae7fcc0e8354721be8927fd8be676f0:0",
             "FarmX": 0.0,
             "FarmY": 0.0,
             "FarmNpcX": 0.0,
@@ -161105,14 +161049,14 @@
     "LastReport": {
         "CompletedDay": 5,
         "NewDay": 6,
-        "FoodBefore": 227,
+        "FoodBefore": 221,
         "FoodProduced": 4,
         "MaterialsSpent": 0,
         "ProductsMade": 0,
-        "FoodRequired": 13,
-        "FoodConsumed": 13,
+        "FoodRequired": 15,
+        "FoodConsumed": 15,
         "FoodMissing": 0,
-        "FoodAfter": 218,
+        "FoodAfter": 210,
         "Product": "supply",
         "ProductLevel": 1,
         "ProductionFactor": 1.0,

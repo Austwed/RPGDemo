@@ -49,7 +49,7 @@ namespace BaseConquest.Base
             if(quote==null)TradeLine(details,blocked);
             else
             {
-                TradeLine(details,"升档 "+(quote.Up/100f).ToString("0.##")+"% ／ 留级 "+(quote.Stay/100f).ToString("0.##")+"% ／ 降档 "+(quote.Down/100f).ToString("0.##")+"%");
+                TradeLine(details,"升档 "+(quote.Up/100f).ToString("0")+"% ／ 留级 "+(quote.Stay/100f).ToString("0")+"% ／ 降档 "+(quote.Down/100f).ToString("0")+"%");
                 string basis=selected.Worn?"角色属性":"装备属性";
                 string preview=StoryText.Get("story.ui.trade.reforge_preview","{0} · {1} {2}");
                 if(quote.Up>0)

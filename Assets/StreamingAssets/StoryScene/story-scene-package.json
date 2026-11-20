@@ -160,22 +160,6 @@
             "Shape": "",
             "Rotation": 0,
             "Blocks": false
-          },
-          {
-            "Id": "demo_survivor",
-            "Name": "幸存村民",
-            "SourceObjectId": "story-village-demo_survivor",
-            "DefinitionId": "story_village_demo_survivor",
-            "AssetId": "villager",
-            "Kind": "npc",
-            "VisualOnly": false,
-            "X": 16,
-            "Y": 12.6,
-            "Width": 0.5,
-            "Height": 0.5,
-            "Shape": "",
-            "Rotation": 0,
-            "Blocks": false
           }
         ]
       },

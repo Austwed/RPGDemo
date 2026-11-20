@@ -406,8 +406,8 @@ namespace BaseConquest.Battle
             if (selectedUnitId >= 0 && battle.Soldier(selectedUnitId) is BattleSoldier pawn)
             {
                 GUILayout.Label("单兵 #" + (pawn.Id + 1) + " · " + BattleSimulation.KindName(pawn.Kind) + " · " + CommandName(pawn.Command), textStyle);
-                GUILayout.Label("生命 " + pawn.Health.ToString("F0") + "/" + pawn.Stats.Health.ToString("F0") + "  |  射程 " + pawn.Stats.Range + " · 移动 " + pawn.Stats.MoveDistance + " 格", smallStyle);
-                GUILayout.Label("伤害 " + pawn.Stats.Damage.ToString("0.##") + " · 暴击率 " + pawn.Stats.CritChance.ToString("P0") + " · 暴击伤害 " + pawn.Stats.CritMultiplier.ToString("P0"), smallStyle);
+                GUILayout.Label("生命 " + pawn.Health.ToString("F0") + "/" + pawn.Stats.Health.ToString("F0") + "  |  攻击距离 " + pawn.Stats.Range + " · 移动 " + pawn.Stats.MoveDistance + " 格", smallStyle);
+                GUILayout.Label("伤害 " + pawn.Stats.Damage.ToString("0") + " · 暴击率 " + pawn.Stats.CritChance.ToString("P0") + " · 暴击伤害 " + pawn.Stats.CritMultiplier.ToString("P0"), smallStyle);
                 UnitOrderPreview preview = orderOverlay.Current;
                 if (preview != null)
                 {
@@ -517,7 +517,7 @@ namespace BaseConquest.Battle
             GUI.enabled = battle.Phase == BattlePhase.Deployment;
             ArmyDefinition army = battle.Scenario.Army(selectedSide);
             GUILayout.Label("分别设置双方。应用后保留合法布兵，数量减少时多出的单位返回备战席。", smallStyle);
-            GUILayout.BeginHorizontal(); GUILayout.Label("兵种", smallStyle, GUILayout.Width(58)); GUILayout.Label("人数", smallStyle, GUILayout.Width(59)); GUILayout.Label("生命", smallStyle, GUILayout.Width(59)); GUILayout.Label("伤害", smallStyle, GUILayout.Width(59)); GUILayout.Label("射程", smallStyle); GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal(); GUILayout.Label("兵种", smallStyle, GUILayout.Width(58)); GUILayout.Label("人数", smallStyle, GUILayout.Width(59)); GUILayout.Label("生命", smallStyle, GUILayout.Width(59)); GUILayout.Label("伤害", smallStyle, GUILayout.Width(59)); GUILayout.Label("攻击距离", smallStyle); GUILayout.EndHorizontal();
             for (int i = 0; i < 4; i++)
             {
                 SoldierKind kind = (SoldierKind)i; SoldierStats stats = army.Stats(kind); string prefix = i + ".";
@@ -529,7 +529,7 @@ namespace BaseConquest.Battle
                 GUILayout.Label("暴伤%", smallStyle, GUILayout.Width(52)); ValueField(prefix + "multiplier", (stats.CritMultiplier * 100).ToString(CultureInfo.InvariantCulture), 42); GUILayout.EndHorizontal();
                 GUILayout.Space(6);
             }
-            GUILayout.Label("人数 0～30，英雄 0～3；射程／移动 1～12 格。一次移动沿路径前进最多指定格数，本轮不追加攻击。暴击率 0～100%，暴伤 100～1000%。", smallStyle);
+            GUILayout.Label("人数 0～30，英雄 0～3；攻击距离／移动 1～12 格。一次移动沿路径前进最多指定格数，本轮不追加攻击。暴击率 0～100%，暴伤 100～1000%。", smallStyle);
             GUILayout.BeginHorizontal(); GUILayout.Label("随机种子", smallStyle, GUILayout.Width(90)); ValueField("seed", battle.Scenario.RandomSeed.ToString(), 120); GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal(); GUILayout.Label("视野半径", smallStyle, GUILayout.Width(90)); ValueField("vision", battle.Scenario.VisionRadius.ToString(), 120); GUILayout.EndHorizontal();
             GUI.enabled = true;
@@ -541,7 +541,7 @@ namespace BaseConquest.Battle
             if (Button("应用" + BattleSimulation.SideName(selectedSide) + "数值"))
             {
                 if (TryReadArmy(out ArmyDefinition definition) && int.TryParse(values["seed"], out int seed) && int.TryParse(values["vision"], out int vision) && vision >= 1 && vision <= 32) { battle.ApplyArmy(selectedSide, definition); battle.Scenario.RandomSeed = seed; battle.Scenario.VisionRadius = vision; battle.Vision.Refresh(); values.Clear(); feedback = "数值已应用；生命、移动、暴击与视野参数已更新"; }
-                else feedback = "请输入合法数值：生命 > 0，伤害 ≥ 0，射程／移动 1～12，暴击率 0～100%，暴伤 100～1000%，视野 1～32，种子为整数";
+                else feedback = "请输入合法数值：生命 > 0，伤害 ≥ 0，攻击距离／移动 1～12，暴击率 0～100%，暴伤 100～1000%，视野 1～32，种子为整数";
             }
             GUI.enabled = true;
         }
@@ -570,7 +570,7 @@ namespace BaseConquest.Battle
             GUI.enabled = battle.Phase == BattlePhase.Fighting;
             if (Button("推进下一轮  [N]", 40)) SingleRound();
             if (Button(autoRun ? "暂停连续推进" : "自动连续推进", 38)) ToggleAutomatic();
-            GUILayout.Label("动作播放时长：" + presentationSeconds.ToString("F2") + " 秒", smallStyle);
+            GUILayout.Label("动作播放时长 " + CombatNumbers.Duration(presentationSeconds), smallStyle);
             presentationSeconds = GUILayout.HorizontalSlider(presentationSeconds, 0.1f, 1.5f);
             GUILayout.Space(8);
             if (battle.Scenario.CommanderControl)
@@ -591,7 +591,7 @@ namespace BaseConquest.Battle
             GUILayout.Label(HasSelection ? "命令范围：当前选中 " + selection.Ids.Count + " 名单位" : "先点选或框选单位", smallStyle);
             GUILayout.BeginHorizontal();
             if (Button(commandTool == CommandTool.Move ? "取消移动选点" : "移动  [M]")) ArmCommand(CommandTool.Move);
-            if (Button("驻守  [H]")) { IssueSelectedHold(); commandTool = CommandTool.None; skillArmed = false; feedback = "原地驻守并攻击射程内目标，不追击"; }
+            if (Button("驻守  [H]")) { IssueSelectedHold(); commandTool = CommandTool.None; skillArmed = false; feedback = "原地驻守并攻击攻击距离内目标，不追击"; }
             if (Button(commandTool == CommandTool.Attack ? "取消攻击选点" : "攻击  [F]")) ArmCommand(CommandTool.Attack);
             GUILayout.EndHorizontal();
             if (Button("恢复自动  [A]")) { IssueSelectedAuto(); commandTool = CommandTool.None; skillArmed = false; }
@@ -626,7 +626,7 @@ namespace BaseConquest.Battle
             GUILayout.Label(battle.Report.Rounds + " 轮  |  指令 " + battle.Report.CommandsIssued + "  |  技能 " + battle.Report.AbilitiesUsed, textStyle);
             GUILayout.Label("小队       在场 / 击倒 / 撤离       伤害", smallStyle);
             foreach (SquadReport row in battle.Report.Squads) GUILayout.Label(row.Name + "    " + row.Standing + " / " + row.Defeated + " / " + row.Escaped + "        " + row.DamageDealt.ToString("F0"), textStyle);
-            GUILayout.Space(12); GUILayout.Label("地图、人数、射程和指令都可以调整后重测。击倒只表示本场失去行动能力。", smallStyle);
+            GUILayout.Space(12); GUILayout.Label("地图、人数、攻击距离和指令都可以调整后重测。击倒只表示本场失去行动能力。", smallStyle);
             if (Button("保留配置，返回准备", 40)) { ReplaceSimulation(battle.Scenario); tab = 0; }
             GUILayout.EndScrollView(); GUILayout.EndArea();
         }

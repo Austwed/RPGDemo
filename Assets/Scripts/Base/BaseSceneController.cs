@@ -495,7 +495,10 @@ namespace BaseConquest.Base
                 return;
             }
             OpeningAudio ??= VillageOpeningAudio.Shared();
-            var place = BaseSceneRules.Dungeon(State) ? VillageOpeningAudio.Place.Dungeon :
+            if (pursuitArrivalOpen && Hud?.DialogueOpen != true) pursuitArrivalOpen = false;
+            var place = pursuitArrivalOpen ? VillageOpeningAudio.Place.Battle :
+                State.Demo.Stage == BaseDemoStage.PrologueWounded ? VillageOpeningAudio.Place.Silent :
+                BaseSceneRules.Dungeon(State) ? VillageOpeningAudio.Place.Dungeon :
                 BaseDemoPrologue.Village(State) ? VillageOpeningAudio.Place.Village : VillageOpeningAudio.Place.Field;
             OpeningAudio.SetExploration(this, place);
         }

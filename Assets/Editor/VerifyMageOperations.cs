@@ -17,25 +17,21 @@ namespace BaseConquest.Editor
 
             var state = Stage("defense");
             AtScene(state, "town", "town_recruit");
-            var stock = state.Town.Recruits.Single(r => r.Kind == BaseTroopKind.Mage);
-            // 固定缺位补货的起点，检验正常日分货和募兵交易，不依赖当天随机分给了哪一类。
-            if (stock.Remaining == 0)
-            {
-                stock.MissingDays = BaseTown.StockMissingFallback;
-                BaseTown.AllocateStock(state);
-            }
-            Need(BaseTown.MaxHire(state, BaseTroopKind.Mage) > 0, "正常日法师无货");
+            Need(state.Town.Recruits.Count == 3 && BaseTown.MaxHire(state, BaseTroopKind.Mage) == 0, "雷恩只出售剑弓骑");
             int food = BaseEconomy.FoodRequired(state);
-            int coins = state.Inventory.Coins, before = BaseTown.TroopCount(state, BaseTroopKind.Mage);
+            int before = BaseTown.TroopCount(state, BaseTroopKind.Mage);
+            VerifySmithReward(state.Copy());
+            var prisoner = HeatCapture(state.Copy());
+            state.Aftermath.Prisoners.Add(prisoner);
             int lastNumber = state.LastSoldierNumber;
-            var quote = BaseTown.QuoteHire(state, BaseTroopKind.Mage, 1);
-            Need(BaseTown.Confirm(state, quote) && !BaseTown.Confirm(state, quote), "招募未提交或被重复扣费");
+            Need(BaseAftermath.Decide(state, prisoner.Id, "recruit") && !BaseAftermath.Decide(state, prisoner.Id, "recruit"), "遗迹俘虏单次招募");
             var worker = state.Workers.Single(w => w.Kind == BaseTroopKind.Mage && w.SoldierNumbers.Any(n => n > lastNumber));
             int number = worker.SoldierNumbers.Single(n => n > lastNumber);
-            Need(BaseTown.TroopCount(state, BaseTroopKind.Mage) == before + 1 && state.Inventory.Coins == coins - quote.Total &&
-                worker.CombatStats.Health == stock.Stats.Health && worker.CombatStats.Damage == stock.Stats.Damage &&
-                BaseEconomy.FoodRequired(state) - food == state.Demo.Rpg.MageFood, "法师库存、初始属性、价格或口粮");
-
+            Need(BaseTown.TroopCount(state, BaseTroopKind.Mage) == before + 1 &&
+                worker.CombatStats.Health == prisoner.Stats.Health && BaseEconomy.FoodRequired(state) - food == state.Demo.Rpg.MageFood, "归编与口粮");
+            // Advance from convalescence to the healthy fixture used by the work and deployment cases.
+            worker.Health = worker.MaxHealth;
+            worker.Resting = false;
             AtScene(state, "base", "home");
             var facility = worker.FacilityId == "workshop" ? "farm" : "workshop";
             var facilityRule = state.Muster.Facilities.Single(f => f.FacilityId == facility);
@@ -80,6 +76,68 @@ namespace BaseConquest.Editor
             Need(BaseEconomy.Rest(state, state.Day) && state.LastReport.FoodRequired == preview.FoodRequired, "返营日结口粮");
             BaseEconomy.Validate(state);
             Debug.Log("[VerifyMageOperations] PASS 首日兵源、正常招募、备战部署、军需、即死、倒地、俘虏招降、读档、归队和口粮日结");
+        }
+
+        private static void VerifySmithReward(BaseState state)
+        {
+            AtScene(state, "town", "town_blacksmith");
+            string stone = BaseEquipmentCrafting.Stone;
+            int before = BaseBackpack.Count(state, stone);
+            Need(BaseDemoSideQuests.AcceptSmith(state) && BaseBackpack.Count(state, stone) == before + 3, "铁匠的试用石");
+            BaseBattleLoot.ConsumeReceipt(state, BaseDemoSideQuests.SmithStonesId);
+            BaseDemoSideQuests.Reforged(state);
+            var packed = state.Copy();
+            BaseBackpack.Receive(packed, stone, BaseBackpack.Room(packed, stone) - 99);
+            int packedCount = BaseBackpack.Count(packed, stone);
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                try { BaseDemoSideQuests.FinishSmith(packed); throw new InvalidOperationException("不足100个空间仍领取成功"); }
+                catch (BagFullException) { }
+                Need(BaseDemoSideQuests.Smith(packed) == BaseSideQuestStage.Ready && BaseBackpack.Count(packed, stone) == packedCount,
+                    "满包重试必须保留任务和库存");
+            }
+            Need(BaseDemoSideQuests.FinishSmith(state) && !BaseDemoSideQuests.FinishSmith(state) &&
+                BaseBackpack.Count(state,stone) == before + 103 && state.Backpack.Items.Where(i=>i.ItemId==stone).All(i=>i.Count<=99),
+                "重铸奖励整组领取、堆叠与幂等");
+        }
+
+        private static BasePrisoner HeatCapture(BaseState state)
+        {
+            var map = BaseSpatial.Layout(state,"outpost");
+            state.Campaign.Location = map.Region;
+            state.Campaign.CurrentMapId = map.SourceMapId;
+            var approach = BaseStageWalk.Door(state,"demo_ruins_investigate");
+            state.PlayerX = approach.X; state.PlayerY = approach.Y;
+            BaseAdventure.Arrive(state);
+            var session = BaseDemoRuins.Begin(state, "none");
+            var run = new RealtimeCampaignBattle(session);
+            BaseDemoRuins.Configure(run);
+            var mages = run.Battle.Soldiers.Where(u=>u.Side==BattleSide.B && u.Kind==SoldierKind.Mage).ToArray();
+            Need(!session.Opening.RuinsFirstClear && mages.Length==2 && !BaseDemoRuins.Civilians(session).Any(), "重刷阵容");
+            var target = mages[0];
+            int seed = Enumerable.Range(1,10000).First(n => BattleSimulation.StableRoll(n,target.Id,11)>.95 &&
+                BattleSimulation.StableRoll(n,target.Id,23)<session.Opening.Difficulty.DropRate);
+            run.Battle.Scenario.RandomSeed = session.Opening.Scenario.RandomSeed = seed;
+            run.Model.CanTarget = (_,_) => false;
+            run.Model.CanMove = _ => false;
+            run.Model.SetPaused(false);
+            for (int i=0; i<260 && mages.Any(u=>u.IsActive); i++) run.Tick(.2);
+            Need(target.KnockedDown && mages.All(u=>!u.IsActive) && target.LastHitSourceId == -1, "热脉击倒法师 t=" + run.Model.Elapsed + " phase=" + run.Battle.Phase + " HP=" + string.Join(",",mages.Select(m=>$"{m.Health}/{m.Stats.Health}:down={m.KnockedDown}:dead={m.InstantDead}:last={m.LastHitSourceId}")));
+            var controller = run.Battle.Commander(BattleSide.B,0);
+            var body = run.Model.Units.Single(u=>u.Id==controller.Id+1);
+            run.Model.ApplyResolvedHit(run.Model.Player, body, body.Health);
+            run.Tick(.05);
+            VerifyChenanAndRuins.WalkOutOfRuins(run);
+            Need(BaseDemoRuins.Complete(state,run), "重刷遗迹完成");
+            var captive = state.Aftermath.Prisoners.Single(p => p.Id == session.Opening.Id + ":" + target.Id && p.Status == "held").Copy();
+            var save = new BaseSaveStore("Logs/demo-route-checkpoints/heat-captive-slot.json",
+                d => JsonUtility.ToJson(d), JsonUtility.FromJson<BaseSaveDocument>, true);
+            save.Save(state, "热脉击倒法师 · 等待处置");
+            var reload = save.Load();
+            int before = BaseTown.TroopCount(reload, BaseTroopKind.Mage);
+            Need(BaseAftermath.Decide(reload, captive.Id, "recruit") && BaseTown.TroopCount(reload, BaseTroopKind.Mage) == before + 1,
+                "读回实际古窟战后存档并招募法师");
+            return captive;
         }
 
         private static BaseBattlePreparation MageDraft(BaseState state, int number)

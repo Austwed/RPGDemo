@@ -52,8 +52,8 @@ namespace BaseConquest.Battle
         private LineRenderer arrow, starInk;
         private Renderer selectionArrow;
         private Renderer groundOccupation;
-        private static readonly PrototypeUnit FootDraft = new PrototypeUnit();
-        private static readonly PrototypeUnit MountedDraft = new PrototypeUnit { FootprintLength = 2, Facing = new PrototypePoint(1, 0) };
+
+
         private Renderer missingArtFlag; // 缺外观时头顶的品红「缺图」占位标记，防止被当成正式美术遗漏。
         private BattleStatusEffectsView statusEffects;
         private MaterialPropertyBlock properties;
@@ -148,8 +148,8 @@ namespace BaseConquest.Battle
         }
         private void SortAt(float worldZ)
         {
-            BaseConquest.Presentation.MapSpriteOrder.Apply(transform,worldZ);
-            int order=BaseConquest.Presentation.MapSpriteOrder.At(worldZ);
+            BaseConquest.Presentation.MapSpriteOrder.Apply(transform,worldZ,soldier.IsDowned || soldier.InstantDead);
+            int order=soldier.IsDowned || soldier.InstantDead ? BaseConquest.Presentation.MapSpriteOrder.FallenOrder : BaseConquest.Presentation.MapSpriteOrder.At(worldZ);
             healthRoot.GetComponent<Renderer>().sortingOrder=order+8;
             healthFill.GetComponent<Renderer>().sortingOrder=order+9;
             selectionArrow.sortingOrder=order+10;
@@ -157,39 +157,34 @@ namespace BaseConquest.Battle
         public void SyncRealtime(BattleSimulation battle,PrototypeUnit actor,double seconds,Vector3 feet)
         {
             properties.Clear();
-            // The lower half-cell is under the front hooves facing south and the hind hooves facing north.
-            float hoofOffset = actor.FootprintLength == 2 && actor.BodyAxis.Z != 0 ? BattleBoardView.CellSize * .25f : 0;
-            transform.position = feet - Vector3.forward * hoofOffset;
+            transform.position = feet;
             float scale=soldier.Kind==SoldierKind.Hero?1:.85f;shape.localScale=new Vector3(soldier.Side==BattleSide.A?scale:-scale,scale,scale);
             shape.localRotation=soldier.IsDowned?Quaternion.Euler(0,90,0):Quaternion.identity;
             playerHero?.Realtime(actor,seconds);companion?.Realtime(actor,seconds,soldier.CombatKind==SoldierKind.Cavalry);
             if(actor.FlashUntil>seconds)foreach(var pair in damageShapes){properties.SetColor("_BaseColor",new Color(1,.12f,.12f));pair.Key.SetPropertyBlock(properties);}
             if(projectile!=null)projectile.gameObject.SetActive(false);
             SortAt(transform.position.z);
-            SyncGroundOccupation(actor, actor.Side, actor.Alive, hoofOffset);
+            SyncGroundOccupation(actor.Side, actor.Alive);
         }
 
-        private void SyncGroundOccupation(PrototypeUnit footprint, PrototypeSide side, bool visible, float hoofOffset = 0)
+        private void SyncGroundOccupation(PrototypeSide side, bool visible)
         {
             if (!visible)
             {
                 if (groundOccupation != null) groundOccupation.enabled = false;
                 return;
             }
-            bool cavalry = footprint.FootprintLength == 2;
             if (groundOccupation == null)
             {
                 Color tint = side == PrototypeSide.Ally
                     ? new Color(.13f, .48f, 1, .45f) : new Color(1, .18f, .15f, .45f);
-                groundOccupation = Shape("GroundOccupation", Vector3.zero, cavalry ? 1 : .5f, 1, !cavalry, tint);
+                groundOccupation = Shape("GroundOccupation", Vector3.zero, 1, 1, false, tint);
                 damageShapes.Remove(groundOccupation);
                 groundOccupation.transform.SetParent(transform, false);
             }
-            groundOccupation.transform.localPosition = new Vector3(0, .035f, hoofOffset);
-            var half = footprint.BodyHalf;
-            float width = (float)(2 * half.X * BattleBoardView.CellSize);
-            float depth = (float)(2 * half.Z * BattleBoardView.CellSize);
-            groundOccupation.transform.localScale = new Vector3(width, 1, depth);
+            groundOccupation.transform.localPosition = Vector3.up * .035f;
+            float sideLength=BattleBoardView.CellSize/PrototypeArena.Subdivision;
+            groundOccupation.transform.localScale=new Vector3(sideLength,1,sideLength);
             groundOccupation.sortingOrder = -27500;
             groundOccupation.enabled = true;
         }
@@ -258,10 +253,9 @@ namespace BaseConquest.Battle
             // 倒地（可救援）保持倒地贴图不离场；即死单位在倒地后直接消失，不再留尸体。
             transform.gameObject.SetActive((soldier.IsAlive || soldier.Kind == SoldierKind.Hero) && !soldier.InstantDead && (!soldier.Escaped || (soldier.LastAction == RoundAction.Move || carried) && progress < 1) && (soldier.CarriedById < 0 || carried));
             transform.position = carried ? PresentedPosition(battle, carrier, progress) + new Vector3(0, 0.5f, 0.04f) : PresentedPosition(battle, soldier, progress);
-            var draftFootprint = soldier.CombatKind == SoldierKind.Cavalry ? MountedDraft : FootDraft;
             if (draft)
             {
-                var anchor = BaseBattlePreparation.Anchor(soldier.Cell) + draftFootprint.BodyCenter;
+                var anchor = BaseBattlePreparation.Anchor(soldier.Cell);
                 transform.position = new Vector3((float)(anchor.X - battle.Board.Width * .5) * BattleBoardView.CellSize,
                     0, (float)(anchor.Z - battle.Board.Height * .5) * BattleBoardView.CellSize);
             }
@@ -320,7 +314,7 @@ namespace BaseConquest.Battle
                 if(!main&&companion!=null)companion.Battle(battle,soldier,progress,carried);
                 SortAt(transform.position.z);
             }
-            if (draft) SyncGroundOccupation(draftFootprint, PrototypeSide.Ally, soldier.IsActive);
+            if (draft) SyncGroundOccupation(PrototypeSide.Ally, soldier.IsActive);
         }
         public static Vector3 PresentedPosition(BattleSimulation battle, BattleSoldier unit, float progress)
         {

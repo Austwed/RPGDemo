@@ -204,7 +204,7 @@ namespace BaseConquest.Base
             if(facility=="")return true;
             if(s.Leaders.Any(x=>x.Id!=leaderId && (x.VillageResident == BaseSettlements.AtVillage(s) && x.FacilityId == facility || x.Relocating && x.VillageResident != BaseSettlements.AtVillage(s) && x.ArrivalFacility == facility)))return false;
             if (l.WaitingAtRecruitment) return s.Campaign.Location == "base" && BaseAdventure.WaitingHere(s,l) && BaseDevelopment.CanFight(l);
-            if(BaseAdventure.Contains(s,leaderId))return BaseAdventure.ChangeProblem(s,leaderId,false)==""&&BaseAdventure.Alive(l)&&l.Health>0&&!BaseTraining.Busy(l.Training);
+            if(BaseAdventure.Contains(s,leaderId))return BaseAdventure.ChangeProblem(s,leaderId,false)==""&&BaseAdventure.Alive(l)&&l.Health>0;
             return BaseDevelopment.CanManage(s,l);
         }
         public static bool MoveWorkers(BaseState s, BaseTroopKind kind, string from, string to, int count)

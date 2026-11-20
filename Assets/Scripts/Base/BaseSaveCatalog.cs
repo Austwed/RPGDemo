@@ -14,7 +14,7 @@ namespace BaseConquest.Base
         public bool CanLoad => Error == null && !GameOver && !Realtime;
         public bool CanRecover { get; internal set; }
         public double Seconds;
-        public string CombatProgress => Realtime ? Seconds.ToString("0.0")+"秒" : "第"+Round+"轮";
+        public string CombatProgress => Realtime ? Seconds.ToString("0")+"秒" : "第"+Round+"轮";
         public string TimeLabel => DateTime.TryParse(SavedUtc,out var time) ? time.ToLocalTime().ToString("MM-dd HH:mm") : "";
         internal BaseSaveEntry Copy() => (BaseSaveEntry)MemberwiseClone();
     }

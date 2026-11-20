@@ -138,7 +138,17 @@ namespace BaseConquest.Battle
             var cell = new GridPosition((int)System.Math.Floor(x), (int)System.Math.Floor(z));
             var surface = DisplaySurface(cell, DisplayCell(cell));
             if (surface == GroundSurface.Grass && RoadEdges != null)
-                surface = RoadEdges.SurfaceAt(cell, (float)(x - cell.X), (float)(z - cell.Z));
+            {
+                float u = (float)(x - cell.X), v = (float)(z - cell.Z);
+                surface = RoadEdges.SurfaceAt(cell, u, v);
+                // Grout and narrow grass seams are smaller than a boot. Sample its contact patch.
+                if (surface == GroundSurface.Grass &&
+                    (RoadEdges.SurfaceAt(cell, u - .10f, v) == GroundSurface.Cobble ||
+                     RoadEdges.SurfaceAt(cell, u + .10f, v) == GroundSurface.Cobble ||
+                     RoadEdges.SurfaceAt(cell, u, v - .10f) == GroundSurface.Cobble ||
+                     RoadEdges.SurfaceAt(cell, u, v + .10f) == GroundSurface.Cobble))
+                    surface = GroundSurface.Cobble;
+            }
             // The current trail texture paints stone pavers on cells authored as DirtPath.
             return surface == GroundSurface.Road || homeTerrainTrial && surface == GroundSurface.DirtPath ||
                 ObliqueExploration && board.RampLowEdge(cell) != 0 ? GroundSurface.Cobble : surface;

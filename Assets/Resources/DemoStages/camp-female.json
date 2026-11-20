@@ -72,6 +72,7 @@
                 "Cavalry": 0,
                 "Mage": 0
             },
+            "PreferredSoldiers": [],
             "PersonalEquipment": {
                 "Version": 1,
                 "Weapon": "sword",
@@ -1523,7 +1524,7 @@
                             "HasProfessionKind": true,
                             "ProfessionKind": 3,
                             "SightRadius": 0,
-                            "Range": 2,
+                            "Range": 1,
                             "MoveDistance": 3,
                             "CritChance": 0.0,
                             "CritMultiplier": 1.5
@@ -7349,9 +7350,9 @@
                     10
                 ],
                 "Range": [
-                    2.0,
+                    1.0,
                     12.0,
-                    3.0
+                    2.0
                 ],
                 "Speed": [
                     4.0,
@@ -91706,32 +91707,8 @@
                     "HasProfessionKind": true,
                     "ProfessionKind": 3,
                     "SightRadius": 0,
-                    "Range": 2,
+                    "Range": 1,
                     "MoveDistance": 3,
-                    "CritChance": 0.0,
-                    "CritMultiplier": 1.5
-                }
-            },
-            {
-                "Kind": 3,
-                "Price": 40,
-                "DailyCount": 0,
-                "Remaining": 0,
-                "MissingDays": 0,
-                "Stats": {
-                    "Level": 1,
-                    "Health": 75.0,
-                    "Damage": 14.0,
-                    "Defense": 2.0,
-                    "Penetration": 0.0,
-                    "Resistance": 0.0,
-                    "HasCombatKind": true,
-                    "CombatKind": 4,
-                    "HasProfessionKind": true,
-                    "ProfessionKind": 4,
-                    "SightRadius": 0,
-                    "Range": 6,
-                    "MoveDistance": 2,
                     "CritChance": 0.0,
                     "CritMultiplier": 1.5
                 }
@@ -92243,9 +92220,9 @@
                 10
             ],
             "Range": [
-                2.0,
+                1.0,
                 12.0,
-                3.0,
+                2.0,
                 12.0
             ],
             "Speed": [
@@ -92975,7 +92952,7 @@
         "Stage": 0,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "c23d35742a36be3d790561b943b0be1478918da9837c4e861b85bed250e6b33e",
-        "ConfigHash": "9deb76bf4d53a87df3feea91692c23a52344416192fdac7eaf9ad523cf6b440b",
+        "ConfigHash": "02cb797d832018ef6c970810ea850673033e4c7fb4a24646b279d299d5b047fa",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -93017,6 +92994,7 @@
                     "Cavalry": 0,
                     "Mage": 0
                 },
+                "PreferredSoldiers": [],
                 "PersonalEquipment": {
                     "Version": 0,
                     "Weapon": "",
@@ -93153,6 +93131,10 @@
         "RuinsVersion": 1,
         "RuinsDay": 0,
         "DeliveredDay": 0,
+        "RuinsPlayerHeard": false,
+        "RuinsAzhuHeard": false,
+        "RuinsAheHeard": false,
+        "RuinsControllerHeard": false,
         "Candidates": [
             {
                 "Id": "partner_farm",
@@ -93189,6 +93171,7 @@
                     "Cavalry": 0,
                     "Mage": 0
                 },
+                "PreferredSoldiers": [],
                 "PersonalEquipment": {
                     "Version": 1,
                     "Weapon": "bow",
@@ -93348,6 +93331,7 @@
                     "Cavalry": 2,
                     "Mage": 0
                 },
+                "PreferredSoldiers": [],
                 "PersonalEquipment": {
                     "Version": 1,
                     "Weapon": "spear",
@@ -93365,7 +93349,7 @@
                         "HasProfessionKind": true,
                         "ProfessionKind": 3,
                         "SightRadius": 0,
-                        "Range": 2,
+                        "Range": 1,
                         "MoveDistance": 3,
                         "CritChance": 0.0,
                         "CritMultiplier": 1.5
@@ -93599,8 +93583,6 @@
             "SecondBriefingSeen": false,
             "BattleIntelSeen": false,
             "SecondVictoryReportSeen": false,
-            "MerchantX": 0.0,
-            "MerchantY": 0.0,
             "MainForce": [],
             "Workshop": {
                 "FacilityId": "workshop",

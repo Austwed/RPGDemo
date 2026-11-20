@@ -139,11 +139,14 @@ namespace BaseConquest.Base
                     Busy = false;
                     bool advanced = Change(state =>
                     {
+                        string from=state.Campaign.WorldJourney.NodeId;
                         if (!BaseWorldJourney.Step(state, file => documents[file])) throw new InvalidOperationException("道路暂时无法通行");
                         if (BaseWorldJourney.Marching(state) || BaseBattleLoot.Pending(state) || state.Aftermath.GameOver) return;
                         var world = state.Campaign.WorldJourney;
                         var entries = world.Entries.Where(entry => entry.NodeId == world.NodeId && world.Discovered.Contains(entry.Id)).ToArray();
-                        if (entries.Length == 1) { BaseWorldJourney.EnterScene(state, entries[0].Id); arrival = true; }
+                        var entry = entries.Length==1 ? entries[0] : BaseDemoFinale.Opened(state)&&world.NodeId=="bandit" ?
+                            entries.FirstOrDefault(e=>e.Id==(from=="home"?"bandit_east_entry":"bandit_entry")) : null;
+                        if (entry!=null) { BaseWorldJourney.EnterScene(state, entry.Id); arrival = true; }
                     }, "行军已结算");
                     if (!advanced) break;
                     if (!BaseWorldJourney.Marching(State)) break;

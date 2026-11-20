@@ -16,11 +16,11 @@ namespace BaseConquest.Base
                 if (demo) OpenHome();
                 else { activeObject="barracks"; OpenBarracks(); }
             });row+=62;
-            Line("9级成长，升入3／6／9级用高阶兵书。训练停工、不可出征；开始扣书，取消不退，完成不额外回血。按经营日推进。",90,19);
-            Line("普通士兵没有训练与升级；战力由兵种基础、军需品质和数量及临时增益决定。",65,18);
+            if (!demo) Line("升入3／6／9级需要高阶兵书。训练期间可任职。",60,19);
+
             {
-                var people=s.Leaders.Where(l=>BaseAdventure.Alive(l)).ToArray();int pages=Math.Max(1,(people.Length+7)/8);trainingPage=Math.Min(trainingPage,pages-1);
-                TrainingPages(pages);
+                var people=s.Leaders.Where(l=>BaseAdventure.Alive(l) && (!demo || l.Id==(tentLeaderId??s.PlayerLeaderId))).ToArray();int pages=Math.Max(1,(people.Length+7)/8);trainingPage=Math.Min(trainingPage,pages-1);
+                if (pages>1) TrainingPages(pages);
                 foreach(var l in people.Skip(trainingPage*8).Take(8))
                 {
                     string id=l.Id;

@@ -20,8 +20,11 @@ namespace BaseConquest.Base
             var f=State.Demo.Flow;
             var due=State.Campaign.Events.FirstOrDefault(e=>e.Kind=="defense"&&e.Status=="pending"&&e.AvailableDay<=State.Day&&!(f.NotifiedRaids??new System.Collections.Generic.List<string>()).Contains(e.Id+":"+e.AvailableDay));
             if(due!=null){string key=due.Id+":"+due.AvailableDay;if(Change(s=>{s.Demo.Flow.NotifiedRaids??=new System.Collections.Generic.List<string>();s.Demo.Flow.NotifiedRaids.Add(key);},"袭击通知"))Hud.OpenDemoScoutWarning();return;}
-            if(State.Campaign.Location=="base"&&BaseDemoDefense.Won(State)&&State.Demo.Defense.BatuStoryDay>0&&!State.Demo.Defense.MerchantDone)
-            {TickDemoMerchant(seconds);return;}
+            if(BaseDemoDefense.MerchantReminderDue(State))
+            {
+                if(CommitChange(s=>s.Demo.Defense.MerchantDone=true,"",false))Hud.OpenDemoMerchant();
+                return;
+            }
             if(BaseDemoFlow.Recruited(State)&&!f.RecruitmentNotice&&!BaseDemoDefense.Won(State)&&
                 State.Campaign.Location=="town"&&BaseInteraction.At(State,"town","town_recruit"))
             {if(Change(s=>s.Demo.Flow.RecruitmentNotice=true,"招募建设人手已完成"))Hud.OpenRecruitmentComplete();return;}
@@ -46,21 +49,6 @@ namespace BaseConquest.Base
                 if(new BasePoint(f.FarmNpcX,f.FarmNpcY).Distance(goal)>.8||new BasePoint(f.FarmNpcX,f.FarmNpcY).Distance(new BasePoint(State.PlayerX,State.PlayerY))>2)return;
             }
             if(Change(s=>{s.Demo.Flow.FarmOfferShown=true;s.Demo.Flow.FarmOfferPending=false;if(!recruited&&!BaseDemoRuins.Meet(s,"partner_farm"))throw new InvalidOperationException("请靠近阿禾交谈");},"阿禾向你介绍种植特性"))Hud.OpenAheFarmOffer(recruited);
-        }
-        private System.Collections.Generic.List<BasePoint> merchantRoute;private int merchantRouteIndex;
-        private void TickDemoMerchant(double seconds)
-        {
-            var progress=State.Demo.Defense;var marker=State.Campaign.Layouts.Single(map=>map.Region=="base").Objects.FirstOrDefault(obj=>obj.Id=="demo_merchant");if(marker==null)return;
-            var objects=BaseSpatial.Objects(State);var board=BaseBattlefield.Board(State);var origin=new BasePoint(progress.MerchantX,progress.MerchantY);var goal=BaseSpatial.Nearest(State,new BasePoint(State.PlayerX,State.PlayerY));
-            bool Ground(double x,double y)=>BaseSpatial.Geometry(objects,x,y,board.Width,board.Height)&&BaseSpatial.TerrainWalkable(board,x,y,objects);
-            if(origin.Distance(goal)>1.5)
-            {
-                if(merchantRoute==null||merchantRouteIndex>=merchantRoute.Count){merchantRoute=BaseMap.FindRoute(origin,goal,null,Ground,false,board.Width,board.Height);merchantRouteIndex=0;}
-                if(merchantRouteIndex<merchantRoute.Count){var next=merchantRoute[merchantRouteIndex];double distance=origin.Distance(next),step=Math.Min(distance,Math.Min(seconds<0?Time.deltaTime:seconds,.05)*2.8);if(distance>.001){double x=progress.MerchantX,y=progress.MerchantY;BaseSpatial.Move(State,ref x,ref y,(next.X-x)/distance*step,(next.Y-y)/distance*step);progress.MerchantX=x;progress.MerchantY=y;}if(distance<=.08)merchantRouteIndex++;}
-                marker.X=progress.MerchantX;marker.Y=progress.MerchantY;InvalidateObjects();if(npcViews.TryGetValue("demo_merchant",out var npc))npc.MoveTo(WorldPoint(progress.MerchantX,progress.MerchantY));
-                if(new BasePoint(progress.MerchantX,progress.MerchantY).Distance(new BasePoint(State.PlayerX,State.PlayerY))>2)return;
-            }
-            Hud.OpenDemoMerchant();
         }
         private System.Collections.Generic.List<BasePoint> farmRoute;private int farmRouteIndex;
     }
@@ -135,11 +123,9 @@ namespace BaseConquest.Base
         public void OpenDemoMerchant()
         {
             string warning=StoryText.Get("story.scene.defense.merchant_bandit_lead",
-                "巴图没能拿下营地。黑鸦寨吃了亏，多半还会派人过来。");
-            NpcDialogue(new[]{
-                new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),warning),
-                new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),"从南口上官道，一天就到寨子。那边可不归霍恩管。")},
-                new[]{new NpcReply("记下敌营位置",()=>{if(owner.Change(next=>{next.Demo.Defense.MerchantDone=true;next.Campaign.Layouts.Single(map=>map.Region=="base").Objects.RemoveAll(obj=>obj.Id=="demo_merchant");},"已记录敌营位置与道路")){ClosePanel();owner.RefreshDemoRegion();}})});
+                "黑鸦寨那边有动静。我回镇上摆摊，你要是想听仔细的，带几个钱来找我。");
+            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),warning)},
+                Array.Empty<NpcReply>(),onCompleted:ClosePanel);
         }
         public void OpenRecruitmentComplete()=>NpcDialogue(new[]{
             new NpcLine(BaseScriptNames.Recruiter,BaseScriptNames.Portrait("recruiter"),"人齐了。新募的弟兄今儿就能下田，也能进工坊。"),

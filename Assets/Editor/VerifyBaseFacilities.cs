@@ -27,6 +27,50 @@ namespace BaseConquest.Editor
             finally { RuntimeDeveloperOptions.Enabled = wasEnabled; }
         }
 
+        public static void VerifyRosterDuty()
+        {
+            var asset=Resources.Load<TextAsset>("DemoStages/defense-male");
+            var state=JsonUtility.FromJson<BaseState>(asset.text);
+            BaseEconomy.Validate(state);
+            state.Campaign.Location="base";
+            state.Workers.Clear();
+            state.Workers.Add(new BaseWorkerBucket { Kind=BaseTroopKind.Melee, Count=3, Health=100, MaxHealth=100,
+                DesiredFacility="farm", FacilityId="farm", PostLocked=true });
+            state.LastSoldierNumber=0;
+            BaseDevelopment.SetPolicy(state,"manual");
+            BaseDevelopment.Allocate(state);
+            int day=state.Day;
+            var ids=state.Workers.SelectMany(w=>w.SoldierNumbers).ToArray();
+            BaseDevelopment.MarkFoughtToday(state,new[] {ids[1],ids[1]});
+            BaseWorkerBucket Unit(int id)=>state.Workers.Single(w=>w.SoldierNumbers.Contains(id));
+            Need(Unit(ids[0]).FacilityId=="farm" && Unit(ids[1]).LastBattleDay==day &&
+                !BaseDevelopment.Effective(state,Unit(ids[1])) && BaseDevelopment.CanFight(Unit(ids[1])),
+                "同批士兵中的真实参战者应单独停工");
+            Unit(ids[1]).Health=20;
+            var wounded=BasePersonnel.Soldiers(state).Single(u=>u.SoldierNumber==ids[1]);
+            Need(wounded.Wounded && wounded.FoughtToday && !wounded.CanBattle,"疗养覆盖参战");
+            Unit(ids[1]).Health=100;
+            BaseDevelopment.Allocate(state);
+            state=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            BaseEconomy.Validate(state);
+            var healed=BasePersonnel.Soldiers(state).Single(u=>u.SoldierNumber==ids[1]);
+            Need(!healed.Effective && !healed.Wounded && healed.FoughtToday && healed.CanBattle,"治疗或读档清除了当天参战");
+            var forecast=BaseEconomy.Preview(state);
+            var end=typeof(BaseEconomy).GetMethod("CompleteProductionDay",BindingFlags.NonPublic|BindingFlags.Static);
+            end.Invoke(null,new object[]{state,false});
+            Need(state.LastReport.FoodProduced==forecast.FoodProduced && BaseDevelopment.Effective(state,Unit(ids[1])) &&
+                Unit(ids[1]).FacilityId=="farm","参战当日预估与日结或隔日归岗不一致");
+            var filter=new SoldierRosterFilter();
+            filter.Activate(2); filter.Activate(2); filter.Activate(2);
+            filter.Activate(3); filter.Activate(2);
+            Need(filter.StatusOrder==0 && filter.HealthOrder==1,"排序互斥或三态切换失败");
+            foreach(var kind in BattleSimulation.TroopKinds)
+            {
+                filter.Activate(1); Need(filter.Kind==kind,"兵种循环顺序错误");
+            }
+            Debug.Log("[RosterDuty] PASS · 实名参战、同日治疗、隔日归岗、日结与筛选");
+        }
+
         public static void VerifySettlementStaffing()
         {
             var asset = Resources.Load<TextAsset>("DemoStages/defense-male");

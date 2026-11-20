@@ -37,7 +37,7 @@ namespace BaseConquest.Base
             public LanDuelCommand command;
             public LanDuelFrame frame;
         }
-        private const int Protocol = 2;
+        private const int Protocol = 3;
         private BaseSceneController owner;
         private BaseState camp;
         private Font font;
@@ -58,7 +58,7 @@ namespace BaseConquest.Base
         public LanDuelFrame Frame { get; private set; }
         private void OpenSessionDraft()
         {
-            Draft = new BaseBattlePreparation(camp, BasePrepRoute.Travel) { SupplyGrade = 0 };
+            Draft = new BaseBattlePreparation(camp, BasePrepRoute.Travel);
             prepTeam = Draft.PlayerId;
             placements.Clear();
             mine = theirs = null;

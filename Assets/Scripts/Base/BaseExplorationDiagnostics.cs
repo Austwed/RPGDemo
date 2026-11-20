@@ -89,8 +89,6 @@ namespace BaseConquest.Base
                 developerDiagnostics.AddRoute(new BasePoint(intro.ReporterX, intro.ReporterY), intro.ReporterRoute, intro.ReporterWaypoint);
             if (State.Campaign.Location == "base" && State.Demo?.Flow?.FarmWalking == true && !State.Demo.Flow.FarmOfferShown)
                 developerDiagnostics.AddRoute(new BasePoint(State.Demo.Flow.FarmNpcX, State.Demo.Flow.FarmNpcY), farmRoute, farmRouteIndex);
-            if (State.Campaign.Location == "base" && State.Demo?.Defense is BaseDemoDefenseProgress defense && !defense.MerchantDone)
-                developerDiagnostics.AddRoute(new BasePoint(defense.MerchantX, defense.MerchantY), merchantRoute, merchantRouteIndex);
             developerDiagnostics.EndRoutes();
 
             var cell = new GridPosition((int)Math.Floor(position.X), (int)Math.Floor(position.Y));

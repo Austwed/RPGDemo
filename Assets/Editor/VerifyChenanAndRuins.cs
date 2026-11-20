@@ -32,7 +32,8 @@ namespace BaseConquest.Editor
             At(s,"demo_camp_world");BaseWorldJourney.EnterWorld(s,"bandit_entry");
             BaseWorldJourney.Start(s,new[]{"bandit","home"});Need(BaseWorldJourney.Step(s,_=>null),"前往白桦村");
             BaseWorldJourney.EnterScene(s,"home_entry");
-            Need(s.Campaign.CurrentMapId==BaseDemoFinale.HomeField,"返乡须先到白桦村外");
+            Need(s.Campaign.CurrentMapId==BaseDemoFinale.Home && s.PlayerX<BaseSpatial.Objects(s).Single(o=>o.Id=="demo_home_world").X,"返乡应从村东侧进入");
+            At(s,"village_gate_out");Need(BaseCampaign.Travel(s,"custom","village_gate_out")&&s.Campaign.CurrentMapId==BaseDemoFinale.HomeField,"村西没有通往西桥头");
             VerifyOptionalSword(s);
             At(s,"village_gate_in");
             Need(BaseCampaign.Travel(s,"custom","village_gate_in"),"不能经西桥头入村");
@@ -103,7 +104,18 @@ namespace BaseConquest.Editor
                 Need(BaseStageWalk.Advance(s,ref npc.X,ref npc.Y,to,120),"村民不能沿路线走到麦田");
             }
             Need(BaseDemoFinale.WelcomeVolunteers(s),"村民到麦田后未解锁对话");At(s,BaseDemoFinale.Builder);
-            Need(BaseDemoFinale.FinishRebuild(s)&&!BaseDemoFinale.FinishRebuild(s)&&s.Demo.Stage==BaseDemoStage.Finished&&s.Demo.Finale.VillageRebuilt,"村民对话不能一次性收尾");
+            Need(BaseDemoFinale.FinishRebuild(s)&&!BaseDemoFinale.FinishRebuild(s)&&s.Demo.Stage==BaseDemoStage.AttackWon&&s.Demo.Finale.VillageRebuilt,"村民委托后应等待落座");
+            BaseEconomy.Validate(s);
+            var bench=BaseDemoFinale.EndingBench(s);
+            Need(!string.IsNullOrEmpty(bench)&&!BaseDemoFinale.FinishAtBench(s,"other:seat:left"),"长椅指引或坐席判定错误");
+            var alternate=s.Copy();
+            var seat=BaseSceneInstances.Layout(s,BaseDemoFinale.Home).Objects.Single(o=>o.Id==bench);
+            s.PlayerX=seat.X-seat.Width*.29;alternate.PlayerX=seat.X+seat.Width*.29;
+            s.PlayerY=alternate.PlayerY=seat.Y-seat.Height*.5-BaseMap.Radius-.06;
+            Need(BaseDemoFinale.FinishAtBench(alternate,bench+":seat:right")&&BaseDemoFinale.FinishAtBench(s,bench+":seat:left")&&
+                !BaseDemoFinale.FinishAtBench(s,bench+":seat:left")&&s.Demo.Stage==BaseDemoStage.Finished&&s.Demo.Finale.EndDay==s.Day,"两侧长椅均应能一次性收尾");
+            var slot=BaseSaveStore.InMemory("home-bench");slot.RestoreSession(s.Copy());
+            Need(slot.Load().Demo.Finale.EndingSeen,"读回结局长椅存档重复播放结局");
             Need(s.Demo.Evidence.Contains(BaseDemoFinale.Sword)==foundSword,"修理擅自更改断剑的收集状态");
             BaseEconomy.Validate(s);
         }
@@ -826,22 +838,24 @@ namespace BaseConquest.Editor
             bool rejected=false;try{BattleScenarioDocument.Validate(doc);}catch(ArgumentException){rejected=true;}Need(rejected,"场景队长校验未拒绝陈安外观");
             foreach(int seed in new[]{11,22,33})
             {
-                state=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/camp-male").text);
-                state.Demo.Rpg.GenerationSeed=seed;At(state,"home");Need(BaseDemo.AcknowledgeWaking(state),"无法推进苏醒");
-                At(state,"exit_east");Need(BaseCampaign.Travel(state,"town"),"无法进入城镇");
-                At(state,"demo_ruins_exit");Need(BaseCampaign.Travel(state,"outpost"),"无法进入遗迹入口");At(state,"demo_ruins_investigate");
+                state=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/defense-male").text);
+                state.Demo.Rpg.GenerationSeed=seed;
+                var entrance = BaseSpatial.Layout(state,"outpost");
+                state.Campaign.CurrentMapId=entrance.SourceMapId;
+                state.Campaign.Location=entrance.Region;
+                At(state,"demo_ruins_investigate");
                 string first=state.Demo.Flow.FirstControllerId;bool accepted=state.Demo.Flow.ControllerAccepted,pledged=state.Demo.Flow.ControllerPledged;
                 var session=BaseDemoRuins.Begin(state,"none");
-                // 以非首次结算分支检查常规产出，不改阶段档或首次剧情分支。
-                session.Opening.RuinsFirstClear=false;
+                Need(!session.Opening.RuinsFirstClear && session.Opening.Enemies.Count(u=>u.Kind==SoldierKind.Mage)==2 &&
+                    !session.Opening.Enemies.Any(u=>u.IsControlled),"重刷仍在使用首次剧情敌人");
                 var hero=session.Battle.Soldiers.Single(u=>u.Side==BattleSide.B&&u.Kind==SoldierKind.Hero);
-                Need(hero.AppearanceId=="galan"&&hero.Rpg!=null,"遗迹控制者外观或生成数据错误："+seed);
+                Need(hero.Rpg!=null && !session.Battle.UnitName(hero).Contains(BaseScriptNames.Galan),"遗迹控制者外观或生成数据错误："+seed);
                 Need(session.Battle.Soldiers.Where(u=>u.Kind==SoldierKind.Hero).All(u=>!string.IsNullOrEmpty(u.AppearanceId)&&u.AppearanceId!="wilderness"),"遗迹队长外观缺失");
                 var run=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(run);
                 var enemy=run.Model.Units.Single(u=>u.Id==hero.Id+1);enemy.Health=1;enemy.KnockedDown=true;hero.Health=1;hero.KnockedDown=true;hero.DeathResolved=true;
                 run.Model.SetPaused(false);run.Tick(.02);WalkOutOfRuins(run);Need(BaseDemoRuins.Complete(state,run),"遗迹结算失败："+seed);
                 var prisoner=state.Aftermath.Prisoners.Single(p=>p.BattleId==session.Opening.Id&&p.Kind==SoldierKind.Hero);
-                Need(prisoner.AppearanceId=="galan"&&BaseAftermath.Decide(state,prisoner.Id,"recruit"),"遗迹俘虏外观或招降失败："+seed);
+                Need(BaseAftermath.Decide(state,prisoner.Id,"recruit"),"遗迹俘虏外观或招降失败："+seed);
                 var recruited=state.Leaders.Single(l=>l.Id=="partner_recruit:"+prisoner.Id);
                 Need(BasePartnerDialogue.Prefix(state,recruited)=="story.partner_default","重打招降的同外观队长未使用通用对白");
                 Need(state.Demo.Flow.FirstControllerId==first&&state.Demo.Flow.ControllerAccepted==accepted&&state.Demo.Flow.ControllerPledged==pledged,"重刷招降改动了首次控制者剧情标记");

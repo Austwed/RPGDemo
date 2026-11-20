@@ -308,8 +308,17 @@ namespace BaseConquest.Editor
                         if(fate=="escaped")Need(captains.Single(u=>u.PresetSlot==1).Stats.ProfessionKind==SoldierKind.Ranged,"主力巴图须为弓兵");
                         int troops=force.Count(u=>u.Kind!=SoldierKind.Hero&&u.CommanderSlot==2);
                         if(huoyaTroops<0)huoyaTroops=troops;else Need(troops==huoyaTroops,"巴图缺席不得增加豁牙带兵量");
-                        Need(branch.Campaign.Layouts.Single(m=>m.Region=="base").Objects.Single(o=>o.Id=="demo_merchant").AssetId=="merchant","行商须使用商人形象");
-                        report.AppendLine(stage+"-"+gender+" "+fate+": PASS first-raid captain, main-force professions, captain absence, Huoya troop count, merchant appearance (configuration branch)");
+                        var reminder=branch.Copy();
+                        reminder.Campaign.Location="base";reminder.Day=6;
+                        Need(!BaseDemoDefense.MerchantReminderDue(reminder),"老莫提前打断第六日");
+                        reminder.Day=7;reminder.Campaign.Location="outpost";
+                        Need(!BaseDemoDefense.MerchantReminderDue(reminder),"老莫在外地触发");
+                        reminder.Campaign.Location="base";
+                        foreach(var item in reminder.Aftermath.Loot)item.Closed=true;
+                        Need(BaseDemoDefense.MerchantReminderDue(reminder),"返营后不能听第七日提醒");
+                        reminder.Demo.Defense.MerchantDone=true;
+                        Need(!BaseDemoDefense.MerchantReminderDue(reminder),"重复播放商人提醒");
+                        report.AppendLine(stage+"-"+gender+" "+fate+": PASS first-raid captain, main-force professions, captain absence, Huoya troop count, day-seven merchant reminder (configuration branch)");
                     }
                 }
             }

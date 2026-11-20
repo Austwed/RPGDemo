@@ -66,7 +66,7 @@ namespace BaseConquest.Presentation
                     if(broken)Part("断裂剑尖",PrimitiveType.Cube,new Vector3(.25f,.13f,.48f),new Vector3(.16f,.08f,.5f),new Color(.56f,.58f,.55f));
                 }
             }
-            else if(view.shaped)
+            else if(view.shaped && (placement.VisualOnly||placement.Blocks))
             {
                 view.ownedMaterial=BattlePawn2D.Transparent(source);view.ownedMaterial.name="Footprint_"+placement.Id;
                 view.ownedMaterial.SetTexture("_BaseMap",Texture2D.whiteTexture);view.ownedMaterial.SetColor("_BaseColor",new Color(.65f,.54f,.32f));
@@ -100,6 +100,12 @@ namespace BaseConquest.Presentation
                 var texture=ravagedField ? PixelDemoArt.Load("Terrain","field-soil") :
                     asset=="notice" ? PixelDemoArt.Load("Props","noticeboard")??Resources.Load<Texture2D>("MapSurfaces/Notice-v1") : catalog?.Find(asset)?.Texture ?? PixelDemoArt.Load("Buildings",asset);
                 bool groundArtwork=ravagedField||asset.StartsWith("farm");
+                if(!placement.VisualOnly && (asset=="notice" || texture==null && !placement.Blocks))
+                {
+                    view.shaped=true;
+                    MapSurfaceView.Notice(root.transform,placement.Name,Vector3.zero,source);
+                    return view;
+                }
                 if(texture==null&&placement.Blocks)
                 {
                     view.shaped=true;var block=GameObject.CreatePrimitive(PrimitiveType.Cube);block.name=placement.Name+" · 实体占位";block.transform.SetParent(root.transform,false);block.transform.localPosition=Vector3.up*.55f;block.transform.localScale=new Vector3((float)placement.Width*BattleBoardView.CellSize,1.1f,(float)placement.Height*BattleBoardView.CellSize);BattleBoardView.DestroyObject(block.GetComponent<Collider>());

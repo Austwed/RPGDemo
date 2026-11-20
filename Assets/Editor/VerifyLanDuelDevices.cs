@@ -15,8 +15,12 @@ namespace BaseConquest.Editor
             if (role != "host" && role != "guest") throw new InvalidOperationException("指定 host 或 guest");
             string isolated = Path.GetFullPath(Path.Combine("Logs","lan-duel-saves",Guid.NewGuid().ToString("N")));
             Environment.SetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES",isolated);
-            EditorSceneManager.OpenScene(DemoStartup.Launcher);
-            EditorApplication.EnterPlaymode();
+            // Wait until a freshly imported project's startup callbacks have finished.
+            EditorApplication.delayCall += () =>
+            {
+                EditorSceneManager.OpenScene(DemoStartup.Launcher);
+                EditorApplication.EnterPlaymode();
+            };
         }
     }
 }

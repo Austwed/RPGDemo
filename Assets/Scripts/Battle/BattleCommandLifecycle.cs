@@ -147,8 +147,7 @@ namespace BaseConquest.Battle
             if (cells.Count == 0) return 0;
             // 指挥者成组位于中部，小兵按近战前排、弓手后排、骑兵侧翼分配。
             int centerX = (int)Math.Round(cells.Average(p => p.X)); int centerZ = (int)Math.Round(cells.Average(p => p.Z)); int forward = side == BattleSide.A ? 1 : -1, total = 0;
-            // 骑兵占两格，开局挤在一起就再也散不开（2026-11-06 裁决：骑兵间距拉大）。
-            // 先挑四邻域最空的格子，其次才看格子本身有没有人。
+            // 给侧翼骑兵留出移动空间，优先选择周围较空的部署格。
             int NeighbourLoad(GridPosition p)
             {
                 int load = 0;

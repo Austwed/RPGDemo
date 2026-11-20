@@ -13,6 +13,7 @@ namespace BaseConquest.Editor
         public static void Run()
         {
             VerifyNamedWorker();
+            VerifySavedPreferences();
             VerifyRuins();
             VerifyDefenseAndAttack();
             Debug.Log("[VerifyBattlePreparation] PASS");
@@ -26,6 +27,8 @@ namespace BaseConquest.Editor
             BaseEconomy.Validate(state);
             var original = state.Workers.SelectMany(w => w.SoldierNumbers).ToArray();
             Need(original.SequenceEqual(Enumerable.Range(1, original.Length)), "旧档首次编号没有沿用原名册顺序");
+            if (!state.Workers.Any(w => !w.Away && w.FacilityId=="farm" && w.Count>=2))
+                Need(BaseEconomy.MoveWorkers(state,BaseTroopKind.Melee,"","farm",2),"无法准备两名粮田工人夹具");
             var worker = state.Workers.First(w => !w.Away && w.FacilityId == "farm" && w.Count >= 2);
             int number = worker.SoldierNumbers[1], neighbor = worker.SoldierNumbers[0];
             Need(BaseEconomy.MoveWorker(state, number, "farm", ""), "点名调离失败");
@@ -46,6 +49,30 @@ namespace BaseConquest.Editor
             Need(roster.Select(u => u.SoldierNumber).SequenceEqual(original) &&
                 roster.Single(u => u.SoldierNumber == number).Key == "soldier:" + number, "调岗、出征或读档后人员编号变化");
             Debug.Log("[VerifyBattlePreparation] 固定编号、逐人调岗、出征与读档归队 PASS");
+        }
+
+        private static void VerifySavedPreferences()
+        {
+            var s=Load("defense");
+            var leader=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId);
+            var soldiers=BasePersonnel.Soldiers(s,SoldierKind.Melee).ToArray();
+            var id=soldiers.Last().SoldierNumber;
+            BaseMuster.SetPreferenceCount(s,leader,BaseTroopKind.Melee,0);
+            Need(BaseMuster.TogglePreference(s,leader,id),"不能按实名保存偏好");
+            var before=s.Workers.Select(w=>(w.FacilityId,w.LastBattleDay)).ToArray();
+            s=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));
+            BaseEconomy.Validate(s);
+            var draft=new BaseBattlePreparation(s,BasePrepRoute.Defense);
+            Need(draft.Units.Any(u=>u.SoldierNumber==id && u.Selected && u.TeamId==draft.PlayerId) &&
+                before.SequenceEqual(s.Workers.Select(w=>(w.FacilityId,w.LastBattleDay))),"恢复编队未优先点名或提前占用人员");
+            var named=s.Workers.Single(w=>w.SoldierNumbers.Contains(id));
+            foreach(var w in s.Workers.Where(w=>w.Kind==BaseTroopKind.Melee)) w.VillageResident=true;
+            s.Workers.Add(new BaseWorkerBucket{Count=1,Kind=BaseTroopKind.Melee,Health=100,MaxHealth=100});
+            BaseDevelopment.Allocate(s);
+            var replacement=new BaseBattlePreparation(s,BasePrepRoute.Defense);
+            Need(replacement.Units.Any(u=>u.Kind==SoldierKind.Melee && u.TeamId==replacement.PlayerId && u.Selected && u.SoldierNumber!=id),
+                "异地指定兵应由可用同兵种代替");
+            Debug.Log("[SavedPreferences] PASS");
         }
 
         private static BaseState Load(string id)
@@ -119,8 +146,8 @@ namespace BaseConquest.Editor
             Need(battle.Battle.Phase == BattlePhase.Fighting && battle.Model.Player != null, "草案未开战");
             Need(battle.Model.Units.Count(u => u.Side == PrototypeSide.Ally) == draft.Positions.Count, "未落位人员进了战场");
             Need((int)battle.Model.Player.Position.X == cell.X && (int)battle.Model.Player.Position.Z == cell.Z, "未使用主角落点");
-            foreach (var rider in battle.Model.Units.Where(u => u.Side == PrototypeSide.Ally && u.FootprintLength == 2))
-                Need(battle.Model.Footprint(rider, rider.Cell, rider.Facing).All(n =>
+            foreach (var rider in battle.Model.Units.Where(u => u.Side == PrototypeSide.Ally && u.Mounted))
+                Need(rider.FootprintLength == 1 && battle.Model.Footprint(rider, rider.Cell, rider.Facing).All(n =>
                     battle.Battle.Board.Cell(new GridPosition(n % battle.Model.Arena.FineColumns / 2,
                         n / battle.Model.Arena.FineColumns / 2)).Zone == DeploymentZone.A), "骑兵占格跨出部署区");
             Need(draft.Problem(state, true) != "" && state.Supply.Quotas.Count == 1, "重复提交未拦截");
@@ -200,7 +227,7 @@ namespace BaseConquest.Editor
             Need(!draft.Place(soldier.Id, cell), "队长未落位时布置士兵");
             Need(draft.AutoPlace() > 0, "首防不能自动部署");
             Need(!draft.Place(soldier.Id, draft.Positions[draft.PlayerId]), "接受重叠部署");
-            Need(draft.SupplyGrade == 0 && draft.SupplyProblem(state, false) != "" && draft.SupplyProblem(state, true) != "", "未选军需等级可出战士兵");
+            Need(draft.SupplyGrade == 1 && draft.SupplyProblem(state, false) == "" && draft.SupplyProblem(state, true) == "", "默认一级军需未生效");
             draft.SupplyGrade = 1;
             var limited = state.Copy();
             Stock(limited, 1).Count = draft.RequiredSupply(true) - 1;
@@ -295,7 +322,7 @@ namespace BaseConquest.Editor
             Need(reserve > 0, "攻营夹具没有随行士兵");
             VerifySubsetWound(state.Copy(), party.Id);
             Need(attack.Place(attack.PlayerId, attack.Board.Positions().First(p => attack.CanPlace(attack.PlayerId, p))), "无法仅部署主角");
-            Need(attack.SupplyGrade == 0 && attack.RequiredSupply(true) == 0 && attack.SupplyProblem(state, true) == "", "只有队长上场时被要求配军需");
+            Need(attack.RequiredSupply(true) == 0 && attack.SupplyProblem(state, true) == "", "只有队长上场时被要求配军需");
             var encounter = Start(state, attack);
             Need(encounter.Session.Opening.Troops.Count == 0 && state.Workers.Where(w => w.PartyId == party.Id).Sum(w => w.Count) == reserve,
                 "未参战随行士兵被锁进战场");

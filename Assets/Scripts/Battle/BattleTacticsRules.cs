@@ -115,11 +115,27 @@ namespace BaseConquest.Battle
             var target = enemies.FirstOrDefault(e => CanAttack(s, s.Cell, e));
             if (!s.IsTransit && target != null) { intent.Action = RoundAction.Attack; intent.Target = target; return intent; }
             if (enemies.Count > 0) return PlanFocus(s, enemies[0], occupied);
-            if (Scenario.FogEnabled)
+            return PlanUnseenMovement(s, occupied, intent);
+        }
+
+        private Intent PlanUnseenMovement(BattleSoldier unit, Dictionary<GridPosition,List<BattleSoldier>> occupied, Intent intent)
+        {
+            if (unit.Command != SquadCommand.Auto) return intent;
+            if (unit.Side == BattleSide.B)
             {
-                var path = FindPath(s, p => p != s.Cell && !Vision.Explored(s.Side, p), occupied);
-                if (path.Count == 0) path = FindPath(s, p => p != s.Cell && !Vision.Visible(s.Side, p), occupied);
-                SetMove(intent, path);
+                var target = ExitCell(BattleSide.A);
+                SetMove(intent, FindPath(unit, p => p == target, occupied));
+            }
+            else if (unit.Kind == SoldierKind.Hero)
+            {
+                var player = Soldiers.FirstOrDefault(s => s.IsActive && s.Side == unit.Side && s.Kind == SoldierKind.Hero &&
+                    s.OriginCommanderSlot == Scenario.PlayerLeaderSlot);
+                if (player != null && player != unit)
+                {
+                    int range = GuardConfiguration(Squads[player.SquadId]).AttackRange;
+                    if (GridPosition.Distance(unit.Cell,player.Cell) > range)
+                        SetMove(intent, ReturnToCommander(unit,player,occupied,range));
+                }
             }
             return intent;
         }

@@ -24,6 +24,8 @@ namespace BaseConquest.Base
             var scenario=new BattleScenario{Board=board,CampaignRules=true,PlayerHeroAppearance=true,PlayerLeaderSlot=0,MaxRounds=180,InstantDeathEnabled=false,
                 A=new ArmyDefinition{HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=stats},B=new ArmyDefinition{HeroCount=1,MeleeCount=0,RangedCount=0,CavalryCount=0,Hero=opponent},
                 Objective=new ObjectiveConfig{Title="与阿铸比武 · 点到为止"},Placements=new List<UnitPlacement>{new UnitPlacement{Side=BattleSide.A,Kind=SoldierKind.Hero,CommanderSlot=0,Cell=a},new UnitPlacement{Side=BattleSide.B,Kind=SoldierKind.Hero,CommanderSlot=0,Cell=b}}};
+            scenario.A.CommanderNames=new List<string>{BasePersonnel.LeaderName(player)};
+            scenario.B.CommanderNames=new List<string>{BasePersonnel.LeaderName(enemy)};
             var enemies=BaseDemoCombat.CreateEnemies(Id,scenario.B);var first=enemies.Single();first.Rpg=enemy.Rpg.Copy();first.Rpg.Id=first.Id;first.Equipment=enemy.PersonalEquipment.Copy();first.Stats=opponent.Clone();first.Health=(float)enemy.MaxHealth;first.IsAwakened=true;
             BaseSceneRules.Configure(state,scenario,new[]{player});scenario.FogEnabled=false;var session=new BaseCampaignSession(new BaseCampaignBattle{Id=Id,EventId=Id,MapRegion=state.Campaign.Location,Rpg=state.Demo.Rpg.Copy(),StartedDay=state.Day,Scenario=scenario,Leaders=new List<BaseLeader>{player},Enemies=enemies,RealtimeRules=true,RealtimeRulesVersion=1,DemoCombat=true});
             session.Bind();if(!session.Battle.Start(out string error))throw new InvalidOperationException(error);return session;

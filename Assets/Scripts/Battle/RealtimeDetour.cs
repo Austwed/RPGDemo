@@ -13,7 +13,7 @@ namespace BaseConquest.RealtimePrototype
             while(d.Route.Count>0&&d.Route.Peek()==u.Cell)d.Route.Dequeue();
             int blocked=-1;
             if(d.Route.Count>0){int next=d.Route.Peek();if(Arena.CanStep(u.Cell,next)&&(u.FootprintLength==2||CanTurnStep(u,u.Cell,next,u.Facing,true))&&(u.FootprintLength!=2||u.BlockedFor<.6))return next;blocked=next;d.Route.Clear();}
-            // 骑兵占两格，一旦堵住恢复得比步兵慢得多，给它更短的等待窗口，更早开始绕行。
+            // Longer prototype footprints need an earlier detour when space is tight.
             if(u.BlockedFor<(u.FootprintLength==2?.2:.6)||Elapsed<d.RetryAt)return -1;d.RetryAt=Elapsed+.6+u.Id%7*.03;
             // Dynamic occupancy is consulted only after a stable wait; ordinary routing stays shared.
             {

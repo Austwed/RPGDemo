@@ -11,10 +11,10 @@ namespace BaseConquest.Base
             {
                 int low = quota.Equipment.Single(e => e.Product == product && e.Level == 1).Count, high = quota.Equipment.Single(e => e.Product == product && e.Level == 2).Count;
                 double bonus = product == "supply"?quota.SwordBonus:product == "sword" ? quota.SwordBonus : product == "bow" ? quota.BowBonus : quota.ArmorBonus;
-                Line(BaseEconomy.ProductName(product) + "：需求 " + quota.Demand(product) + "；一级 " + low + "／二级 " + high + "；缺 " + (quota.Demand(product) - low - high) + "\n对应普通兵均摊" + (product == "armor" ? "防御" : "攻击") + " +" + bonus.ToString("0.##")+(product=="supply"?"；防御 +"+quota.ArmorBonus.ToString("0.##"):""), 76, 20);
+                Line(BaseEconomy.ProductName(product) + "：需求 " + quota.Demand(product) + "；一级 " + low + "／二级 " + high + "；缺 " + (quota.Demand(product) - low - high) + "\n对应普通兵均摊" + (product == "armor" ? "防御" : "攻击") + " +" + bonus.ToString("0")+(product=="supply"?"；防御 +"+quota.ArmorBonus.ToString("0"):""), 76, 20);
             }
             Line(BaseRpg.Active(owner.State)?"军需覆盖全部普通兵，同一份同时提供攻防收益并只损耗一次；品质与配给数量决定均摊加成。队长使用个人装备。":"剑由近战和骑兵共用；甲覆盖全部普通兵。供给分母包含预备兵，开战后伤亡和再部署不改变比例；队长不使用普通兵军需加成。", 85, 18);
-            Line("口粮攻击系数 " + (quota.AttackFactor * 100).ToString("0.#") + "%（军需先加入基础攻击，再计算作战倍率）", 54, 18);
+            Line("口粮攻击系数 " + (quota.AttackFactor * 100).ToString("0") + "%（军需先加入基础攻击，再计算作战倍率）", 54, 18);
         }
         private void PartySupply(string id, Action back)
         {

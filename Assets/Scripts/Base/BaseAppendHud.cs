@@ -44,7 +44,7 @@ namespace BaseConquest.Base
             if(appendDetails) foreach (var take in plan.Takes)
             {
                 var w = owner.State.Workers[take.BucketIndex];
-                Line(BaseEconomy.FacilityName(w.FacilityId) + " → " + BaseEconomy.TroopName(w.Kind) + " " + take.Count + "人 · 每人生命 " + w.Health.ToString("0.#") + "/" + w.MaxHealth.ToString("0.#"), 52, 18);
+                Line(BaseEconomy.FacilityName(w.FacilityId) + " → " + BaseEconomy.TroopName(w.Kind) + " " + take.Count + "人 · 每人生命 " + w.Health.ToString("0") + "/" + w.MaxHealth.ToString("0"), 52, 18);
             }
             Line("实际追加 " + plan.Total + "兵；缺近战 " + plan.MissingMelee + "／弓兵 " + plan.MissingRanged + "／骑兵 " + plan.MissingCavalry + "／法师 " + plan.MissingMage, 58);
             Line("基地余兵 " + plan.RemainingBase + "；补位后产出变化：粮 " + (-plan.FoodLoss).ToString("+0;-0;0") + "／产品 " + (-plan.ProductLoss).ToString("+0;-0;0"), 58);

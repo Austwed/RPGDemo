@@ -14,7 +14,7 @@ namespace BaseConquest.Base
         private void TownRules(Action back)
         {
             string production="当天可安排生产";
-            if(BaseRpg.Active(owner.State)){var r=owner.State.Demo.Rpg;RuleInfo("Demo交易与招兵规则","商品由基础价值计价：买入×"+r.BuyFactor.ToString("0.##")+"向上取整，卖出×"+r.SellFactor.ToString("0.##")+"向下取整，最低1币。商人和坏脾气各取队伍中最强一项相抵。绑定与剧情物品不可出售。\n\n军需只有一个品类，分一级与二级；同一份配给覆盖任意兵种的攻击和防御，不分别购买剑弓甲。商品每日限量，进出与读档不刷新。\n\n普通兵每日兵源按日初人数计算，兵源系数为"+r.RecruitSupplyFactor.ToString("0.##")+"；报价按当前人数更新，敏感度为"+r.RecruitPriceSensitivity.ToString("0.##")+"。新兵"+production+"，从明日计入口粮。",back);return;}
+            if(BaseRpg.Active(owner.State)){var r=owner.State.Demo.Rpg;RuleInfo("Demo交易与招兵规则","商品由基础价值计价：买入按"+r.BuyFactor.ToString("P0")+"向上取整，卖出按"+r.SellFactor.ToString("P0")+"向下取整，最低1币。商人和坏脾气各取队伍中最强一项相抵。绑定与剧情物品不可出售。\n\n军需只有一个品类，分一级与二级；同一份配给覆盖任意兵种的攻击和防御，不分别购买剑弓甲。商品每日限量，进出与读档不刷新。\n\n普通兵每日兵源按日初人数计算，兵源系数为"+r.RecruitSupplyFactor.ToString("0")+"；报价按当前人数更新，敏感度为"+r.RecruitPriceSensitivity.ToString("0")+"。新兵"+production+"，从明日计入口粮。",back);return;}
             if(BaseTown.DemoRecruitment(owner.State))
             {
                 RuleInfo("Demo招兵规则","普通兵满血加入基地，进入既有岗位、编队、军需与战损流程，不自动补进在外队伍。新兵"+production+"，从明日计入口粮。\n\n第1日固定每兵种 2 人（合计 6）；之后每日兵源总量=floor(B×兵源系数×(1-p))，B＝合计基准 12，在日初按全体实际兵力算一次，再把总量随机分到剑士／弓兵／骑兵三种（可能三个同兵种，也可能缺某个兵种）。只要兵力不超过基准的 150%（12 人基准就是 18 人），当天至少保 1 人可买，超过则断货。某个兵种连续两天没出现在兵源里，第三天必给 1 个。当天招走后不补货，重进或读档不刷新。\n\n单价以基准原价为原点：兵力高于基准每 1% 涨 2%（高出 50%、也就是 18 人时翻倍），低于基准每 1% 降 1%，最低打到五折。每次只能招 1 人，招完立即按新兵力重算报价；人员、日期、钱币或库存改变后旧报价失效。兵力越富余，价格越高、供应越少；打空了则货足价低，靠招兵与俘虏把人补回基准。\n\nB＝剑士 4＋弓兵 4＋骑兵 4＝合计 12，基础价沿用当前快照。p是双方共用的普通兵即死率，N是三种普通兵的合计，包含基地与所有外出队伍，同一士兵只计一次；编队不影响概率，只影响战术。出征调岗不会降低N或全军口粮；只有真实死亡、招募／收编等人员变化才改变兵力。",back);return;
@@ -435,7 +435,7 @@ namespace BaseConquest.Base
             int price=BaseTown.HirePrice(s,kind);
             var quote=maximum>0?BaseTown.QuoteHire(s,kind,1):null;
             var stats=offer.Stats;
-            TradeLine(details,BaseEconomy.TroopName(kind)+" · 生命 "+stats.Health.ToString("0.#")+" · 攻 "+stats.Damage.ToString("0.#")+" · 防 "+stats.Defense.ToString("0.#"));
+            TradeLine(details,BaseEconomy.TroopName(kind)+" · 生命 "+stats.Health.ToString("0")+" · 攻 "+stats.Damage.ToString("0")+" · 防 "+stats.Defense.ToString("0"));
             TradeLine(details,"今日可募 "+offer.Remaining+"/"+offer.DailyCount+" · 全军 "+BaseTown.TroopTotal(s)+"人");
             TradeButton(details,"招募 1 人 · "+price+"币",
                 ()=>TradeCommit(next=>BaseTown.Confirm(next,quote),"已招募 "+BaseEconomy.TroopName(kind),recruitment:true),quote!=null);

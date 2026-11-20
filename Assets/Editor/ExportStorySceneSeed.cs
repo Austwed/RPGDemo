@@ -55,8 +55,7 @@ namespace BaseConquest.Editor
                 new BaseMapPlacement { Id="demo_captain", Name="搭档 · 交谈", X=state.Demo.Intro.CaptainX, Y=state.Demo.Intro.CaptainY, Width=.5, Height=.5, Kind="npc", AssetId=BaseDemoIntro.CaptainArt(state), SourceObjectId="demo-npc:captain" },
                 new BaseMapPlacement { Id="intro_villager", Name="阿禾 · 交谈", X=12, Y=10, Width=.5, Height=.5, Kind="npc", AssetId="ahe", SourceObjectId="demo-npc:intro-villager" },
                 new BaseMapPlacement { Id="demo_home_world", Name="返回世界道路", X=23.3, Y=7, Width=1, Height=2 },
-                new BaseMapPlacement { Id="demo_broken_sword", Name="断剑 · 调查", X=10, Y=7, Width=1, Height=1 },
-                new BaseMapPlacement { Id="demo_survivor", Name="幸存村民", X=8.8, Y=7.5, Width=.5, Height=.5, Kind="npc", AssetId="villager" }
+                new BaseMapPlacement { Id="demo_broken_sword", Name="断剑 · 调查", X=10, Y=7, Width=1, Height=1 }
             });
 
             state.Demo.Stage = BaseDemoStage.Waking;

@@ -15,7 +15,7 @@ namespace BaseConquest.Battle
             var c=Board.Cell(p);
             if(Phase!=BattlePhase.Fighting||actor==null||c==null||c.ObstacleHealth<=0||c.ObstacleOwner==actor.Side||float.IsNaN(damage)||float.IsInfinity(damage)||damage<=0||GridPosition.Distance(actor.PreviousCell,p)>actor.Stats.Range||!Board.HasLineOfSight(actor.PreviousCell,p)||!AttackAreaContains(actor,p))return false;
             float actual=Math.Min(c.ObstacleHealth,damage);c.ObstacleHealth-=actual;TerrainRevision++;
-            actor.LastDecision="破坏路障 "+p+" −"+actual.ToString("0.#")+(c.ObstacleHealth<=0 ? "，道路已打通" : "，剩余"+c.ObstacleHealth.ToString("0.#"));
+            actor.LastDecision="破坏路障 "+p+" −"+actual.ToString("0")+(c.ObstacleHealth<=0 ? "，道路已打通" : "，剩余"+c.ObstacleHealth.ToString("0"));
             return true;
         }
         private Intent PlanObstacleRoute(BattleSoldier s,Intent normal,Dictionary<GridPosition,List<BattleSoldier>> occupancy)
@@ -25,7 +25,7 @@ namespace BaseConquest.Battle
             if(!fleeing&&(s.Command==SquadCommand.Hold||Squads[s.SquadId].GuardAssigned||RoutInProgress||s.Command==SquadCommand.Auto&&CommanderFor(s)?.IsActive==true&&GuardConfiguration(Squads[s.SquadId]).Strategy!=SquadStrategy.Attack))return normal;
             var enemies=Soldiers.Where(u=>u.Side!=s.Side&&u.IsActive&&Vision.CanSee(s.Side,u)&&AttackAreaContains(s,u.Cell)).ToArray();
             if(s.Command==SquadCommand.Focus)enemies=enemies.Where(u=>u.Id==s.FocusTargetId).ToArray();
-            bool Goal(GridPosition p) => fleeing ? IsExit(s.Side,p) : s.Command==SquadCommand.Move ? p==s.MoveGoal : enemies.Length>0 ? enemies.Any(e=>CanAttack(s,p,e)) : Scenario.FogEnabled&&s.Command==SquadCommand.Auto&&p!=s.Cell&&!Vision.Explored(s.Side,p);
+            bool Goal(GridPosition p) => fleeing ? IsExit(s.Side,p) : s.Command==SquadCommand.Move ? p==s.MoveGoal : enemies.Any(e=>CanAttack(s,p,e));
             if(s.Command==SquadCommand.Focus&&enemies.Length==0)return normal;
             float power=AttackPower(s);if(power<=0)return normal;
             var known=KnownOccupancy(s.Side,occupancy);var distance=new Dictionary<GridPosition,double>{{s.Cell,0}};var previous=new Dictionary<GridPosition,GridPosition>();var open=new List<GridPosition>{s.Cell};var done=new HashSet<GridPosition>();GridPosition? end=null;

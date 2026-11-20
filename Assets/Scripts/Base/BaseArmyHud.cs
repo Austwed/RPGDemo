@@ -11,17 +11,23 @@ namespace BaseConquest.Base
         private BaseArmyPreset ArmyPreset(BaseState state) => state.Muster.Presets.Single(p => p.Purpose == armyPurpose);
         private void ArmyEdit(Action<BaseState> action)
         { owner.Change(action, "已保存用兵设置，尚未派出人员"); OpenGovernment(); }
-        private int counterStep=1;
         private void ArmyCounter(string label, int value, int minimum, int maximum, Action<int> change,bool singleStep=false)
         {
-            Label(content, label + "：" + value, new Vector2(-190, -row - 26), new Vector2(480, 48), 20, TextAnchor.MiddleLeft, new Vector2(0.5f, 1));
-            if(singleStep||BaseDemo.Active(owner.State))
-            {RowButton("−1",190,105,()=>change(value-1),value>minimum);RowButton("+1",330,105,()=>change(value+1),value<maximum);row+=56;return;}
-            var step=Box("CounterStep",content,new Vector2(.5f,1),new Vector2(55,-row-26),new Vector2(90,46),buttonColor);
-            var number=Label(step,counterStep.ToString(),Vector2.zero,new Vector2(80,40),20,TextAnchor.MiddleCenter);number.raycastTarget=true;
-            var input=step.gameObject.GetOrAdd<UnityEngine.UI.InputField>();input.targetGraphic=step.GetComponent<UnityEngine.UI.Image>();input.textComponent=number;input.contentType=UnityEngine.UI.InputField.ContentType.IntegerNumber;input.text=counterStep.ToString();
-            input.onEndEdit.AddListener(text=>{counterStep=int.TryParse(text,out int n)?Math.Max(1,Math.Min(100000,n)):1;input.SetTextWithoutNotify(counterStep.ToString());});
-            RowButton("−n",190,105,()=>change((int)Math.Max(minimum,(long)value-counterStep)),value>minimum);RowButton("+n",330,105,()=>change((int)Math.Min(maximum,(long)value+counterStep)),value<maximum);row+=56;
+            Label(content,label,new Vector2(-170,-row-26),new Vector2(460,48),20,TextAnchor.MiddleLeft,new Vector2(.5f,1));
+            var field = Box("TargetCount",content,new Vector2(.5f,1),new Vector2(225,-row-26),new Vector2(215,46),buttonColor);
+            var number = Label(field,value.ToString(),Vector2.zero,new Vector2(195,40),20,TextAnchor.MiddleCenter);
+            var input = field.gameObject.AddComponent<UnityEngine.UI.InputField>();
+            input.targetGraphic = field.GetComponent<UnityEngine.UI.Image>();
+            input.textComponent = number;
+            input.contentType = UnityEngine.UI.InputField.ContentType.IntegerNumber;
+            input.SetTextWithoutNotify(value.ToString());
+            input.onEndEdit.AddListener(text =>
+            {
+                int target = int.TryParse(text,out int n) ? Mathf.Clamp(n,minimum,maximum) : value;
+                input.SetTextWithoutNotify(target.ToString());
+                if (target!=value) change(target);
+            });
+            row+=56;
         }
         private void Army()
         {
@@ -47,7 +53,7 @@ namespace BaseConquest.Base
             Line("当前冒险小队 "+s.Adventure.Members.Count+"/3 · 暂离占位 "+s.Adventure.Pauses.Count,48,20);
             foreach (var leader in BaseAdventure.Members(s))
             {
-                Line(BasePersonnel.LeaderName(leader)+" · 生命 "+leader.Health.ToString("0.#")+"/"+leader.MaxHealth.ToString("0.#")+(leader.Away ? " · 外出" : " · 随行"),50,20);
+                Line(BasePersonnel.LeaderName(leader)+" · 生命 "+leader.Health.ToString("0")+"/"+leader.MaxHealth.ToString("0")+(leader.Away ? " · 外出" : " · 随行"),50,20);
             }
             Line("军需取用优先级（保存规则；不会提前扣出装备）", 56, 18);
             foreach (string product in BaseEconomy.ProductsFor(s))

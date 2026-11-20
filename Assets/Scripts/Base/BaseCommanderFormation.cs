@@ -30,6 +30,43 @@ namespace BaseConquest.Base
     }
     public static partial class BaseMuster
     {
+        public static bool TogglePreference(BaseState state, BaseLeader leader, int soldierNumber)
+        {
+            if (leader.Away || state.Campaign.HasActiveBattle) return false;
+            var soldier = state.Workers.FirstOrDefault(w => w.SoldierNumbers.Contains(soldierNumber));
+            if (soldier == null) return false;
+            leader.PreferredSoldiers ??= new List<int>();
+            if (leader.PreferredSoldiers.Remove(soldierNumber))
+            {
+                leader.DefaultTroops.Set(soldier.Kind,Math.Max(0,leader.DefaultTroops.Count(soldier.Kind)-1));
+                return true;
+            }
+            if (!BaseSettlements.Local(state,soldier) || !BaseDevelopment.CanFight(soldier)) return false;
+            int named = state.Workers.Where(w => w.Kind == soldier.Kind).SelectMany(w => w.SoldierNumbers)
+                .Count(leader.PreferredSoldiers.Contains);
+            if (named >= 30) return false;
+            foreach (var other in state.Leaders.Where(l => l != leader))
+                if (other.PreferredSoldiers?.Remove(soldierNumber)==true)
+                    other.DefaultTroops.Set(soldier.Kind,Math.Max(0,other.DefaultTroops.Count(soldier.Kind)-1));
+            leader.PreferredSoldiers.Add(soldierNumber);
+            leader.DefaultTroops.Set(soldier.Kind,Math.Max(leader.DefaultTroops.Count(soldier.Kind),named+1));
+            return true;
+        }
+
+        public static void SetPreferenceCount(BaseState state, BaseLeader leader, BaseTroopKind kind, int target)
+        {
+            target = Math.Max(0,Math.Min(30,target));
+            leader.PreferredSoldiers ??= new List<int>();
+            var kindIds = state.Workers.Where(w=>w.Kind==kind).SelectMany(w=>w.SoldierNumbers).ToHashSet();
+            var explicitIds = leader.PreferredSoldiers.Where(kindIds.Contains).ToArray();
+            foreach (int id in explicitIds.Skip(target)) leader.PreferredSoldiers.Remove(id);
+            var reserved = state.Leaders.SelectMany(l=>l.PreferredSoldiers??Enumerable.Empty<int>()).ToHashSet();
+            var available = state.Workers.Where(w=>w.Kind==kind && BaseSettlements.Local(state,w) && BaseDevelopment.CanFight(w))
+                .SelectMany(w=>w.SoldierNumbers).Where(id=>!reserved.Contains(id)).OrderBy(id=>id);
+            leader.PreferredSoldiers.AddRange(available.Take(Math.Max(0,target-explicitIds.Length)));
+            leader.DefaultTroops.Set(kind,target);
+        }
+
         public static bool CompositionValid(BaseCommanderTroops c)=>c!=null&&c.Version==1&&Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>().All(k=>c.Count(k)>=0&&c.Count(k)<=30);
         public static void NormalizeCompositions(BaseState s)
         {
@@ -41,6 +78,7 @@ namespace BaseConquest.Base
                     l.DefaultTroops=new BaseCommanderTroops();int slot=ids.IndexOf(l.Id);
                     if(slot>=0)foreach(BaseTroopKind k in Enum.GetValues(typeof(BaseTroopKind)))l.DefaultTroops.Set(k,old.Count(k)/ids.Count+(slot<old.Count(k)%ids.Count ? 1 : 0));
                 }
+                l.PreferredSoldiers ??= new List<int>();
                 if(!CompositionValid(l.DefaultTroops))throw new ArgumentException("队长默认兵力版本或人数非法");
             }
         }

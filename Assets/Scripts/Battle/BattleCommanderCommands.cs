@@ -214,12 +214,6 @@ namespace BaseConquest.Battle
                 var path = FindPath(s, p => permitted(p) && CanStandToAttack(s, p, occupied) && CanAttack(s, p, enemy), occupied, permitted);
                 if (path.Count > 1) { SetMove(intent, path); intent.Target = enemy; intent.Decision = "队形内护卫指挥者"; return intent; }
             }
-            if (s.Id == leader.Id && !guarding && Scenario.FogEnabled)
-            {
-                var path = FindPath(s, p => p != s.Cell && !Vision.Explored(s.Side, p), occupied);
-                if (path.Count == 0) path = FindPath(s, p => p != s.Cell && !Vision.Visible(s.Side, p), occupied);
-                SetMove(intent, path); intent.Decision = "小队长带队侦察";
-            }
             return intent;
         }
         private Intent PlanCommanderAuto(BattleSoldier s, Dictionary<GridPosition, List<BattleSoldier>> occupied, Intent intent)
@@ -233,13 +227,7 @@ namespace BaseConquest.Battle
             }
             var target = Soldiers.Where(t => t.IsActive && t.Side != s.Side && Vision.CanSee(s.Side, t)).OrderBy(t => GridPosition.Distance(leader.Cell, t.Cell)).ThenBy(t => t.Id).FirstOrDefault();
             if (target != null) return PlanFocus(s, target, occupied);
-            if (s.Id == leader.Id && Scenario.FogEnabled)
-            {
-                var path = FindPath(s, p => p != s.Cell && !Vision.Explored(s.Side, p), occupied);
-                if (path.Count == 0) path = FindPath(s, p => p != s.Cell && !Vision.Visible(s.Side, p), occupied);
-                SetMove(intent, path); intent.Decision = "小队长带队侦察";
-            }
-            return intent;
+            return PlanUnseenMovement(s, occupied, intent);
         }
     }
 }

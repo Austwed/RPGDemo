@@ -141,7 +141,7 @@ namespace BaseConquest.Base
             s.Layout.Revision++;
             if (id == "caravan") BaseMuster.EnsureCaravan(s);
             BaseDevelopment.Allocate(s);
-            message = def.Name + "已放置在（" + x.ToString("0.#") + "，" + y.ToString("0.#") + "）";
+            message = def.Name + "已放置在（" + x.ToString("0") + "，" + y.ToString("0") + "）";
             return true;
         }
         public static bool Store(BaseState s, string id, out string message)

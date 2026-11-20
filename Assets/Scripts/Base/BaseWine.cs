@@ -37,7 +37,7 @@ namespace BaseConquest.Base
         {
             var w=l.Wine;unit.DrinkMultiplier=w?.Kind==Strong&&w.Day==day?1.10f:w?.Kind==Sake?1.05f:1;
             if((l.Rpg?.Trait("drunkard")??0)>0)unit.DrinkMultiplier=1+(unit.DrinkMultiplier-1)*(float)l.Rpg.Trait("drunkard");
-            unit.DrinkLabel=unit.DrinkMultiplier>1?(w.Kind==Strong?"烈酒（当日攻击＋":"清酒（本场攻击＋")+((unit.DrinkMultiplier-1)*100).ToString("0.##")+"%）":"";
+            unit.DrinkLabel=unit.DrinkMultiplier>1?(w.Kind==Strong?"烈酒（当日攻击＋":"清酒（本场攻击＋")+((unit.DrinkMultiplier-1)*100).ToString("0")+"%）":"";
         }
         public static void Bind(BaseState s,BaseCampaignSession session)
         {

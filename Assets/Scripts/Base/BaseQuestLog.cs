@@ -143,7 +143,7 @@ namespace BaseConquest.Base
             {
                 "base" => campTarget, "town" => "travel_base", "perimeter" => "demo_defense_return",
                 "world" => "camp_entry", _ => s.Campaign.CurrentMapId == BaseDemoFinale.Camp ? "demo_camp_world" :
-                    s.Campaign.CurrentMapId == BaseDemoFinale.Home ? "village_gate_out" : s.Campaign.CurrentMapId == BaseDemoFinale.HomeField ? "village_world_exit" : null
+                    s.Campaign.CurrentMapId == BaseDemoFinale.Home ? "demo_home_world" : s.Campaign.CurrentMapId == BaseDemoFinale.HomeField ? "village_gate_in" : null
             };
             return new BaseQuestCue(id, goal, target);
         }
@@ -213,6 +213,7 @@ namespace BaseConquest.Base
                 return new BaseQuestCue(attack, "听取战后报告", control: "dialogue");
             if (!BaseDemoFinale.Enabled(s)) return default;
             if (!BaseDemoFinale.Opened(s)) return ToCamp(s, attack, "从营地南侧出口进入世界道路", "demo_march_exit");
+            if (BaseDemoFinale.EndingBench(s) is string bench) return new BaseQuestCue(attack,"在村中的长椅坐一会儿",bench);
             if (s.Campaign.CurrentMapId == BaseDemoFinale.Home)
                 return s.Demo.Finale.RebuildMask!=7 ? new BaseQuestCue(attack,"在村里修好家、粮田和工坊") :
                     new BaseQuestCue(attack,BaseDemoFinale.HomeVolunteers(s)?"与麦田边的村民交谈":"等村民走到麦田边",BaseDemoFinale.HomeVolunteers(s)?BaseDemoFinale.Builder:null);
@@ -221,7 +222,7 @@ namespace BaseConquest.Base
             {
                 if (s.Campaign.Location == "world") return new BaseQuestCue(attack, "沿世界道路前往" + BaseScriptNames.Village, "home_entry");
                 if (s.Campaign.CurrentMapId == BaseDemoFinale.Camp)
-                    return new BaseQuestCue(attack, "前往" + BaseScriptNames.Village, "demo_direct_home");
+                    return new BaseQuestCue(attack, "前往" + BaseScriptNames.Village, "demo_camp_east");
             }
             else
             {

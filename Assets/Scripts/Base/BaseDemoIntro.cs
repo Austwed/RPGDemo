@@ -392,7 +392,13 @@ namespace BaseConquest.Base
             return intro.DummyPhase<2?DummyDemo:intro.DummyPhase<4?AutoAttack:(intro.DrillFlags&Attack)==0?Attack:0;
         }
         public static void StartDummyDemo(RealtimeCampaignBattle run,BaseDemoIntroState intro)
-        {if(intro.DummyPhase!=0)return;intro.DummyPhase=1;foreach(var u in run.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))run.Model.SetStrategy(u,PrototypeStrategy.Attack);}
+        {
+            if(intro.DummyPhase!=0)return;
+            intro.DummyPhase=1;
+            var partner=run.Model.Units.Single(u=>u.Side==PrototypeSide.Enemy);
+            run.Model.SetStrategy(partner,PrototypeStrategy.Attack);
+            run.Tactics.OrderObject(partner,DummyId,false);
+        }
         public static void Configure(RealtimeCampaignBattle run,BaseDemoIntroState intro)
         {
             int Next()=>NextExercise(intro);
@@ -407,6 +413,7 @@ namespace BaseConquest.Base
                     if (intro.DummyPhase != 2) return;
                     intro.DummyPhase = 3;
                     run.Issue(new[] { player.Id - 1 }, PrototypeOrder.Auto, player.Position);
+                    run.Tactics.OrderObject(player,DummyId,false);
                 }
                 else if (next == Move)
                 {

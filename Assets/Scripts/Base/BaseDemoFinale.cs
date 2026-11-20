@@ -45,7 +45,7 @@ namespace BaseConquest.Base
             return (s.Demo.Finale.RebuildMask & RepairBit(id))!=0;
         }
         internal static bool HomeObject(string map,string id) =>
-            map==Home && (RepairBit(id)!=0 || id=="barracks" || id=="demo_survivor" || id==Builder || id==Helper) ||
+            map==Home && (RepairBit(id)!=0 || id=="barracks" || id==Builder || id==Helper) ||
             map==HomeField && id=="demo_broken_sword";
         public static bool BattleActive(BaseState state)=>Opened(state)&&state.Campaign.CurrentMapId==Camp&&state.Campaign.HasActiveBattle&&state.Campaign.ActiveBattle.EventId==BaseThreats.Site(state,Camp).AttackEventId;
         public static bool Encounter(BaseCampaignSession session)=>session?.Opening.MapId==Camp;
@@ -57,6 +57,7 @@ namespace BaseConquest.Base
         {
             if(!Enabled(s)) return "";
             if(s.Demo.Stage==BaseDemoStage.Finished) return "白桦村已重新安顿";
+            if(Rebuilding(s) && s.Demo.Finale.VillageRebuilt) return "在村中的长椅坐一会儿";
             if(Rebuilding(s)) return s.Demo.Finale.RebuildMask==7 ? "与麦田边的村民交谈" : "修好家、粮田和工坊";
             return Later(s) ? "沿世界道路返回白桦村" : "从灰岩营地南口率队前往黑鸦寨";
         }
@@ -86,7 +87,12 @@ namespace BaseConquest.Base
             var worldMap=new BaseMapLayout {Region="world",SourceMapId="demo_world",Title="返乡行军",SpawnX=12,SpawnY=6.5};campaign.Layouts.Add(worldMap);
             var story=state.Demo.StoryScene;
             var campLayout=story?.Valid==true?story.Map("bandit").Layout.Copy():BaseDemoRelease.Enabled(state)?state.Demo.ReleaseMaps.Single(m=>m.Role=="bandit").Layout.Copy():CreateCampLayout();
-            campLayout.SourceMapId=Camp;campaign.Layouts.Add(campLayout);
+            campLayout.SourceMapId=Camp;
+            var campBoard=CreateCampBoard(state);
+            var westRoad=campLayout.Objects.Single(o=>o.Id=="demo_camp_world");
+            var eastRoad=FreeNear(campLayout,campBoard,campBoard.Width-1,westRoad.Y);
+            campLayout.Objects.Add(Marker("demo_camp_east","东侧世界道路",eastRoad));
+            campaign.Layouts.Add(campLayout);
             var village = story?.Valid==true ? story.ReturnVillage() : state.Demo.Finale.Village.Copy();
             var savedVillage=state.Demo.Finale.VillageBoard;
             var homeBoard = story?.Valid==true ? story.Map("village").Board.Clone() :
@@ -98,7 +104,6 @@ namespace BaseConquest.Base
             var westGate = CreateWestGate(fieldTemplate,westBoard);
             campaign.Layouts.Add(westGate);
             foreach(var map in campaign.Layouts)foreach(var obj in map.Objects)if(string.IsNullOrEmpty(obj.SourceObjectId))obj.SourceObjectId=map.SourceMapId+"_"+obj.Id;
-            var campBoard=CreateCampBoard(state);
             boards.Add(new BaseRegionMap {Id=Camp,Board=campBoard});
             boards.Add(new BaseRegionMap {Id=Home,Board=homeBoard});
             boards.Add(new BaseRegionMap {Id=HomeField,Board=westBoard});
@@ -129,17 +134,20 @@ namespace BaseConquest.Base
             world.Nodes.Add(new BaseWorldNode {Id="camp",Title=BaseScriptNames.Camp,X=.18,Y=.38,MapIds=new List<string>{"demo_camp","demo_town","demo_field","demo_ruins"}});
             if(BaseSceneRules.Active(state))world.Nodes.Single(n=>n.Id=="camp").MapIds.Add(BaseSceneRules.DungeonId);
             if(BaseBanditHideout.Installed(state))world.Nodes.Single(n=>n.Id=="camp").MapIds.Add(BaseBanditHideout.MapId);
-            world.Nodes.Add(new BaseWorldNode {Id="bandit",AreaId="home",Title=BaseScriptNames.Village+"领地 · 敌营",X=.5,Y=.58,MapIds=new List<string>{Camp}});
-            world.Nodes.Add(new BaseWorldNode {Id="home",AreaId="home",Title=BaseScriptNames.Village+"领地 · 村庄",X=.82,Y=.4,MapIds=new List<string>{HomeField,Home}});
+            world.Nodes.Add(new BaseWorldNode {Id="bandit",AreaId="bandit",Title=BaseScriptNames.Bandit,X=.5,Y=.58,MapIds=new List<string>{Camp}});
+            world.Nodes.Add(new BaseWorldNode {Id="home",AreaId="home",Title=BaseScriptNames.Village,X=.82,Y=.4,MapIds=new List<string>{HomeField,Home}});
             world.Roads.Add(new BaseWorldRoad {Id="camp_bandit",From="camp",To="bandit",Days=1});world.Roads.Add(new BaseWorldRoad {Id="bandit_home",From="bandit",To="home",Days=1,EnemyMapId=Camp});
-            Entry(state,world,"camp_entry","camp","demo_camp","demo_march_exit",12,1.5);Entry(state,world,"bandit_entry","bandit",Camp,"demo_camp_world",1.6,6.5);Entry(state,world,"home_entry","home",HomeField,"village_world_exit",westGate.SpawnX,westGate.SpawnY);
+            Entry(state,world,"camp_entry","camp","demo_camp","demo_march_exit",12,1.5);
+            Entry(state,world,"bandit_entry","bandit",Camp,"demo_camp_world",1.6,6.5);
+            var eastVillage=village.Objects.Single(o=>o.Id=="demo_home_world");
+            Entry(state,world,"bandit_east_entry","bandit",Camp,"demo_camp_east",eastRoad.X-1,eastRoad.Y);
+            Entry(state,world,"home_entry","home",Home,"demo_home_world",eastVillage.X-1,eastVillage.Y);
             Bind(state,HomeField,"village_gate_in",Home,"village_gate_out",village.SpawnX,village.SpawnY);
             Bind(state,Home,"village_gate_out",HomeField,"village_gate_in",westGate.Objects.Single(o=>o.Id=="village_gate_in").X-1,westGate.Objects.Single(o=>o.Id=="village_gate_in").Y);
             state.Demo.Finale.WorldOpened=true;
             if(OccupiedBySecondDefense(state))
             {
                 ShowOccupiedCamp(state);
-                ConnectHome(state);
             }
             BaseAdventure.Arrive(state);BaseEconomy.Validate(state);
         }
@@ -154,7 +162,7 @@ namespace BaseConquest.Base
         private static void Entry(BaseState state,BaseWorldJourneyState world,string id,string node,string map,string objectId,double x,double y)
         {
             var landing=BaseSceneInstances.Layout(state,map);
-            var marker=BaseSceneInstances.Layout(state,map).Objects.Single(obj=>obj.Id==objectId);marker.DefinitionId="map_exit";marker.VisualOnly=false;marker.Name="世界道路";
+            var marker=BaseSceneInstances.Layout(state,map).Objects.Single(obj=>obj.Id==objectId);marker.DefinitionId="map_exit";marker.VisualOnly=false;marker.Name=map==Camp ? (objectId=="demo_camp_east"?"东口 · 世界道路 →":"← 世界道路 · 西口") : "世界道路";
             if(BaseDemoRelease.Enabled(state)){var safe=BaseDemoRelease.Landing(state,map,marker);x=safe.X;y=safe.Y;}
             world.Entries.Add(new BaseWorldEntry {Id=id,NodeId=node,MapId=map,ObjectId=marker.SourceObjectId,X=x,Y=y});world.Discovered.Add(id);
         }
@@ -226,7 +234,6 @@ namespace BaseConquest.Base
             if(Opened(state))
             {
                 ShowOccupiedCamp(state);
-                ConnectHome(state);
             }
         }
 
@@ -259,16 +266,6 @@ namespace BaseConquest.Base
             BaseSceneInstances.Layout(state,Camp).Objects.RemoveAll(obj=>obj.Id==CampSuppliesMarker);
             return true;
         }
-        private static void ConnectHome(BaseState s)
-        {
-            if(!BaseSceneRules.Active(s))return;
-            var camp=BaseSceneInstances.Layout(s,Camp);var home=BaseSceneInstances.Layout(s,HomeField);
-            if(camp.Objects.Any(o=>o.Id=="demo_direct_home"))return;
-            var campPoint=BaseSpatial.Nearest(s,new BasePoint(camp.Columns-2,12),Camp);var homePoint=BaseSpatial.Nearest(s,new BasePoint(2.5,7.5),HomeField);
-            camp.Objects.Add(new BaseMapPlacement{Id="demo_direct_home",Name="前往"+BaseScriptNames.Village+" · 领地内直达",SourceObjectId="demo_direct_home",DefinitionId="map_exit",X=campPoint.X,Y=campPoint.Y,Width=.6,Height=1});
-            home.Objects.Add(new BaseMapPlacement{Id="demo_direct_camp",Name="返回黑鸦寨 · 领地内直达",SourceObjectId="demo_direct_camp",DefinitionId="map_exit",X=homePoint.X,Y=homePoint.Y,Width=.6,Height=1});
-            Bind(s,Camp,"demo_direct_home",HomeField,"demo_direct_camp",homePoint.X,homePoint.Y);Bind(s,HomeField,"demo_direct_camp",Camp,"demo_direct_home",campPoint.X,campPoint.Y);
-        }
         private static BasePoint FreeNear(BaseMapLayout map, BattleBoard board, double x, double y)
         {
             var objects = map.Objects.Select(o=>o.Object).ToArray();
@@ -282,8 +279,9 @@ namespace BaseConquest.Base
         internal static void PrepareVillage(BaseMapLayout map,BattleBoard board)
         {
             map.SourceMapId=Home;map.Region="custom";map.ParentMapId=null;map.Title="白桦村";map.ForbidSoldiers=true;
-            map.Objects.RemoveAll(o=>o.Id=="demo_broken_sword"||o.Id=="demo_sword_prop"||o.Id=="demo_home_world"||o.Id=="demo_captain"||
-                o.Id=="intro_villager"||o.Id=="prologue_report"||o.Id=="prologue_trigger"||o.Kind=="npc"&&o.Id!="demo_survivor");
+            var escape=map.Objects.FirstOrDefault(o=>o.Id=="prologue_trigger");
+            map.Objects.RemoveAll(o=>BaseStoryScenePackage.IsRetiredVillageNpc(o)||o.Id=="demo_broken_sword"||o.Id=="demo_sword_prop"||o.Id=="demo_home_world"||o.Id=="demo_captain"||
+                o.Id=="intro_villager"||o.Id=="prologue_report"||o.Id=="prologue_trigger"||o.Kind=="npc");
             foreach(var o in map.Objects)
             {
                 if(o.Id=="village_house") o.Id="home";
@@ -294,14 +292,19 @@ namespace BaseConquest.Base
                     o.Kind="facility";o.VisualOnly=false;
                     o.Name=o.Id=="home"?"家 · 修理":o.Id=="farm"?"粮田 · 修理":"工坊 · 修理";
                 }
-                else o.VisualOnly=o.Id!="demo_survivor";
+                else o.VisualOnly=true;
                 o.SourceObjectId=Home+"_"+o.Id;
             }
             if(!map.Objects.Any(o=>o.Id=="workshop"))
                 map.Objects.Add(new BaseMapPlacement{Id="workshop",Name="工坊 · 修理",X=16,Y=10,Width=2,Height=1,Blocks=true,Kind="facility",AssetId="workshop-small"});
             var exit=FreeNear(map,board,1,board.Height*.5);
-            if(!map.Objects.Any(o=>o.Id=="demo_survivor"))
-                map.Objects.Add(Marker("demo_survivor","幸存村民",FreeNear(map,board,exit.X+3,exit.Y+1),"npc","villager"));
+            var east=FreeNear(map,board,escape?.X??board.Width-1,escape?.Y??board.Height*.5);
+            map.Objects.Add(Marker("demo_home_world","世界道路 →",east));
+            if(!map.Objects.Any(o=>o.AssetId=="bench"&&o.Rotation==0))
+            {
+                var seat=FreeNear(map,board,board.Width*.38,board.Height*.65);
+                map.Objects.Add(new BaseMapPlacement {Id="village_bench",Name="长椅",AssetId="bench",Kind="decoration",X=seat.X,Y=seat.Y,Width=1.1,Height=.4,Blocks=true,VisualOnly=true});
+            }
             map.Objects.Add(Marker("village_gate_out","← 西桥头",exit));
             var spawn=FreeNear(map,board,exit.X+1,exit.Y);
             map.SpawnX=spawn.X;map.SpawnY=spawn.Y;
@@ -313,12 +316,10 @@ namespace BaseConquest.Base
             map.TacticalObjects.Clear();map.Enemy=null;map.Safety="safe";map.ForbidSoldiers=false;
             map.Objects.RemoveAll(o=>!BaseEnvironment.Decorative(o.Object));
             foreach(var o in map.Objects) o.SourceObjectId=HomeField+"_"+o.Id;
-            var road=FreeNear(map,board,1,board.Height*.5);
             var gate=FreeNear(map,board,board.Width-1,board.Height*.5);
-            map.Objects.Add(Marker("village_world_exit","← 世界道路",road));
             map.Objects.Add(Marker("village_gate_in","进入白桦村 →",gate));
             map.Objects.Add(Marker("demo_broken_sword","断剑 · 调查",FreeNear(map,board,gate.X-2,gate.Y+1),"demo-prop","demo-broken-sword"));
-            var landing=FreeNear(map,board,road.X+1,road.Y);
+            var landing=FreeNear(map,board,gate.X-1,gate.Y);
             map.SpawnX=landing.X;map.SpawnY=landing.Y;
             return map;
         }
@@ -388,8 +389,26 @@ namespace BaseConquest.Base
         }
         public static bool FinishRebuild(BaseState state)
         {
-            if(!Rebuilding(state)||!HomeVolunteers(state)||!BaseInteraction.At(state,"custom",Builder))return false;
-            state.Demo.Finale.VillageRebuilt=true;state.Demo.Finale.EndDay=state.Day;state.Demo.Stage=BaseDemoStage.Finished;return true;
+            if(!Rebuilding(state)||state.Demo.Finale.VillageRebuilt||!HomeVolunteers(state)||!BaseInteraction.At(state,"custom",Builder))return false;
+            state.Demo.Finale.VillageRebuilt=true;return true;
+        }
+        public static string EndingBench(BaseState state)
+        {
+            if(!Rebuilding(state)||!state.Demo.Finale.VillageRebuilt)return null;
+            return BaseSpatial.Layout(state).Objects.FirstOrDefault(o=>o.AssetId=="bench"&&o.Rotation==0)?.Id;
+        }
+        public static bool FinishAtBench(BaseState state,string seatId)
+        {
+            string benchId=EndingBench(state);
+            if(benchId==null || seatId!=benchId+":seat:left" && seatId!=benchId+":seat:right")return false;
+            var bench=BaseSpatial.Layout(state).Objects.Single(o=>o.Id==benchId);
+            double x=bench.X+(seatId.EndsWith(":left",StringComparison.Ordinal)?-1:1)*bench.Width*.29;
+            double y=bench.Y-bench.Height*.5-BaseMap.Radius-.06;
+            if(new BasePoint(x,y).Distance(new BasePoint(state.PlayerX,state.PlayerY))>.65)return false;
+            state.Demo.Finale.EndDay=state.Day;
+            state.Demo.Finale.EndingSeen=true;
+            state.Demo.Stage=BaseDemoStage.Finished;
+            return true;
         }
         public static void Validate(BaseState state)
         {
@@ -414,8 +433,6 @@ namespace BaseConquest.Base
             if(!BaseDemoDefense.Won(state)||state.Campaign.InstanceVersion!=1||state.Campaign.DesignId!=state.Demo.BalanceHash||!BaseWorldJourney.Active(state)||state.Campaign.Layouts.Count!=(BaseSceneRules.Active(state)?9:8)+(BaseBanditHideout.Installed(state)?1:0)||state.Campaign.WorldJourney.Nodes.Count!=3||state.Campaign.WorldJourney.Roads.Count!=2||state.Campaign.WorldJourney.Roads.Any(road=>road.Days!=1))throw new ArgumentException("Demo世界身份、路线或阶段非法");
             var site=BaseThreats.Site(state,Camp);var home=state.Campaign.Layouts.Single(map=>map.SourceMapId==Home);
             if(site==null||home.Region!="custom")throw new ArgumentException("Demo敌营／"+BaseScriptNames.Village+"缺失");
-            var survivor=home.Objects.SingleOrDefault(o=>o.Id=="demo_survivor");
-            if(survivor!=null)survivor.VisualOnly=false;
             if(progress.CampTakenByDefense)
             {
                 var objects=BaseSceneInstances.Layout(state,Camp).Objects;
@@ -426,8 +443,8 @@ namespace BaseConquest.Base
                 throw new ArgumentException("攻营阶段缺少真实主动胜利");
             if(state.Demo.Stage==BaseDemoStage.Finished?progress.EndDay<progress.AttackDay||progress.EndDay>state.Day:progress.EndDay!=0)throw new ArgumentException("返乡结局日期非法");
             if(progress.RebuildMask<0||progress.RebuildMask>7||progress.HouseDialogueStep<0||progress.HouseDialogueStep>2||
-                progress.VolunteersArrived&&progress.RebuildMask!=7||progress.VillageRebuilt!= (state.Demo.Stage==BaseDemoStage.Finished)||
-                progress.VillageRebuilt&&!progress.VolunteersArrived||progress.EndingSeen&&!progress.VillageRebuilt)
+                progress.VolunteersArrived&&progress.RebuildMask!=7||state.Demo.Stage==BaseDemoStage.Finished&&!progress.VillageRebuilt||
+                progress.VillageRebuilt&&!progress.VolunteersArrived||progress.EndingSeen&&state.Demo.Stage!=BaseDemoStage.Finished)
                 throw new ArgumentException("白桦村修理或村民到场记录非法");
             bool restored=progress.RebuildMask==7;
             foreach(var id in new[]{Builder,Helper})

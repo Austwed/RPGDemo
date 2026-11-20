@@ -136,69 +136,165 @@ namespace BaseConquest.Base
                 if (placements.TryGetValue(m.id,out var cell)) { m.x=cell.x; m.z=cell.y; }
             return roster;
         }
-        private readonly Dictionary<string, Button> rosterButtons = new();
+        private readonly Dictionary<string,Button> captainButtons = new();
+        private readonly Dictionary<(string,SoldierKind),InputField> teamCounts = new();
+        private readonly Dictionary<int,RectTransform> soldierCards = new();
+        private Button[] rosterToolbar;
+        private Button gradeButton;
         private Text rosterSummary;
-        private Button[] gradeButtons;
+        private SoldierRosterFilter rosterFilter = new();
+        private BasePersonnelUnit[] soldiers;
+        private Dictionary<string,BasePrepUnit> available;
+
         private void ShowPreparation()
         {
             NewPage("模拟对抗 · 出战编队");
-            Caption(page,"VictoryRule","全部队长倒地的一方落败，五分钟未分胜负则平局。",.025f,.085f,.728f,.145f,18);
-            Caption(page,"Captains","指挥队长",.03f,.78f,.40f,.87f,22);
-            var captains = VerticalList(page,"Captains",.025f,.48f,.419f,.78f);
-            Caption(page,"Supply","演武军需",.03f,.365f,.40f,.465f,22);
-            gradeButtons = new Button[3];
-            for(int i=0;i<3;i++)
+            Caption(page,"Captains","队长与编队",.028f,.78f,.188f,.865f,22);
+            int col = 0;
+            foreach (var kind in BattleSimulation.TroopKinds)
             {
-                int grade=i; float x=.025f + i*.134f;
-                gradeButtons[i]=ButtonAt(page,"Supply"+i,i==0?"无配给":i+"级  ×"+Draft.AvailableSupply(camp,i),x,.27f,x+.128f,.365f,
-                    ()=>{ Draft.SupplyGrade=grade; RefreshRoster(); });
+                float x = .20f + col++*.062f;
+                Caption(page,"Heading"+kind,BattleSimulation.KindName(kind),x,.78f,x+.06f,.865f,18);
             }
-            rosterSummary=Caption(page,"Count","",.025f,.145f,.428f,.25f,18);
-            Caption(page,"Soldiers","士兵名册",.455f,.78f,.86f,.87f,22);
-            var soldiers=VerticalList(page,"Soldiers",.45f,.245f,.972f,.78f);
-            rosterButtons.Clear();
-            foreach(var unit in Draft.Units)
+            captainButtons.Clear();
+            teamCounts.Clear();
+            var leaders = Draft.Units.Where(u=>u.Kind==SoldierKind.Hero).ToArray();
+            for(int i=0;i<BaseAdventure.Capacity;i++)
             {
-                if(unit.Kind==SoldierKind.Hero)
+                float top=.775f-i*.145f;
+                var line=Area(page,"Captain"+i,.025f,top-.135f,.449f,top);
+                Back(line,Theme.Inset);
+                if(i>=leaders.Length) continue;
+                var leader=leaders[i];
+                var select=ButtonAt(line,leader.Id,leader.Name,.01f,.47f,.38f,.96f,()=>
                 {
-                    var line=Area(captains,"Captain",0,0,1,1);line.gameObject.AddComponent<LayoutElement>().preferredHeight=50;
-                    rosterButtons[unit.Id]=ButtonAt(line,unit.Id,unit.Name,0,0,.65f,1,()=>{unit.Selected=true;prepTeam=unit.Id;RefreshRoster();});
-                    if(unit.Id!=Draft.PlayerId)
-                        ButtonAt(line,"Toggle","出 / 入",.665f,0,1,1,()=>
+                    if(!leader.Selected) leader.Selected=true;
+                    prepTeam=leader.Id; RefreshRoster();
+                });
+                captainButtons.Add(leader.Id,select);
+                if(leader.Id!=Draft.PlayerId)
+                    ButtonAt(line,"Membership","出 / 入",.01f,.04f,.38f,.45f,()=>
+                    {
+                        leader.Selected=!leader.Selected;
+                        if(!leader.Selected)
                         {
-                            unit.Selected=!unit.Selected;
-                            if(!unit.Selected){foreach(var s in Draft.Units.Where(s=>s.Kind!=SoldierKind.Hero && s.TeamId==unit.Id)) s.Selected=false;if(prepTeam==unit.Id)prepTeam=Draft.PlayerId;}
-                            else prepTeam=unit.Id;
-                            placements.Clear();RefreshRoster();
-                        });
-                }
-                else rosterButtons[unit.Id]=Row(soldiers,unit.Id,unit.Name,()=>
+                            foreach(var u in Draft.Units.Where(u=>u.Kind!=SoldierKind.Hero && u.TeamId==leader.Id)) u.Selected=false;
+                            if(prepTeam==leader.Id) prepTeam=Draft.PlayerId;
+                        }
+                        else prepTeam=leader.Id;
+                        placements.Clear(); RefreshRoster();
+                    });
+                int column=0;
+                foreach (var kind in BattleSimulation.TroopKinds)
                 {
-                    if(!unit.Selected && Draft.Units.Count(s=>s.Selected&&s.Kind!=SoldierKind.Hero)>=BaseMuster.BattleSoldierLimit)
-                    { Hint("出战人数已满。");return; }
-                    bool remove=unit.Selected&&unit.TeamId==prepTeam;unit.TeamId=prepTeam;unit.Selected=!remove;
-                    placements.Clear();RefreshRoster();
+                    float x=.403f+column++*.149f;
+                    var slot=Area(line,kind.ToString(),x,.18f,x+.135f,.82f);
+                    Back(slot,Theme.Button);
+                    var label=Words(Area(slot,"Value",0,0,1,1),"0",20,false,TextAnchor.MiddleCenter);
+                    var field=slot.gameObject.AddComponent<InputField>();
+                    field.targetGraphic=slot.GetComponent<Image>();
+                    field.textComponent=label;
+                    field.contentType=InputField.ContentType.IntegerNumber;
+                    field.onEndEdit.AddListener(value=>
+                    {
+                        if (int.TryParse(value,out int target) && Draft.SetTeamCount(leader.Id,kind,target))
+                        {
+                            prepTeam=leader.Id;
+                            placements.Clear();
+                        }
+                        RefreshRoster();
+                    });
+                    teamCounts.Add((leader.Id,kind),field);
+                }
+            }
+            rosterSummary=Caption(page,"Count","",.025f,.23f,.449f,.31f,18);
+            gradeButton=ButtonAt(page,"Supply","",.025f,.10f,.190f,.21f,()=>
+            {
+                Draft.SupplyGrade=Draft.SupplyGrade==1?2:1;
+                RefreshRoster();
+            });
+            ButtonAt(page,"Restore","恢复编队",.195f,.10f,.305f,.21f,()=>
+            {
+                Draft=new BaseBattlePreparation(camp,BasePrepRoute.Travel);
+                prepTeam=Draft.PlayerId;
+                placements.Clear();
+                ShowPreparation();
+            });
+            ButtonAt(page,"Deploy","进入布阵",.31f,.10f,.449f,.21f,ShowDeployment,true);
+            Caption(page,"RosterTitle","士兵名册",.468f,.80f,.975f,.879f,22);
+            rosterToolbar=new Button[4];
+            for(int i=0;i<4;i++)
+            {
+                int index=i;
+                float x=.464f+i*.129f;
+                rosterToolbar[i]=ButtonAt(page,"Filter"+i,"",x,.72f,x+.125f,.80f,()=>
+                {
+                    rosterFilter.Activate(index);
+                    RefreshRoster();
                 });
             }
-            ButtonAt(page,"Deploy","布阵",.74f,.115f,.972f,.215f,ShowDeployment,true);
+            var listBody=VerticalList(page,"Soldiers",.46f,.097f,.981f,.713f);
+            soldiers=BasePersonnel.Soldiers(camp).ToArray();
+            available=Draft.Units.Where(u=>u.Kind!=SoldierKind.Hero).ToDictionary(u=>u.Id);
+            soldierCards.Clear();
+            foreach(var soldier in soldiers)
+            {
+                var go=Instantiate(owner.SceneUiTemplate("PersonnelRosterRow"),listBody,false);
+                go.name=soldier.Key;
+                go.SetActive(true);
+                var card=(RectTransform)go.transform;
+                card.Find("Info").gameObject.SetActive(false);
+                card.GetComponent<LayoutElement>().preferredHeight=48;
+                var button=card.GetComponent<Button>();
+                foreach(var text in card.GetComponentsInChildren<Text>()) text.font=font;
+                bool canDeploy=available.TryGetValue(soldier.Key,out var unit);
+                button.interactable=canDeploy;
+                button.onClick.AddListener(()=>
+                {
+                    if(Draft.ToggleSoldier(prepTeam,unit)) placements.Clear();
+                    RefreshRoster();
+                });
+                soldierCards.Add(soldier.SoldierNumber,card);
+            }
             RefreshRoster();
         }
         private void RefreshRoster()
         {
-            foreach(var u in Draft.Units)
+            foreach(var leader in Draft.Units.Where(u=>u.Kind==SoldierKind.Hero))
             {
-                var button=rosterButtons[u.Id];
-                bool hero=u.Kind==SoldierKind.Hero;
-                button.image.color=(hero?u.Id==prepTeam:u.Selected)?Theme.Gold:Theme.Button;
-                string team=Draft.Units.FirstOrDefault(t=>t.Id==u.TeamId)?.Name;
-                button.GetComponentInChildren<Text>().text=hero?(u.Selected?"● ":"○ ")+u.Name:
-                    u.Name+"   "+u.Health.ToString("0")+"/"+u.MaxHealth.ToString("0")+"   "+(u.Selected?team:"待命");
+                var button=captainButtons[leader.Id];
+                button.image.color=leader.Id==prepTeam?Theme.Gold:Theme.Button;
+                button.GetComponentInChildren<Text>().text=(leader.Selected?"● ":"○ ")+leader.Name;
+                foreach(var kind in BattleSimulation.TroopKinds)
+                {
+                    var count=teamCounts[(leader.Id,kind)];
+                    count.interactable=leader.Selected;
+                    if(!count.isFocused) count.SetTextWithoutNotify(Draft.TeamCount(leader.Id,kind).ToString());
+                }
             }
-            for(int i=0;i<gradeButtons.Length;i++)gradeButtons[i].image.color=i==Draft.SupplyGrade?Theme.Gold:Theme.Button;
+            BaseHud.PaintRosterToolbar(rosterToolbar,rosterFilter);
+            var filtered=rosterFilter.Apply(soldiers,u=>available.ContainsKey(u.Key)).ToArray();
+            var visible=filtered.Select(u=>u.SoldierNumber).ToHashSet();
+            foreach(var pair in soldierCards) pair.Value.gameObject.SetActive(visible.Contains(pair.Key));
+            int order=0;
+            foreach(var u in filtered)
+            {
+                var card=soldierCards[u.SoldierNumber];
+                if(card.GetSiblingIndex()!=order) card.SetSiblingIndex(order);
+                order++;
+                bool eligible=available.TryGetValue(u.Key,out var pick);
+                string status=BasePersonnel.CompactPost(u);
+                if(pick?.Selected==true)
+                    status=Draft.Units.First(leader=>leader.Id==pick.TeamId).Name+" · "+status;
+                BaseHud.UpdatePersonnelRow(card,u,status,false);
+                BaseHud.TintRoster(card,eligible,false,pick?.Selected==true);
+            }
             int troops=Draft.Units.Count(s=>s.Selected&&s.Kind!=SoldierKind.Hero);
+            gradeButton.GetComponentInChildren<Text>().text=$"{Draft.SupplyGrade}级军需  {Draft.AvailableSupply(camp,Draft.SupplyGrade)}/{troops}";
             rosterSummary.text=$"队长 {Draft.Units.Count(s=>s.Selected&&s.Kind==SoldierKind.Hero)}   士兵 {troops}/{BaseMuster.BattleSoldierLimit}";
-            Hint(theirs!=null||hostReady?"对方已就绪。":"选中队长，再点士兵编入本队。");
+            Hint(theirs!=null||hostReady?"对方已就绪。":"");
         }
+
         private void ShowDeployment()
         {
             LanDuelRoster roster;

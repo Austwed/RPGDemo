@@ -115,7 +115,7 @@ namespace BaseConquest.Base
                     Line(BaseEconomy.TroopName(kind) + "：总数" + tally[0] + "／在岗" + working + " · 闲置可生产" + idle + "／可工作" + tally[1] + "／可主动出战" + tally[2] + "／重伤" + tally[3] + "／外出" + units.Where(w => w.Away).Sum(w => w.Count), 62, 19);
                 }
 
-                foreach (var l in s.Leaders) Line(BasePersonnel.LeaderName(l) + " · 生命 " + l.Health.ToString("0.#") + "/" + l.MaxHealth.ToString("0.#") + " · " + PersonState(l) + "\n粮田增益 " + (BaseDevelopment.Bonus(l, "farm") * 100).ToString("0.#") + "%／工坊 " + (BaseDevelopment.Bonus(l, "workshop") * 100).ToString("0.#") + "%", 70, 19);
+                foreach (var l in s.Leaders) Line(BasePersonnel.LeaderName(l) + " · 生命 " + l.Health.ToString("0") + "/" + l.MaxHealth.ToString("0") + " · " + PersonState(l) + "\n粮田增益 " + (BaseDevelopment.Bonus(l, "farm") * 100).ToString("0") + "%／工坊 " + (BaseDevelopment.Bonus(l, "workshop") * 100).ToString("0") + "%", 70, 19);
                 OutsideParties(OpenBarracks);
             }
             EndPanel();
@@ -128,14 +128,14 @@ namespace BaseConquest.Base
             {
                 foreach (var person in s.Leaders)
                 {
-                    Line(BasePersonnel.LeaderName(person) + " · " + person.Health.ToString("0.#") + "/" + person.MaxHealth.ToString("0.#") + " · " + PersonState(person), 44);
+                    Line(BasePersonnel.LeaderName(person) + " · " + person.Health.ToString("0") + "/" + person.MaxHealth.ToString("0") + " · " + PersonState(person), 44);
                     Line(BaseAdventure.Alive(person)&&person.Health>0 ? "自然恢复，无需兵营操作" : "阵亡／失联者不自然恢复",44,18);
                 }
             }
             for (int i = 0; i < s.Workers.Count; i++)
             {
                 int index = i; var worker = s.Workers[i]; if (worker.Away) continue;
-                Line(BaseEconomy.TroopName(worker.Kind) + " " + worker.Count + "人 · " + worker.Health.ToString("0.#") + "/" + worker.MaxHealth.ToString("0.#") + "生命 · " + (BaseDevelopment.Effective(s, worker) ? "今日可生产" : "重伤强制空闲"), 52);
+                Line(BaseEconomy.TroopName(worker.Kind) + " " + worker.Count + "人 · " + worker.Health.ToString("0") + "/" + worker.MaxHealth.ToString("0") + "生命 · " + (BaseDevelopment.Effective(s, worker) ? "今日可生产" : "重伤强制空闲"), 52);
                 if (BaseDemo.ExperimentalManagementHidden(s)) continue;
                 string stamp = BaseMuster.Snapshot(s);
                 RowButton("解锁岗位意向", 220, 400, () => { owner.Change(next => { if (BaseMuster.Snapshot(next) != stamp) throw new InvalidOperationException("人员状态变化"); next.Workers[index].PostLocked = false; }, "已交由策略安排"); OpenBarracks(); }); row += 62;

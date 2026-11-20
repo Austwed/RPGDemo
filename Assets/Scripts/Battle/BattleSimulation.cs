@@ -468,13 +468,7 @@ namespace BaseConquest.Battle
                 if (path.Count > 0) intent.Target = enemies.Find(t => CanAttack(s, path[path.Count - 1], t));
                 else if (s.Command == SquadCommand.Focus) intent.Target = enemies[0];
             }
-            else if (Scenario.FogEnabled && s.Command == SquadCommand.Auto)
-            {
-                // 未发现敌军时侦察未探索区域；不以隐藏敌军的位置作为移动目标。
-                var path = FindPath(s, p => p != s.Cell && !Vision.Explored(s.Side, p), occupied);
-                if (path.Count == 0) path = FindPath(s, p => p != s.Cell && !Vision.Visible(s.Side, p), occupied);
-                SetMove(intent, path); intent.Decision = path.Count > 1 ? "未发现敌军，侦察区域" : "未发现可见敌军";
-            }
+            else if (s.Command == SquadCommand.Auto) return PlanUnseenMovement(s, occupied, intent);
             return intent;
         }
         private bool CanAttack(BattleSoldier s, GridPosition from, BattleSoldier target) => AttackAreaContains(s, from) && AttackAreaContains(s, target.Cell) && GridPosition.Distance(from, target.Cell) <= s.Stats.Range && Board.HasLineOfSight(from, target.Cell);

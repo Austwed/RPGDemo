@@ -9,7 +9,7 @@ namespace BaseConquest.Base
     {
         public const string SmithId = "demo:smith-lesson", ZhouId = "demo:zhou-training";
         public const string SmithStonesId = "demo:smith-lesson:stones";
-        public const int TrialStones = 3, RewardStones = 1;
+        public const int TrialStones = 3, RewardStones = 100;
 
         public static string SmithTitle => StoryText.Get("story.quest.smith_lesson.title", "炉前试手");
         public static string ZhouTitle => StoryText.Get("story.quest.zhou_training.title", "阵后读兵书");
@@ -87,8 +87,15 @@ namespace BaseConquest.Base
         private static void Reward(BaseState s, string id, string title, string item, int count)
         {
             s.Campaign.SettledIds.Add(id);
-            BaseBattleLoot.Create(s, new BaseCampaignReport { BattleId = id, Title = title },
-                new[] { new BaseLootReward { ItemId = item, Count = count } });
+            var limit = s.Backpack.Catalog.Single(d => d.Id == item).MaxStack;
+            var stacks = new System.Collections.Generic.List<BaseLootReward>();
+            while (count > 0)
+            {
+                int size = System.Math.Min(limit, count);
+                stacks.Add(new BaseLootReward { ItemId = item, Count = size });
+                count -= size;
+            }
+            BaseBattleLoot.Create(s, new BaseCampaignReport { BattleId = id, Title = title }, stacks);
         }
     }
 }

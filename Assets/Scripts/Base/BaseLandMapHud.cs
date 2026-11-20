@@ -54,7 +54,7 @@ namespace BaseConquest.Base
 
             float subY = tileCenterY - MapTileHeight * .5f - 16;
             var current = outside.FirstOrDefault(node => node.Current) ?? nodes.FirstOrDefault(node => node.Current);
-            var pos = Label(content, "当前位置：" + (current == null ? BaseCampaign.LocationName(s.Campaign.Location) : current.Title) + " · X " + s.PlayerX.ToString("0.#") + "，Y " + s.PlayerY.ToString("0.#"), new Vector2(0, subY), new Vector2(850, 20), DemoUiMetrics.FontBody, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
+            var pos = Label(content, "当前位置：" + (current == null ? BaseCampaign.LocationName(s.Campaign.Location) : current.Title) + " · X " + s.PlayerX.ToString("0") + "，Y " + s.PlayerY.ToString("0"), new Vector2(0, subY), new Vector2(850, 20), DemoUiMetrics.FontBody, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
             pos.color = DemoUiTheme.Current.Ink;
             var legend = Label(content, "蓝点为地表出入口，黄点为遗迹内部进出位置；点击标记传送至入口附近，不消耗日程。", new Vector2(0, subY - 24), new Vector2(850, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
             legend.color = DemoUiTheme.Current.Muted;

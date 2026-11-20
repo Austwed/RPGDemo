@@ -149,7 +149,7 @@ namespace BaseConquest.Base
                 var origin=session.Opening.Enemies.FirstOrDefault(member=>member.Rpg?.Id==enemy.Rpg?.Id);
                 bool storyController = session.Opening.EventId==BaseDemoRuins.EventId && session.Opening.RuinsFirstClear && enemy.Kind==SoldierKind.Hero;
                 var bare=storyController ? origin?.Equipment?.BaseStats??enemy.Stats : BaseItemRecovery.Disarm(s,session,enemy,captured);
-                s.Aftermath.Prisoners.Add(new BasePrisoner { IsAlien=origin?.IsAlien==true,IsAwakened=origin?.IsAwakened==true||enemy.Rpg?.Rules?.TemplateIdentity(enemy.Rpg.TemplateId)=="captain_awakened",CaptureSource=s.Campaign.Events.FirstOrDefault(e=>e.Id==session.Opening.EventId)?.Title??session.Opening.EventId,CaptureDay=s.Day,Rpg=enemy.Rpg?.Copy(),Id = id, BattleId = session.Opening.Id, Name = session.Battle.UnitName(enemy), Kind = enemy.Kind, AppearanceId=enemy.AppearanceId, Health = Math.Min(bare.Health,Math.Max(1, enemy.Health)), Stats = bare.Clone() });
+                s.Aftermath.Prisoners.Add(new BasePrisoner { IsAlien=origin?.IsAlien==true,IsAwakened=origin?.IsAwakened==true||enemy.Rpg?.Rules?.TemplateIdentity(enemy.Rpg.TemplateId)=="captain_awakened",CaptureSource=s.Campaign.Events.FirstOrDefault(e=>e.Id==session.Opening.EventId)?.Title??session.Opening.EventId,CaptureDay=s.Day,Rpg=enemy.Rpg?.Copy(),Id = id, BattleId = session.Opening.Id, Name = session.Battle.UnitName(enemy), Kind = enemy.Kind, AppearanceId=enemy.AppearanceId, Health = Math.Max(1,CombatNumbers.RemainingHealth(Math.Min(bare.Health,enemy.Health))), Stats = bare.Clone() });
             }
             return captured;
         }

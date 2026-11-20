@@ -7,7 +7,7 @@ namespace BaseConquest.Presentation
 {
     public static class DemoUiIcons
     {
-        public static readonly string[] Keys={"attack","coins","equipment","food","guard","materials","quest","recruit","retreat","save","supplies","training"};
+        public static readonly string[] Keys={"attack","coins","equipment","food","guard","materials","quest","recruit","retreat","save","supplies","training","idle","recovery","fought"};
         public static Sprite Load(string key)=>Array.IndexOf(Keys,key)<0?null:Resources.Load<Sprite>("PixelDemo/Icons/icon-"+key+"-v1");
         public static Image Attach(Button button,string key)
         {

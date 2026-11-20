@@ -99,12 +99,12 @@ namespace BaseConquest.Base
         {
             var before=entry.Worn?WornStats(state,entry,fromQuality):ItemStats(state,entry.Gear,fromQuality);
             var after=entry.Worn?WornStats(state,entry,toQuality):ItemStats(state,entry.Gear,toQuality);
-            string Change(string name,double from,double to,string format="0.####")=>from==to?null:
+            string Change(string name,double from,double to,string format="0")=>from==to?null:
                 name+" "+from.ToString(format)+" → "+to.ToString(format);
             var changes=new[]{Change("攻击",before.Attack,after.Attack),Change("防御",before.Defense,after.Defense),
                 Change("生命上限",before.Health,after.Health),Change("攻击距离",before.Range,after.Range),
-                Change("暴击率",before.CritChance,after.CritChance,"0.####%"),
-                Change("暴伤",before.CritDamage,after.CritDamage,"0.####%"),Change("移速",before.Speed,after.Speed)};
+                Change("暴击率",before.CritChance,after.CritChance,"0%"),
+                Change("暴伤",before.CritDamage,after.CritDamage,"0%"),Change("移速",before.Speed,after.Speed)};
             string delta=string.Join(" · ",changes.Where(change=>change!=null));
             return delta.Length==0?StoryText.Get("story.ui.trade.reforge_stats_unchanged","属性未变"):delta;
         }

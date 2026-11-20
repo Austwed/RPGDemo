@@ -223,8 +223,28 @@ namespace BaseConquest.Base
         public const double DutyThreshold = .3;
         public const double WarningDefault = .5, WarningFloor = .3, WarningCeiling = 1;
         public static bool HeavilyWounded(BaseWorkerBucket w) => w.Health > 0 && w.Health < w.MaxHealth * DutyThreshold;
-        public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
-        public static bool CanManage(BaseState s, BaseLeader l) => !l.Relocating && !l.Away && !l.WaitingAtRecruitment && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && !BaseTraining.Busy(l.Training) && l.Health > 0;
+        public static void MarkFoughtToday(BaseState s, IEnumerable<int> soldierNumbers)
+        {
+            var numbers = soldierNumbers.ToHashSet();
+            if (numbers.Count == 0) return;
+            s.EnsureSoldierNumbers();
+            foreach (var worker in s.Workers.ToArray())
+            {
+                if (worker.LastBattleDay == s.Day) continue;
+                var deployed = worker.SoldierNumbers.Where(numbers.Contains).ToList();
+                if (deployed.Count == 0) continue;
+                var participant = worker;
+                if (deployed.Count < worker.Count)
+                {
+                    participant = worker.TakeNumbers(deployed);
+                    s.Workers.Add(participant);
+                }
+                participant.LastBattleDay = s.Day;
+            }
+            Allocate(s);
+        }
+        public static bool Effective(BaseState s, BaseWorkerBucket w) => w.LastBattleDay != s.Day && !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
+        public static bool CanManage(BaseState s, BaseLeader l) => !l.Relocating && !l.Away && !l.WaitingAtRecruitment && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && l.Health > 0;
         public static bool Effective(BaseState s, BaseLeader l) => CanManage(s,l);
         public static bool CanFight(BaseWorkerBucket w) => !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
         // 遇袭防守例外：守家时只要还能行动就上，不受 30% 门槛限制。
@@ -437,7 +457,7 @@ namespace BaseConquest.Base
             {
                 if (w.SoldierNumbers == null || w.SoldierNumbers.Count == 0) s.EnsureSoldierNumbers();
                 string key = w.Kind + "|" + w.FacilityId + "|" + w.DesiredFacility + "|" + w.PostLocked + "|" + w.Resting + "|" + w.Away + "|" + w.PartyId + "|" + w.SourceId + "|" + w.UnavailableDay + "|" + w.Health.ToString("R", CultureInfo.InvariantCulture) + "|" + w.MaxHealth.ToString("R", CultureInfo.InvariantCulture) + "|" + w.FarmEfficiency.ToString("R", CultureInfo.InvariantCulture) + "|" + w.WorkshopEfficiency.ToString("R", CultureInfo.InvariantCulture);
-                key += "|" + w.VillageResident + "|" + w.Relocating + "|" + w.DepartureFacility;
+                key += "|" + w.LastBattleDay + "|" + w.VillageResident + "|" + w.Relocating + "|" + w.DepartureFacility;
                 key += "|" + w.Recruited + "|" + ProfileKey(w.HasCombatProfile,w.CombatStats) + "|" + w.HeldBy + "|" + w.HeldSourceId + "|" + w.PartyOrder;
                 if (groups.TryGetValue(key, out var found)) { found.SoldierNumbers.AddRange(w.SoldierNumbers); found.Count += w.Count; }
                 else { groups.Add(key, w); merged.Add(w); }

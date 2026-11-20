@@ -41,6 +41,7 @@ namespace BaseConquest.Base
             session.Bind();
             if (!session.Battle.Start(out var error)) throw new InvalidOperationException(error);
             run = new RealtimeCampaignBattle(session);
+            run.Model.BothSidesHuman = true;
             foreach (var actor in run.Model.Units)
             {
                 var soldier = run.Battle.Soldier(actor.Id - 1);
@@ -241,7 +242,8 @@ namespace BaseConquest.Base
                 double windup = u.Ranged ? .24 : .22;
                 var facing = attacking ? u.AttackFacing : u.Facing;
                 return new LanDuelActor { id = u.Id, side = (int)u.Side, kind = m.kind, slot = u.Squad,
-                    name = m.name, appearance = m.appearance, x = (float)u.Position.X, z = (float)u.Position.Z,
+                    name = m.name, appearance = m.appearance, footprintCells=u.FootprintLength,
+                    attackRangeFine=(float)(u.Reach*PrototypeArena.Subdivision), x = (float)u.Position.X, z = (float)u.Position.Z,
                     fx = (float)facing.X, fz = (float)facing.Z, hp = u.Alive ? (float)u.Health : 0,
                     moving = u.Moving, attackPose = attacking ? (float)u.AttackPoseTime(run.Model.Elapsed, windup / (windup + .16)) : -1,
                     sightRadius = (int)u.Side == side ? run.Battle.Vision.SightRadius(run.Battle.Soldier(u.Id-1)) : 0,

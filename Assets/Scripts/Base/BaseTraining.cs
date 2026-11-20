@@ -70,7 +70,7 @@ namespace BaseConquest.Base
             var l=s.Leaders.SingleOrDefault(x=>x.Id==id);if(revision!=s.Backpack.Revision||LeaderProblem(s,l)!=""||s.Backpack.Revision>=int.MaxValue-1)return false;
             int target=l.Training.Level+1;string book=Book(BasePersonalEquipment.Stats(l).ProfessionKind,target);
             if(s.Day+Days(l,target)>1000000||!BasePartyInventory.ConsumeMaterial(s,book,Books(l,target)))return false;
-            if(l.Training.Level==1)l.Training.Origin=l.PersonalEquipment.BaseStats.Clone();l.Training.Target=target;l.Training.EndDay=s.Day+Days(l,target);l.FacilityId="";l.UnavailableDay=s.Day;BaseDevelopment.Allocate(s);return true;
+            if(l.Training.Level==1)l.Training.Origin=l.PersonalEquipment.BaseStats.Clone();l.Training.Target=target;l.Training.EndDay=s.Day+Days(l,target);l.UnavailableDay=s.Day;BaseDevelopment.Allocate(s);return true;
         }
         public static bool CancelLeader(BaseState s,string id)
         {var l=s.Leaders.SingleOrDefault(x=>x.Id==id);if(!AtTrainingSite(s)||l==null||!Busy(l.Training))return false;l.Training.Target=l.Training.EndDay=0;l.UnavailableDay=s.Day;BaseDevelopment.Allocate(s);return true;}

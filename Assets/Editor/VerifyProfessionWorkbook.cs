@@ -184,7 +184,7 @@ namespace BaseConquest.Editor
             BaseEconomy.Validate(state);
             var level=state.Demo.Rpg;
             Check(level.DefaultTemplateId("soldier",3)=="soldier_mage"&&
-                state.Town.Recruits.Single(offer=>offer.Kind==BaseTroopKind.Mage).Stats.Health==level.Templates.Single(t=>t.Id=="soldier_mage").Health,"城镇募兵使用了关卡变体");
+                state.Town.Recruits.All(offer=>offer.Kind!=BaseTroopKind.Mage),"城镇募兵使用了关卡变体");
             Check(state.Demo.Encounters.Camp.Units.Single(u=>u.TemplateId==id).Kind==SoldierKind.Mage,"阶段档缺少关卡模板引用");
             VerifyChenanAndRuins.ReachBlackCrowFromFirstDefense(state);
             var fight=BaseDemoFinale.Begin(state,"none");
@@ -220,6 +220,8 @@ namespace BaseConquest.Editor
             ExpectInvalid(WithExtraTemplate(input,defense:999999),rules,"def");
             var old=DemoBalanceTableReader.ReadVerifiedTables(DemoBalanceImporter.WorkbookPath);
             Check(old.ProfessionCount==3&&old.Templates.Count==9,"旧完整导入改变原三职业");
+            Check(old.Range.SequenceEqual(new double[]{1,12,2}) && rules.Range.SequenceEqual(new double[]{1,12,2,12}),
+                "完整配表与职业扩展表的细格攻击距离不一致");
             var original=JsonUtility.ToJson(additional);
             var patched=DemoBalanceTableReader.ReadCoreTables(CoreBalanceImporter.WorkbookPath,additional);
             Check(patched.MatchesTemplate("watch_mage",3)&&patched.TroopBaseline[3]==4&&patched.Templates.Count==additional.Templates.Count,"六页局部导入丢失扩展字段");

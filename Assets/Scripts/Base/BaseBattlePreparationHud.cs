@@ -14,18 +14,15 @@ namespace BaseConquest.Base
     {
         private const string PreparationView = "battle-preparation", SweepView = "prepared-ruins-sweep";
         private static readonly Color PrepInvalid = new Color32(150, 35, 28, 255);
-        private enum PrepSort { Role, Health, Status }
         private BaseBattlePreparation battleDraft;
         private string prepTeam, prepFeedback, prepDetail;
-        private SoldierKind? prepKind;
-        private PrepSort prepSort;
-        private bool prepDescending;
+        private SoldierRosterFilter prepFilter;
+        private Button[] prepToolbar;
         private float prepRosterScroll;
         private bool prepProduction;
         private ScrollRect prepRoster;
         private readonly Dictionary<string, (RectTransform Card, Color PortraitColor)> prepCards = new();
         private readonly Dictionary<string, (RectTransform Card, Color Background)> prepRows = new();
-        private readonly Dictionary<string, (Button Button, Color Normal)> prepFilters = new();
         private Dictionary<string, BasePersonnelUnit> prepRosterUnits;
         private (GameObject Node, bool Visible)[] deploymentHudVisibility;
         private static string PrepText(string key, string fallback) => StoryText.Get("story.ui.prep." + key, fallback);
@@ -51,14 +48,11 @@ namespace BaseConquest.Base
             if (wasDeploying) SetVisible(true);
             battleDraft = null;
             prepTeam = prepFeedback = prepDetail = "";
-            prepKind = null;
-            prepSort = PrepSort.Role;
-            prepDescending = false;
+            prepFilter = new SoldierRosterFilter();
             prepRosterScroll = 0;
             prepRoster = null;
             prepCards.Clear();
             prepRows.Clear();
-            prepFilters.Clear();
             prepRosterUnits = null;
             prepProduction = false;
         }
@@ -102,7 +96,7 @@ namespace BaseConquest.Base
         private IEnumerable<BasePrepUnit> PrepLeaders => battleDraft.Units.Where(unit => unit.Kind == SoldierKind.Hero);
         private IEnumerable<BasePrepUnit> PrepSoldiers => battleDraft.Units.Where(unit => unit.Kind != SoldierKind.Hero);
         private IEnumerable<BasePrepUnit> SelectedPrepSoldiers => PrepSoldiers.Where(unit => unit.Selected);
-        private static string Number(double value) => value.ToString("0.#");
+        private static string Number(double value) => value.ToString("0");
         private string PrepSummary()
         {
             var units = battleDraft.Units.Where(unit => unit.Selected).ToArray();
@@ -129,9 +123,8 @@ namespace BaseConquest.Base
             bool travel = battleDraft.Route == BasePrepRoute.Travel;
             var state = PreparationState(battleDraft.Route);
             var view = OpenScenePanel("BattlePreparation", PreparationView);
-            var troopKinds = BaseTown.TroopKinds(state);
-            if (troopKinds.Contains(BaseTroopKind.Mage)) LayoutMagePreparation(view, null);
-            if (Application.platform == RuntimePlatform.Android) AdaptBattlePreparationForTouch(view);
+            var troopKinds = BattleSimulation.TroopKinds.Select(BaseCampaign.ToBase).ToArray();
+            LayoutPreparation(view);
             activeObject = "battle-preparation";
             interactionObject = "";
             prepRoster = Ui<ScrollRect>(view, "Candidates/List");
@@ -156,13 +149,7 @@ namespace BaseConquest.Base
             PrepButton(view, "Sweep", "扫荡预览", ShowPreparedSweep);
             PrepButton(view, "Reward", null, () => { ClearBattlePreparation(); OpenRuinsReward(route); });
             var supply = view.Find("Supply");
-            supply.gameObject.SetActive(!travel);
-            if (!travel)
-            {
-                PrepButton(supply, "Grade1", null, () => ChoosePrepSupply(1));
-                PrepButton(supply, "Grade2", null, () => ChoosePrepSupply(2));
-            }
-
+            PrepButton(supply, "Grade1", null, () => ChoosePrepSupply(battleDraft.SupplyGrade == 1 ? 2 : 1));
             var cards = Ui<RectTransform>(view, "Teams");
             var activeTeam = PrepLeaders.FirstOrDefault(unit => unit.Id == prepTeam) ?? PrepLeaders.FirstOrDefault(unit => unit.Selected);
             prepTeam = activeTeam?.Id;
@@ -170,22 +157,7 @@ namespace BaseConquest.Base
             foreach (var team in PrepLeaders)
             {
                 var card = CloneSceneUi("BattlePreparationTeam", cards);
-                if (troopKinds.Contains(BaseTroopKind.Mage)) LayoutMagePreparation(view, card);
-                if (Application.platform == RuntimePlatform.Android)
-                    foreach (var kind in troopKinds)
-                    {
-                        var group = card.Find(kind.ToString());
-                        var minus = group.Find("Minus").GetComponent<Button>();
-                        var plus = group.Find("Plus").GetComponent<Button>();
-                        var input = (RectTransform)group.Find("Input");
-                        ((RectTransform)minus.transform).sizeDelta = new Vector2(38, 49);
-                        ((RectTransform)plus.transform).sizeDelta = new Vector2(38, 49);
-                        ((RectTransform)plus.transform).anchoredPosition = new Vector2(84, -17);
-                        input.sizeDelta = new Vector2(42, 49);
-                        input.anchoredPosition = new Vector2(40, -17);
-                        ResizeTouchButton(minus, 49, 22);
-                        ResizeTouchButton(plus, 49, 22);
-                    }
+                LayoutTeamCard(card);
                 var portrait = Ui<RectTransform>(card, "Portrait");
                 var figure = new GameObject("队长半身像", typeof(RectTransform), typeof(CanvasRenderer));
                 var figureRect = (RectTransform)figure.transform;
@@ -211,13 +183,26 @@ namespace BaseConquest.Base
                     BindPrepCount(card, team, BaseCampaign.ToBattle(kind));
             }
 
+            for (int slot = prepCards.Count; slot < BaseAdventure.Capacity; slot++)
+            {
+                var emptyCard = CloneSceneUi("BattlePreparationTeam", cards);
+                emptyCard.name = "Vacant" + slot;
+                LayoutTeamCard(emptyCard);
+                foreach (Transform child in emptyCard) child.gameObject.SetActive(false);
+            }
             var candidates = view.Find("Candidates");
-            prepFilters.Clear();
-            BindPrepFilter(candidates, "All", null);
-            foreach (var kind in troopKinds)
-                BindPrepFilter(candidates, kind.ToString(), BaseCampaign.ToBattle(kind));
-            foreach (PrepSort sort in Enum.GetValues(typeof(PrepSort)))
-                PrepButton(candidates, "Sort" + sort, null, () => SetPrepSort(sort));
+            var names = new[] { "All", "Melee", "SortHealth", "SortStatus" };
+            prepToolbar = names.Select(key => Ui<Button>(candidates, key)).ToArray();
+            for (int i = 0; i < names.Length; i++)
+            {
+                int index = i;
+                PrepButton(candidates, names[i], null, () =>
+                {
+                    prepFilter.Activate(index);
+                    prepDetail = "";
+                    RefreshPreparationRoster();
+                });
+            }
             PrepButton(candidates, "Detail/Back", null, () => { prepDetail = ""; RefreshPreparationRoster(); });
             prepRows.Clear();
             prepRosterUnits = BasePersonnel.Soldiers(state).ToDictionary(unit => unit.Key);
@@ -226,84 +211,73 @@ namespace BaseConquest.Base
             prepRoster.content.anchoredPosition = new Vector2(0, Mathf.Clamp(prepRosterScroll, 0, Mathf.Max(0, prepRoster.content.rect.height - prepRoster.viewport.rect.height)));
         }
 
-        private static void LayoutMagePreparation(Transform view, Transform card)
+        private static void FitControl(Transform parent, string key, float x, float y, float w, float h)
         {
-            // Use the authored controls so the fourth column keeps the same touch target as the original three.
-            static RectTransform Fourth(Transform parent, string key, string from)
+            var rect = (RectTransform)parent.Find(key);
+            rect.anchoredPosition = new Vector2(x,-y);
+            rect.sizeDelta = new Vector2(w,h);
+        }
+        private static void EnsureFourthColumn(Transform parent, string name, string source)
+        {
+            if (parent.Find(name) != null) return;
+            var copy = UnityEngine.Object.Instantiate(parent.Find(source), parent, false);
+            copy.name = name;
+        }
+        private static void LayoutTeamCard(Transform card)
+        {
+            EnsureFourthColumn(card, "Mage", "Ranged");
+            foreach (var key in new[] { "Select", "Health", "HealthMeter", "Assign" })
+                ((RectTransform)card.Find(key)).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 142);
+            int column = 0;
+            foreach (var kind in BattleSimulation.TroopKinds)
             {
-                if (parent.Find(key) is RectTransform existing) return existing;
-                var copy = UnityEngine.Object.Instantiate((RectTransform)parent.Find(from), parent, false);
-                copy.name = key;
-                return copy;
-            }
-            static void PlaceX(Transform target, float x)
-            {
-                var rect = (RectTransform)target;
-                rect.anchoredPosition = new Vector2(x, rect.anchoredPosition.y);
-            }
-            var names = new[] { "Melee", "Ranged", "Cavalry", "Mage" };
-            if (card != null)
-            {
-                Fourth(card, "Mage", "Ranged");
-                foreach (var key in new[] { "Select", "Health", "HealthMeter", "Assign" })
-                    ((RectTransform)card.Find(key)).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 102);
-                for (int i=0; i<names.Length; i++) PlaceX(card.Find(names[i]), 177 + i*126);
-                return;
-            }
-            Fourth(view, "MageHeading", "RangedHeading").GetComponent<Text>().text = "法师";
-            ((RectTransform)view.Find("TeamHeading")).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 158);
-            for (int i=0; i<names.Length; i++) PlaceX(view.Find(names[i]+"Heading"), 191+i*126);
-            var filters = view.Find("Candidates");
-            Fourth(filters, "Mage", "Ranged").GetComponentInChildren<Text>().text = "法师";
-            int index=0;
-            foreach (var name in names.Prepend("All"))
-            {
-                var filter = (RectTransform)filters.Find(name);
-                PlaceX(filter, 9+index++*87);
-                filter.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,81);
+                string key = BaseCampaign.ToBase(kind).ToString();
+                FitControl(card,key,221+column++*113,4,107,65);
+                var group = card.Find(key);
+                group.Find("Minus").gameObject.SetActive(false);
+                group.Find("Plus").gameObject.SetActive(false);
+                FitControl(group,"Input",3,10,98,48);
             }
         }
-
-        private static void AdaptBattlePreparationForTouch(RectTransform view)
+        private static void LayoutPreparation(Transform view)
         {
-            foreach (var path in new[] { "Back", "Help", "Close" })
+            EnsureFourthColumn(view,"MageHeading","RangedHeading");
+            view.Find("MageHeading").GetComponent<Text>().text = "法师";
+            FitControl(view,"TeamHeading",20,177,209,27);
+            int column=0;
+            foreach(var kind in BattleSimulation.TroopKinds)
+                FitControl(view,BaseCampaign.ToBase(kind)+"Heading",235+column++*113,177,107,27);
+            FitControl(view,"Ally",14,57,315,87);
+            FitControl(view,"Versus",330,64,42,57);
+            FitControl(view,"Enemy",372,57,322,87);
+            foreach (var side in new[] {"Ally","Enemy"})
             {
-                var button = view.Find(path).GetComponent<Button>();
-                var rect = (RectTransform)button.transform;
-                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -2);
-                ResizeTouchButton(button, 42, 20);
+                var box = view.Find(side);
+                FitControl(box,"Value",9,3,300,57);
+                FitControl(box,"Meter",9,66,297,10);
+                var label = box.Find("Value").GetComponent<Text>();
+                label.resizeTextMaxSize=label.fontSize; label.resizeTextForBestFit=true; label.resizeTextMinSize=13;
             }
-            foreach (var path in new[] { "Continue", "Reset", "Priority", "Sweep", "Reward" })
-            {
-                var button = view.Find(path).GetComponent<Button>();
-                var rect = (RectTransform)button.transform;
-                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -569);
-                ResizeTouchButton(button, 58, 22);
-            }
-            foreach (var path in new[] { "Supply/Grade1", "Supply/Grade2" })
-                ResizeTouchButton(view.Find(path).GetComponent<Button>(), 50, 21);
-
-            var candidates = view.Find("Candidates");
-            foreach (var name in new[] { "All", "Melee", "Ranged", "Cavalry", "Mage" })
-                if (candidates.Find(name) is RectTransform filter) ResizeTouchButton(filter.GetComponent<Button>(), 40, 20);
-            foreach (var name in new[] { "SortRole", "SortHealth", "SortStatus" })
-            {
-                var button = candidates.Find(name).GetComponent<Button>();
-                var rect = (RectTransform)button.transform;
-                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -76);
-                ResizeTouchButton(button, 36, 19);
-            }
-            foreach (var name in new[] { "List", "Detail", "Empty" })
-            {
-                var rect = (RectTransform)candidates.Find(name);
-                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, rect.anchoredPosition.y - 17);
-                if (name != "Empty")
-                    rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, rect.rect.height - 17);
-            }
-
-            var feedbackRect = (RectTransform)view.Find("Feedback");
-            feedbackRect.anchoredPosition = new Vector2(feedbackRect.anchoredPosition.x, -537);
-            feedbackRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 28);
+            FitControl(view,"Context",18,143,676,31);
+            FitControl(view,"Candidates",706,57,450,563);
+            var roster = view.Find("Candidates");
+            foreach (var key in new[] {"SortHeading","SortRole","Ranged","Cavalry"}) roster.Find(key).gameObject.SetActive(false);
+            int slot=0;
+            foreach (var key in new[] {"All","Melee","SortHealth","SortStatus"})
+                FitControl(roster,key,8+slot++*109,34,104,43);
+            foreach (var key in new[] {"List","Detail"}) FitControl(roster,key,8,83,434,472);
+            FitControl(roster,"List/Viewport",0,0,434,472);
+            FitControl(roster,"Empty",12,89,422,42);
+            FitControl(view,"Feedback",14,510,676,43);
+            FitControl(view,"Supply",14,565,237,56);
+            var supply = view.Find("Supply");
+            foreach (var key in new[] {"Heading","Demand","Stock1","Stock2","Grade2"}) supply.Find(key).gameObject.SetActive(false);
+            FitControl(supply,"Grade1",0,0,237,56);
+            FitControl(view,"Reset",258,565,170,56);
+            FitControl(view,"Continue",435,565,259,56);
+            FitControl(view,"Sweep",14,458,190,43);
+            FitControl(view,"Priority",14,458,190,43);
+            FitControl(view,"Reward",211,458,190,43);
         }
 
         private void BindPreparationHelp(Transform view, bool travel)
@@ -339,29 +313,6 @@ namespace BaseConquest.Base
         private void RememberPreparationScroll()
         {
             if (prepRoster != null) prepRosterScroll = Mathf.Max(0, prepRoster.content.anchoredPosition.y);
-        }
-
-        private void ResetPreparationScroll()
-        {
-            prepRosterScroll = 0;
-            prepRoster.StopMovement();
-            prepRoster.content.anchoredPosition = Vector2.zero;
-        }
-
-        private void BindPrepFilter(Transform view, string path, SoldierKind? kind)
-        {
-            var button = Ui<Button>(view, path);
-            PrepButton(view, path, null, () => SetPrepFilter(kind));
-            prepFilters.Add(path, (button, button.targetGraphic.color));
-        }
-
-        private void SetPrepFilter(SoldierKind? kind)
-        {
-            if (prepKind == kind && string.IsNullOrEmpty(prepDetail)) return;
-            prepKind = kind;
-            prepDetail = "";
-            ResetPreparationScroll();
-            RefreshPreparationRoster();
         }
 
         private void SelectPreparationTeam(BasePrepUnit team)
@@ -402,8 +353,6 @@ namespace BaseConquest.Base
                     SetPrepTroopCount(team, kind, requested);
                 field.SetTextWithoutNotify(PrepTroopCount(team, kind).ToString(CultureInfo.InvariantCulture));
             });
-            PrepButton(card, key + "/Minus", null, () => SetPrepTroopCount(team, kind, PrepTroopCount(team, kind) - 1));
-            PrepButton(card, key + "/Plus", null, () => SetPrepTroopCount(team, kind, PrepTroopCount(team, kind) + 1));
         }
 
         private void RefreshPreparationEdits()
@@ -416,7 +365,6 @@ namespace BaseConquest.Base
         private void RefreshPreparationTeams()
         {
             var selected = SelectedPrepSoldiers.ToArray();
-            var availableKinds = PrepSoldiers.Where(unit => !unit.Selected).Select(unit => unit.Kind).ToHashSet();
             int slot = 0;
             foreach (var team in PrepLeaders)
             {
@@ -425,7 +373,7 @@ namespace BaseConquest.Base
                 string marker = team.Selected ? (char)('A' + slot++) + " · " : "○ ";
                 Ui<Text>(card, "Select/Label").text = marker + team.Name;
                 Ui<Text>(card, "Assign/Label").text = team.Selected ? "移出出战" : "加入出战";
-                foreach (var baseKind in BaseTown.TroopKinds(PreparationState(battleDraft.Route)))
+                foreach (var baseKind in BattleSimulation.TroopKinds.Select(BaseCampaign.ToBase))
                 {
                     var kind = BaseCampaign.ToBattle(baseKind);
                     var group = card.Find(baseKind.ToString());
@@ -433,30 +381,13 @@ namespace BaseConquest.Base
                     var field = Ui<InputField>(group, "Input");
                     if (!field.isFocused) field.SetTextWithoutNotify(count.ToString(CultureInfo.InvariantCulture));
                     field.interactable = team.Selected;
-                    Ui<Button>(group, "Minus").interactable = team.Selected && count > 0;
-                    Ui<Button>(group, "Plus").interactable = team.Selected && selected.Length < BaseMuster.BattleSoldierLimit && availableKinds.Contains(kind);
                 }
             }
         }
 
         private bool SetPrepTroopCount(BasePrepUnit team, SoldierKind kind, int requested)
         {
-            if (battleDraft == null || !team.Selected || !battleDraft.Units.Contains(team)) return false;
-            var selected = SelectedPrepSoldiers.Where(unit => unit.TeamId == team.Id && unit.Kind == kind).ToArray();
-            var available = PrepSoldiers.Where(unit => !unit.Selected && unit.Kind == kind).ToArray();
-            int room = BaseMuster.BattleSoldierLimit - SelectedPrepSoldiers.Count();
-            int count = Mathf.Clamp(requested, 0, selected.Length + Math.Min(available.Length, Math.Max(0, room)));
-            if (count == selected.Length)
-            {
-                SelectPreparationTeam(team);
-                return true;
-            }
-            foreach (var soldier in selected.Skip(count)) soldier.Selected = false;
-            foreach (var soldier in available.Take(count - selected.Length))
-            {
-                soldier.TeamId = team.Id;
-                soldier.Selected = true;
-            }
+            if (battleDraft == null || !battleDraft.SetTeamCount(team.Id,kind,requested)) return false;
             prepTeam = team.Id;
             prepFeedback = "";
             battleDraft.Prune();
@@ -466,16 +397,12 @@ namespace BaseConquest.Base
 
         private void SelectPrepSoldier(BasePrepUnit soldier)
         {
-            if (!PrepLeaders.Any(leader => leader.Id == prepTeam && leader.Selected)) return;
-            if (!soldier.Selected && SelectedPrepSoldiers.Count() >= BaseMuster.BattleSoldierLimit)
+            if (!battleDraft.ToggleSoldier(prepTeam,soldier))
             {
-                prepFeedback = PrepText("limit", "出战士兵最多 24 人");
+                prepFeedback = PrepText("limit", "请选择出战队长并检查编队余量");
                 RefreshPreparationFields();
                 return;
             }
-            soldier.Selected = !soldier.Selected || soldier.TeamId != prepTeam;
-            if (soldier.TeamId != prepTeam) battleDraft.Recall(soldier.Id);
-            soldier.TeamId = prepTeam;
             prepFeedback = "";
             battleDraft.Prune();
             RefreshPreparationEdits();
@@ -483,30 +410,13 @@ namespace BaseConquest.Base
 
         private static bool PrepLowHealth(BaseState state, BasePrepUnit soldier) => !BaseDevelopment.WarningOff(state) && soldier.MaxHealth > 0 && soldier.Health / soldier.MaxHealth < BaseDevelopment.WarningThreshold(state);
 
-        private void SetPrepSort(PrepSort sort)
-        {
-            prepDescending = prepSort == sort ? !prepDescending : sort != PrepSort.Role;
-            prepSort = sort;
-            prepDetail = "";
-            ResetPreparationScroll();
-            RefreshPreparationRoster();
-        }
-
         private void RefreshPreparationRoster()
         {
             var view = panel.Find("Candidates");
             var activeTeam = PrepLeaders.FirstOrDefault(unit => unit.Id == prepTeam);
             Ui<Text>(view, "Title").text = PrepText("roster", "士兵名册") + (activeTeam == null ? "" : " · " + activeTeam.Name) +
                 $" · {PrepText("selected_count", "已选")} {SelectedPrepSoldiers.Count()}/{BaseMuster.BattleSoldierLimit}";
-            var theme = DemoUiTheme.Current;
-            string selectedFilter = prepKind.HasValue ? BaseCampaign.ToBase(prepKind.Value).ToString() : "All";
-            foreach (var (path, (button, normal)) in prepFilters)
-                button.targetGraphic.color = path == selectedFilter ? theme.Gold : normal;
-            string arrow = prepDescending ? " ↓" : " ↑";
-            Ui<Text>(view, "SortRole/Label").text = PrepText("sort_role", "兵种") + (prepSort == PrepSort.Role ? arrow : "");
-            Ui<Text>(view, "SortHealth/Label").text = PrepText("sort_health", "生命") + (prepSort == PrepSort.Health ? arrow : "");
-            Ui<Text>(view, "SortStatus/Label").text = PrepText("sort_status", "状态") + (prepSort == PrepSort.Status ? arrow : "");
-
+            PaintRosterToolbar(prepToolbar,prepFilter);
             var detail = view.Find("Detail");
             BasePersonnelUnit detailUnit = null;
             bool showingDetail = !string.IsNullOrEmpty(prepDetail) && prepRosterUnits.TryGetValue(prepDetail, out detailUnit);
@@ -524,48 +434,40 @@ namespace BaseConquest.Base
                 return;
             }
 
-            var candidates = PrepSoldiers.Where(soldier => !prepKind.HasValue || soldier.Kind == prepKind.Value).ToArray();
+            var eligible = PrepSoldiers.ToDictionary(u => u.Id);
+            var candidates = prepFilter.Apply(prepRosterUnits.Values,u => eligible.ContainsKey(u.Key)).ToArray();
             empty.SetActive(candidates.Length == 0);
-            var visibleIds = candidates.Select(soldier => soldier.Id).ToHashSet();
+            var visibleIds = candidates.Select(unit => unit.Key).ToHashSet();
             foreach (var entry in prepRows)
                 if (!visibleIds.Contains(entry.Key)) entry.Value.Card.gameObject.SetActive(false);
-            IOrderedEnumerable<BasePrepUnit> sorted = prepSort switch
-            {
-                PrepSort.Health => candidates.OrderBy(unit => unit.MaxHealth <= 0 ? 0 : unit.Health / unit.MaxHealth),
-                PrepSort.Status => candidates.OrderBy(unit => unit.Selected).ThenBy(unit => prepRosterUnits[unit.Id].State, StringComparer.CurrentCulture),
-                _ => candidates.OrderBy(unit => unit.Kind)
-            };
             int index = 0;
-            var ordered = sorted.ThenBy(unit => unit.SoldierNumber);
             var teamLabels = PrepLeaders.Where(team => team.Selected).Select((team, slot) => (team.Id, label: (char)('A' + slot) + "队"))
                 .ToDictionary(team => team.Id, team => team.label);
-            foreach (var soldier in prepDescending ? ordered.Reverse() : ordered)
+            foreach (var entry in candidates)
             {
-                var entry = prepRosterUnits[soldier.Id];
-                if (!prepRows.TryGetValue(soldier.Id, out var row))
+                bool available = eligible.TryGetValue(entry.Key,out var soldier);
+                if (!prepRows.TryGetValue(entry.Key,out var row))
                 {
                     var card = AddPersonnelRow(prepRoster.content, entry, "", () =>
                     {
-                        if (!PreparationHelpOpen) SelectPrepSoldier(soldier);
+                        if (!PreparationHelpOpen && available) SelectPrepSoldier(soldier);
                     }, details: () =>
                     {
                         if (PreparationHelpOpen) return;
-                        prepRoster.StopMovement();
-                        prepDetail = soldier.Id;
+                        prepDetail = entry.Key;
                         RefreshPreparationRoster();
                     });
                     row = (card, Ui<Image>(card, "").color);
-                    prepRows.Add(soldier.Id, row);
+                    prepRows.Add(entry.Key, row);
                 }
-
                 if (row.Card.GetSiblingIndex() != index) row.Card.SetSiblingIndex(index);
                 index++;
                 row.Card.gameObject.SetActive(true);
-                Ui<Button>(row.Card, "").interactable = activeTeam?.Selected == true;
-                Ui<Image>(row.Card, "").color = soldier.Selected ? Color.Lerp(row.Background, theme.Gold, .38f) : row.Background;
-                string status = soldier.Selected && teamLabels.TryGetValue(soldier.TeamId, out var assigned)
-                    ? $"{assigned} · {entry.Facility} · {entry.State}" : $"{entry.Facility} · {entry.State}";
-                UpdatePersonnelRow(row.Card, entry, status, showFacility: false, warning: soldier.Selected && PrepLowHealth(owner.State, soldier));
+                Ui<Button>(row.Card, "").interactable = available && activeTeam?.Selected == true;
+                TintRoster(row.Card,available,false,soldier?.Selected == true);
+                string status = BasePersonnel.CompactPost(entry);
+                if (soldier?.Selected == true && teamLabels.TryGetValue(soldier.TeamId,out var assigned)) status = assigned+" · "+status;
+                UpdatePersonnelRow(row.Card,entry,status,showFacility:false);
             }
         }
 
@@ -578,27 +480,11 @@ namespace BaseConquest.Base
 
         private void RefreshPrepSupply(BaseState state)
         {
-            var rule = state.Supply.Rules.FirstOrDefault(entry => entry.Product == "supply");
-            int required = battleDraft.RequiredSupply(false);
-            var view = panel.Find("Supply");
-            Ui<Text>(view, "Demand").text = required == 0 ? PrepText("supply_none", "仅队长出战 · 所需军需 0") :
-                PrepText("supply_required", "本次所需军需") + " " + required;
-            for (int grade = 1; grade <= 2; grade++)
-            {
-                string name = grade == 1 ? PrepText("grade_1", "一级") : PrepText("grade_2", "二级");
-                string path = "Grade" + grade;
-                int stock = battleDraft.AvailableSupply(state, grade);
-                bool chosen = required > 0 && battleDraft.SupplyGrade == grade;
-                var stockLabel = Ui<Text>(view, "Stock" + grade);
-                stockLabel.text = name + " " + PrepText("stock", "库存") + " " + stock;
-                var button = Ui<Button>(view, path);
-                button.interactable = required > 0;
-                button.targetGraphic.color = chosen ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;
-                double attack = (grade == 1 ? rule?.LowBonus : rule?.HighBonus) ?? 0;
-                double defense = (grade == 1 ? rule?.LowDefense : rule?.HighDefense) ?? 0;
-                string choice = grade == 1 ? PrepText("supply_use_1", "使用一级军需") : PrepText("supply_use_2", "使用二级军需");
-                Ui<Text>(button.transform, "Label").text = (chosen ? "● " : "") + choice + $"\n攻 +{Number(attack)} / 防 +{Number(defense)}";
-            }
+            int grade = battleDraft.SupplyGrade;
+            int required = battleDraft.Route == BasePrepRoute.Travel ? 0 : battleDraft.RequiredSupply(false);
+            var button = Ui<Button>(panel,"Supply/Grade1");
+            button.GetComponentInChildren<Text>().text = $"{grade}级军需 · 库存 {battleDraft.AvailableSupply(state,grade)} / 需求 {required}";
+            button.targetGraphic.color = DemoUiTheme.Current.Button;
         }
 
         private void RefreshPreparationFields()
@@ -630,8 +516,8 @@ namespace BaseConquest.Base
                     BasePrepRoute.Hideout => DungeonEnergy(state, battleDraft.Route),
                     _ => PrepText("attack_objective", "使用已抵达的队伍攻占黑鸦寨。")
                 };
-                RefreshPrepSupply(state);
             }
+            RefreshPrepSupply(state);
             var (ally, enemy) = battleDraft.Power(state, false);
             Ui<Text>(panel, "Ally/Value").text = (travel ? "我方出征" : "我方战力 " + Number(ally)) + "\n" + PrepSummary();
             double maxPower = Math.Max(1, Math.Max(ally, enemy ?? 0));
@@ -729,8 +615,8 @@ namespace BaseConquest.Base
             catch (ArgumentException error) { prepFeedback = error.Message; RefreshPreparationFields(); return; }
             catch (InvalidOperationException error) { prepFeedback = error.Message; RefreshPreparationFields(); return; }
             BeginPanel(BaseRuinsRewards.DungeonName(battleDraft.Route) + " · 扫荡预览", SweepView);
-            string ratio = preview.EnemyPower > 0 ? (preview.AllyPower / preview.EnemyPower).ToString("0.00") : "—";
-            Line($"我方战力 {preview.AllyPower:0.00} / 敌方 {preview.EnemyPower:0.00} ≈ {ratio} 倍 · 需严格超过 1.5 倍", 64, 21);
+            string ratio = preview.EnemyPower > 0 ? (preview.AllyPower / preview.EnemyPower).ToString("P0") : "—";
+            Line($"我方战力 {preview.AllyPower:0} / 敌方 {preview.EnemyPower:0} · 战力比 {ratio} / 需超过 150%", 64, 21);
             Line($"体力 {BaseRuinsRewards.Energy(state)} / {BaseRuinsRewards.Maximum(state)} · 领奖消耗 {BaseRuinsRewards.Cost(state)}", 52, 18);
             int required = battleDraft.RequiredSupply(false);
             string grade = battleDraft.SupplyGrade == 1 ? PrepText("grade_1", "一级") : PrepText("grade_2", "二级");

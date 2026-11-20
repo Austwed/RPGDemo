@@ -117,7 +117,7 @@ namespace BaseConquest.Base
                 EncounterUnits.GroupBy(refUnit=>(refUnit.Scene,refUnit.Slot)).Any(g=>g.Count()>1)))
                 throw new ArgumentException("关卡普通兵槽位或模板引用无效");
             if (!Templates.Any(t => t.Id == RuinsFirstControllerTemplate && t.Identity == "captain_awakened" && t.ProfessionId == "mage"))
-                throw new ArgumentException("遗迹首战伽兰须引用异能者法师模板");
+                throw new ArgumentException("遗迹首战迦兰须引用异能者法师模板");
             foreach (var skill in Skills)
             {
                 bool damaging = skill?.Id == "sweep" || skill?.Id == "charge";
@@ -153,7 +153,7 @@ namespace BaseConquest.Base
         public int[] Capacity=DefaultCampCapacity(),CampMaterials={20,40},CampCoins={60,150};
         public int[] TroopBaseline={10,8,4},RecruitBasePrices={30,40,60};
         public int[] TrainingDays=DefaultTraining(true),TrainingBooks=DefaultTraining(false);
-        public double[] Range={2,12,3},Speed={4,3,6},Growth={1,1.18,1.5,1.85,2.25,3,3.7,4.5,6},QualityValue={.5,.75,1,1.3,1.8,2.5};
+        public double[] Range={1,12,2},Speed={4,3,6},Growth={1,1.18,1.5,1.85,2.25,3,3.7,4.5,6},QualityValue={.5,.75,1,1.3,1.8,2.5};
         public int AttributeGrowthVersion;public double[] AttackGrowth,DefenseGrowth;
         public List<RpgTemplate> Templates=new List<RpgTemplate>();public List<RpgSkillDefinition> Skills=new List<RpgSkillDefinition>();public List<RpgTraitDefinition> Traits=new List<RpgTraitDefinition>();
         public List<RpgEquipmentDefinition> Equipment=new List<RpgEquipmentDefinition>();
@@ -373,7 +373,6 @@ namespace BaseConquest.Base
             foreach(var site in s.Campaign.EnemySites)PrepareEnemies(s,site.Garrison,site.AttackEventId);
             foreach(var mission in s.Campaign.Events)PrepareEnemies(s,mission.EnemyArmy,mission.Id);
             InitializeSupply(s);
-            BaseTown.EnsureMageRecruit(s);
             if(r.HasProfessionCatalog)
             {
                 if(!s.PersonalEquipment.Offers.Any(o=>o.Template=="basic_staff"))

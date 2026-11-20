@@ -16,6 +16,7 @@ namespace BaseConquest.Base
         private double started, pauseAt, finishAt;
         private float firstVoteSeconds, frozenSeconds;
         private bool sentVote, resumed, sawUnilateral, sawPaused, sawResume, ordered, finished, checkedScout;
+        private bool sawRider;
         private bool sawMageCast, sawMageFlight, sawMageImpact, sawHealthChange;
         private int frozenTick, lastTarget = -1, nextReport;
         private BaseSceneController scene;
@@ -62,7 +63,8 @@ namespace BaseConquest.Base
         private void Step()
         {
             double now = Time.realtimeSinceStartupAsDouble;
-            if(now-started > (phase == "battle" ? 420 : 240)) throw new TimeoutException(phase + " screen=" + screen?.Phase + " tick=" + screen?.Frame?.tick);
+            if(now-started > (phase == "battle" ? 420 : 240)) throw new TimeoutException(phase + " scene=" + UnityEngine.SceneManagement.SceneManager.GetActiveScene().name +
+                " cover=" + (FindAnyObjectByType<SceneLoadingCover>()!=null) + " screen=" + screen?.Phase + " tick=" + screen?.Frame?.tick);
             if(phase=="fixture")
             {
                 scene=FindAnyObjectByType<BaseSceneController>();
@@ -134,7 +136,7 @@ namespace BaseConquest.Base
             if(phase=="connected" && screen.Phase=="preparing")
             {
                 var draft=screen.Draft;
-                var soldier=draft.Units.First(u=>mode=="mage" ? u.Kind==SoldierKind.Mage : u.Kind!=SoldierKind.Hero);
+                var soldier=draft.Units.First(u=>mode=="mage" ? u.Kind==SoldierKind.Mage : mode=="cavalry" ? u.Kind==SoldierKind.Cavalry : u.Kind!=SoldierKind.Hero);
                 foreach(var unit in draft.Units) unit.Selected=unit.Id==draft.PlayerId || unit==soldier;
                 soldier.TeamId=draft.PlayerId;draft.SupplyGrade=0;
                 screen.Ready(); if(screen.Phase=="preparing") throw new InvalidOperationException("备战被拒"); started=now;phase="battle";Debug.Log("[DuelQA] ready");return;
@@ -147,6 +149,15 @@ namespace BaseConquest.Base
                 nextReport += 10;
                 Debug.Log("[DuelQA] battle seconds=" + f.seconds + " units=" + string.Join(",",f.units.Select(u=>u.name+"="+(int)u.hp)));
             }
+            if(mode=="cavalry")
+            {
+                foreach(var rider in f.units.Where(u=>u.kind==(int)SoldierKind.Cavalry))
+                {
+                    if(rider.footprintCells!=1 || rider.attackRangeFine!=2)
+                        throw new InvalidOperationException("骑兵同步占地或攻击距离错误");
+                    if(rider.side!=screen.LocalSide) sawRider=true;
+                }
+            }
             if (mode == "mage")
             {
                 sawMageCast |= f.units.Any(u => u.kind == (int)SoldierKind.Mage && u.appearance == "mage" && u.attackPose >= 0);
@@ -157,11 +168,17 @@ namespace BaseConquest.Base
             if(f.result!=0 && (f.aDeployed!=2 || f.bDeployed!=2))throw new InvalidOperationException("出战单位数量错误");
             if(screen.Phase=="result")
             {
+                if(mode=="cavalry"&&!sawRider)throw new InvalidOperationException("未观测到对方骑兵");
                 if (mode == "mage" && !(sawMageCast && sawMageFlight && sawMageImpact && sawHealthChange))
                     throw new InvalidOperationException($"法师联机观测 cast={sawMageCast} flight={sawMageFlight} hit={sawMageImpact} hp={sawHealthChange}");
                 if(!ordered||!sawPaused||!sawResume||!sawUnilateral) throw new InvalidOperationException("未覆盖暂停/指挥");
                 if(finishAt==0){finishAt=now;Debug.Log("[DuelQA] result "+f.result+" tick "+f.tick+" survivors "+f.aStanding+"/"+f.bStanding);}
-                if(now-finishAt>1.5) Complete("result="+f.result+" tick="+f.tick+" survivors="+f.aStanding+"/"+f.bStanding);
+                if(now-finishAt>1.5)
+                {
+                    string observed=mode=="cavalry" ? " cavalry cells=1 rangeFine=2 seenOpponent="+sawRider :
+                        mode=="mage" ? $" mage cast={sawMageCast} flight={sawMageFlight} impact={sawMageImpact} hpChanged={sawHealthChange}" : "";
+                    Complete("result="+f.result+" tick="+f.tick+" survivors="+f.aStanding+"/"+f.bStanding+observed);
+                }
                 return;
             }
             if(screen.Phase!="fighting")return;
@@ -230,7 +247,7 @@ namespace BaseConquest.Base
             screen.Leave();
             if(stateBefore!=JsonUtility.ToJson(scene.State)||saveBefore!=DiskDigest())
                 throw new InvalidOperationException("对局改写了本地营地或磁盘存档");
-            Finish(true,summary+(mode == "mage" ? " mage cast/flight/impact/hp" : "")+" campaign unchanged");
+            Finish(true,summary+" campaign unchanged");
         }
         private void Finish(bool passed,string text)
         {

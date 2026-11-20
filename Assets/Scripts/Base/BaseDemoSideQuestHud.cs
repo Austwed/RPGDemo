@@ -31,7 +31,7 @@ namespace BaseConquest.Base
             NpcDialogue(new[]
             {
                 SmithLessonLine("finish.1", "石头用得多，炼出好货的把握就大些。出炉前，谁也不敢打包票。"),
-                SmithLessonLine("finish.2", "趁手的家伙只有一件，就先留着。等手里有备用的，再拿这颗石头试。")
+                SmithLessonLine("finish.2", "这一袋一百颗，拿去练手。趁手的家伙先留着，有备用的再上炉。")
             }, new[] { new NpcReply("记下了", () => CollectSideQuestReward(BaseDemoSideQuests.FinishSmith, BaseDemoSideQuests.SmithId)) });
         }
 

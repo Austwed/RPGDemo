@@ -30,7 +30,7 @@ namespace BaseConquest.Base
             if(site.Owner!="enemy")return;
             RowButton(enemyRosterDetails ? "收起驻军详情" : "查看驻军详情",0,800,()=>{enemyRosterDetails=!enemyRosterDetails;refresh();});row+=60;
             if(enemyRosterDetails)foreach(var u in site.Garrison)
-                Line(u.Name+(u.Dead?" · 已死亡":u.KnockedDown?" · 倒地":"")+" · "+(u.Kind==SoldierKind.Hero&&u.Stats.HasProfessionKind?BattleSimulation.KindName(u.Stats.ProfessionKind)+"队长":BattleSimulation.KindName(u.Kind))+" · "+u.Stats.Level+"级 · 生命 "+u.Health.ToString("0.#")+"/"+u.Stats.Health.ToString("0.#")+" · 攻 "+u.Stats.Damage.ToString("0.#")+" 防 "+u.Stats.Defense.ToString("0.#"),54,18);
+                Line(u.Name+(u.Dead?" · 已死亡":u.KnockedDown?" · 倒地":"")+" · "+(u.Kind==SoldierKind.Hero&&u.Stats.HasProfessionKind?BattleSimulation.KindName(u.Stats.ProfessionKind)+"队长":BattleSimulation.KindName(u.Kind))+" · "+u.Stats.Level+"级 · 生命 "+u.Health.ToString("0")+"/"+u.Stats.Health.ToString("0")+" · 攻 "+u.Stats.Damage.ToString("0")+" 防 "+u.Stats.Defense.ToString("0"),54,18);
         }
         private void ThreatEventLines(BaseCampaignEvent e)
         {

@@ -14,10 +14,13 @@ namespace BaseConquest.Base
             if(Change(next=>{if(!BaseDemoPrologue.BeginEscape(next))throw new InvalidOperationException("请先到村民与队长旁听取消息");},""))
             {RebuildRegion();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();Hud.ClosePanel();}
         }
+        private bool pursuitArrivalOpen;
         private void CheckPrologueTrigger()
         {
             if(!BaseDemoPrologue.AtTrigger(State)||combatController!=null||Hud.PanelOpen)return;
-            Hud.OpenPursuitArrival(()=>{Hud.ClosePanel();BeginProloguePursuit();});
+            pursuitArrivalOpen = true;
+            OpeningAudio?.SetExploration(this, VillageOpeningAudio.Place.Battle);
+            Hud.OpenPursuitArrival(()=>{pursuitArrivalOpen = false; Hud.ClosePanel();BeginProloguePursuit();});
         }
         private void BeginProloguePursuit()
         {

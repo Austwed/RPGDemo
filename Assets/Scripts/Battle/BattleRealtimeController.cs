@@ -80,7 +80,7 @@ namespace BaseConquest.Battle
         {var actor=realtime?.Model.Units.FirstOrDefault(a=>a.Id==unit.Id+1);return actor==null?RealtimeCampaignBattle.SpeedCells(campaignSession,unit):realtime.Model.MovementSpeed(actor)*2;}
         public double RealtimeAttack(BattleSoldier unit)
         {var actor=realtime?.Model.Units.FirstOrDefault(a=>a.Id==unit.Id+1);return actor==null?unit.Stats.Damage*unit.DrinkMultiplier:realtime.Model.DamageFor(actor);}
-        public string RealtimeStatus=>"作战 "+(realtime?.Model.Elapsed??0).ToString("0.0")+"秒 · "+(autoRun?"进行中":"暂停");
+        public string RealtimeStatus=>"作战 "+(realtime?.Model.Elapsed??0).ToString("0")+"秒 · "+(autoRun?"进行中":"暂停");
         public void PrepareCampaignPreview(BaseCampaignSession session)
         {
             campaignSession=session;campaignBattleId=session.Opening.Id;suppressInitialDeploy=true;Initialize();
@@ -90,7 +90,7 @@ namespace BaseConquest.Battle
         {
             realtime=new RealtimeCampaignBattle(campaignSession);autoRun=false;animating=skipping=false;presentation=1;
             if(IsSceneEncounter)configureSceneEncounter?.Invoke(realtime);
-            if (Application.isPlaying && (IsSceneEncounter || sharedMapSession != null) && campaignSession.Opening.DemoCombat && !DeploymentDraftActive)
+            if (Application.isPlaying && (IsSceneEncounter || sharedMapSession != null) && (campaignSession.Opening.DemoCombat || campaignSession.Opening.EventId == BaseDemoPrologue.BattleId) && !DeploymentDraftActive)
             {
                 battleAudio = VillageOpeningAudio.Shared();
                 battleAudio.BindBattle(realtime);

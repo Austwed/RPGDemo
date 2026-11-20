@@ -11,6 +11,8 @@ namespace BaseConquest.Battle
         private readonly Dictionary<int,string> orders=new Dictionary<int,string>();
         private readonly HashSet<string> occupiedLegacyRocks=new HashSet<string>();
         public IReadOnlyList<BattleTacticalObject> Objects=>run.Session.Opening.TacticalObjects;
+        private readonly HashSet<GridPosition> shotBlockers=new HashSet<GridPosition>();
+        internal bool BlocksShot(GridPosition cell)=>shotBlockers.Contains(cell);
         public int Revision {get;private set;}
         public Action<PrototypeUnit,BattleTacticalObject,double> ObjectHit;
         public BattleTacticalRuntime(RealtimeCampaignBattle battle)
@@ -42,13 +44,37 @@ namespace BaseConquest.Battle
             if(run.Battle.Phase!=BattlePhase.Fighting||Attackable(id)==null)return false;
             var slots=commanders.Select(run.Battle.Soldier).Where(u=>u?.IsActive==true&&u.Side==BattleSide.A&&u.Kind==SoldierKind.Hero).Select(u=>u.OriginCommanderSlot).ToArray();
             var actors=run.Model.Units.Where(u=>u.Alive&&u.Side==PrototypeSide.Ally&&slots.Contains(u.Squad)&&(!leadersOnly||u.Role==PrototypeRole.Leader)).ToArray();
-            foreach(var u in actors){if(run.Session.Opening.Rpg!=null)run.Model.CancelWindup(u);orders[u.Id]=id;u.ObjectTargetId=id;u.ManualOrder=true;u.ObjectOrder=true;u.SquadTargetId=-1;u.TargetId=-1;u.Order=PrototypeOrder.Guard;u.Goal=u.Position;u.NextThinkAt=run.Model.Elapsed+1;}
+            foreach(var u in actors) OrderObject(u,id,true);
             return actors.Length>0;
         }
+        internal void OrderObject(PrototypeUnit actor, string id, bool manual)
+        {
+            if(!actor.Alive || Attackable(id)==null) return;
+            if(run.Session.Opening.Rpg!=null) run.Model.CancelWindup(actor);
+            orders[actor.Id]=id;
+            actor.ObjectTargetId=id;
+            actor.ManualOrder=manual;
+            actor.ObjectOrder=true;
+            actor.SquadTargetId=actor.TargetId=-1;
+            actor.Order=PrototypeOrder.Guard;
+            actor.Goal=actor.Position;
+            actor.NextThinkAt=run.Model.Elapsed+1;
+        }
+
+        private bool CanHitObject(PrototypePoint from, PrototypePoint target, double reach)
+        {
+            var delta=target-from;
+            if(delta.Length<.001 || delta.Length>reach+.55) return false;
+            var direction=delta.Normalized;
+            var surface=target-direction*(.55/Math.Max(Math.Abs(direction.X),Math.Abs(direction.Z)));
+            return run.Model.Arena.WallFraction(from,surface)>1;
+        }
+
         internal void Refresh()
         {
+            shotBlockers.Clear();
             var b=run.Battle.Board;var movement=b.Cells.Select(c=>!c.Walkable).ToArray();var shots=b.Cells.Select(c=>c.BlocksShots).ToArray();
-            foreach(var o in Objects)foreach(var p in o.Fallen?o.Trunk:new List<GridPosition>{new GridPosition(o.X,o.Y)}){int n=p.Z*b.Width+p.X;shots[n]=true;bool occupied=o.Kind=="rock"&&run.Model.Units.Any(u=>u.Alive&&RealtimeBattlePrototype.OccupiesCoarse(u,p.X,p.Z,run.Model.Arena));movement[n]=!occupied;if(occupied)occupiedLegacyRocks.Add(o.Id);else occupiedLegacyRocks.Remove(o.Id);}
+            foreach(var o in Objects)foreach(var p in o.Fallen?o.Trunk:new List<GridPosition>{new GridPosition(o.X,o.Y)}){int n=p.Z*b.Width+p.X;shotBlockers.Add(p);shots[n]=true;bool occupied=o.Kind=="rock"&&run.Model.Units.Any(u=>u.Alive&&RealtimeBattlePrototype.OccupiesCoarse(u,p.X,p.Z,run.Model.Arena));movement[n]=!occupied;if(occupied)occupiedLegacyRocks.Add(o.Id);else occupiedLegacyRocks.Remove(o.Id);}
             run.Model.Arena.RefreshObstacles(movement,shots);
             foreach(var u in run.Model.Units)
             {
@@ -65,7 +91,7 @@ namespace BaseConquest.Battle
             var actor=run.Model.Units.FirstOrDefault(u=>u.Id==actorId&&u.Alive);var o=Attackable(id);
             if(actor==null||o==null||run.Model.Paused||run.Battle.Phase!=BattlePhase.Fighting||actor.Moving||actor.ReadyAt>run.Model.Elapsed+1e-9)return false;
             var point=new PrototypePoint(o.X+.5,o.Y+.5);var delta=point-actor.Position;
-            if(delta.Length<.001||delta.Length>actor.Reach+.55||run.Model.Arena.WallFraction(actor.Position,point-delta.Normalized*(.55/Math.Max(Math.Abs(delta.Normalized.X),Math.Abs(delta.Normalized.Z))))<=1){actor.ObjectWindupAt=-1;return false;}
+            if(!CanHitObject(actor.Position,point,actor.Reach)){actor.ObjectWindupAt=-1;return false;}
             if(!run.Model.Face(actor,delta.Normalized))return false;
             double power=run.Model.DamageFor(actor);
             if(run.Session.Opening.Rpg!=null)
@@ -84,24 +110,18 @@ namespace BaseConquest.Battle
         public void Tick(double seconds)
         {
             if(Objects.Count==0||run.Battle.Phase!=BattlePhase.Fighting)return;
-            if(Objects.Any(Attackable))foreach(var actor in run.Model.Units.Where(u=>u.Alive&&!u.ObjectOrder&&!u.ManualOrder&&u.TargetId<0&&u.Strategy==PrototypeStrategy.Attack))
-            {
-                var dummy=Objects.Where(o=>o.Kind=="dummy"&&!o.Fallen).OrderBy(o=>(new PrototypePoint(o.X+.5,o.Y+.5)-actor.Position).Length).FirstOrDefault();
-                if(dummy==null)continue;
-                orders[actor.Id]=dummy.Id;actor.ObjectOrder=true;actor.ObjectTargetId=dummy.Id;actor.ObjectWindupAt=-1;actor.TargetId=-1;actor.Order=PrototypeOrder.Guard;
-            }
             if(occupiedLegacyRocks.Any(id=>{var rock=Objects.First(o=>o.Id==id);return !run.Model.Units.Any(u=>u.Alive&&RealtimeBattlePrototype.OccupiesCoarse(u,rock.X,rock.Y,run.Model.Arena));}))Refresh();
             foreach(var entry in orders.ToArray())
             {
                 var actor=run.Model.Units.FirstOrDefault(u=>u.Id==entry.Key&&u.Alive);var o=Attackable(entry.Value);
                 if(actor==null||o==null||!actor.ObjectOrder){orders.Remove(entry.Key);if(actor!=null)FinishOrder(actor);continue;}
                 var point=new PrototypePoint(o.X+.5,o.Y+.5);
-                if((point-actor.Position).Length<=actor.Reach+.55){actor.Order=PrototypeOrder.Guard;actor.Goal=actor.Position;actor.NextThinkAt=run.Model.Elapsed+1;Hit(actor.Id,o.Id);}
+                if(CanHitObject(actor.Position,point,actor.Reach)){actor.Order=PrototypeOrder.Guard;actor.Goal=actor.Position;actor.NextThinkAt=run.Model.Elapsed+1;Hit(actor.Id,o.Id);}
                 else if(!actor.Moving)
                 {
                     actor.ObjectWindupAt=-1;
                     var distances=run.Model.Arena.Distances(actor.Cell,true);
-                    var cells=Enumerable.Range(0,distances.Length).Where(c=>!double.IsPositiveInfinity(distances[c])&&run.Model.Arena.CanStand(run.Model.Arena.Center(c))&&(run.Model.Arena.Center(c)-point).Length<=Math.Max(1.25,actor.Reach)&&!run.Model.Units.Any(u=>u!=actor&&u.Alive&&u.Cell==c)).OrderBy(c=>distances[c]).ToArray();
+                    var cells=Enumerable.Range(0,distances.Length).Where(c=>!double.IsPositiveInfinity(distances[c])&&run.Model.Arena.CanStand(run.Model.Arena.Center(c))&&CanHitObject(run.Model.Arena.Center(c),point,actor.Reach)&&!run.Model.Units.Any(u=>u!=actor&&u.Alive&&u.Cell==c)).OrderBy(c=>distances[c]).ToArray();
                     if(cells.Length>0){actor.Order=PrototypeOrder.Move;actor.Goal=run.Model.Arena.Center(cells[0]);actor.TargetId=-1;actor.NextThinkAt=0;}
                 }
             }

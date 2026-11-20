@@ -17,8 +17,8 @@ namespace BaseConquest.Base
         {
             if(BaseRpg.Active(owner.State)){Line(BaseRpg.GearDescription(owner.State,item)+BaseRpg.GearComparison(owner.State,item),145,18);return;}
             var d=BasePersonalEquipment.Definition(item.Template);int q=item.Quality;
-            Line("攻击 "+BasePersonalEquipment.Scale(d.Damage,q).ToString("+0.##;-0.##;0")+" · 防御 "+BasePersonalEquipment.Scale(d.Defense,q).ToString("+0.##;-0.##;0")+" · 生命 "+BasePersonalEquipment.Scale(d.Health,q).ToString("+0.##;-0.##;0"),48,18);
-            Line("暴击+"+BasePersonalEquipment.Scale(d.CritChance,q).ToString("P1")+" · 暴伤+"+BasePersonalEquipment.Scale(d.CritMultiplier,q).ToString("P1")+(d.Slot=="weapon" ? " · 攻击距离 "+BasePersonalEquipment.RealtimeRange(item)+"细格" : "")+" · 移动 "+BasePersonalEquipment.Scale(d.Movement,q).ToString("+0.##;-0.##;0")+"（未启用）",48,18);
+            Line("攻击 "+BasePersonalEquipment.Scale(d.Damage,q).ToString("+0;-0;0")+" · 防御 "+BasePersonalEquipment.Scale(d.Defense,q).ToString("+0;-0;0")+" · 生命 "+BasePersonalEquipment.Scale(d.Health,q).ToString("+0;-0;0"),48,18);
+            Line("暴击+"+BasePersonalEquipment.Scale(d.CritChance,q).ToString("P0")+" · 暴伤+"+BasePersonalEquipment.Scale(d.CritMultiplier,q).ToString("P0")+(d.Slot=="weapon" ? " · 攻击距离 "+BasePersonalEquipment.RealtimeRange(item)+"细格" : "")+" · 移动 "+BasePersonalEquipment.Scale(d.Movement,q).ToString("+0;-0;0")+"（未启用）",48,18);
         }
         private void RenderEquipmentTrade(RectTransform offers,RectTransform details,BaseLeader recipient)
         {
@@ -59,7 +59,7 @@ namespace BaseConquest.Base
                 BasePersonalEquipment.CanBuy(s,id,holder)||full&&remaining>0&&s.Inventory.Coins>=price);
             var sample=new BasePersonalItem {Template=id,Quality=2};
             if(BaseRpg.Active(s))TradeLine(details,BaseRpg.GearDescription(s,sample,includeName:false));
-            else TradeLine(details,"攻击 "+selected.Damage.ToString("0.##")+" · 防御 "+selected.Defense.ToString("0.##")+" · 生命 "+selected.Health.ToString("0.##")
+            else TradeLine(details,"攻击 "+selected.Damage.ToString("0")+" · 防御 "+selected.Defense.ToString("0")+" · 生命 "+selected.Health.ToString("0")
                 +(selected.Slot=="weapon"?" · 攻击距离 "+BasePersonalEquipment.RealtimeRange(sample)+"细格":""));
         }
 

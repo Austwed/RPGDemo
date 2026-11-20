@@ -167,7 +167,7 @@ namespace BaseConquest.Base
             var title = InventoryButton(card, "Name", BasePersonnel.LeaderName(person) + " · " + BasePersonalEquipment.ClassName(person),
                 editable ? (Action)(() => { inventoryPerson = person.Id; ClearInventorySelection(); RefreshQuestCue(); }) : null);
             if (editable) BindInventoryDrop(title.gameObject, null, person.Id, -2, "");
-            Ui<Text>(card, "Vitals").text = "生命 " + person.Health.ToString("0.#") + " / " + person.MaxHealth.ToString("0.#");
+            Ui<Text>(card, "Vitals").text = "生命 " + person.Health.ToString("0") + " / " + person.MaxHealth.ToString("0");
 
             var held = entries.Where(entry => entry.Holder == person.Id).ToArray();
             Ui<Text>(card, "Capacity").text = "背包 " + held.Count(entry => !entry.Worn) + "/" + BasePartyInventory.Capacity;
@@ -572,9 +572,9 @@ namespace BaseConquest.Base
             return BaseBackpack.CategoryName(entry.Category)
                 + (weapon ? " · " + BasePersonalEquipment.Profession(definition.Weapon) + "专用" : "")
                 + (entry.Protected ? " · 剧情保护／主角专属" : "")
-                + "\n攻击 " + damage.ToString("+0.##;-0.##;0")
-                + "／防御 " + BasePersonalEquipment.Scale(definition.Defense, quality).ToString("+0.##;-0.##;0")
-                + "／生命 " + BasePersonalEquipment.Scale(definition.Health, quality).ToString("+0.##;-0.##;0")
+                + "\n攻击 " + damage.ToString("+0;-0;0")
+                + "／防御 " + BasePersonalEquipment.Scale(definition.Defense, quality).ToString("+0;-0;0")
+                + "／生命 " + BasePersonalEquipment.Scale(definition.Health, quality).ToString("+0;-0;0")
                 + (weapon ? "／攻击距离 " + BasePersonalEquipment.RealtimeRange(entry.Gear) + "细格"
                     + (definition.Weapon != person.PersonalEquipment.Weapon ? "\n非本职业武器：无法装备此武器" : "") : "");
         }

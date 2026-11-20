@@ -59,11 +59,11 @@ namespace BaseConquest.Base
             }
             foreach(var leader in BaseAdventure.Members(s))
             {
-                Line(BasePersonnel.LeaderName(leader)+" · 生命 "+leader.Health.ToString("0.#")+"/"+leader.MaxHealth.ToString("0.#")+(BaseDevelopment.CanFight(leader) ? " · 随队" : " · 当前不可出战"),50,20);
+                Line(BasePersonnel.LeaderName(leader)+" · 生命 "+leader.Health.ToString("0")+"/"+leader.MaxHealth.ToString("0")+(BaseDevelopment.CanFight(leader) ? " · 随队" : " · 当前不可出战"),50,20);
                 var group=plan?.CommanderTroops?.FirstOrDefault(g=>g.LeaderId==leader.Id);if(group!=null)Line("实际 "+TroopsText(group.Actual)+"／需求 "+TroopsText(group.Requested),58,18);
             }
             Line("队长名单固定沿用冒险小队；请回基地与伙伴对话调整。",56,18);
-            if(departure.WarningCount(s)>0)Line("生命预警：已选 "+departure.WarningCount(s)+" 人低于 "+(BaseDevelopment.WarningThreshold(s)*100).ToString("0")+"%（最低 "+departure.WarningLowest(s).ToString("0.#")+"），可返回调整或继续。",70,18);
+            if(departure.WarningCount(s)>0)Line("生命预警：已选 "+departure.WarningCount(s)+" 人低于 "+(BaseDevelopment.WarningThreshold(s)*100).ToString("0")+"%（最低 "+departure.WarningLowest(s).ToString("0")+"），可返回调整或继续。",70,18);
             if(!valid)Line("出征需带主角，且至少选择一名可出战队长。",55,18);
             if(plan!=null)Line("净产出变化：粮 "+(-plan.FoodLoss).ToString("+0;-0;0")+"／产品 "+(-plan.ProductLoss).ToString("+0;-0;0"),55,18);
             if(BaseTown.DemoRecruitment(s))Line("出征人员仍计入全军口粮：每日 "+BaseEconomy.FoodRequired(s)+"；抽走岗位人员的产出影响见上方预览。",65,18);

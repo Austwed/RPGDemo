@@ -134,7 +134,7 @@ namespace BaseConquest.Battle
                 float amount = Math.Min(Scenario.Effects.HealPerRound, s.Stats.Health - s.Health); if (amount <= 0) continue;
                 float before = s.Health; s.Health += amount; changed = true; var source = Soldier(s.RegenSourceId);
                 if (source != null) source.HealingDone += amount;
-                Notice(UnitName(source) + "的治愈为" + UnitName(s) + "恢复" + amount.ToString("0.#") + "生命（" + before.ToString("0.#") + "→" + s.Health.ToString("0.#") + "），余血" + s.Health.ToString("0.#"), s.Side, s.Id, source?.Id ?? -1);
+                Notice(UnitName(source) + "的治愈为" + UnitName(s) + "恢复" + amount.ToString("0") + "生命（" + CombatNumbers.RemainingHealth(before) + "→" + CombatNumbers.RemainingHealth(s.Health) + "），余血" + CombatNumbers.RemainingHealth(s.Health), s.Side, s.Id, source?.Id ?? -1);
             }
             return changed;
         }
@@ -167,8 +167,8 @@ namespace BaseConquest.Battle
             if(s.ProfessionKind==SoldierKind.Cavalry&&s.MovedThisRound)labels.Add("机动（本轮远程伤害×0.5）");
             if(CavalryPinned(s))labels.Add("剑士近身（移动1，轮初判定）");
             if(Board.Cell(s.Cell)?.FixedCover==true&&Board.Walkable(s.Cell))labels.Add("固定掩体（远程伤害×0.75）");
-            if (IsWeak(s)) labels.Add("虚弱" + (Math.Max(s.WeakTerrainUntil, s.WeakCrowdUntil) - RoundNumber) + "轮（攻击×" + Scenario.Effects.WeakMultiplier.ToString("0.##") + "，禁暴击）");
-            if (ArcherInCloseCombat(s)) labels.Add("贴身压制（攻击×" + Scenario.Effects.RangedCloseMultiplier.ToString("0.##") + "）");
+            if (IsWeak(s)) labels.Add("虚弱" + (Math.Max(s.WeakTerrainUntil, s.WeakCrowdUntil) - RoundNumber) + "轮（攻击 " + Scenario.Effects.WeakMultiplier.ToString("P0") + "，禁暴击）");
+            if (ArcherInCloseCombat(s)) labels.Add("贴身压制（攻击 " + Scenario.Effects.RangedCloseMultiplier.ToString("P0") + "）");
             if (s.InspiredUntil >= ActingRound) labels.Add("鼓舞" + (s.InspiredUntil - RoundNumber) + "轮");
             if (IsMarching(s)) labels.Add("行军" + (s.MarchUntil - RoundNumber) + "轮");
             if (s.RegenUntil >= ActingRound) labels.Add("治愈" + (s.RegenUntil - RoundNumber) + "轮");

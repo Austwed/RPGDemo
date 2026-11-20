@@ -235,6 +235,9 @@ namespace BaseConquest.Base
         public void RefreshSummary()
         {
             var s = owner.State; feedback.text = owner.Message;feedback.gameObject.SetActive(owner.Message.Contains("失败")||owner.Message.Contains("未保存"));
+            if (heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf &&
+                (!BaseDemoIntro.Active(s) || !BaseDemoPrologue.Village(s) || s.Demo.Intro.Step != 0))
+                heroChoiceLayer.gameObject.SetActive(false);
             bool selectingHero = heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf;
             summary.transform.parent.gameObject.SetActive(!selectingHero &&
                 (!PanelOpen || panelViewKey != "npc-dialogue" && panelViewKey != DemoCompletionView));
@@ -666,7 +669,7 @@ namespace BaseConquest.Base
             Line("第"+day+"天 → 第"+(day+1)+"天",48,22);
             Line("预计粮草 +" + p.FoodProduced + "；" + p.ProductLevel + "级" + BaseEconomy.ProductName(p.Product) + " +" + p.ProductsMade + "；原料 -" + p.MaterialsSpent);
             Line("明日口粮 " + p.FoodRequired + "；扣粮后库存 " + p.NextFood + (p.NextMissing > 0 ? "；缺粮 " + p.NextMissing : "；粮草充足"));
-            Line("今日生产效率 " + (p.ProductionFactor * 100).ToString("0.#") + "%", 48, 18);
+            Line("今日生产效率 " + (p.ProductionFactor * 100).ToString("0") + "%", 48, 18);
             EndPanel();
         }
         public void OpenReport()
@@ -684,7 +687,7 @@ namespace BaseConquest.Base
             Line("第" + r.CompletedDay + "天 → 第" + r.NewDay + "天", 52, 24);
             Line("粮草：" + r.FoodBefore + " + 产粮" + r.FoodProduced + " - 口粮" + r.FoodConsumed + " = " + r.FoodAfter);
             Line("工坊：" + Math.Max(1,r.ProductLevel) + "级" + BaseEconomy.ProductName(r.Product) + " +" + r.ProductsMade + "；原料 -" + r.MaterialsSpent);
-            Line("昨天生产效率：" + (r.ProductionFactor * 100).ToString("0.#") + "%");
+            Line("昨天生产效率：" + (r.ProductionFactor * 100).ToString("0") + "%");
             Line("今天口粮：需要" + r.FoodRequired + "／已供" + r.FoodConsumed + "／缺少" + r.FoodMissing);
             Line("昨日恢复生命：" + r.PeopleRecovered + "人（全员自动恢复）");
             CampaignReports();
@@ -773,6 +776,27 @@ namespace BaseConquest.Base
         private string workerDraftStamp;
         private readonly System.Collections.Generic.Dictionary<int,(BaseTroopKind kind,string from,string to)> workerMoves =
             new System.Collections.Generic.Dictionary<int,(BaseTroopKind,string,string)>();
+        private readonly System.Collections.Generic.List<int> workerSelectionOrder = new();
+        private void SetWorkerCount(BaseTroopKind kind, string facility, int target, Action refresh)
+        {
+            EnsureWorkerDraft();
+            int current = BaseEconomy.WorkersAt(workerDraft, facility, kind);
+            int room = workerDraft.Muster.Facilities.Single(f => f.FacilityId == facility).Capacity - BaseEconomy.WorkersAt(workerDraft, facility);
+            int change = Mathf.Clamp(target, 0, current + Mathf.Max(0, room)) - current;
+            bool adding = change > 0;
+            var matching = BasePersonnel.Soldiers(workerDraft).Where(u => u.Kind == BaseCampaign.ToBattle(kind) && u.Effective &&
+                !u.Remote && u.Post == (adding ? "" : facility));
+            var ids = (adding ? matching.OrderBy(u => u.SoldierNumber) :
+                matching.OrderByDescending(u => workerSelectionOrder.LastIndexOf(u.SoldierNumber)).ThenByDescending(u => u.SoldierNumber))
+                .Take(Math.Abs(change)).Select(u => u.SoldierNumber).ToArray();
+            foreach (int id in ids)
+            {
+                EnsureWorkerDraft();
+                var unit = BasePersonnel.Soldiers(workerDraft).First(u => u.SoldierNumber == id);
+                MoveDraftWorker(unit, adding ? facility : "", () => {});
+            }
+            refresh();
+        }
         private static void LockCurrentPosts(BaseState state)
         {
             foreach (var worker in state.Workers.Where(w => !w.Relocating && w.VillageResident == BaseSettlements.AtVillage(state)))
@@ -798,8 +822,10 @@ namespace BaseConquest.Base
                     string target = facility; BaseTroopKind troop = kind;
                     int available = s.Workers.Where(w => w.Kind == kind && w.FacilityId == "" && BaseDevelopment.Effective(s, w)).Sum(w => w.Count);
                     Label(content, BaseEconomy.TroopName(kind) + " " + BaseEconomy.WorkersAt(s, target, kind) + "人 · 闲置 · 今日可生产 " + available, new Vector2(-230, -row - 26), new Vector2(430, 48), 19, TextAnchor.MiddleLeft, new Vector2(0.5f, 1));
-                    RowButton("−1", 70, 90, () => Adjust(troop, target, "", refresh), BaseEconomy.WorkersAt(s, target, kind) > 0);
-                    RowButton("+1", 180, 90, () => Adjust(troop, "", target, refresh), available > 0 && BaseEconomy.WorkersAt(s, target) < s.Muster.Facilities.Single(f => f.FacilityId == target).Capacity);
+                    var input = CloneSceneUi("BattlePreparationTeam/Melee/Input", content).GetComponent<InputField>();
+                    input.transform.localPosition = new Vector3(110, -row - 26, 0);
+                    input.SetTextWithoutNotify(BaseEconomy.WorkersAt(s,target,kind).ToString());
+                    input.onEndEdit.AddListener(text => { if (int.TryParse(text,out int goal)) SetWorkerCount(troop,target,goal,refresh); });
                     if (!manualOnly) RowButton("解锁岗位", 310, 140, () => {workerDraft=null;workerMoves.Clear();owner.Change(next => { foreach (var w in next.Workers.Where(w => w.Kind == troop && (w.FacilityId == target || w.DesiredFacility == target))) w.PostLocked = false; }, "已解锁工人，由策略安排"); refresh(); });
                     row += 56;
                 }
@@ -825,8 +851,7 @@ namespace BaseConquest.Base
             if (state == null) { back(); return; }
             BeginPanel(BaseEconomy.FacilityName(facility) + " · " + FacilityCopy("workers","士兵名册"), "workers-roster:" + facility);
             RowButton("返回调配方案", 0, 800, back); row += 60;
-            int civilians = BaseEconomy.CivilianWorkersAt(state, facility);
-            if (civilians > 0) Line(CivilianRosterLabel(civilians), 42, 19);
+
             var available = BasePersonnel.Soldiers(state).ToArray();
             Action refresh = () => OpenWorkerRoster(facility, back);
             foreach (var unit in available)
@@ -867,6 +892,8 @@ namespace BaseConquest.Base
                 }
                 return;
             }
+            workerSelectionOrder.Remove(unit.SoldierNumber);
+            if (to != "") workerSelectionOrder.Add(unit.SoldierNumber);
             string original = workerMoves.TryGetValue(unit.SoldierNumber, out var move) ? move.from : from;
             if (to == original) workerMoves.Remove(unit.SoldierNumber);
             else workerMoves[unit.SoldierNumber] = (worker.Kind, original, to);

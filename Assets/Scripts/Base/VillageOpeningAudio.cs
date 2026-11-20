@@ -250,7 +250,7 @@ namespace BaseConquest.Base
 
         private void CellEntered(PrototypeUnit actor, int cell)
         {
-            if (actor.FootprintLength == 2) Play(Cue.Hoof, Near(actor));
+            if (actor.Mounted) Play(Cue.Hoof, Near(actor));
         }
 
         internal void PlayResult(RealtimeCampaignBattle run)

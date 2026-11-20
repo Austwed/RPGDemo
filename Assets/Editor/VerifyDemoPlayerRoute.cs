@@ -179,7 +179,6 @@ namespace BaseConquest.Editor
             Travel(state, "travel_base", "base");
             At(state, "home");
             Need(BaseRpg.UpgradeCamp(state), "无法升级营帐为伙伴腾出名额");
-            // Reach the recruiter on the fixed tutorial day; the following days draw from all four professions.
             At(state, "demo_ahe");
             Need(BaseDemoRuins.Meet(state, "partner_farm") && BaseDemoRuins.Join(state, "partner_farm"), "新营地无法邀请阿禾");
             Travel(state, "exit_east", "town");
@@ -221,7 +220,7 @@ namespace BaseConquest.Editor
             while (!BaseDemoDefense.Due(state))
             {
                 At(state, "town_recruit");
-                foreach (var kind in state.Demo.Rpg.HasProfessionCatalog ? new[] { BaseTroopKind.Melee, BaseTroopKind.Ranged, BaseTroopKind.Cavalry, BaseTroopKind.Mage } : new[] { BaseTroopKind.Melee, BaseTroopKind.Ranged, BaseTroopKind.Cavalry })
+                foreach (var kind in new[] { BaseTroopKind.Melee, BaseTroopKind.Ranged, BaseTroopKind.Cavalry })
                 {
                     int wanted = kind == BaseTroopKind.Cavalry ? 3 : 4;
                     while (state.Workers.Where(worker => worker.Kind == kind).Sum(worker => worker.Count) < wanted &&
@@ -418,6 +417,11 @@ namespace BaseConquest.Editor
         private static void RecruitAzhu(BaseState state)
         {
             At(state, "demo_azhu");
+            var custom = state.Copy();
+            custom.Leaders.Single(person => person.Id == custom.PlayerLeaderId).Name = "双桥";
+            var check = BaseLocalDuel.Create(custom).Battle;
+            Need(check.UnitName(check.Commander(BattleSide.A,0))=="我方双桥" &&
+                 check.UnitName(check.Commander(BattleSide.B,0))=="敌方阿铸","首次切磋的战斗记录没有使用双方真实姓名");
             var duel = new RealtimeCampaignBattle(BaseLocalDuel.Create(state));
             var opponent = duel.Model.Units.Single(unit => unit.Side == PrototypeSide.Enemy);
             duel.OutcomeResolver = run => run.Model.Player.Health <= run.Model.Player.MaxHealth * .5 ? BattleOutcome.SideBWin

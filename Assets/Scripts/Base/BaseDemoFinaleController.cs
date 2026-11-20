@@ -210,12 +210,6 @@ namespace BaseConquest.Base
             }
             if(current.Campaign.CurrentMapId!=BaseDemoFinale.Home)return false;
             activeObject=id;interactionObject="";
-            if(id=="demo_survivor")
-            {
-                NpcDialogue(new[]{new NpcLine("幸存村民","villager","那天的动静是从西桥头传来的。")},
-                    Array.Empty<NpcReply>(),onCompleted:ClosePanel);
-                return true;
-            }
             if(id==BaseDemoFinale.Builder && BaseDemoFinale.HomeVolunteers(current))
             {
                 bool first=!current.Demo.Finale.VillageRebuilt;
@@ -275,9 +269,9 @@ namespace BaseConquest.Base
                     var goodbye=new List<NpcLine>{Thug("大人慈悲！小的这就告辞，再不踏进村子半步。")};
                     if(galan){goodbye.Add(Thug("不过，屋外那位可是跟我们一起出的门，半道上就没影了。如今跟了您，您可得留个心眼。"));goodbye.Add(GalanAside());}
                     ResolveHouse(goodbye);
-                }),new NpcReply(galan?"你们认识他吗？（指向屋外的伽兰）":"你们认不认识一个叫伽兰的古裔？",()=>{
-                    var answer=new List<NpcLine>{Thug("伽兰？当然认识。跟我们一起出发的，半路上就不见了。")};
-                    if(galan){answer.Add(Thug("哎哟，这不就是伽兰队长吗？别来无恙啊！"));answer.Add(GalanAside());}
+                }),new NpcReply(galan?"你们认识他吗？（指向屋外的迦兰）":"你们认不认识一个叫迦兰的古裔？",()=>{
+                    var answer=new List<NpcLine>{Thug("迦兰？当然认识。跟我们一起出发的，半路上就不见了。")};
+                    if(galan){answer.Add(Thug("哎哟，这不就是迦兰队长吗？别来无恙啊！"));answer.Add(GalanAside());}
                     HouseDecision(answer.ToArray());
                 }),new NpcReply("我信不过你们，受死吧。",()=>ResolveHouse(new List<NpcLine>{Thug("呃啊！")}))
             });

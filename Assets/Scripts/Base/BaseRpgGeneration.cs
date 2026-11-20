@@ -71,6 +71,8 @@ namespace BaseConquest.Base
                     if(authored.FixedTraits)e.Rpg.Traits=authored.Traits.Select(t=>t.Copy()).ToList();
                     ValidateCharacter(e.Rpg,r);
                 }
+                if (eventId == BaseDemoRuins.EventId && state.Demo.RuinsDay > 0 && e.Kind == SoldierKind.Hero && e.Rpg.SkillId == "heal")
+                    e.Rpg.SkillId = "march";
                 if(firstController)
                 {
                     e.IsAwakened=r.TemplateIdentity(firstTemplate)=="captain_awakened";

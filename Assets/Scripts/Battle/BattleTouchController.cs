@@ -168,7 +168,7 @@ namespace BaseConquest.Battle
             int bound=(battle.Scenario.MaxRounds+1)*8;int steps=0;
             while(battle.Phase==BattlePhase.Fighting&&steps++<bound&&watch.ElapsedMilliseconds<1200)realtime.Tick(.5);
             SyncRealtimeViews();hud?.Refresh();
-            feedback=battle.Phase==BattlePhase.Finished?"副手已打完，战果按同一套规则结算":"已交给副手，战斗继续快进（"+realtime.Model.Elapsed.ToString("0.0")+"秒）";
+            feedback=battle.Phase==BattlePhase.Finished?"副手已打完，战果按同一套规则结算":"已交给副手，战斗继续快进（"+realtime.Model.Elapsed.ToString("0")+"秒）";
         }
         private void RunSkipBatch()
         {

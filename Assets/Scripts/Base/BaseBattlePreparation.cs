@@ -16,11 +16,10 @@ namespace BaseConquest.Base
         public double Health, MaxHealth;
         public int SoldierNumber => Pick?.SoldierNumber ?? 0;
         public bool Selected;
+        internal int SelectionOrder;
         internal BaseSoldierPick Pick;
         internal SoldierStats Stats;
         internal BaseLeader Leader;
-        internal int Footprint => Kind == SoldierKind.Cavalry || Kind == SoldierKind.Hero &&
-            (Stats.HasCombatKind ? Stats.CombatKind : UnitNaming.CastCombatKind(BaseCommanderIdentity.Appearance(Leader))) == SoldierKind.Cavalry ? 2 : 1;
     }
 
     // A draft is owned by the currently open HUD. The save only receives the validated opening.
@@ -39,7 +38,42 @@ namespace BaseConquest.Base
         public string PlayerId { get; }
         public bool TravelingParty => Route == BasePrepRoute.Travel && arrivedPartyId != null;
         public Dictionary<string, GridPosition> Positions { get; } = new Dictionary<string, GridPosition>();
-        public int SupplyGrade { get; set; }
+        public int SupplyGrade { get; set; } = 1;
+        private int lastSelection;
+        public int TeamCount(string teamId, SoldierKind kind) => units.Count(u => u.Selected && u.TeamId == teamId && u.Kind == kind);
+
+        public bool SetTeamCount(string teamId, SoldierKind kind, int requested)
+        {
+            if (!units.Any(u => u.Kind == SoldierKind.Hero && u.Selected && u.Id == teamId)) return false;
+            var included = units.Where(u => u.Selected && u.Kind == kind && u.TeamId == teamId)
+                .OrderByDescending(u => u.SelectionOrder).ThenByDescending(u => u.SoldierNumber).ToArray();
+            int limit = BaseMuster.BattleSoldierLimit - units.Count(u => u.Selected && u.Kind != SoldierKind.Hero);
+            int target = Math.Max(0, Math.Min(requested, included.Length + limit));
+            if (target < included.Length)
+                foreach (var u in included.Take(included.Length - target)) u.Selected = false;
+            else
+                foreach (var u in units.Where(u => u.Kind == kind && !u.Selected).OrderBy(u => u.SoldierNumber).Take(target - included.Length))
+                {
+                    u.Selected = true;
+                    u.TeamId = teamId;
+                    u.SelectionOrder = ++lastSelection;
+                }
+            Prune();
+            return true;
+        }
+
+        public bool ToggleSoldier(string teamId, BasePrepUnit unit)
+        {
+            if (unit == null || unit.Kind == SoldierKind.Hero || !units.Contains(unit) ||
+                !units.Any(u => u.Kind == SoldierKind.Hero && u.Selected && u.Id == teamId) ||
+                !unit.Selected && units.Count(u => u.Selected && u.Kind != SoldierKind.Hero) >= BaseMuster.BattleSoldierLimit) return false;
+            unit.Selected = !unit.Selected || unit.TeamId != teamId;
+            if (unit.TeamId != teamId) Recall(unit.Id);
+            unit.TeamId = teamId;
+            if (unit.Selected) unit.SelectionOrder = ++lastSelection;
+            Prune();
+            return true;
+        }
 
         public BaseBattlePreparation(BaseState state, BasePrepRoute route, int? hideoutSeed = null, int? hideoutEnemyCount = null)
         {
@@ -102,6 +136,7 @@ namespace BaseConquest.Base
                 }
             }
             units = rows.ToArray();
+            if (party == null) RestorePreferredSoldiers(teams);
             if (Route != BasePrepRoute.Travel)
             {
                 Board = Project(state);
@@ -123,6 +158,44 @@ namespace BaseConquest.Base
                     enemyReference = reference.Battle.Soldiers.Where(u => u.Side == BattleSide.B && u.IsAlive).ToArray();
                 }
                 catch (InvalidOperationException) { }
+            }
+        }
+
+        private void RestorePreferredSoldiers(BasePrepUnit[] leaders)
+        {
+            if (!leaders.Any(team => team.Leader.PreferredSoldiers?.Count > 0)) return;
+            foreach (var kind in BattleSimulation.TroopKinds)
+            {
+                var pool = units.Where(u => u.Kind == kind).ToDictionary(u => u.SoldierNumber);
+                var original = leaders.ToDictionary(team => team.Id,team =>
+                    pool.Values.Where(u => u.Selected && u.TeamId == team.Id).ToList());
+                foreach (var u in pool.Values) u.Selected = false;
+                foreach (var team in leaders)
+                {
+                    int needed = original[team.Id].Count;
+                    foreach (var id in team.Leader.PreferredSoldiers ?? Enumerable.Empty<int>())
+                    {
+                        if (needed == 0) break;
+                        if (!pool.TryGetValue(id,out var named) || named.Selected) continue;
+                        Assign(named,team.Id);
+                        needed--;
+                    }
+                }
+                foreach (var team in leaders)
+                {
+                    int remaining = original[team.Id].Count - TeamCount(team.Id,kind);
+                    foreach (var candidate in original[team.Id].Concat(pool.Values.OrderBy(u=>u.SoldierNumber)).Where(u=>!u.Selected))
+                    {
+                        if (remaining-- <= 0) break;
+                        Assign(candidate,team.Id);
+                    }
+                }
+            }
+            void Assign(BasePrepUnit soldier, string teamId)
+            {
+                soldier.Selected = true;
+                soldier.TeamId = teamId;
+                soldier.SelectionOrder = ++lastSelection;
             }
         }
 
@@ -184,7 +257,7 @@ namespace BaseConquest.Base
                 unit.Kind != SoldierKind.Hero && !Positions.ContainsKey(unit.TeamId ?? "") ||
                 Positions.Any(pair => pair.Key != id && pair.Value == cell)) return false;
             var point = Anchor(cell);
-            var probe = new PrototypeUnit { FootprintLength = unit.Footprint, Facing = East, Position = point };
+            var probe = new PrototypeUnit { Facing = East, Position = point };
             return geometry.Fits(probe, geometry.Arena.CellAt(point), East, false);
         }
 

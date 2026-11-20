@@ -73,11 +73,11 @@ namespace BaseConquest.Base
         }
 
         private void NpcDialogue(NpcLine[] lines, NpcReply[] replies, bool lockExitUntilFinished = false, Action onCompleted = null,
-            bool quietAdvance = false, bool guide = false)
+            bool quietAdvance = false, bool guide = false, bool blackout = false)
         {
             var view = OpenScenePanel("NpcDialogue", "npc-dialogue");
             root.GetComponent<Canvas>().sortingOrder = 300;
-            modal.GetComponent<Image>().color = new Color(.14f, .08f, .04f, .26f);
+            modal.GetComponent<Image>().color = blackout ? Color.black : new Color(.14f, .08f, .04f, .26f);
             interactionObject = "";
             var portrait = Ui<RectTransform>(view, "PortraitFrame");
             var avatar = Ui<RectTransform>(portrait, "SpeakerPortrait").gameObject.GetOrAdd<BattleAvatarGraphic>();

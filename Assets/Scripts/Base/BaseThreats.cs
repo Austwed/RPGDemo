@@ -192,7 +192,7 @@ namespace BaseConquest.Base
                 bool lost=unit!=null&&(unit.InstantDead||captured||win&&!unit.IsAlive&&!unit.Escaped&&!unit.Rescued);
                 if(unit!=null)report.EnemyDeployed++;
                 if(lost){if(captured)report.EnemyCaptured++;else report.EnemyLost++;continue;}
-                var survivor=original.Copy();survivor.Health=unit==null ? original.Health : Math.Max(1,Math.Min(original.Stats.Health,unit.Health));survivors.Add(survivor);
+                var survivor=original.Copy();survivor.Health=unit==null ? original.Health : Math.Max(1,CombatNumbers.RemainingHealth(Math.Min(original.Stats.Health,unit.Health)));survivors.Add(survivor);
             }
             if(e.Kind=="attack")
             {

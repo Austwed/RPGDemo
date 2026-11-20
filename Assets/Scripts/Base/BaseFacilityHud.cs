@@ -13,7 +13,6 @@ namespace BaseConquest.Base
     {
         private ScrollRect facilityControls;
         private Vector2 facilityScrollOffsets;
-        private SoldierKind? facilityRosterKind;
         private string facilityPersonnelDetail;
         private string tentLeaderId;
         private bool UseFacilityPanel => BaseBattleGateway.DemoMode && BaseDemo.Active(owner.State) &&
@@ -114,6 +113,7 @@ namespace BaseConquest.Base
             workerDraft = owner.State.Copy();
             LockCurrentPosts(workerDraft);
             workerMoves.Clear();
+            workerSelectionOrder.Clear();
         }
 
         private void ResetWorkerDraft()
@@ -121,6 +121,7 @@ namespace BaseConquest.Base
             workerDraft = null;
             workerDraftSource = null;
             workerMoves.Clear();
+            workerSelectionOrder.Clear();
         }
 
         private void CommitWorkerDraft(Action refresh)
@@ -171,11 +172,10 @@ namespace BaseConquest.Base
             public RectTransform Panel, Actions, List, Portrait;
             public BaseState State;
             public bool HidePostLock;
-            public SoldierKind? Filter;
-            public readonly List<(SoldierKind? kind, Button button, Color color)> Filters = new List<(SoldierKind?,Button,Color)>();
+            public readonly SoldierRosterFilter Filter = new();
             public readonly Dictionary<int,RectTransform> Soldiers = new Dictionary<int,RectTransform>();
             public Color RosterColor;
-            public Text Civilians, Empty;
+            public Text Empty;
             public Action<bool> UpdateManagerAvailability;
             public Action<BaseState, BaseDayPreview, int, bool> RefreshActions;
         }
@@ -216,19 +216,7 @@ namespace BaseConquest.Base
                     FacilityId = id, Panel = panel, Actions = actions, List = list, Portrait = Ui<RectTransform>(panel, "PortraitColumn")
                 };
                 var created = productionView;
-                foreach (SoldierKind? kind in BaseTown.TroopKinds(state).Select(k=>(SoldierKind?)BaseCampaign.ToBattle(k)).Prepend(null))
-                {
-                    var button = FacilityButton(filters, kind?.ToString() ?? "All", kind.HasValue ? BattleSimulation.KindName(kind.Value) : "全部", () =>
-                    {
-                        if (created.Filter == kind) return;
-                        created.Filter = kind;
-                        panelScroll.StopMovement();
-                        created.List.anchoredPosition = Vector2.zero;
-                        OpenProductionFacility();
-                    });
-                    created.Filters.Add((kind, button, button.targetGraphic.color));
-                }
-                created.Civilians = FacilityText(list, "", true);
+                RosterToolbar(filters, created.Filter, OpenProductionFacility);
                 created.Empty = FacilityText(list, "");
             }
 
@@ -338,11 +326,11 @@ namespace BaseConquest.Base
             var cancel = FacilityButton(commands, "Cancel", "取消方案", () => { ResetWorkerDraft(); OpenFacility(); });
             var draftNotice = FacilityText(actions, FacilityCopy("draft", "岗位调配待确认"));
 
-            var counters = new List<(BaseTroopKind Kind, Text Label, Button Minus, Button Plus, Button Unlock, bool CanUnlock)>();
-            foreach (BaseTroopKind kind in BaseTown.TroopKinds(state))
+            var counters = new List<(BaseTroopKind Kind, InputField Input, Button Unlock, bool CanUnlock)>();
+            foreach (var kind in BattleSimulation.TroopKinds.Select(BaseCampaign.ToBase))
             {
-                var counter = FacilityCounter(actions, kind.ToString(), "",
-                    () => Adjust(kind, id, "", OpenFacility), () => Adjust(kind, "", id, OpenFacility), false, false);
+                var counter = FacilityTarget(actions, kind.ToString(), BaseEconomy.TroopName(kind),
+                    amount => SetWorkerCount(kind, id, amount, OpenFacility));
                 var unlock = Ui<Button>(counter, "Unlock");
                 bool canUnlock = false;
                 if (hidePostLock) unlock.gameObject.SetActive(false);
@@ -356,7 +344,7 @@ namespace BaseConquest.Base
                             worker.PostLocked = false;
                     }, "已解锁工人，由策略安排", OpenFacility));
                 }
-                counters.Add((kind, Ui<Text>(counter, "Label"), Ui<Button>(counter, "Minus"), Ui<Button>(counter, "Plus"), unlock, canUnlock));
+                counters.Add((kind, Ui<InputField>(counter, "Input"), unlock, canUnlock));
             }
 
             var draftLocks = new List<Button>();
@@ -386,13 +374,10 @@ namespace BaseConquest.Base
                 apply.interactable = cancel.interactable = pending;
                 applyImage.color = pending ? DemoUiTheme.Current.Gold : applyColor;
                 draftNotice.gameObject.SetActive(pending);
-                foreach (var (kind, label, minus, plus, unlock, canUnlock) in counters)
+                foreach (var (kind, input, unlock, canUnlock) in counters)
                 {
                     int assigned = BaseEconomy.WorkersAt(draft, id, kind);
-                    label.text = BaseEconomy.TroopName(kind) + "  " + assigned;
-                    minus.interactable = assigned > 0;
-                    plus.interactable = count < facility.Capacity && draft.Workers.Any(w => w.Kind == kind &&
-                        BaseSettlements.Local(draft,w) && w.FacilityId == "" && BaseDevelopment.Effective(draft, w));
+                    if (!input.isFocused) input.SetTextWithoutNotify(assigned.ToString());
                     unlock.interactable = !pending && canUnlock;
                 }
                 foreach (var control in draftLocks) control.interactable = !pending;
@@ -429,20 +414,16 @@ namespace BaseConquest.Base
             if (unit.Relocating) return unit.State;
             if (unit.Remote) return unit.State;
             if (unit.Away) return "外出 · 无法生产";
-            if (!unit.Effective) return unit.Health <= 0 ? "倒地 · 无法生产" : "重伤 · 无法生产";
+            if (!unit.Effective) return unit.State;
             return unit.Facility + " · 今日可生产";
         }
 
         private void FillFacilityWorkers(ProductionFacilityView view, BaseState draft)
         {
-            int civilians = BaseEconomy.CivilianWorkersAt(draft, view.FacilityId);
-            view.Civilians.gameObject.SetActive(civilians > 0 && !view.Filter.HasValue);
-            view.Civilians.text = CivilianRosterLabel(civilians);
-            foreach (var (kind, button, color) in view.Filters)
-                button.targetGraphic.color = kind == view.Filter ? DemoUiTheme.Current.Gold : color;
-            var units = BasePersonnel.Soldiers(draft).ToArray();
+            var units = view.Filter.Apply(BasePersonnel.Soldiers(draft)).ToArray();
             var activeNumbers = new HashSet<int>();
             bool anyVisible = false;
+            int rowIndex = 0;
             foreach (var unit in units)
             {
                 int number = unit.SoldierNumber;
@@ -458,37 +439,32 @@ namespace BaseConquest.Base
                 else UpdatePersonnelRow(card, unit, status, showFacility:false);
                 var select = card.GetComponent<Button>();
                 select.interactable = unit.Effective && !unit.Remote && !unit.Relocating;
-                select.targetGraphic.color = workerMoves.ContainsKey(number) ? Color.Lerp(view.RosterColor, DemoUiTheme.Current.Gold, .38f) : view.RosterColor;
-                bool visible = !view.Filter.HasValue || view.Filter.Value == unit.Kind;
-                card.gameObject.SetActive(visible);
-                anyVisible |= visible;
+                TintRoster(card, select.interactable, unit.Post == view.FacilityId, workerMoves.ContainsKey(number));
+                card.gameObject.SetActive(true);
+                card.SetSiblingIndex(rowIndex++);
+                anyVisible = true;
             }
-            foreach (int number in view.Soldiers.Keys.Where(n => !activeNumbers.Contains(n)).ToArray())
-            {
-                var card = view.Soldiers[number];
-                view.Soldiers.Remove(number);
-                card.gameObject.SetActive(false);
-                UiPrefabBinding.DestroyView(card.gameObject);
-            }
+            foreach (var item in view.Soldiers)
+                if (!activeNumbers.Contains(item.Key)) item.Value.gameObject.SetActive(false);
             view.Empty.gameObject.SetActive(!anyVisible);
             view.Empty.text = units.Length == 0 ? "尚未招募士兵。" : "没有该兵种的士兵。";
         }
 
-        private static string CivilianRosterLabel(int count) => $"村民 ×{count} · 补位";
-
-        private RectTransform FacilityCounter(Transform actions, string name, string title, Action lower, Action raise,
-            bool canLower, bool canRaise)
+        private RectTransform FacilityTarget(Transform parent, string key, string label, Action<int> change)
         {
-            var counter = CloneSceneUi("FacilityCounter", actions);
-            counter.name = name;
-            Ui<Text>(counter, "Label").text = title;
-            var minus = Ui<Button>(counter, "Minus");
-            var plus = Ui<Button>(counter, "Plus");
-            minus.interactable = canLower;
-            plus.interactable = canRaise;
-            minus.onClick.AddListener(() => { if (!owner.Busy) lower(); });
-            plus.onClick.AddListener(() => { if (!owner.Busy) raise(); });
-            return counter;
+            var row = CloneSceneUi("FacilityCounter", parent);
+            row.name = key;
+            Ui<Text>(row, "Label").text = label;
+            row.Find("Minus").gameObject.SetActive(false);
+            row.Find("Plus").gameObject.SetActive(false);
+            var field = CloneSceneUi("BattlePreparationTeam/Melee/Input", row);
+            field.name = "Input";
+            field.anchoredPosition = new Vector2(205, -2);
+            field.sizeDelta = new Vector2(158, 34);
+            var input = field.GetComponent<InputField>();
+            input.contentType = InputField.ContentType.IntegerNumber;
+            input.onEndEdit.AddListener(text => { if (!owner.Busy && int.TryParse(text, out int value)) change(Math.Max(0,value)); });
+            return row;
         }
 
         private void OpenBarracksFacility(string[] rangeDraft = null)
@@ -523,11 +499,20 @@ namespace BaseConquest.Base
             BaseLeader Commander(BaseState current) => current.Leaders.FirstOrDefault(l => l.Id == compositionLeader && BaseAdventure.Alive(l))
                 ?? current.Leaders.Single(l => l.Id == current.PlayerLeaderId);
             var commanderHeading = FacilityText(actions, "", true);
-            FacilityText(actions, "预设人数在备战时按实际兵力配置。");
-            var counters = new Dictionary<BaseTroopKind, RectTransform>();
-            foreach (BaseTroopKind kind in BaseTown.TroopKinds(state))
+            bool editingFormation = false;
+            Action refreshEditing = null;
+            Button editRoster = null;
+            editRoster = FacilityButton(actions,"EditFormation","点名编队",() =>
             {
-                var counter = FacilityCounter(actions, kind.ToString(), "", () => ChangeTroopCount(kind, -1), () => ChangeTroopCount(kind, 1), false, false);
+                editingFormation = !editingFormation;
+                facilityPersonnelDetail = null;
+                editRoster.GetComponentInChildren<Text>().text = editingFormation ? "结束编队" : "点名编队";
+                refreshEditing?.Invoke();
+            });
+            var counters = new Dictionary<BaseTroopKind, RectTransform>();
+            foreach (var kind in BattleSimulation.TroopKinds.Select(BaseCampaign.ToBase))
+            {
+                var counter = FacilityTarget(actions, kind.ToString(), BaseEconomy.TroopName(kind), amount => ChangeTroopCount(kind, amount));
                 counters.Add(kind, counter);
                 counter.Find("Unlock").gameObject.SetActive(false);
             }
@@ -545,6 +530,7 @@ namespace BaseConquest.Base
                         compositionLeader = captain.Id;
                         options.gameObject.SetActive(false);
                         RefreshCommander();
+                        refreshEditing?.Invoke();
                     });
                 var choose = FacilityButton(portrait, "FormationCaptain", "切换编队对象", () =>
                     options.gameObject.SetActive(!options.gameObject.activeSelf));
@@ -561,17 +547,17 @@ namespace BaseConquest.Base
                 foreach (var (kind, counter) in counters)
                 {
                     int count = leader.DefaultTroops.Count(kind);
-                    Ui<Text>(counter, "Label").text = BaseEconomy.TroopName(kind) + "  " + count;
-                    Ui<Button>(counter, "Minus").interactable = available && count > 0;
-                    Ui<Button>(counter, "Plus").interactable = available && count < 30;
+                    var input = Ui<InputField>(counter, "Input");
+                    input.SetTextWithoutNotify(count.ToString());
+                    input.interactable = available;
                 }
             }
 
             void ChangeTroopCount(BaseTroopKind kind, int delta)
             {
                 var leader = Commander(owner.State);
-                int count = Mathf.Clamp(leader.DefaultTroops.Count(kind) + delta, 0, 30);
-                SetFacilityCommanderTroops(leader.Id, kind, count, RefreshCommander);
+                int count = Mathf.Clamp(delta, 0, 30);
+                SetFacilityCommanderTroops(leader.Id, kind, count, () => { RefreshCommander(); refreshEditing?.Invoke(); });
             }
 
             FacilityText(actions, "默认策略与范围 · 驻守 / 威胁 / 进攻", true);
@@ -627,33 +613,21 @@ namespace BaseConquest.Base
             }), !state.Campaign.HasActiveBattle);
 
             float listOffset = 0;
-            var choices = new (SoldierKind? Kind, Button Button, Color Color)[1 + BaseTown.TroopKinds(state).Count];
+            var soldierCards = new Dictionary<int,RectTransform>();
+            var detailsPanel = new List<GameObject>();
+            var filter = new SoldierRosterFilter();
             Button back = null;
-            AddFilter(0, null, "All", "全部");
-            int filterIndex = 1;
-            foreach (var kind in BaseTown.TroopKinds(state).Select(BaseCampaign.ToBattle))
-                AddFilter(filterIndex++, kind, kind.ToString(), BattleSimulation.KindName(kind));
+            Button[] choices = null;
+            choices = RosterToolbar(filters, filter, () => RefreshRoster(list.anchoredPosition.y));
             back = FacilityButton(filters, "Back", "返回名册", () =>
             {
                 facilityPersonnelDetail = null;
                 RefreshRoster(listOffset);
             });
+            refreshEditing = () => RefreshRoster(list.anchoredPosition.y);
             RefreshRoster();
             RefreshCommander();
             FinishFacilityPanel();
-
-            void AddFilter(int index, SoldierKind? kind, string name, string label)
-            {
-                var button = FacilityButton(filters, name, label, () =>
-                {
-                    if (facilityRosterKind == kind && facilityPersonnelDetail == null) return;
-                    facilityRosterKind = kind;
-                    facilityPersonnelDetail = null;
-                    listOffset = 0;
-                    RefreshRoster();
-                });
-                choices[index] = (kind, button, button.targetGraphic.color);
-            }
 
             void RefreshRoster(float offset = 0)
             {
@@ -662,36 +636,60 @@ namespace BaseConquest.Base
                 var detail = personnel.FirstOrDefault(u => u.Key == facilityPersonnelDetail);
                 rosterStamp = BaseMuster.Snapshot(current);
                 rosterHeading.text = detail == null ? "士兵名册" : FacilityCopy("details", "单位详情");
-                foreach (var (kind, button, color) in choices)
-                {
-                    button.gameObject.SetActive(detail == null);
-                    button.targetGraphic.color = kind == facilityRosterKind ? DemoUiTheme.Current.Gold : color;
-                }
+                foreach (var button in choices) button.gameObject.SetActive(detail == null);
                 back.gameObject.SetActive(detail != null);
-                ClearPanelChildren(list);
-
-                if (detail != null) FillBarracksDetail(list, detail, () =>
+                foreach (var card in soldierCards.Values) card.gameObject.SetActive(false);
+                foreach (var child in detailsPanel) { child.SetActive(false); UiPrefabBinding.DestroyView(child); }
+                detailsPanel.Clear();
+                if (detail != null)
+                {
+                    int first = list.childCount;
+                    FillBarracksDetail(list, detail, () =>
                 {
                     var draft = fields.Select(field => field.text).ToArray();
                     OpenPersonnelDetail(detail.Key, rosterStamp, () => OpenBarracksFacility(draft), "返回兵营");
-                });
+                    });
+                    for (int n=first; n<list.childCount; n++) detailsPanel.Add(list.GetChild(n).gameObject);
+                }
                 else
                 {
-                    var units = personnel.Where(u => facilityRosterKind == null || u.Kind == facilityRosterKind).ToArray();
+                    var units = filter.Apply(personnel).ToArray();
+                    var commander=Commander(current);
+                    int index=0;
                     foreach (var unit in units)
                     {
-                        Action details = () =>
+                        int number=unit.SoldierNumber;
+                        bool picked=commander.PreferredSoldiers.Contains(number);
+                        if (!soldierCards.TryGetValue(number,out var card))
                         {
-                            if (BaseMuster.Snapshot(owner.State) == rosterStamp)
+                            card = AddPersonnelRow(list,unit,unit.State,() =>
                             {
-                                listOffset = Mathf.Max(0, list.anchoredPosition.y);
-                                facilityPersonnelDetail = unit.Key;
-                            }
-                            RefreshRoster();
-                        };
-                        AddPersonnelRow(list, unit, unit.State, details);
+                                if (editingFormation)
+                                {
+                                    string leaderId=Commander(owner.State).Id;
+                                    FacilityChange(next=>
+                                    {
+                                        if (!BaseMuster.TogglePreference(next,next.Leaders.Single(l=>l.Id==leaderId),number))
+                                            throw new InvalidOperationException("这名士兵当前无法编入队伍");
+                                    },"",()=>{RefreshCommander(); refreshEditing();});
+                                }
+                                else
+                                {
+                                    listOffset=Mathf.Max(0,list.anchoredPosition.y);
+                                    facilityPersonnelDetail="soldier:"+number;
+                                    RefreshRoster();
+                                }
+                            });
+                            soldierCards.Add(number,card);
+                        }
+                        bool eligible = !editingFormation || (!commander.Away && !current.Campaign.HasActiveBattle && (unit.CanBattle || picked));
+                        card.GetComponent<Button>().interactable=eligible;
+                        card.gameObject.SetActive(true);
+                        card.SetSiblingIndex(index++);
+                        UpdatePersonnelRow(card,unit,editingFormation && picked ? "已编入" : unit.State);
+                        TintRoster(card, editingFormation ? eligible : unit.Effective && !unit.Remote,false,editingFormation && picked);
                     }
-                    if (units.Length == 0) FacilityText(list, "暂无符合条件的人员。");
+                    if (units.Length == 0) detailsPanel.Add(FacilityText(list,"暂无符合条件的人员。").gameObject);
                 }
 
                 rosterScroll.StopMovement();
@@ -707,10 +705,10 @@ namespace BaseConquest.Base
         private void FillBarracksDetail(Transform list, BasePersonnelUnit unit, Action openComplete)
         {
             FacilityText(list, unit.Name + " · " + BattleSimulation.KindName(unit.Kind), true);
-            FacilityText(list, $"生命 {unit.Health:0.#}/{unit.MaxHealth:0.#} · {unit.State}");
-            FacilityText(list, $"当前攻击 {unit.Current.Damage:0.##} · 防御 {unit.Current.Defense:0.##}");
+            FacilityText(list, $"生命 {unit.Health:0}/{unit.MaxHealth:0} · {unit.State}");
+            FacilityText(list, $"当前攻击 {unit.Current.Damage:0} · 防御 {unit.Current.Defense:0}");
             FacilityText(list, CampSight(unit.Current));
-            FacilityText(list, $"基础攻击 {unit.Basic.Damage:0.##} · 防御 {unit.Basic.Defense:0.##}");
+            FacilityText(list, $"基础攻击 {unit.Basic.Damage:0} · 防御 {unit.Basic.Defense:0}");
             FacilityText(list, unit.Facility + " · " + (unit.Locked ? "手动锁定" : "自动安排"));
             FacilityButton(list, "CompleteDetail", "完整属性", openComplete);
             var state = owner.State;
@@ -729,7 +727,7 @@ namespace BaseConquest.Base
         {
             var leader = next.Leaders.Single(x => x.Id == leaderId);
             if (leader.Away || next.Campaign.HasActiveBattle) throw new InvalidOperationException("队长外出期间保留冻结编队，请返营后修改");
-            leader.DefaultTroops.Set(kind, count);
+            BaseMuster.SetPreferenceCount(next,leader,kind,count);
         }, "已保存队长预设，未抽调人员", refresh);
 
         private void OpenHomeFacility()
@@ -740,6 +738,17 @@ namespace BaseConquest.Base
             var raids = BaseCampaign.Due(state).ToArray();
             var (actions, filters, list) = OpenFacilityPanel("facility:home", BaseSettlements.AtVillage(state) ? "家" : "营帐", "休息与管理", "队长名册");
             var portrait = Ui<RectTransform>(panel, "PortraitColumn");
+            FitControl(panel,"Right",14,56,355,528);
+            FitControl(panel,"Right/Title",12,2,330,32);
+            FitControl(panel,"Right/Filters",8,36,339,38);
+            FitControl(panel,"Right/List",8,78,339,442);
+            FitControl(panel,"PortraitColumn",379,56,252,528);
+            FitControl(portrait,"Portrait",50,47,152,152);
+            FitControl(portrait,"Name",8,2,236,44);
+            FitControl(portrait,"Effect",8,202,236,54);
+            FitControl(panel,"Left",641,56,505,528);
+            FitControl(panel,"Left/List",8,36,489,484);
+            var postControls=new Dictionary<string,Button>();
             var cards = new Dictionary<string, (RectTransform Card, Color DefaultColor)>();
             var partyCapacity = FacilityText(filters, "", true);
             partyCapacity.name = "PartyCapacity";
@@ -767,20 +776,37 @@ namespace BaseConquest.Base
             if (BasePartyInventory.AtWarehouse(state)) FacilityButton(actions, "Warehouse", "仓库", OpenWarehouse);
             if (BaseDeputy.Unlocked(state)) FacilityButton(actions, "Deputy", "副手 · " + (BaseDeputy.Leader(state)?.Name ?? "未指定"), OpenDeputy);
 
-            FacilityText(actions, "队长管理", true);
-            var roleActions = CloneSceneUi("FacilityActionRow", actions);
-            FacilityButton(roleActions, "CaptainDetail", "完整属性", () =>
-                OpenPersonnelDetail("leader:" + tentLeaderId, BaseMuster.Snapshot(owner.State), OpenHome, "返回营帐"));
             Button follow = null, dismiss = null;
             Text restriction = null, capacity = null, food = null, product = null, efficiency = null;
-            follow = FacilityButton(roleActions, "CaptainFollow", "", ChangeFollowing);
-            restriction = FacilityText(actions, "");
-            dismiss = FacilityButton(actions, "CaptainDismiss", "永久请离基地", () => FacilityChange(next =>
+            void PlaceCaptainControl(Transform element, int y, int height)
+            {
+                var rect = (RectTransform)element;
+                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0,1);
+                rect.anchoredPosition = new Vector2(12,-y);
+                rect.sizeDelta = new Vector2(228,height);
+            }
+            var detail = FacilityButton(portrait, "CaptainDetail", "完整属性", () =>
+                OpenPersonnelDetail("leader:" + tentLeaderId, BaseMuster.Snapshot(owner.State), OpenHome, "返回营帐"));
+            PlaceCaptainControl(detail.transform,260,39);
+            follow = FacilityButton(portrait, "CaptainFollow", "", ChangeFollowing);
+            PlaceCaptainControl(follow.transform,305,39);
+            var train = FacilityButton(portrait, "Training", "等级训练", OpenTraining);
+            PlaceCaptainControl(train.transform,350,39);
+            dismiss = FacilityButton(portrait, "CaptainDismiss", "请离营地", () => FacilityChange(next =>
             {
                 if (!BaseRpg.Dismiss(next, tentLeaderId)) throw new InvalidOperationException(BaseRpg.DismissProblem(next, tentLeaderId));
             }, "已请离基地，物品已返仓", RefreshHome));
-            FacilityButton(actions, "Training", "等级训练", OpenTraining);
-
+            PlaceCaptainControl(dismiss.transform,395,39);
+            var posts=CloneSceneUi("FacilityActionRow",portrait);
+            PlaceCaptainControl(posts,440,39);
+            foreach (string facility in new[] {"farm","workshop",""})
+            {
+                string post=facility;
+                postControls[post]=FacilityButton(posts,post==""?"Release":post,post==""?"卸任":BaseEconomy.FacilityName(post),
+                    ()=>ConfirmManager(tentLeaderId,post,RefreshHome));
+            }
+            restriction = FacilityText(portrait,"");
+            PlaceCaptainControl(restriction.transform,482,40);
             if (BaseRpg.Active(state) && !BaseSettlements.AtVillage(state))
             {
                 var rules = state.Demo.Rpg;
@@ -790,7 +816,7 @@ namespace BaseConquest.Base
                     int index = rules.CampLevel - 1;
                     FacilityText(actions, $"升级所需 · 原料 {rules.CampMaterials[index]} · 钱币 {rules.CampCoins[index]}");
                     double recovery = Math.Min(BaseDevelopment.CampRecoveryStep, 1 - BaseDevelopment.RecoveryRatio(state));
-                    FacilityText(actions, $"升级后 · 容量 {rules.Capacity[index + 1]} · 每日恢复 +{recovery * 100:0.#} 个百分点");
+                    FacilityText(actions, $"升级后 · 容量 {rules.Capacity[index + 1]} · 每日恢复 +{recovery * 100:0} 个百分点");
                     FacilityButton(actions, "Upgrade", "升级营帐", () => FacilityChange(next =>
                     {
                         if (!BaseRpg.UpgradeCamp(next)) throw new InvalidOperationException(BaseRpg.CampUpgradeProblem(next));
@@ -806,14 +832,21 @@ namespace BaseConquest.Base
                 }, showFacility: false);
                 cards.Add(captain.LeaderId, (card, Ui<Image>(card, "").color));
             }
-            FacilityText(list, $"{FacilityCopy("forecast", "日结预览")} · 第{day}天 → 第{day + 1}天", true);
-            food = FacilityText(list, "");
-            product = FacilityText(list, "");
-            efficiency = FacilityText(list, "");
+            FacilityText(actions, $"{FacilityCopy("forecast", "日结预览")} · 第{day}天 → 第{day + 1}天", true);
+            food = FacilityText(actions, "");
+            product = FacilityText(actions, "");
+            efficiency = FacilityText(actions, "");
             if (raids.Length > 0)
             {
-                FacilityText(list, "待处理入侵", true);
-                foreach (var raid in raids) FacilityText(list, raid.Title);
+                FacilityText(actions, "待处理入侵", true);
+                foreach (var raid in raids) FacilityText(actions, raid.Title);
+            }
+            foreach (RectTransform control in actions)
+            {
+                var layout = control.gameObject.GetOrAdd<LayoutElement>();
+                layout.minHeight = 0;
+                layout.preferredHeight = control.GetComponent<Button>() != null || control.name == "FacilityActionRow" ? 37 : 26;
+                layout.flexibleHeight = 0;
             }
             updatePolicy = RefreshPolicy;
             RefreshPolicy();
@@ -824,7 +857,12 @@ namespace BaseConquest.Base
                 var selected = current.Leaders.FirstOrDefault(l => l.Id == tentLeaderId)
                     ?? current.Leaders.Single(l => l.Id == current.PlayerLeaderId);
                 tentLeaderId = selected.Id;
-                ShowFacilityLeader(portrait, selected, BasePersonnel.State(current, selected));
+                ShowFacilityLeader(portrait, selected, $"生命 {selected.Health:0}/{selected.MaxHealth:0} · {BasePersonnel.State(current, selected)}");
+                foreach (var item in postControls)
+                {
+                    item.Value.interactable = item.Key != selected.FacilityId && BaseEconomy.CanAssignLeader(current,selected.Id,item.Key);
+                    item.Value.targetGraphic.color = item.Key != "" && selected.FacilityId == item.Key ? DemoUiTheme.Current.Gold : DemoUiTheme.Current.Button;
+                }
                 bool player = selected.Id == current.PlayerLeaderId;
                 bool joining = !BaseAdventure.Contains(current, selected.Id);
                 string problem = player ? "" : BaseAdventure.ChangeProblem(current, selected.Id, joining);

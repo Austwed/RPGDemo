@@ -30,7 +30,7 @@ namespace BaseConquest.Base
             {"exit_east","town"},{"travel_base","base"},{"exit_west","perimeter"},{"exit_south","world"},{"travel_world","world"},
             {"demo_defense_exit","perimeter"},{"demo_defense_return","base"},
             {"demo_ruins_exit","outpost"},{"demo_ruins_return","town"},{"demo_ruins_investigate","dungeon"},{"demo_dungeon_exit","outpost"},
-            {"demo_march_exit","world"},{"demo_home_world","world"},{"demo_camp_world","world"}
+            {"demo_march_exit","world"},{"demo_home_world","world"},{"demo_camp_world","world"},{"demo_camp_east","world"}
         };
         // 领地内的相对地理位置：基地居中偏西，外围在基地西侧，城镇在东，遗迹在城镇以东的野外，地下回廊嵌在野外内部。
         private static void Spot(string region, out double x, out double y)

@@ -396,8 +396,8 @@ namespace BaseConquest.Battle
             {
                 var commander = b.CommanderFor(inspected);
                 descriptions.Add(b.UnitName(inspected) + "\n归属队长：" + (commander == null ? "无（自主作战）" : b.UnitName(commander) + (commander.IsActive ? "" : "（失能）"))
-                    + "\n生命 " + inspected.Health.ToString("0") + "/" + inspected.Stats.Health.ToString("0")
-                    + " · 攻击 " + b.AttackPower(inspected).ToString("0.#") + " · 防御 " + inspected.Stats.Defense.ToString("0")
+                    + "\n生命 " + CombatNumbers.RemainingHealth(inspected.Health) + "/" + inspected.Stats.Health.ToString("0")
+                    + " · 攻击 " + b.AttackPower(inspected).ToString("0") + " · 防御 " + inspected.Stats.Defense.ToString("0")
                     + " · 视野 " + b.Vision.SightRadius(inspected) + " 格"
                     + "\n" + b.Behavior(inspected) + (b.EffectsSummary(inspected) == "" ? "" : "\n" + b.EffectsSummary(inspected)) + "\n长按单位查看详细属性");
             }
@@ -434,7 +434,7 @@ namespace BaseConquest.Battle
                     + "\n归属队长：" + (leader == null ? "无" : b.UnitName(leader))
                     + "\n生命 " + (unit?.Health ?? stats.Health).ToString("0") + "/" + stats.Health.ToString("0")
                     + " · 攻击 " + stats.Damage.ToString("0") + " · 防御 " + stats.Defense.ToString("0")
-                    + "\n战力 " + stats.BaseBattlePower.ToString("0.#") + "（基础）"
+                    + "\n战力 " + stats.BaseBattlePower.ToString("0") + "（基础）"
                     + (unit == null ? "" : " · 视野 " + b.Vision.SightRadius(unit) + " 格")
                     + "\n攻击距离 " + stats.Range + " · 移动 " + (unit == null ? stats.MoveDistance : b.MovementSpeed(unit)) + " · 上轮脚力 " + (unit?.LastFootwork ?? 0)
                     + "\n暴击 " + stats.CritChance.ToString("P0") + " · 暴伤 " + stats.CritMultiplier.ToString("P0")
@@ -524,17 +524,17 @@ namespace BaseConquest.Battle
             if(owner.InformationUnits.Count==0)information.text=owner.InformationCell.HasValue?(battle.CanInspectCell(owner.ControlledSide,owner.InformationCell.Value)?"格内无可显示单位":"当前无视野，无法查看单位或地形"):Application.platform == RuntimePlatform.Android
                 ? "点格查看单位和地形\n点按或拖划头像选队，点空地移动，点敌人集火\n单指拖动战场平移，双指捏合缩放"
                 : "点格子查看格内单位与地形\n点队长或头像选队，Shift点队长单选\n点空地移动／点敌人集火\n空格继续／暂停";
-            else information.text=string.Join("\n\n",owner.InformationUnits.Select(unit=>battle.UnitName(unit)+"\n归属队长："+(battle.CommanderFor(unit) is BattleSoldier commander?battle.UnitName(commander):"无（自主作战）")+"\n生命 "+unit.Health.ToString("0")+" / "+unit.Stats.Health.ToString("0")+" · 攻击 "+owner.RealtimeAttack(unit).ToString("0.#")+" · 防御 "+unit.Stats.Defense.ToString("0.#")+"\n攻击距离 "+owner.RealtimeRange(unit).ToString("0.#")+"细格 · 移速 "+owner.RealtimeSpeed(unit).ToString("0.#")+"细格／秒\n视野 "+battle.Vision.SightRadius(unit)+" 格"));
+            else information.text=string.Join("\n\n",owner.InformationUnits.Select(unit=>battle.UnitName(unit)+"\n归属队长："+(battle.CommanderFor(unit) is BattleSoldier commander?battle.UnitName(commander):"无（自主作战）")+"\n生命 "+CombatNumbers.RemainingHealth(unit.Health)+" / "+unit.Stats.Health.ToString("0")+" · 攻击 "+owner.RealtimeAttack(unit).ToString("0")+" · 防御 "+unit.Stats.Defense.ToString("0")+"\n攻击距离 "+owner.RealtimeRange(unit).ToString("0")+"细格 · 移速 "+owner.RealtimeSpeed(unit).ToString("0")+"细格／秒\n视野 "+battle.Vision.SightRadius(unit)+" 格"));
             if(owner.InformationCell.HasValue)information.text+="\n\n"+owner.RealtimeFineInformation+"\n"+CellInformation(battle,owner.InformationCell.Value,owner.ControlledSide);
             if(!string.IsNullOrEmpty(owner.RealtimeRangeDescription))information.text+="\n\n"+owner.RealtimeRangeDescription;
             informationScroll.content.sizeDelta=new Vector2(0,Mathf.Max(informationScroll.viewport.rect.height,information.preferredHeight+8));
             objectiveProgress.text=battle.Phase==BattlePhase.Deployment?"布置队伍":battle.Scenario.Objective.Kind==ObjectiveKinds.Hold?
-                "坚守 "+Math.Min(battle.Scenario.Objective.HoldRounds,owner.Realtime?.Model.Elapsed??0).ToString("0.0")+" / "+battle.Scenario.Objective.HoldRounds+"秒":"队长全倒＋敌兵损失过半";
+                "坚守 "+Math.Min(battle.Scenario.Objective.HoldRounds,owner.Realtime?.Model.Elapsed??0).ToString("0")+" / "+battle.Scenario.Objective.HoldRounds+"秒":"队长全倒＋敌兵损失过半";
             status.text=(battle.Phase==BattlePhase.Finished?"战斗结束 · "+BattleSceneController.OutcomeName(battle.Report.Outcome):owner.RealtimeStatus)+"\n"+owner.Feedback;
             if(owner.IsSceneEncounter)
             {
                 objectiveTitle.text=owner.Realtime?.RuinsExitOpen==true ? "前往我方撤离点" : owner.SceneEncounterObjective;
-                objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsSecondDefense?"击败全部来敌":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0.0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 可提前击退":owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":owner.SceneEncounterObjective;
+                objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsSecondDefense?"击败全部来敌":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 可提前击退":owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":owner.SceneEncounterObjective;
                 if(owner.Realtime?.RuinsExitOpen==true)objectiveProgress.text=owner.Realtime.EscortWithoutCaptain?"点我方撤离点，让幸存士兵带队离开":"一名我方队长抵达即可撤离";
                 status.text=owner.Feedback;
             }
@@ -543,8 +543,8 @@ namespace BaseConquest.Battle
                 foreach(var row in rangeRows)row.gameObject.SetActive(false);
                 foreach (var button in strategyButtons) button.gameObject.SetActive(false);
                 var unit=owner.DetailsUnit??battle.Commander(owner.ControlledSide,owner.DetailsSlot);
-                if(unit!=null)detailsInfo.text=battle.UnitName(unit)+"\n生命 "+unit.Health.ToString("0")+" / "+unit.Stats.Health.ToString("0")+
-                    "\n攻击 "+unit.Stats.Damage.ToString("0.0")+" · 防御 "+unit.Stats.Defense.ToString("0.0")+"\n移速 "+owner.RealtimeSpeed(unit).ToString("0.#")+"细格／秒 · 攻击距离 "+owner.RealtimeRange(unit).ToString("0.#")+"细格\n视野 "+battle.Vision.SightRadius(unit)+" 格";
+                if(unit!=null)detailsInfo.text=battle.UnitName(unit)+"\n生命 "+CombatNumbers.RemainingHealth(unit.Health)+" / "+unit.Stats.Health.ToString("0")+
+                    "\n攻击 "+unit.Stats.Damage.ToString("0")+" · 防御 "+unit.Stats.Defense.ToString("0")+"\n移速 "+owner.RealtimeSpeed(unit).ToString("0")+"细格／秒 · 攻击距离 "+owner.RealtimeRange(unit).ToString("0")+"细格\n视野 "+battle.Vision.SightRadius(unit)+" 格";
                 else detailsInfo.text=battle.CommanderDisplayName(owner.ControlledSide,owner.DetailsSlot)+"\n尚未部署，布兵后可查看本场实际属性";
                 detailsEffects.text=(unit?.Rpg==null?"":BaseConquest.Base.BaseRpg.Describe(unit.Rpg)+"\n")+(owner.DetailsSlot>=0&&owner.Realtime!=null?owner.Realtime.SkillDescription(unit?.Side??owner.ControlledSide,unit?.OriginCommanderSlot??owner.DetailsSlot)+"\n":"")
                     +StoryText.Get("story.ui.battle.strategy_help","队长的直接命令优先。手动时队长原地攻击、士兵护卫。也可改为进攻或驻守。单击敌方队长攻击，双击队伍集火。\n可暂停下令，退出菜单后按空格继续。");
@@ -578,7 +578,7 @@ namespace BaseConquest.Battle
             return "格 " + p + exit + "\n" + terrain + "\n" + deployment;
         }
         public static string RawEvent(BattleSimulation b, BattleEvent e, BattleSide observer = BattleSide.A) => UnitDisplayNames.ForObserver(
-            e.Message ?? (e.SourceName ?? b.UnitName(b.Soldier(e.SourceId))) + " → " + (e.TargetName ?? b.UnitName(b.Soldier(e.TargetId))) + " " + e.Damage.ToString("0.#") + "伤害" + (e.Critical ? "（暴击）" : "") + "，余血" + e.RemainingHealth.ToString("0.#") + (e.Lethal ? "（致死）" : e.Downed ? "（击倒）" : ""), observer);
+            e.Message ?? (e.SourceName ?? b.UnitName(b.Soldier(e.SourceId))) + " → " + (e.TargetName ?? b.UnitName(b.Soldier(e.TargetId))) + " " + e.Damage.ToString("0") + "伤害" + (e.Critical ? "（暴击）" : "") + "，余血" + CombatNumbers.RemainingHealth(e.RemainingHealth) + (e.Lethal ? "（致死）" : e.Downed ? "（击倒）" : ""), observer);
         public static string FormatEvent(BattleSimulation b, BattleEvent e, BattleSide observer, bool darkPanel = false)
         {
             string raw = RawEvent(b, e, observer);

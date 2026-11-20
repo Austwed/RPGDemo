@@ -73,7 +73,7 @@ namespace BaseConquest.Base
         {
             var t=new Token { rect=Area(board.transform,"Actor"+unit.id,0,0,0,0) };
             t.rect.pivot=new Vector2(.5f,.16f);
-            var tile=Area(t.rect,"Side",.12f,.07f,.88f,.24f);
+            var tile=Area(t.rect,"Side",.5f,.16f,.5f,.16f);
             t.baseTile=tile.gameObject.AddComponent<Image>();t.baseTile.raycastTarget=false;
             var art=Area(t.rect,"Sprite",0,0,1,1);
             t.image=art.gameObject.AddComponent<RawImage>();t.image.raycastTarget=false;
@@ -102,6 +102,7 @@ namespace BaseConquest.Base
                 {
                     if(!tokens.TryGetValue(u.id,out var t)) tokens[u.id]=t=NewToken(u);
                     t.rect.gameObject.SetActive(true);
+                    if(u.hp<=0) t.rect.SetAsFirstSibling();
                     var point=new Vector2(LocalSide==0?u.x:Frame.width-u.x,u.z);
                     t.last=t.initialized?t.last:point;t.goal=point;t.initialized=true;
                     var anchor=t.barFill.anchorMax;anchor.x=Mathf.Clamp01(u.hp/Mathf.Max(1,u.maxHp));t.barFill.anchorMax=anchor;
@@ -112,7 +113,7 @@ namespace BaseConquest.Base
                 commanderText.text=chosen==null?"选择己方队长":chosen.name+"  "+Mathf.CeilToInt(chosen.hp)+"/"+Mathf.CeilToInt(chosen.maxHp);
                 guardButton.interactable=chosen!=null&&chosen.hp>0&&!Frame.paused;
                 skillButton.interactable=guardButton.interactable&&chosen.cooldown<=0;
-                skillText.text=chosen==null?"技能":chosen.skill+(chosen.cooldown>.001f?"   "+chosen.cooldown.ToString("0.0")+" 秒":"");
+                skillText.text=chosen==null?"技能":chosen.skill+(chosen.cooldown>.001f?"   "+BaseConquest.Battle.CombatNumbers.Duration(chosen.cooldown):"");
                 bool ownVote=LocalSide==0?Frame.voteA:Frame.voteB,peerVote=LocalSide==0?Frame.voteB:Frame.voteA;
                 pauseText.text=Frame.paused?"继续":ownVote?"撤回暂停请求":peerVote?"同意暂停":"请求暂停";
                 pauseButton.interactable=Frame.resumeIn<=0;
@@ -127,6 +128,9 @@ namespace BaseConquest.Base
                 var scale=1.48f*Mathf.Min(box.width/Frame.width,box.height/Frame.height);
                 if(u.kind==(int)SoldierKind.Cavalry||PixelDemoArt.Mounted(u.appearance??""))scale*=1.24f;
                 t.rect.sizeDelta=new Vector2(scale,scale);
+                var tile=t.baseTile.rectTransform;
+                tile.sizeDelta=new Vector2(box.width/Frame.width,box.height/Frame.height)/BaseConquest.RealtimePrototype.PrototypeArena.Subdivision;
+                tile.anchoredPosition=Vector2.zero;
                 var face=PlayerHeroFrames.Face(LocalSide==0?u.fx:-u.fx,u.fz,HeroFacing.South);
                 var tex=u.hp<=0?t.down:u.attackPose>=0?t.attack:u.moving?t.walk:null;
                 if (u.appearance == "mage" || u.appearance == "galan")

@@ -55,7 +55,7 @@ namespace BaseConquest.Base
             {
                 foreach(var p in s.Aftermath.Prisoners.Where(p=>p.BattleId==m.BattleId&&p.Status=="held").ToArray())
                 {
-                    string id=p.Id;Line(UnitDisplayNames.Mark(p.Name,true)+" · "+(p.Kind==BaseConquest.Battle.SoldierKind.Hero?"指挥者":"士兵")+" · 生命 "+p.Health.ToString("0.#")+"/"+p.Stats.Health.ToString("0.#"),50,20);
+                    string id=p.Id;Line(UnitDisplayNames.Mark(p.Name,true)+" · "+(p.Kind==BaseConquest.Battle.SoldierKind.Hero?"指挥者":"士兵")+" · 生命 "+p.Health.ToString("0")+"/"+p.Stats.Health.ToString("0"),50,20);
                     RowButton("招降",-290,270,()=>RecruitPrisoner(id,OpenLoot));
                     RowButton("释放",0,270,()=>{lootConfirmation="release:"+id;OpenLoot();});
                     RowButton("处死",290,270,()=>{lootConfirmation="execute:"+id;OpenLoot();});row+=56;
@@ -180,7 +180,7 @@ namespace BaseConquest.Base
             foreach(var p in held)
             {
                 string id=p.Id;
-                Line(UnitDisplayNames.Mark(p.Name,true)+" · 生命 "+p.Health.ToString("0.#")+" / "+p.Stats.Health.ToString("0.#"),46,19);
+                Line(UnitDisplayNames.Mark(p.Name,true)+" · 生命 "+p.Health.ToString("0")+" / "+p.Stats.Health.ToString("0"),46,19);
                 RowButton("招降",-290,270,()=>RecruitPrisoner(id,()=>OpenRewardPrisoners(battle)),p.Kind!=BaseConquest.Battle.SoldierKind.Hero||BaseAftermath.CanRecruitLeader(state));
                 RowButton("释放",0,270,()=>DisposePrisoner(id,"release"));
                 RowButton("处死",290,270,()=>DisposePrisoner(id,"execute"));row+=54;

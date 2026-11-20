@@ -109,7 +109,8 @@ namespace BaseConquest.Base
 
     [Serializable] public sealed class LanDuelActor
     {
-        public int id, side, kind, slot, sightRadius;
+        public int id, side, kind, slot, sightRadius, footprintCells;
+        public float attackRangeFine;
         public string name, appearance, skill;
         public float hp, maxHp, x, z, fx, fz, cooldown, attackPose;
         public bool moving;

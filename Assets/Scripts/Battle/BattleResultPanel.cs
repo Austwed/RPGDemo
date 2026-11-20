@@ -114,7 +114,7 @@ namespace BaseConquest.Battle
                 previousObserver=observer;lastCaptives=captives;
                 title.text=ended?"游戏结束":owner?.IsSceneEncounter==true?owner.SceneEncounterResult.Split('·')[0].Trim():BattleSceneController.OutcomeName(report.Outcome);
                 var run=owner?.Realtime;
-                string duration=run!=null?$"用时 {run.Model.Elapsed:0.#} 秒":$"{report.Rounds} 回合";
+                string duration=run!=null?"用时 "+CombatNumbers.Duration(run.Model.Elapsed):$"{report.Rounds} 回合";
                 int supply=run?.Session.Opening.SupplySnapshot?.Equipment?.Where(e=>e.Product=="supply").Sum(e=>e.Count)??0;
                 metrics.text=$"{duration}     下令 {report.CommandsIssued} 次     技能 {report.AbilitiesUsed} 次"+(supply>0?$"     军需 {supply} 件":"");
                 bool firstDefenseVictory=owner?.IsDemoDefense==true&&!owner.IsSecondDefense&&report.Outcome==BattleOutcome.SideAWin;

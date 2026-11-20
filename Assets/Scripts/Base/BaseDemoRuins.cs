@@ -10,6 +10,7 @@ namespace BaseConquest.Base
     {
         public const string EventId="demo:ruins:rescue", Proof="demo:ruins:rescued", Permit="demo:lord:building-permit";
         public static bool Enabled(BaseState state)=>BaseDemo.Active(state)&&state.Demo.RuinsVersion==1;
+        internal static bool RepeatMages(BaseState state) => state.Demo.RuinsDay > 0 && state.Demo.Rpg?.HasProfessionCatalog == true;
         public static bool Assigned(BaseState state)=>state.Demo.Stage==BaseDemoStage.RuinsAssigned||state.Demo.Stage==BaseDemoStage.RuinsCleared||BaseDemoDefense.Delivered(state);
         public static bool InRuins(BaseState state)=>BaseSceneRules.Active(state)?BaseSceneRules.Dungeon(state):BaseSceneInstances.Active(state)?state.Campaign.CurrentMapId=="demo_ruins":state.Campaign.Location=="outpost";
         public static bool CanExplore(BaseState state)=>Enabled(state)&&!BaseDemoPrologue.Village(state)&&state.Demo.Stage!=BaseDemoStage.Waking;
@@ -112,16 +113,26 @@ namespace BaseConquest.Base
         {
             if(!Enabled(state))throw new InvalidOperationException("此旧Demo没有"+BaseScriptNames.Ruins+"属性快照，请新开Demo");
             var army=state.Demo.RuinsArmy.Clone();var controller=army.Hero.Clone();controller.Health*=1.5f;controller.Damage*=1.2f;
-            if(state.Demo.RuinsDay==0&&state.Demo.Rpg?.HasProfessionCatalog==true)
+            if(state.Demo.Rpg?.HasProfessionCatalog==true)
             {
-                var r=state.Demo.Rpg; var identity=BaseRpg.Character("ruins:controller",3,true,true,r);
-                identity.TemplateId=r.RuinsFirstControllerTemplate;
+                var r=state.Demo.Rpg;
+                bool first=state.Demo.RuinsDay==0;
+                var identity=BaseRpg.Character("ruins:controller",3,first,first,r);
+                if (first) identity.TemplateId=r.RuinsFirstControllerTemplate;
                 controller=r.Bare(identity,1);
             }
+            bool repeat = RepeatMages(state);
             army.HeroCount=1;army.MeleeCount=2;army.RangedCount=army.CavalryCount=army.MageCount=0;
-            army.CommanderStats=new List<SoldierStats>{controller};army.CommanderNames=new List<string>{BaseScriptNames.Galan};army.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};
+            army.CommanderStats=new List<SoldierStats>{controller};army.CommanderNames=new List<string>{repeat ? "古窟术士" : BaseScriptNames.Galan};army.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};
+            if (repeat)
+            {
+                army.MeleeCount = 0;
+                army.MageCount = 2;
+                army.Commanders[0].Melee = 0;
+                army.Commanders[0].Mage = 2;
+            }
             BaseDemoEncounterConfig.ConfigureArmy(state,EventId,army);
-            var own=army.Clone();own.MeleeCount=2;own.RangedCount=own.CavalryCount=0;own.HeroCount=1;own.CaptainSlot=0;own.CommanderStats.Clear();own.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};own.CommanderNames.Clear();
+            var own=army.Clone();own.MeleeCount=2;own.RangedCount=own.CavalryCount=own.MageCount=0;own.HeroCount=1;own.CaptainSlot=0;own.CommanderStats.Clear();own.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};own.CommanderNames.Clear();
             foreach(var kind in BattleSimulation.TroopKinds){var source=state.Workers.FirstOrDefault(worker=>BaseCampaign.ToBattle(worker.Kind)==kind&&worker.HasCombatProfile);if(source!=null){if(kind==SoldierKind.Melee)own.Melee=source.CombatStats.Clone();else if(kind==SoldierKind.Ranged)own.Ranged=source.CombatStats.Clone();else if(kind==SoldierKind.Mage)own.Mage=source.CombatStats.Clone();else own.Cavalry=source.CombatStats.Clone();}}
             return new BattleScenarioDocument {Title="Demo"+BaseScriptNames.Ruins+"救助",Scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),A=own,B=army,MaxRounds=90,FogEnabled=false,Objective=new ObjectiveConfig {Title="击败控制来源，救助失踪者"}}};
         }
@@ -142,12 +153,12 @@ namespace BaseConquest.Base
             for(int i=0;i<fresh.Count;i++)
             {
                 var old=previous.ElementAtOrDefault(i);
-                if(old!=null&&!old.Dead&&!old.KnockedDown)fresh[i]=old.Copy();
+                if(old!=null&&old.Kind==fresh[i].Kind&&!old.Dead&&!old.KnockedDown)fresh[i]=old.Copy();
                 else fresh[i].Id=EventId+":spawn:"+rules.EnemyGeneration+":unit:"+i;
                 fresh[i].Dead=fresh[i].KnockedDown=false;fresh[i].Health=fresh[i].Stats.Health;
             }
             mission.Status="pending";mission.EnemyRecoveryDay=0;mission.EnemyArmy=fresh;
-            var active=BaseCampaign.Begin(state,EventId,document,mode,plan,true,roster);active.Difficulty.DropRate=0;active.RuinsExposureFraction=state.Demo.RuinsRewards.ExposureFraction;
+            var active=BaseCampaign.Begin(state,EventId,document,mode,plan,true,roster);if(state.Demo.RuinsDay==0)active.Difficulty.DropRate=0;active.RuinsExposureFraction=state.Demo.RuinsRewards.ExposureFraction;
             active.RuinsFirstClear=state.Demo.RuinsDay==0;
             var session=new BaseCampaignSession(active);
             if (!active.ManualDeployment) session.Battle.AutoDeploy(BattleSide.A);
@@ -171,7 +182,7 @@ namespace BaseConquest.Base
             foreach(var leader in run.Battle.Soldiers.Where(unit=>unit.Side==BattleSide.B&&unit.Kind==SoldierKind.Hero))leader.ProtectFromInstantDeath=run.Session.Opening.RuinsFirstClear;
             foreach(var victim in Civilians(run.Session))victim.ProtectFromInstantDeath=true;
             run.Battle.RuinsCivilianIds=new HashSet<int>(Civilians(run.Session).Select(v=>v.Id));
-            var controller=run.Battle.Commander(BattleSide.B,0);if(controller!=null)controller.AppearanceId="galan";
+            var controller=run.Battle.Commander(BattleSide.B,0);if(controller!=null && run.Session.Opening.RuinsFirstClear)controller.AppearanceId="galan";
             run.EnableRuinsExposure(run.Session.Opening.RuinsExposureFraction>0?run.Session.Opening.RuinsExposureFraction:.03);
             run.ImmediateVictory=()=>ControllerDefeated(run)&&!BaseDemoCombat.Defeated(run)&&run.CheckRuinsExit();
             run.OutcomeResolver=current=>ControllerDefeated(current)&&(!BaseDemoCombat.Defeated(current)||current.RuinsExitOpen)
@@ -185,7 +196,7 @@ namespace BaseConquest.Base
             run.SaveCheckpoint(state);
             if(!BaseCampaign.Settle(state,run.Session))return false;
             if(run.Session.Opening.RuinsFirstClear&&BaseDemoFlow.Active(state))state.Demo.Flow.FirstControllerId=state.Aftermath.Prisoners.FirstOrDefault(p=>p.BattleId==run.Session.Opening.Id&&p.Kind==SoldierKind.Hero)?.Id??"";
-            BaseAchievements.Unlock(state,BaseAchievements.Ruins);if(allowMercyAchievement&&!run.Battle.RuinsCivilianDamaged)BaseAchievements.Unlock(state,BaseAchievements.Mercy);
+            BaseAchievements.Unlock(state,BaseAchievements.Ruins);if(allowMercyAchievement&&run.Battle.RuinsCivilianIds.Count>0&&!run.Battle.RuinsCivilianDamaged)BaseAchievements.Unlock(state,BaseAchievements.Mercy);
             if(state.Demo.RuinsDay==0){state.Demo.RuinsDay=state.Day;state.Demo.Evidence.Add(Proof);if(BaseSceneRules.Active(state)&&state.Demo.Rescue.Stage==0)state.Demo.Rescue.Stage=1;
             state.Demo.Stage=BaseDemoStage.RuinsCleared;}
             if(!run.Session.Opening.RuinsFirstClear)BaseRuinsRewards.RecordVictory(state,run.Session.Opening.Id,BasePrepRoute.Ruins);

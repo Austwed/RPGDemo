@@ -8,7 +8,7 @@ namespace BaseConquest.Battle
         public const int DefaultRadius = 10;
         public static int Radius(BattleBoard board,GridPosition observer,int baseRadius = DefaultRadius)
             => Math.Min(32, baseRadius + 2 * (board.Cell(observer)?.Elevation ?? 0));
-        public static bool Clear(BattleBoard board,double ax,double az,double bx,double bz)
+        public static bool Clear(BattleBoard board,double ax,double az,double bx,double bz,Func<GridPosition,bool> obstacle=null)
         {
             var from=new GridPosition((int)ax,(int)az);var to=new GridPosition((int)bx,(int)bz);
             if(!board.Contains(from)||!board.Contains(to))return false;
@@ -17,7 +17,7 @@ namespace BaseConquest.Battle
             for(int n=1;n<steps;n++)
             {
                 double t=(double)n/steps,x=ax+(bx-ax)*t,z=az+(bz-az)*t;var p=new GridPosition((int)x,(int)z);
-                if(p==from||p==to)continue;var c=board.Cell(p);if(c==null)return false;
+                if(p==from||p==to)continue;if(obstacle?.Invoke(p)==true)return false;var c=board.Cell(p);if(c==null)return false;
                 double top=board.SurfaceLevel(x,z)+(c.HasSightHeight?c.SightHeight:c.Terrain==TerrainKind.Wall||c.Terrain==TerrainKind.Building?3:0);
                 if(top>=eye+(end-eye)*t-1e-7)return false;
             }

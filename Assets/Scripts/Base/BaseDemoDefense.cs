@@ -11,12 +11,12 @@ namespace BaseConquest.Base
         public int Version, GearDay, GearCount, WarningDay, ArrivalDay, VictoryDay, RetryDay, BatuStoryDay;
         public bool WorkshopRepaired, BarracksRepaired, ScheduledOnDelivery;
         public string GearProduct="", BatuFate="", SecondOutcome="";
-        public bool MerchantDone,FirstBriefingSeen,SecondBriefingSeen,BattleIntelSeen,SecondVictoryReportSeen;public double MerchantX,MerchantY;
+        public bool MerchantDone,FirstBriefingSeen,SecondBriefingSeen,BattleIntelSeen,SecondVictoryReportSeen;
         public List<BaseEnemyMember> MainForce=new List<BaseEnemyMember>();
         public BaseFacilityProtection Workshop;
         public ArmyDefinition Army;
         public BaseCampaignEvent Mission;
-        public BaseDemoDefenseProgress Copy()=>new BaseDemoDefenseProgress {Version=Version,GearDay=GearDay,GearCount=GearCount,WarningDay=WarningDay,ArrivalDay=ArrivalDay,VictoryDay=VictoryDay,RetryDay=RetryDay,BatuStoryDay=BatuStoryDay,WorkshopRepaired=WorkshopRepaired,BarracksRepaired=BarracksRepaired,ScheduledOnDelivery=ScheduledOnDelivery,GearProduct=GearProduct,BatuFate=BatuFate,SecondOutcome=SecondOutcome,MerchantDone=MerchantDone,FirstBriefingSeen=FirstBriefingSeen,SecondBriefingSeen=SecondBriefingSeen,BattleIntelSeen=BattleIntelSeen,SecondVictoryReportSeen=SecondVictoryReportSeen,MerchantX=MerchantX,MerchantY=MerchantY,MainForce=MainForce?.Select(unit=>unit.Copy()).ToList(),Workshop=Workshop?.Copy(),Army=Army?.Clone(),Mission=Mission?.Copy()};
+        public BaseDemoDefenseProgress Copy()=>new BaseDemoDefenseProgress {Version=Version,GearDay=GearDay,GearCount=GearCount,WarningDay=WarningDay,ArrivalDay=ArrivalDay,VictoryDay=VictoryDay,RetryDay=RetryDay,BatuStoryDay=BatuStoryDay,WorkshopRepaired=WorkshopRepaired,BarracksRepaired=BarracksRepaired,ScheduledOnDelivery=ScheduledOnDelivery,GearProduct=GearProduct,BatuFate=BatuFate,SecondOutcome=SecondOutcome,MerchantDone=MerchantDone,FirstBriefingSeen=FirstBriefingSeen,SecondBriefingSeen=SecondBriefingSeen,BattleIntelSeen=BattleIntelSeen,SecondVictoryReportSeen=SecondVictoryReportSeen,MainForce=MainForce?.Select(unit=>unit.Copy()).ToList(),Workshop=Workshop?.Copy(),Army=Army?.Clone(),Mission=Mission?.Copy()};
     }
     public static class BaseDemoDefense
     {
@@ -56,9 +56,12 @@ namespace BaseConquest.Base
             state.Demo.Defense.MainForce=site.Garrison.Select(unit=>unit.Copy()).ToList();state.Demo.Defense.BatuStoryDay=state.Day;
             var mission=state.Demo.Defense.Mission.Copy();mission.Id=SecondEventId;mission.Title="黑鸦寨第二波入侵";mission.SourceSiteId="";mission.DepartedDay=state.Day;mission.AvailableDay=mission.DeadlineDay=arrival;mission.EnemyArmy=site.Garrison.Select(unit=>unit.Copy()).ToList();mission.EnemyRecoveryDay=0;mission.Status="pending";
             state.Campaign.Events.Add(mission);
-            var entry=BaseSpatial.Nearest(state,new BasePoint(2,6));state.Demo.Defense.MerchantX=entry.X;state.Demo.Defense.MerchantY=entry.Y;
-            state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Add(new BaseMapPlacement {Id="demo_merchant",Name="行商",Kind="npc",AssetId="merchant",X=entry.X,Y=entry.Y,Width=.5,Height=.5,VisualOnly=true});
         }
+        public static bool MerchantReminderDue(BaseState state) =>
+            Won(state) && state.Day>=7 && state.Demo.Defense.BatuStoryDay>0 && !state.Demo.Defense.MerchantDone &&
+            !BaseDemoFinale.Later(state) && state.Campaign.Location=="base" && !state.Campaign.HasActiveBattle &&
+            string.IsNullOrEmpty(state.SceneBattleId) && !BaseBattleLoot.Pending(state);
+
         public static bool CancelSecond(BaseState state,string reason)
         {
             var mission=state.Campaign.Events.FirstOrDefault(item=>item.Id==SecondEventId&&item.Status=="pending");if(mission==null)return false;

@@ -195,7 +195,7 @@ namespace BaseConquest.Base
             var parts = new List<string> { s.Day.ToString(), s.Inventory.Food.ToString(), s.Inventory.Materials.ToString(), s.Inventory.Coins.ToString(), s.WorkshopProduct, N(s.FarmFraction), s.TodayFoodMissing.ToString(), s.TodayFoodRequired.ToString(), N(s.Rules.FarmPerWorker), N(s.Rules.WorkshopPerWorker), N(s.Rules.HungerProductionPenalty), s.Rules.SwordMaterial.ToString(), s.Rules.BowMaterial.ToString(), s.Rules.ArmorMaterial.ToString() };
             parts.Add(string.Join(",",s.Adventure.Members)+"/"+string.Join(",",s.Adventure.Pauses.Select(p=>p.LeaderId+":"+p.MapId+":"+p.Region)));
             parts.AddRange(s.Leaders.Select(l => l.Id + ":" + l.FacilityId + ":" + l.Away + ":" + l.PartyId + ":" + l.UnavailableDay + ":" + N(l.ProductionBonus)+":"+l.Recruited));
-            parts.AddRange(s.Workers.Select(w => w.Kind + ":" + w.FacilityId + ":" + string.Join(",",w.SoldierNumbers) + ":" + w.Away + ":" + w.PartyId + ":" + w.SourceId + ":" + w.UnavailableDay+":"+w.Recruited));
+            parts.AddRange(s.Workers.Select(w => w.Kind + ":" + w.FacilityId + ":" + string.Join(",",w.SoldierNumbers) + ":" + w.Away + ":" + w.PartyId + ":" + w.SourceId + ":" + w.UnavailableDay+":"+w.Recruited+(w.LastBattleDay>0 ? ":battle="+w.LastBattleDay : "")));
             parts.Add(BaseSettlements.AtVillage(s) + ":" + s.Development.VillagePolicy);
             parts.AddRange(s.Workers.Select(w => w.VillageResident + ":" + w.Relocating + ":" + w.DepartureFacility));
             parts.AddRange(s.Leaders.Select(l => l.VillageResident + ":" + l.Relocating + ":" + l.ArrivalFacility));
@@ -221,6 +221,7 @@ namespace BaseConquest.Base
             parts.AddRange(s.Workers.Select(w => BaseDevelopment.ProfileKey(w.HasCombatProfile,w.CombatStats)));
             parts.AddRange(s.Leaders.Select(l => BaseDevelopment.ProfileKey(l.HasCombatProfile,l.CombatStats)));
             parts.Add("adventure:" + s.Adventure?.Version + ":" + string.Join(",", s.Adventure?.Members ?? new List<string>()));
+            parts.AddRange(s.Leaders.Where(l=>l.PreferredSoldiers?.Count>0).Select(l=>l.Id+":preferences:"+string.Join(",",l.PreferredSoldiers)));
             parts.AddRange(s.Leaders.Select(l=>l.Id+":composition:"+(l.DefaultTroops==null ? "legacy" : l.DefaultTroops.Version+":"+l.DefaultTroops.Melee+":"+l.DefaultTroops.Ranged+":"+l.DefaultTroops.Cavalry+":"+l.DefaultTroops.Mage)));
             parts.AddRange(s.Muster.Parties.Select(p=>p.Id+":"+p.PriorityMode+":"+p.ConserveMaterials+":"+string.Join(";",p.CommanderTroops?.Select(r=>r.LeaderId+":"+r.Requested.Melee+":"+r.Requested.Ranged+":"+r.Requested.Cavalry+":"+r.Requested.Mage+":"+r.Actual.Melee+":"+r.Actual.Ranged+":"+r.Actual.Cavalry+":"+r.Actual.Mage)??Enumerable.Empty<string>())));
             parts.AddRange(s.Muster.Facilities.Select(f=>f.DeveloperProductionPaused.ToString()));
@@ -269,7 +270,7 @@ namespace BaseConquest.Base
                 var buckets = s.Workers.Select((w, i) => new { Worker = w, Index = i }).Where(x => BaseDevelopment.Eligible(s,plan.Purpose, x.Worker) && x.Worker.Kind == kind)
                     .OrderByDescending(x => x.Worker.MaxHealth > 0 ? x.Worker.Health / x.Worker.MaxHealth : 0)
                     .ThenBy(x => x.Worker.FacilityId == "" ? -1 : s.Muster.Facilities.Single(f => f.FacilityId == x.Worker.FacilityId).Priority)
-                    .ThenBy(x => x.Worker.UnavailableDay == s.Day ? 0 : x.Worker.FacilityId == "farm" ? s.Rules.FarmPerWorker * (1 + (BaseEconomy.Manager(s, "farm")?.ProductionBonus ?? 0)) : x.Worker.FacilityId == "workshop" ? s.Rules.WorkshopPerWorker * (1 + (BaseEconomy.Manager(s, "workshop")?.ProductionBonus ?? 0)) : 0)
+                    .ThenBy(x => !BaseDevelopment.Effective(s,x.Worker) ? 0 : x.Worker.FacilityId == "farm" ? s.Rules.FarmPerWorker * (1 + (BaseEconomy.Manager(s, "farm")?.ProductionBonus ?? 0)) : x.Worker.FacilityId == "workshop" ? s.Rules.WorkshopPerWorker * (1 + (BaseEconomy.Manager(s, "workshop")?.ProductionBonus ?? 0)) : 0)
                     .ThenBy(x => x.Worker.FacilityId, StringComparer.Ordinal).ThenBy(x => x.Index);
                 foreach (var entry in buckets)
                 {

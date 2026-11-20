@@ -40,7 +40,7 @@ namespace BaseConquest.Base
             {
                 var kind=k;ArmyCounter(BaseEconomy.TroopName(k),selected.DefaultTroops.Count(k),0,30,n=>
                 {
-                    owner.Change(next=>{var l=next.Leaders.Single(x=>x.Id==compositionLeader);if(l.Away||next.Campaign.HasActiveBattle)throw new InvalidOperationException("队长外出期间保留冻结编制，请返营后修改");l.DefaultTroops.Set(kind,n);},"已保存队长预设，未抽调人员");OpenBarracks();
+                    owner.Change(next=>{var l=next.Leaders.Single(x=>x.Id==compositionLeader);if(l.Away||next.Campaign.HasActiveBattle)throw new InvalidOperationException("队长外出期间保留冻结编制，请返营后修改");BaseMuster.SetPreferenceCount(next,l,kind,n);},"已保存队长预设，未抽调人员");OpenBarracks();
                 });
             }
             Line("各队长可保存预设，实际出战全军最多24名士兵，超出部分显示缺编。未随行者保存预设但不会自动入队。",86,18);

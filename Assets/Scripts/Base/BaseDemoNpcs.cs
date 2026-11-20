@@ -58,8 +58,8 @@ namespace BaseConquest.Base
 
         internal static string RoadSign(string id) => id switch
         {
-            "demo_defense_exit" or "travel_base" or "demo_ruins_return" or "demo_camp_world" or "demo_direct_camp" or "village_gate_out" or "village_world_exit" => "road-sign-left",
-            "exit_east" or "demo_defense_return" or "demo_ruins_exit" or "demo_home_world" or "demo_direct_home" or "village_gate_in" => "road-sign-right",
+            "demo_defense_exit" or "travel_base" or "demo_ruins_return" or "demo_camp_world" or "village_gate_out" => "road-sign-left",
+            "exit_east" or "demo_defense_return" or "demo_ruins_exit" or "demo_home_world" or "demo_camp_east" or "village_gate_in" => "road-sign-right",
             "demo_march_exit" => "road-sign-down",
             _ => null
         };
