@@ -8,6 +8,7 @@ namespace BaseConquest.Base
         {
             if(leader==null)return "";
             if(!string.IsNullOrEmpty(leader.AppearanceId))return leader.AppearanceId;
+            if(leader.Rpg?.Version == 1 && leader.Rpg.Profession == BaseRpg.Profession(SoldierKind.Mage)) return "galan";
             if(leader.Id=="partner_farm")return "ahe";
             if(leader.Id=="partner_craft")return "azhu";
             if(leader.Recruited&&UnitDisplayNames.RecruitedName(leader.Name)=="陈安")return "chenan";

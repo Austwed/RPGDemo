@@ -71,8 +71,8 @@ namespace BaseConquest.Battle
 {
     public static class RealtimeCombatRules
     {
-        public static int Range(SoldierKind kind,int quality=2)=>kind==SoldierKind.Ranged ? 12+BasePersonalEquipment.ExtraRange(quality) : kind==SoldierKind.Cavalry ? 3 : 2;
-        public static double Speed(SoldierKind kind)=>kind==SoldierKind.Cavalry ? 6 : kind==SoldierKind.Ranged ? 3 : 4;
+        public static int Range(SoldierKind kind,int quality=2)=>kind==SoldierKind.Ranged ? 12+BasePersonalEquipment.ExtraRange(quality) : kind==SoldierKind.Mage ? 12 : kind==SoldierKind.Cavalry ? 3 : 2;
+        public static double Speed(SoldierKind kind)=>kind==SoldierKind.Cavalry ? 6 : (kind==SoldierKind.Ranged||kind==SoldierKind.Mage) ? 3 : 4;
     }
     public sealed partial class RealtimeCampaignBattle
     {
@@ -92,6 +92,12 @@ namespace BaseConquest.Battle
         public Action<int> TutorialAction;
         public BattleSimulation Battle=>Session.Battle;
         public static double SpeedCells(BaseCampaignSession session,BattleSoldier soldier)=>session.Opening.Rpg!=null?session.Opening.Rpg.Speed[BaseRpg.Profession(soldier.ProfessionKind)]:session.Opening.RealtimeRulesVersion==0 ? soldier.Stats.MoveDistance*PrototypeArena.Subdivision : RealtimeCombatRules.Speed(soldier.ProfessionKind);
+        private static bool UsesRangedAttack(BaseCampaignSession session,BattleSoldier soldier)
+        {
+            if(soldier==null)return false;
+            var rules=session.Opening.Rpg;
+            return rules!=null?rules.IsRanged(BaseRpg.Profession(soldier.CombatKind)):soldier.CombatKind==SoldierKind.Ranged||soldier.CombatKind==SoldierKind.Mage;
+        }
         public static double RangeCells(BaseCampaignSession session,BattleSoldier soldier)
         {
             if(session.Opening.RealtimeRulesVersion==0)return soldier.Stats.Range*PrototypeArena.Subdivision;
@@ -156,12 +162,12 @@ namespace BaseConquest.Battle
                 var position=session.Opening.ManualDeployment&&soldier.Side==BattleSide.A
                     ? BaseBattlePreparation.Anchor(soldier.Cell) : positions.First(point=>Model.Fits(probe,arena.CellAt(point),probe.Facing));
                 var actor=Model.AddUnit(soldier.Side==BattleSide.A ? PrototypeSide.Ally : PrototypeSide.Enemy,
-                    soldier.Kind==SoldierKind.Hero ? PrototypeRole.Leader : soldier.CombatKind==SoldierKind.Ranged ? PrototypeRole.Archer : PrototypeRole.Melee,
+                    soldier.Kind==SoldierKind.Hero ? PrototypeRole.Leader : UsesRangedAttack(session,soldier) ? PrototypeRole.Archer : PrototypeRole.Melee,
                     position,Math.Max(0,soldier.OriginCommanderSlot),soldier.Side==BattleSide.A&&soldier.Kind==SoldierKind.Hero&&soldier.OriginCommanderSlot==Battle.Scenario.PlayerLeaderSlot,soldier.Id+1);
                 if(!Model.SetFootprint(actor,length))throw new InvalidOperationException("骑兵部署体积不足");
                 if(soldier.Kind==SoldierKind.Hero && soldier.Side==BattleSide.A)soldier.ProtectFromInstantDeath=true;
                 actor.Health=soldier.Health;actor.KnockedDown=soldier.KnockedDown;actor.MaxHealth=soldier.Stats.Health;actor.MoveSpeed=SpeedCells(session,soldier)/PrototypeArena.Subdivision;
-                actor.AttackDamage=soldier.Stats.Damage*soldier.DrinkMultiplier;actor.AttackRange=RangeCells(session,soldier)/PrototypeArena.Subdivision;actor.AttackInterval=1;actor.UsesRangedWeapon=soldier.CombatKind==SoldierKind.Ranged;
+                actor.AttackDamage=soldier.Stats.Damage*soldier.DrinkMultiplier;actor.AttackRange=RangeCells(session,soldier)/PrototypeArena.Subdivision;actor.AttackInterval=1;actor.UsesRangedWeapon=UsesRangedAttack(session,soldier);
             }
             if(Battle.Scenario.HeightVision)
             {
@@ -187,11 +193,11 @@ namespace BaseConquest.Battle
         private void ValidateIdentity(PrototypeUnit actor)
         {
             var soldier=Battle.Soldier(actor.Id-1);
-            var role=soldier?.Kind==SoldierKind.Hero ? PrototypeRole.Leader : soldier?.CombatKind==SoldierKind.Ranged ? PrototypeRole.Archer : PrototypeRole.Melee;
+            var role=soldier?.Kind==SoldierKind.Hero ? PrototypeRole.Leader : UsesRangedAttack(Session,soldier) ? PrototypeRole.Archer : PrototypeRole.Melee;
             if(soldier==null||actor.Role!=role||actor.Side!=(soldier.Side==BattleSide.A?PrototypeSide.Ally:PrototypeSide.Enemy)||actor.Squad!=Math.Max(0,soldier.OriginCommanderSlot)||
                 actor.Player!=(soldier.Side==BattleSide.A&&soldier.Kind==SoldierKind.Hero&&soldier.OriginCommanderSlot==Battle.Scenario.PlayerLeaderSlot)||
                 Math.Abs(actor.MaxHealth-soldier.Stats.Health)>.001||Math.Abs(actor.Health-soldier.Health)>.001||actor.Escaped!=soldier.Escaped||actor.KnockedDown!=soldier.KnockedDown||
-                Math.Abs(actor.MoveSpeed-SpeedCells(Session,soldier)/PrototypeArena.Subdivision)>.001||Math.Abs(actor.Damage-soldier.Stats.Damage*soldier.DrinkMultiplier)>.001||actor.Reach!=RangeCells(Session,soldier)/PrototypeArena.Subdivision||actor.AttackInterval!=1||actor.UsesRangedWeapon!=(soldier.CombatKind==SoldierKind.Ranged))throw new ArgumentException("即时检查点身份／属性与真实人员不一致");
+                Math.Abs(actor.MoveSpeed-SpeedCells(Session,soldier)/PrototypeArena.Subdivision)>.001||Math.Abs(actor.Damage-soldier.Stats.Damage*soldier.DrinkMultiplier)>.001||actor.Reach!=RangeCells(Session,soldier)/PrototypeArena.Subdivision||actor.AttackInterval!=1||actor.UsesRangedWeapon!=UsesRangedAttack(Session,soldier))throw new ArgumentException("即时检查点身份／属性与真实人员不一致");
         }
         private double Damage(PrototypeUnit source,PrototypeUnit target,double raw)
         {

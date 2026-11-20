@@ -64,8 +64,9 @@ namespace BaseConquest.Battle
                 // 旧兵种队仅供底层回归检查，游戏UI不开放单兵操控。
                 for (int side = 0; side < 2; side++) for (int kind = 0; kind < 3; kind++)
                     Squads.Add(new BattleSquad { Id = Squads.Count, Side = (BattleSide)side, Kind = (SoldierKind)kind, Name = SideName((BattleSide)side) + KindName((SoldierKind)kind) });
-                foreach (BattleSide side in Enum.GetValues(typeof(BattleSide)))
-                    Squads.Add(new BattleSquad { Id = Squads.Count, Side = side, Kind = SoldierKind.Cavalry, Name = SideName(side) + KindName(SoldierKind.Cavalry) });
+                foreach (var kind in new[] { SoldierKind.Cavalry, SoldierKind.Mage })
+                    foreach (BattleSide side in Enum.GetValues(typeof(BattleSide)))
+                        Squads.Add(new BattleSquad { Id = Squads.Count, Side = side, Kind = kind, Name = SideName(side) + KindName(kind) });
             }
             if (ModernRules)
                 foreach (BattleSide side in Enum.GetValues(typeof(BattleSide)))
@@ -88,7 +89,7 @@ namespace BaseConquest.Battle
         public BattleSoldier AttackTargetAt(GridPosition cell) => UnitsAt(cell).OrderByDescending(s => s.IsTransit).ThenBy(s => s.Id).FirstOrDefault();
         public int SkillCooldown(BattleSide side) => skillCooldowns[(int)side];
         public bool SkillQueued(BattleSide side) => queuedSkills[(int)side].HasValue;
-        public int SquadId(BattleSide side, SoldierKind kind) => Scenario.CommanderControl ? CommanderSquadId(side, 0) : kind == SoldierKind.Cavalry ? 6 + (int)side : (int)side * 3 + (int)kind;
+        public int SquadId(BattleSide side, SoldierKind kind) => Scenario.CommanderControl ? CommanderSquadId(side, 0) : kind == SoldierKind.Cavalry ? 6 + (int)side : kind == SoldierKind.Mage ? 8 + (int)side : (int)side * 3 + (int)kind;
 
         public bool Deploy(BattleSide side, SoldierKind kind, GridPosition cell, int commanderSlot = -1)
         {
@@ -201,7 +202,7 @@ namespace BaseConquest.Battle
             return total;
         }
 
-        private IEnumerable<SoldierKind> DeploymentKinds() => Scenario.CommanderControl ? new[] { SoldierKind.Hero, SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry } : Enum.GetValues(typeof(SoldierKind)).Cast<SoldierKind>();
+        private IEnumerable<SoldierKind> DeploymentKinds() => Scenario.CommanderControl ? new[] { SoldierKind.Hero, SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry, SoldierKind.Mage } : Enum.GetValues(typeof(SoldierKind)).Cast<SoldierKind>();
 
         public bool Start(out string message)
         {
@@ -751,6 +752,6 @@ namespace BaseConquest.Battle
         }
         private bool HasReserves(BattleSide side) => Enum.GetValues(typeof(SoldierKind)).Cast<SoldierKind>().Any(kind => Remaining(side, kind) > 0);
         public static string SideName(BattleSide side) => side == BattleSide.A ? "我方" : "敌方";
-        public static string KindName(SoldierKind kind) => kind == SoldierKind.Melee ? "剑士" : kind == SoldierKind.Ranged ? "弓兵" : kind == SoldierKind.Cavalry ? "骑兵" : "队长";
+        public static string KindName(SoldierKind kind) => kind == SoldierKind.Melee ? "剑士" : kind == SoldierKind.Ranged ? "弓兵" : kind == SoldierKind.Cavalry ? "骑兵" : kind == SoldierKind.Mage ? "法师" : "队长";
     }
 }

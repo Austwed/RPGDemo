@@ -62,9 +62,11 @@ namespace BaseConquest.Base
 
         private void PersonnelRoster()
         {
-            var s=owner.State;var kinds=new[]{SoldierKind.Hero,SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry};
+            var s=owner.State;var kinds=BaseTown.TroopKinds(s).Select(BaseCampaign.ToBattle).Prepend(SoldierKind.Hero).ToArray();
             if(BaseRpg.Active(s)){RowButton("俘虏名册 · "+s.Aftermath.Prisoners.Count(p=>p.Status=="held"),0,800,OpenHeldPrisoners);row+=60;}
-            for(int i=0;i<kinds.Length;i++){int index=i;RowButton((personnelFilter==i ? "● " : "")+BattleSimulation.KindName(kinds[i]),-315+i*210,200,()=>{personnelFilter=index;OpenBarracks();});}row+=60;
+            personnelFilter = Mathf.Clamp(personnelFilter,0,kinds.Length-1);
+            float spacing = 840f / kinds.Length;
+            for(int i=0;i<kinds.Length;i++){int index=i;RowButton((personnelFilter==i ? "● " : "")+BattleSimulation.KindName(kinds[i]),(i-(kinds.Length-1)*.5f)*spacing,spacing-10,()=>{personnelFilter=index;OpenBarracks();});}row+=60;
             var kind=kinds[personnelFilter];
             var units=(kind==SoldierKind.Hero ? BasePersonnel.Leaders(s) : BasePersonnel.Soldiers(s,kind)).ToArray();
             Line("共 "+units.Length+"人；点击单位查看完整属性、工作与粮草／装备效果。",54,18);

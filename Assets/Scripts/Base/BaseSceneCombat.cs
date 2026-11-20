@@ -68,7 +68,7 @@ namespace BaseConquest.Base
                 return Math.Max(0,Math.Min(1,session.Opening.Difficulty.LeaderDeath+BaseRpg.LethalModifier(session,unit)));
             }
             var counts=session.Opening.PlayerTroopCounts;
-            if(counts==null||counts.Length!=3||counts.Any(count=>count<0))throw new InvalidOperationException("Demo兵力基准快照非法");
+            if(counts==null||counts.Length!=(session.Opening.Rpg?.HasProfessionCatalog==true ? 4 : 3)||counts.Any(count=>count<0))throw new InvalidOperationException("Demo兵力基准快照非法");
             // 合计口径：N = 开战全体普通兵 − 本场我方已真死 + 本场敌方已倒地（倒地即入池，视为可俘归我方）。
             // 队长不计入 N，敌方队长倒地也不计入。
             int count=counts.Sum()-session.Battle.Soldiers.Count(other=>other.Side==BattleSide.A&&other.Kind!=SoldierKind.Hero&&other.InstantDead&&!other.DeveloperSpawned)
@@ -78,7 +78,7 @@ namespace BaseConquest.Base
         public static List<BaseEnemyMember> CreateEnemies(string eventId,ArmyDefinition army,BaseEnemyPreset preset=null)
         {
             var result=new List<BaseEnemyMember>();
-            foreach(var kind in new[]{SoldierKind.Hero,SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry})
+            foreach(var kind in BattleSimulation.TroopKinds.Prepend(SoldierKind.Hero))
                 for(int n=0;n<army.Count(kind);n++)
                 {
                     var stats=(kind==SoldierKind.Hero?army.CommanderProfile(n):army.Stats(kind)).Clone();
@@ -165,7 +165,7 @@ namespace BaseConquest.Base
             {if((Ruins?.Version??0)!=0||(Defense?.Version??0)!=0||(Camp?.Version??0)!=0)throw new ArgumentException("Demo编排缺版本");return;}
             if((Version!=1&&Version!=2)||Ruins?.Version!=2||Defense?.Version!=2||Version==1&&(Camp?.Version??0)!=0||Version==2&&Camp?.Version!=2)throw new ArgumentException("Demo编排版本与两场／三场逐兵预设不匹配");
             Ruins.Validate();Defense.Validate();if(Version==2)Camp.Validate();
-            if(Ruins.Commanders.Count!=1||Ruins.Commanders[0].Profession!=SoldierKind.Melee||Ruins.Commanders[0].Level!=1||Ruins.Melee!=2||Ruins.Ranged!=0||Ruins.Cavalry!=0)throw new ArgumentException("遗迹固定一名异族队长和两名受控近战村民，只编辑站位");
+            if(Ruins.Commanders.Count!=1||(Ruins.Commanders[0].Profession!=SoldierKind.Melee&&Ruins.Commanders[0].Profession!=SoldierKind.Mage)||Ruins.Commanders[0].Level!=1||Ruins.Melee!=2||Ruins.Ranged!=0||Ruins.Cavalry!=0||Ruins.Mage!=0)throw new ArgumentException("遗迹固定一名异族队长和两名受控近战村民，只编辑站位");
         }
         public static BaseEnemyPreset Preset(BaseState state,string eventId)=>(state.Demo?.Encounters?.Version??0)==0?null:eventId==BaseDemoRuins.EventId?state.Demo.Encounters.Ruins:eventId==BaseDemoDefense.EventId?state.Demo.Encounters.Defense:null;
         public static void ConfigureArmy(BaseState state,string eventId,ArmyDefinition army)
@@ -176,7 +176,7 @@ namespace BaseConquest.Base
                 preset.Apply(new BaseEnemySite{Capacity=army});
                 army.CommanderNames=Enumerable.Range(0,army.HeroCount).Select(index=>"来袭队长"+(index+1)).ToList();
             }
-            else {army.MeleeCount=preset.Melee;army.RangedCount=preset.Ranged;army.CavalryCount=preset.Cavalry;}
+            else {army.MeleeCount=preset.Melee;army.RangedCount=preset.Ranged;army.CavalryCount=preset.Cavalry;army.MageCount=preset.Mage;}
             army.Commanders=Enumerable.Range(0,army.HeroCount).Select(_=>new CommanderLoadout()).ToList();
             foreach(var unit in preset.Units.Where(unit=>unit.Kind!=SoldierKind.Hero))
             {var command=army.Commanders[unit.CommanderSlot];command.Set(unit.Kind,command.Count(unit.Kind)+1);}

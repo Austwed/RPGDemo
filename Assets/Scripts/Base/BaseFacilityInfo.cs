@@ -47,7 +47,7 @@ namespace BaseConquest.Base
             info.Administrator = manager == null ? "无可生产的管理员" : BasePersonnel.LeaderName(manager) + "（产能+" + (BaseDevelopment.Bonus(manager, id) * 100).ToString("0.#") + "%）";
             int producing = BaseEconomy.ProductionWorkersAt(state, id);
             info.Workers = producing + " 人在岗（其中近战" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Melee) +
-                "／弓兵" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Ranged) + "／骑兵" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Cavalry) + "）";
+                "／弓兵" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Ranged) + "／骑兵" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Cavalry) + "／法师" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Mage) + "）";
             info.Production = id == "farm" ? "今日预计产粮 " + preview.FoodProduced + "；累计进度 " + state.FarmFraction.ToString("0.##")
                 : "今日预计" + preview.ProductLevel + "级" + BaseEconomy.ProductName(preview.Product) + " " + preview.ProductsMade + "件；消耗原料 " + preview.MaterialsSpent;
             info.Status = BaseEconomy.ProductionPaused(state,id) ? "开发者已暂停产出" : producing == 0 ? "无人可生产" : id == "workshop" && preview.ProductsMade < preview.WorkCapacity ? "原料不足" : "正常生产";

@@ -110,7 +110,7 @@ namespace BaseConquest.Base
         }
 
         private static string PrepCounts(Func<SoldierKind, int> count) =>
-            $"队长 {count(SoldierKind.Hero)} · 剑士 {count(SoldierKind.Melee)} · 弓兵 {count(SoldierKind.Ranged)} · 骑兵 {count(SoldierKind.Cavalry)}";
+            $"队长 {count(SoldierKind.Hero)} · 剑士 {count(SoldierKind.Melee)} · 弓兵 {count(SoldierKind.Ranged)} · 骑兵 {count(SoldierKind.Cavalry)} · 法师 {count(SoldierKind.Mage)}";
 
         private static void PrepMeter(Transform view, string path, double fraction)
         {
@@ -129,6 +129,8 @@ namespace BaseConquest.Base
             bool travel = battleDraft.Route == BasePrepRoute.Travel;
             var state = PreparationState(battleDraft.Route);
             var view = OpenScenePanel("BattlePreparation", PreparationView);
+            var troopKinds = BaseTown.TroopKinds(state);
+            if (troopKinds.Contains(BaseTroopKind.Mage)) LayoutMagePreparation(view, null);
             if (Application.platform == RuntimePlatform.Android) AdaptBattlePreparationForTouch(view);
             activeObject = "battle-preparation";
             interactionObject = "";
@@ -168,10 +170,11 @@ namespace BaseConquest.Base
             foreach (var team in PrepLeaders)
             {
                 var card = CloneSceneUi("BattlePreparationTeam", cards);
+                if (troopKinds.Contains(BaseTroopKind.Mage)) LayoutMagePreparation(view, card);
                 if (Application.platform == RuntimePlatform.Android)
-                    foreach (string kind in new[] { "Melee", "Ranged", "Cavalry" })
+                    foreach (var kind in troopKinds)
                     {
-                        var group = card.Find(kind);
+                        var group = card.Find(kind.ToString());
                         var minus = group.Find("Minus").GetComponent<Button>();
                         var plus = group.Find("Plus").GetComponent<Button>();
                         var input = (RectTransform)group.Find("Input");
@@ -204,15 +207,15 @@ namespace BaseConquest.Base
                 var membership = card.Find("Assign");
                 membership.gameObject.SetActive(team.Id != battleDraft.PlayerId && !battleDraft.TravelingParty);
                 PrepButton(card, "Assign", null, () => TogglePrepLeader(team));
-                foreach (var kind in BattleSimulation.TroopKinds)
-                    BindPrepCount(card, team, kind);
+                foreach (var kind in troopKinds)
+                    BindPrepCount(card, team, BaseCampaign.ToBattle(kind));
             }
 
             var candidates = view.Find("Candidates");
             prepFilters.Clear();
             BindPrepFilter(candidates, "All", null);
-            foreach (var kind in BattleSimulation.TroopKinds)
-                BindPrepFilter(candidates, BaseCampaign.ToBase(kind).ToString(), kind);
+            foreach (var kind in troopKinds)
+                BindPrepFilter(candidates, kind.ToString(), BaseCampaign.ToBattle(kind));
             foreach (PrepSort sort in Enum.GetValues(typeof(PrepSort)))
                 PrepButton(candidates, "Sort" + sort, null, () => SetPrepSort(sort));
             PrepButton(candidates, "Detail/Back", null, () => { prepDetail = ""; RefreshPreparationRoster(); });
@@ -221,6 +224,44 @@ namespace BaseConquest.Base
             RefreshPreparationEdits();
             Canvas.ForceUpdateCanvases();
             prepRoster.content.anchoredPosition = new Vector2(0, Mathf.Clamp(prepRosterScroll, 0, Mathf.Max(0, prepRoster.content.rect.height - prepRoster.viewport.rect.height)));
+        }
+
+        private static void LayoutMagePreparation(Transform view, Transform card)
+        {
+            // Use the authored controls so the fourth column keeps the same touch target as the original three.
+            static RectTransform Fourth(Transform parent, string key, string from)
+            {
+                if (parent.Find(key) is RectTransform existing) return existing;
+                var copy = UnityEngine.Object.Instantiate((RectTransform)parent.Find(from), parent, false);
+                copy.name = key;
+                return copy;
+            }
+            static void PlaceX(Transform target, float x)
+            {
+                var rect = (RectTransform)target;
+                rect.anchoredPosition = new Vector2(x, rect.anchoredPosition.y);
+            }
+            var names = new[] { "Melee", "Ranged", "Cavalry", "Mage" };
+            if (card != null)
+            {
+                Fourth(card, "Mage", "Ranged");
+                foreach (var key in new[] { "Select", "Health", "HealthMeter", "Assign" })
+                    ((RectTransform)card.Find(key)).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 102);
+                for (int i=0; i<names.Length; i++) PlaceX(card.Find(names[i]), 177 + i*126);
+                return;
+            }
+            Fourth(view, "MageHeading", "RangedHeading").GetComponent<Text>().text = "法师";
+            ((RectTransform)view.Find("TeamHeading")).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 158);
+            for (int i=0; i<names.Length; i++) PlaceX(view.Find(names[i]+"Heading"), 191+i*126);
+            var filters = view.Find("Candidates");
+            Fourth(filters, "Mage", "Ranged").GetComponentInChildren<Text>().text = "法师";
+            int index=0;
+            foreach (var name in names.Prepend("All"))
+            {
+                var filter = (RectTransform)filters.Find(name);
+                PlaceX(filter, 9+index++*87);
+                filter.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,81);
+            }
         }
 
         private static void AdaptBattlePreparationForTouch(RectTransform view)
@@ -243,8 +284,8 @@ namespace BaseConquest.Base
                 ResizeTouchButton(view.Find(path).GetComponent<Button>(), 50, 21);
 
             var candidates = view.Find("Candidates");
-            foreach (var name in new[] { "All", "Melee", "Ranged", "Cavalry" })
-                ResizeTouchButton(candidates.Find(name).GetComponent<Button>(), 40, 20);
+            foreach (var name in new[] { "All", "Melee", "Ranged", "Cavalry", "Mage" })
+                if (candidates.Find(name) is RectTransform filter) ResizeTouchButton(filter.GetComponent<Button>(), 40, 20);
             foreach (var name in new[] { "SortRole", "SortHealth", "SortStatus" })
             {
                 var button = candidates.Find(name).GetComponent<Button>();
@@ -384,9 +425,10 @@ namespace BaseConquest.Base
                 string marker = team.Selected ? (char)('A' + slot++) + " · " : "○ ";
                 Ui<Text>(card, "Select/Label").text = marker + team.Name;
                 Ui<Text>(card, "Assign/Label").text = team.Selected ? "移出出战" : "加入出战";
-                foreach (var kind in BattleSimulation.TroopKinds)
+                foreach (var baseKind in BaseTown.TroopKinds(PreparationState(battleDraft.Route)))
                 {
-                    var group = card.Find(BaseCampaign.ToBase(kind).ToString());
+                    var kind = BaseCampaign.ToBattle(baseKind);
+                    var group = card.Find(baseKind.ToString());
                     int count = selected.Count(unit => unit.TeamId == team.Id && unit.Kind == kind);
                     var field = Ui<InputField>(group, "Input");
                     if (!field.isFocused) field.SetTextWithoutNotify(count.ToString(CultureInfo.InvariantCulture));

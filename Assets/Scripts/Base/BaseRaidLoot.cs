@@ -69,6 +69,7 @@ namespace BaseConquest.Base
         {
             if (s == null) return 1;
             if (kind == SoldierKind.Hero) return BaseRpg.Active(s) ? s.Demo.Rpg.LeaderFood : s.Rules.LeaderFood;
+            if (kind == SoldierKind.Mage && BaseRpg.Active(s)) return s.Demo.Rpg.MageFood;
             if (kind == SoldierKind.Cavalry) return s.Rules.CavalryFood;
             if (kind == SoldierKind.Ranged && BaseRpg.Active(s)) return s.Demo.Rpg.ArcherFood;
             return s.Rules.SoldierFood;

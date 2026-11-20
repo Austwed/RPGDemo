@@ -32,7 +32,7 @@ namespace BaseConquest.Battle
         private Text practiceInstructionText;
         private readonly BattleResultPanel battleResult;
         private readonly RectTransform draftControls, preparationPanel, fightingPanel, resultPanel;
-        private readonly Text[] troopStatus = new Text[3];
+        private readonly Text[] troopStatus = new Text[BattleSimulation.TroopKinds.Length];
         private readonly RectTransform cellMenu, cellMenuContent;
         private readonly Text cellMenuTitle;
         private readonly ScrollRect cellMenuScroll;
@@ -53,7 +53,7 @@ namespace BaseConquest.Battle
         private readonly List<GameObject> testHidden = new List<GameObject>();
         private readonly BattleSkillChargeGraphic[] skillCharge = new BattleSkillChargeGraphic[3];
         private readonly Button[] skills = new Button[3];
-        private readonly Button[] cards = new Button[3], portraits = new Button[3];
+        private readonly Button[] cards = new Button[BattleSimulation.TroopKinds.Length], portraits = new Button[3];
         private readonly RectTransform[] portraitGraphics = new RectTransform[3];
         private readonly Text[] portraitLabels = new Text[3];
         private readonly Text information, log, status, heading;
@@ -99,7 +99,7 @@ namespace BaseConquest.Battle
             automatic = Button("自动", safe, new Vector2(1, 1), new Vector2(-124, -10), new Vector2(50, 44), owner.ToggleAutomatic);
             fast = Button("3倍", safe, new Vector2(1, 1), new Vector2(-68, -10), new Vector2(50, 44), owner.ToggleFast);
             skip = Button("跳过", safe, new Vector2(1, 1), new Vector2(-12, -10), new Vector2(50, 44), owner.SkipBattle);
-            var army = Box("ControlledArmy", safe, new Vector2(0, 1), new Vector2(10, -76), new Vector2(118, 210)); armyPanel = army; heading = Label("", army, 12); heading.rectTransform.anchorMin = new Vector2(0, 0.85f);
+            var army = Box("ControlledArmy", safe, new Vector2(0, 1), new Vector2(10, -76), new Vector2(118, 264)); armyPanel = army; heading = Label("", army, 12); heading.rectTransform.anchorMin = new Vector2(0, 0.85f);
             preparationPanel = Box("PreparationControls", safe, new Vector2(1, 0), new Vector2(-12, 44), new Vector2(296, 112));
             draftControls = Rect("DraftPreparationControls", safe, new Vector2(1, 0), new Vector2(-14, 44), new Vector2(438, 44));
             DraftButton("Back", StoryText.Get("story.ui.prep.deployment_back", "返回备战"), 0, owner.ReturnFromDeploymentDraft);

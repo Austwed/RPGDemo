@@ -170,7 +170,7 @@ namespace BaseConquest.Base
                 int profession = BaseRpg.Profession(kind);
                 var id = $"{EventId}:{seed}:unit:{i}";
                 var character = new RpgCharacter { Version = 1, Id = id, Profession = profession,
-                    TemplateId = RpgRules.Template("soldier", profession), Rules = state.Demo.Rpg };
+                    TemplateId = state.Demo.Rpg.DefaultTemplateId("soldier", profession), Rules = state.Demo.Rpg };
                 var stats = state.Demo.Rpg.Bare(character, 1);
                 enemies.Add(new BaseEnemyMember { Id = id, Name = BattleSimulation.KindName(kind), Kind = kind,
                     CommanderSlot = -1, Health = stats.Health, Stats = stats, Rpg = character });

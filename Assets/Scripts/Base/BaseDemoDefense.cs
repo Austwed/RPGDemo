@@ -77,9 +77,9 @@ namespace BaseConquest.Base
         public static void PrepareOpening(BaseState state)
         {
             var source=state.Campaign.EnemySites[0];var army=source.Capacity.Clone();army.HeroCount=1;army.CaptainSlot=0;
-            army.MeleeCount=source.RaidMelee;army.RangedCount=source.RaidRanged;army.CavalryCount=source.RaidCavalry;
+            army.MeleeCount=source.RaidMelee;army.RangedCount=source.RaidRanged;army.CavalryCount=source.RaidCavalry;army.MageCount=source.RaidMage;
             army.CommanderStats=army.CommanderStats.Take(1).Select(stats=>stats.Clone()).ToList();army.CommanderNames=new List<string>{"来袭队长"};
-            army.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=army.MeleeCount,Ranged=army.RangedCount,Cavalry=army.CavalryCount}};
+            army.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=army.MeleeCount,Ranged=army.RangedCount,Cavalry=army.CavalryCount,Mage=army.MageCount}};
             var mission=state.Campaign.Events.First(item=>item.Kind=="defense").Copy();mission.Id=EventId;mission.Title="首次入侵 · 守住营地外围";mission.SourceSiteId="";mission.EnemyArmy.Clear();mission.Kind="defense";mission.Status="pending";
             state.Demo.Defense=new BaseDemoDefenseProgress {Version=1,Workshop=state.Muster.Facilities.Single(facility=>facility.FacilityId=="workshop").Copy(),Army=army,Mission=mission};
         }

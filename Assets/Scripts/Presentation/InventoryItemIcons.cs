@@ -23,7 +23,8 @@ namespace BaseConquest.Presentation
             BaseWine.Strong,
             BaseTraining.Book(Battle.SoldierKind.Melee, 3),
             BaseTraining.Book(Battle.SoldierKind.Ranged, 3),
-            BaseTraining.Book(Battle.SoldierKind.Cavalry, 3)
+            BaseTraining.Book(Battle.SoldierKind.Cavalry, 3),
+            BaseTraining.Book(Battle.SoldierKind.Mage, 3)
         };
 
         internal readonly struct Icon

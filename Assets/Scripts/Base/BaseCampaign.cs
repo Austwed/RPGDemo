@@ -175,7 +175,7 @@ namespace BaseConquest.Base
         }
         private static void ValidateRealtime(BaseCampaignBattle opening)
         {
-            if(opening.DemoCombat&&(!opening.RealtimeRules||opening.PlayerTroopCounts==null||opening.PlayerTroopCounts.Length!=3||opening.PlayerTroopCounts.Any(count=>count<0||count>10000)))throw new ArgumentException("Demo兵力快照非法");
+            if(opening.DemoCombat&&(!opening.RealtimeRules||opening.PlayerTroopCounts==null||opening.PlayerTroopCounts.Length!=(opening.Rpg?.HasProfessionCatalog==true ? 4 : 3)||opening.PlayerTroopCounts.Any(count=>count<0||count>10000)))throw new ArgumentException("Demo兵力快照非法");
             if(opening.RealtimeRulesVersion<0||opening.RealtimeRulesVersion>1||!opening.RealtimeRules&&opening.RealtimeRulesVersion!=0)throw new ArgumentException("未知即时战斗数值版本");
             if(!opening.HasRealtimeState&&opening.RealtimeState!=null&&(opening.RealtimeState.Units?.Count>0||opening.RealtimeState.Arrows?.Count>0||opening.RealtimeState.Seconds!=0))throw new ArgumentException("即时内容缺少检查点存在标志，拒绝清空");
             if(!opening.RealtimeRules){if(opening.HasRealtimeState)throw new ArgumentException("旧回合战不能读取即时检查点");return;}
@@ -185,7 +185,7 @@ namespace BaseConquest.Base
             if(!opening.HasRealtimeState||opening.RealtimeState==null)throw new ArgumentException("即时战斗检查点缺失，拒绝按旧回合恢复");
             new RealtimeCampaignBattle(new BaseCampaignSession(opening));
         }
-        public static SoldierKind ToBattle(BaseTroopKind k) => k == BaseTroopKind.Melee ? SoldierKind.Melee : k == BaseTroopKind.Ranged ? SoldierKind.Ranged : SoldierKind.Cavalry;
+        public static SoldierKind ToBattle(BaseTroopKind k) => k switch { BaseTroopKind.Melee => SoldierKind.Melee, BaseTroopKind.Ranged => SoldierKind.Ranged, BaseTroopKind.Cavalry => SoldierKind.Cavalry, BaseTroopKind.Mage => SoldierKind.Mage, _ => throw new ArgumentOutOfRangeException(nameof(k)) };
         private static (string source, BaseTroopKind kind, double health, double max) WorkerKey(BaseWorkerBucket worker)
             => (worker.SourceId, worker.Kind, worker.Health, worker.MaxHealth);
         private static void BindRosterNumbers(List<BaseWorkerBucket> troops, BaseWorkerBucket[] party)
@@ -207,7 +207,7 @@ namespace BaseConquest.Base
                 used.Add(number);
             }
         }
-        public static BaseTroopKind ToBase(SoldierKind k) => k == SoldierKind.Melee ? BaseTroopKind.Melee : k == SoldierKind.Ranged ? BaseTroopKind.Ranged : BaseTroopKind.Cavalry;
+        public static BaseTroopKind ToBase(SoldierKind k) => k switch { SoldierKind.Melee => BaseTroopKind.Melee, SoldierKind.Ranged => BaseTroopKind.Ranged, SoldierKind.Cavalry => BaseTroopKind.Cavalry, SoldierKind.Mage => BaseTroopKind.Mage, _ => throw new ArgumentOutOfRangeException(nameof(k)) };
         public static IEnumerable<BaseCampaignEvent> Due(BaseState s) => s.Campaign.Events.Where(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= s.Day && e.DeadlineDay <= s.Day);
         public static bool Travel(BaseState s, string location,string connectionId=null)
         {
@@ -312,7 +312,7 @@ namespace BaseConquest.Base
             BaseRpg.PrepareEnemies(s,enemies,e.Id);
             BaseThreats.ConfigureEnemy(raw,enemies);
             if(BaseDemoEncounterConfig.Preset(s,e.Id)!=null||e.Kind=="attack"&&BaseSpatial.Layout(s)?.Enemy?.Version==2)BaseThreats.ConfigureDeployment(raw,enemies);
-            raw.A.MeleeCount = quota.Melee; raw.A.RangedCount = quota.Ranged; raw.A.CavalryCount = quota.Cavalry;
+            raw.A.MeleeCount = quota.Melee; raw.A.RangedCount = quota.Ranged; raw.A.CavalryCount = quota.Cavalry; raw.A.MageCount = quota.Mage;
             raw.A.HeroCount = quota.Leaders.Count; raw.A.CaptainSlot = 0; raw.A.Capacity = 90;
             raw.PlayerLeaderSlot = quota.Leaders.IndexOf(s.PlayerLeaderId);
             var sceneLeaders=quota.Leaders.Select(id=>s.Leaders.Single(p=>p.Id==id)).ToList();
@@ -332,10 +332,10 @@ namespace BaseConquest.Base
                     raw.Placements.Add(new UnitPlacement { Side = BattleSide.A, Kind = unit.Kind,
                         Cell = roster.Positions[unit.Id], CommanderSlot = Array.IndexOf(roster.Leaders, unit.TeamId) });
             var a = new BaseCampaignBattle { Rpg=s.Demo?.Rpg?.Copy(),Id = quota.BattleId, EventId = e.Id, PartyId = party.Id, MapRegion=realtime||BaseDesignRoutes.Active(s)?location:null, StartedDay = s.Day,
-                Scenario = BaseSupply.ApplyToScenario(s, quota.BattleId, raw), Leaders = sceneLeaders.Select(l => l.Copy()).ToList(), Difficulty = new BaseDifficulty(), SupplySnapshot = quota.Copy(), Enemies=enemies,RealtimeRules=realtime,DemoCombat=demoCombat,PlayerTroopCounts=demoCombat?BattleSimulation.TroopKinds.Select(kind=>s.Workers.Where(w=>ToBattle(w.Kind)==kind).Sum(w=>w.Count)).ToArray():null,RealtimeRulesVersion=realtime?1:0,
+                Scenario = BaseSupply.ApplyToScenario(s, quota.BattleId, raw), Leaders = sceneLeaders.Select(l => l.Copy()).ToList(), Difficulty = new BaseDifficulty(), SupplySnapshot = quota.Copy(), Enemies=enemies,RealtimeRules=realtime,DemoCombat=demoCombat,PlayerTroopCounts=demoCombat?BaseTown.TroopKinds(s).Select(kind=>BaseTown.TroopCount(s,kind)).ToArray():null,RealtimeRulesVersion=realtime?1:0,
                 ManualDeployment=roster?.Positions!=null };
             if(BaseDemoRelease.Enabled(s)&&realtime)
-            {a.TacticalRules=s.Demo.TacticalRules.Copy();a.TacticalObjects=BaseSpatial.Layout(s,location).TacticalObjects.Select(o=>o.Copy()).ToList();a.TacticalBaseDamage=BaseRpg.Active(s)?s.Demo.Rpg.Templates.Single(t=>t.Id=="soldier_warrior").Attack:s.Demo.RuinsArmy.Melee.Damage;}
+            {a.TacticalRules=s.Demo.TacticalRules.Copy();a.TacticalObjects=BaseSpatial.Layout(s,location).TacticalObjects.Select(o=>o.Copy()).ToList();a.TacticalBaseDamage=BaseRpg.Active(s)?s.Demo.Rpg.Templates.Single(t=>t.Id==s.Demo.Rpg.DefaultTemplateId("soldier",0)).Attack:s.Demo.RuinsArmy.Melee.Damage;}
             if(BaseSceneInstances.Active(s))a.MapId=BaseSceneInstances.Layout(s,location).SourceMapId;
             if(e.Kind=="defense"&&enemies.Count>0)e.EnemyArmy=enemies.Select(u=>u.Copy()).ToList();
             a.Scenario.A.CommanderStats=a.Leaders.Select(l=>{var p=BaseCommanderIdentity.Stats(l,raw.A.Hero);p.Damage*=(float)quota.AttackFactor;return p;}).ToList();
@@ -403,7 +403,8 @@ namespace BaseConquest.Base
                     if (a.SupplySnapshot?.ByTeam == true) outcome.RecordTeam(unit.OriginCommanderSlot, lost);
                     if (snapshot.Kind == BaseTroopKind.Melee) { if (lost) outcome.LostMelee++; else outcome.SafeMelee++; }
                     else if (snapshot.Kind == BaseTroopKind.Ranged) { if (lost) outcome.LostRanged++; else outcome.SafeRanged++; }
-                    else { if (lost) outcome.LostCavalry++; else outcome.SafeCavalry++; }
+                    else if (snapshot.Kind == BaseTroopKind.Cavalry) { if (lost) outcome.LostCavalry++; else outcome.SafeCavalry++; }
+                    else { if (lost) outcome.LostMage++; else outcome.SafeMage++; }
                 }
             }
             var down = new List<string>();
@@ -564,7 +565,7 @@ namespace BaseConquest.Base
             {
                 unit.HasProvisionEffects=true;unit.ProvisionAttackFactor=(float)(Opening.SupplySnapshot?.AttackFactor??1);
                 if(unit.OriginCommanderSlot>=0&&unit.OriginCommanderSlot<Opening.Leaders.Count)BaseWine.Apply(unit,Opening.Leaders[unit.OriginCommanderSlot],Opening.StartedDay);
-                unit.ProvisionWeaponBonus=unit.Kind==SoldierKind.Hero ? 0 : (float)(Opening.SupplySnapshot?.WeaponBonus(unit.OriginCommanderSlot, unit.Kind==SoldierKind.Ranged)??0);
+                unit.ProvisionWeaponBonus=unit.Kind==SoldierKind.Hero ? 0 : (float)(Opening.SupplySnapshot?.WeaponBonus(unit.OriginCommanderSlot, unit.Kind)??0);
                 unit.ProvisionArmorBonus=unit.Kind==SoldierKind.Hero ? 0 : (float)(Opening.SupplySnapshot?.DefenseBonus(unit.OriginCommanderSlot)??0);
                 if (unit.Kind == SoldierKind.Hero)
                 {

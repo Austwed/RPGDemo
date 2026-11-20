@@ -50,7 +50,7 @@ namespace BaseConquest.Base
                 }
                 stats.Damage *= (float)BaseEconomy.AttackFactor(state) * actor.DrinkMultiplier;
                 int index = rows.Count;
-                string appearance = unit.Leader == null ? "" : BaseCommanderIdentity.Appearance(unit.Leader);
+                string appearance = unit.Kind == SoldierKind.Mage ? "mage" : unit.Leader == null ? "" : BaseCommanderIdentity.Appearance(unit.Leader);
                 if (unit.Id == state.PlayerLeaderId && string.IsNullOrEmpty(appearance)) appearance = "player";
                 rows.Add(new LanDuelMember
                 {
@@ -122,5 +122,6 @@ namespace BaseConquest.Base
         public bool paused, voteA, voteB;
         public bool[] visibleCells;
         public LanDuelActor[] units;
+        public MageSpellVisual[] spells;
     }
 }

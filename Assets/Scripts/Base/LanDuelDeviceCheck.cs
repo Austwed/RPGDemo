@@ -16,6 +16,7 @@ namespace BaseConquest.Base
         private double started, pauseAt, finishAt;
         private float firstVoteSeconds, frozenSeconds;
         private bool sentVote, resumed, sawUnilateral, sawPaused, sawResume, ordered, finished, checkedScout;
+        private bool sawMageCast, sawMageFlight, sawMageImpact, sawHealthChange;
         private int frozenTick, lastTarget = -1, nextReport;
         private BaseSceneController scene;
         private LanDuelScreen screen;
@@ -67,6 +68,16 @@ namespace BaseConquest.Base
                 scene=FindAnyObjectByType<BaseSceneController>();
                 if(scene?.Hud==null || scene.Busy || FindAnyObjectByType<SceneLoadingCover>()!=null) return;
                 var fixture=JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/defense-male").text);
+                if (mode == "mage")
+                {
+                    var rules = fixture.Demo.Rpg;
+                    var worker = fixture.Workers.First(w => w.Count > 0 && !w.Away && !w.VillageResident);
+                    worker.Kind = BaseTroopKind.Mage;
+                    var mage = new RpgCharacter { Profession = 3, TemplateId = rules.DefaultTemplateId("soldier", 3) };
+                    worker.CombatStats = rules.Bare(mage, 1);
+                    worker.Health = worker.MaxHealth = worker.CombatStats.Health;
+                    worker.HasCombatProfile = true;
+                }
                 BaseEconomy.Validate(fixture);
                 if (fixture.Campaign.Location == "perimeter")
                 {
@@ -123,7 +134,7 @@ namespace BaseConquest.Base
             if(phase=="connected" && screen.Phase=="preparing")
             {
                 var draft=screen.Draft;
-                var soldier=draft.Units.First(u=>u.Kind!=SoldierKind.Hero);
+                var soldier=draft.Units.First(u=>mode=="mage" ? u.Kind==SoldierKind.Mage : u.Kind!=SoldierKind.Hero);
                 foreach(var unit in draft.Units) unit.Selected=unit.Id==draft.PlayerId || unit==soldier;
                 soldier.TeamId=draft.PlayerId;draft.SupplyGrade=0;
                 screen.Ready(); if(screen.Phase=="preparing") throw new InvalidOperationException("备战被拒"); started=now;phase="battle";Debug.Log("[DuelQA] ready");return;
@@ -136,9 +147,18 @@ namespace BaseConquest.Base
                 nextReport += 10;
                 Debug.Log("[DuelQA] battle seconds=" + f.seconds + " units=" + string.Join(",",f.units.Select(u=>u.name+"="+(int)u.hp)));
             }
+            if (mode == "mage")
+            {
+                sawMageCast |= f.units.Any(u => u.kind == (int)SoldierKind.Mage && u.appearance == "mage" && u.attackPose >= 0);
+                sawMageFlight |= f.spells != null && f.spells.Any(s => !s.impact);
+                sawMageImpact |= f.spells != null && f.spells.Any(s => s.impact);
+                sawHealthChange |= f.units.Any(u => u.hp < u.maxHp);
+            }
             if(f.result!=0 && (f.aDeployed!=2 || f.bDeployed!=2))throw new InvalidOperationException("出战单位数量错误");
             if(screen.Phase=="result")
             {
+                if (mode == "mage" && !(sawMageCast && sawMageFlight && sawMageImpact && sawHealthChange))
+                    throw new InvalidOperationException($"法师联机观测 cast={sawMageCast} flight={sawMageFlight} hit={sawMageImpact} hp={sawHealthChange}");
                 if(!ordered||!sawPaused||!sawResume||!sawUnilateral) throw new InvalidOperationException("未覆盖暂停/指挥");
                 if(finishAt==0){finishAt=now;Debug.Log("[DuelQA] result "+f.result+" tick "+f.tick+" survivors "+f.aStanding+"/"+f.bStanding);}
                 if(now-finishAt>1.5) Complete("result="+f.result+" tick="+f.tick+" survivors="+f.aStanding+"/"+f.bStanding);
@@ -210,7 +230,7 @@ namespace BaseConquest.Base
             screen.Leave();
             if(stateBefore!=JsonUtility.ToJson(scene.State)||saveBefore!=DiskDigest())
                 throw new InvalidOperationException("对局改写了本地营地或磁盘存档");
-            Finish(true,summary+" campaign unchanged");
+            Finish(true,summary+(mode == "mage" ? " mage cast/flight/impact/hp" : "")+" campaign unchanged");
         }
         private void Finish(bool passed,string text)
         {

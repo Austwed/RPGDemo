@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace BaseConquest.Base
 {
-    public enum BaseTroopKind { Melee, Ranged, Cavalry }
+    public enum BaseTroopKind { Melee = 0, Ranged = 1, Cavalry = 2, Mage = 3 }
     [Serializable] public sealed class BaseLeader
     {
         public string Id, Name, FacilityId = "";

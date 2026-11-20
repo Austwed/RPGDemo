@@ -49,7 +49,7 @@ namespace BaseConquest.Base
     public static class BaseDemo
     {
         // Increment only when Demo progress becomes incompatible; old files are discarded, never migrated.
-        public const int SaveVersion=20;
+        public const int SaveVersion=21;
         public const string Profile="demo-new-camp-v1", ReleaseProfile="demo-complete-v2", BalanceTemplate="35_配表驱动验证.json", Assignment="demo:lord:ruins-assignment";
         public static bool Active(BaseState state) => state?.Demo?.Version==1;
         public static bool ExperimentalManagementHidden(BaseState state) => Active(state) && !RuntimeDeveloperOptions.Enabled;

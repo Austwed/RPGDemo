@@ -248,7 +248,7 @@ namespace BaseConquest.Base
             {
                 var delta=BaseDailyDelta.Read(s);summary.supportRichText=true;
                 string Amount(string name,int count,int change)=>(DemoUiIcons.Load(name=="粮食"?"food":name=="原料"?"materials":name=="钱币"?"coins":"supplies")!=null?"　　":"")+name+" "+count+"（<color="+(change>0?"#a96354":change<0?"#426b50":"#718078")+">"+change.ToString("+0;-0;0")+"</color>）";
-                summary.text=BaseCampaign.LocationName(s)+(BaseDemoPrologue.Village(s)?"":" · 第 "+s.Day+" 天")+"   "+Amount("粮食",s.Inventory.Food,delta.Food)+"   "+Amount("原料",s.Inventory.Materials,delta.Materials)+"   "+Amount("钱币",s.Inventory.Coins,delta.Coins)+"\n"+Amount("军需",s.Inventory.Equipment.Where(e=>e.Product=="supply").Sum(e=>e.Count),delta.Supply)+"   兵力：剑士 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Melee).Sum(w=>w.Count)+"／弓兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Ranged).Sum(w=>w.Count)+"／骑兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Cavalry).Sum(w=>w.Count);
+                summary.text=BaseCampaign.LocationName(s)+(BaseDemoPrologue.Village(s)?"":" · 第 "+s.Day+" 天")+"   "+Amount("粮食",s.Inventory.Food,delta.Food)+"   "+Amount("原料",s.Inventory.Materials,delta.Materials)+"   "+Amount("钱币",s.Inventory.Coins,delta.Coins)+"\n"+Amount("军需",s.Inventory.Equipment.Where(e=>e.Product=="supply").Sum(e=>e.Count),delta.Supply)+"   兵力：剑士 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Melee).Sum(w=>w.Count)+"／弓兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Ranged).Sum(w=>w.Count)+"／骑兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Cavalry).Sum(w=>w.Count)+"／法师 "+BaseTown.TroopCount(s,BaseTroopKind.Mage);
                 if(BaseDemoRuins.Enabled(s))summary.text+=" · 体力 "+BaseRuinsRewards.Energy(s)+"/"+BaseRuinsRewards.Maximum(s);
             }
             if(panel!=null&&panelViewKey!="npc-dialogue"){var header=summary.transform.parent;header.SetAsLastSibling();}
@@ -793,7 +793,7 @@ namespace BaseConquest.Base
             {
                 Line(BaseEconomy.FacilityName(facility) + "：今日生产人数 " + BaseEconomy.ProductionWorkersAt(s, facility) + "/" + s.Muster.Facilities.Single(f => f.FacilityId == facility).Capacity, 42);
                 RowButton(RosterText("open", "点名调配"), 0, 800, () => OpenWorkerRoster(facility, refresh));row += 56;
-                foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
+                foreach (BaseTroopKind kind in BaseTown.TroopKinds(s))
                 {
                     string target = facility; BaseTroopKind troop = kind;
                     int available = s.Workers.Where(w => w.Kind == kind && w.FacilityId == "" && BaseDevelopment.Effective(s, w)).Sum(w => w.Count);

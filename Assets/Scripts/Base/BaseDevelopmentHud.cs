@@ -106,7 +106,7 @@ namespace BaseConquest.Base
             if(activePage=="composition")CommanderPresets();else if(activePage=="roster")PersonnelRoster();else if (activePage == "recovery") Recovery();
             else
             {
-                foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
+                foreach (BaseTroopKind kind in BaseTown.TroopKinds(s))
                 {
                     var units = s.Workers.Where(w => w.Kind == kind).ToArray();
                     int working = units.Where(w => BaseDevelopment.Effective(s, w) && w.FacilityId != "").Sum(w => w.Count);

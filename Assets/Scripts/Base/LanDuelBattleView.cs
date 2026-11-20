@@ -12,6 +12,7 @@ namespace BaseConquest.Base
     public sealed partial class LanDuelScreen
     {
         private LanDuelBoardGraphic board;
+        private readonly List<Image> spells = new();
         private readonly Dictionary<int,Token> tokens=new();
         private readonly Dictionary<int, Button> commanders=new();
         private int selectedActor=-1, lastVisualTick=-1;
@@ -37,7 +38,7 @@ namespace BaseConquest.Base
             timeText=Caption(page,"Clock","",.76f,.803f,.98f,.875f,22);
             commanderText=Caption(page,"LeaderStatus","",.76f,.715f,.985f,.80f,19);
             var cards=VerticalList(page,"Commanders",.756f,.415f,.984f,.71f);
-            commanders.Clear();tokens.Clear();lastVisualTick=-1;
+            commanders.Clear();tokens.Clear();spells.Clear();lastVisualTick=-1;
             foreach(var u in Frame.units.Where(u=>u.side==LocalSide&&u.kind==(int)SoldierKind.Hero))
             {
                 int id=u.id;commanders[id]=Row(cards,"Leader"+id,u.name,()=>SelectActor(id));
@@ -78,7 +79,7 @@ namespace BaseConquest.Base
             t.image=art.gameObject.AddComponent<RawImage>();t.image.raycastTarget=false;
             string id=unit.appearance;
             if(string.IsNullOrEmpty(id))
-                id=unit.kind==(int)SoldierKind.Ranged?"archer":unit.kind==(int)SoldierKind.Cavalry?"cavalry":unit.kind==(int)SoldierKind.Hero?"player":"infantry";
+                id=unit.kind==(int)SoldierKind.Mage?"mage":unit.kind==(int)SoldierKind.Ranged?"archer":unit.kind==(int)SoldierKind.Cavalry?"cavalry":unit.kind==(int)SoldierKind.Hero?"player":"infantry";
             t.idle=PixelDemoArt.Load("Characters",id)??PixelDemoArt.Load("Characters","player");
             t.walk=PixelDemoArt.Motion(id,"walk"); t.down=PixelDemoArt.Motion(id,"down"); t.attack=PixelDemoArt.Motion(id,"attack");
             var hp=Area(t.rect,"Hp",.1f,.94f,.9f,.995f);Back(hp,Theme.Wood);hp.GetComponent<Image>().raycastTarget=false;
@@ -118,6 +119,7 @@ namespace BaseConquest.Base
                 timeText.text="演武   "+TimeSpan.FromSeconds(Frame.seconds).ToString(@"mm\:ss");
                 Hint(Frame.resumeIn>0?$"{Mathf.CeilToInt(Frame.resumeIn)} 秒后继续":Frame.paused?"双方已暂停。":ownVote?"已请求暂停，等待对方同意。":peerVote?"对方请求暂停。":"选择队长，点地面移动，点敌军集火。");
             }
+            DrawSpells(box);
             foreach(var u in Frame.units)
             {
                 var t=tokens[u.id];t.last=Vector2.MoveTowards(t.last,t.goal,Time.unscaledDeltaTime*16);
@@ -127,14 +129,50 @@ namespace BaseConquest.Base
                 t.rect.sizeDelta=new Vector2(scale,scale);
                 var face=PlayerHeroFrames.Face(LocalSide==0?u.fx:-u.fx,u.fz,HeroFacing.South);
                 var tex=u.hp<=0?t.down:u.attackPose>=0?t.attack:u.moving?t.walk:null;
-                if(tex==null){t.image.texture=t.idle;t.image.uvRect=PixelDemoArt.Frame(face,HeroPose.Idle,0);}
+                if (u.appearance == "mage" || u.appearance == "galan")
+                {
+                    float cell = tex != null ? tex.height / 4f : 64f;
+                    float foot = tex == null ? 60 : PixelDemoArt.FootPx(u.hp <= 0 ? "down" : u.attackPose >= 0 ? "attack" : "walk", cell, null);
+                    var rect = t.image.rectTransform;
+                    rect.anchorMin = rect.anchorMax = new Vector2(.5f, .16f);
+                    rect.pivot = new Vector2(.5f, 1 - foot / cell);
+                    rect.anchoredPosition = Vector2.zero;
+                    rect.sizeDelta = Vector2.one * (scale * cell / 64f);
+                }
+                if(tex==null){t.image.texture=t.idle;t.image.uvRect=PixelDemoArt.Frame(face,u.moving?HeroPose.Walk:HeroPose.Idle,Frame.seconds);}
                 else
                 {
                     int cols=Mathf.Max(1,tex.width/(tex.height/4));
                     int col=u.hp<=0?cols-1:u.attackPose>=0?Mathf.Clamp((int)(cols*u.attackPose),0,cols-1):(int)(Frame.seconds*8)%cols;
+                    if (u.hp > 0 && u.attackPose >= 0 && (u.appearance == "mage" || u.appearance == "galan"))
+                        col = PixelDemoArt.CastFrame(u.appearance, cols, u.attackPose);
                     t.image.texture=tex;t.image.uvRect=new Rect((float)col/cols,1-((int)face+1)*.25f,1f/cols,.25f);
                 }
             }
+        }
+        private void DrawSpells(Rect box)
+        {
+            var frame = Frame.spells ?? Array.Empty<MageSpellVisual>();
+            for (int i = 0; i < frame.Length; i++)
+            {
+                if (spells.Count == i)
+                {
+                    var rect = Area(board.transform, "MageSpell", 0, 0, 0, 0);
+                    var sprite = rect.gameObject.AddComponent<Image>();
+                    sprite.raycastTarget = false;
+                    spells.Add(sprite);
+                }
+                var fx = frame[i];
+                var image = spells[i];
+                image.enabled = true;
+                image.transform.SetAsLastSibling();
+                image.sprite = MageSpellVisual.Art(fx.impact);
+                image.color = new Color(1, 1, 1, fx.opacity);
+                float x = LocalSide == 0 ? fx.x : Frame.width - fx.x;
+                image.rectTransform.anchoredPosition = new Vector2(box.width * x / Frame.width, box.height * (fx.z + .36f) / Frame.height);
+                image.rectTransform.sizeDelta = Vector2.one * (2 * fx.radius * Mathf.Min(box.width / Frame.width, box.height / Frame.height));
+            }
+            for (int i = frame.Length; i < spells.Count; i++) spells[i].enabled = false;
         }
         private void ShowResult()
         {

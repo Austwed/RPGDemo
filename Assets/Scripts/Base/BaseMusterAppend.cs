@@ -13,15 +13,15 @@ namespace BaseConquest.Base
             if (s.Supply.Quotas.Any(q => q.PartyId == id)) throw new InvalidOperationException("先取消本队军需准备，追加后重新计算配额");
             return party;
         }
-        public static BaseMusterPlan PreviewAppend(BaseState s, string partyId, int melee, int ranged, int cavalry, bool ignoreProtection = false)
+        public static BaseMusterPlan PreviewAppend(BaseState s, string partyId, int melee, int ranged, int cavalry, bool ignoreProtection = false, int mage = 0)
         {
             BaseEconomy.Validate(s); AppendParty(s, partyId);
-            if (new[] { melee, ranged, cavalry }.Any(n => n < 0 || n > 30)) throw new ArgumentException("追加请求每兵种须在0～30之间");
-            var plan = new BaseMusterPlan { Id = Guid.NewGuid().ToString("N"), PartyId = partyId, Purpose = "expedition", Stamp = Snapshot(s), IgnoreProtection = ignoreProtection, RequestedMelee = melee, RequestedRanged = ranged, RequestedCavalry = cavalry };
+            if (new[] { melee, ranged, cavalry, mage }.Any(n => n < 0 || n > 30)) throw new ArgumentException("追加请求每兵种须在0～30之间");
+            var plan = new BaseMusterPlan { Id = Guid.NewGuid().ToString("N"), PartyId = partyId, Purpose = "expedition", Stamp = Snapshot(s), IgnoreProtection = ignoreProtection, RequestedMelee = melee, RequestedRanged = ranged, RequestedCavalry = cavalry, RequestedMage = mage };
             int existingTotal=s.Workers.Where(w=>w.Away&&w.PartyId==partyId).Sum(w=>w.Count);
             if(existingTotal>BattleSoldierLimit)throw new InvalidOperationException("本队超过24人，请返营调整");
             plan.SoldierLimit=BattleSoldierLimit-existingTotal;
-            var requested = new BaseArmyPreset { Melee = melee, Ranged = ranged, Cavalry = cavalry };
+            var requested = new BaseArmyPreset { Melee = melee, Ranged = ranged, Cavalry = cavalry, Mage = mage };
             var capped = requested.Copy();
             foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
             {
@@ -30,7 +30,7 @@ namespace BaseConquest.Base
                 capped.SetCount(kind, Math.Min(requested.Count(kind), 30 - existing));
             }
             SelectWorkers(s, plan, capped, ApplyAppend, true);
-            plan.MissingMelee += melee - capped.Melee; plan.MissingRanged += ranged - capped.Ranged; plan.MissingCavalry += cavalry - capped.Cavalry;
+            plan.MissingMelee += melee - capped.Melee; plan.MissingRanged += ranged - capped.Ranged; plan.MissingCavalry += cavalry - capped.Cavalry; plan.MissingMage += mage - capped.Mage;
             var before = BaseEconomy.Preview(s); var trial = s.Copy(); ApplyAppend(trial, plan); var after = BaseEconomy.Preview(trial);
             plan.FoodLoss = before.FoodProduced - after.FoodProduced; plan.ProductLoss = before.ProductsMade - after.ProductsMade;
             plan.RemainingBase = trial.Workers.Where(w => !w.Away).Sum(w => w.Count); return plan;
@@ -40,7 +40,7 @@ namespace BaseConquest.Base
             BaseEconomy.Validate(s);
             if (plan == null || !Guid.TryParseExact(plan.Id, "N", out _) || string.IsNullOrEmpty(plan.PartyId) || plan.Purpose != "expedition" || plan.Leaders == null || plan.Leaders.Count != 0 || plan.Takes == null || plan.Total == 0 || s.Muster.AppliedAppendIds.Contains(plan.Id) || s.Muster.AppliedAppendIds.Count >= 100000 || plan.Stamp != Snapshot(s)) return false;
             BaseMusterPlan actual;
-            try { actual = PreviewAppend(s, plan.PartyId, plan.RequestedMelee, plan.RequestedRanged, plan.RequestedCavalry, plan.IgnoreProtection); }
+            try { actual = PreviewAppend(s, plan.PartyId, plan.RequestedMelee, plan.RequestedRanged, plan.RequestedCavalry, plan.IgnoreProtection, plan.RequestedMage); }
             catch (ArgumentException) { return false; } catch (InvalidOperationException) { return false; }
             if (Shape(actual) != Shape(plan)) return false;
             string prefix = plan.PartyId + ".append." + plan.Id + ".";

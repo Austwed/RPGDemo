@@ -92,7 +92,7 @@ namespace BaseConquest.Base
         public static bool Active(BaseState s)=>BaseDemo.Active(s)&&s.Demo.Flow!=null;
         public static bool Recruited(BaseState s)=>Active(s)&&s.Demo.Flow.HiredKinds==7;
         public static string RecruitProgress(BaseState s)=>string.Join("  ",new[]{BaseTroopKind.Melee,BaseTroopKind.Ranged,BaseTroopKind.Cavalry}.Select((k,n)=>((s.Demo.Flow.HiredKinds&(1<<n))!=0?"■ ":"□ ")+(n==0?"剑士":n==1?"弓兵":"骑兵")+"×1"));
-        public static void Hired(BaseState s,BaseTroopKind kind){if(Active(s)&&BaseDemoDefense.Delivered(s)){s.Demo.Flow.HiredKinds|=1<<(int)kind;s.Demo.Flow.FirstIntelEligible=true;}}
+        public static void Hired(BaseState s,BaseTroopKind kind){if(Active(s)&&BaseDemoDefense.Delivered(s)){if(kind!=BaseTroopKind.Mage)s.Demo.Flow.HiredKinds|=1<<(int)kind;s.Demo.Flow.FirstIntelEligible=true;}}
         public static string RestAdvice(BaseState s, BaseDayPreview preview = null)
         {
             // 开局缺工与缺粮显示在日结预估旁，后果由实际日结处理。

@@ -31,14 +31,17 @@ namespace BaseConquest.Editor
                 foreach(var item in manifest.Items.Where(i=>i.Status=="pending").ToArray())Need(BaseBattleLoot.Resolve(s,manifest.BattleId,item.Id,s.PlayerLeaderId,true),"领取奖励");
                 Need(BaseBattleLoot.Finish(s,manifest.BattleId),"完成战果");}
         }
-        public static BaseState Defense(string raw,string gender,RpgRules rules=null)
+        internal static BaseState OpenFirstRuins(string raw,string gender,RpgRules rules)
         {
             var s=Camp(raw,gender,rules);At(s,"home");Need(BaseDemo.AcknowledgeWaking(s),"醒来");
             At(s,"demo_ahe");Need(BaseDemoRuins.Meet(s,"partner_farm")&&BaseDemoRuins.Join(s,"partner_farm"),"阿禾加入");
             At(s,"exit_east");Need(BaseCampaign.Travel(s,"town"),"进入城镇");At(s,"demo_azhu");Need(BaseDemoRuins.Meet(s,"partner_craft")&&BaseDemoRuins.Join(s,"partner_craft"),"阿铸加入");s.Demo.Flow.AzhuDuelWon=true;Need(BaseDemoStories.Gift(s),"父亲赠礼");BaseBattleLoot.CollectAll(s,"demo:smith:parting-gift");Need(BaseBattleLoot.Finish(s,"demo:smith:parting-gift"),"领取父亲赠礼");
             At(s,"town_quest");Need(BaseDemo.AcceptLordQuest(s),"领主任务");At(s,"demo_ruins_exit");Need(BaseCampaign.Travel(s,"outpost"),"前往遗迹入口");
             var entrance=BaseSpatial.Objects(s).First(o=>o.Id=="demo_ruins_investigate");s.PlayerX=entrance.X;s.PlayerY=entrance.Y;
-            var session=BaseDemoRuins.Begin(s,"none");var run=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(run);run.Model.SetPaused(false);
+            return s;
+        }
+        internal static void CompleteFirstRuins(BaseState s,RealtimeCampaignBattle run)
+        {
             for(int t=0;t<5400&&run.Battle.Phase==BattlePhase.Fighting;t++){
                 if(run.RuinsExitOpen){VerifyChenanAndRuins.WalkOutOfRuins(run);break;}
                 if(t%30==0){var enemy=run.Battle.Commander(BattleSide.B,0);var target=run.Model.Units.First(u=>u.Id==enemy.Id+1);
@@ -48,6 +51,12 @@ namespace BaseConquest.Editor
                         else run.Issue(new[]{captain.Id-1},PrototypeOrder.Move,target.Position,-1,true);
                     }}run.Tick(1d/60);}
             Need(BaseDemoRuins.Complete(s,run),"阶段档遗迹实际战斗："+run.Battle.Report?.Outcome);Loot(s);
+        }
+        public static BaseState Defense(string raw,string gender,RpgRules rules=null)
+        {
+            var s=OpenFirstRuins(raw,gender,rules);
+            var session=BaseDemoRuins.Begin(s,"none");var run=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(run);run.Model.SetPaused(false);
+            CompleteFirstRuins(s,run);
             // Fixed test starts are healthy; resources and progress use the actual transaction results.
             foreach(var l in s.Leaders){l.Health=l.MaxHealth;l.Fate="active";}
             BaseSceneRules.LeaveDungeon(s);At(s,"demo_ruins_return");Need(BaseCampaign.Travel(s,"town"),"返回城镇");At(s,"town_quest");Need(BaseDemoRuins.Deliver(s),"交付遗迹");

@@ -200,7 +200,7 @@ namespace BaseConquest.Base
         public static SquadStrategy Tier(SquadStrategy value) => value == SquadStrategy.Flee ? SquadStrategy.Protect : value;
         public static void Configure(BaseState s,BattleScenario scenario,IReadOnlyList<BaseLeader> leaders,string region=null)
         {
-            if(Neutral(s,region??s.Campaign.Location)){scenario.A.MeleeCount=scenario.A.RangedCount=scenario.A.CavalryCount=0;foreach(var c in scenario.A.Commanders)c.Melee=c.Ranged=c.Cavalry=0;}
+            if(Neutral(s,region??s.Campaign.Location)){scenario.A.MeleeCount=scenario.A.RangedCount=scenario.A.CavalryCount=scenario.A.MageCount=0;foreach(var c in scenario.A.Commanders)c.Melee=c.Ranged=c.Cavalry=c.Mage=0;}
             if(!Active(s))return;
             bool atHomeField=(region??s.Campaign.Location)=="perimeter";
             scenario.HeightVision=true;

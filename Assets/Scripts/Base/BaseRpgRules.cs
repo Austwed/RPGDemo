@@ -10,23 +10,23 @@ namespace BaseConquest.Base
         public int Version=1;public string WorkbookSha256;public RpgRules Rules;
         public void Validate()
         {
-            if(Version!=1||WorkbookSha256==null||WorkbookSha256.Length!=64||WorkbookSha256.Any(c=>!"0123456789abcdef".Contains(c))||Rules==null||Rules.OpeningEconomyVersion!=1||Rules.OpeningAuxVersion!=1||Rules.Equipment?.Count!=13)throw new ArgumentException("Demo配表快照缺少版本、来源或完整规则");
+            if(Version!=1||WorkbookSha256==null||WorkbookSha256.Length!=64||WorkbookSha256.Any(c=>!"0123456789abcdef".Contains(c))||Rules==null||Rules.OpeningEconomyVersion!=1||Rules.OpeningAuxVersion!=1||Rules.Equipment?.Count!=(Rules.HasProfessionCatalog?14:13))throw new ArgumentException("Demo配表快照缺少版本、来源或完整规则");
             Rules.Validate();
             var expected=Enumerable.Range(0,9).Select(i=>RpgRules.Template(i<3?"soldier":i<6?"captain_normal":"captain_awakened",i%3));
-            if(!expected.OrderBy(x=>x).SequenceEqual(Rules.Templates.Select(t=>t.Id).OrderBy(x=>x)))throw new ArgumentException("Demo配表快照的模板ID不完整");
+            if(!Rules.HasProfessionCatalog&&!expected.OrderBy(x=>x).SequenceEqual(Rules.Templates.Select(t=>t.Id).OrderBy(x=>x)))throw new ArgumentException("Demo配表快照的模板ID不完整");
             var defaults=RpgRules.Defaults();
             if(!defaults.Skills.Select(s=>s.Id).OrderBy(x=>x).SequenceEqual(Rules.Skills.Select(s=>s.Id).OrderBy(x=>x))||!defaults.Traits.Select(t=>t.Id).OrderBy(x=>x).SequenceEqual(Rules.Traits.Select(t=>t.Id).OrderBy(x=>x)))throw new ArgumentException("Demo配表快照的技能或特性ID不完整");
         }
     }
     [Serializable] public sealed class RpgTemplate
     {
-        public string Id;public double Health,Attack,Defense;
+        public string Id,Name,ProfessionId,Identity;public bool IsDefault;public double Health,Attack,Defense;
         public int SightRadius;
         public RpgTemplate Copy()=>(RpgTemplate)MemberwiseClone();
     }
     [Serializable] public sealed class RpgSkillDefinition
     {
-        public string Id,Name;public int Profession=-1;public double Amount,Duration,Cooldown,Radius,SpeedBonus,Opening=3;
+        public string Id,Name,DamageType;public int Profession=-1;public double Amount,Duration,Cooldown,Radius,SpeedBonus,Opening=3;
         public RpgSkillDefinition Copy()=>(RpgSkillDefinition)MemberwiseClone();
     }
     [Serializable] public sealed class RpgTraitDefinition
@@ -56,8 +56,76 @@ namespace BaseConquest.Base
         public double Trait(string id)=>Traits.Where(t=>t.Id==id).Sum(t=>t.Value);
         public RpgCharacter Copy(){if(Version==0)return null;var c=(RpgCharacter)MemberwiseClone();c.Traits=Traits.Select(t=>t.Copy()).ToList();return c;}
     }
+    [Serializable] public sealed class RpgEncounterUnit
+    {
+        public string Scene,Slot,TemplateId;
+        public RpgEncounterUnit Copy()=>(RpgEncounterUnit)MemberwiseClone();
+    }
+    [Serializable] public sealed class RpgProfessionDefinition
+    {
+        public string Id, Name, AttackMode, DamageType, Weapon, TrainingBasic, TrainingAdvanced;
+        public RpgProfessionDefinition Copy() => (RpgProfessionDefinition)MemberwiseClone();
+    }
     [Serializable] public sealed class RpgRules
     {
+        internal static readonly string[] ProfessionIds = { "warrior", "archer", "knight", "mage" };
+        internal static readonly string[] Identities = { "soldier", "captain_normal", "captain_awakened" };
+        public List<RpgProfessionDefinition> Professions = new List<RpgProfessionDefinition>();
+        public List<RpgEncounterUnit> EncounterUnits = new List<RpgEncounterUnit>();
+        public double[] TemplateDefenseCaps;
+        public int MageFood = 1;
+        public bool HasProfessionCatalog => Professions?.Count > 0;
+        public int ProfessionCount => HasProfessionCatalog ? Professions.Count : 3;
+        public bool IsRanged(int profession) => HasProfessionCatalog ? Professions[profession].AttackMode == "ranged" : profession == 1;
+        public string AttackDamageType(int profession) => HasProfessionCatalog ? Professions[profession].DamageType : "legacy";
+        public string DefaultTemplateId(string identity, int profession) => HasProfessionCatalog
+            ? Templates.Single(t => t.IsDefault && t.Identity == identity && t.ProfessionId == Professions[profession].Id).Id
+            : Template(identity, profession);
+        public string TemplateIdentity(string id)
+        {
+            if (HasProfessionCatalog) return Templates.FirstOrDefault(t => t.Id == id)?.Identity;
+            return Identities.FirstOrDefault(key => id != null && id.StartsWith(key + "_", StringComparison.Ordinal));
+        }
+        public bool MatchesTemplate(string id, int profession) => profession >= 0 && profession < ProfessionCount &&
+            Templates.Any(t => t.Id == id && (HasProfessionCatalog ? t.ProfessionId == Professions[profession].Id : id.EndsWith("_" + ProfessionIds[profession], StringComparison.Ordinal)));
+        private void ValidateProfessions()
+        {
+            if (!HasProfessionCatalog) return;
+            if (Professions.Any(p => p == null) || !Professions.Select(p => p.Id).SequenceEqual(ProfessionIds)
+                || TemplateDefenseCaps?.Length != Identities.Length || TemplateDefenseCaps.Any(n => !Finite(n) || n < 0)
+                || MageFood < 1 || MageFood > 100 || Templates == null || Skills == null)
+                throw new ArgumentException("职业表、模板身份防御上限或法师口粮非法");
+            for (int i = 0; i < Professions.Count; i++)
+            {
+                var p = Professions[i];
+                if (string.IsNullOrWhiteSpace(p.Name) || (p.AttackMode != "melee" && p.AttackMode != "ranged")
+                    || (p.DamageType != "physical" && p.DamageType != "magic") || p.Weapon != BaseRpg.Weapon(i)
+                    || p.TrainingBasic != BaseTraining.Book(BaseRpg.Kind(i), 2) || p.TrainingAdvanced != BaseTraining.Book(BaseRpg.Kind(i), 3))
+                    throw new ArgumentException("职业配置非法：" + p.Id);
+                foreach (string identity in Identities)
+                    if (Templates.Count(t => t != null && t.IsDefault && t.ProfessionId == p.Id && t.Identity == identity) != 1)
+                        throw new ArgumentException("身份／职业需唯一默认模板：" + identity + "/" + p.Id);
+            }
+            foreach (var t in Templates)
+            {
+                int identity = Array.IndexOf(Identities, t?.Identity);
+                if (t == null || string.IsNullOrWhiteSpace(t.Id) || identity < 0 || !ProfessionIds.Contains(t.ProfessionId) || t.Defense > TemplateDefenseCaps[identity])
+                    throw new ArgumentException("模板职业、身份或裸装防御超界：" + t?.Id);
+            }
+            if(EncounterUnits!=null&&(EncounterUnits.Any(refUnit=>refUnit==null||!BaseDemoIntro.HasEditableSoldierSlot(refUnit.Scene,refUnit.Slot)||
+                    !Templates.Any(t=>t.Id==refUnit.TemplateId&&t.Identity=="soldier"))||
+                EncounterUnits.GroupBy(refUnit=>(refUnit.Scene,refUnit.Slot)).Any(g=>g.Count()>1)))
+                throw new ArgumentException("关卡普通兵槽位或模板引用无效");
+            if (!Templates.Any(t => t.Id == RuinsFirstControllerTemplate && t.Identity == "captain_awakened" && t.ProfessionId == "mage"))
+                throw new ArgumentException("遗迹首战伽兰须引用异能者法师模板");
+            foreach (var skill in Skills)
+            {
+                bool damaging = skill?.Id == "sweep" || skill?.Id == "charge";
+                if (skill == null || skill.Profession < -1 || skill.Profession >= ProfessionCount ||
+                    (damaging ? skill.DamageType != "physical" && skill.DamageType != "magic" : skill.DamageType != "none" && !string.IsNullOrEmpty(skill.DamageType)))
+                    throw new ArgumentException("技能伤害类型或职业非法：" + skill?.Id);
+            }
+        }
         public int GenerationSeed, SceneRulesVersion;
         public int HideoutEnemyCount;
         public string RuinsFirstControllerTemplate="captain_awakened_warrior";
@@ -92,7 +160,7 @@ namespace BaseConquest.Base
         public List<RpgStoryPreset> StoryPresets;
         private static int[] DefaultTraining(bool days)=>Enumerable.Range(0,24).Select(i=>days?BaseTraining.Days(true,i%8+2):BaseTraining.Books(true,i%8+2)).ToArray();
         public int TrainingCost(bool days,int profession,int target)
-        {if(profession<0||profession>2||target<2||target>9)throw new ArgumentOutOfRangeException();return (days?TrainingDays:TrainingBooks)[profession*8+target-2];}
+        {if(profession<0||profession>=ProfessionCount||target<2||target>9)throw new ArgumentOutOfRangeException();return (days?TrainingDays:TrainingBooks)[profession*8+target-2];}
         // Optional opening-only data. Running games consume their own copied
         // BaseState rules and recovery state, never a mutable global asset.
         public BaseEconomyRules OpeningEconomy;
@@ -120,12 +188,13 @@ namespace BaseConquest.Base
         {
             if(Version==0)return null;var c=(RpgRules)MemberwiseClone();c.Hit=Hit.ToArray();c.Evasion=Evasion.ToArray();c.Capacity=Capacity.ToArray();c.CampMaterials=CampMaterials.ToArray();c.CampCoins=CampCoins.ToArray();c.Range=Range.ToArray();c.Speed=Speed.ToArray();c.Growth=Growth.ToArray();c.QualityValue=QualityValue.ToArray();
             c.WeaponValues=WeaponValues.ToArray();c.HelmetValues=HelmetValues.ToArray();c.ArmorValues=ArmorValues.ToArray();c.AccessoryValues=AccessoryValues.ToArray();c.DropQuality=DropQuality.ToArray();c.EquipmentQuality=EquipmentQuality.ToArray();c.BowQualityRange=BowQualityRange.ToArray();c.TroopBaseline=TroopBaseline.ToArray();c.RecruitBasePrices=RecruitBasePrices.ToArray();c.TrainingDays=TrainingDays.ToArray();c.TrainingBooks=TrainingBooks.ToArray();c.AttackGrowth=AttackGrowth?.ToArray();c.DefenseGrowth=DefenseGrowth?.ToArray();
+            c.EncounterUnits=EncounterUnits?.Select(p=>p.Copy()).ToList();c.Professions=Professions?.Select(p=>p.Copy()).ToList();c.TemplateDefenseCaps=TemplateDefenseCaps?.ToArray();
             c.Templates=Templates.Select(x=>x.Copy()).ToList();c.Skills=Skills.Select(x=>x.Copy()).ToList();c.Traits=Traits.Select(x=>x.Copy()).ToList();c.Equipment=Equipment?.Select(x=>x.Copy()).ToList();c.OpeningEconomy=OpeningEconomy?.Copy();c.OpeningTactical=OpeningTactical?.Copy();c.OpeningRewards=OpeningRewards?.Copy();c.OpeningLordReward=OpeningLordReward?.Copy();c.OpeningDefenseReward=OpeningBattleRewardVersion==1?OpeningDefenseReward?.Copy():null;c.OpeningDefenseLoss=OpeningBattleRewardVersion==1?OpeningDefenseLoss?.Copy():null;c.OpeningCampReward=OpeningBattleRewardVersion==1?OpeningCampReward?.Copy():null;c.OpeningInventory=OpeningInventory?.Copy();c.OpeningFacilityCapacity=OpeningFacilityCapacity?.ToArray();c.OpeningFacilityMinimum=OpeningFacilityMinimum?.ToArray();c.OpeningTownStock=OpeningTownStock?.ToArray();c.ReforgeUp=ReforgeUp?.ToArray();c.ReforgeDown=ReforgeDown?.ToArray();c.StoryPresets=StoryPresets?.Select(x=>x.Copy()).ToList();return c;
         }
-        public static string Template(string category,int profession)=>category+"_"+new[]{"warrior","archer","knight"}[profession];
+        public static string Template(string category,int profession)=>category+"_"+ProfessionIds[profession];
         public static RpgRules Defaults()
         {
-            var r=new RpgRules {Version=1};r.Equipment=BasePersonalEquipment.DefaultDefinitions().Select(d=>new RpgEquipmentDefinition {Id=d.Id,Damage=d.Damage,Defense=d.Defense,Health=d.Health,CritMultiplier=d.CritMultiplier,Movement=d.Movement,Stage=d.Stage}).ToList();double[,] stats={{100,12,4},{75,14,2},{100,10,3},{300,24,8},{225,28,4},{300,20,6},{600,36,12},{450,42,6},{600,30,9}};
+            var r=new RpgRules {Version=1};r.Equipment=BasePersonalEquipment.DefaultDefinitions().Where(d=>d.Id!="basic_staff").Select(d=>new RpgEquipmentDefinition {Id=d.Id,Damage=d.Damage,Defense=d.Defense,Health=d.Health,CritMultiplier=d.CritMultiplier,Movement=d.Movement,Stage=d.Stage}).ToList();double[,] stats={{100,12,4},{75,14,2},{100,10,3},{300,24,8},{225,28,4},{300,20,6},{600,36,12},{450,42,6},{600,30,9}};
             for(int i=0;i<9;i++)r.Templates.Add(new RpgTemplate{Id=Template(i<3?"soldier":i<6?"captain_normal":"captain_awakened",i%3),Health=stats[i,0],Attack=stats[i,1],Defense=stats[i,2]});
             void Skill(string id,string name,double amount,double duration,double cd,int profession=-1)=>r.Skills.Add(new RpgSkillDefinition{Id=id,Name=name,Amount=amount,Duration=duration,Cooldown=cd,Profession=profession});
             Skill("inspire","鼓舞",.3,4,15);Skill("march","行军",2,3,15);Skill("heal","治愈",30,3,15);Skill("sweep","横扫",1.2,0,10,0);Skill("charge","突进",1.5,5,15,2);Skill("rapid_fire","连射",.5,5,15,1);
@@ -142,11 +211,13 @@ namespace BaseConquest.Base
         }
         public void Validate()
         {
+            ValidateProfessions();
             if (HideoutEnemyCount < 0 || HideoutEnemyCount > BaseBanditHideout.EnemyCountCap)
                 throw new ArgumentException("土匪窝点兵力配置非法");
             if(OpeningSupplyWearVersion<0||OpeningSupplyWearVersion>1||OpeningSupplyWearVersion==1&&(!Finite(OpeningReturnedWear)||OpeningReturnedWear<0||OpeningReturnedWear>1||!Finite(OpeningLostWear)||OpeningLostWear<0||OpeningLostWear>1))throw new ArgumentException("Demo军需磨损比例非法");
             if(EquipmentQuality?.Length!=6||EquipmentQuality.Any(v=>!Finite(v)||v<=0||v>100))throw new ArgumentException("装备品质属性倍率非法");
-            if(BowQualityRange?.Length!=6||BowQualityRange.Any(v=>v<0||v>24)||Range?.Length!=3||Range[1]+BowQualityRange.Max()>24)throw new ArgumentException("弓品质加值与职业射程超过24细格");
+            if(BowQualityRange?.Length!=6||BowQualityRange.Any(v=>v<0||v>24)||Range?.Length!=ProfessionCount||Range[1]+BowQualityRange.Max()>24)throw new ArgumentException("弓品质加值与职业射程超过24细格");
+            if(HasProfessionCatalog&&(Speed?.Length!=ProfessionCount||Range.Any(v=>v>24)||Speed.Any(v=>v>24)))throw new ArgumentException("职业攻击距离和移动速度不能超过24细格");
             if(OpeningLordReward!=null&&new[]{OpeningLordReward.Food,OpeningLordReward.Materials,OpeningLordReward.Coins}.Any(v=>v<0||v>1000000))throw new ArgumentException("领主任务奖励非法");
             if(OpeningBattleRewardVersion<0||OpeningBattleRewardVersion>1||OpeningBattleRewardVersion==1&&new[]{OpeningDefenseReward,OpeningDefenseLoss,OpeningCampReward}.Any(v=>v==null||new[]{v.Food,v.Materials,v.Coins}.Any(n=>n<0||n>1000000)))throw new ArgumentException("Demo战斗奖励或首防损失非法");
             if(SecondRaidDays<1||SecondRaidDays>365)throw new ArgumentException("第二波倒计时须为1～365日");
@@ -158,13 +229,13 @@ namespace BaseConquest.Base
             if(OpeningTownStock!=null&&(OpeningTownStock.Length!=4||OpeningTownStock.Any(n=>n<1||n>100000)))throw new ArgumentException("Demo城镇每日供货量非法");
             if(OpeningAuxVersion<0||OpeningAuxVersion>1)throw new ArgumentException("Demo物件／奖励版本非法");
             if(OpeningAuxVersion==1){if(OpeningTactical==null)throw new ArgumentException("Demo物件规则缺失");OpeningTactical.Validate();BaseRuinsRewards.ValidateDefaults(OpeningRewards);}
-            if(TroopBaseline?.Length!=3||RecruitBasePrices?.Length!=3||TrainingDays?.Length!=24||TrainingBooks?.Length!=24||TroopBaseline.Any(v=>v<1||v>10000)||RecruitBasePrices.Any(v=>v<1||v>1000000)||TrainingDays.Any(v=>v<1||v>365)||TrainingBooks.Any(v=>v<1||v>1000))throw new ArgumentException("兵力基准、招募价格或训练成本非法");
+            if(TroopBaseline?.Length!=ProfessionCount||RecruitBasePrices?.Length!=ProfessionCount||TrainingDays?.Length!=ProfessionCount*8||TrainingBooks?.Length!=ProfessionCount*8||TroopBaseline.Any(v=>v<1||v>10000)||RecruitBasePrices.Any(v=>v<1||v>1000000)||TrainingDays.Any(v=>v<1||v>365)||TrainingBooks.Any(v=>v<1||v>1000))throw new ArgumentException("兵力基准、招募价格或训练成本非法");
             if(OpeningEconomyVersion<0||OpeningEconomyVersion>1||OpeningEconomyVersion==0&&OpeningRecoveryPerDay!=0||OpeningEconomyVersion==1&&(OpeningEconomy==null||OpeningEconomy.LeaderFood<0||OpeningEconomy.LeaderFood>100||!Finite(OpeningRecoveryPerDay)||OpeningRecoveryPerDay<=0||OpeningRecoveryPerDay>1||new[]{OpeningEconomy.SoldierFood,OpeningEconomy.CavalryFood,OpeningEconomy.SwordMaterial,OpeningEconomy.BowMaterial,OpeningEconomy.ArmorMaterial}.Any(x=>x<1||x>100)||new[]{OpeningEconomy.FarmPerWorker,OpeningEconomy.WorkshopPerWorker}.Any(x=>!Finite(x)||x<=0||x>100)||new[]{OpeningEconomy.HungerProductionPenalty,OpeningEconomy.HungerAttackPenalty}.Any(x=>!Finite(x)||x<0||x>=1)))throw new ArgumentException("Demo开局经营规则非法");
             // Demo 15 snapshots predate configurable equipment. Their empty list
             // keeps the old definitions until the new save version is enabled.
             if(Equipment?.Count>0)
             {
-                var expected=BasePersonalEquipment.DefaultDefinitions().Select(d=>d.Id).ToArray();
+                var expected=BasePersonalEquipment.DefaultDefinitions().Where(d=>HasProfessionCatalog||d.Id!="basic_staff").Select(d=>d.Id).ToArray();
                 if(Equipment.Count!=expected.Length||Equipment.Any(d=>d==null||string.IsNullOrEmpty(d.Id)||!expected.Contains(d.Id)||d.Stage<0||d.Stage>4||new[]{d.Damage,d.Defense,d.Health,d.CritMultiplier,d.Movement}.Any(v=>float.IsNaN(v)||float.IsInfinity(v)||Math.Abs(v)>100000)||d.CritMultiplier<0)||Equipment.Select(d=>d.Id).Distinct().Count()!=expected.Length)throw new ArgumentException("RPG装备快照不完整或数值非法");
             }
             if(SceneRulesVersion<0||SceneRulesVersion>1)throw new ArgumentException("场景规则版本非法");
@@ -174,12 +245,12 @@ namespace BaseConquest.Base
             if(new[]{SupplyAttackLow,SupplyAttackHigh,SupplyDefenseLow,SupplyDefenseHigh}.Any(x=>!Finite(x)||x<0||x>1000))throw new ArgumentException("军需攻击或防御加值须为0～1000");
             if(!Finite(SweepLossAtParity)||SweepLossAtParity<0||SweepLossAtParity>1||!Finite(SweepSecondsAtParity)||!Finite(SweepMinimumSeconds)||SweepMinimumSeconds<=0||SweepSecondsAtParity<SweepMinimumSeconds||SweepSecondsAtParity>90)throw new ArgumentException("扫荡默认参数非法");
             if(new[]{AwakenedChance}.Any(x=>!Finite(x)||x<0||x>1)||SupplyWorkValue<1)throw new ArgumentException("生成权重或军需工作点价值非法");
-            if(Hit==null||Evasion==null||Capacity?.Length!=3||CampMaterials?.Length!=2||CampCoins?.Length!=2||Range?.Length!=3||Speed?.Length!=3||Growth?.Length!=9||QualityValue?.Length!=6||DropQuality?.Length!=6||Templates==null||Skills==null||Traits==null||new[]{WeaponValues,HelmetValues,ArmorValues,AccessoryValues}.Any(a=>a?.Length!=5))throw new ArgumentException("RPG配置集合缺失");
+            if(Hit==null||Evasion==null||Capacity?.Length!=3||CampMaterials?.Length!=2||CampCoins?.Length!=2||Range?.Length!=ProfessionCount||Speed?.Length!=ProfessionCount||Growth?.Length!=9||QualityValue?.Length!=6||DropQuality?.Length!=6||Templates==null||Skills==null||Traits==null||new[]{WeaponValues,HelmetValues,ArmorValues,AccessoryValues}.Any(a=>a?.Length!=5))throw new ArgumentException("RPG配置集合缺失");
             if(AttributeGrowthVersion<0||AttributeGrowthVersion>1||AttributeGrowthVersion==1&&(AttackGrowth?.Length!=9||DefenseGrowth?.Length!=9||AttackGrowth.Concat(DefenseGrowth).Any(x=>!Finite(x)||x<=0||x>100)||AttackGrowth[0]!=1||DefenseGrowth[0]!=1))throw new ArgumentException("队长攻击／防御成长倍率非法");
             if(Capacity.Any(x=>x<1||x>10000)||Capacity[1]<Capacity[0]||Capacity[2]<Capacity[1]||CampMaterials.Concat(CampCoins).Any(x=>x<0||x>1000000)||new[]{WeaponValues,HelmetValues,ArmorValues,AccessoryValues}.Any(a=>a.Any(x=>x<1||x>1000000))||SupplyWorkValue>1000000)throw new ArgumentException("营帐容量、升级费用或商品价值非法");
             if(new[]{ArmorK,ArmorCap,CriticalMultiplier,BaseInterval,MinimumInterval,ArrowSpeed,HeightAdvantage,WeaponAttackScale,AttackEquipmentScale,HealthEquipmentScale,DefenseEquipmentScale,BuyFactor,SellFactor,SupplyAttackLow,SupplyAttackHigh,SupplyDefenseLow,SupplyDefenseHigh,HealThreshold}.Any(x=>!Finite(x)||x<0)||HealThreshold<=0||HealThreshold>1||ArrowSpeed<=0||BuyFactor<=SellFactor||SupplyMaterial<1||LeaderFood<0||Range.Concat(Speed).Concat(Growth).Concat(QualityValue).Any(x=>!Finite(x)||x<=0)||DropQuality.Any(x=>!Finite(x)||x<0)||Math.Abs(DropQuality.Sum()-1)>1e-8||Templates.Any(x=>x==null)||Skills.Any(x=>x==null||string.IsNullOrEmpty(x.Id)||!Finite(x.Cooldown)||x.Cooldown<=0||!Finite(x.Duration)||x.Duration<0||!Finite(x.Amount)||x.Amount<=0||!Finite(x.Radius)||x.Radius<0||!Finite(x.SpeedBonus)||x.SpeedBonus<0||!Finite(x.Opening)||x.Opening<0)||Skills.Select(x=>x.Id).Distinct().Count()!=6||Traits.Any(x=>x==null||!Finite(x.Min)||!Finite(x.Max)||!Finite(x.Step)||!Finite(x.Weight))||Traits.Select(x=>x.Id).Distinct().Count()!=21)throw new ArgumentException("RPG参数非法");
             if(new[]{FoodValue,MaterialValue,BookValue,AdvancedBookValue,StoneValue,WineValue,OtherValue,SupplyMaterial,ArcherFood}.Any(v=>v<1||v>1000000)||LeaderFood>100||new[]{FacilityRepairMaterials,FacilityRepairCoins}.Any(v=>v<0||v>1000000))throw new ArgumentException("经济默认值非法");
-            if(Version!=1||CampLevel<1||CampLevel>3||Hit.Length!=3||Evasion.Length!=3||Hit.Concat(Evasion).Any(x=>!Finite(x)||x<0||x>10||x!=Math.Truncate(x))||Templates.Count!=9||Templates.Select(t=>t.Id).Distinct().Count()!=9||Templates.Any(t=>!Finite(t.Health)||t.Health<1||!Finite(t.Attack)||t.Attack<0||!Finite(t.Defense)||t.Defense<0||t.SightRadius<0||t.SightRadius>32)||Skills.Count!=6||Traits.Count!=21||ArmorK<=0||ArmorCap<0||ArmorCap>=1||BaseInterval<MinimumInterval||MinimumInterval<=0||CriticalMultiplier<1||Traits.Any(t=>t.Min>t.Max||t.Step<=0||t.Weight<=0||Math.Abs((t.Max-t.Min)/t.Step-Math.Round((t.Max-t.Min)/t.Step))>1e-6))throw new ArgumentException("RPG规则／九类基准／技能特性配置非法");
+            if(Version!=1||CampLevel<1||CampLevel>3||Hit.Length!=ProfessionCount||Evasion.Length!=ProfessionCount||Hit.Concat(Evasion).Any(x=>!Finite(x)||x<0||x>10||x!=Math.Truncate(x))||!HasProfessionCatalog&&Templates.Count!=9||Templates.Select(t=>t.Id).Distinct().Count()!=Templates.Count||Templates.Any(t=>!Finite(t.Health)||t.Health<1||!Finite(t.Attack)||t.Attack<0||!Finite(t.Defense)||t.Defense<0||t.SightRadius<0||t.SightRadius>32)||Skills.Count!=6||Traits.Count!=21||ArmorK<=0||ArmorCap<0||ArmorCap>=1||BaseInterval<MinimumInterval||MinimumInterval<=0||CriticalMultiplier<1||Traits.Any(t=>t.Min>t.Max||t.Step<=0||t.Weight<=0||Math.Abs((t.Max-t.Min)/t.Step-Math.Round((t.Max-t.Min)/t.Step))>1e-6))throw new ArgumentException("RPG规则／人物模板／技能特性配置非法");
             // Validate derived prices before a snapshot can create a town or overflow a transaction.
             double supplyUnit=2d*SupplyMaterial*MaterialValue+SupplyWorkValue;
             foreach(int level in new[]{1,2})
@@ -208,18 +279,19 @@ namespace BaseConquest.Base
                     try{BaseRpg.ValidateCharacter(character,this);}catch(ArgumentException e){throw new ArgumentException("固定人物 "+preset.Id+" 的技能或特性配置非法："+e.Message,e);}
                 }
             }
-            if(Templates.SingleOrDefault(t=>t.Id=="soldier_warrior")?.Attack<.001)throw new ArgumentException("剑士战力参照攻击须至少为0.001");
+            string referenceId=DefaultTemplateId("soldier",0);
+            if(Templates.SingleOrDefault(t=>t.Id==referenceId)?.Attack<.001)throw new ArgumentException("剑士战力参照攻击须至少为0.001");
             var frenzy=Traits.SingleOrDefault(t=>t.Id=="frenzy");var rapid=Skills.SingleOrDefault(s=>s.Id=="rapid_fire");
             if(frenzy==null||rapid==null||BaseInterval/(1+frenzy.Max/100+rapid.Amount)<MinimumInterval)throw new ArgumentException("连射与乱武的最大组合使攻击间隔低于下限");
             foreach(var template in Templates)
             {
-                int levels=template.Id.StartsWith("soldier_")?1:9;
+                int levels=TemplateIdentity(template.Id)=="soldier"?1:9;
                 for(int level=1;level<=levels;level++)
                 {
                     double healthGrowth=levels==1?1:Growth[level-1],attackGrowth=levels==1?1:AttributeGrowthVersion==1?AttackGrowth[level-1]:Growth[level-1];
                     double health=template.Health*healthGrowth,attack=template.Attack*attackGrowth;
                     if(health<1||health>100000||attack>1000000)
-                        throw new ArgumentException("03b 九类模板 / 04a 队长成长与训练："+template.Id+" 等级"+level+"的裸装生命须为1～100000、攻击不得超过1000000");
+                        throw new ArgumentException("人物模板 / 队长成长与训练："+template.Id+" 等级"+level+"的裸装生命须为1～100000、攻击不得超过1000000");
                 }
             }
         }
@@ -227,18 +299,20 @@ namespace BaseConquest.Base
         public SoldierStats Bare(RpgCharacter character,int level)
         {
             var t=Templates.Single(x=>x.Id==character.TemplateId);int p=character.Profession;
-            if(p<0||p>2||level<1||level>9||!character.TemplateId.EndsWith(new[]{"warrior","archer","knight"}[p],StringComparison.Ordinal))throw new ArgumentException("人物模板／职业／等级不一致");
-            bool soldier=character.TemplateId.StartsWith("soldier_");double healthGrowth=soldier?1:Growth[level-1],attackGrowth=soldier?1:AttributeGrowthVersion==1?AttackGrowth[level-1]:Growth[level-1],defenseGrowth=soldier?1:AttributeGrowthVersion==1?DefenseGrowth[level-1]:Growth[level-1];
-            var kind=p==1?SoldierKind.Ranged:p==2?SoldierKind.Cavalry:SoldierKind.Melee;
-            return new SoldierStats{SightRadius=t.SightRadius, Health=(float)(t.Health*healthGrowth),Damage=(float)(t.Attack*attackGrowth),Defense=(float)(t.Defense*defenseGrowth),Level=level,CritChance=0,CritMultiplier=(float)CriticalMultiplier,Range=p==1?6:p==2?2:1,MoveDistance=p==2?3:2,HasProfessionKind=true,ProfessionKind=kind,HasCombatKind=true,CombatKind=kind};
+            if(level<1||level>9||!MatchesTemplate(character.TemplateId,p))throw new ArgumentException("人物模板／职业／等级不一致");
+            bool soldier=TemplateIdentity(character.TemplateId)=="soldier";double healthGrowth=soldier?1:Growth[level-1],attackGrowth=soldier?1:AttributeGrowthVersion==1?AttackGrowth[level-1]:Growth[level-1],defenseGrowth=soldier?1:AttributeGrowthVersion==1?DefenseGrowth[level-1]:Growth[level-1];
+            var kind=BaseRpg.Kind(p);
+            return new SoldierStats{SightRadius=t.SightRadius, Health=(float)(t.Health*healthGrowth),Damage=(float)(t.Attack*attackGrowth),Defense=(float)(t.Defense*defenseGrowth),Level=level,CritChance=0,CritMultiplier=(float)CriticalMultiplier,Range=HasProfessionCatalog?(int)Math.Ceiling(Range[p]/2):IsRanged(p)?6:p==2?2:1,MoveDistance=HasProfessionCatalog?(int)Math.Ceiling(Speed[p]/2):p==2?3:2,HasProfessionKind=true,ProfessionKind=kind,HasCombatKind=true,CombatKind=kind};
         }
     }
     public static partial class BaseRpg
     {
-        public static int Profession(SoldierKind kind)=>kind==SoldierKind.Melee?0:kind==SoldierKind.Ranged?1:kind==SoldierKind.Cavalry?2:throw new ArgumentException("队长须指定实际职业");
+        public static int Profession(SoldierKind kind)=>kind==SoldierKind.Melee?0:kind==SoldierKind.Ranged?1:kind==SoldierKind.Cavalry?2:kind==SoldierKind.Mage?3:throw new ArgumentException("队长须指定实际职业");
+        public static SoldierKind Kind(int profession) => profession == 0 ? SoldierKind.Melee : profession == 1 ? SoldierKind.Ranged : profession == 2 ? SoldierKind.Cavalry : profession == 3 ? SoldierKind.Mage : throw new ArgumentOutOfRangeException(nameof(profession));
+        public static string Weapon(int profession) => profession == 0 ? "sword" : profession == 1 ? "bow" : profession == 2 ? "spear" : profession == 3 ? "staff" : throw new ArgumentOutOfRangeException(nameof(profession));
         public static bool Active(BaseState s)=>s?.Demo?.Rpg?.Version==1;
         public static RpgCharacter Character(string id,int profession,bool awakened,bool story,RpgRules rules,int level=1)
-        {return new RpgCharacter{Version=1,Id=id,Profession=profession,Level=level,Story=story,TemplateId=RpgRules.Template(awakened?"captain_awakened":"captain_normal",profession),SkillId=profession==0?"sweep":profession==1?"rapid_fire":"charge",Rules=rules};}
+        {return new RpgCharacter{Version=1,Id=id,Profession=profession,Level=level,Story=story,TemplateId=rules?.DefaultTemplateId(awakened?"captain_awakened":"captain_normal",profession)??RpgRules.Template(awakened?"captain_awakened":"captain_normal",profession),SkillId=profession==0?"sweep":profession==1?"rapid_fire":profession==2?"charge":"inspire",Rules=rules};}
         public static void Bind(BaseState s)
         {
             if(!Active(s))return;var rules=s.Demo.Rpg;rules.Validate();
@@ -266,8 +340,8 @@ namespace BaseConquest.Base
         }
         public static void ValidateCharacter(RpgCharacter c,RpgRules r)
         {
-            if(c==null||c.Version!=1||string.IsNullOrEmpty(c.Id)||c.Profession<0||c.Profession>2||c.Level<1||c.Level>9||!r.Templates.Any(t=>t.Id==c.TemplateId)||!c.TemplateId.EndsWith(new[]{"warrior","archer","knight"}[c.Profession],StringComparison.Ordinal)||c.Traits==null||c.Traits.Count>3||c.Traits.Any(t=>t==null||!r.Traits.Any(d=>d.Id==t.Id&&t.Value>=d.Min&&t.Value<=d.Max&&Math.Abs((t.Value-d.Min)/d.Step-Math.Round((t.Value-d.Min)/d.Step))<1e-6))||c.Traits.Select(t=>t.Id).Distinct().Count()!=c.Traits.Count||c.Traits.Select(t=>r.Traits.Single(d=>d.Id==t.Id).Conflict).Distinct().Count()!=c.Traits.Count)throw new ArgumentException("人物模板／特性引用非法");
-            if(!c.TemplateId.StartsWith("soldier_")&&!r.Skills.Any(d=>d.Id==c.SkillId&&(d.Profession<0||d.Profession==c.Profession)))throw new ArgumentException("人物技能不属于职业合法池");
+            if(c==null||c.Version!=1||string.IsNullOrEmpty(c.Id)||c.Level<1||c.Level>9||!r.MatchesTemplate(c.TemplateId,c.Profession)||c.Traits==null||c.Traits.Count>3||c.Traits.Any(t=>t==null||!r.Traits.Any(d=>d.Id==t.Id&&t.Value>=d.Min&&t.Value<=d.Max&&Math.Abs((t.Value-d.Min)/d.Step-Math.Round((t.Value-d.Min)/d.Step))<1e-6))||c.Traits.Select(t=>t.Id).Distinct().Count()!=c.Traits.Count||c.Traits.Select(t=>r.Traits.Single(d=>d.Id==t.Id).Conflict).Distinct().Count()!=c.Traits.Count)throw new ArgumentException("人物模板／特性引用非法");
+            if(r.TemplateIdentity(c.TemplateId)!="soldier"&&!r.Skills.Any(d=>d.Id==c.SkillId&&(d.Profession<0||d.Profession==c.Profession)))throw new ArgumentException("人物技能不属于职业合法池");
             c.Rules=r;
         }
         public static void Initialize(BaseState s,RpgRules openingRules=null)
@@ -295,11 +369,18 @@ namespace BaseConquest.Base
                 catch(ArgumentException error) { throw new ArgumentException("固定人物 "+l.Id+" 的技能或特性与当前配表不一致："+error.Message,error); }
                 l.PersonalEquipment.BaseStats=r.Bare(l.Rpg,1);l.Health=l.MaxHealth=BasePersonalEquipment.Stats(l).Health;
             }
-            foreach(var worker in s.Workers){var c=new RpgCharacter{TemplateId=RpgRules.Template("soldier",(int)worker.Kind),Profession=(int)worker.Kind};worker.CombatStats=r.Bare(c,1);worker.HasCombatProfile=true;worker.Health=worker.MaxHealth=worker.CombatStats.Health;}
+            foreach(var worker in s.Workers){var c=new RpgCharacter{TemplateId=r.DefaultTemplateId("soldier",(int)worker.Kind),Profession=(int)worker.Kind};worker.CombatStats=r.Bare(c,1);worker.HasCombatProfile=true;worker.Health=worker.MaxHealth=worker.CombatStats.Health;}
             foreach(var site in s.Campaign.EnemySites)PrepareEnemies(s,site.Garrison,site.AttackEventId);
             foreach(var mission in s.Campaign.Events)PrepareEnemies(s,mission.EnemyArmy,mission.Id);
             InitializeSupply(s);
-            foreach(var offer in s.Town.Recruits){var c=new RpgCharacter{TemplateId=RpgRules.Template("soldier",(int)offer.Kind),Profession=(int)offer.Kind};offer.Stats=r.Bare(c,1);}
+            BaseTown.EnsureMageRecruit(s);
+            if(r.HasProfessionCatalog)
+            {
+                if(!s.PersonalEquipment.Offers.Any(o=>o.Template=="basic_staff"))
+                    s.PersonalEquipment.Offers.Add(new BasePersonalOffer{Template="basic_staff"});
+                BaseTraining.Normalize(s);
+            }
+            foreach(var offer in s.Town.Recruits){var c=new RpgCharacter{TemplateId=r.DefaultTemplateId("soldier",(int)offer.Kind),Profession=(int)offer.Kind};offer.Stats=r.Bare(c,1);}
         }
         public static SoldierStats Stats(BaseLeader leader)
         {
@@ -316,10 +397,14 @@ namespace BaseConquest.Base
         }
         public static float Power(BattleSoldier unit,RpgRules rules)
         {
-            var reference=rules.Templates.Single(t=>t.Id=="soldier_warrior");var stats=unit.Stats;int p=Profession(unit.ProfessionKind);double outgoing=0,incoming=0;
+            // This score is persisted on a battle unit. Preserve pre-catalog saves' original rating.
+            if(rules.HasProfessionCatalog)return (float)BasePower.Rating(unit,rules);
+            var reference=rules.Templates.Single(t=>t.Id=="soldier_warrior");
+            int p=Profession(unit.ProfessionKind);double outgoing=0,incoming=0;var stats=unit.Stats;
             for(int die=1;die<=10;die++)
             {
-                var attack=new RpgAttackRoll((int)rules.Hit[p],(int)rules.Evasion[0],0,0,die);var defense=new RpgAttackRoll((int)rules.Hit[0],(int)rules.Evasion[p],0,0,die);
+                var attack=new RpgAttackRoll((int)rules.Hit[p],(int)rules.Evasion[0],0,0,die);
+                var defense=new RpgAttackRoll((int)rules.Hit[0],(int)rules.Evasion[p],0,0,die);
                 if(attack.Hit)outgoing+=RpgCombatRules.Damage(stats.Damage,reference.Defense,rules.ArmorK*stats.Level,rules.ArmorCap,attack.Critical?stats.CritMultiplier:1)/10;
                 if(defense.Hit)incoming+=RpgCombatRules.Damage(reference.Attack,stats.Defense,rules.ArmorK,rules.ArmorCap,defense.Critical?rules.CriticalMultiplier:1)/10;
             }

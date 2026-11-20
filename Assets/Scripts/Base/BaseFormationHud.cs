@@ -8,7 +8,7 @@ namespace BaseConquest.Base
         private string compositionLeader;
         private int compositionPage;
         private bool formationForecastOpen;
-        private static string TroopsText(BaseCommanderTroops p)=>"近战 "+p.Melee+"／弓兵 "+p.Ranged+"／骑兵 "+p.Cavalry;
+        private static string TroopsText(BaseCommanderTroops p)=>"近战 "+p.Melee+"／弓兵 "+p.Ranged+"／骑兵 "+p.Cavalry+"／法师 "+p.Mage;
         private void CommanderPresets()
         {
             var s=owner.State;var all=s.Leaders.ToArray();int pages=Math.Max(1,(all.Length+4)/5);compositionPage=Mathf.Clamp(compositionPage,0,pages-1);
@@ -36,7 +36,7 @@ namespace BaseConquest.Base
             if(pages>1){RowButton("上一页",-210,400,()=>{compositionPage--;OpenBarracks();},compositionPage>0);RowButton("下一页",210,400,()=>{compositionPage++;OpenBarracks();},compositionPage+1<pages);row+=56;}
             var selected=s.Leaders.Single(l=>l.Id==compositionLeader);
             Line(BasePersonnel.LeaderName(selected)+"的默认带兵组成",48,22);
-            foreach(BaseTroopKind k in Enum.GetValues(typeof(BaseTroopKind)))
+            foreach(BaseTroopKind k in BaseTown.TroopKinds(s))
             {
                 var kind=k;ArmyCounter(BaseEconomy.TroopName(k),selected.DefaultTroops.Count(k),0,30,n=>
                 {

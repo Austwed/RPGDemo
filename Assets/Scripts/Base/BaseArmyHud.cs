@@ -63,7 +63,7 @@ namespace BaseConquest.Base
         {
             var s = owner.State;
             Line("先取闲置，再低优先设施；同级优先少减产。按兵种保留留守人数，按设施保留生产人数。", 75, 18);
-            foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
+            foreach (BaseTroopKind kind in BaseTown.TroopKinds(s))
             { var troop = kind; ArmyCounter("基地最低留守 · " + BaseEconomy.TroopName(troop), s.Muster.Keep(troop), 0, 10000, n => ArmyEdit(next => next.Muster.SetKeep(troop, n))); }
             foreach (var facility in s.Muster.Facilities)
             {
@@ -101,7 +101,7 @@ namespace BaseConquest.Base
             RowButton("规则 i",290,270,()=>RuleInfo("队伍规则","确认出征与追加后实际外出，按日仍消耗唯一仓库口粮。准备装备分配需先取消才能返营或追加；真实战损、伤势、来源及岗位意向持续保存。返营者今日不生产，不挤走今日可生产的替补。进入世界必须由主角带队。",()=>OpenParty(id,back)));row+=64;
             if(q!=null){RowButton("取消军需准备",0,800,()=>{owner.Change(next=>{if(!BaseSupply.Cancel(next,q.BattleId))throw new InvalidOperationException("战斗装备分配不能取消");},"已释放准备装备分配");OpenParty(id,back);},q.Phase=="prepared");row+=60;}
             Line("队长："+string.Join("、",party.Leaders.Select(x=>BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==x.LeaderId)))),64);
-            foreach(BaseTroopKind k in Enum.GetValues(typeof(BaseTroopKind)))Line(BaseEconomy.TroopName(k)+"："+s.Workers.Where(w=>w.Away&&w.PartyId==id&&w.Kind==k).Sum(w=>w.Count),42);
+            foreach(BaseTroopKind k in BaseTown.TroopKinds(s))Line(BaseEconomy.TroopName(k)+"："+s.Workers.Where(w=>w.Away&&w.PartyId==id&&w.Kind==k).Sum(w=>w.Count),42);
             var groups=BaseMuster.CurrentFormation(s,party);if(groups!=null)foreach(var group in groups)Line(BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==group.LeaderId))+" · "+TroopsText(group.Actual),50,18);
             if(!string.IsNullOrEmpty(party.PriorityMode))Line("本次抽调："+BaseMuster.ModeName(party.PriorityMode)+(party.ConserveMaterials ? "；工坊按最低开工人数节约原料，返营解除" : ""),72,18);
             Line(q==null?"尚未准备军需":q.Phase=="prepared"?"军需已准备；追加前需取消":"军需已锁定于本场战斗",60,18);EndPanel();

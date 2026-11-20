@@ -43,9 +43,23 @@ namespace BaseConquest.Base
         public static readonly string[] Goods = { "food", "materials", "sword1", "bow1", "armor1", "sword2", "bow2", "armor2" };
         private const int ResourceLimit = 100000000;
         public static bool DemoRecruitment(BaseState s)=>BaseDemo.Active(s)&&s.Town?.RecruitRulesVersion>=1;
+        private static readonly BaseTroopKind[] LegacyKinds = { BaseTroopKind.Melee, BaseTroopKind.Ranged, BaseTroopKind.Cavalry };
+        private static readonly BaseTroopKind[] AllKinds = (BaseTroopKind[])Enum.GetValues(typeof(BaseTroopKind));
+        public static IReadOnlyList<BaseTroopKind> TroopKinds(BaseState state) =>
+            state?.Demo?.Rpg?.HasProfessionCatalog == true ? AllKinds : LegacyKinds;
+
+        internal static void EnsureMageRecruit(BaseState state)
+        {
+            var rules = state.Demo.Rpg;
+            if (!rules.HasProfessionCatalog || state.Town.Recruits.Any(r => r.Kind == BaseTroopKind.Mage)) return;
+            state.Town.Recruits.Add(new BaseTownRecruit {
+                Kind = BaseTroopKind.Mage, Price = rules.RecruitBasePrices[(int)BaseTroopKind.Mage],
+                Stats = rules.Bare(new RpgCharacter { TemplateId = rules.DefaultTemplateId("soldier", 3), Profession = 3 }, 1)
+            });
+        }
         public static int TroopCount(BaseState s,BaseTroopKind kind)=>s.Workers.Where(worker=>worker.Kind==kind).Sum(worker=>worker.Count);
         public static int TroopTotal(BaseState s)=>s.Workers.Sum(worker=>worker.Count);
-        // 2026-11-04 起与普通兵即死率共用同一个合计口径：N 与 B 都是三兵种之和，编队不影响概率。
+        // 2026-11-04 起与普通兵即死率共用同一个合计口径：N 与 B 都是全部普通兵职业之和，编队不影响概率。
         public static double HireProbability(BaseState s)=>BaseDemoCombat.Probability(BaseDemoCombat.BaselineTotal(s.Demo?.Rpg),TroopTotal(s),s.Demo?.Rpg);
         public static double HireProbability(BaseState s,BaseTroopKind kind)=>HireProbability(s);
         // 每日兵源总量：第 1 日固定 6（教学 2/2/2）；此后基准 150% 以内至少 1 人，超过断货。
@@ -57,33 +71,33 @@ namespace BaseConquest.Base
             int stock=(int)Math.Floor(baseline*(s.Demo?.Rpg?.RecruitSupplyFactor??.5)*(1-HireProbability(s)));
             return Math.Max(1,stock);
         }
-        public static int DemoDailyCount(BaseState s,BaseTroopKind kind)=>s.Town.Recruits.Single(item=>item.Kind==kind).DailyCount;
+        public static int DemoDailyCount(BaseState s,BaseTroopKind kind)=>s.Town.Recruits.FirstOrDefault(item=>item.Kind==kind)?.DailyCount ?? 0;
         public const int FirstDayStock=2;
         public const double StockOverflowRatio=.5;   // 超出基准 50% 即断货
         public const int StockMissingFallback=2;     // 连续缺位 2 天后，下次分配强制给 1 个
         public const double PriceDiscountFloor=.5;   // 报价最低打到基准原价的五折
-        // 日初把当日总兵源随机分配到三兵种；连续缺位 2 天的兵种先占 1 个再随机。
+        // 日初把当日总兵源随机分配到启用职业；连续缺位 2 天的兵种先占 1 个再随机。
         // 种子取生成种子×日期，读档、重进城镇都不会重掷，但每个经营日都不同。
         public static void AllocateStock(BaseState s)
         {
             var offers=s.Town.Recruits.OrderBy(item=>item.Kind).ToList();
-            if(offers.Count!=3)throw new InvalidOperationException("城镇兵源必须包含三种兵种");
+            if(offers.Count!=TroopKinds(s).Count)throw new InvalidOperationException("城镇兵源与职业配置不一致");
             if(s.Day<=1)
             {
-                foreach(var offer in offers){offer.DailyCount=offer.Remaining=FirstDayStock;offer.MissingDays=0;}
+                foreach(var offer in offers){offer.DailyCount=offer.Remaining=offer.Kind==BaseTroopKind.Mage ? 0 : FirstDayStock;offer.MissingDays=0;}
                 return;
             }
             int total=DemoDailyTotal(s),left=total;
-            var give=new int[3];
-            foreach(int index in Enumerable.Range(0,3).Where(i=>offers[i].MissingDays>=StockMissingFallback).OrderByDescending(i=>offers[i].MissingDays).ThenBy(i=>i))
+            var give=new int[offers.Count];
+            foreach(int index in Enumerable.Range(0,offers.Count).Where(i=>offers[i].MissingDays>=StockMissingFallback).OrderByDescending(i=>offers[i].MissingDays).ThenBy(i=>i))
             {if(left<=0)break;give[index]=1;left--;}
             if(left>0)
             {
                 int seed=unchecked((s.Demo?.Rpg?.GenerationSeed??7919)*397^s.Day*7919^(int)offers[0].Kind*104729);
                 var random=new Random(seed);
-                for(int n=0;n<left;n++)give[random.Next(3)]++;
+                for(int n=0;n<left;n++)give[random.Next(offers.Count)]++;
             }
-            for(int index=0;index<3;index++)
+            for(int index=0;index<offers.Count;index++)
             {
                 var offer=offers[index];
                 offer.DailyCount=offer.Remaining=give[index];
@@ -123,7 +137,7 @@ namespace BaseConquest.Base
                 town.Goods.Add(new BaseTownGood {Id=id,BuyPrice=buy,SellPrice=sell,DailyStock=stock,Remaining=stock});
             }
             var army=new ArmyDefinition();
-            foreach(BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
+            foreach(BaseTroopKind kind in TroopKinds(s))
             {
                 int count=kind==BaseTroopKind.Melee ? 4 : kind==BaseTroopKind.Ranged ? 3 : 1;
                 town.Recruits.Add(new BaseTownRecruit {Kind=kind,Price=kind==BaseTroopKind.Melee ? 30 : kind==BaseTroopKind.Ranged ? 40 : 60,DailyCount=count,Remaining=count,Stats=army.Stats(ToBattle(kind)).Clone()});
@@ -136,7 +150,7 @@ namespace BaseConquest.Base
             if(t.RecruitRulesVersion<0||t.RecruitRulesVersion>2||t.RecruitRulesVersion>0&&!BaseDemo.Active(s))throw new ArgumentException("城镇招兵规则版本非法");
             if(t.Version!=1 || t.StockDay!=s.Day || t.Revision<0 || t.Revision>=int.MaxValue || t.Goods==null || t.Recruits==null)throw new ArgumentException("城镇版本、日期或交易序号非法");
             if(t.Goods.Count!=GoodsFor(s).Length || t.Goods.Any(g=>g==null || !GoodsFor(s).Contains(g.Id) || g.BuyPrice<1 || g.BuyPrice>1000000 || g.SellPrice<1 || g.SellPrice>=g.BuyPrice || g.DailyStock<1 || g.DailyStock>100000 || g.Remaining<0 || g.Remaining>g.DailyStock) || t.Goods.Select(g=>g.Id).Distinct().Count()!=GoodsFor(s).Length)throw new ArgumentException("城镇商品价格或供货余量非法");
-            if(t.Recruits.Count!=3 || t.Recruits.Any(r=>r==null || !Enum.IsDefined(typeof(BaseTroopKind),r.Kind) || r.Price<1 || r.Price>1000000 || r.DailyCount<(DemoRecruitment(s)?0:1) || r.DailyCount>10000 || r.Remaining<0 || r.Remaining>r.DailyCount || r.MissingDays<0 || r.MissingDays>999 || !BaseAftermath.ValidStats(r.Stats)) || t.Recruits.Select(r=>r.Kind).Distinct().Count()!=3)throw new ArgumentException("城镇兵源价格、属性或余量非法");
+            if(t.Recruits.Count!=TroopKinds(s).Count || t.Recruits.Any(r=>r==null || !TroopKinds(s).Contains(r.Kind) || r.Price<1 || r.Price>1000000 || r.DailyCount<(DemoRecruitment(s)?0:1) || r.DailyCount>10000 || r.Remaining<0 || r.Remaining>r.DailyCount || r.MissingDays<0 || r.MissingDays>999 || !BaseAftermath.ValidStats(r.Stats)) || t.Recruits.Select(r=>r.Kind).Distinct().Count()!=TroopKinds(s).Count)throw new ArgumentException("城镇兵源价格、属性或余量非法");
         }
         public static void AdvanceDay(BaseState s)
         {
@@ -148,7 +162,7 @@ namespace BaseConquest.Base
             if(DemoRecruitment(s))AllocateStock(s);else foreach(var r in t.Recruits)r.Remaining=r.DailyCount;
             BasePersonalEquipment.AdvanceDay(s);
         }
-        public static SoldierKind ToBattle(BaseTroopKind kind) => kind==BaseTroopKind.Melee ? SoldierKind.Melee : kind==BaseTroopKind.Ranged ? SoldierKind.Ranged : SoldierKind.Cavalry;
+        public static SoldierKind ToBattle(BaseTroopKind kind) => BaseCampaign.ToBattle(kind);
         public static string Name(string id) => id=="food" ? "粮草" : id=="materials" ? "原料" : (id.EndsWith("2") ? "二级" : "一级")+BaseEconomy.ProductName(id.Substring(0,id.Length-1));
         private static BaseEquipmentStock Equipment(BaseState s,string id) => s.Inventory.Equipment.Single(e=>e.Product==id.Substring(0,id.Length-1) && e.Level==(id.EndsWith("2") ? 2 : 1));
         public static int Owned(BaseState s,string id) => id=="food" ? s.Inventory.Food : id=="materials" ? s.Inventory.Materials : Equipment(s,id).Count;
@@ -161,7 +175,8 @@ namespace BaseConquest.Base
         }
         public static int MaxHire(BaseState s,BaseTroopKind kind)
         {
-            var r=s.Town.Recruits.Single(x=>x.Kind==kind);
+            var r=s.Town.Recruits.FirstOrDefault(x=>x.Kind==kind);
+            if(r==null)return 0;
             return Math.Min(r.Remaining,Math.Min(s.Inventory.Coins/HirePrice(s,kind),10000-s.Workers.Sum(w=>w.Count)));
         }
         public static bool AtMerchant(BaseState s) => s.Campaign.Location=="town" &&

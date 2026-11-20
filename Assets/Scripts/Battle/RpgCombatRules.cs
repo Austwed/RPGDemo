@@ -28,6 +28,15 @@ namespace BaseConquest.Battle
             if(!Finite(attack)||!Finite(defense)||!Finite(k)||!Finite(cap)||!Finite(critical)||!Finite(received)||attack<0||defense<0||k<=0||cap<0||cap>=1||critical<1||received<0)throw new ArgumentException("RPG伤害参数非法");
             return attack*critical*(1-cap*defense/(defense+k))*received;
         }
+        public static double Damage(string damageType,double attack,double defense,double k,double cap,double critical,double received=1,double difficulty=1)
+        {
+            if(!Finite(difficulty)||difficulty<0)throw new ArgumentOutOfRangeException(nameof(difficulty));
+            if(damageType=="legacy"||damageType=="magic")
+                return Damage(attack,defense,k,cap,critical,received)*difficulty;
+            if(damageType!="physical"||!Finite(attack)||!Finite(defense)||!Finite(critical)||!Finite(received)||attack<0||defense<0||critical<1||received<0)
+                throw new ArgumentException("物理攻击包属性非法");
+            return Math.Max(1,Math.Max(1,attack-defense)*critical*received*difficulty);
+        }
         private static bool Finite(double value)=>!double.IsNaN(value)&&!double.IsInfinity(value);
     }
 }

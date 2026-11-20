@@ -5,7 +5,7 @@ namespace BaseConquest.Battle
 {
     public enum BattleSide { A, B }
     // 战斗行为层枚举：近战／远程／骑兵决定 AI 寻敌、射程、武器与即时角色映射；Hero 是「队长身份」混入的历史遗留，仅作身份判断，不再承载职业语义。
-    public enum SoldierKind { Melee = 0, Ranged = 1, Hero = 2, Cavalry = 3 }
+    public enum SoldierKind { Melee = 0, Ranged = 1, Hero = 2, Cavalry = 3, Mage = 4 }
     // 身份轴：战斗单位只分队长与士兵两层（用户 2026-11-02 定）。
     public enum UnitTier { Leader, Troop }
     // 职业轴（Fate 式职阶，2026-11-02 定）：saber／archer／rider，留 lancer／caster 扩展位。
@@ -20,9 +20,9 @@ namespace BaseConquest.Battle
         // 阵营（2026-11-02 定，暂三类，共用一套数据与外观）。
         public const string Royal = "royal", Bandit = "bandit", Alien = "alien";
         // 职业词 → UnitClass（含扩展位，未用到但保留映射）。
-        public static UnitClass? ClassOf(string word) => word == Saber ? UnitClass.Saber : word == Archer ? UnitClass.Archer : word == Rider ? UnitClass.Rider : word == Lancer ? UnitClass.Lancer : word == Caster ? UnitClass.Caster : (UnitClass?)null;
+        public static UnitClass? ClassOf(string word) => word == Saber ? UnitClass.Saber : word == Archer ? UnitClass.Archer : word == Rider ? UnitClass.Rider : word == Lancer ? UnitClass.Lancer : (word == Caster || word == "mage") ? UnitClass.Caster : (UnitClass?)null;
         // UnitClass → 战斗行为枚举。lancer 按近战、caster 按远程处理（Demo 未启用，仅为将来扩展不抛异常）。
-        public static SoldierKind CombatKindOf(UnitClass c) => c == UnitClass.Archer || c == UnitClass.Caster ? SoldierKind.Ranged : c == UnitClass.Rider ? SoldierKind.Cavalry : SoldierKind.Melee;
+        public static SoldierKind CombatKindOf(UnitClass c) => c == UnitClass.Caster ? SoldierKind.Mage : c == UnitClass.Archer ? SoldierKind.Ranged : c == UnitClass.Rider ? SoldierKind.Cavalry : SoldierKind.Melee;
         // 士兵单位 id 格式 `T-<职业>-<阵营>`（T = Troop）。返回职业词与阵营词；不是士兵 id 时 classWord 为 null。
         public static bool TryParseTroop(string id, out string classWord, out string faction)
         {
@@ -37,7 +37,7 @@ namespace BaseConquest.Battle
         public static string TroopArtId(string id)
         {
             if (!TryParseTroop(id, out var cw, out var _)) return id;
-            return cw == Saber ? "saber" : cw == Archer ? "archer" : cw == Rider ? "rider" : id;
+            return cw == Saber ? "saber" : cw == Archer ? "archer" : cw == Rider ? "rider" : cw == Caster || cw == "mage" ? "mage" : id;
         }
         // 具名角色的职业显式映射（唯一口径见 01_文案策划案_v4.md §3.1 人物规格卡）：
         // 主角 saber、阿禾 archer、阿铸 rider（spear）、迦兰 saber、巴图 archer、大当家 rider、豁牙 saber。
@@ -45,6 +45,7 @@ namespace BaseConquest.Battle
         public static SoldierKind CastCombatKind(string appearanceId)
         {
             if (string.IsNullOrEmpty(appearanceId)) return SoldierKind.Melee;
+            if (appearanceId == "galan" || appearanceId == "mage") return SoldierKind.Mage;
             if (appearanceId == "ahe" || appearanceId == "batu") return SoldierKind.Ranged;
             if (appearanceId == "azhu" || appearanceId == "mounted-azhu" || appearanceId == "chief") return SoldierKind.Cavalry;
             return SoldierKind.Melee;
@@ -118,7 +119,7 @@ namespace BaseConquest.Battle
         public SoldierKind ProfessionKind;
         // Map tiles. Zero lets old saves and unconfigured units inherit the battlefield baseline.
         public int SightRadius;
-        public bool EquipmentStatsValid => SightRadius>=0&&SightRadius<=32&&Level>=1&&Level<=9&&!float.IsNaN(Penetration)&&!float.IsInfinity(Penetration)&&Penetration>=0&&Penetration<=100000&&!float.IsNaN(Resistance)&&!float.IsInfinity(Resistance)&&Resistance>=0&&Resistance<=100000&&(!HasCombatKind||CombatKind==SoldierKind.Melee||CombatKind==SoldierKind.Ranged||CombatKind==SoldierKind.Cavalry)&&(!HasProfessionKind||ProfessionKind==SoldierKind.Melee||ProfessionKind==SoldierKind.Ranged||ProfessionKind==SoldierKind.Cavalry);
+        public bool EquipmentStatsValid => SightRadius>=0&&SightRadius<=32&&Level>=1&&Level<=9&&!float.IsNaN(Penetration)&&!float.IsInfinity(Penetration)&&Penetration>=0&&Penetration<=100000&&!float.IsNaN(Resistance)&&!float.IsInfinity(Resistance)&&Resistance>=0&&Resistance<=100000&&(!HasCombatKind||CombatKind==SoldierKind.Melee||CombatKind==SoldierKind.Ranged||CombatKind==SoldierKind.Cavalry||CombatKind==SoldierKind.Mage)&&(!HasProfessionKind||ProfessionKind==SoldierKind.Melee||ProfessionKind==SoldierKind.Ranged||ProfessionKind==SoldierKind.Cavalry||ProfessionKind==SoldierKind.Mage);
         public int Range = 1;
         public int MoveDistance = 1;
         public float CritChance = 0.1f;
@@ -166,26 +167,29 @@ namespace BaseConquest.Battle
         public int RangedCount = 4;
         public int HeroCount = 3;
         public int CavalryCount = 2;
+        public int MageCount;
         public int CaptainSlot;
         public int Capacity = 6;
         public SoldierStats Melee = new SoldierStats();
         public SoldierStats Ranged = new SoldierStats { Health = 65, Damage = 10, Range = 5 };
         public SoldierStats Hero = new SoldierStats { Health = 200, Damage = 20, Range = 1 };
         public SoldierStats Cavalry = new SoldierStats { Health = 120, Damage = 14, Range = 1, MoveDistance = 3 };
+        public SoldierStats Mage = new SoldierStats { Health = 65, Damage = 10, Range = 5 };
         public List<CommanderLoadout> Commanders = new List<CommanderLoadout>();
         public List<string> CommanderNames = new List<string>();
         public List<string> CommanderAppearances = new List<string>();
         public List<bool> CommanderRecruited = new List<bool>();
         public List<SoldierStats> CommanderStats = new List<SoldierStats>();
         public SoldierStats CommanderProfile(int slot)=>CommanderStats!=null&&slot>=0&&slot<CommanderStats.Count ? CommanderStats[slot] : Hero;
-        public int Count(SoldierKind kind) => kind == SoldierKind.Melee ? MeleeCount : kind == SoldierKind.Ranged ? RangedCount : kind == SoldierKind.Cavalry ? CavalryCount : HeroCount;
-        public void SetCount(SoldierKind kind, int count) { if (kind == SoldierKind.Melee) MeleeCount = count; else if (kind == SoldierKind.Ranged) RangedCount = count; else if (kind == SoldierKind.Cavalry) CavalryCount = count; else HeroCount = count; }
-        public SoldierStats Stats(SoldierKind kind) => kind == SoldierKind.Melee ? Melee : kind == SoldierKind.Ranged ? Ranged : kind == SoldierKind.Cavalry ? Cavalry : Hero;
+        public int Count(SoldierKind kind) => kind == SoldierKind.Melee ? MeleeCount : kind == SoldierKind.Ranged ? RangedCount : kind == SoldierKind.Cavalry ? CavalryCount : kind == SoldierKind.Mage ? MageCount : HeroCount;
+        public void SetCount(SoldierKind kind, int count) { if (kind == SoldierKind.Melee) MeleeCount = count; else if (kind == SoldierKind.Ranged) RangedCount = count; else if (kind == SoldierKind.Cavalry) CavalryCount = count; else if (kind == SoldierKind.Mage) MageCount = count; else HeroCount = count; }
+        public SoldierStats Stats(SoldierKind kind) => kind == SoldierKind.Melee ? Melee : kind == SoldierKind.Ranged ? Ranged : kind == SoldierKind.Cavalry ? Cavalry : kind == SoldierKind.Mage ? Mage : Hero;
         public ArmyDefinition Clone() => new ArmyDefinition
         {
             MeleeCount = Math.Max(0, Math.Min(30, MeleeCount)), RangedCount = Math.Max(0, Math.Min(30, RangedCount)), HeroCount = Math.Max(0, Math.Min(3, HeroCount)),
-            CavalryCount = Math.Max(0, Math.Min(30, CavalryCount)),
+            CavalryCount = Math.Max(0, Math.Min(30, CavalryCount)), MageCount = Math.Max(0, Math.Min(30, MageCount)),
             Melee = (Melee ?? new SoldierStats()).Clone(), Ranged = (Ranged ?? new SoldierStats()).Clone(), Hero = (Hero ?? new SoldierStats()).Clone(),
+            Mage = (Mage ?? Ranged ?? new SoldierStats { Range = 5 }).Clone(),
             Cavalry = (Cavalry ?? new SoldierStats { Health = 120, Damage = 14, MoveDistance = 3 }).Clone(),
             Commanders = Commanders == null ? new List<CommanderLoadout>() : Commanders.ConvertAll(c => (c ?? new CommanderLoadout()).Clone()),
             CommanderNames = new List<string>(CommanderNames??new List<string>()),

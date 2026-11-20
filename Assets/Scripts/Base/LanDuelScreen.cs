@@ -37,7 +37,7 @@ namespace BaseConquest.Base
             public LanDuelCommand command;
             public LanDuelFrame frame;
         }
-        private const int Protocol = 1;
+        private const int Protocol = 2;
         private BaseSceneController owner;
         private BaseState camp;
         private Font font;

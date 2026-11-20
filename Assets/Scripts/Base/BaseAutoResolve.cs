@@ -54,7 +54,7 @@ namespace BaseConquest.Base
             var enemies = session.Battle.Soldiers.Where(u => u.Side == BattleSide.B && u.IsAlive).ToList();
             var objective = session.Battle.Scenario?.Objective;
             double hold = objective != null && objective.Kind == ObjectiveKinds.Hold ? objective.HoldRounds : 0;
-            return BasePower.Engage(allies, enemies, rules, hold);
+            return BasePower.Engage(allies, enemies, rules, hold,session.Opening.DemoCombat?session.Opening.Difficulty.Preset:"normal");
         }
 
         // 真实战斗的伤亡结构（132 场真值拟合，见 05 数值案 §13）：

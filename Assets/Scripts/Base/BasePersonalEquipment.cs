@@ -48,13 +48,14 @@ namespace BaseConquest.Base
     {
         public static readonly string[] Slots={"weapon","helmet","armor","accessory1","accessory2","accessory3"};
         public static IEnumerable<string> SlotsFor(BaseLeader l)=>Slots.Take(l.PersonalEquipment.ExtraAccessory?6:5);
-        public static string Profession(string weapon)=>weapon=="bow"?"弓兵":weapon=="spear"?"骑兵":"剑士";
+        public static string Profession(string weapon)=>weapon=="staff"?"法师":weapon=="bow"?"弓兵":weapon=="spear"?"骑兵":"剑士";
         public static string ClassName(BaseLeader l)=>l.PersonalEquipment?.Version==1?Profession(l.PersonalEquipment.Weapon):BaseCommanderIdentity.Appearance(l)=="ahe"?"弓兵":BaseCommanderIdentity.Appearance(l)=="azhu"?"骑兵":"剑士";
         public static readonly string[] Qualities={"破损","较差","一般","良好","极佳","传奇"};
         private static readonly float[] Multipliers={.5f,.75f,1,1.25f,1.5f,2};
         private static readonly BasePersonalDefinition[] Definitions={
             new BasePersonalDefinition {Id="basic_sword",Name="短剑",Slot="weapon",Weapon="sword",Price=10},
             new BasePersonalDefinition {Id="basic_bow",Name="木弓",Slot="weapon",Weapon="bow",Range=5,Price=10},
+            new BasePersonalDefinition {Id="basic_staff",Name="木法杖",Slot="weapon",Weapon="staff",Range=5,Damage=2,Price=10},
             new BasePersonalDefinition {Id="basic_spear",Name="旧长枪",Slot="weapon",Weapon="spear",Price=10},
             new BasePersonalDefinition {Id="basic_helmet",Name="布帽",Slot="helmet",Price=6},
             new BasePersonalDefinition {Id="basic_armor",Name="布甲",Slot="armor",Price=8},
@@ -68,7 +69,7 @@ namespace BaseConquest.Base
             new BasePersonalDefinition {Id="captains_ring",Name="队长赠予的指环",Slot="accessory",Health=5,Defense=1}
         };
         public static IEnumerable<BasePersonalDefinition> Shop=>Definitions.Where(d=>d.Price>0&&!d.Id.StartsWith("basic_"));
-        public static System.Collections.Generic.IEnumerable<BasePersonalDefinition> ShopFor(BaseState s)=>BaseDemoFlow.Active(s)?Definitions.Where(d=>d.Price>0):Shop;
+        public static System.Collections.Generic.IEnumerable<BasePersonalDefinition> ShopFor(BaseState s)=>BaseDemoFlow.Active(s)?Definitions.Where(d=>d.Price>0&&(d.Id!="basic_staff"||s.Demo?.Rpg?.HasProfessionCatalog==true)):Shop;
         public static BasePersonalDefinition Definition(string id)=>Definitions.SingleOrDefault(d=>d.Id==id);
         public static BasePersonalDefinition Definition(RpgRules rules,string id)=>rules?.EquipmentDefinition(id)??Definition(id);
         public static IEnumerable<BasePersonalDefinition> DefaultDefinitions()=>Definitions.Select(d=>d.Copy());
@@ -83,7 +84,8 @@ namespace BaseConquest.Base
             if(r!=null)return r.Range[leader.Rpg.Profession]+(d.Weapon=="bow"?r.BowQualityRange[quality]:0)<=24;
             return WeaponRange(leader,item)-ExtraRange(item.Quality)+ExtraRange(quality)<=12;
         }
-        public static int RealtimeRange(BasePersonalItem item)=>RealtimeCombatRules.Range(Definition(item.Template).Weapon=="bow"?SoldierKind.Ranged:Definition(item.Template).Weapon=="spear"?SoldierKind.Cavalry:SoldierKind.Melee,item.Quality);
+        public static SoldierKind WeaponKind(string weapon) => weapon == "staff" ? SoldierKind.Mage : weapon == "bow" ? SoldierKind.Ranged : weapon == "spear" ? SoldierKind.Cavalry : SoldierKind.Melee;
+        public static int RealtimeRange(BasePersonalItem item)=>RealtimeCombatRules.Range(WeaponKind(Definition(item.Template).Weapon),item.Quality);
         public static double RealtimeRange(BaseLeader leader)
         {
             if(leader.Rpg?.Version==1)return leader.Rpg.Rules.Range[leader.Rpg.Profession]+(leader.Rpg.Profession==1?leader.Rpg.Rules.BowQualityRange[leader.PersonalEquipment?.Items.FirstOrDefault(i=>i.Slot=="weapon")?.Quality??2]:0);
@@ -108,8 +110,8 @@ namespace BaseConquest.Base
                 if(l.PersonalEquipment?.Items?.Count>0||!string.IsNullOrEmpty(l.PersonalEquipment?.Weapon))throw new ArgumentException("人物装备缺少版本，拒绝重置");
                 var stats=BaseCommanderIdentity.Stats(l,new ArmyDefinition().Hero);
                 string appearance=BaseCommanderIdentity.Appearance(l);
-                string weapon=UnitNaming.CastCombatKind(appearance)==SoldierKind.Ranged||stats.HasCombatKind&&stats.CombatKind==SoldierKind.Ranged ? "bow" : UnitNaming.CastCombatKind(appearance)==SoldierKind.Cavalry||stats.HasCombatKind&&stats.CombatKind==SoldierKind.Cavalry ? "spear" : "sword";
-                stats.HasCombatKind=true;stats.CombatKind=weapon=="bow" ? SoldierKind.Ranged : weapon=="spear" ? SoldierKind.Cavalry : SoldierKind.Melee;
+                string weapon=stats.HasProfessionKind&&stats.ProfessionKind==SoldierKind.Mage||stats.HasCombatKind&&stats.CombatKind==SoldierKind.Mage?"staff":UnitNaming.CastCombatKind(appearance)==SoldierKind.Ranged||stats.HasCombatKind&&stats.CombatKind==SoldierKind.Ranged ? "bow" : UnitNaming.CastCombatKind(appearance)==SoldierKind.Cavalry||stats.HasCombatKind&&stats.CombatKind==SoldierKind.Cavalry ? "spear" : "sword";
+                stats.HasCombatKind=true;stats.CombatKind=weapon=="staff"?SoldierKind.Mage:weapon=="bow" ? SoldierKind.Ranged : weapon=="spear" ? SoldierKind.Cavalry : SoldierKind.Melee;
                 l.PersonalEquipment=new BasePersonalLoadout {Version=1,Weapon=weapon,InitialWeapon=weapon,ExtraAccessory=l.Id==s.PlayerLeaderId,BaseStats=stats};
                 // Basic gear represents the existing profile; migration grants no combat stats or healing.
                 if(!l.Recruited)
@@ -133,13 +135,14 @@ namespace BaseConquest.Base
         {
             if(leader.Rpg?.Version==1)return BaseRpg.Stats(leader);
             var gear=leader.PersonalEquipment;var stats=gear.BaseStats.Clone();stats.Level=leader.Training?.Level??stats.Level;stats.Range=1;stats.HasCombatKind=true;stats.CombatKind=SoldierKind.Melee;
-            stats.HasProfessionKind=true;stats.ProfessionKind=gear.Weapon=="bow"?SoldierKind.Ranged:gear.Weapon=="spear"?SoldierKind.Cavalry:SoldierKind.Melee;
+            stats.HasProfessionKind=true;stats.ProfessionKind=WeaponKind(gear.Weapon);
+            if(gear.Weapon=="staff"){stats.CombatKind=SoldierKind.Mage;stats.Range=gear.BaseStats.Range;}
             foreach(var item in gear.Items)
             {
                 var d=Definition(item.Template);int q=item.Quality;
                 stats.Damage+=d.Slot=="weapon"?WeaponAttack(leader,item):Scale(d.Damage,q);stats.Defense+=Scale(d.Defense,q);stats.Health+=Scale(d.Health,q);
                 stats.CritChance+=Scale(d.CritChance,q);stats.CritMultiplier+=Scale(d.CritMultiplier,q);
-                if(d.Slot=="weapon"){stats.Range=WeaponRange(leader,item);stats.CombatKind=d.Weapon=="bow"?SoldierKind.Ranged:d.Weapon=="spear"?SoldierKind.Cavalry:SoldierKind.Melee;}
+                if(d.Slot=="weapon"){stats.Range=WeaponRange(leader,item);stats.CombatKind=WeaponKind(d.Weapon);}
             }
             string set=ArmorSet(leader);
             if(set=="light")stats.Damage+=2;
@@ -168,8 +171,8 @@ namespace BaseConquest.Base
             if(g.Warehouse.Any(i=>i!=null&&!string.IsNullOrEmpty(i.Slot)))throw new ArgumentException("仓库装备不得占穿戴槽");
             foreach(var l in s.Leaders.Where(l=>l.PersonalEquipment?.Version>0))
             {
-                var p=l.PersonalEquipment;if(l.Rpg?.Version==1&&p.Weapon!=new[]{"sword","bow","spear"}[l.Rpg.Profession])throw new ArgumentException("个人武器配置与固定职业不符");
-                if(p.Version!=1||!new[]{"sword","bow","spear"}.Contains(p.Weapon)||!BaseAftermath.ValidStats(p.BaseStats)||p.Items==null||p.Items.Count>SlotsFor(l).Count()||p.Items.Any(i=>i==null||!Compatible(l,i,i.Slot))||p.Items.Select(i=>i.Slot).Distinct().Count()!=p.Items.Count)throw new ArgumentException("个人装备槽／基础属性非法");
+                var p=l.PersonalEquipment;if(l.Rpg?.Version==1&&p.Weapon!=BaseRpg.Weapon(l.Rpg.Profession))throw new ArgumentException("个人武器配置与固定职业不符");
+                if(p.Version!=1||!new[]{"sword","bow","spear","staff"}.Contains(p.Weapon)||!BaseAftermath.ValidStats(p.BaseStats)||p.Items==null||p.Items.Count>SlotsFor(l).Count()||p.Items.Any(i=>i==null||!Compatible(l,i,i.Slot))||p.Items.Select(i=>i.Slot).Distinct().Count()!=p.Items.Count)throw new ArgumentException("个人装备槽／基础属性非法");
                 all.AddRange(p.Items);
                 if(p.Items.Any(i=>i.Quality<0||i.Quality>5))throw new ArgumentException("个人装备品质非法");
                 var weapon=p.Items.SingleOrDefault(i=>i.Slot=="weapon");

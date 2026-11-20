@@ -216,7 +216,7 @@ namespace BaseConquest.Base
                     FacilityId = id, Panel = panel, Actions = actions, List = list, Portrait = Ui<RectTransform>(panel, "PortraitColumn")
                 };
                 var created = productionView;
-                foreach (SoldierKind? kind in new SoldierKind?[] { null, SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry })
+                foreach (SoldierKind? kind in BaseTown.TroopKinds(state).Select(k=>(SoldierKind?)BaseCampaign.ToBattle(k)).Prepend(null))
                 {
                     var button = FacilityButton(filters, kind?.ToString() ?? "All", kind.HasValue ? BattleSimulation.KindName(kind.Value) : "全部", () =>
                     {
@@ -339,7 +339,7 @@ namespace BaseConquest.Base
             var draftNotice = FacilityText(actions, FacilityCopy("draft", "岗位调配待确认"));
 
             var counters = new List<(BaseTroopKind Kind, Text Label, Button Minus, Button Plus, Button Unlock, bool CanUnlock)>();
-            foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
+            foreach (BaseTroopKind kind in BaseTown.TroopKinds(state))
             {
                 var counter = FacilityCounter(actions, kind.ToString(), "",
                     () => Adjust(kind, id, "", OpenFacility), () => Adjust(kind, "", id, OpenFacility), false, false);
@@ -525,7 +525,7 @@ namespace BaseConquest.Base
             var commanderHeading = FacilityText(actions, "", true);
             FacilityText(actions, "预设人数在备战时按实际兵力配置。");
             var counters = new Dictionary<BaseTroopKind, RectTransform>();
-            foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
+            foreach (BaseTroopKind kind in BaseTown.TroopKinds(state))
             {
                 var counter = FacilityCounter(actions, kind.ToString(), "", () => ChangeTroopCount(kind, -1), () => ChangeTroopCount(kind, 1), false, false);
                 counters.Add(kind, counter);
@@ -627,11 +627,11 @@ namespace BaseConquest.Base
             }), !state.Campaign.HasActiveBattle);
 
             float listOffset = 0;
-            var choices = new (SoldierKind? Kind, Button Button, Color Color)[4];
+            var choices = new (SoldierKind? Kind, Button Button, Color Color)[1 + BaseTown.TroopKinds(state).Count];
             Button back = null;
             AddFilter(0, null, "All", "全部");
             int filterIndex = 1;
-            foreach (var kind in new[] { SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry })
+            foreach (var kind in BaseTown.TroopKinds(state).Select(BaseCampaign.ToBattle))
                 AddFilter(filterIndex++, kind, kind.ToString(), BattleSimulation.KindName(kind));
             back = FacilityButton(filters, "Back", "返回名册", () =>
             {

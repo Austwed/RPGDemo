@@ -267,6 +267,11 @@ namespace BaseConquest.Base
 #if UNITY_EDITOR || (UNITY_STANDALONE_WIN && DEVELOPMENT_BUILD)
                 if (benchmarkSaveDirectory.Value is string benchmark) return Path.Combine(benchmark, "player-data");
 #endif
+#if UNITY_EDITOR
+                // An isolated worktree may opt in by creating its own ignored UserSettings directory.
+                var sandbox = Path.GetFullPath(Path.Combine(Application.dataPath, "../UserSettings/IsolatedPlayerData"));
+                if (Directory.Exists(sandbox)) return sandbox;
+#endif
                 var path = Application.persistentDataPath;
                 // 保持 Windows 旧版本的存档和本地文本位置，应用显示名可单独更换。
                 return Application.platform is RuntimePlatform.WindowsEditor or RuntimePlatform.WindowsPlayer

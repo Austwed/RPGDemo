@@ -100,6 +100,35 @@ namespace BaseConquest.Base
         {
             s.Demo.Intro=new BaseDemoIntroState();if(BaseDemoPrologue.Village(s)){if(s.Demo.StoryScene?.Valid==true)s.Demo.StoryScene.InstallVillage(s);else{s.Demo.Intro.CaptainX=10.2;s.Demo.Intro.CaptainY=9.1;s.PlayerX=s.Campaign.BaseX=7.9;s.PlayerY=s.Campaign.BaseY=9.1;s.Campaign.Layouts.RemoveAll(m=>m.Region=="base");var village=BaseDemoPrologue.CreateVillage(true);village.ForbidSoldiers=true;s.Campaign.Layouts.Add(village);}}if(!preserveWeaponScale)s.Demo.Rpg.WeaponAttackScale=1;s.Demo.Rpg.SceneRulesVersion=1;BaseSceneRules.Install(s);if(s.Demo.Stage==BaseDemoStage.PrologueBriefing)BaseDemoPrologue.SeedVillagers(s);foreach(var leader in s.Leaders.Concat(s.Demo.Candidates))leader.PreferredStrategy=leader.Id==s.PlayerLeaderId?SquadStrategy.Obey:SquadStrategy.Attack;
             if(!BaseDemoRelease.Enabled(s)||s.Demo.Encounters?.Version>0)return;
+            s.Demo.Encounters=CreateDefaultEncounters(s.Demo.Rpg.HasProfessionCatalog);
+            foreach(var scene in EditableEncounters)
+                ApplyEncounterUnits(scene.Value(s.Demo.Encounters),scene.Key,s.Demo.Rpg);
+            s.Demo.Encounters.Validate();
+        }
+
+        // The authored slot is the original deployment position even when its assigned profession changes.
+        // The ruins cast and story commanders have no editable ordinary-soldier slot here.
+        private static readonly Dictionary<string,Func<BaseDemoEncounterConfig,BaseEnemyPreset>> EditableEncounters =
+            new Dictionary<string,Func<BaseDemoEncounterConfig,BaseEnemyPreset>>(StringComparer.Ordinal)
+            {
+                { "defense", encounters=>encounters.Defense },
+                { "bandit", encounters=>encounters.Camp }
+            };
+        private static readonly Lazy<Dictionary<string,HashSet<string>>> EditableSoldierSlots =
+            new Lazy<Dictionary<string,HashSet<string>>>(()=>
+            {
+                var defaults=CreateDefaultEncounters(false);
+                return EditableEncounters.ToDictionary(scene=>scene.Key,scene=>new HashSet<string>(
+                    scene.Value(defaults).Units.Where(unit=>unit.Kind!=SoldierKind.Hero).Select(unit=>unit.Id),
+                    StringComparer.Ordinal),StringComparer.Ordinal);
+            });
+
+        public static bool HasEditableEncounter(string scene)=>scene!=null&&EditableEncounters.ContainsKey(scene);
+        public static bool HasEditableSoldierSlot(string scene,string slot)=>
+            scene!=null&&slot!=null&&EditableSoldierSlots.Value.TryGetValue(scene,out var slots)&&slots.Contains(slot);
+
+        private static BaseDemoEncounterConfig CreateDefaultEncounters(bool mageController)
+        {
             BaseEnemyPreset Preset(SoldierKind[] captains,GridPosition[] positions,int melee,int ranged,int cavalry)
             {
                 var p=new BaseEnemyPreset {Version=2,Melee=melee,Ranged=ranged,Cavalry=cavalry,Commanders=captains.Select(kind=>new BaseEnemyCommanderPreset{Profession=kind,Level=1}).ToList()};int index=0;
@@ -110,13 +139,13 @@ namespace BaseConquest.Base
                 }
                 p.Validate();return p;
             }
-            s.Demo.Encounters=new BaseDemoEncounterConfig {Version=2,
-                Ruins=Preset(new[]{SoldierKind.Melee},new[]{new GridPosition(27,12),new GridPosition(25,8),new GridPosition(25,16)},2,0,0),
+            var encounters=new BaseDemoEncounterConfig {Version=2,
+                Ruins=Preset(new[]{mageController?SoldierKind.Mage:SoldierKind.Melee},new[]{new GridPosition(27,12),new GridPosition(25,8),new GridPosition(25,16)},2,0,0),
                 Defense=Preset(new[]{SoldierKind.Ranged},new[]{new GridPosition(3,12),new GridPosition(5,8),new GridPosition(5,9),new GridPosition(5,16),new GridPosition(5,17),new GridPosition(2,9),new GridPosition(2,16)},4,2,0),
                 Camp=Preset(new[]{SoldierKind.Cavalry,SoldierKind.Ranged,SoldierKind.Melee},new[]{new GridPosition(27,9),new GridPosition(28,12),new GridPosition(28,16),new GridPosition(25,8),new GridPosition(25,9),new GridPosition(25,16),new GridPosition(25,17),new GridPosition(27,8),new GridPosition(27,16),new GridPosition(27,17),new GridPosition(26,12)},4,3,1)};
             // 巴图不持有普通兵槽；他缺席时其余两队的人数保持不变。
-            foreach(var unit in s.Demo.Encounters.Camp.Units.Where(unit=>unit.Kind!=SoldierKind.Hero&&unit.CommanderSlot==1))unit.CommanderSlot=2;
-            s.Demo.Encounters.Camp.Commanders[2].SkillId="inspire";
+            foreach(var unit in encounters.Camp.Units.Where(unit=>unit.Kind!=SoldierKind.Hero&&unit.CommanderSlot==1))unit.CommanderSlot=2;
+            encounters.Camp.Commanders[2].SkillId="inspire";
             // 剧情队长写死数值、技能与特性（2026-11-02 用户裁决：这类关卡的重要剧情角色用固定搭配）。
             // 只有反复刷的遗迹控制者保持随机——PrepareEnemies 里把 slot 0 的 authored 置空即是此意。
             // 模板必须一起写死：Generate 会先按 AwakenedChance 随机决定是否异能者，光固定特性数值仍会变。
@@ -124,11 +153,34 @@ namespace BaseConquest.Base
             void StoryFix(BaseEnemyCommanderPreset c,string template,string skill,RpgTrait[] traits)
             {c.TemplateId=template;c.SkillId=skill;c.FixedTraits=true;c.Traits=traits.ToList();}
             var batu=new[]{StoryTrait("tough",10),StoryTrait("frenzy",8)};                       // 巴图：老兵弓手，耐打、出手略快
-            StoryFix(s.Demo.Encounters.Defense.Commanders[0],"captain_normal_archer","rapid_fire",batu);
-            StoryFix(s.Demo.Encounters.Camp.Commanders[0],"captain_normal_knight","charge",new[]{StoryTrait("frenzy",15),StoryTrait("cruel",6)}); // 大当家：骑冲、凶悍
-            StoryFix(s.Demo.Encounters.Camp.Commanders[1],"captain_normal_archer","rapid_fire",batu);
-            StoryFix(s.Demo.Encounters.Camp.Commanders[2],"captain_normal_warrior","inspire",new[]{StoryTrait("tough",12),StoryTrait("taunt",2)}); // 豁牙：近战肉盾拉仇恨
-            s.Demo.Encounters.Validate();
+            StoryFix(encounters.Defense.Commanders[0],"captain_normal_archer","rapid_fire",batu);
+            StoryFix(encounters.Camp.Commanders[0],"captain_normal_knight","charge",new[]{StoryTrait("frenzy",15),StoryTrait("cruel",6)}); // 大当家：骑冲、凶悍
+            StoryFix(encounters.Camp.Commanders[1],"captain_normal_archer","rapid_fire",batu);
+            StoryFix(encounters.Camp.Commanders[2],"captain_normal_warrior","inspire",new[]{StoryTrait("tough",12),StoryTrait("taunt",2)}); // 豁牙：近战肉盾拉仇恨
+            return encounters;
+        }
+        private static void ApplyEncounterUnits(BaseEnemyPreset preset,string scene,RpgRules rules)
+        {
+            var references=rules.EncounterUnits?.Where(entry=>entry.Scene==scene).ToArray();
+            if(references==null||references.Length==0)return;
+            foreach(var entry in references)
+            {
+                var unit=preset.Units.SingleOrDefault(u=>u.Id==entry.Slot&&u.Kind!=SoldierKind.Hero);
+                if(unit==null)throw new ArgumentException("关卡没有该普通兵位置："+scene+"/"+entry.Slot);
+                var template=rules.Templates.Single(t=>t.Id==entry.TemplateId&&t.Identity=="soldier");
+                unit.Kind=BaseRpg.Kind(rules.Professions.FindIndex(p=>p.Id==template.ProfessionId));
+                unit.TemplateId=template.Id;
+            }
+            foreach(var group in preset.Units.Where(u=>u.Kind!=SoldierKind.Hero).GroupBy(u=>u.Kind))
+            {
+                int i=0;
+                foreach(var unit in group)unit.Id=group.Key.ToString().ToLowerInvariant()+"-"+(++i);
+            }
+            preset.Melee=preset.Units.Count(u=>u.Kind==SoldierKind.Melee);
+            preset.Ranged=preset.Units.Count(u=>u.Kind==SoldierKind.Ranged);
+            preset.Cavalry=preset.Units.Count(u=>u.Kind==SoldierKind.Cavalry);
+            preset.Mage=preset.Units.Count(u=>u.Kind==SoldierKind.Mage);
+            BaseRpg.ValidatePreset(preset,rules);
         }
         public static bool Choose(BaseState s,string hero,string playerName)
         {

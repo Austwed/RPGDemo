@@ -321,7 +321,7 @@ namespace BaseConquest.Base
             var rules = state.Demo?.Rpg;
             if (enemyReference?.Length > 0 && rules != null && allies.Length > 0)
             {
-                var comparison = BasePower.Engage(allies, enemyReference, rules);
+                var comparison = BasePower.Engage(allies, enemyReference, rules,0,state.Aftermath.Difficulty.Preset);
                 return (comparison.AllyPower, comparison.EnemyPower);
             }
             return (allies.Sum(u => rules == null ? u.Stats.BaseBattlePower :

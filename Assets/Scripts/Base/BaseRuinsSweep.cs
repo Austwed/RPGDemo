@@ -49,7 +49,7 @@ namespace BaseConquest.Base
             var allies=session.Battle.Soldiers.Where(u=>u.Side==BattleSide.A&&u.IsAlive).ToList();
             var enemies=session.Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&u.IsAlive).ToList();
             // 战力与伤损统一走 BasePower 的双方相关推演；门槛走 BaseAutoResolve 的扫荡专属战力比（严格 >1.5 倍）。
-            var engagement=BasePower.Engage(allies,enemies,rules);
+            var engagement=BasePower.Engage(allies,enemies,rules,0,session.Opening.DemoCombat?session.Opening.Difficulty.Preset:"normal");
             var p=new BaseSweepPreview {AllyPower=engagement.AllyPower,EnemyPower=engagement.EnemyPower};
             var problem=BaseAutoResolve.Problem(state,session.Opening.EventId,engagement,BaseAutoResolve.SweepAdvantage);
             if(!string.IsNullOrEmpty(problem)){p.Problem=problem;return p;}

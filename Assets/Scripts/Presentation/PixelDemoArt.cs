@@ -15,7 +15,7 @@ namespace BaseConquest.Presentation
         {
             if(string.IsNullOrEmpty(id))return id;
             if(BaseConquest.Battle.UnitNaming.TryParseTroop(id,out var classWord,out var _))id=classWord;
-            return id=="saber"?"infantry":id=="rider"?"cavalry":id;
+            return id=="caster"?"mage":id=="saber"?"infantry":id=="rider"?"cavalry":id;
         }
         // 三职业角色：敌方队长也取这里的形象（galan=遗迹战、chief=匪寨战）。
         public static bool IsCast(string id)=>id=="player"||id=="female"||id=="ahe"||id=="azhu"||id=="mounted-azhu"||id=="galan"||id=="chief"||id=="batu"||id=="huoya";
@@ -28,7 +28,7 @@ namespace BaseConquest.Presentation
         private static readonly System.Collections.Generic.Dictionary<string,float> ArtHeight=new System.Collections.Generic.Dictionary<string,float>
         {
             { "ahe|v1", 56f }, { "ahe|walk", 56f }, { "ahe|attack", 56f },
-            { "archer|v1", 56f },
+            { "archer|v1", 56f }, { "mage|v1", 50f }, { "mage|attack", 54f },
             { "batu|v1", 57f }, { "batu|walk", 56f }, { "batu|attack", 56f },
             { "mounted-cavalry|v1", 56f },
             { "azhu|v1", 56f },
@@ -94,6 +94,13 @@ namespace BaseConquest.Presentation
         }
         // 地线（脚底下沿）在格子里的 y（自上而下）：待机／行走留 cell/16，攻击／倒地留 cell*3/32，即 64→60、96→90、128→116。
         public static float FootPx(string kind,float cell,AtlasSpec spec)=>spec!=null&&spec.foot>0?spec.foot:kind=="attack"||kind=="down"?cell-Mathf.Round(cell*3/32f):cell-Mathf.Floor(cell/16f);
+        public static int CastFrame(string id, int columns, double phase)
+        {
+            int palm = id == "galan" ? columns / 2 : 2;
+            const double release = .60; // AttackPoseTime maps the ranged release to .24 / (.24 + .16).
+            return Mathf.Clamp(phase < release - 1e-6 ? (int)(phase / release * palm)
+                : palm + (int)((System.Math.Max(0, phase - release) / (1 - release)) * (columns - palm)), 0, columns - 1);
+        }
         public static Rect Frame(HeroFacing facing,HeroPose pose,double time)
         {
             int column=pose==HeroPose.Walk?1+(int)(System.Math.Max(0,time)*8)%4:0;
@@ -158,7 +165,8 @@ namespace BaseConquest.Presentation
             int column=0;
             if(pose==HeroPose.Attack)
             {
-                if(columns==8)
+                if (PixelDemoArt.TroopId(artId) == "mage" || artId == "galan") column = PixelDemoArt.CastFrame(PixelDemoArt.TroopId(artId), columns, phase);
+                else if(columns==8)
                 {
                     // Match the source strike/release to the existing combat hit, without delaying damage.
                     double impact=bowAttack?.24/(.24+.16):.22/(.22+.16);int contact=bowAttack?5:4;

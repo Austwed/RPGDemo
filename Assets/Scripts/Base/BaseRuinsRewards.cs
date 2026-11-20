@@ -122,7 +122,7 @@ namespace BaseConquest.Base
             double bookRoll=BattleSimulation.StableRoll(seed,1,73);
             if(bookRoll<.5)
             {
-                var kinds=new[]{SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry};
+                var kinds=BaseTraining.SoldierKinds(s);
                 var kind=kinds[(int)(BattleSimulation.StableRoll(seed,2,73)*kinds.Length)%kinds.Length];
                 rewards.Add(new BaseLootReward {ItemId=BaseTraining.Book(kind,2),Count=1});
             }

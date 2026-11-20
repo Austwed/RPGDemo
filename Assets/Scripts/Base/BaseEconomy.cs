@@ -17,7 +17,7 @@ namespace BaseConquest.Base
         public static readonly string[] Facilities = { "", "farm", "workshop", "caravan" };
         public static string ProductName(string id) => id == "supply" ? "军需" : id == "sword" ? "剑" : id == "bow" ? "弓" : "盔甲";
         public static string FacilityName(string id) => id == "farm" ? "粮田" : id == "workshop" ? "工坊" : id == "caravan" ? "商队" : id == "office" ? "办公设施" : "闲置";
-        public static string TroopName(BaseTroopKind kind) => kind == BaseTroopKind.Melee ? "剑士" : kind == BaseTroopKind.Ranged ? "弓兵" : "骑兵";
+        public static string TroopName(BaseTroopKind kind) => BaseConquest.Battle.BattleSimulation.KindName(BaseCampaign.ToBattle(kind));
         private static bool Finite(double x) => !double.IsNaN(x) && !double.IsInfinity(x);
         private static bool Fraction(double x) => Finite(x) && x >= 0 && x < 1;
         public static void Validate(BaseState s, bool initialized = true)
@@ -65,7 +65,7 @@ namespace BaseConquest.Base
             BaseDemo.Validate(s);BaseAchievements.Validate(s);
             BaseSceneCombat.Validate(s);
         }
-        public static int Ration(BaseState s, BaseWorkerBucket w) => w.Kind == BaseTroopKind.Cavalry ? s.Rules.CavalryFood : w.Kind == BaseTroopKind.Ranged && BaseRpg.Active(s) ? s.Demo.Rpg.ArcherFood : s.Rules.SoldierFood;
+        public static int Ration(BaseState s, BaseWorkerBucket w) => w.Kind == BaseTroopKind.Mage && BaseRpg.Active(s) ? s.Demo.Rpg.MageFood : w.Kind == BaseTroopKind.Cavalry ? s.Rules.CavalryFood : w.Kind == BaseTroopKind.Ranged && BaseRpg.Active(s) ? s.Demo.Rpg.ArcherFood : s.Rules.SoldierFood;
         public static int FoodRequired(BaseState s) => checked(s.Workers.Sum(x => x.Count * (x.FacilityId == "caravan" || x.Relocating ? 2 : 1) * Ration(s,x)) + s.Leaders.Count(x => x.Health > 0) * (BaseRpg.Active(s)?s.Demo.Rpg.LeaderFood:s.Rules.LeaderFood));
         public static double Hunger(BaseState s) => s.TodayFoodRequired == 0 ? 0 : (double)s.TodayFoodMissing / s.TodayFoodRequired;
         public static double ProductionFactor(BaseState s) => 1 - s.Rules.HungerProductionPenalty * Hunger(s);

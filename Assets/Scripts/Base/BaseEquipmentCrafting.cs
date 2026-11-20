@@ -76,7 +76,7 @@ namespace BaseConquest.Base
             }
 
             double range=gear.Slot!="weapon"?0:gear.Weapon=="bow"?rules.Range[1]+rules.BowQualityRange[quality]
-                :rules.Range[gear.Weapon=="spear"?2:0];
+                :rules.Range[BaseRpg.Profession(BasePersonalEquipment.WeaponKind(gear.Weapon))];
             return (rules.EquipmentAttack(gear,quality),rules.EquipmentScale(gear.Defense,quality)*rules.DefenseEquipmentScale,
                 rules.EquipmentScale(gear.Health,quality)*rules.HealthEquipmentScale,range,0,
                 rules.EquipmentScale(gear.CritMultiplier,quality),rules.EquipmentScale(gear.Movement,quality));

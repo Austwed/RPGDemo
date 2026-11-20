@@ -134,7 +134,7 @@ namespace BaseConquest.Base
 
             var army = source.Capacity.Clone();
             army.HeroCount = 1; army.CaptainSlot = 0;
-            army.MeleeCount = melee; army.RangedCount = ranged; army.CavalryCount = cavalry;
+            army.MeleeCount = melee; army.RangedCount = ranged; army.CavalryCount = cavalry; army.MageCount = 0;
             army.CommanderStats = army.CommanderStats.Take(1).Select(stats => stats.Clone()).ToList();
             if (army.CommanderStats.Count == 0) army.CommanderStats.Add(new SoldierStats());
             // 指挥者的职业决定他吃什么口粮、拿什么武器；立绘与职业必须对上（骑马的就是骑兵）。

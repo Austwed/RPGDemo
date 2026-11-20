@@ -68,7 +68,7 @@ namespace BaseConquest.Base
             SetStat(ResourceKind.Energy, "体力", BaseDemoRuins.Enabled(state) ? $"{BaseRuinsRewards.Energy(state)} / {BaseRuinsRewards.Maximum(state)}" : "—",
                 BaseDemoRuins.Enabled(state) ? DailyAmount(ExpectedEnergy(state)) : "");
             SetStat(ResourceKind.Troops, "兵力", workers.Sum(w => w.Count).ToString(),
-                $"剑 {workers.Where(w => w.Kind == BaseTroopKind.Melee).Sum(w => w.Count)} · 弓 {workers.Where(w => w.Kind == BaseTroopKind.Ranged).Sum(w => w.Count)} · 骑 {workers.Where(w => w.Kind == BaseTroopKind.Cavalry).Sum(w => w.Count)}");
+                $"剑 {workers.Where(w => w.Kind == BaseTroopKind.Melee).Sum(w => w.Count)} · 弓 {workers.Where(w => w.Kind == BaseTroopKind.Ranged).Sum(w => w.Count)} · 骑 {workers.Where(w => w.Kind == BaseTroopKind.Cavalry).Sum(w => w.Count)} · 法 {workers.Where(w => w.Kind == BaseTroopKind.Mage).Sum(w => w.Count)}");
         }
 
         private static int ExpectedEnergy(BaseState state) => Math.Min(BaseRuinsRewards.DailyRecovery,

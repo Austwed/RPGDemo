@@ -8,9 +8,9 @@ namespace BaseConquest.Battle
     [Serializable] public sealed class RpgAttackPacket
     {
         public int Id,SourceId,TargetId,First,Second,Selected,Level,NetAdvantage,HitPoints,EvasionPoints;
-        public string ObjectId="";
-        public bool Hit,Critical,Settled;
-        public double Attack,CriticalMultiplier,ArriveAt;
+        public string ObjectId="",DamageType;
+        public bool Hit,Critical,Settled,ImpactApplied;
+        public double Attack,CriticalMultiplier,LaunchedAt,ArriveAt;
         public PrototypePoint Origin,Destination;
         public RpgAttackPacket Copy()=>(RpgAttackPacket)MemberwiseClone();
     }
@@ -44,7 +44,9 @@ namespace BaseConquest.Battle
             if(rpgAttackSerial<0||rpgAttacks.Count>100000||rpgAttacks.Select(a=>a.Id).Distinct().Count()!=rpgAttacks.Count)throw new ArgumentException("RPG攻击序列非法");
             foreach(var a in rpgAttacks)
             {
-                if(a==null||a.Id<1||a.Id>rpgAttackSerial||!Model.Units.Any(u=>u.Id==a.SourceId)||!new[]{a.Attack,a.CriticalMultiplier,a.ArriveAt,a.Origin.X,a.Origin.Z,a.Destination.X,a.Destination.Z}.All(PrototypeArena.Finite)||a.Attack<0||a.CriticalMultiplier<1||a.CriticalMultiplier>10||a.ArriveAt<0||a.Level<1||a.Level>9)throw new ArgumentException("RPG攻击快照非法");
+                if(a==null||a.Id<1||a.Id>rpgAttackSerial||!Model.Units.Any(u=>u.Id==a.SourceId)||!new[]{a.Attack,a.CriticalMultiplier,a.LaunchedAt,a.ArriveAt,a.Origin.X,a.Origin.Z,a.Destination.X,a.Destination.Z}.All(PrototypeArena.Finite)||a.Attack<0||a.CriticalMultiplier<1||a.CriticalMultiplier>10||a.LaunchedAt<0||a.ArriveAt<a.LaunchedAt||a.Level<1||a.Level>9)throw new ArgumentException("RPG攻击快照非法");
+                if(a.ImpactApplied&&(!a.Settled||!a.Hit||!string.IsNullOrEmpty(a.ObjectId)))throw new ArgumentException("攻击包的命中表现与结算不符");
+                if(Rpg.HasProfessionCatalog&&a.DamageType!="physical"&&a.DamageType!="magic")throw new ArgumentException("攻击包伤害类型非法");
                 if(!string.IsNullOrEmpty(a.ObjectId)){if(!a.Settled||!a.Hit||a.Critical||a.First!=0||a.Second!=0||!Session.Opening.TacticalObjects.Any(o=>o.Id==a.ObjectId))throw new ArgumentException("物件攻击记录非法");continue;}
                 if(!Model.Units.Any(u=>u.Id==a.TargetId&&u.Side!=Model.Units.First(source=>source.Id==a.SourceId).Side)||Math.Abs(a.NetAdvantage)>1)throw new ArgumentException("原目标或优势记录非法");
                 var roll=new RpgAttackRoll(a.HitPoints,a.EvasionPoints,a.NetAdvantage>0?1:0,a.NetAdvantage<0?1:0,a.First,a.Second);
@@ -64,27 +66,24 @@ namespace BaseConquest.Battle
             int second=advantage==disadvantage?0:1+(int)(BattleSimulation.StableRoll(Battle.Scenario.RandomSeed,id,402)*10);
             return new RpgAttackRoll((int)Rpg.Hit[BaseRpg.Profession(s.ProfessionKind)],(int)Rpg.Evasion[BaseRpg.Profession(t.ProfessionKind)],advantage,disadvantage,first,second);
         }
-        private void LaunchRpgAttack(PrototypeUnit source,PrototypeUnit target,double multiplier)
+        private void LaunchRpgAttack(PrototypeUnit source,PrototypeUnit target,double multiplier,string skillType=null)
         {
             Model.NotifyAttack(source,target);int id=++rpgAttackSerial;var roll=RollRpg(source,target,id);var soldier=Battle.Soldier(source.Id-1);
+            double charge=ConsumeCharge(source,out var chargeType);
+            string damageType=Rpg.HasProfessionCatalog?(skillType??chargeType??Rpg.AttackDamageType(BaseRpg.Profession(soldier.ProfessionKind))):"legacy";
             var packet=new RpgAttackPacket {Id=id,SourceId=source.Id,TargetId=target.Id,First=roll.First,Second=roll.Second,Selected=roll.Selected,Hit=roll.Hit,Critical=roll.Critical,NetAdvantage=roll.NetAdvantage,HitPoints=(int)Rpg.Hit[BaseRpg.Profession(soldier.ProfessionKind)],EvasionPoints=(int)Rpg.Evasion[BaseRpg.Profession(Battle.Soldier(target.Id-1).ProfessionKind)],
-                Attack=Model.DamageFor(source)*multiplier*ConsumeCharge(source),Level=soldier.Stats.Level,CriticalMultiplier=soldier.Stats.CritMultiplier,Origin=source.Position,Destination=target.BodyCenter,
+                DamageType=damageType,LaunchedAt=Model.Elapsed,Attack=Model.DamageFor(source)*multiplier*charge,Level=soldier.Stats.Level,CriticalMultiplier=soldier.Stats.CritMultiplier,Origin=source.Position,Destination=target.BodyCenter,
                 ArriveAt=Model.Elapsed+(source.Ranged?(target.BodyCenter-source.Position).Length/(Rpg.ArrowSpeed/PrototypeArena.Subdivision):0)};
             rpgAttacks.Add(packet);
-            if(source.Ranged)Model.AddVisualArrow(source,packet.Destination,Rpg.ArrowSpeed/PrototypeArena.Subdivision);
+            if(source.Ranged&&damageType!="magic")Model.AddVisualArrow(source,packet.Destination,Rpg.ArrowSpeed/PrototypeArena.Subdivision);
             SettleRpgAttacks();
         }
-        private double RpgDamage(double raw,int level,double critical,BattleSoldier attacker,BattleSoldier defender)
+        private double RpgDamage(string damageType,double raw,int level,double critical,BattleSoldier attacker,BattleSoldier defender)
         {
             double received=1+((defender.Rpg?.Trait("fragile")??0)-(defender.Rpg?.Trait("tough")??0))/100;
-            double damage=RpgCombatRules.Damage(raw,defender.Stats.Defense,Rpg.ArmorK*level,Rpg.ArmorCap,critical,received);
-            if(Session.Opening.DemoCombat)
-            {
-                string preset=CombatDifficulty;
-                if(preset=="easy")damage*=attacker.Side==BattleSide.A?2:1;
-                damage*=DifficultyIncoming(defender.Side);
-            }
-            return damage;
+            double difficulty=DifficultyIncoming(defender.Side);
+            if(Session.Opening.DemoCombat&&CombatDifficulty=="easy"&&attacker.Side==BattleSide.A)difficulty*=2;
+            return RpgCombatRules.Damage(damageType??"legacy",raw,defender.Stats.Defense,Rpg.ArmorK*level,Rpg.ArmorCap,critical,received,difficulty);
         }
         private void SettleRpgAttacks()
         {
@@ -96,8 +95,9 @@ namespace BaseConquest.Battle
                 if(!packet.Hit){Battle.RecordRpgMiss(packet.SourceId-1,packet.TargetId-1,packet.Selected);continue;}
                 var source=Model.Units.First(u=>u.Id==packet.SourceId);var defender=Battle.Soldier(target.Id-1);
                 Battle.Soldier(source.Id-1).LastAttackCritical=packet.Critical;
-                double damage=defender.DeveloperInvulnerable?0:RpgDamage(packet.Attack,packet.Level,packet.Critical?packet.CriticalMultiplier:1,Battle.Soldier(source.Id-1),defender);
+                double damage=defender.DeveloperInvulnerable?0:RpgDamage(packet.DamageType,packet.Attack,packet.Level,packet.Critical?packet.CriticalMultiplier:1,Battle.Soldier(source.Id-1),defender);
                 Model.ApplyResolvedHit(source,target,DamageLimit?.Invoke(source,target,damage)??damage);
+                packet.ImpactApplied=true;
             }
         }
         private void SaveRpgCombat(RealtimeBattleState state)
@@ -105,8 +105,9 @@ namespace BaseConquest.Battle
         public IReadOnlyList<RpgAttackPacket> RpgAttackHistory=>rpgAttacks;
         public double RecordRpgObjectAttack(PrototypeUnit source,string objectId,PrototypePoint destination)
         {
-            double attack=Model.DamageFor(source)*ConsumeCharge(source);
-            rpgAttacks.Add(new RpgAttackPacket {Id=++rpgAttackSerial,SourceId=source.Id,TargetId=-1,ObjectId=objectId,Hit=true,Settled=true,Attack=attack,CriticalMultiplier=Battle.Soldier(source.Id-1).Stats.CritMultiplier,Level=Battle.Soldier(source.Id-1).Stats.Level,Origin=source.Position,Destination=destination,ArriveAt=Model.Elapsed});
+            double attack=Model.DamageFor(source)*ConsumeCharge(source,out var chargeType);
+            string damageType=chargeType??Rpg.AttackDamageType(BaseRpg.Profession(Battle.Soldier(source.Id-1).ProfessionKind));
+            rpgAttacks.Add(new RpgAttackPacket {Id=++rpgAttackSerial,SourceId=source.Id,TargetId=-1,ObjectId=objectId,DamageType=damageType,LaunchedAt=Model.Elapsed,Hit=true,Settled=true,Attack=attack,CriticalMultiplier=Battle.Soldier(source.Id-1).Stats.CritMultiplier,Level=Battle.Soldier(source.Id-1).Stats.Level,Origin=source.Position,Destination=destination,ArriveAt=Model.Elapsed});
             return attack;
         }
     }

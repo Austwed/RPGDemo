@@ -243,7 +243,7 @@ namespace BaseConquest.Base
                     var unit=roster.units.FirstOrDefault(u=>u.x==pair.Key.x&&u.z==pair.Key.y);
                     pair.Value.image.color=unit?.id==deploymentId?Theme.Gold:unit!=null?Theme.Button:Theme.Inset;
                     pair.Value.GetComponentInChildren<Text>().text=unit==null?"·":((SoldierKind)unit.kind switch
-                        {SoldierKind.Hero=>"队长", SoldierKind.Melee=>"剑", SoldierKind.Ranged=>"弓", _=>"骑"});
+                        {SoldierKind.Hero=>"队长", SoldierKind.Melee=>"剑", SoldierKind.Ranged=>"弓", SoldierKind.Mage=>"法", _=>"骑"});
                 }
             }
             RefreshPlacement();

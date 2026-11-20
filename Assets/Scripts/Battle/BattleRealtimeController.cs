@@ -314,6 +314,31 @@ namespace BaseConquest.Battle
             UpdatePortraitHold();PersistCampaignResult();PersistCampaignCheckpoint();hud?.Refresh();
         }
         private Vector3 RealtimeWorld(PrototypePoint point)=>new Vector3(((float)point.X-battle.Board.Width*.5f)*BattleBoardView.CellSize,0,((float)point.Z-battle.Board.Height*.5f)*BattleBoardView.CellSize);
+        private readonly List<MageSpellVisual> spellFrame = new();
+        private readonly List<SpriteRenderer> spellSprites = new();
+
+        private void SyncSpells()
+        {
+            MageSpellVisual.Collect(realtime, BattleSide.A, spellFrame);
+            for (int i = 0; i < spellFrame.Count; i++)
+            {
+                if (i == spellSprites.Count)
+                {
+                    var node = new GameObject("MageSpell");
+                    node.transform.SetParent(unitsRoot, false);
+                    node.transform.rotation = Quaternion.Euler(90, 0, 0);
+                    spellSprites.Add(node.AddComponent<SpriteRenderer>());
+                }
+                var fx = spellFrame[i];
+                var sprite = spellSprites[i];
+                sprite.enabled = true;
+                sprite.sprite = MageSpellVisual.Art(fx.impact);
+                sprite.color = new Color(1, 1, 1, fx.opacity);
+                sprite.transform.position = RealtimeWorld(new PrototypePoint(fx.x, fx.z)) + new Vector3(0, .54f, .36f);
+                sprite.transform.localScale = Vector3.one * (2 * fx.radius * BattleBoardView.CellSize);
+            }
+            for (int i = spellFrame.Count; i < spellSprites.Count; i++) spellSprites[i].enabled = false;
+        }
         private BattleCombatTextView combatText;
         private void SyncRealtimeViews()
         {
@@ -331,6 +356,7 @@ namespace BaseConquest.Battle
                 view.SyncRealtime(battle,actor,realtime.Model.Elapsed,RealtimeWorld(actor.BodyCenter),chosen);
                 if(chosen&&actor.Alive&&actor.Side==PrototypeSide.Ally)routed.Add(actor);
             }
+            SyncSpells();
             combatText.Sync(battle,boardView.Camera,views,realtime.Model.Elapsed,realtime.RpgAttackHistory);
             orderOverlay.RefreshRealtime(realtime,routed.Count>0?routed[0]:null);
             while(extraOrders.Count<routed.Count-1)extraOrders.Add(new BattleOrderOverlay(transform,lineMaterial));

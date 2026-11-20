@@ -61,7 +61,7 @@ namespace BaseConquest.Battle
             p.CommandersTotal = p.Exact ? battle.Soldiers.Count(s => s.Side == target && s.Kind == SoldierKind.Hero) : -1;
             // 指挥者"失能"＝已确认倒地；精确时等于全部非存活，情报不足时只算已确认目击的倒地数。
             p.CommandersDown = heroOutcome.Defeated;
-            p.TroopsLost = troopMelee.Defeated + troopRanged.Defeated + troopCavalry.Defeated;
+            p.TroopsLost = troopMelee.Defeated + troopRanged.Defeated + troopCavalry.Defeated + battle.Vision.Status(observer, target, SoldierKind.Mage).Defeated;
             p.TroopsDeployed = p.Exact ? battle.EnemyTroopsDeployed : -1;
             p.ExactDeployed = p.Exact ? battle.EnemyTroopsDeployed : -1;
             // 全部已入场指挥者失能：精确时按真实全部指挥者判断；情报不足时不得提前勾选。

@@ -45,7 +45,9 @@ namespace BaseConquest.Editor
                         stageState.Demo.ConfigHash == config.WorkbookSha256, "阶段档营帐容量或配表来源不同：" + stage);
                 }
                 string raw = File.ReadAllText(Path.Combine(Application.streamingAssetsPath, "BaseScenarios", BaseDemo.BalanceTemplate));
-                var parsedRules=DemoBalanceTableReader.ReadVerifiedTables(DemoBalanceImporter.WorkbookPath);
+                var parsedRules = config.Rules.HasProfessionCatalog
+                    ? ProfessionBalanceImporter.ReadRules(File.ReadAllBytes(ProfessionBalanceImporter.WorkbookPath), config.Rules)
+                    : DemoBalanceTableReader.ReadVerifiedTables(DemoBalanceImporter.WorkbookPath);
                 Need(parsedRules.RuinsFirstControllerTemplate==config.Rules.RuinsFirstControllerTemplate,"古窟首通配表与运行包不一致");
                 BaseStoryScenePackage story=null;
                 if(packagePath!=null)
@@ -152,7 +154,20 @@ namespace BaseConquest.Editor
             if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"dungeon",lost.Battle.Board);
             var inBattle=state.Copy();
             BaseDemoRuins.Configure(lost);
-            ApproachController(lost, true, 5400, () => BaseDemoRuins.SoloRetreatGuide(lost));
+            // To exercise the retreat branch, hold in spell range; focusing the caster can now win this fight.
+            var enemyCaster = lost.Model.Units.Single(u => u.Id == lost.Battle.Commander(BattleSide.B, 0).Id + 1);
+            lost.Model.SetPaused(false);
+            for (int frame = 0; frame < 5400 && lost.Battle.Phase == BattlePhase.Fighting && !BaseDemoRuins.SoloRetreatGuide(lost); frame++)
+            {
+                if (frame % 30 == 0)
+                {
+                    var player = lost.Model.Player;
+                    bool hold = (enemyCaster.Position - player.Position).Length <= 3.5;
+                    lost.Issue(new[] { player.Id - 1 }, hold ? PrototypeOrder.Guard : PrototypeOrder.Move,
+                        hold ? player.Position : enemyCaster.Position, -1, true);
+                }
+                lost.Tick(1d / 60);
+            }
             Need(BaseDemoRuins.SoloRetreatGuide(lost), "初装主角独闯未打到半血撤退："+lost.Battle.Report?.Outcome+"，主角 "+lost.Model.Player.Health+"，敌队长 "+lost.Battle.Commander(BattleSide.B,0).Health);
             Need(BaseDemoRuins.SoloRetreatGuide(lost) && BaseDemoCombat.Fail(state, lost), "独闯半血撤退未结算");
             BaseSceneRules.LeaveDungeon(state);
@@ -164,7 +179,7 @@ namespace BaseConquest.Editor
             Travel(state, "travel_base", "base");
             At(state, "home");
             Need(BaseRpg.UpgradeCamp(state), "无法升级营帐为伙伴腾出名额");
-            Rest(state);
+            // Reach the recruiter on the fixed tutorial day; the following days draw from all four professions.
             At(state, "demo_ahe");
             Need(BaseDemoRuins.Meet(state, "partner_farm") && BaseDemoRuins.Join(state, "partner_farm"), "新营地无法邀请阿禾");
             Travel(state, "exit_east", "town");
@@ -206,7 +221,7 @@ namespace BaseConquest.Editor
             while (!BaseDemoDefense.Due(state))
             {
                 At(state, "town_recruit");
-                foreach (var kind in new[] { BaseTroopKind.Melee, BaseTroopKind.Ranged, BaseTroopKind.Cavalry })
+                foreach (var kind in state.Demo.Rpg.HasProfessionCatalog ? new[] { BaseTroopKind.Melee, BaseTroopKind.Ranged, BaseTroopKind.Cavalry, BaseTroopKind.Mage } : new[] { BaseTroopKind.Melee, BaseTroopKind.Ranged, BaseTroopKind.Cavalry })
                 {
                     int wanted = kind == BaseTroopKind.Cavalry ? 3 : 4;
                     while (state.Workers.Where(worker => worker.Kind == kind).Sum(worker => worker.Count) < wanted &&
@@ -216,7 +231,7 @@ namespace BaseConquest.Editor
                         hired++;
                     }
                 }
-                if (state.Day == 2) CheckEarlyRestAfterBuyingFood(state.Copy());
+                if (state.Day == 1) CheckEarlyRestAfterBuyingFood(state.Copy());
                 if (!intel && state.Demo.Flow.FirstIntelEligible)
                 {
                     At(state, "town_peddler");
@@ -493,14 +508,34 @@ namespace BaseConquest.Editor
         {
             Travel(branch, "travel_base", "base");
             RepairAndAssign(branch);
-            Need(BaseDemoFlow.Recruited(branch), "第2天未买齐三种职业，休息提示尚未生效");
+            Need(BaseDemoFlow.Recruited(branch), "首日尚未招齐教学要求的剑、弓、骑");
             var unstaffed = branch.Copy();
             At(unstaffed, "workshop");
             foreach (var group in unstaffed.Workers.Where(person => person.FacilityId == "workshop").GroupBy(person => person.Kind).ToArray())
                 Need(BaseEconomy.MoveWorkers(unstaffed, group.Key, "workshop", "", group.Sum(person => person.Count)), "无法清空工坊岗位样本");
+            // 正式工人撤走后，村民会先补粮田，剩余人手能继续生产军需。
+            int volunteers = BaseEconomy.CivilianWorkersAt(unstaffed, "workshop");
+            if (volunteers > 0)
+            {
+                Need(BaseEconomy.ProductionWorkersAt(unstaffed, "workshop") == volunteers &&
+                    !BaseDemoFlow.RestAdvice(unstaffed).Contains("工坊"), "有村民补位时误报工坊空岗");
+                var forecast = BaseEconomy.Preview(unstaffed);
+                var staffed = unstaffed.Copy();
+                Need(BaseEconomy.Rest(staffed, staffed.Day) && staffed.LastReport.ProductsMade == forecast.ProductsMade,
+                    "村民补位日结与预计军需不一致");
+            }
+            int farmCapacity = unstaffed.Muster.Facilities.Single(f => f.FacilityId == "farm").Capacity;
+            while (farmCapacity - BaseEconomy.WorkersAt(unstaffed, "farm") < 2)
+            {
+                var farmer = unstaffed.Workers.First(w => w.FacilityId == "farm" && !w.Away);
+                Need(BaseEconomy.MoveWorker(unstaffed, farmer.SoldierNumbers[0], "farm", ""), "无法为两名村民留出粮田岗位");
+            }
+            Need(BaseEconomy.ProductionWorkersAt(unstaffed, "workshop") == 0, "空岗样本仍有工人或村民在工坊");
             At(unstaffed, "home");
             int unstaffedDay = unstaffed.Day;
-            Need(BaseDemoFlow.RestAdvice(unstaffed).Contains("工坊") && BaseEconomy.Rest(unstaffed, unstaffedDay) &&
+            var advice = BaseDemoFlow.RestAdvice(unstaffed);
+            Need(advice.Contains("工坊"), $"空岗提示缺失，日 {unstaffedDay}，工坊人数 {BaseEconomy.ProductionWorkersAt(unstaffed, "workshop")}，提示 {advice}");
+            Need(BaseEconomy.Rest(unstaffed, unstaffedDay) &&
                 unstaffed.Day == unstaffedDay + 1 && unstaffed.LastReport.ProductsMade == 0, "工坊无人时未正确提示并完成零产出日结");
             branch.Inventory.Food = 0;
             At(branch, "farm");

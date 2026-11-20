@@ -52,7 +52,7 @@ namespace BaseConquest.Base
         public static int Crew(BaseState s) => BaseEconomy.WorkersAt(s, "caravan");
         public static int Capacity(BaseState s) => Crew(s) * LoadPerCrew;
         private static int FoodPerCrew(BaseState s, BaseWorkerBucket worker)
-            => (worker.Kind == BaseTroopKind.Cavalry ? s.Rules.CavalryFood : worker.Kind == BaseTroopKind.Ranged && BaseRpg.Active(s) ? s.Demo.Rpg.ArcherFood : s.Rules.SoldierFood) * 2;
+            => BaseEconomy.Ration(s, worker) * 2;
         public static int DailyFood(BaseState s) => s.Workers.Where(w => !w.Away && w.FacilityId == "caravan").Sum(w => w.Count * FoodPerCrew(s, w));
         // 己方据点只认归属，不写死 Demo 的据点 id（攻营后会被改名）。
         public static BaseEnemySite Site(BaseState s) => s?.Campaign?.EnemySites?.FirstOrDefault(site => site != null && site.Owner == "player");

@@ -112,11 +112,17 @@ namespace BaseConquest.Base
         {
             if(!Enabled(state))throw new InvalidOperationException("此旧Demo没有"+BaseScriptNames.Ruins+"属性快照，请新开Demo");
             var army=state.Demo.RuinsArmy.Clone();var controller=army.Hero.Clone();controller.Health*=1.5f;controller.Damage*=1.2f;
-            army.HeroCount=1;army.MeleeCount=2;army.RangedCount=army.CavalryCount=0;
+            if(state.Demo.RuinsDay==0&&state.Demo.Rpg?.HasProfessionCatalog==true)
+            {
+                var r=state.Demo.Rpg; var identity=BaseRpg.Character("ruins:controller",3,true,true,r);
+                identity.TemplateId=r.RuinsFirstControllerTemplate;
+                controller=r.Bare(identity,1);
+            }
+            army.HeroCount=1;army.MeleeCount=2;army.RangedCount=army.CavalryCount=army.MageCount=0;
             army.CommanderStats=new List<SoldierStats>{controller};army.CommanderNames=new List<string>{BaseScriptNames.Galan};army.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};
             BaseDemoEncounterConfig.ConfigureArmy(state,EventId,army);
             var own=army.Clone();own.MeleeCount=2;own.RangedCount=own.CavalryCount=0;own.HeroCount=1;own.CaptainSlot=0;own.CommanderStats.Clear();own.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};own.CommanderNames.Clear();
-            foreach(var kind in BattleSimulation.TroopKinds){var source=state.Workers.FirstOrDefault(worker=>BaseCampaign.ToBattle(worker.Kind)==kind&&worker.HasCombatProfile);if(source!=null){if(kind==SoldierKind.Melee)own.Melee=source.CombatStats.Clone();else if(kind==SoldierKind.Ranged)own.Ranged=source.CombatStats.Clone();else own.Cavalry=source.CombatStats.Clone();}}
+            foreach(var kind in BattleSimulation.TroopKinds){var source=state.Workers.FirstOrDefault(worker=>BaseCampaign.ToBattle(worker.Kind)==kind&&worker.HasCombatProfile);if(source!=null){if(kind==SoldierKind.Melee)own.Melee=source.CombatStats.Clone();else if(kind==SoldierKind.Ranged)own.Ranged=source.CombatStats.Clone();else if(kind==SoldierKind.Mage)own.Mage=source.CombatStats.Clone();else own.Cavalry=source.CombatStats.Clone();}}
             return new BattleScenarioDocument {Title="Demo"+BaseScriptNames.Ruins+"救助",Scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),A=own,B=army,MaxRounds=90,FogEnabled=false,Objective=new ObjectiveConfig {Title="击败控制来源，救助失踪者"}}};
         }
         public static BaseCampaignSession Begin(BaseState state,string mode="full")

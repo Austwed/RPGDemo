@@ -25,12 +25,12 @@ namespace BaseConquest.Base
                 if(e.Kind!=SoldierKind.Hero){if(empty)e.Equipment=null;else throw new ArgumentException("普通士兵不使用个人装备槽");continue;}
                 if(empty)
                 {
-                    string weapon=e.Stats.HasCombatKind&&e.Stats.CombatKind==SoldierKind.Ranged?"bow":e.Stats.HasCombatKind&&e.Stats.CombatKind==SoldierKind.Cavalry?"spear":"sword";
+                    string weapon=BaseRpg.Weapon(BaseRpg.Profession(e.Stats.HasProfessionKind?e.Stats.ProfessionKind:e.Stats.HasCombatKind?e.Stats.CombatKind:SoldierKind.Melee));
                     e.Equipment=new BasePersonalLoadout {Version=1,Weapon=weapon,InitialWeapon=weapon,BaseStats=e.Stats.Clone()};
                     foreach(string slot in new[]{"weapon","helmet","armor"})
                     {if(s.PersonalEquipment.NextId>=int.MaxValue-401)throw new ArgumentException("装备身份已达上限");e.Equipment.Items.Add(new BasePersonalItem {Id="personal:"+s.PersonalEquipment.NextId++,Template=slot=="weapon"?"basic_"+weapon:"basic_"+slot,Slot=slot});}
                 }
-                if(e.Equipment.Version!=1||e.Equipment.BaseStats==null||e.Equipment.Items==null||!new[]{"sword","bow","spear"}.Contains(e.Equipment.Weapon)||e.Equipment.Items.Any(i=>i==null||BasePersonalEquipment.Definition(i.Template)==null||i.Quality<0||i.Quality>5)||e.Equipment.Items.Select(i=>i.Slot).Distinct().Count()!=e.Equipment.Items.Count)throw new ArgumentException("敌方装备配置非法");
+                if(e.Equipment.Version!=1||e.Equipment.BaseStats==null||e.Equipment.Items==null||!new[]{"sword","bow","spear","staff"}.Contains(e.Equipment.Weapon)||e.Equipment.Items.Any(i=>i==null||BasePersonalEquipment.Definition(i.Template)==null||i.Quality<0||i.Quality>5)||e.Equipment.Items.Select(i=>i.Slot).Distinct().Count()!=e.Equipment.Items.Count)throw new ArgumentException("敌方装备配置非法");
                 e.Stats=BasePersonalEquipment.Stats(new BaseLeader {Rpg=e.Rpg,PersonalEquipment=e.Equipment,Training=null});e.Health=Math.Min(e.Health,e.Stats.Health);
             }
         }

@@ -91,7 +91,7 @@ namespace BaseConquest.Base
         {
             var rows = new List<string>();
             int working = 0, idle = 0;
-            foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
+            foreach (BaseTroopKind kind in BaseTown.TroopKinds(s))
             {
                 var tally = BaseDevelopment.Tally(s, kind);
                 int onDuty = s.Workers.Where(w => w.Kind == kind && BaseDevelopment.Effective(s, w) && w.FacilityId != "").Sum(w => w.Count);

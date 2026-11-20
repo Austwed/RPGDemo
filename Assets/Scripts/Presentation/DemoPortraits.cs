@@ -15,6 +15,7 @@ namespace BaseConquest.Presentation
             {
                 SoldierKind.Melee => "infantry",
                 SoldierKind.Ranged => "archer",
+                SoldierKind.Mage => "mage",
                 SoldierKind.Cavalry => "mounted-cavalry",
                 _ => "enemy-captain"
             };

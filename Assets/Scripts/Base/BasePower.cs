@@ -44,27 +44,27 @@ namespace BaseConquest.Base
             if (soldier?.Stats == null || rules == null) return 0;
             var stats = soldier.Stats;
             int profession = Profession(soldier);
-            var reference = rules.Templates.FirstOrDefault(t => t.Id == "soldier_warrior");
+            var reference = rules.Templates.FirstOrDefault(t => t.Id == rules.DefaultTemplateId("soldier",0));
             if (reference == null) return 0;
+            double received = 1 + ((soldier.Rpg?.Trait("fragile") ?? 0) - (soldier.Rpg?.Trait("tough") ?? 0)) / 100;
             double outgoing = 0, incoming = 0;
             for (int die = 1; die <= 10; die++)
             {
                 var attack = new RpgAttackRoll((int)rules.Hit[profession], (int)rules.Evasion[0], 0, 0, die);
                 var defense = new RpgAttackRoll((int)rules.Hit[0], (int)rules.Evasion[profession], 0, 0, die);
-                if (attack.Hit) outgoing += RpgCombatRules.Damage(stats.Damage, reference.Defense,
+                if (attack.Hit) outgoing += RpgCombatRules.Damage(rules.AttackDamageType(profession),stats.Damage, reference.Defense,
                     rules.ArmorK * stats.Level, rules.ArmorCap, attack.Critical ? stats.CritMultiplier : 1) / 10;
                 // 参照兵打我时按同一条暴击规则取暴伤（旧公式这里只用规则默认值，装备暴伤只算给己方）
-                if (defense.Hit) incoming += RpgCombatRules.Damage(reference.Attack, stats.Defense,
-                    rules.ArmorK, rules.ArmorCap, defense.Critical ? Math.Max(1, stats.CritMultiplier) : 1) / 10;
+                if (defense.Hit) incoming += RpgCombatRules.Damage(rules.AttackDamageType(0),reference.Attack, stats.Defense,
+                    rules.ArmorK, rules.ArmorCap, defense.Critical ? Math.Max(1, rules.HasProfessionCatalog?rules.CriticalMultiplier:stats.CritMultiplier) : 1,received) / 10;
             }
             double interval = AttackInterval(soldier, rules);
-            double received = 1 + ((soldier.Rpg?.Trait("fragile") ?? 0) - (soldier.Rpg?.Trait("tough") ?? 0)) / 100;
             return Math.Sqrt(Math.Max(0, stats.Health) * (outgoing / interval)
-                / (reference.Health * Math.Max(1e-6, incoming * received / interval)));
+                / (reference.Health * Math.Max(1e-6, incoming / interval)));
         }
 
         public static BaseEngagement Engage(IEnumerable<BattleSoldier> allies, IEnumerable<BattleSoldier> enemies,
-            RpgRules rules, double holdSeconds = 0)
+            RpgRules rules, double holdSeconds = 0, string difficulty = "normal")
         {
             var result = new BaseEngagement();
             var a = allies?.Where(u => u != null && u.IsAlive).ToList() ?? new List<BattleSoldier>();
@@ -75,7 +75,7 @@ namespace BaseConquest.Base
 
             result.AllyHealth = a.Sum(u => EffectiveHealth(u, rules) + Healing(u, rules));
             result.EnemyHealth = b.Sum(u => EffectiveHealth(u, rules) + Healing(u, rules));
-            double dpsA = Output(a, b, rules), dpsB = Output(b, a, rules);
+            double dpsA = Output(a, b, rules,difficulty=="easy"?2:1), dpsB = Output(b, a, rules,difficulty=="easy"?.5:difficulty=="hard"?2:1);
             double reachA = Average(a, u => rules.Range[Profession(u)] / (double)Subdivision);
             double reachB = Average(b, u => rules.Range[Profession(u)] / (double)Subdivision);
             double speedA = Average(a, u => rules.Speed[Profession(u)] / (double)Subdivision);
@@ -121,7 +121,7 @@ namespace BaseConquest.Base
         }
 
         // 一方打另一方的每秒期望伤害：按对手血量加权，用对手实际的防御、等级与闪避。
-        public static double Output(List<BattleSoldier> attackers, List<BattleSoldier> defenders, RpgRules rules)
+        public static double Output(List<BattleSoldier> attackers, List<BattleSoldier> defenders, RpgRules rules,double difficulty=1)
         {
             if (attackers.Count == 0 || defenders.Count == 0) return 0;
             double weight = defenders.Sum(d => Math.Max(0, d.Health));
@@ -133,20 +133,57 @@ namespace BaseConquest.Base
                 foreach (var target in defenders)
                 {
                     double share = Math.Max(0, target.Health) / weight;
+                    if (rules.HasProfessionCatalog)
+                    {
+                        perSecond += share * ExpectedDps(attacker,target,rules,difficulty);
+                        continue;
+                    }
                     double sum = 0;
                     for (int die = 1; die <= 10; die++)
                     {
                         var roll = new RpgAttackRoll((int)rules.Hit[Profession(attacker)],
                             (int)rules.Evasion[Profession(target)], 0, 0, die);
-                        if (roll.Hit) sum += RpgCombatRules.Damage(attacker.Stats.Damage, target.Stats.Defense,
+                        if (roll.Hit) sum += RpgCombatRules.Damage(rules.AttackDamageType(Profession(attacker)),attacker.Stats.Damage, target.Stats.Defense,
                             rules.ArmorK * attacker.Stats.Level, rules.ArmorCap,
-                            roll.Critical ? Math.Max(1, attacker.Stats.CritMultiplier) : 1) / 10;
+                            roll.Critical ? Math.Max(1, attacker.Stats.CritMultiplier) : 1,
+                            1) / 10;
                     }
                     perSecond += share * sum;
                 }
-                total += perSecond / AttackInterval(attacker, rules) * SkillBoost(attacker, rules);
+                total += rules.HasProfessionCatalog?perSecond:perSecond / AttackInterval(attacker, rules) * SkillBoost(attacker, rules);
             }
             return total;
+        }
+
+        private static double ExpectedDps(BattleSoldier attacker,BattleSoldier target,RpgRules rules,double difficulty)
+        {
+            if(target.DeveloperInvulnerable)return 0;
+            int profession=Profession(attacker), enemy=Profession(target);
+            double raw=attacker.Stats.Damage*attacker.DrinkMultiplier;
+            var skill=Skill(attacker,rules);
+            string normalType=rules.AttackDamageType(profession);
+            double received=Received(target);
+            double Expected(string damageType,double power)
+            {
+                double sum=0;
+                for(int die=1;die<=10;die++)
+                {
+                    var roll=new RpgAttackRoll((int)rules.Hit[profession],(int)rules.Evasion[enemy],0,0,die);
+                    if(roll.Hit)sum+=RpgCombatRules.Damage(damageType,power,target.Stats.Defense,rules.ArmorK*attacker.Stats.Level,
+                        rules.ArmorCap,roll.Critical?Math.Max(1,attacker.Stats.CritMultiplier):1,received,difficulty);
+                }
+                return sum/10;
+            }
+            double normal=Expected(normalType,raw),rate=1/AttackInterval(attacker,rules);
+            if(skill==null)return normal*rate;
+            if(skill.Id=="sweep")return normal*rate+Expected(skill.DamageType,raw*skill.Amount)/skill.Cooldown;
+            if(skill.Id=="charge")
+            {
+                double chargedRate=Math.Min(rate,1/skill.Cooldown);
+                return normal*(rate-chargedRate)+Expected(skill.DamageType,raw*skill.Amount)*chargedRate;
+            }
+            if(skill.Id=="inspire")return rate*(normal*(1-Duty(skill))+Expected(normalType,raw*(1+skill.Amount))*Duty(skill));
+            return normal*rate;
         }
 
         private static double AttackInterval(BattleSoldier soldier, RpgRules rules)
@@ -173,9 +210,11 @@ namespace BaseConquest.Base
 
         private static double EffectiveHealth(BattleSoldier soldier, RpgRules rules)
         {
-            double received = 1 + ((soldier.Rpg?.Trait("fragile") ?? 0) - (soldier.Rpg?.Trait("tough") ?? 0)) / 100;
-            return Math.Max(0, soldier.Health) * Math.Max(.05, received);
+            return Math.Max(0, soldier.Health) * (rules.HasProfessionCatalog?1:Math.Max(.05,Received(soldier)));
         }
+
+        private static double Received(BattleSoldier soldier) =>
+            1+((soldier.Rpg?.Trait("fragile")??0)-(soldier.Rpg?.Trait("tough")??0))/100;
 
         private static double Duty(RpgSkillDefinition skill) =>
             skill.Cooldown > 0 ? Math.Min(1, skill.Duration / skill.Cooldown) : 1;
@@ -186,9 +225,7 @@ namespace BaseConquest.Base
 
         private static int Profession(BattleSoldier soldier)
         {
-            var stats = soldier.Stats;
-            return BaseRpg.Profession(stats.HasProfessionKind ? stats.ProfessionKind
-                : stats.HasCombatKind ? stats.CombatKind : SoldierKind.Melee);
+            return BaseRpg.Profession(soldier.ProfessionKind);
         }
 
         private static double Average(List<BattleSoldier> units, Func<BattleSoldier, double> pick) =>

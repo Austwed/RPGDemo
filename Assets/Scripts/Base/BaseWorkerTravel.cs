@@ -69,7 +69,7 @@ namespace BaseConquest.Base
         public void Clear(){pending.Clear();Active.Clear();delay=0;}
         public void Enqueue(BaseState s,BaseTroopKind kind,string from,string to,int count)
         {
-            string appearance = kind == BaseTroopKind.Melee ? "saber" : kind == BaseTroopKind.Ranged ? "archer" : "rider";
+            string appearance = kind == BaseTroopKind.Melee ? "saber" : kind == BaseTroopKind.Ranged ? "archer" : kind == BaseTroopKind.Mage ? "mage" : "rider";
             Enqueue(s, appearance, from == "" ? "barracks" : from, to == "" ? "barracks" : to, count);
         }
         public void EnqueueCivilians(BaseState s,string from,string to,int count)

@@ -5,9 +5,9 @@ namespace BaseConquest.Base
 {
     [Serializable] public sealed class BaseCommanderTroops
     {
-        public int Version=1,Melee,Ranged,Cavalry;
-        public int Count(BaseTroopKind kind)=>kind==BaseTroopKind.Melee ? Melee : kind==BaseTroopKind.Ranged ? Ranged : Cavalry;
-        public void Set(BaseTroopKind kind,int n){if(kind==BaseTroopKind.Melee)Melee=n;else if(kind==BaseTroopKind.Ranged)Ranged=n;else Cavalry=n;}
+        public int Version=1,Melee,Ranged,Cavalry,Mage;
+        public int Count(BaseTroopKind kind)=>kind==BaseTroopKind.Melee ? Melee : kind==BaseTroopKind.Ranged ? Ranged : kind==BaseTroopKind.Mage ? Mage : Cavalry;
+        public void Set(BaseTroopKind kind,int n){if(kind==BaseTroopKind.Melee)Melee=n;else if(kind==BaseTroopKind.Ranged)Ranged=n;else if(kind==BaseTroopKind.Mage)Mage=n;else Cavalry=n;}
         public BaseCommanderTroops Copy()=>(BaseCommanderTroops)MemberwiseClone();
     }
     [Serializable] public sealed class BaseCommanderAllocation
@@ -36,7 +36,7 @@ namespace BaseConquest.Base
             var ids=s.Adventure.Members;var old=s.Muster.Presets.Single(p=>p.Purpose=="expedition");
             foreach(var l in s.Leaders)
             {
-                if(l.DefaultTroops==null||l.DefaultTroops.Version==0&&l.DefaultTroops.Melee==0&&l.DefaultTroops.Ranged==0&&l.DefaultTroops.Cavalry==0)
+                if(l.DefaultTroops==null||l.DefaultTroops.Version==0&&l.DefaultTroops.Melee==0&&l.DefaultTroops.Ranged==0&&l.DefaultTroops.Cavalry==0&&l.DefaultTroops.Mage==0)
                 {
                     l.DefaultTroops=new BaseCommanderTroops();int slot=ids.IndexOf(l.Id);
                     if(slot>=0)foreach(BaseTroopKind k in Enum.GetValues(typeof(BaseTroopKind)))l.DefaultTroops.Set(k,old.Count(k)/ids.Count+(slot<old.Count(k)%ids.Count ? 1 : 0));
@@ -110,6 +110,7 @@ namespace BaseConquest.Base
             plan.MissingMelee=plan.CommanderTroops.Sum(r=>r.Requested.Melee-r.Actual.Melee);
             plan.MissingRanged=plan.CommanderTroops.Sum(r=>r.Requested.Ranged-r.Actual.Ranged);
             plan.MissingCavalry=plan.CommanderTroops.Sum(r=>r.Requested.Cavalry-r.Actual.Cavalry);
+            plan.MissingMage=plan.CommanderTroops.Sum(r=>r.Requested.Mage-r.Actual.Mage);
         }
         private static BaseProductionForecast ForecastPlan(BaseState s,BaseMusterPlan plan)
         {

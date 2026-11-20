@@ -52,17 +52,17 @@ namespace BaseConquest.Battle
             if (sweepTargets != null)
             {
                 damageBatch++;
-                try { foreach (var target in sweepTargets) LaunchRpgAttack(actor, target, d.Amount); }
+                try { foreach (var target in sweepTargets) LaunchRpgAttack(actor, target, d.Amount, d.DamageType); }
                 finally{damageBatch--;}
             }
             string count = sweepTargets != null ? $"攻击 {sweepTargets.Length} 人" : $"影响 {skill.Recipients.Count} 人";
             Battle.RecordRpgSkill(actor.Id - 1, d.Name, count, SkillEffect(d));
             ResolveImmediateVictory();return true;
         }
-        private double ConsumeCharge(PrototypeUnit actor)
+        private double ConsumeCharge(PrototypeUnit actor,out string damageType)
         {
             var skill=skills.FirstOrDefault(s=>s.Id=="charge"&&s.Charged&&s.ActiveUntil>Model.Elapsed&&SkillActor(s)?.Id==actor.Id);
-            if(skill==null)return 1;skill.Charged=false;skill.ActiveUntil=Model.Elapsed;skill.ReadyAt=Model.Elapsed+Rpg.Skills.Single(s=>s.Id=="charge").Cooldown;return Rpg.Skills.Single(s=>s.Id=="charge").Amount;
+            damageType=null;if(skill==null)return 1;damageType=Rpg.Skills.Single(s=>s.Id=="charge").DamageType;skill.Charged=false;skill.ActiveUntil=Model.Elapsed;skill.ReadyAt=Model.Elapsed+Rpg.Skills.Single(s=>s.Id=="charge").Cooldown;return Rpg.Skills.Single(s=>s.Id=="charge").Amount;
         }
         private void TickRpgSkills()
         {

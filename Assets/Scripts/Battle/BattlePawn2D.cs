@@ -124,7 +124,7 @@ namespace BaseConquest.Battle
                 // 士兵贴图优先读 AppearanceId（遗迹临时战士等会显式给 villager），
                 // 没有显式外观才按职业回退到通用图（saber→infantry、archer、rider→cavalry）。
                 // 职业与单位 id 是两层：这里按「行为职业」落通用图，具体部队的专属图走 AppearanceId 覆盖（行为／表现解耦，2026-11-02 定）。
-                string id=string.IsNullOrEmpty(s.AppearanceId)?(s.Kind==SoldierKind.Ranged?"archer":s.Kind==SoldierKind.Cavalry?"rider":"saber"):s.AppearanceId;
+                string id=string.IsNullOrEmpty(s.AppearanceId)?(s.Kind==SoldierKind.Mage?"mage":s.Kind==SoldierKind.Ranged?"archer":s.Kind==SoldierKind.Cavalry?"rider":"saber"):s.AppearanceId;
                 if(BaseConquest.Presentation.PixelDemoArt.Load("Characters",id)!=null)
                 {
                     // Keep the existing squad badge outside the hidden geometric body.

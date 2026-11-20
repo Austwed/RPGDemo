@@ -25,7 +25,7 @@ namespace BaseConquest.Editor
     {
         public DemoBalancePackage Package;
         public string WorkbookPath,WorkbookHash,SeedPath,SeedHash,OutputPath,OutputHash,Preview;
-        public string ConfigurationHash;
+        public string ConfigurationHash,SerializedSnapshot;
         public string EffectiveHash=>ConfigurationHash??WorkbookHash;
         public Dictionary<string,string> StageHashes;
     }
@@ -94,8 +94,8 @@ namespace BaseConquest.Editor
             if(PlanningBalanceImporter.Hash(File.ReadAllBytes(import.WorkbookPath))!=import.WorkbookHash||PlanningBalanceImporter.Hash(File.ReadAllBytes(import.SeedPath))!=import.SeedHash)throw new InvalidOperationException("配表或开局基底在预览后已修改，请重新校验");
             string current=File.Exists(import.OutputPath)?PlanningBalanceImporter.Hash(File.ReadAllBytes(import.OutputPath)):null;
             if(current!=import.OutputHash)throw new InvalidOperationException("目标配置在预览后已改变，请重新校验");
-            import.Package.Validate();string json=serialize(import.Package);var roundtrip=deserialize(json.TrimStart('\ufeff'));roundtrip?.Validate();
-            if(roundtrip==null||serialize(roundtrip)!=json)throw new InvalidOperationException("导出后的快照不完整，原配置保留");
+            import.Package.Validate();string expectedJson=serialize(import.Package);string json=import.SerializedSnapshot??expectedJson;var roundtrip=deserialize(json.TrimStart('\ufeff'));roundtrip?.Validate();
+            if(roundtrip==null||serialize(roundtrip)!=expectedJson)throw new InvalidOperationException("导出后的快照不完整，原配置保留");
             string seedJson=File.ReadAllText(import.SeedPath,Encoding.UTF8).TrimStart('\ufeff');
             BaseDemo.CreateOpening(deserializeSeed(seedJson),seedJson,true,true,true,roundtrip.Rules).CreateState();
             Directory.CreateDirectory(Path.GetDirectoryName(import.OutputPath));string temp=import.OutputPath+"."+Guid.NewGuid().ToString("N")+".pending";
@@ -168,7 +168,7 @@ namespace BaseConquest.Editor
             }
             var contents=paths.ToDictionary(p=>p.Value,p=>stages[p.Key]);
             var expected=paths.ToDictionary(p=>p.Value,p=>import.StageHashes[p.Key]);
-            string configHash=PlanningBalanceImporter.Hash(Encoding.UTF8.GetBytes(JsonUtility.ToJson(import.Package,true)));
+            string configHash=PlanningBalanceImporter.Hash(Encoding.UTF8.GetBytes(import.SerializedSnapshot??JsonUtility.ToJson(import.Package,true)));
             CommitPreparedStages(import.OutputPath,configHash,contents,expected,
                 ()=>Write(import,p=>JsonUtility.ToJson(p,true),JsonUtility.FromJson<DemoBalancePackage>,JsonUtility.FromJson<BaseScenarioDocument>),ReplaceStageIfUnchanged);
         }
@@ -184,9 +184,17 @@ namespace BaseConquest.Editor
 #if UNITY_EDITOR
     public sealed class DemoBalanceWindow:EditorWindow
     {
-        private string workbookPath,error="";private DemoBalanceImport imported;private Vector2 scroll;
+        private bool professions;private string workbookPath,error="";private DemoBalanceImport imported;private Vector2 scroll;
         [MenuItem("SLG/其他工具/导入/Demo数值表（校验与预览）")]
-        public static void Open(){var w=GetWindow<DemoBalanceWindow>("Demo数值表");w.workbookPath=Path.GetFullPath(DemoBalanceImporter.WorkbookPath);w.minSize=new Vector2(600,420);w.Show();}
+        public static void Open(){var w=GetWindow<DemoBalanceWindow>("Demo数值表");w.professions=false;w.imported=null;w.workbookPath=Path.GetFullPath(DemoBalanceImporter.WorkbookPath);w.minSize=new Vector2(600,420);w.Show();}
+        [MenuItem("SLG/其他工具/导入/Demo职业扩展表（完整职业配置）")]
+        public static void OpenProfessions()
+        {
+            var window=GetWindow<DemoBalanceWindow>("Demo数值表");
+            window.professions=true;window.imported=null;window.error="";
+            window.workbookPath=Path.GetFullPath(ProfessionBalanceImporter.WorkbookPath);
+            window.minSize=new Vector2(600,420);window.Show();
+        }
         [MenuItem("SLG/其他工具/生成/Demo数值快照与阶段档")]
         public static void GenerateDefault()
         {
@@ -210,7 +218,7 @@ namespace BaseConquest.Editor
                     string next=EditorGUILayout.TextField("Demo数值表",workbookPath);if(next!=workbookPath){workbookPath=next;imported=null;}
                     if(GUILayout.Button("选择",GUILayout.Width(55))){string selected=EditorUtility.OpenFilePanel("选择Demo数值表",Path.GetDirectoryName(workbookPath),"xlsx");if(selected!=""){workbookPath=selected;imported=null;}}
                 }
-                if(GUILayout.Button("校验并预览",GUILayout.Height(28)))try{imported=DemoBalanceImporter.Read(workbookPath,PlanningBalanceImporter.OutputPath,DemoBalanceImporter.OutputPath,JsonUtility.FromJson<BaseScenarioDocument>);error="";}catch(Exception exception){imported=null;error=exception.Message;}
+                if(GUILayout.Button("校验并预览",GUILayout.Height(28)))try{imported=professions ? ProfessionBalanceImporter.Read(workbookPath,PlanningBalanceImporter.OutputPath,DemoBalanceImporter.OutputPath) : DemoBalanceImporter.Read(workbookPath,PlanningBalanceImporter.OutputPath,DemoBalanceImporter.OutputPath,JsonUtility.FromJson<BaseScenarioDocument>);error="";}catch(Exception exception){imported=null;error=exception.Message;}
                 if(error!="")EditorGUILayout.HelpBox(error,MessageType.Error);
                 scroll=EditorGUILayout.BeginScrollView(scroll);if(imported!=null)EditorGUILayout.LabelField(imported.Preview,EditorStyles.wordWrappedLabel);EditorGUILayout.EndScrollView();
                 using(new EditorGUI.DisabledScope(imported==null))if(GUILayout.Button("确认生成Demo数值快照",GUILayout.Height(30)))

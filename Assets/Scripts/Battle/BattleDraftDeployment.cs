@@ -56,8 +56,8 @@ namespace BaseConquest.Battle
         {
             var placed = deploymentDraft.Units.Where(u => u.Selected && deploymentDraft.Positions.ContainsKey(u.Id)).ToArray();
             var enemy = deploymentDraft.KnownEnemyCount();
-            return ($"我方已部署  队长 {placed.Count(u => u.Kind == SoldierKind.Hero)} · 剑 {placed.Count(u => u.Kind == SoldierKind.Melee)} · 弓 {placed.Count(u => u.Kind == SoldierKind.Ranged)} · 骑 {placed.Count(u => u.Kind == SoldierKind.Cavalry)}",
-                "敌方  " + (enemy.HasValue ? $"队长 {deploymentDraft.KnownEnemyCount(SoldierKind.Hero)} · 剑 {deploymentDraft.KnownEnemyCount(SoldierKind.Melee)} · 弓 {deploymentDraft.KnownEnemyCount(SoldierKind.Ranged)} · 骑 {deploymentDraft.KnownEnemyCount(SoldierKind.Cavalry)}" : "暂无已知情报"));
+            return ($"我方已部署  队长 {placed.Count(u => u.Kind == SoldierKind.Hero)} · 剑 {placed.Count(u => u.Kind == SoldierKind.Melee)} · 弓 {placed.Count(u => u.Kind == SoldierKind.Ranged)} · 骑 {placed.Count(u => u.Kind == SoldierKind.Cavalry)} · 法 {placed.Count(u => u.Kind == SoldierKind.Mage)}",
+                "敌方  " + (enemy.HasValue ? $"队长 {deploymentDraft.KnownEnemyCount(SoldierKind.Hero)} · 剑 {deploymentDraft.KnownEnemyCount(SoldierKind.Melee)} · 弓 {deploymentDraft.KnownEnemyCount(SoldierKind.Ranged)} · 骑 {deploymentDraft.KnownEnemyCount(SoldierKind.Cavalry)} · 法 {deploymentDraft.KnownEnemyCount(SoldierKind.Mage)}" : "暂无已知情报"));
         }
 
         public void ConfigureDeploymentDraft(BaseBattlePreparation draft, Func<BaseState> state, Action back, Action exit, Action confirm)

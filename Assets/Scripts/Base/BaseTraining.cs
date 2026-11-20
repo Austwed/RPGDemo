@@ -14,7 +14,8 @@ namespace BaseConquest.Base
     {
         public static bool Busy(BaseTrainingProgress p)=>p?.Target>0;
         public static string Key(BaseTrainingProgress p)=>p==null?"1:0:0":p.Level+":"+p.Target+":"+p.EndDay;
-        public static string Book(SoldierKind kind,int target)=>"training_"+(kind==SoldierKind.Ranged?"bow":kind==SoldierKind.Cavalry?"spear":"sword")+(target%3==0?"_advanced":"_basic");
+        public static string Book(SoldierKind kind,int target)=>"training_"+(kind==SoldierKind.Mage?"mage":BaseRpg.Weapon(kind==SoldierKind.Hero?0:BaseRpg.Profession(kind)))+(target%3==0?"_advanced":"_basic");
+        internal static SoldierKind[] SoldierKinds(BaseState s) => Enumerable.Range(0,s.Demo?.Rpg?.ProfessionCount??3).Select(BaseRpg.Kind).ToArray();
         public static int Days(bool leader,int target)=>(leader?2:1)+(target-2)/3;
         public static int Books(bool leader,int target)=>(leader?2:1)*Math.Max(1,(target+1)/2);
         public static int Days(BaseLeader leader,int target)=>leader?.Rpg?.Version==1?leader.Rpg.Rules.TrainingCost(true,leader.Rpg.Profession,target):Days(true,target);
@@ -28,8 +29,8 @@ namespace BaseConquest.Base
         public static void Normalize(BaseState s)
         {
             foreach(var l in s.Leaders){l.Training??=new BaseTrainingProgress();l.Wine??=new BaseWineStatus();}
-            foreach(var kind in new[]{SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry})foreach(int target in new[]{2,3})
-            {string id=Book(kind,target);if(!s.Backpack.Catalog.Any(d=>d.Id==id))s.Backpack.Catalog.Add(new BaseBagDefinition {Id=id,Name=(target==3?"高阶":"基础")+BasePersonalEquipment.Profession(kind==SoldierKind.Ranged?"bow":kind==SoldierKind.Cavalry?"spear":"sword")+"兵书",Category="material",Description="角色等级训练使用；3／6／9级突破用高阶兵书，开始扣除，取消不退。",MaxStack=99});}
+            foreach(var kind in SoldierKinds(s))foreach(int target in new[]{2,3})
+            {string id=Book(kind,target);if(!s.Backpack.Catalog.Any(d=>d.Id==id))s.Backpack.Catalog.Add(new BaseBagDefinition {Id=id,Name=(target==3?"高阶":"基础")+BasePersonalEquipment.Profession(BaseRpg.Weapon(BaseRpg.Profession(kind)))+"兵书",Category="material",Description="角色等级训练使用；3／6／9级突破用高阶兵书，开始扣除，取消不退。",MaxStack=99});}
             BaseWine.Normalize(s);
             BaseProgressSupplies.Normalize(s);
             BaseItemRecovery.Normalize(s);

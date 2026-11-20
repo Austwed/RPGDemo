@@ -25,12 +25,7 @@ namespace BaseConquest.Editor
         {
             string path=System.IO.Path.Combine(Application.streamingAssetsPath,"BaseScenarios",BaseDemo.BalanceTemplate);
             var s=DemoStageSaveTools.Defense(System.IO.File.ReadAllText(path),"male",DemoBalanceRuntime.Load().Rules);
-            var defense=BaseDemoDefense.Begin(s,"none");BattleScenePlacement.Start(s,defense);var first=new RealtimeCampaignBattle(defense);BattleScenePlacement.Snap(s,first);BaseDemoDefense.Configure(first);
-            foreach(var enemy in first.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))enemy.Escaped=true;
-            first.Model.SetPaused(false);first.Tick(.02);Need(BaseDemoDefense.Complete(s,first),"首防结算");ClearRebuildTestLoot(s);BaseDemoDefense.AcknowledgeBatu(s);
-            s.Campaign.Location="base";At(s,"demo_march_exit");BaseDemoFinale.OpenWorld(s);
-            var plan=BaseMuster.PreviewFormation(s,"expedition","combat");Need(BaseMuster.Confirm(s,plan),"出征编队");At(s,"demo_march_exit");BaseWorldJourney.EnterWorld(s,"camp_entry");
-            BaseWorldJourney.Start(s,new[]{"camp","bandit"});Need(BaseWorldJourney.Step(s,_=>null),"前往敌营");BaseWorldJourney.EnterScene(s,"bandit_entry");At(s,"demo_camp_attack");
+            ReachBlackCrowFromFirstDefense(s);
             var attack=BaseDemoFinale.Begin(s,"none");BattleScenePlacement.Start(s,attack);var battle=new RealtimeCampaignBattle(attack);BattleScenePlacement.Snap(s,battle);BaseDemoFinale.Configure(battle);
             foreach(var enemy in battle.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))enemy.Escaped=true;
             battle.Model.SetPaused(false);battle.Tick(.02);Need(BaseDemoFinale.Complete(s,battle),"攻营结算");ClearRebuildTestLoot(s);
@@ -43,6 +38,16 @@ namespace BaseConquest.Editor
             Need(BaseCampaign.Travel(s,"custom","village_gate_in"),"不能经西桥头入村");
             RepairReturnedVillage(s);
             Debug.Log("[HomeReconstruction] PASS");
+        }
+
+        internal static void ReachBlackCrowFromFirstDefense(BaseState s)
+        {
+            var defense=BaseDemoDefense.Begin(s,"none");BattleScenePlacement.Start(s,defense);var first=new RealtimeCampaignBattle(defense);BattleScenePlacement.Snap(s,first);BaseDemoDefense.Configure(first);
+            foreach(var enemy in first.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))enemy.Escaped=true;
+            first.Model.SetPaused(false);first.Tick(.02);Need(BaseDemoDefense.Complete(s,first),"首防结算");ClearRebuildTestLoot(s);BaseDemoDefense.AcknowledgeBatu(s);
+            s.Campaign.Location="base";At(s,"demo_march_exit");BaseDemoFinale.OpenWorld(s);
+            var plan=BaseMuster.PreviewFormation(s,"expedition","combat");Need(BaseMuster.Confirm(s,plan),"出征编队");At(s,"demo_march_exit");BaseWorldJourney.EnterWorld(s,"camp_entry");
+            BaseWorldJourney.Start(s,new[]{"camp","bandit"});Need(BaseWorldJourney.Step(s,_=>null),"前往敌营");BaseWorldJourney.EnterScene(s,"bandit_entry");At(s,"demo_camp_attack");
         }
 
         internal static void VerifyOptionalSword(BaseState bridge)

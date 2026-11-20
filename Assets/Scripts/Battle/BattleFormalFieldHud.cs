@@ -16,8 +16,8 @@ namespace BaseConquest.Battle
         private readonly RectTransform[] formalTroopRows = new RectTransform[3];
         private readonly Button[] formalTroopToggles = new Button[3];
         private readonly bool[] formalTroopsFolded = new bool[3];
-        private readonly Button[,] formalTroops = new Button[3, 3];
-        private readonly Text[,] formalTroopCounts = new Text[3, 3];
+        private readonly Button[,] formalTroops = new Button[3, BattleSimulation.TroopKinds.Length];
+        private readonly Text[,] formalTroopCounts = new Text[3, BattleSimulation.TroopKinds.Length];
 
         private void CreateFormalBanner()
         {
@@ -186,10 +186,10 @@ namespace BaseConquest.Battle
                 if (!owner.FormalFieldHud) continue;
                 var row = formalTroopRows[i];
                 row.anchoredPosition = new Vector2(0, 147);
-                row.sizeDelta = new Vector2(118, 176);
+                row.sizeDelta = new Vector2(118, 236);
                 PlaceTouchButton(formalTroopToggles[i], 76, 91, 42, 52, 21);
                 for (int troop = 0; troop < BattleSimulation.TroopKinds.Length; troop++)
-                    PlaceTouchButton(formalTroops[i, troop], 0, (2 - troop) * 60, 118, 56, 21);
+                    PlaceTouchButton(formalTroops[i, troop], 0, (BattleSimulation.TroopKinds.Length - 1 - troop) * 60, 118, 56, 21);
             }
 
             if (!owner.FormalFieldHud) return;
@@ -241,7 +241,7 @@ namespace BaseConquest.Battle
 
         private void CreateFormalTroops(RectTransform module, int slot)
         {
-            var row = Rect("DraftTroops", module, Vector2.zero, new Vector2(0, 134), new Vector2(92, 146));
+            var row = Rect("DraftTroops", module, Vector2.zero, new Vector2(0, 134), new Vector2(92, 196));
             formalTroopRows[slot] = row;
             formalTroopToggles[slot] = Button("TroopToggle", module, Vector2.zero, new Vector2(64, 91), new Vector2(28, 38), () =>
             {
@@ -251,7 +251,7 @@ namespace BaseConquest.Battle
             for (int i = 0; i < BattleSimulation.TroopKinds.Length; i++)
             {
                 var kind = BattleSimulation.TroopKinds[i];
-                var button = Button("Deploy_" + kind, row, Vector2.zero, new Vector2(0, (2 - i) * 50), new Vector2(92, 46),
+                var button = Button("Deploy_" + kind, row, Vector2.zero, new Vector2(0, (BattleSimulation.TroopKinds.Length - 1 - i) * 50), new Vector2(92, 46),
                     () => owner.SelectDraftTroop(slot, kind));
                 var count = button.GetComponentInChildren<Text>();
                 count.alignment = TextAnchor.MiddleCenter;
@@ -311,14 +311,14 @@ namespace BaseConquest.Battle
 
         private (string Ally, string Enemy, string Supply) FieldLiveSummary(BattleSimulation battle)
         {
-            var kinds = new[] { SoldierKind.Hero, SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry };
+            var kinds = new[] { SoldierKind.Hero, SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry, SoldierKind.Mage };
             var ally = kinds.Select(kind => battle.Vision.Status(BattleSide.A, BattleSide.A, kind).InField).ToArray();
             var enemy = kinds.Select(kind => battle.Vision.Status(BattleSide.A, BattleSide.B, kind)).ToArray();
             string hostile = enemy.Any(s => s.Exact || s.SeenTotal > 0)
-                ? $"可见队长 {enemy[0].InField} · 剑 {enemy[1].InField} · 弓 {enemy[2].InField} · 骑 {enemy[3].InField}" : "暂无已知情报";
+                ? $"可见队长 {enemy[0].InField} · 剑 {enemy[1].InField} · 弓 {enemy[2].InField} · 骑 {enemy[3].InField} · 法 {enemy[4].InField}" : "暂无已知情报";
             var supply = owner.Realtime?.Session.Opening.SupplySnapshot?.Equipment.FirstOrDefault(e => e.Product == "supply" && e.Count > 0);
             string supplyText = supply == null ? "配给 0 件" : $"{supply.Level} 级 · 配给 {supply.Count} 件";
-            return ($"我方在场  队长 {ally[0]} · 剑 {ally[1]} · 弓 {ally[2]} · 骑 {ally[3]}", "敌方  " + hostile, "军需  " + supplyText);
+            return ($"我方在场  队长 {ally[0]} · 剑 {ally[1]} · 弓 {ally[2]} · 骑 {ally[3]} · 法 {ally[4]}", "敌方  " + hostile, "军需  " + supplyText);
         }
     }
 }

@@ -36,7 +36,8 @@ namespace BaseConquest.Battle
         private readonly Color panel = new Color(0.055f, 0.08f, 0.12f, 0.93f);
         private readonly Color active = new Color(0.2f, 0.45f, 0.62f, 0.98f);
         private sealed class HeroSlot { public RectTransform Root; public Button Portrait, Skill, Ultimate; public Text Name, Health; public RectTransform Hp; public int Id = -1; }
-        private sealed class ArmyColumn { public RectTransform Root; public Text Header; public readonly Button[] Cards = new Button[4]; public Button Fill, Withdraw, Command; }
+        private static readonly SoldierKind[] deploymentKinds = { SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry, SoldierKind.Mage, SoldierKind.Hero };
+        private sealed class ArmyColumn { public RectTransform Root; public Text Header; public readonly Button[] Cards = new Button[deploymentKinds.Length]; public Button Fill, Withdraw, Command; }
 
         public BattleHud(BattleSceneController owner, Transform parent, Font font)
         {
@@ -66,11 +67,11 @@ namespace BaseConquest.Battle
                 column.Root = Rect(side + "ArmyColumn", safe, anchor, new Vector2(side == BattleSide.A ? 12 : -12, -124), new Vector2(126, 374));
                 column.Root.pivot = new Vector2((int)side, 1);
                 var heading = Box("ArmyHeading", column.Root, new Vector2(0, 1), Vector2.zero, new Vector2(126, 26)); column.Header = Label("", heading, 12);
-                SoldierKind[] kinds = { SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry, SoldierKind.Hero };
+                var kinds = deploymentKinds;
                 for (int i = 0; i < kinds.Length; i++)
                 {
                     SoldierKind kind = kinds[i];
-                    var card = MakeButton("", column.Root, new Vector2(0, 1), new Vector2(0, -32 - i * 62), new Vector2(126, 56), () => { if (owner.ControlledSide == side) owner.ChooseDeployment(kind); });
+                    var card = MakeButton("", column.Root, new Vector2(0, 1), new Vector2(0, -32 - i * 50), new Vector2(126, 47), () => { if (owner.ControlledSide == side) owner.ChooseDeployment(kind); });
                     card.name = "Deploy_" + side + "_" + kind; card.GetComponentInChildren<Text>().fontSize = 12; column.Cards[i] = card;
                 }
                 column.Fill = MakeButton("一键布兵", column.Root, new Vector2(0, 1), new Vector2(0, -282), new Vector2(126, 40), owner.AutoDeployControlled);
@@ -104,15 +105,15 @@ namespace BaseConquest.Battle
             formationInfo = Label("", formationPanel, 14); formationInfo.rectTransform.anchorMin = new Vector2(0, 0.79f); formationInfo.rectTransform.anchorMax = Vector2.one;
             for (int i = 0; i < 3; i++)
             {
-                int slot = i; float y = -64 - i * 62;
+                int slot = i; float y = -64 - i * 50;
                 var choose = MakeButton("队 " + (i + 1), formationPanel, new Vector2(0, 1), new Vector2(10, y), new Vector2(60, 48), () => owner.SelectCommanderSlot(slot)); choose.name = "FormationSelect_" + slot;
                 var textBox = Rect("Allocation" + i, formationPanel, new Vector2(0, 1), new Vector2(74, y), new Vector2(208, 48));
                 loadoutLabels[i] = Label("", textBox, 13);
-                for (int k = 0; k < 3; k++)
+                for (int k = 0; k < BattleSimulation.TroopKinds.Length; k++)
                 {
                     SoldierKind kind = BattleSimulation.TroopKinds[k];
-                    var minus = MakeButton("−", formationPanel, new Vector2(0, 1), new Vector2(290 + k * 124, y), new Vector2(48, 48), () => owner.ChangeAllocation(slot, kind, -1)); minus.name = "Allocation_" + slot + "_" + kind + "_Minus";
-                    var plus = MakeButton("+", formationPanel, new Vector2(0, 1), new Vector2(342 + k * 124, y), new Vector2(48, 48), () => owner.ChangeAllocation(slot, kind, 1)); plus.name = "Allocation_" + slot + "_" + kind + "_Plus";
+                    var minus = MakeButton("−", formationPanel, new Vector2(0, 1), new Vector2(284 + k * 100, y), new Vector2(48, 48), () => owner.ChangeAllocation(slot, kind, -1)); minus.name = "Allocation_" + slot + "_" + kind + "_Minus";
+                    var plus = MakeButton("+", formationPanel, new Vector2(0, 1), new Vector2(332 + k * 100, y), new Vector2(48, 48), () => owner.ChangeAllocation(slot, kind, 1)); plus.name = "Allocation_" + slot + "_" + kind + "_Plus";
                 }
             }
             MakeButton("均分混编", formationPanel, Vector2.zero, new Vector2(10, 8), new Vector2(116, 42), owner.DistributeFormation);
@@ -176,10 +177,10 @@ namespace BaseConquest.Battle
             if (owner.FormationVisible)
             {
                 var army = battle.Scenario.Army(owner.ControlledSide);
-                formationInfo.text = BattleSimulation.SideName(owner.ControlledSide) + " · 每队最多6兵（测试） · 当前部署队 " + (owner.DeploymentCommanderSlot + 1) + "\n未分配 近战" + battle.Unassigned(owner.ControlledSide, SoldierKind.Melee) + " / 远程" + battle.Unassigned(owner.ControlledSide, SoldierKind.Ranged) + " / 骑兵" + battle.Unassigned(owner.ControlledSide, SoldierKind.Cavalry);
+                formationInfo.text = BattleSimulation.SideName(owner.ControlledSide) + " · 每队最多6兵（测试） · 当前部署队 " + (owner.DeploymentCommanderSlot + 1) + "\n未分配 近战" + battle.Unassigned(owner.ControlledSide, SoldierKind.Melee) + " / 远程" + battle.Unassigned(owner.ControlledSide, SoldierKind.Ranged) + " / 骑兵" + battle.Unassigned(owner.ControlledSide, SoldierKind.Cavalry) + " / 法师" + battle.Unassigned(owner.ControlledSide, SoldierKind.Mage);
                 for (int i = 0; i < 3; i++)
                 {
-                    var c = army.Commanders[i]; loadoutLabels[i].text = i >= army.HeroCount ? "未启用小队长" : "近战 " + c.Melee + "    远程 " + c.Ranged + "    骑兵 " + c.Cavalry + "\n总兵力 " + c.Total + " / 6";
+                    var c = army.Commanders[i]; loadoutLabels[i].text = i >= army.HeroCount ? "未启用小队长" : "近战 " + c.Melee + "    远程 " + c.Ranged + "    骑兵 " + c.Cavalry + "    法师 " + c.Mage + "\n总兵力 " + c.Total + " / 6";
                     foreach (var button in formationPanel.GetComponentsInChildren<Button>())
                         if (button.name.StartsWith("Allocation_" + i + "_") || button.name == "FormationSelect_" + i) button.interactable = i < army.HeroCount;
                 }
@@ -205,7 +206,7 @@ namespace BaseConquest.Battle
                 var column = armies[(int)side]; bool controlled = side == owner.ControlledSide;
                 column.Root.gameObject.SetActive(!owner.DrawerVisible);
                 column.Header.text = BattleSimulation.SideName(side) + (controlled ? battle.Scenario.CommanderControl && battle.Phase == BattlePhase.Deployment ? " · 部署队" + (owner.DeploymentCommanderSlot + 1) : " · 场 / 损 / 备" : " · 已知信息");
-                SoldierKind[] kinds = { SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry, SoldierKind.Hero };
+                var kinds = deploymentKinds;
                 for (int i = 0; i < kinds.Length; i++)
                 {
                     SoldierKind kind = kinds[i]; ArmyStatus info = battle.Vision.Status(owner.ControlledSide, side, kind); Button card = column.Cards[i];

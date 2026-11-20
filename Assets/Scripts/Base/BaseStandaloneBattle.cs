@@ -35,7 +35,7 @@ namespace BaseConquest.Base
             {
                 Id=Prefix+(int)preset,EventId=Prefix+(int)preset,MapRegion="perimeter",StartedDay=state.Day,Scenario=scenario,
                 Rpg=rules,RealtimeRules=true,RealtimeRulesVersion=1,DemoCombat=true,
-                PlayerTroopCounts=new[]{left.MeleeCount,left.RangedCount,left.CavalryCount}
+                PlayerTroopCounts=rules?.HasProfessionCatalog==true?new[]{left.MeleeCount,left.RangedCount,left.CavalryCount,left.MageCount}:new[]{left.MeleeCount,left.RangedCount,left.CavalryCount}
             };
             opening.Leaders.Add(Leader("developer:test:ally","测试队长",left.Hero,rules));
             opening.Troops.AddRange(Troops("developer:test:ally",left));
@@ -52,7 +52,7 @@ namespace BaseConquest.Base
         private static ArmyDefinition Army(BaseState state,BaseStandaloneBattlePreset preset,bool ally)
         {
             var source=state.Demo?.Defense?.Army?.Clone()??new ArmyDefinition();
-            source.HeroCount=1;source.MeleeCount=source.RangedCount=source.CavalryCount=0;source.Capacity=90;source.CaptainSlot=0;
+            source.HeroCount=1;source.MeleeCount=source.RangedCount=source.CavalryCount=source.MageCount=0;source.Capacity=90;source.CaptainSlot=0;
             source.Commanders=new List<CommanderLoadout>{new CommanderLoadout(),new CommanderLoadout(),new CommanderLoadout()};
             if(preset==BaseStandaloneBattlePreset.Mixed)
             {
@@ -88,7 +88,7 @@ namespace BaseConquest.Base
         {
             if(kind==SoldierKind.Hero)return BaseRpg.Character(id,0,false,false,rules);
             int profession=kind==SoldierKind.Hero ? 0 : BaseRpg.Profession(kind);
-            return new RpgCharacter {Version=1,Id=id,Profession=profession,TemplateId=RpgRules.Template("soldier",profession),Rules=rules};
+            return new RpgCharacter {Version=1,Id=id,Profession=profession,TemplateId=rules?.DefaultTemplateId("soldier",profession)??RpgRules.Template("soldier",profession),Rules=rules};
         }
     }
 }

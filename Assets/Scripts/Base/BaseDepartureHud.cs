@@ -38,14 +38,14 @@ namespace BaseConquest.Base
             if(!bypass&&plan?.Production?.Allowed!=true)Line(plan?.Production?.Problem??"无法保障三天经营",76,18);
             if(departureMessage!="")Line(departureMessage,55,18);
             Line("已选士兵 "+departure.Picks.Count+"人；常驻队长 "+departure.Preset.Candidates.Count+"人（上限3人）",48,20);
-            foreach(var kind in Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>())
+            foreach(var kind in BaseTown.TroopKinds(s))
             {
                 var k=kind;var capacity=departure.Capacity(s,k,bypass);int count=capacity.Selected;
                 RowButton((departureExpanded==k ? "▾ " : "▸ ")+BaseEconomy.TroopName(k)+" · "+capacity.Summary,-155,500,()=>{departureExpanded=departureExpanded==k ? (BaseTroopKind?)null : k;Reopen();});
                 RowButton("−",160,100,()=>{departure.Adjust(s,k,-1,bypass,out departureMessage);Reopen();},count>0);
                 RowButton("+",300,100,()=>{departure.Adjust(s,k,1,bypass,out departureMessage);Reopen();},count<capacity.Limit);row+=52;
                 Line(capacity.Detail,60,17);
-                if(BaseTown.DemoRecruitment(s))Line("全军普通兵 "+BaseTown.TroopTotal(s)+"人（含外出） · 合计基准 "+BaseDemoCombat.BaselineTotal(s.Demo?.Rpg)+" · 普通兵即死率 "+BaseTown.HireProbability(s).ToString("P0")+"；三兵种共用，调岗出征不改变总数。",62,17);
+                if(BaseTown.DemoRecruitment(s))Line("全军普通兵 "+BaseTown.TroopTotal(s)+"人（含外出） · 合计基准 "+BaseDemoCombat.BaselineTotal(s.Demo?.Rpg)+" · 普通兵即死率 "+BaseTown.HireProbability(s).ToString("P0")+"；调岗出征不改变总数。",62,17);
                 if(departureExpanded!=k)continue;
                 var roster=BasePersonnel.Soldiers(s,BaseCampaign.ToBattle(k)).ToDictionary(unit=>unit.Key);
                 Line("士兵名册",42,17);

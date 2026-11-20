@@ -7,20 +7,20 @@ namespace BaseConquest.Battle
     [Serializable]
     public sealed class CommanderLoadout
     {
-        public int Melee, Ranged, Cavalry;
+        public int Melee, Ranged, Cavalry, Mage;
         public int GuardRange = 3, AlertRange = 6, AttackRange = 9, LeadRange = 3;
         public SquadStrategy Strategy = SquadStrategy.Attack;
-        public int Total => Melee + Ranged + Cavalry;
-        public int Count(SoldierKind kind) => kind == SoldierKind.Melee ? Melee : kind == SoldierKind.Ranged ? Ranged : kind == SoldierKind.Cavalry ? Cavalry : 0;
-        public void Set(SoldierKind kind, int count) { if (kind == SoldierKind.Melee) Melee = count; else if (kind == SoldierKind.Ranged) Ranged = count; else if (kind == SoldierKind.Cavalry) Cavalry = count; }
-        public CommanderLoadout Clone() => new CommanderLoadout { Melee = Melee, Ranged = Ranged, Cavalry = Cavalry, GuardRange = GuardRange, AlertRange = AlertRange, AttackRange = AttackRange, LeadRange = Math.Max(1, Math.Min(32, LeadRange)), Strategy = Strategy };
+        public int Total => Melee + Ranged + Cavalry + Mage;
+        public int Count(SoldierKind kind) => kind == SoldierKind.Melee ? Melee : kind == SoldierKind.Ranged ? Ranged : kind == SoldierKind.Cavalry ? Cavalry : kind == SoldierKind.Mage ? Mage : 0;
+        public void Set(SoldierKind kind, int count) { if (kind == SoldierKind.Melee) Melee = count; else if (kind == SoldierKind.Ranged) Ranged = count; else if (kind == SoldierKind.Cavalry) Cavalry = count; else if (kind == SoldierKind.Mage) Mage = count; }
+        public CommanderLoadout Clone() => new CommanderLoadout { Melee = Melee, Ranged = Ranged, Cavalry = Cavalry, Mage = Mage, GuardRange = GuardRange, AlertRange = AlertRange, AttackRange = AttackRange, LeadRange = Math.Max(1, Math.Min(32, LeadRange)), Strategy = Strategy };
     }
 
     public sealed partial class BattleSimulation
     {
         public const int CommanderCapacity = 6; // 本轮测试规模，不是成品养成上限。
         public int Capacity(BattleSide side) => Scenario.Army(side).Capacity;
-        public static readonly SoldierKind[] TroopKinds = { SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry };
+        public static readonly SoldierKind[] TroopKinds = { SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry, SoldierKind.Mage };
         public int CommanderSquadId(BattleSide side, int slot) => (int)side * 3 + slot;
         public BattleSquad CommanderSquad(BattleSide side, int slot) => slot >= 0 && slot < Scenario.Army(side).HeroCount ? Squads[CommanderSquadId(side, slot)] : null;
         public BattleSoldier Commander(BattleSide side, int slot) => Soldier(CommanderSquad(side, slot)?.CommanderId ?? -1);
@@ -67,7 +67,7 @@ namespace BaseConquest.Battle
         {
             if (Phase != BattlePhase.Deployment || Soldiers.Any(s => s.Side == side)) return false;
             var army = Scenario.Army(side);
-            foreach (var c in army.Commanders) { c.Melee = c.Ranged = c.Cavalry = 0; }
+            foreach (var c in army.Commanders) { c.Melee = c.Ranged = c.Cavalry = c.Mage = 0; }
             foreach (SoldierKind kind in TroopKinds)
                 for (int n = 0; n < army.Count(kind); n++)
                 {

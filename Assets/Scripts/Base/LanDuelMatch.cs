@@ -84,7 +84,7 @@ namespace BaseConquest.Base
             foreach (var captain in captains)
             {
                 BaseRpg.ValidateCharacter(captain.profile, opening.Rpg);
-                if (captain.profile.TemplateId.StartsWith("soldier_", StringComparison.Ordinal) ||
+                if (opening.Rpg.TemplateIdentity(captain.profile.TemplateId) == "soldier" ||
                     !opening.Rpg.Skills.Any(s => s.Id == captain.profile.SkillId))
                     throw new ArgumentException("当前版本无法识别队长技能");
                 var equipment = captain.gear ?? Array.Empty<BasePersonalItem>();
@@ -108,7 +108,7 @@ namespace BaseConquest.Base
                 opening.Scenario.Placements.Add(new UnitPlacement { Side = side, Kind = kind, Cell = cell, CommanderSlot = slot });
                 var gear = kind == SoldierKind.Hero ? new BasePersonalLoadout
                 {
-                    Version = 1, Weapon = new[] { "sword", "bow", "spear" }[m.profile.Profession],
+                    Version = 1, Weapon = BaseRpg.Weapon(m.profile.Profession),
                     BaseStats = m.stats.Clone(), Items = (m.gear ?? Array.Empty<BasePersonalItem>()).Select(i => i.Copy()).ToList()
                 } : null;
                 if (side == BattleSide.B)
@@ -118,7 +118,7 @@ namespace BaseConquest.Base
                         Rpg = kind == SoldierKind.Hero ? m.profile.Copy() : new RpgCharacter
                         {
                             Version = 1, Id = m.id, Profession = BaseRpg.Profession(kind),
-                            TemplateId = RpgRules.Template("soldier", BaseRpg.Profession(kind))
+                            TemplateId = opening.Rpg.DefaultTemplateId("soldier", BaseRpg.Profession(kind))
                         } });
                 }
                 else if (kind == SoldierKind.Hero)
@@ -209,6 +209,8 @@ namespace BaseConquest.Base
             revision++;
         }
 
+        private readonly List<MageSpellVisual> spellFrame = new();
+
         public LanDuelFrame View(int side)
         {
             if ((uint)side > 1) throw new ArgumentOutOfRangeException(nameof(side));
@@ -228,13 +230,15 @@ namespace BaseConquest.Base
                 frame.aStanding = run.Model.Units.Count(u => u.Side == PrototypeSide.Ally && u.Alive);
                 frame.bStanding = run.Model.Units.Count(u => u.Side == PrototypeSide.Enemy && u.Alive);
             }
+            MageSpellVisual.Collect(run, observer, spellFrame);
+            frame.spells = spellFrame.ToArray();
             frame.units = run.Model.Units.Where(u => (int)u.Side == side ||
                 run.Battle.Vision.CanSee(observer, run.Battle.Soldier(u.Id - 1))).Select(u =>
             {
                 var m = origins[u.Id];
                 bool ownCaptain = (int)u.Side == side && u.Role == PrototypeRole.Leader;
                 bool attacking = u.Alive && u.SwingUntil > run.Model.Elapsed && u.HitAt >= 0;
-                double windup = Math.Max(.001, u.HitAt - u.WindupStarted);
+                double windup = u.Ranged ? .24 : .22;
                 var facing = attacking ? u.AttackFacing : u.Facing;
                 return new LanDuelActor { id = u.Id, side = (int)u.Side, kind = m.kind, slot = u.Squad,
                     name = m.name, appearance = m.appearance, x = (float)u.Position.X, z = (float)u.Position.Z,

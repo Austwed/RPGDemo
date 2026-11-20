@@ -107,6 +107,83 @@ namespace BaseConquest.Editor
             Run();
         }
 
+        public static void RunMageRoster()
+        {
+            stage = "mage-roster-boot";
+            Run();
+        }
+
+        private static void CheckMageRoster()
+        {
+            controller = C;
+            if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+            if (stage == "mage-roster-boot")
+            {
+                controller.LoadDemoStage("defense", "male");
+                stage = "mage-roster-open";
+                return;
+            }
+            if (controller.State.Campaign.Location != "perimeter") return;
+            if (stage == "mage-roster-open")
+            {
+                Approach("demo_defense_start");
+                H.OpenObject("demo_defense_start");
+                stage = "mage-roster-layout";
+                frameDeadline = Time.frameCount + 3;
+                return;
+            }
+            if (Time.frameCount < frameDeadline) return;
+            var prep = (RectTransform)RequirePanel("BattlePreparation");
+            var teams = (RectTransform)prep.Find("Teams");
+            var cards = teams.Cast<RectTransform>().Where(c => c.gameObject.activeSelf && c.Find("Mage") != null).ToArray();
+            if (cards.Length != 3) throw new InvalidOperationException("实际可见队长行数 " + cards.Length);
+            Canvas.ForceUpdateCanvases();
+            var kinds = new[] { "Melee", "Ranged", "Cavalry", "Mage" };
+            foreach (var card in cards)
+            {
+                var groupBounds = SceneRect(card, teams);
+                if (groupBounds.yMin < teams.rect.yMin - 1 || groupBounds.yMax > teams.rect.yMax + 1)
+                    throw new InvalidOperationException("队长行超出分队区");
+                float edge = SceneRect((RectTransform)card.Find("Select"), card).xMax;
+                foreach (var kind in kinds)
+                {
+                    var bounds = SceneRect((RectTransform)card.Find(kind), card);
+                    var header = SceneRect((RectTransform)prep.Find(kind + "Heading"), prep);
+                    var column = SceneRect((RectTransform)card.Find(kind), prep);
+                    if (bounds.xMin < edge - 1 || bounds.xMax > card.rect.xMax + 1 || Mathf.Abs(header.center.x - column.center.x) > 1)
+                        throw new InvalidOperationException("备战兵种列溢出、重叠或表头不齐：" + kind);
+                    edge = bounds.xMax;
+                }
+            }
+            var candidates = (RectTransform)prep.Find("Candidates");
+            float last = candidates.rect.xMin;
+            foreach (var kind in kinds.Prepend("All"))
+            {
+                var rect = SceneRect((RectTransform)candidates.Find(kind), candidates);
+                if (rect.xMin < last - 1 || rect.xMax > candidates.rect.xMax + 1)
+                    throw new InvalidOperationException("名册筛选超出内容区：" + kind);
+                last = rect.xMax;
+            }
+            Press(candidates, "Mage");
+            var list = candidates.Find("List").GetComponent<ScrollRect>().content;
+            var mages = RosterUnits(list);
+            if (mages.Length != BasePersonnel.Soldiers(controller.State, SoldierKind.Mage).Count() || mages.Length == 0)
+                throw new InvalidOperationException("法师筛选人数与实际状态不同");
+            foreach (var row in mages)
+            {
+                VerifyRosterRow(row, true);
+                if (!row.Find("Label").GetComponent<Text>().text.Contains("法师"))
+                    throw new InvalidOperationException("法师筛选混入其他兵种");
+            }
+            Capture("p52-preparation-mage-960x540", 960, 540);
+            Press(candidates, "All");
+            if (RosterUnits(list).Length != BasePersonnel.Soldiers(controller.State).Count())
+                throw new InvalidOperationException("全部筛选未恢复完整名册");
+            Capture("p52-preparation-all-960x540", 960, 540);
+            if (failed) throw new InvalidOperationException("备战截图失败");
+            Finish(0, "P52 三名队长、四列兵力、五个筛选及单行名册已核对");
+        }
+
         public static void RunSoldierRoster()
         {
             stage = "soldiers-boot";
@@ -236,6 +313,7 @@ namespace BaseConquest.Editor
             if (stage.StartsWith("civilian-", StringComparison.Ordinal)) { TickCivilianWork(); return; }
             if (stage.StartsWith("ruins-exit-", StringComparison.Ordinal)) { TickRuinsExit(); return; }
             if(stage.StartsWith("road-",StringComparison.Ordinal)){TickRoadContacts();return;}
+            if(stage.StartsWith("mage-roster-",StringComparison.Ordinal)){CheckMageRoster();return;}
             if(stage.StartsWith("home-field-",StringComparison.Ordinal)){TickHomeField();return;}
             switch (stage)
             {
@@ -4232,6 +4310,7 @@ namespace BaseConquest.Editor
             string report = campSceneryOnly ? "ui-exploration-framing-report.txt" : androidTouch ? "ui-android-touch-report.txt" :
                 stage == "opening-copy" ? "ui-opening-copy-report.txt" :
                 stage.StartsWith("ruins-exit-", StringComparison.Ordinal) ? "ui-ruins-exit-report.txt" :
+                stage.StartsWith("mage-roster-", StringComparison.Ordinal) ? "p52-roster-report.txt" :
                 stage.StartsWith("soldiers-", StringComparison.Ordinal) ? "ui-soldier-roster-report.txt" :
                 stage.StartsWith("civilian-", StringComparison.Ordinal) ? "ui-civilian-work-report.txt" :
                 stage.StartsWith("route-", StringComparison.Ordinal) ? "ui-player-route-views-report.txt" : "ui-skin-report.txt";

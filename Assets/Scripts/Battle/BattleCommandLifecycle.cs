@@ -22,7 +22,12 @@ namespace BaseConquest.Battle
         private readonly int[] captainSlots = { -1, -1 };
         private bool resolvingRound;
         public int CaptainSlot(BattleSide side) => captainSlots[(int)side];
-        public string UnitName(BattleSoldier s) => s == null ? "未知单位" : (s.DeveloperSpawned ? "测试·" : "") + SideName(s.Side) + (s.Kind == SoldierKind.Hero ? CommanderDisplayName(s.Side, s.OriginCommanderSlot) : UnitDisplayNames.Mark(KindName(s.Kind) + "#" + (s.SoldierNumber > 0 ? s.SoldierNumber : s.Id + 1),s.Recruited)) + (RuinsCivilianIds.Contains(s.Id)&&Phase==BattlePhase.Fighting&&Commander(BattleSide.B,0)?.IsActive==true ? " · 受控" : "");
+        private static string SoldierName(BattleSoldier unit)
+        {
+            var template=unit.Rpg?.Rules?.Templates.FirstOrDefault(t=>!t.IsDefault&&t.Id==unit.Rpg.TemplateId);
+            return string.IsNullOrEmpty(template?.Name)?KindName(unit.Kind)+"#"+(unit.SoldierNumber>0?unit.SoldierNumber:unit.Id+1):template.Name;
+        }
+        public string UnitName(BattleSoldier s) => s == null ? "未知单位" : (s.DeveloperSpawned ? "测试·" : "") + SideName(s.Side) + (s.Kind == SoldierKind.Hero ? CommanderDisplayName(s.Side, s.OriginCommanderSlot) : UnitDisplayNames.Mark(SoldierName(s),s.Recruited)) + (RuinsCivilianIds.Contains(s.Id)&&Phase==BattlePhase.Fighting&&Commander(BattleSide.B,0)?.IsActive==true ? " · 受控" : "");
         public readonly List<string> CommanderNamesA = new List<string>();
         public string CommanderDisplayName(BattleSide side,int slot)=>UnitDisplayNames.Mark(RawCommanderName(side,slot),slot>=0&&slot<Scenario.Army(side).CommanderRecruited.Count&&Scenario.Army(side).CommanderRecruited[slot]);
         private string RawCommanderName(BattleSide side, int slot)
@@ -156,13 +161,13 @@ namespace BaseConquest.Battle
                 }
                 return load;
             }
-            foreach (var kind in new[] { SoldierKind.Hero, SoldierKind.Melee, SoldierKind.Cavalry, SoldierKind.Ranged })
+            foreach (var kind in new[] { SoldierKind.Hero, SoldierKind.Melee, SoldierKind.Cavalry, SoldierKind.Ranged, SoldierKind.Mage })
                 foreach (int slot in slots)
                 {
-                    int dx = kind == SoldierKind.Melee ? forward : kind == SoldierKind.Ranged ? -forward : 0;
+                    int dx = kind == SoldierKind.Melee ? forward : (kind == SoldierKind.Ranged || kind == SoldierKind.Mage) ? -forward : 0;
                     int dz = kind == SoldierKind.Cavalry ? 2 : kind == SoldierKind.Hero ? slot - 1 : 0;
                     var ideal = new GridPosition(centerX + dx, centerZ + dz);
-                    foreach (var p in cells.OrderBy(p => kind == SoldierKind.Cavalry ? NeighbourLoad(p) : 0).ThenBy(p => UnitsAt(p).Count).ThenBy(p => kind == SoldierKind.Ranged ? forward * p.X : kind == SoldierKind.Melee ? -forward * p.X : GridPosition.Distance(p, ideal)).ThenBy(p => GridPosition.Distance(p, ideal)).ThenBy(p => p.Z * Board.Width + p.X))
+                    foreach (var p in cells.OrderBy(p => kind == SoldierKind.Cavalry ? NeighbourLoad(p) : 0).ThenBy(p => UnitsAt(p).Count).ThenBy(p => (kind == SoldierKind.Ranged || kind == SoldierKind.Mage) ? forward * p.X : kind == SoldierKind.Melee ? -forward * p.X : GridPosition.Distance(p, ideal)).ThenBy(p => GridPosition.Distance(p, ideal)).ThenBy(p => p.Z * Board.Width + p.X))
                         while (CanDeploy(side, kind, p, slot)) { Deploy(side, kind, p, slot); total++; }
                 }
             return total;
@@ -193,7 +198,7 @@ namespace BaseConquest.Battle
             }
             foreach (var s in members.Where(s => s.Kind != SoldierKind.Hero))
             {
-                var leaderGoal = assigned[Squads[s.SquadId].CommanderId]; var preferred = leaderGoal + new GridPosition(s.Kind == SoldierKind.Ranged ? s.Side == BattleSide.A ? -1 : 1 : s.Kind == SoldierKind.Melee ? s.Side == BattleSide.A ? 1 : -1 : 0, 0);
+                var leaderGoal = assigned[Squads[s.SquadId].CommanderId]; var preferred = leaderGoal + new GridPosition((s.Kind == SoldierKind.Ranged || s.Kind == SoldierKind.Mage) ? s.Side == BattleSide.A ? -1 : 1 : s.Kind == SoldierKind.Melee ? s.Side == BattleSide.A ? 1 : -1 : 0, 0);
                 // R1：候选先限制在队长目标的有效率领区域内，避免为优先空格把成员推到圈外（届时目标不可达、与跟随行为不一致）。
                 // 区域不足时退化为以队长目标为中心的可达最小距离，仍不越圈。
                 int lead = Math.Max(1, LeadRadiusAt(Squads[s.SquadId], leaderGoal));

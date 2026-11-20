@@ -90,7 +90,7 @@ namespace BaseConquest.Base
         public static string Describe(RpgCharacter c)
         {
             if(c==null)return "";var r=c.Rules;
-            return "共享模板："+(c.TemplateId.StartsWith("captain_awakened_")?"异能者队长":c.TemplateId.StartsWith("captain_normal_")?"普通队长":"普通士兵")+" · "+new[]{"剑士","弓兵","骑兵"}[c.Profession]+" · 等级"+c.Level+"\n主动："+r.Skills.Single(s=>s.Id==c.SkillId).Name+"\n特性："+(c.Traits.Count==0?"无":string.Join("；",c.Traits.Select(t=>r.Traits.Single(d=>d.Id==t.Id).Name+" "+t.Value.ToString("0.##")+TraitUnit(t.Id))))+"\n命中／闪避点数："+r.Hit[c.Profession]+" / "+r.Evasion[c.Profession];
+            return "共享模板："+(r.TemplateIdentity(c.TemplateId)=="captain_awakened"?"异能者队长":r.TemplateIdentity(c.TemplateId)=="captain_normal"?"普通队长":"普通士兵")+" · "+(r.HasProfessionCatalog?r.Professions[c.Profession].Name:BasePersonalEquipment.Profession(BaseRpg.Weapon(c.Profession)))+" · 等级"+c.Level+"\n主动："+r.Skills.Single(s=>s.Id==c.SkillId).Name+"\n特性："+(c.Traits.Count==0?"无":string.Join("；",c.Traits.Select(t=>r.Traits.Single(d=>d.Id==t.Id).Name+" "+t.Value.ToString("0.##")+TraitUnit(t.Id))))+"\n命中／闪避点数："+r.Hit[c.Profession]+" / "+r.Evasion[c.Profession];
         }
         public static string GearDescription(BaseState s,BasePersonalItem item,bool includeName=true)
         {
@@ -100,7 +100,7 @@ namespace BaseConquest.Base
             return heading+"攻击 "+r.EquipmentAttack(d,q).ToString("+0.##;-0.##;0")+
                 "／防御 "+(r.EquipmentScale(d.Defense,q)*r.DefenseEquipmentScale).ToString("+0.##;-0.##;0")+
                 "／生命 "+(r.EquipmentScale(d.Health,q)*r.HealthEquipmentScale).ToString("+0.##;-0.##;0")+
-                (d.Slot=="weapon"?"\n攻击距离 "+(r.Range[d.Weapon=="bow"?1:d.Weapon=="spear"?2:0]+(d.Weapon=="bow"?r.BowQualityRange[q]:0)).ToString("0.##")+"细格":"")+
+                (d.Slot=="weapon"?"\n攻击距离 "+(r.Range[BaseRpg.Profession(BasePersonalEquipment.WeaponKind(d.Weapon))]+(d.Weapon=="bow"?r.BowQualityRange[q]:0)).ToString("0.##")+"细格":"")+
                 "\n暴伤 +"+r.EquipmentScale(d.CritMultiplier,q).ToString("0.##%")+"；移动 "+r.EquipmentScale(d.Movement,q).ToString("+0.##;-0.##;0")+
                 "；基础价值 "+Value(s,item.Template,q).ToString("0.##");
         }

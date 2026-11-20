@@ -50,7 +50,7 @@ namespace BaseConquest.Base
         public static bool BattleActive(BaseState state)=>Opened(state)&&state.Campaign.CurrentMapId==Camp&&state.Campaign.HasActiveBattle&&state.Campaign.ActiveBattle.EventId==BaseThreats.Site(state,Camp).AttackEventId;
         public static bool Encounter(BaseCampaignSession session)=>session?.Opening.MapId==Camp;
         public static void PrepareOpening(BaseState state)
-        {state.Demo.Finale=new BaseDemoFinaleProgress {Version=1,CampBoard=BaseBattlefield.Board(state,"outpost").Clone(),Village=BaseDemoPrologue.CreateVillage()};}
+        {state.Demo.Finale=new BaseDemoFinaleProgress {Version=1,CampBoard=BaseBattlefield.Board(state,"outpost").Clone(),Village=BaseDemoPrologue.CreateVillage(),VillageBoard=BaseWorldMap.CreateWorld()};}
         public static void InstallMarker(BaseState state)
         {if(Enabled(state))state.Campaign.Layouts.Single(map=>map.Region=="base").Objects.Add(new BaseMapPlacement {Id="demo_march_exit",Name="世界道路 · 首次防守后开放",X=12,Y=.7,Width=2,Height=1,VisualOnly=true});}
         public static string Objective(BaseState s)
@@ -88,7 +88,9 @@ namespace BaseConquest.Base
             var campLayout=story?.Valid==true?story.Map("bandit").Layout.Copy():BaseDemoRelease.Enabled(state)?state.Demo.ReleaseMaps.Single(m=>m.Role=="bandit").Layout.Copy():CreateCampLayout();
             campLayout.SourceMapId=Camp;campaign.Layouts.Add(campLayout);
             var village = story?.Valid==true ? story.ReturnVillage() : state.Demo.Finale.Village.Copy();
-            var homeBoard = story?.Valid==true ? story.Map("village").Board.Clone() : state.Demo.Finale.VillageBoard?.Clone() ?? BaseWorldMap.CreateWorld();
+            var savedVillage=state.Demo.Finale.VillageBoard;
+            var homeBoard = story?.Valid==true ? story.Map("village").Board.Clone() :
+                savedVillage?.Cells?.Length>0 ? savedVillage.Clone() : BaseWorldMap.CreateWorld();
             if(story?.Valid!=true) PrepareVillage(village,homeBoard);
             campaign.Layouts.Add(village);
             var fieldTemplate = story?.Valid==true ? story.Map("field").Layout : campaign.Layouts.Single(m=>m.Region=="perimeter");

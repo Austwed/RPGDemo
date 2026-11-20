@@ -15,7 +15,7 @@ namespace BaseConquest.Base
         private static readonly string[] Wine={BaseWine.Strong,BaseWine.Sake};
         public static readonly string[] Items=Wine.Concat(new[]{SoldierKind.Melee,SoldierKind.Ranged,SoldierKind.Cavalry}
             .Select(kind=>BaseTraining.Book(kind,2))).ToArray();
-        private static string[] StockItems(BaseState s)=>BaseDemoDefense.Won(s)?Items:Wine;
+        private static string[] StockItems(BaseState s)=>BaseDemoDefense.Won(s)?(s.Demo?.Rpg?.HasProfessionCatalog==true?Wine.Concat(BaseTraining.SoldierKinds(s).Select(kind=>BaseTraining.Book(kind,2))).ToArray():Items):Wine;
         public static int Price(BaseState s,string id)=>BaseRpg.Active(s)?BaseRpg.Price(s,BaseRpg.Value(s,id),true):Price(id);
         public static int Price(string id)=>id.EndsWith("_advanced")?80:id.StartsWith("training_")?20:id==BaseWine.Strong?20:15;
         public static int Stock(string id)=>id.EndsWith("_advanced")?5:id.StartsWith("training_")?10:3;
