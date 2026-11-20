@@ -469,6 +469,8 @@ namespace BaseConquest.Editor
                         changes.Add(table.Sheet + " · " + (before?.Label ?? after.Label) + (before == null ? " · 新增" : " · 移除"));
                         continue;
                     }
+                    if (table.IsCollection && before.Order != after.Order)
+                        changes.Add(table.Sheet + " · " + after.Label + " · " + OrderColumn + "  " + before.Order + " → " + after.Order);
                     foreach (var field in table.Fields)
                         if (!Same(before.Values[field.Id], after.Values[field.Id]))
                             changes.Add(table.Sheet + " · " + after.Label + " · " + field.Label + "  " +

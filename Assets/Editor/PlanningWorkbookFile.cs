@@ -19,11 +19,12 @@ namespace BaseConquest.Editor
         private static readonly XNamespace Content = "http://schemas.openxmlformats.org/package/2006/content-types";
         private const string Price = "基准购入价（币）";
         private const string StyleXml = @"<styleSheet xmlns=""http://schemas.openxmlformats.org/spreadsheetml/2006/main"">
+<numFmts count=""1""><numFmt numFmtId=""164"" formatCode=""0.00##""/></numFmts>
 <fonts count=""3""><font><sz val=""11""/><name val=""等线""/></font><font><b/><sz val=""11""/><name val=""等线""/></font><font><color rgb=""FF626262""/><sz val=""11""/><name val=""等线""/></font></fonts>
 <fills count=""3""><fill><patternFill patternType=""none""/></fill><fill><patternFill patternType=""gray125""/></fill><fill><patternFill patternType=""solid""><fgColor rgb=""FFF2F2F2""/><bgColor indexed=""64""/></patternFill></fill></fills>
 <borders count=""2""><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style=""thin""><color rgb=""FFD1D1D1""/></bottom><diagonal/></border></borders>
 <cellStyleXfs count=""1""><xf numFmtId=""0"" fontId=""0"" fillId=""0"" borderId=""0""/></cellStyleXfs>
-<cellXfs count=""4""><xf numFmtId=""0"" fontId=""0"" fillId=""0"" borderId=""0"" xfId=""0""/><xf numFmtId=""0"" fontId=""1"" fillId=""2"" borderId=""1"" xfId=""0"" applyFont=""1"" applyFill=""1"" applyBorder=""1""/><xf numFmtId=""0"" fontId=""2"" fillId=""0"" borderId=""0"" xfId=""0"" applyFont=""1""/><xf numFmtId=""0"" fontId=""1"" fillId=""0"" borderId=""0"" xfId=""0"" applyFont=""1""/></cellXfs>
+<cellXfs count=""6""><xf numFmtId=""0"" fontId=""0"" fillId=""0"" borderId=""0"" xfId=""0""/><xf numFmtId=""0"" fontId=""1"" fillId=""2"" borderId=""1"" xfId=""0"" applyFont=""1"" applyFill=""1"" applyBorder=""1""/><xf numFmtId=""0"" fontId=""2"" fillId=""0"" borderId=""0"" xfId=""0"" applyFont=""1""/><xf numFmtId=""0"" fontId=""1"" fillId=""0"" borderId=""0"" xfId=""0"" applyFont=""1""/><xf numFmtId=""164"" fontId=""0"" fillId=""0"" borderId=""0"" xfId=""0"" applyNumberFormat=""1""/><xf numFmtId=""10"" fontId=""0"" fillId=""0"" borderId=""0"" xfId=""0"" applyNumberFormat=""1""/></cellXfs>
 <cellStyles count=""1""><cellStyle name=""Normal"" xfId=""0"" builtinId=""0""/></cellStyles>
 </styleSheet>";
 
@@ -63,7 +64,12 @@ namespace BaseConquest.Editor
                     var values = rows[n];
                     for (int i = 0; i < values.Length; i++)
                     {
-                        Add(start + n + 1, i + left, values[i]);
+                        int style = 0;
+                        if ((id == "cfg_gear" || id == "cfg_try_gear") &&
+                            i < visible && headers[i] != "价值阶段" && values[i]?.Type == JTokenType.Float)
+                            style = 4;
+                        if (id == "cfg_quality" && headers[i] == "掉落概率") style = 5;
+                        Add(start + n + 1, i + left, values[i], style);
                         if (i < visible && values[i]?.Type == JTokenType.String)
                             Width(i + left, Math.Min(42, WidthOf(values[i].Value<string>()) + 2));
                     }

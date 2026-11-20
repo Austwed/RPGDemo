@@ -139,6 +139,13 @@ namespace BaseConquest.Editor
             reversed.Tables["cfg_units"].Reverse();
             var sortedAgain = Compile(schema, ReadMaster(schema, PlanningWorkbookFile.Create(schema, reversed, false)));
             Need(JsonUtility.ToJson(sortedAgain) == actual, "Excel 排序改变了游戏配置");
+            var entries = reversed.Tables["cfg_units"];
+            var a = entries.First();
+            var b = entries.Last();
+            (a.Order, b.Order) = (b.Order, a.Order);
+            var reordered = Compile(schema, reversed);
+            var changes = Diff(schema, data, FromRules(schema, JObject.Parse(JsonUtility.ToJson(reordered))));
+            Need(changes.Count == 2 && changes.All(line => line.Contains(OrderColumn)), "互换运行顺序须预览两行");
         }
 
         private static void VerifyShot(BaseState stage, double expected, bool hit)
