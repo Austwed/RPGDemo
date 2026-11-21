@@ -425,7 +425,6 @@ namespace BaseConquest.Base
                 Canvas.ForceUpdateCanvases();
                 panelScroll.StopMovement();
                 content.anchoredPosition = new Vector2(0, Mathf.Clamp(restoreScrollOffset, 0, Mathf.Max(0, content.rect.height - panelScroll.viewport.rect.height)));
-                PaintOtherWoodScreen(panel);
                 return;
             }
             content.sizeDelta = new Vector2(880, Mathf.Max(440, row + 12));

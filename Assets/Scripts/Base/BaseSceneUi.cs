@@ -131,7 +131,6 @@ namespace BaseConquest.Base
                 if (!BaseBattleGateway.CustomMapTestMode) Add("阶段测试档", OpenDemoStages);
                 if (BaseDemo.Active(state)) Add("独立即时战斗测试", OpenStandaloneBattleTest);
             }
-            PaintOtherWoodScreen(view);
             RefreshSummary();
         }
     }

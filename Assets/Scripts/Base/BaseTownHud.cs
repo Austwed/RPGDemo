@@ -19,7 +19,7 @@ namespace BaseConquest.Base
         private string tradePerson="",tradeSelection="",tradeSale="",tradeFeedback="";
         private int tradeQuantity=1;
         private bool tradeBuying=true;
-        private readonly Dictionary<string,(Button Button,bool SoldOut)> tradeOffers = new();
+        private readonly Dictionary<string,(Button Button,Color Fill,bool SoldOut)> tradeOffers = new();
 
         private void OpenTownMarket()=>OpenTownChat("town_peddler");
 
@@ -99,7 +99,7 @@ namespace BaseConquest.Base
         private void TradeOffer(Transform list,string id,string title,InventoryItemIcons.Icon? itemIcon=null,bool soldOut=false)
         {
             var button = TradeButton(list,title,()=>SelectTradeOffer(id));
-            tradeOffers[id] = (button,soldOut);
+            tradeOffers[id] = (button,button.targetGraphic.color,soldOut);
             StyleTradeOffer(id,tradeSale==""&&tradeSelection==id);
             InventoryItemIcons.LeadLabel(button.GetComponentInChildren<Text>(true), itemIcon ?? InventoryItemIcons.Load(id), 26);
         }
@@ -107,11 +107,9 @@ namespace BaseConquest.Base
         private void StyleTradeOffer(string id,bool selected)
         {
             if (!tradeOffers.TryGetValue(id,out var row)) return;
-            var image = (Image)row.Button.targetGraphic;
-            var label = row.Button.GetComponentInChildren<Text>(true);
-            PaintWoodButton(row.Button, image, label, selected);
-            if (row.SoldOut)
-                image.color = new Color32(155, 142, 127, 255);
+            var theme = DemoUiTheme.Current;
+            Color fill = selected ? theme.Gold : row.Fill;
+            row.Button.targetGraphic.color = row.SoldOut ? Color.Lerp(fill,theme.Muted,.5f) : fill;
         }
 
         private void SelectTradeOffer(string id)
@@ -239,11 +237,11 @@ namespace BaseConquest.Base
                     }
                 }
             }
+            LayoutRecruitmentPanels(view, tradeShelf == TradeShelf.Recruits);
             Canvas.ForceUpdateCanvases();
             offers.verticalNormalizedPosition=listPosition;
             right.verticalNormalizedPosition=bagPosition;
             details.verticalNormalizedPosition=1;
-            PaintOtherWoodScreen(view, recruitLayout: tradeShelf == TradeShelf.Recruits);
         }
 
         private string CurrentTradeShelfTitle()
@@ -258,7 +256,6 @@ namespace BaseConquest.Base
             Ui<Text>(panel,"SellerSpeech").text=tradeShelf==TradeShelf.Reforge||tradeFeedback==""?CurrentTradeShelfTitle():tradeFeedback;
             details.StopMovement();
             details.verticalNormalizedPosition=1;
-            PaintOtherWoodScreen(panel, recruitLayout: tradeShelf == TradeShelf.Recruits);
         }
 
         private void ReturnToTradeDialogue()

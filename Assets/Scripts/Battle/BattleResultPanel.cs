@@ -104,7 +104,6 @@ namespace BaseConquest.Battle
             if(Visible!=visible)backdrop.gameObject.SetActive(visible);
             if(!visible)return;
             panel.sizeDelta=new Vector2(Mathf.Min(830,Mathf.Max(240,available.x-32)),Mathf.Min(470,Mathf.Max(220,available.y-24)));
-            if(opening && BaseBattleGateway.DemoMode) BaseHud.PaintOtherWoodScreen(panel);
             bool campaign=owner!=null&&owner.IsCampaignBattle, ended=campaign&&owner.CampaignGameOver;
             viewBoard.gameObject.SetActive(!ended);returnBase.gameObject.SetActive(campaign&&!ended);
             returnBase.interactable=campaign&&owner.CanReturnCampaign;

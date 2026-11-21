@@ -201,7 +201,6 @@ namespace BaseConquest.Base
             prepRows.Clear();
             prepRosterUnits = BasePersonnel.Soldiers(state).ToDictionary(unit => unit.Key);
             RefreshPreparationEdits();
-            PaintOtherWoodScreen(view);
             Canvas.ForceUpdateCanvases();
             prepRoster.content.anchoredPosition = new Vector2(0, Mathf.Clamp(prepRosterScroll, 0, Mathf.Max(0, prepRoster.content.rect.height - prepRoster.viewport.rect.height)));
         }

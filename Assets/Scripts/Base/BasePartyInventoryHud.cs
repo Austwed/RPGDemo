@@ -87,7 +87,6 @@ namespace BaseConquest.Base
                 foreach (var person in people)
                     BuildInventoryCard(cards, person, entries, inventorySelected, true, null);
             }
-            PaintOtherWoodScreen(panel);
             if (inventorySelectedCell != null) ShowInventoryItemMenu(settleLayout: true);
             if (BaseDemoIntro.Daily(state)) state.Demo.Intro.BackpackOpened = true;
             RefreshSummary();
@@ -165,6 +164,11 @@ namespace BaseConquest.Base
         {
             var card = CloneSceneUi("PartyMemberCard", parent);
             card.name = "人物与背包_" + person.Id;
+            if (editable)
+            {
+                card.GetComponent<Image>().enabled = false;
+                card.Find("BackpackBackground").gameObject.SetActive(true);
+            }
             var title = InventoryButton(card, "Name", BasePersonnel.LeaderName(person) + " · " + BasePersonalEquipment.ClassName(person),
                 editable ? (Action)(() => { inventoryPerson = person.Id; ClearInventorySelection(); RefreshQuestCue(); }) : null);
             if (editable) BindInventoryDrop(title.gameObject, null, person.Id, -2, "");
@@ -369,9 +373,6 @@ namespace BaseConquest.Base
             InventoryButton(popup, "Close", null, () => CloseInventoryItemMenu());
             BindInventoryDetails(popup, entry, owner.State.Leaders.Single(person => person.Id == inventoryPerson), inventoryWarehouse);
             if (entry.Worn) FitWornItemDetails(popup);
-            AddWoodPanelInsets(popup);
-            ApplyWoodPaper(popup);
-            ApplyWoodClose(popup, small: true);
             if (settleLayout) Canvas.ForceUpdateCanvases();
 
             var selected = inventorySelectedCell;

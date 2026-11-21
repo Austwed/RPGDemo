@@ -41,7 +41,6 @@ namespace BaseConquest.Base
 
         private void FinishFacilityPanel()
         {
-            if (panelViewKey != "barracks:facility") PaintOtherWoodScreen(panel);
             Canvas.ForceUpdateCanvases();
             Restore(facilityControls, facilityScrollOffsets.x);
             Restore(panelScroll, facilityScrollOffsets.y);
@@ -242,7 +241,6 @@ namespace BaseConquest.Base
             view.RefreshActions(draft, BaseEconomy.ProjectDay(draft), count, pending);
 
             FillFacilityWorkers(view, draft);
-            PaintOtherWoodScreen(panel);
             if (rebuildActions) RestoreProductionScroll(facilityControls, actionOffset);
         }
 
@@ -704,7 +702,6 @@ namespace BaseConquest.Base
                     offset = Mathf.Clamp(offset, 0, Mathf.Max(0, list.rect.height - rosterScroll.viewport.rect.height));
                 }
                 list.anchoredPosition = new Vector2(0, offset);
-                PaintWoodBarracks(panel, list);
             }
         }
 

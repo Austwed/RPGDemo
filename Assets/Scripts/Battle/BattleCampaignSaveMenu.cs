@@ -242,7 +242,6 @@ namespace BaseConquest.Battle
             UiPrefabBinding.Complete(campaignMenu);
             if (page == CampaignMenuPage.Audio)
                 GameAudioVolume.AddControls(panel, saveMenuFont, new Vector2(.5f, .5f), new Vector2(0, -12), 620);
-            if (demo) BaseHud.PaintOtherWoodScreen(panel);
             hud?.Refresh();
         }
 

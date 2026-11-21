@@ -136,7 +136,6 @@ namespace BaseConquest.Base
                 labels[i] = rows[i].GetComponentInChildren<Text>(true);
             }
             ShowSegment(0);
-            PaintOtherWoodScreen(view);
             RefreshSummary();
             Canvas.ForceUpdateCanvases();
 
