@@ -139,10 +139,12 @@ namespace BaseConquest.Editor
         {
             string seed=System.IO.Path.Combine(Application.streamingAssetsPath,"BaseScenarios",BaseDemo.BalanceTemplate);
             var state=DemoStageSaveTools.OpenFirstRuins(System.IO.File.ReadAllText(seed),"male",DemoBalanceRuntime.Load().Rules);
+            int caveDay=state.Day;
             var session=BaseDemoRuins.Begin(state,"none");
             state.Campaign.ActiveBattle.Scenario.RandomSeed=session.Opening.Scenario.RandomSeed=session.Battle.Scenario.RandomSeed=DemoStageSaveTools.StageGenerationSeed;
             var battle=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(battle);battle.Model.SetPaused(false);
             DemoStageSaveTools.CompleteFirstRuins(state,battle);
+            Need(state.Day==caveDay,"古窟开战和结算不能推进日期");
             foreach(var leader in state.Leaders){leader.Health=leader.MaxHealth;leader.Fate="active";}
             BaseSceneRules.LeaveDungeon(state);
             At(state,"demo_ruins_return");Need(BaseCampaign.Travel(state,"town"),"古窟首通后返回城镇");
@@ -176,11 +178,23 @@ namespace BaseConquest.Editor
                 Need(state.Day<BaseDemoDefense.ArrivalDay,"预设首防应于第 6 天到达");
                 At(state,"home");Need(BaseEconomy.Rest(state,state.Day),"推进到来袭日");
             }
+            int arrival=state.Day;
+            At(state,"home");
+            try
+            {
+                BaseCampaign.Rest(state,arrival,_=>null);
+                throw new Exception("入侵未处理仍能休息");
+            }
+            catch(InvalidOperationException e) when(e.Message.Contains("无法休息")) { }
             At(state,"exit_east");Need(BaseCampaign.Travel(state,"town"),"来袭日仍可进城整备");
             At(state,"demo_ruins_exit");
-            Need(!BaseDemoRuins.Travel(state,"outpost")&&state.Campaign.Location=="town"&&BaseDemoRuins.TravelProblem(state,"outpost").Contains("先处理营地入侵"),
-                "首防抵达后仍须先应对入侵，失败提示应保留");
-            Debug.Log("[FirstRaidWarningRoad] PASS：第 3 天灰岩镇出入古窟野外并写档回读；实际来袭后限制生效");
+            Need(BaseCampaign.Travel(state,"outpost"),"来袭日仍可从镇上进入野地");
+            At(state,"demo_ruins_investigate");BaseSceneRules.EnterDungeon(state);BaseSceneRules.LeaveDungeon(state);
+            At(state,"demo_ruins_return");Need(BaseCampaign.Travel(state,"town"),"来袭日仍可从野地回镇");
+            At(state,"travel_base");Need(BaseCampaign.Travel(state,"base"),"来袭日仍可从镇上回营");
+            At(state,"demo_defense_exit");Need(BaseCampaign.Travel(state,"perimeter"),"来袭日仍可进入迎敌战场");
+            Need(state.Day==arrival&&BaseDemoDefense.Due(state),"休息被拒绝及领地内各次转场均应保留日期和入侵");
+            Debug.Log("[FirstRaidWarningRoad] PASS：第 3 天往返写档回读，第 6 天照常转场且日期不变，休息受限");
         }
         public static void RunAll()
         {

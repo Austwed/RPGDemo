@@ -100,6 +100,8 @@ namespace BaseConquest.Base
         internal bool DepartWorldMarch(BaseBattlePreparation draft, bool production)
         {
             if (Busy || WorldMarchRunning || pendingWorldRoute == null) return false;
+            string problem = BaseWorldJourney.DayAdvanceProblem(State, pendingWorldRoute);
+            if (problem != "") { ReportMessage(problem, showFeedback:true); return false; }
             var entry = pendingWorldEntry;
             if (!Change(state => BaseWorldJourney.Depart(state, entry, pendingWorldRoute, draft, production), "队伍已出发")) return false;
             pendingWorldRoute = null;
@@ -128,6 +130,8 @@ namespace BaseConquest.Base
             {
                 while (BaseWorldJourney.OnWorld(State) && BaseWorldJourney.Marching(State) && !State.Aftermath.GameOver && !BaseBattleLoot.Pending(State) && !Hud.PanelOpen)
                 {
+                    var current = State.Campaign.WorldJourney;
+                    if (BaseWorldJourney.DayAdvanceProblem(State, current.Route, current.RoadIndex) != "") break;
                     Busy = true;
                     foreach (var file in BaseWorldJourney.RequiredBattles(State).Where(name => !documents.ContainsKey(name)).ToArray())
                     {

@@ -177,23 +177,31 @@ namespace BaseConquest.Base
         public static void Depart(BaseState state,string entry,IEnumerable<string> path,BaseBattlePreparation draft,bool production)
         {
             if(Marching(state)||draft?.Route!=BasePrepRoute.Travel)throw new InvalidOperationException("请先在地图上选择目的地并整备队伍");
+            var route = path.ToList();
+            string problem = DayAdvanceProblem(state, route);
+            if (problem != "") throw new InvalidOperationException(problem);
             if(entry!=null)BaseAdventure.RecallPaused(state);
             draft.CommitTravelParty(state,production);
             if(entry!=null)EnterWorld(state,entry);
-            Start(state,path);
+            Start(state,route);
         }
+        internal static string DayAdvanceProblem(BaseState state, IReadOnlyList<string> route, int index = 0)
+            => route != null && index + 1 < route.Count &&
+                Road(state.Campaign.WorldJourney, route[index], route[index + 1]) is { Days: > 0 } &&
+                BaseDemoDefense.AnyDue(state) ? "需先处理本日入侵，再结算生产" : "";
+
         private static bool InterceptsSecond(BaseState state,BaseWorldRoad road)
         {
             int raidDay=BaseDemoDefense.SecondArrival(state);
             var world=state.Campaign.WorldJourney;
-            return raidDay>0&&world.NodeId=="camp"&&world.Route[world.RoadIndex+1]=="bandit"&&
-                (state.Day==raidDay||state.Day+road.Days-world.RoadDay==raidDay);
+            return raidDay>state.Day&&world.NodeId=="camp"&&world.Route[world.RoadIndex+1]=="bandit"&&
+                state.Day+road.Days-world.RoadDay==raidDay;
         }
         public static IEnumerable<string> RequiredBattles(BaseState state)
         {
             var world=state.Campaign.WorldJourney;
             var road=Road(world,world.NodeId,world.Route[world.RoadIndex+1]);
-            if(road.Days==0) return Enumerable.Empty<string>();
+            if(road.Days==0 || DayAdvanceProblem(state,world.Route,world.RoadIndex)!="") return Enumerable.Empty<string>();
             bool intercept=InterceptsSecond(state,road);
             return BaseCampaign.Due(state).Where(mission=>!intercept||mission.Id!=BaseDemoDefense.SecondEventId)
                 .Select(mission=>mission.ScenarioFile).Distinct();
@@ -202,7 +210,7 @@ namespace BaseConquest.Base
         {
             if(!OnWorld(state)||!Marching(state)||BaseBattleLoot.Pending(state)||state.Campaign.HasActiveBattle||state.Aftermath.GameOver)return false;
             var world=state.Campaign.WorldJourney;var road=Road(world,world.NodeId,world.Route[world.RoadIndex+1]);
-            if(!Passable(state,road))return false;
+            if(!Passable(state,road)||DayAdvanceProblem(state,world.Route,world.RoadIndex)!="")return false;
             if(InterceptsSecond(state,road))BaseDemoDefense.CancelSecond(state,"intercepted");
             if(road.Days>0){int day=state.Day;if(!BaseCampaign.Rest(state,day,resolve,true))return false;if(state.Aftermath.GameOver)return true;if(state.Day!=day+1)return false;world.RoadDay++;}
             if(world.RoadDay>=road.Days){world.NodeId=world.Route[++world.RoadIndex];world.RoadDay=0;if(world.RoadIndex==world.Route.Count-1){world.Route.Clear();world.RoadIndex=0;}}

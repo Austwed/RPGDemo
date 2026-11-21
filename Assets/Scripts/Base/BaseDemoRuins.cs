@@ -89,8 +89,7 @@ namespace BaseConquest.Base
         }
         public static string TravelProblem(BaseState state,string target)
         {
-            if(BaseDemoDefense.Enabled(state)&&(target=="perimeter"||state.Campaign.Location=="perimeter"||state.Demo.Stage==BaseDemoStage.DefenseWarned&&!BaseTown.DemoRecruitment(state)))return BaseDemoDefense.TravelProblem(state,target);
-            if(target=="outpost"&&BaseDemoDefense.Due(state))return "先处理营地入侵，可往返"+BaseScriptNames.Town+"招兵整备";
+            if(BaseDemoDefense.Enabled(state)&&(target=="perimeter"||state.Campaign.Location=="perimeter"))return BaseDemoDefense.TravelProblem(state,target);
             if(BaseDemoPrologue.Village(state)||state.Demo.Stage==BaseDemoStage.Waking)return "请先完成当前序章／醒来目标";
             if(BaseSceneCombat.Active(state)||BaseBattleLoot.Pending(state)||state.Aftermath.GameOver)return "请先处理当前战斗／战果";
             bool at(string region,string id)=>BaseInteraction.At(state,region,id);
@@ -101,7 +100,7 @@ namespace BaseConquest.Base
         }
         public static bool Travel(BaseState state,string target)
         {
-            if(BaseDemoDefense.Enabled(state)&&(target=="perimeter"||state.Campaign.Location=="perimeter"||state.Demo.Stage==BaseDemoStage.DefenseWarned&&!BaseTown.DemoRecruitment(state)))return BaseDemoDefense.Travel(state,target);
+            if(BaseDemoDefense.Enabled(state)&&(target=="perimeter"||state.Campaign.Location=="perimeter"))return BaseDemoDefense.Travel(state,target);
             if(!Enabled(state)||TravelProblem(state,target)!="")return false;
             if(state.Campaign.Location=="base"){state.Campaign.BaseX=state.PlayerX;state.Campaign.BaseY=state.PlayerY;}
             string from=state.Campaign.Location;state.Campaign.Location=target;var layout=BaseSpatial.Layout(state);

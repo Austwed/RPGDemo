@@ -14,9 +14,11 @@ namespace BaseConquest.Editor
             EnterDefenseField(state);
             SaveRouteCheckpoint(state, "home-field");
             if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"field");
+            int defenseDay = state.Day;
             state = WinRouteBattle(state, BasePrepRoute.Defense);
             BaseDemoDefense.AcknowledgeBatu(state);
             ResolveLoot(state);
+            Need(state.Day == defenseDay, "迎战、战果及对白不能推进日期");
             Note($"第 {state.Day} 天首防结算，巴图{(state.Demo.Defense.BatuFate == "dead" ? "战死" : "撤离")}，对白确认后第二波排在第 {BaseDemoDefense.SecondArrival(state)} 天。");
             if(state.Demo.StoryScene?.Version!=2) VerifyDaySixDirectAttack(state.Copy());
             var merchantVisit=state.Copy();
@@ -204,6 +206,7 @@ namespace BaseConquest.Editor
                 Need(BaseEconomy.Rest(branch, day), "分支留营等待第二波时未结算日期");
             }
             Need(BaseDemoDefense.SecondDue(branch), "留营分支未触发第二波");
+            if (worldOpened) VerifyRaidDayMarch(branch.Copy());
             EnterDefenseField(branch);
             var priorSite = branch.Campaign.EnemySites.Single().Copy();
             var wave = OpenRouteBattle(branch, BasePrepRoute.Second);
@@ -218,6 +221,31 @@ namespace BaseConquest.Editor
             else if (outcome == BattleOutcome.SideBWin)
                 Need(BaseDemoCombat.Fail(branch, wave) && branch.Aftermath.GameOver, "第二波败北没有进游戏结束");
             Note($"旁支在世界地图{(worldOpened ? "已" : "未")}开放时留营至第 {arrival} 天，第二波真实运行 {wave.Model.Elapsed:F1} 秒，结果 {outcome?.ToString() ?? "90 秒内未结束"}；撤退不可用。");
+        }
+
+        private static void VerifyRaidDayMarch(BaseState state)
+        {
+            At(state,"demo_march_exit");
+            var route = BaseWorldJourney.Plan(state,null,"bandit","camp_entry");
+            var draft = PrepareRouteRoster(state,BasePrepRoute.Travel);
+            int day = state.Day;
+            try
+            {
+                BaseWorldJourney.Depart(state,"camp_entry",route.Path,draft,false);
+                throw new Exception("已经到场的第二波被行军跳过");
+            }
+            catch (InvalidOperationException error) when (error.Message.Contains("需先处理本日入侵")) { }
+            Need(state.Campaign.Location == "base" && !state.Muster.Parties.Any(p => p.Purpose == "expedition"),
+                "行军遭拒后改变了所在地图或人员编制");
+            Need(BaseMuster.Confirm(state,draft.TravelPlan(state)),"未能构造已出发的行军档");
+            BaseWorldJourney.EnterWorld(state,"camp_entry");
+            BaseWorldJourney.Start(state,route.Path);
+            Need(!BaseWorldJourney.Step(state,_=>null) && state.Day==day && BaseDemoDefense.SecondDue(state),
+                "已在世界地图的行军仍必须保留当天和到期入侵");
+            BaseWorldJourney.Road(state.Campaign.WorldJourney,"camp","bandit").Days = 0;
+            Need(BaseWorldJourney.Step(state,_=>null) && state.Day==day && BaseDemoDefense.SecondDue(state),
+                "不耗日的世界地图路段仍应可走，且不消除入侵");
+            Note("第二波抵达后，耗日行军停在当日，不耗日路段可通行。");
         }
 
         private static void VerifySecondRaidOccupation(BaseState branch, BaseEnemySite priorSite, bool worldOpened)

@@ -188,7 +188,6 @@ namespace BaseConquest.Base
             if (id == "demo_march_exit" && !BaseDemoFinale.Opened(owner.State))
             {
                 if (BaseDemoFinale.SecondRaidReportPending(owner.State)) OpenSecondRaidVictoryReport();
-                else if (BaseDemoDefense.AnyDue(owner.State)) OpenDemoScoutWarning();
                 else if (owner.State.Demo.Defense.BatuStoryDay == 0) OpenDemoDefenseAftermath();
                 else owner.PrepareDemoJourney();
                 return true;

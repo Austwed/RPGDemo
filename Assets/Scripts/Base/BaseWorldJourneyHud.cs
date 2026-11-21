@@ -222,12 +222,14 @@ namespace BaseConquest.Base
             var raid=state.Campaign.Events.FirstOrDefault(e=>e.Id==BaseDemoDefense.SecondEventId&&e.Status=="pending");
             conditions.text=raid!=null&&BaseRaidIntel.Known(state,raid)?$"第二波来袭还剩 {Math.Max(0,raid.AvailableDay-state.Day)} 天":"";
             if(marching && !owner.WorldMarchRunning && (owner.Message.Contains("失败") || owner.Message.Contains("未保存")))conditions.text=owner.Message;
+            string dayProblem = BaseWorldJourney.DayAdvanceProblem(state, route, marching ? world.RoadIndex : 0);
+            if(dayProblem!="")conditions.text=dayProblem;
             var entries=world.Entries.Where(entry=>entry.NodeId==Origin&&world.Discovered.Contains(entry.Id)).ToArray();
             if(!entries.Any(entry=>entry.Id==entryId))entryId=entries.FirstOrDefault()?.Id;
             enterAction.gameObject.SetActive(atOrigin && departureEntry==null && !marching && entryId!=null);
             if(entryId!=null)enterLabel.text=entries.Length>1?"选择入口":"进入";
             marchAction.GetComponentInChildren<Text>().text=marching?(owner.WorldMarchRunning?"行军中":"继续行军"):"整备出征";
-            marchAction.interactable=!owner.WorldMarchRunning&&!owner.Busy&&(marching||!atOrigin&&reachable);
+            marchAction.interactable=!owner.WorldMarchRunning&&!owner.Busy&&dayProblem==""&&(marching||!atOrigin&&reachable);
             returnAction.interactable=!owner.Busy&&!owner.WorldMarchRunning&&(!marching||world.RoadDay==0&&entries.Length>0);
             foreach(var node in world.Nodes)
             {
