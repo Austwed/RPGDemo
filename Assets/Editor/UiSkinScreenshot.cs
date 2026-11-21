@@ -2080,26 +2080,26 @@ namespace BaseConquest.Editor
         private static void VerifyAuthoredLayout()
         {
             int index = BasePartyInventory.FreeCell(controller.State, controller.State.PlayerLeaderId);
-            if (index < 0) throw new InvalidOperationException("场景配色检查需要一个空背包格");
+            if (index < 0) throw new InvalidOperationException("场景布局检查需要一个空背包格");
             string path = "BagSlot_" + index;
             var source = (RectTransform)controller.transform.Find("UI 布局源/PartyMemberCard/" + path);
-            var image = source.GetComponent<Image>();
+            var icon = (RectTransform)source.Find("ItemIcon");
             var originalPosition = source.anchoredPosition;
-            var originalColor = image.color;
+            var originalIconPosition = icon.anchoredPosition;
             try
             {
                 source.anchoredPosition += new Vector2(7, -3);
-                image.color = new Color32(190, 141, 84, 255);
+                icon.anchoredPosition += Vector2.up * 5;
                 H.ClosePanel();
                 H.OpenBackpack();
                 var card = RequirePanel("PartyInventory").Find("Cards").GetChild(0);
                 var live = (RectTransform)card.Find(path);
                 if (Vector2.Distance(source.anchoredPosition, live.anchoredPosition) > .01f
-                    || Vector4.Distance(image.color, live.GetComponent<Image>().color) > .005f)
-                    throw new InvalidOperationException("背包格运行时覆盖了场景位置或配色");
-                Log.Add("[PASS] 场景编辑的背包格位置与配色在重新打开时生效");
+                    || Vector2.Distance(icon.anchoredPosition, ((RectTransform)live.Find("ItemIcon")).anchoredPosition) > .01f)
+                    throw new InvalidOperationException("背包格运行时覆盖了场景位置或预制体内的图标位置");
+                Log.Add("[PASS] 场景格子位置与预制体图标位置在重新打开时生效");
             }
-            finally { source.anchoredPosition = originalPosition; image.color = originalColor; }
+            finally { source.anchoredPosition = originalPosition; icon.anchoredPosition = originalIconPosition; }
         }
 
         private static Rect SceneRect(Transform node, Transform relativeTo)
@@ -2122,10 +2122,10 @@ namespace BaseConquest.Editor
             if (group.GetComponentsInChildren<BattleAvatarGraphic>().Length != 0 || group.GetComponentsInChildren<RawImage>().Count(image =>
                     image.name == "全身像" || image.name == "骑乘取景") != count)
                 throw new InvalidOperationException("背包人物卡未统一使用角色全身像");
-            var cards = group.Cast<RectTransform>().Select(card => SceneRect(card, view)).ToArray();
+            var cards = group.Cast<RectTransform>().Select(card => SceneRect(card, group)).ToArray();
             if (view.rect.size != authoredView.rect.size || cards.Length != count ||
                 cards.Any(card => Vector2.Distance(card.size, authoredCard.rect.size) > .1f) ||
-                Mathf.Abs(cards.Average(card => card.center.x) - SceneRect(group, view).center.x) > .1f ||
+                Mathf.Abs(cards.Average(card => card.center.x) - group.rect.center.x) > .1f ||
                 cards.Any(card => Mathf.Abs(card.center.y - cards[0].center.y) > .1f) ||
                 cards.Zip(cards.Skip(1), (left, right) => left.xMax > right.xMin).Any(overlaps => overlaps))
                 throw new InvalidOperationException("独立背包没有沿用固定外窗和等宽居中角色卡：" + count);
@@ -2135,9 +2135,11 @@ namespace BaseConquest.Editor
                 var rect = ((RectTransform)cell.transform).rect;
                 if (Mathf.Abs(rect.width - rect.height) > .1f)
                     throw new InvalidOperationException("物品格或装备槽应为正方形：" + cell.name);
-                if (!string.IsNullOrEmpty(cell.ItemId) && cell.transform.Find("ItemIcon") != null &&
-                    cell.GetComponentInChildren<Text>(true).text != "")
-                    throw new InvalidOperationException("有物品时只显示图标和堆叠数量：" + cell.name);
+                var slotLabel = cell.transform.Find("SlotLabel").GetComponent<Text>();
+                if (!string.IsNullOrEmpty(cell.Slot) && string.IsNullOrEmpty(slotLabel.text))
+                    throw new InvalidOperationException("装备格缺少槽位标识：" + cell.name);
+                if (!string.IsNullOrEmpty(cell.ItemId) && !cell.transform.Find("ItemIcon").GetComponent<Image>().enabled)
+                    throw new InvalidOperationException("有物品的格子缺少图标：" + cell.name);
             }
             foreach (var person in controller.State.Leaders.Where(leader => BaseCommanderIdentity.Appearance(leader) == "azhu"))
             {
@@ -2819,7 +2821,7 @@ namespace BaseConquest.Editor
             BasePartyInventory.Find(upgraded, weapon.Id).Gear.Quality++;
             float previousAttack = BasePersonalEquipment.Stats(before.Leaders.Single(person => person.Id == before.PlayerLeaderId)).Damage;
             float upgradedAttack = BasePersonalEquipment.Stats(upgraded.Leaders.Single(person => person.Id == before.PlayerLeaderId)).Damage;
-            string preview = "攻击 " + previousAttack.ToString("0.####") + " → " + upgradedAttack.ToString("0.####");
+            string preview = "攻击 " + previousAttack.ToString("0") + " → " + upgradedAttack.ToString("0");
             if (upgradedAttack <= previousAttack || !details.GetComponentsInChildren<Text>().Any(label => label.text.Contains("升档后") && label.text.Contains(preview)))
                 throw new InvalidOperationException("重铸确认前未显示新手短剑的实际升档收益");
             Capture("ui-skin-town-reforge-odds");
@@ -2833,7 +2835,7 @@ namespace BaseConquest.Editor
                 throw new InvalidOperationException("确认重铸后未正确扣除一颗锻造石并结算原武器品质");
             string outcome = BasePersonalEquipment.Qualities[quote.Quality] + " → " + BasePersonalEquipment.Qualities[result.Quality];
             float actualAttack = BasePersonalEquipment.Stats(after.Leaders.Single(person => person.Id == after.PlayerLeaderId)).Damage;
-            string changes = previousAttack == actualAttack ? "属性未变" : "攻击 " + previousAttack.ToString("0.####") + " → " + actualAttack.ToString("0.####");
+            string changes = previousAttack == actualAttack ? "属性未变" : "攻击 " + previousAttack.ToString("0") + " → " + actualAttack.ToString("0");
             var trade = RequirePanel("TownTrade");
             var confirm = trade.Find("Details").GetComponentsInChildren<Button>().Single(button => button.GetComponentInChildren<Text>().text == "确认重铸");
             var feedback = confirm.transform.parent.GetChild(confirm.transform.GetSiblingIndex() + 1).GetComponent<Text>();
@@ -2975,16 +2977,34 @@ namespace BaseConquest.Editor
             ClickHudButton(InventoryCell(view, gear.Id).transform);
             view = RequirePanel("PartyInventory");
             Capture("ui-skin-backpack-equipment-popup");
-            Press(view.Find("InventoryItemMenu"), "Primary");
-            if (BasePartyInventory.Find(controller.State, gear.Id).Worn) throw new InvalidOperationException("背包贴格小窗无法卸下装备");
+            var popup = view.Find("InventoryItemMenu");
+            if (popup.Find("Primary").gameObject.activeSelf)
+                throw new InvalidOperationException("穿戴中的装备仍显示穿戴操作");
+            Press(popup, "Close");
+
+            var source = InventoryCell(view, gear.Id);
+            var destination = view.GetComponentsInChildren<PartyInventoryCell>()
+                .First(cell => cell.Holder == gear.Holder && cell.Cell >= 0 && string.IsNullOrEmpty(cell.ItemId));
+            var pointer = new PointerEventData(EventSystem.current)
+            {
+                position = RectTransformUtility.WorldToScreenPoint(null, source.transform.position)
+            };
+            source.OnBeginDrag(pointer);
+            destination.OnDrop(pointer);
+            source.OnEndDrag(pointer);
+            if (BasePartyInventory.Find(controller.State, gear.Id).Worn)
+                throw new InvalidOperationException("装备无法从装备槽拖回背包");
+
             view = RequirePanel("PartyInventory");
-            Press(view.Find("InventoryItemMenu"), "Primary");
+            if (view.Find("InventoryItemMenu") == null)
+                ClickHudButton(InventoryCell(view, gear.Id).transform);
+            Press(RequirePanel("PartyInventory").Find("InventoryItemMenu"), "Primary");
             if (!BasePartyInventory.Find(controller.State, gear.Id).Worn) throw new InvalidOperationException("背包贴格小窗无法穿戴装备");
             view = RequirePanel("PartyInventory");
             var card = view.Find("Cards").GetChild(0);
             Press(card, "Sort");
             if (!BasePartyInventory.Find(controller.State, gear.Id).Worn) throw new InvalidOperationException("整理背包改变了已装备物品");
-            Log.Add("[PASS] 独立背包的贴格装备详情、卸下、穿戴及整理");
+            Log.Add("[PASS] 独立背包的贴格装备详情、拖回背包、穿戴及整理");
         }
 
         private static void VerifyBackpackTransfer()

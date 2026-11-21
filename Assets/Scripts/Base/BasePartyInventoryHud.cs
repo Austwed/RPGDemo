@@ -87,6 +87,7 @@ namespace BaseConquest.Base
                 foreach (var person in people)
                     BuildInventoryCard(cards, person, entries, inventorySelected, true, null);
             }
+            PaintOtherWoodScreen(panel);
             if (inventorySelectedCell != null) ShowInventoryItemMenu(settleLayout: true);
             if (BaseDemoIntro.Daily(state)) state.Demo.Intro.BackpackOpened = true;
             RefreshSummary();
@@ -192,7 +193,10 @@ namespace BaseConquest.Base
                 string slot = BasePersonalEquipment.Slots[index];
                 if (index == 5 && !extra)
                 {
-                    InventoryButton(card, key, BasePersonalEquipment.SlotName(slot) + "\n锁定", null);
+                    var locked = Ui<Button>(card, key);
+                    locked.interactable = false;
+                    Ui<InventoryItemCellView>(locked.transform, "").Bind(null, false, 2, 0,
+                        BasePersonalEquipment.SlotName(slot), "锁定", false);
                     continue;
                 }
                 BindInventoryCell(Ui<Button>(card, key), held.SingleOrDefault(entry => entry.Slot == slot),
@@ -260,51 +264,30 @@ namespace BaseConquest.Base
         {
             string filter = InventoryFilter(holder);
             bool visible = entry != null && (!editable || entry.Worn || filter == "all" || filter == entry.Category);
-            var label = button.GetComponentInChildren<Text>(true);
-            label.text = slot != "" ? BasePersonalEquipment.SlotName(slot) + "\n空" : entry == null ? "" : "·";
-            UnityEngine.UI.Image qualityFrame = null;
-            if (visible)
-            {
-                var icon = InventoryIcon(entry);
-                label.text = icon.Sprite == null ? "·" : "";
-                if (icon.Sprite != null)
-                    qualityFrame = InventoryItemIcons.DrawCell(button, icon);
-                if (entry.Count > 1)
-                {
-                    var quantity = Label(button.transform, "×" + entry.Count, new Vector2(-16, 10),
-                        new Vector2(28, 16), 13, TextAnchor.MiddleRight, new Vector2(1, 0));
-                    quantity.name = "Quantity";
-                    quantity.color = DemoUiTheme.Current.Panel;
-                    var outline = quantity.gameObject.GetOrAdd<Outline>();
-                    outline.effectColor = DemoUiTheme.Current.Line;
-                }
-            }
+            var item = visible ? entry : null;
+            var view = Ui<InventoryItemCellView>(button.transform, "");
+            var icon = InventoryIcon(item);
+            string slotName = slot == "" ? "" : BasePersonalEquipment.SlotName(slot);
+            string marker = icon.Sprite != null ? "" : item != null ? "·" : slot != "" ? "空" : entry != null ? "·" : "";
+            bool selected = item != null && item.Id == selectedItemId;
+            int quality = item?.Gear?.Quality ?? (item?.Category == "quest" ? 5 : 2);
+            view.Bind(icon.Sprite, visible, quality, item?.Count ?? 0, slotName, marker, selected);
             button.interactable = editable || visible && select != null;
-            if (!editable && !visible)
-            {
-                var colors = button.colors;
-                colors.disabledColor = Color.white;
-                button.colors = colors;
-            }
-            if (editable) button.onClick.AddListener(() => SelectInventoryCell(button, qualityFrame, visible ? entry : null, holder, slot));
-            else if (visible && select != null) button.onClick.AddListener(() => select(entry));
+            if (editable) button.onClick.AddListener(() => SelectInventoryCell(button, view, item, holder, slot));
+            else if (visible && select != null) button.onClick.AddListener(() => select(item));
 
-            if (visible && entry.Id == selectedItemId)
+            if (selected && editable)
             {
-                var reset = HighlightInventoryCell(button, qualityFrame);
-                if (editable)
-                {
-                    resetInventoryHighlight = reset;
-                    inventorySelectedCell = (RectTransform)button.transform;
-                }
+                resetInventoryHighlight = () => { if (view != null) view.SetSelected(false); };
+                inventorySelectedCell = (RectTransform)button.transform;
             }
             if (visible && editable && !entry.Worn && BaseDemoIntro.Daily(owner.State) &&
                 entry.Id == owner.State.Demo.Intro.PracticeId) questSwordTarget = inventoryPracticeCell = (RectTransform)button.transform;
-            if (editable) BindInventoryDrop(button.gameObject, visible ? entry : null, holder, index, slot, !visible && entry != null);
+            if (editable) BindInventoryDrop(button.gameObject, item, holder, index, slot, !visible && entry != null);
             else
             {
-                var cell = button.gameObject.GetOrAdd<PartyInventoryCell>();
-                cell.ItemId = visible ? entry.Id : null;
+                var cell = button.GetComponent<PartyInventoryCell>();
+                cell.ItemId = item?.Id;
                 cell.Holder = holder;
                 cell.Cell = index;
                 cell.Slot = slot;
@@ -319,29 +302,7 @@ namespace BaseConquest.Base
             return InventoryItemIcons.Load(key, entry.Gear?.Quality ?? 2, entry.Category);
         }
 
-        private static Action HighlightInventoryCell(Button button, Image qualityFrame)
-        {
-            if (qualityFrame != null)
-            {
-                var color = qualityFrame.color;
-                var width = qualityFrame.pixelsPerUnitMultiplier;
-                qualityFrame.color = DemoUiTheme.Current.Copper;
-                qualityFrame.pixelsPerUnitMultiplier = .5f;
-                return () => { qualityFrame.color = color; qualityFrame.pixelsPerUnitMultiplier = width; };
-            }
-
-            var outline = button.GetComponent<Outline>();
-            bool wasEnabled = outline != null && outline.enabled;
-            if (outline == null) outline = button.gameObject.AddComponent<Outline>();
-            var effectColor = outline.effectColor;
-            var distance = outline.effectDistance;
-            outline.effectColor = DemoUiTheme.Current.Copper;
-            outline.effectDistance = new Vector2(2, -2);
-            outline.enabled = true;
-            return () => { outline.effectColor = effectColor; outline.effectDistance = distance; outline.enabled = wasEnabled; };
-        }
-
-        private void SelectInventoryCell(Button button, Image qualityFrame, BaseInventoryEntry entry, string holder, string slot)
+        private void SelectInventoryCell(Button button, InventoryItemCellView view, BaseInventoryEntry entry, string holder, string slot)
         {
             CloseInventoryChoice();
             bool twice = inventoryClicks.Click(entry?.Id, Time.unscaledTime);
@@ -357,7 +318,8 @@ namespace BaseConquest.Base
             inventorySelected = entry.Id;
             inventoryQuantity = entry?.Count ?? 1;
             inventorySelectedCell = (RectTransform)button.transform;
-            resetInventoryHighlight = HighlightInventoryCell(button, qualityFrame);
+            view.SetSelected(true);
+            resetInventoryHighlight = () => { if (view != null) view.SetSelected(false); };
             ShowInventoryItemMenu();
             RefreshQuestCue();
         }
@@ -406,6 +368,10 @@ namespace BaseConquest.Base
             var popup = inventoryItemMenu = CloneSceneUi("InventoryItemMenu", panel);
             InventoryButton(popup, "Close", null, () => CloseInventoryItemMenu());
             BindInventoryDetails(popup, entry, owner.State.Leaders.Single(person => person.Id == inventoryPerson), inventoryWarehouse);
+            if (entry.Worn) FitWornItemDetails(popup);
+            AddWoodPanelInsets(popup);
+            ApplyWoodPaper(popup);
+            ApplyWoodClose(popup, small: true);
             if (settleLayout) Canvas.ForceUpdateCanvases();
 
             var selected = inventorySelectedCell;
@@ -415,10 +381,10 @@ namespace BaseConquest.Base
             var topRight = (Vector2)panel.InverseTransformPoint(corners[2]);
             var cell = UnityEngine.Rect.MinMaxRect(bottomLeft.x, bottomLeft.y, topRight.x, topRight.y);
             var offset = popup.anchoredPosition;
-            float minX = panel.rect.xMin - popup.rect.xMin;
-            float maxX = panel.rect.xMax - popup.rect.xMax;
-            float minY = panel.rect.yMin - popup.rect.yMin;
-            float maxY = panel.rect.yMax - popup.rect.yMax;
+            float minX = panel.rect.xMin - popup.rect.xMin + 22;
+            float maxX = panel.rect.xMax - popup.rect.xMax - 22;
+            float minY = panel.rect.yMin - popup.rect.yMin + 16;
+            float maxY = panel.rect.yMax - popup.rect.yMax - 16;
             float x = cell.xMax - popup.rect.xMin + 8 + offset.x;
             float y = cell.center.y - popup.rect.center.y + offset.y;
             if (x > maxX)
@@ -431,7 +397,23 @@ namespace BaseConquest.Base
                     if (y > maxY) y = cell.yMin - popup.rect.yMax - 8 + offset.y;
                 }
             }
-            popup.localPosition = new Vector3(Mathf.Clamp(x, minX, maxX), Mathf.Clamp(y, minY, maxY), popup.localPosition.z);
+            popup.localPosition = new Vector3(minX <= maxX ? Mathf.Clamp(x, minX, maxX) : (minX + maxX) * .5f,
+                minY <= maxY ? Mathf.Clamp(y, minY, maxY) : (minY + maxY) * .5f, popup.localPosition.z);
+        }
+
+        private static void FitWornItemDetails(RectTransform popup)
+        {
+            var description = Ui<Text>(popup, "Description");
+            var area = description.rectTransform;
+            float textHeight = Mathf.Clamp(description.preferredHeight + 4, 44, area.rect.height);
+            var topGap = popup.rect.yMax - (area.anchoredPosition.y + area.rect.height * .5f);
+            float height = topGap + textHeight + 10;
+            float shift = (popup.rect.height - height) * .5f;
+            area.anchoredPosition += Vector2.up * ((area.rect.height - textHeight) * .5f - shift);
+            area.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, textHeight);
+            foreach (var name in new[] { "Title", "Meta" })
+                ((RectTransform)popup.Find(name)).anchoredPosition -= Vector2.up * shift;
+            popup.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
         }
 
         internal bool CloseInventoryItemMenu()
@@ -471,7 +453,7 @@ namespace BaseConquest.Base
             inventoryQuantity = Mathf.Clamp(inventoryQuantity, 1, entry.Count);
             var title = Ui<Text>(details, "Title");
             title.text = entry.Name + (entry.Count > 1 ? " ×" + entry.Count : "");
-            InventoryItemIcons.LeadLabel(title, InventoryIcon(entry), 25);
+            InventoryItemIcons.LeadLabel(title, InventoryIcon(entry), 20);
             var meta = Ui<Text>(details, "Meta");
             string description=entry.Description;
             if(entry.Gear!=null)description=(string.IsNullOrEmpty(description)?"":description+"\n")+InventoryGearDescription(entry,recipient);
@@ -480,13 +462,13 @@ namespace BaseConquest.Base
             string primary = null;
             Action act = null;
             bool allowed = true;
-            if (entry.Gear != null && entry.Holder != "")
+            if (entry.Gear != null && !entry.Worn && entry.Holder != "")
             {
                 var definition = BasePersonalEquipment.Definition(entry.Gear.Template);
-                primary = entry.Worn ? "卸下" : "穿戴";
+                primary = "穿戴";
                 act = () => EquipInventoryEntry(entry, definition.Slot);
                 var wearer = owner.State.Leaders.Single(person => person.Id == entry.Holder);
-                allowed = entry.Worn || definition.Slot != "weapon" || definition.Weapon == wearer.PersonalEquipment.Weapon;
+                allowed = definition.Slot != "weapon" || definition.Weapon == wearer.PersonalEquipment.Weapon;
             }
             else if (entry.Stack != null && (entry.Stack.ItemId == BaseWine.Strong || entry.Stack.ItemId == BaseWine.Sake))
             {
@@ -561,8 +543,7 @@ namespace BaseConquest.Base
         {
             var state = owner.State;
             if (BaseRpg.Active(state))
-                return BaseRpg.GearDescription(state, entry.Gear) + BaseRpg.GearComparison(state, entry.Gear,
-                    string.IsNullOrEmpty(entry.Holder) ? null : entry.Holder);
+                return BaseRpg.GearDescription(state, entry.Gear);
 
             var definition = BasePersonalEquipment.Definition(entry.Gear.Template);
             var person = state.Leaders.FirstOrDefault(candidate => candidate.Id == entry.Holder) ?? selected;

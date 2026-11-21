@@ -173,9 +173,6 @@ namespace BaseConquest.Base
                 PrepButton(card, "Select", null, () => SelectPreparationTeam(team));
                 Ui<Text>(card, "Health").text = $"生命 {Number(team.Health)} / {Number(team.MaxHealth)}";
                 PrepMeter(card, "HealthMeter/Fill", team.MaxHealth > 0 ? team.Health / team.MaxHealth : 0);
-                var membership = card.Find("Assign");
-                membership.gameObject.SetActive(team.Id != battleDraft.PlayerId && !battleDraft.TravelingParty);
-                PrepButton(card, "Assign", null, () => TogglePrepLeader(team));
                 foreach (var kind in troopKinds)
                     BindPrepCount(card, team, BaseCampaign.ToBattle(kind));
             }
@@ -204,6 +201,7 @@ namespace BaseConquest.Base
             prepRows.Clear();
             prepRosterUnits = BasePersonnel.Soldiers(state).ToDictionary(unit => unit.Key);
             RefreshPreparationEdits();
+            PaintOtherWoodScreen(view);
             Canvas.ForceUpdateCanvases();
             prepRoster.content.anchoredPosition = new Vector2(0, Mathf.Clamp(prepRosterScroll, 0, Mathf.Max(0, prepRoster.content.rect.height - prepRoster.viewport.rect.height)));
         }
@@ -223,7 +221,7 @@ namespace BaseConquest.Base
         private static void LayoutTeamCard(Transform card)
         {
             EnsureFourthColumn(card, "Mage", "Ranged");
-            foreach (var key in new[] { "Select", "Health", "HealthMeter", "Assign" })
+            foreach (var key in new[] { "Select", "Health", "HealthMeter" })
                 ((RectTransform)card.Find(key)).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 142);
             int column = 0;
             foreach (var kind in BattleSimulation.TroopKinds)
@@ -291,21 +289,6 @@ namespace BaseConquest.Base
             RefreshPreparationRoster();
         }
 
-        private void TogglePrepLeader(BasePrepUnit leader)
-        {
-            if (leader.Id == battleDraft.PlayerId) return;
-            leader.Selected = !leader.Selected;
-            if (leader.Selected) prepTeam = leader.Id;
-            else
-            {
-                foreach (var soldier in SelectedPrepSoldiers.Where(unit => unit.TeamId == leader.Id).ToArray()) soldier.Selected = false;
-                if (prepTeam == leader.Id) prepTeam = battleDraft.PlayerId;
-            }
-            battleDraft.Prune();
-            prepFeedback = "";
-            RefreshPreparationEdits();
-        }
-
         private int PrepTroopCount(BasePrepUnit team, SoldierKind kind) =>
             SelectedPrepSoldiers.Count(unit => unit.TeamId == team.Id && unit.Kind == kind);
 
@@ -339,7 +322,6 @@ namespace BaseConquest.Base
                 Ui<Image>(card, "Portrait").color = prepTeam == team.Id ? DemoUiTheme.Current.Gold : portraitColor;
                 string marker = team.Selected ? (char)('A' + slot++) + " · " : "○ ";
                 Ui<Text>(card, "Select/Label").text = marker + team.Name;
-                Ui<Text>(card, "Assign/Label").text = team.Selected ? "移出出战" : "加入出战";
                 foreach (var baseKind in BattleSimulation.TroopKinds.Select(BaseCampaign.ToBase))
                 {
                     var kind = BaseCampaign.ToBattle(baseKind);
