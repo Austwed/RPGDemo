@@ -197,10 +197,10 @@ namespace BaseConquest.Base
             {run.OutcomeResolver=current=>BaseDemoCombat.Defeated(current)?BattleOutcome.SideBWin:!current.Model.Units.Any(unit=>unit.Side==PrototypeSide.Enemy&&unit.Alive)?BattleOutcome.SideAWin:BattleOutcome.None;return;}
             run.OutcomeResolver=current=>
             {
-                if(BaseDemoCombat.Defeated(current))return BattleOutcome.SideBWin;
+                if(BaseDemoCombat.Defeated(current))return current.DefensePursuitReady?BattleOutcome.SideAWin:BattleOutcome.SideBWin;
                 var enemies=current.Model.Units.Where(unit=>unit.Side==PrototypeSide.Enemy&&unit.Alive).ToArray();
                 if(enemies.Length==0)return BattleOutcome.SideAWin;
-                if(current.Model.Elapsed+1e-8>=current.Battle.Scenario.Objective.HoldRounds)
+                if(current.DefensePursuitReady)
                 {
                     var exit=current.Battle.ExitCell(BattleSide.B);var point=new PrototypePoint(exit.X+.25,exit.Z+.25);
                     foreach(var enemy in enemies.Where(unit=>unit.Order!=PrototypeOrder.Retreat))

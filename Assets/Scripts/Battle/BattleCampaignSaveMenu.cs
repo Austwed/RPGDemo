@@ -12,7 +12,7 @@ namespace BaseConquest.Battle
     {
         private GameObject campaignMenu;
         private Font saveMenuFont;
-        private enum CampaignMenuPage { Main, Options, Audio, Help, ConfirmMainMenu, ConfirmQuit }
+        private enum CampaignMenuPage { Main, Options, Audio, Help, ConfirmMainMenu, ConfirmQuit, ConfirmDefenseRetreat }
         internal bool UsesCampaignSystemMenu => DeploymentDraftActive || IsCampaignBattle && !IsStandaloneTest;
         internal bool CampaignMenuOpen => campaignMenu != null && !battleBagOpen;
         public void OpenCampaignSaves(bool loading=false)
@@ -213,6 +213,16 @@ namespace BaseConquest.Battle
                 heading.offsetMin = new Vector2(40, -61);
                 heading.offsetMax = new Vector2(-40, -14);
                 Label(heading, helpTopic < 0 ? "帮助" : BaseExperienceRules.Help[helpTopic].Title, 25);
+            }
+            else if (page == CampaignMenuPage.ConfirmDefenseRetreat)
+            {
+                var message=UiPrefabBinding.Rect("WithdrawalEstimate",panel);
+                message.anchorMin=message.anchorMax=new Vector2(.5f,.5f);
+                message.anchoredPosition=new Vector2(0,84);
+                message.sizeDelta=new Vector2(650,88);
+                Label(message,"预计撤退损失\n"+FirstDefenseSettlement(true),20);
+                Option("Withdraw","确认撤退",0,()=>{CloseCampaignMenu();CommitRealtimeRetreat();});
+                Option("Cancel","留在战场",-62,CloseCampaignMenu);
             }
             else if (page == CampaignMenuPage.Audio)
                 Option("Back", "返回选项", 96, OpenCampaignOptions);

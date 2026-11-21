@@ -29,7 +29,7 @@ namespace BaseConquest.Base
                 ||s.InjuryDialogueIds.Any(string.IsNullOrWhiteSpace)||s.InjuryDialogueIds.Distinct().Count()!=s.InjuryDialogueIds.Count)
                 throw new ArgumentException("带伤对白记录非法");
             if (s.Inventory == null || s.Rules == null || s.Leaders == null || s.Workers == null || s.WorkshopProgress == null || s.Inventory.Equipment == null) throw new ArgumentException("据点数据缺少库存、人员或生产规则");
-            if (new[] { s.Inventory.Food, s.Inventory.Materials, s.Inventory.Coins }.Any(x => x < 0 || x > 100000000)) throw new ArgumentException("资源数量越界");
+            if (new[] { s.Inventory.Food, s.Inventory.Materials }.Any(x => x < 0 || x > 100000000) || s.Inventory.Coins < -BaseRaidLoot.DebtLimit(s) || s.Inventory.Coins > 100000000) throw new ArgumentException("资源数量越界");
             if (!Fraction(s.FarmFraction) || !ProductsFor(s).Contains(s.WorkshopProduct) || s.WorkshopProgress.Count != ProductsFor(s).Length || s.WorkshopProgress.Any(x => x == null || !ProductsFor(s).Contains(x.Product) || !Fraction(x.Fraction)) || s.WorkshopProgress.Select(x => x.Product).Distinct().Count() != ProductsFor(s).Length) throw new ArgumentException("生产进度或配方非法");
             BaseCampaign.Normalize(s);
             BaseFacilityLayout.Normalize(s);

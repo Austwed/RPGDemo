@@ -266,7 +266,10 @@ namespace BaseConquest.Battle
             if (changed) Synchronize();
             return changed;
         }
-        public bool DefensePursuitReady=>Session.Opening.EventId==BaseDemoDefense.EventId&&Battle.Phase==BattlePhase.Fighting&&Model.Elapsed+1e-8>=Battle.Scenario.Objective.HoldRounds&&!BaseDemoCombat.Defeated(this);
+        public int DefenseDown => Battle.Soldiers.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned&&!u.Escaped&&!u.IsAlive);
+        public int DefenseTarget => (Battle.Soldiers.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned)+1)/2;
+        public bool DefensePursuitReady => Session.Opening.EventId==BaseDemoDefense.EventId && Battle.Phase==BattlePhase.Fighting
+            && (DefenseDown>=DefenseTarget || Model.Elapsed+1e-8>=Battle.Scenario.Objective.HoldRounds);
         public bool FinishDefensePursuit()
         {
             if(!DefensePursuitReady)return false;

@@ -41,11 +41,13 @@ namespace BaseConquest.Editor
                 var late = Run(template.Copy(), 12, enemyLeft: 2, seconds: 5, win: false, auto: false);
                 Check(early.Take > late.Take, "剩余时间越多应抢得越多（" + early.Take + " vs " + late.Take + "）");
 
-                // 5) 钱包不足时只扣现有，不出现负数。
+                // 5) 修缮最多欠一份守胜赏金。
                 var poor = template.Copy(); poor.Inventory.Coins = 10;
                 var clamped = Run(poor, 12, enemyLeft: 4, seconds: 20, win: false, auto: false);
-                Check(clamped.Coins == 10 && poor.Inventory.Coins == 0, "钱包不足应扣到 0 为止，实际 " + clamped);
+                Check(clamped.Coins == 10+BaseRaidLoot.DebtLimit(poor) && poor.Inventory.Coins == -BaseRaidLoot.DebtLimit(poor), "钱包不足应扣到修缮欠款上限，实际 " + clamped);
                 BaseEconomy.Validate(poor);
+                Check(BaseRaidLoot.Charge(poor,4,20)==0,"已到欠款上限不能继续扣费");
+                Check(BaseRaidLoot.Recovered(3)==1 && BaseRaidLoot.Recovered(4)==2,"每击倒两人回收一原料");
 
                 // 6) 三个开关字段全 0 时不掠（开发者测试入侵）。
                 var silent = Run(template.Copy(), 12, enemyLeft: 4, seconds: 20, win: false, auto: false,

@@ -171,6 +171,7 @@ namespace BaseConquest.Base
             window.anchoredPosition = new Vector2(left - layer.rect.xMin, bottom.y - layer.rect.yMax + window.anchoredPosition.y);
         }
 
+        private int calendarDetailDay;
         private string[] RenderResourceCalendar(BaseState state, Transform content)
         {
             var calendar = CloneSceneUi("ResourceCalendar", content);
@@ -193,13 +194,16 @@ namespace BaseConquest.Base
                 var cell = CloneSceneUi("ResourceCalendarDay", grid);
                 var label = Ui<Text>(cell, "Label");
                 label.text = day.Day + (day.Today ? "\n" + today : day.Raids.Count > 0 ? "\n" + raid : "");
+                var button=cell.gameObject.GetOrAdd<Button>();
+                button.targetGraphic=Ui<Image>(cell,"");
+                button.targetGraphic.raycastTarget=true;
+                button.onClick.AddListener(()=>{calendarDetailDay=day.Day;RenderResourcePopover();});
                 if (day.Today || day.Raids.Count > 0)
                     Ui<Image>(cell, "").color = day.Today ? theme.Gold : Color.Lerp(theme.Panel, theme.Gold, .35f);
                 if (day.Past && day.Raids.Count == 0) label.color = theme.Muted;
             }
-            string eventLine = StoryText.Get("story.ui.resource.calendar.event", "第 {day} 天 · {events}");
-            return days.Where(day => day.Raids.Count > 0)
-                .Select(day => eventLine.Replace("{day}", day.Day.ToString()).Replace("{events}", string.Join("；", day.Raids))).ToArray();
+            var selected=days.FirstOrDefault(d=>d.Day==calendarDetailDay);
+            return selected!=null?new[]{BaseCalendar.DayDetails(state,selected)}:days.Where(d=>d.Raids.Count>0).Select(d=>$"第 {d.Day} 天 · {string.Join("；",d.Raids)}").ToArray();
         }
 
         private void ChangeResourceQuarter(int delta, int limit)

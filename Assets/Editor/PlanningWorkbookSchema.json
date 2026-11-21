@@ -2272,25 +2272,25 @@
         },
         {
           "id": "ThreeDayIntelPrice",
-          "label": "三日情报价格（币）",
+          "label": "五日军情价格（币）",
           "paths": [
             "ThreeDayIntelPrice"
           ],
           "types": [
             "i"
           ],
-          "description": "购买三日情报所需钱币。"
+          "description": "未来五天各波袭击的确切日期。"
         },
         {
           "id": "FiveDayIntelPrice",
-          "label": "五日情报价格（币）",
+          "label": "十日军情价格（币）",
           "paths": [
             "FiveDayIntelPrice"
           ],
           "types": [
             "i"
           ],
-          "description": "购买五日情报所需钱币。"
+          "description": "未来十天各波袭击的确切日期及队长、四兵种人数。"
         },
         {
           "id": "ForgeDailyStock",

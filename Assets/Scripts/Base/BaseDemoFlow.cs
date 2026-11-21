@@ -22,7 +22,7 @@ namespace BaseConquest.Base
     }
     [Serializable] public sealed class BaseRaidIntelEntry
     {
-        public string EventId,Title;public int Day;
+        public string EventId,Title,Composition;public int Day;
         public BaseRaidIntelEntry Copy()=>(BaseRaidIntelEntry)MemberwiseClone();
     }
     [Serializable] public sealed class BaseRaidIntelSnapshot
@@ -60,19 +60,39 @@ namespace BaseConquest.Base
         {
             if(e==null)return false;if(!BaseDemo.Active(s)||e.AvailableDay<=s.Day)return true;
             var flow=s.Demo?.Flow;if(flow==null||e.Status!="pending")return false;
-            return e.Id==BaseDemoDefense.EventId&&flow.FreeFirstRaidDay==e.AvailableDay||(flow.RaidIntel?.Any(x=>x.Window==5&&x.Entries.Any(i=>i.EventId==e.Id&&i.Day==e.AvailableDay))??false);
+            return e.Id==BaseDemoDefense.EventId&&(flow.FreeFirstRaidDay==e.AvailableDay||s.Demo.Defense?.RetryDay==e.AvailableDay)||(flow.RaidIntel?.Any(x=>x.Window>=5&&x.Entries.Any(i=>i.EventId==e.Id&&i.Day==e.AvailableDay))??false);
+        }
+        internal static int[] Counts(BaseState state,BaseCampaignEvent raid)
+        {
+            var army=raid.EnemyArmy;
+            if(army.Count==0 && raid.Id==BaseDemoDefense.EventId)
+            {
+                var opening=state.Demo.Defense.Army.Clone();
+                BaseDemoEncounterConfig.ConfigureArmy(state,raid.Id,opening);
+                return new[]{opening.HeroCount,opening.MeleeCount,opening.RangedCount,opening.CavalryCount,opening.MageCount};
+            }
+            if(army.Count==0 && !string.IsNullOrEmpty(raid.SourceSiteId)){
+                var site=BaseThreats.Site(state,raid.SourceSiteId);
+                if(site!=null)army=BaseThreats.EnemySnapshot(state,raid,site.Capacity);
+            }
+            int Count(BaseConquest.Battle.SoldierKind kind)=>army.Count(u=>!u.Dead && u.Kind==kind);
+            return new[]{BaseConquest.Battle.SoldierKind.Hero,BaseConquest.Battle.SoldierKind.Melee,BaseConquest.Battle.SoldierKind.Ranged,BaseConquest.Battle.SoldierKind.Cavalry,BaseConquest.Battle.SoldierKind.Mage}.Select(Count).ToArray();
+        }
+        private static string Composition(BaseState state,BaseCampaignEvent raid){
+            var n=Counts(state,raid);
+            return $"队长 {n[0]} · 剑 {n[1]} · 弓 {n[2]} · 骑 {n[3]} · 法 {n[4]}";
         }
         public static BaseRaidIntelSnapshot Get(BaseState s,int window)=>s.Demo.Flow.RaidIntel?.FirstOrDefault(x=>x.Day==s.Day&&x.Window==window);
         public static BaseRaidIntelSnapshot Buy(BaseState s,int window)
         {
-            if(!BaseDemoFlow.Active(s)||(window!=3&&window!=5))throw new ArgumentException("消息类型非法");
+            if(!BaseDemoFlow.Active(s)||(window!=5&&window!=10))throw new ArgumentException("消息类型非法");
             var flow=s.Demo.Flow;var existing=Get(s,window);if(existing!=null)return existing;
             var rules=s.Demo.Rpg;if(rules==null||!rules.IntelPricingConfigured)throw new InvalidOperationException("消息价格待配置");
-            int price=window==3?rules.ThreeDayIntelPrice:rules.FiveDayIntelPrice;
+            int price=window==5?rules.ThreeDayIntelPrice:rules.FiveDayIntelPrice;
             if(price<0||price>100000000||s.Inventory.Coins<price)throw new InvalidOperationException("消息价格非法或钱币不足");
             var events=s.Campaign.Events.Where(e=>e.Kind=="defense"&&e.Status=="pending"&&e.AvailableDay>s.Day&&e.AvailableDay<=s.Day+window).OrderBy(e=>e.AvailableDay).ThenBy(e=>e.Id,StringComparer.Ordinal).ToList();
             var snapshot=new BaseRaidIntelSnapshot{Day=s.Day,Window=window,HasRaid=events.Count>0};
-            snapshot.Entries=events.Select(e=>new BaseRaidIntelEntry{EventId=e.Id,Title=e.Title,Day=e.AvailableDay}).ToList();
+            snapshot.Entries=events.Select(e=>new BaseRaidIntelEntry{EventId=e.Id,Title=e.Title,Day=e.AvailableDay,Composition=window==10?Composition(s,e):""}).ToList();
             flow.RaidIntel??=new List<BaseRaidIntelSnapshot>();s.Inventory.Coins-=price;flow.RaidIntel.Add(snapshot);return snapshot;
         }
     }
@@ -110,7 +130,7 @@ namespace BaseConquest.Base
             f.NotifiedRaids??=new List<string>();
             if(!Enum.IsDefined(typeof(BaseSideQuestStage),f.SmithLesson)||!Enum.IsDefined(typeof(BaseSideQuestStage),f.ZhouTraining)||f.ZhouTraining==BaseSideQuestStage.Ready)throw new ArgumentException("营地支线进度非法");
             if(f.NotifiedRaids.Count>100000||f.NotifiedRaids.Any(string.IsNullOrWhiteSpace)||f.NotifiedRaids.Distinct().Count()!=f.NotifiedRaids.Count)throw new ArgumentException("袭击通知记录非法");
-            if(f.FreeFirstRaidDay<0||f.FreeFirstRaidDay>1000000||f.RaidIntel.Count>2000000||f.RaidIntel.Any(x=>x==null||x.Day<1||x.Day>s.Day||(x.Window!=3&&x.Window!=5)||x.Entries==null||x.Entries.Any(e=>e==null||string.IsNullOrEmpty(e.EventId)||string.IsNullOrEmpty(e.Title)||e.Day<=x.Day||e.Day>x.Day+x.Window)||x.HasRaid!=(x.Entries.Count>0))||f.RaidIntel.GroupBy(x=>new{x.Day,x.Window}).Any(g=>g.Count()!=1))throw new ArgumentException("商人消息快照非法");
+            if(f.FreeFirstRaidDay<0||f.FreeFirstRaidDay>1000000||f.RaidIntel.Count>2000000||f.RaidIntel.Any(x=>x==null||x.Day<1||x.Day>s.Day||(x.Window!=3&&x.Window!=5&&x.Window!=10)||x.Entries==null||x.Entries.Any(e=>e==null||string.IsNullOrEmpty(e.EventId)||string.IsNullOrEmpty(e.Title)||e.Day<=x.Day||e.Day>x.Day+x.Window)||x.HasRaid!=(x.Entries.Count>0))||f.RaidIntel.GroupBy(x=>new{x.Day,x.Window}).Any(g=>g.Count()!=1))throw new ArgumentException("商人消息快照非法");
             var controller=s.Aftermath.Prisoners.FirstOrDefault(p=>p.Id==f.FirstControllerId);
             if(f.FirstControllerId==null||f.FirstControllerId!=""&&controller==null||f.ControllerAccepted&&controller==null||f.ControllerPledged&&(!f.ControllerAccepted||controller?.Status!="recruited"))throw new ArgumentException("首个控制者的身份／接纳记录非法");
             if(new[]{f.FarmX,f.FarmY,f.FarmNpcX,f.FarmNpcY}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||f.HiredKinds<0||f.HiredKinds>7||double.IsNaN(f.FarmX)||double.IsInfinity(f.FarmX)||double.IsNaN(f.FarmY)||double.IsInfinity(f.FarmY))throw new ArgumentException("Demo经营教学状态非法");

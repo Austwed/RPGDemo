@@ -215,6 +215,79 @@ namespace BaseConquest.Editor
                 "扫荡未按实际编队人数全额扣军需");
         }
 
+        public static void VerifyDefenseWorkshopLoop()
+        {
+            // 使用随包首防存档及正式的备战、结算和生产入口。分别覆盖主动撤退、击退和超时撤军。
+            foreach(string ending in new[]{"退兵","击退","坚守"})
+            {
+                var state=Load("defense");
+                state.Inventory.Coins=0;
+                Stock(state,1).Count=24;
+                At(state,"demo_defense_start");
+                var draft=new BaseBattlePreparation(state,BasePrepRoute.Defense);
+                var reservists=draft.Units.Where(u=>u.SoldierNumber>0).Take(3).ToArray();
+                foreach(var unit in reservists)unit.Selected=false;
+                draft.AutoPlace();
+                var run=Start(state,draft);
+                BaseDemoDefense.Configure(run);
+                var enemies=run.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy).ToArray();
+                int originalRaw=state.Inventory.Materials;
+                if(ending=="退兵")
+                {
+                    int expected=BaseRaidLoot.Charge(state,enemies.Length,run.Battle.Scenario.Objective.HoldRounds);
+                    Need(BaseDemoCombat.Fail(state,run),"首防撤退结算失败");
+                    Need(expected>0&&state.Inventory.Coins==-expected,"撤退预估与修缮实扣不一致");
+                }
+                else
+                {
+                    if(ending=="击退")
+                    {
+                        foreach(var enemy in enemies.Take((enemies.Length+1)/2))
+                        {
+                            enemy.KnockedDown=true;enemy.Health=1;
+                            var soldier=run.Battle.Soldier(enemy.Id-1);
+                            soldier.KnockedDown=true;soldier.Health=1;soldier.DeathResolved=true;
+                        }
+                    }
+                    else
+                    {
+                        foreach(var actor in run.Model.Units)
+                            run.Battle.Soldier(actor.Id-1).DeveloperInvulnerable=true;
+                    }
+                    run.Model.SetPaused(false);
+                    for(int i=0;i<400 && !run.DefensePursuitReady;i++)run.Tick(.1);
+                    Need(run.DefensePursuitReady,ending+"未触发敌军撤离");
+                    run.Tick(.02);
+                    Need(enemies.Where(e=>e.Alive).All(e=>e.Order==PrototypeOrder.Retreat),"存活敌军没有收到撤离命令");
+                    int recovered=BaseRaidLoot.Recovered(run.DefenseDown);
+                    Need(run.FinishDefensePursuit()&&BaseDemoDefense.Complete(state,run),"守胜结算失败");
+                    var report=state.Campaign.Reports.Last();
+                    Need(report.DropMaterials==recovered && state.Inventory.Materials==originalRaw+recovered+report.MaterialChange,"回收与固定赏金未分别结算");
+                    Need(!BaseDemoDefense.Complete(state,run),"守胜可重复结算");
+                    ClearLoot(state);
+                    BaseDemoDefense.AcknowledgeBatu(state);
+                }
+                state.Campaign.Location="base";
+                Need(BaseEconomy.SelectProduct(state,"supply"),"回营无法选择军需生产");
+                var production=typeof(BaseEconomy).GetMethod("CompleteProductionDay",BindingFlags.NonPublic|BindingFlags.Static);
+                foreach(var unit in reservists)
+                {
+                    var worker=state.Workers.Single(w=>w.SoldierNumbers.Contains(unit.SoldierNumber));
+                    if(worker.FacilityId!="workshop")
+                        Need(BaseEconomy.MoveWorker(state,unit.SoldierNumber,worker.FacilityId,"workshop"),"未能将留营士兵编入工坊");
+                }
+                var stock=Stock(state,BaseConstruction.ProductLevel(state));
+                int startCount=stock.Count;
+                var preview=BaseEconomy.Preview(state);
+                production.Invoke(null,new object[]{state,false});
+                Need(preview.ProductsMade>0 && stock.Count==startCount+preview.ProductsMade,"工坊库存与日结预估不一致");
+                BaseEconomy.Validate(state);
+                Debug.Log($"[DefenseWorkshop] {ending} · 原料 {originalRaw} → {state.Inventory.Materials}，修缮后余额 {state.Inventory.Coins}，生产 {preview.ProductsMade}");
+            }
+            VerifyChenanAndRuins.VerifyTopBar();
+            Debug.Log("[DefenseWorkshop] PASS");
+        }
+
         private static void VerifyDefenseAndAttack()
         {
             var state = Load("defense");

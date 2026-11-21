@@ -16,7 +16,7 @@ namespace BaseConquest.Battle
         private readonly BattleSceneController owner;
         private BattleReport previous;
         private BattleSide previousObserver;
-        private string lastCaptives;
+        private string lastCaptives, defenseSettlement;
         private bool dismissed;
         public bool Visible => backdrop.gameObject.activeSelf;
         public RectTransform Blocker => backdrop;
@@ -118,6 +118,8 @@ namespace BaseConquest.Battle
                 string duration=run!=null?"用时 "+CombatNumbers.Duration(run.Model.Elapsed):$"{report.Rounds} 回合";
                 int supply=run?.Session.Opening.SupplySnapshot?.Equipment?.Where(e=>e.Product=="supply").Sum(e=>e.Count)??0;
                 metrics.text=$"{duration}     下令 {report.CommandsIssued} 次     技能 {report.AbilitiesUsed} 次"+(supply>0?$"     军需 {supply} 件":"");
+                defenseSettlement=owner?.IsDemoDefense==true&&!owner.IsSecondDefense
+                    ?owner.FirstDefenseSettlement(report.Outcome!=BattleOutcome.SideAWin):"";
                 bool firstDefenseVictory=owner?.IsDemoDefense==true&&!owner.IsSecondDefense&&report.Outcome==BattleOutcome.SideAWin;
                 string batuOutcome=firstDefenseVictory?(BaseDemoDefense.BatuFell(battle)?"战死":"逃脱"):null;
                 own.Show(report.Armies.FirstOrDefault(a=>a.Side==observer),observer==BattleSide.B?batuOutcome:null);
@@ -128,6 +130,8 @@ namespace BaseConquest.Battle
             }
             string feedback=owner?.Feedback??"";
             note.text=feedback.StartsWith("战果尚未保存")||feedback.StartsWith("尚未返回")?feedback:captives.Length>0?"俘虏　"+captives:"";
+            if(!string.IsNullOrEmpty(defenseSettlement) && !feedback.StartsWith("战果尚未保存")&&!feedback.StartsWith("尚未返回"))
+                note.text=defenseSettlement+(captives.Length>0?"　俘虏 "+captives:"");
             backdrop.SetAsLastSibling();
         }
 

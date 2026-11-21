@@ -46,7 +46,7 @@ namespace BaseConquest.Battle
             GetComponentInParent<BaseSceneController>()?.State is BaseState state ? BaseCampaign.LocationName(state) : "战场";
         internal string FieldDraftGoal => deploymentDraft.Route switch
         {
-            BasePrepRoute.Defense => StoryText.Get("story.ui.prep.first_objective", "坚守到敌军撤离，或击败全部来敌。"),
+            BasePrepRoute.Defense => StoryText.Get("story.ui.prep.first_objective", "坚守到时或击倒半数来敌。"),
             BasePrepRoute.Second => StoryText.Get("story.ui.prep.second_objective", "击败全部来敌。开战后无法撤退。"),
             BasePrepRoute.BlackCrow => StoryText.Get("story.ui.prep.attack_objective", "使用已抵达的队伍攻占黑鸦寨。"),
             BasePrepRoute.Hideout => BaseBanditHideout.Objective,

@@ -190,12 +190,27 @@ namespace BaseConquest.Base
                 Road(state.Campaign.WorldJourney, route[index], route[index + 1]) is { Days: > 0 } &&
                 BaseDemoDefense.AnyDue(state) ? "需先处理本日入侵，再结算生产" : "";
 
-        private static bool InterceptsSecond(BaseState state,BaseWorldRoad road)
+        public static string KnownRaidWarning(BaseState state,IReadOnlyList<string> route,int days,int index=0)
+        {
+            if(route==null||index+1>=route.Count||days<=0)return "";
+            var clash=state.Campaign.Events.Where(e=>e.Kind=="defense"&&e.Status=="pending"&&
+                e.AvailableDay>=state.Day&&e.AvailableDay<=state.Day+days&&BaseRaidIntel.Known(state,e))
+                .OrderBy(e=>e.AvailableDay).FirstOrDefault();
+            if(clash==null)return "";
+            var world=state.Campaign.WorldJourney;
+            bool intercept=clash.Id==BaseDemoDefense.SecondEventId&&route[index]=="camp"&&route[index+1]=="bandit"&&
+                Road(world,route[index],route[index+1]) is BaseWorldRoad leg && IsInterceptDay(state,leg);
+            return $"第 {clash.AvailableDay} 天 · {clash.Title} · "+(intercept?"此程可截住来敌":"与行程重合");
+        }
+        private static bool IsInterceptDay(BaseState state,BaseWorldRoad road)
         {
             int raidDay=BaseDemoDefense.SecondArrival(state);
+            return raidDay>state.Day&&state.Day+road.Days-state.Campaign.WorldJourney.RoadDay==raidDay;
+        }
+        private static bool InterceptsSecond(BaseState state,BaseWorldRoad road)
+        {
             var world=state.Campaign.WorldJourney;
-            return raidDay>state.Day&&world.NodeId=="camp"&&world.Route[world.RoadIndex+1]=="bandit"&&
-                state.Day+road.Days-world.RoadDay==raidDay;
+            return world.NodeId=="camp"&&world.Route[world.RoadIndex+1]=="bandit"&&IsInterceptDay(state,road);
         }
         public static IEnumerable<string> RequiredBattles(BaseState state)
         {

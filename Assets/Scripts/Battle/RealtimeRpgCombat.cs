@@ -99,6 +99,7 @@ namespace BaseConquest.Battle
         }
         private void LaunchRpgAttack(PrototypeUnit source,PrototypeUnit target,double multiplier,string skillType=null)
         {
+            if(source.Side==PrototypeSide.Enemy && DefensePursuitReady)return;
             Model.NotifyAttack(source,target);int id=++rpgAttackSerial;var soldier=Battle.Soldier(source.Id-1);
             double charge=ConsumeCharge(source,out var chargeType);
             string damageType=Rpg.HasProfessionCatalog?(skillType??chargeType??Rpg.AttackDamageType(BaseRpg.Profession(soldier.ProfessionKind))):"legacy";
@@ -127,7 +128,7 @@ namespace BaseConquest.Battle
                 if(Battle.Phase!=BattlePhase.Fighting)break;
                 packet.Settled=true;var target=Model.Units.First(u=>u.Id==packet.TargetId);
                 packet.HealthAfter=(float)target.Health;
-                if(!target.Alive)continue;
+                if(!target.Alive || target.Side==PrototypeSide.Ally && DefensePursuitReady)continue;
                 if(!packet.Hit){Battle.RecordRpgMiss(packet.SourceId-1,packet.TargetId-1,packet.Selected);continue;}
                 var source=Model.Units.First(u=>u.Id==packet.SourceId);var defender=Battle.Soldier(target.Id-1);
                 Battle.Soldier(source.Id-1).LastAttackCritical=packet.Critical;

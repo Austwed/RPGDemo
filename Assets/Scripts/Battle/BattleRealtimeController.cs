@@ -155,8 +155,41 @@ namespace BaseConquest.Battle
             var actor=realtime?.Model.Units.FirstOrDefault(unit=>selection.Contains(unit.Id-1)&&unit.Alive);
             if(actor!=null)RealtimeOrder(PrototypeOrder.Guard,actor.Position);
         }
+        internal string FirstDefenseSettlement(bool retreat)
+        {
+            var state=GetComponentInParent<BaseSceneController>()?.State;
+            if(state==null || !IsDemoDefense || IsSecondDefense || realtime==null)return "";
+            int down=realtime.DefenseDown;
+            int raw=Math.Min(BaseRaidLoot.Recovered(down),100000000-state.Inventory.Materials);
+            var mission=state.Campaign.Events.First(e=>e.Id==BaseDemoDefense.EventId);
+            if(!retreat)
+            {
+                double factor=realtime.Session.Opening.Difficulty.RewardFactor;
+                return $"击倒 {down} · 回收 {raw} 原料　守胜：粮 {(int)(mission.FoodReward*factor)} · 原料 {(int)(mission.MaterialReward*factor)} · 钱币 {(int)(mission.CoinReward*factor)}";
+            }
+            int remaining=battle.Soldiers.Count(u=>u.Side==BattleSide.B&&u.IsAlive&&!u.Escaped);
+            double seconds=Math.Max(0,battle.Scenario.Objective.HoldRounds-realtime.Model.Elapsed);
+            int fee=BaseRaidLoot.ChargesRepairs(mission)?BaseRaidLoot.Charge(state,remaining,seconds):0;
+            return $"余敌 {remaining} · 剩余 {seconds:0} 秒　修缮 {fee} 币 · 余额 {state.Inventory.Coins-fee}　回收 {raw} 原料";
+        }
         public void RealtimeRetreat()
-        {if(realtime==null)return;ManualPause();if(realtime.DefensePursuitReady)feedback=realtime.FinishDefensePursuit()?"已结束追击，存活敌军撤离":"无法结算";else feedback=realtime.RetreatAll()?(realtime.Session.Opening.DemoCombat?"已立即撤退；返回后结算真实战损与军需":"全军向真实撤离口移动；抵达后才算成功撤离"):"暂无可撤离单位";SyncRealtimeViews();hud?.Refresh();}
+        {
+            if(realtime==null)return;
+            ManualPause();
+            if(IsDemoDefense&&!IsSecondDefense&&!realtime.DefensePursuitReady)
+            {
+                BuildCampaignMenu(CampaignMenuPage.ConfirmDefenseRetreat);
+                return;
+            }
+            CommitRealtimeRetreat();
+        }
+        private void CommitRealtimeRetreat()
+        {
+            if(realtime.DefensePursuitReady)feedback=realtime.FinishDefensePursuit()?"已结束追击，存活敌军撤离":"无法结算";
+            else feedback=realtime.RetreatAll()?(realtime.Session.Opening.DemoCombat?"已撤退，返回后结算战损与军需":"全军向撤离口移动"):"暂无可撤离单位";
+            SyncRealtimeViews();
+            hud?.Refresh();
+        }
         public bool PauseForDialogue(){bool running=autoRun;autoRun=false;realtime?.Model.SetPaused(true);return running;}
         public void ResumeAfterDialogue(bool running){autoRun=running;realtime?.Model.SetPaused(!running || DetailsVisible || campaignMenu != null);}
         public void ToggleRealtimePause()

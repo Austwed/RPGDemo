@@ -58,7 +58,6 @@ namespace BaseConquest.Base
                 string mark = day.Today ? "◆" : day.Past ? "·" : "○";
                 string cell = mark + day.Day;
                 if (day.Raids.Count > 0) cell += "!";
-                else if (day.Forecast) cell += "~";
                 int column = index % 5, line = index / 5;
                 var fill = day.Today ? theme.Gold : day.Raids.Count > 0 ? Color.Lerp(theme.Panel, theme.Gold, .32f) : theme.Inset;
                 var box = Solid("Day" + day.Day, content, new Vector2(0.5f, 1),
@@ -67,6 +66,10 @@ namespace BaseConquest.Base
                 var dayLabel = Label(box, cell, Vector2.zero, new Vector2(cellWidth - cellGap - 8, cellHeight), DemoUiMetrics.FontSubhead, TextAnchor.MiddleCenter);
                 dayLabel.color = day.Past && day.Raids.Count == 0 ? theme.Muted : theme.Ink;
                 if (day.Today) dayLabel.fontStyle = FontStyle.Bold;
+                var selectDay=box.gameObject.GetOrAdd<Button>();
+                selectDay.targetGraphic=box.GetComponent<Image>();
+                selectDay.targetGraphic.raycastTarget=true;
+                selectDay.onClick.AddListener(()=>{calendarDetailDay=day.Day;OpenCalendar();});
                 index++;
             }
             row += 3 * (cellHeight + cellGap) + 6;
@@ -75,7 +78,8 @@ namespace BaseConquest.Base
             {
                 Line("第 " + day.Day + " 天 · " + string.Join("；", day.Raids), 22, DemoUiMetrics.FontBody);
             }
-            Line("◆今天 · ·已过去 · ○未到 · !已知袭击 · ~模糊范围", 20, DemoUiMetrics.FontCaption);
+            var selected=BaseCalendar.Quarter(s).FirstOrDefault(day=>day.Day==calendarDetailDay);
+            if(selected!=null)Line(BaseCalendar.DayDetails(s,selected),44,DemoUiMetrics.FontBody);
             EndPanel();
         }
         public void OpenEnergy()

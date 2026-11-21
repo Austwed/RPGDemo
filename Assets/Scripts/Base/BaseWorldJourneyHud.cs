@@ -218,12 +218,12 @@ namespace BaseConquest.Base
             int days=marching?world.Route.Skip(world.RoadIndex+1).Select((id,index)=>BaseWorldJourney.Road(world,world.Route[world.RoadIndex+index],id).Days).Sum()-world.RoadDay:plan?.Days??0;
             place.text=owner.WorldNodeTitle(selected)+(atOrigin?" · 当前位置":"");
             travelInfo.text=!reachable?(BaseDemoFinale.Opened(state)&&selected=="home"?"通往白桦村的道路被黑鸦寨封锁。":"道路尚未通行。"):
-                marching?$"行军中 · 剩余 {days} 天":atOrigin?"选择地图上的目的地":string.Join(" → ",route.Select(owner.WorldNodeTitle))+$"   ·   {days} 天";
-            var raid=state.Campaign.Events.FirstOrDefault(e=>e.Id==BaseDemoDefense.SecondEventId&&e.Status=="pending");
-            conditions.text=raid!=null&&BaseRaidIntel.Known(state,raid)?$"第二波来袭还剩 {Math.Max(0,raid.AvailableDay-state.Day)} 天":"";
+                marching?$"行军中 · 剩余 {days} 天":atOrigin?"选择地图上的目的地":string.Join(" → ",route.Select(owner.WorldNodeTitle))+$"   ·   {days} 天（第 {state.Day+days} 天抵达）";
+            string warning=atOrigin||!reachable?"":BaseWorldJourney.KnownRaidWarning(state,route,days,marching?world.RoadIndex:0);
+            conditions.text=warning;
             if(marching && !owner.WorldMarchRunning && (owner.Message.Contains("失败") || owner.Message.Contains("未保存")))conditions.text=owner.Message;
             string dayProblem = BaseWorldJourney.DayAdvanceProblem(state, route, marching ? world.RoadIndex : 0);
-            if(dayProblem!="")conditions.text=dayProblem;
+            if(dayProblem!="")conditions.text=warning.Length==0?dayProblem:warning+" · "+dayProblem;
             var entries=world.Entries.Where(entry=>entry.NodeId==Origin&&world.Discovered.Contains(entry.Id)).ToArray();
             if(!entries.Any(entry=>entry.Id==entryId))entryId=entries.FirstOrDefault()?.Id;
             enterAction.gameObject.SetActive(atOrigin && departureEntry==null && !marching && entryId!=null);

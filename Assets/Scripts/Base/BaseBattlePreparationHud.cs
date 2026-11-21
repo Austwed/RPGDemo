@@ -253,7 +253,11 @@ namespace BaseConquest.Base
                 var label = box.Find("Value").GetComponent<Text>();
                 label.resizeTextMaxSize=label.fontSize; label.resizeTextForBestFit=true; label.resizeTextMinSize=13;
             }
-            FitControl(view,"Context",18,143,676,31);
+            FitControl(view,"Context",18,142,676,35);
+            var context=view.Find("Context").GetComponent<Text>();
+            context.resizeTextForBestFit=true;
+            context.resizeTextMinSize=13;
+            context.resizeTextMaxSize=18;
             FitControl(view,"Candidates",706,57,450,563);
             var roster = view.Find("Candidates");
             foreach (var key in new[] {"SortHeading","SortRole","Ranged","Cavalry"}) roster.Find(key).gameObject.SetActive(false);
@@ -266,8 +270,14 @@ namespace BaseConquest.Base
             FitControl(view,"Feedback",14,510,676,43);
             FitControl(view,"Supply",14,565,237,56);
             var supply = view.Find("Supply");
-            foreach (var key in new[] {"Heading","Demand","Stock1","Stock2","Grade2"}) supply.Find(key).gameObject.SetActive(false);
-            FitControl(supply,"Grade1",0,0,237,56);
+            foreach (var key in new[] {"Heading","Stock1","Stock2","Grade2"}) supply.Find(key).gameObject.SetActive(false);
+            FitControl(supply,"Grade1",0,0,91,56);
+            FitControl(supply,"Demand",96,0,141,56);
+            var details=supply.Find("Demand").GetComponent<Text>();
+            details.resizeTextForBestFit=true;
+            details.resizeTextMinSize=12;
+            details.resizeTextMaxSize=17;
+            details.raycastTarget=false;
             FitControl(view,"Reset",258,565,170,56);
             FitControl(view,"Continue",435,565,259,56);
             FitControl(view,"Sweep",14,458,190,43);
@@ -431,7 +441,8 @@ namespace BaseConquest.Base
             int grade = battleDraft.SupplyGrade;
             int required = battleDraft.Route == BasePrepRoute.Travel ? 0 : battleDraft.RequiredSupply(false);
             var button = Ui<Button>(panel,"Supply/Grade1");
-            button.GetComponentInChildren<Text>().text = $"{grade}级军需 · 库存 {battleDraft.AvailableSupply(state,grade)} / 需求 {required}";
+            button.GetComponentInChildren<Text>().text = "切换军需";
+            Ui<Text>(panel,"Supply/Demand").text=BaseSupply.GradeText(state,grade)+$"\n库存 {battleDraft.AvailableSupply(state,grade)} · 需求 {required}";
             button.targetGraphic.color = DemoUiTheme.Current.Button;
         }
 
@@ -459,11 +470,24 @@ namespace BaseConquest.Base
                 context = battleDraft.Route switch
                 {
                     BasePrepRoute.Ruins => $"侵蚀基准 {BaseRuinsRewards.Exposure(state):P0} / 秒 · " + DungeonEnergy(state, battleDraft.Route),
-                    BasePrepRoute.Defense => PrepText("first_objective", "坚守到敌军撤离，或击败全部来敌。"),
+                    BasePrepRoute.Defense => PrepText("first_objective", "坚守到时或击倒半数来敌。"),
                     BasePrepRoute.Second => PrepText("second_objective", "击败全部来敌。开战后无法撤退。"),
                     BasePrepRoute.Hideout => DungeonEnergy(state, battleDraft.Route),
                     _ => PrepText("attack_objective", "使用已抵达的队伍攻占黑鸦寨。")
                 };
+            }
+            if(battleDraft.Route==BasePrepRoute.Defense)
+            {
+                var ids=SelectedPrepSoldiers.Select(u=>u.SoldierNumber).ToHashSet();
+                var workers=state.Workers.Where(w=>BaseDevelopment.Effective(state,w));
+                int Left(string facility)=>workers.Where(w=>w.FacilityId==facility).Sum(w=>w.SoldierNumbers.Count(ids.Contains));
+                var before=BaseEconomy.ProjectDay(state);
+                var copy=state.Copy();
+                BaseDevelopment.MarkFoughtToday(copy,ids);
+                var after=BaseEconomy.ProjectDay(copy);
+                var raid=state.Campaign.Events.First(e=>e.Id==BaseDemoDefense.EventId);
+                var size=BaseRaidIntel.Counts(state,raid).Sum();
+                context=$"守住 {raid.HoldRounds} 秒或击倒 {(size+1)/2}/{size} 人　离岗：粮田 {Left("farm")} · 工坊 {Left("workshop")}\n预计少产：粮 {before.FoodProduced-after.FoodProduced} · 军需 {before.ProductsMade-after.ProductsMade}　结日余粮 {after.NextFood}"+(after.NextMissing>0?$"（缺 {after.NextMissing}）":"");
             }
             RefreshPrepSupply(state);
             var (ally, enemy) = battleDraft.Power(state, false);

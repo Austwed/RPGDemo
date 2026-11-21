@@ -169,7 +169,7 @@ namespace BaseConquest.Base
             var state=owner.State;var plan=owner.DemoDefensePlan;if(plan==null){OpenDeparture("perimeter");return;}
             bool second=BaseDemoDefense.SecondDue(state);activeObject="demo-defense-supply";interactionObject="";BeginPanel(second?"第二波防守 · 军需确认":"首次防守 · 军需确认");
             Line("队长："+string.Join("、",plan.Leaders.Select(id=>state.Leaders.Single(person=>person.Id==id).Name))+"；实际选兵 "+plan.Total+"人。",90,22);
-            Line(second?"军需按当前库存配给。这一波没有时限，敌军不死不退——击败全部来敌才算守住；我方全员失能即营地失守，行动中止。":"军需按当前库存配给。坚守到时后敌军撤退，可追击或结束追击；失败或撤退扣除损失，残军次日再袭。",130,21);
+            Line(second?"军需按当前库存配给。这一波没有时限，敌军不死不退——击败全部来敌才算守住；我方全员失能即营地失守，行动中止。":"军需按当前库存配给。坚守到时或击倒半数来敌即可击退，其余敌军撤离。失守支付修缮费，残军次日再袭。",130,21);
             foreach(string choice in new[]{"full","half","none"})
             {string mode=choice;RowButton("确认迎战 · "+(mode=="full"?"尽量配足军需":mode=="half"?"最多半数供给":"不使用军需"),0,800,()=>owner.BeginDemoDefense(mode));row+=60;}
             RowButton("返回重新选兵",0,800,()=>OpenDeparture("perimeter"));row+=60;EndPanel();

@@ -82,14 +82,14 @@ namespace BaseConquest.Base
             bool configured=s.Demo.Rpg?.IntelPricingConfigured==true;
             bool free = BaseRaidIntel.CanClaimFirst(s);
             bool showFree = free && (tradeSelection == "first-raid" || tradeSelection == "");
-            int selected=tradeSelection=="5"?5:3;
+            int selected=tradeSelection=="10"?10:5;
             tradeSelection=showFree ? "first-raid" : selected.ToString();
             if (free) TradeOffer(offers, "first-raid", StoryText.Get("story.ui.intel.first_reopen", "免费首防消息"));
-            foreach(int days in new[]{3,5})
+            foreach(int days in new[]{5,10})
             {
                 var existing=BaseRaidIntel.Get(s,days);
                 int price=RaidIntelPrice(s,days);
-                TradeOffer(offers,days.ToString(),days+"日消息 · "+(existing!=null?"免费复习":configured?price+"币":"价格待配置"));
+                TradeOffer(offers,days.ToString(),(days==5?"五日军情 · 日期":"十日军情 · 日期与兵力")+" · "+(existing!=null?"免费复习":configured?price+"币":"价格待配置"));
             }
 
             if (showFree)
@@ -102,7 +102,7 @@ namespace BaseConquest.Base
             if(snapshot==null)
             {
                 int price=RaidIntelPrice(s,selected);
-                TradeLine(details,selected==3?"三日消息 · 查看未来三天是否有袭击":"五日消息 · 查看未来五天的具体袭击");
+                TradeLine(details,selected==5?"未来五日 · 确切袭击日期":"未来十日 · 确切日期与每波兵力");
                 TradeButton(details,"购买 "+selected+" 日消息 · "+price+"币",
                     ()=>TradeCommit(next=>RaidIntelPrice(next,selected)==price&&BaseRaidIntel.Buy(next,selected)!=null,"消息已记录"),
                     configured&&s.Inventory.Coins>=price);
@@ -113,12 +113,11 @@ namespace BaseConquest.Base
 
             bool Active(BaseRaidIntelEntry entry)=>s.Campaign.Events.Any(e=>e.Id==entry.EventId&&e.Status=="pending"&&e.AvailableDay==entry.Day);
             if(!snapshot.HasRaid)TradeLine(details,"次日起 "+selected+" 天：无已知袭击。");
-            else if(selected==3)TradeLine(details,snapshot.Entries.Any(Active)?"次日起三天内有袭击。":"原消息已失效。");
             else foreach(var entry in snapshot.Entries)
-                TradeLine(details,entry.Title+" · 第 "+entry.Day+" 天"+(Active(entry)?"":" · 已失效"));
+                TradeLine(details,entry.Title+" · 第 "+entry.Day+" 天"+(string.IsNullOrEmpty(entry.Composition)?"":" · "+entry.Composition)+(Active(entry)?"":" · 已失效"));
         }
 
-        private static int RaidIntelPrice(BaseState s,int days)=>days==3?(s.Demo.Rpg?.ThreeDayIntelPrice??0):(s.Demo.Rpg?.FiveDayIntelPrice??0);
+        private static int RaidIntelPrice(BaseState s,int days)=>days==5?(s.Demo.Rpg?.ThreeDayIntelPrice??0):(s.Demo.Rpg?.FiveDayIntelPrice??0);
 
         public void OpenDemoMerchant()
         {

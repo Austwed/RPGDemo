@@ -8,7 +8,8 @@ namespace BaseConquest.Base
     public sealed class BaseCalendarDay
     {
         public int Day;
-        public bool Today, Past, Forecast;
+        public bool Today, Past;
+        public List<string> EventIds = new List<string>();
         public List<string> Raids = new List<string>();
         public string Label => "第 " + Day + " 天";
     }
@@ -18,6 +19,21 @@ namespace BaseConquest.Base
         public static int QuarterNumber(int day) => (Math.Max(1, day) - 1) / QuarterDays + 1;
         public static int QuarterStart(int day) => ((Math.Max(1, day) - 1) / QuarterDays) * QuarterDays + 1;
         public static int QuarterEnd(int day) => QuarterStart(day) + QuarterDays - 1;
+        public static string DayDetails(BaseState state,BaseCalendarDay day)
+        {
+            var entries=state.Demo?.Flow?.RaidIntel?.Where(x=>x.Window==10).OrderByDescending(x=>x.Day)
+                .SelectMany(x=>x.Entries).Where(x=>x.Day==day.Day && !string.IsNullOrEmpty(x.Composition)).ToList();
+            var lines=new List<string>();
+            for(int i=0;i<day.EventIds.Count;i++)
+            {
+                var entry=entries?.FirstOrDefault(x=>x.EventId==day.EventIds[i]);
+                var report=state.Campaign.Reports.LastOrDefault(r=>r.EventId==day.EventIds[i]&&r.Day==day.Day);
+                string detail=report!=null?(report.Outcome=="SideAWin"?"守住":"失守")+
+                    (string.IsNullOrEmpty(report.RaidNote)?"":" · "+report.RaidNote):entry?.Composition;
+                lines.Add(day.Raids[i]+" · "+(string.IsNullOrEmpty(detail)?"没有更多情报":detail));
+            }
+            return $"第 {day.Day} 天 · "+(lines.Count==0?"没有更多情报":string.Join("；",lines));
+        }
         public static List<BaseCalendarDay> Quarter(BaseState s) => Quarter(s, QuarterNumber(s?.Day ?? 1));
         public static List<BaseCalendarDay> Quarter(BaseState s, int quarter)
         {
@@ -28,14 +44,11 @@ namespace BaseConquest.Base
             {
                 int day = start + offset;
                 var row = new BaseCalendarDay { Day = day, Today = day == s.Day, Past = day < s.Day };
-                var intel=s.Demo?.Flow?.RaidIntel??new List<BaseRaidIntelSnapshot>();
-                foreach(var snapshot in intel.Where(x=>x.Window==3&&x.HasRaid&&day>=x.Day+1&&day<=x.Day+3&&day>=s.Day))
-                    if(!intel.Any(precise=>precise.Window==5&&precise.Day<=snapshot.Day&&precise.Day+5>=snapshot.Day+3))row.Forecast=true;
-                foreach(var e in s.Campaign.Events.Where(item=>item.Kind=="defense"&&item.AvailableDay==day).OrderBy(item=>item.Title,StringComparer.Ordinal))
+                foreach(var e in s.Campaign.Events.Where(item=>item.Kind=="defense").OrderBy(item=>item.Title,StringComparer.Ordinal))
                 {
-                    bool occurred=day<=s.Day&&(e.Status=="pending"||s.Campaign.Reports.Any(r=>r.EventId==e.Id&&r.Day==day));
-                    bool known=day>s.Day&&BaseRaidIntel.Known(s,e);
-                    if(occurred||known)row.Raids.Add(e.Title);
+                    bool reported=day<=s.Day&&s.Campaign.Reports.Any(r=>r.EventId==e.Id&&r.Day==day);
+                    bool scheduled=e.Status=="pending"&&e.AvailableDay==day&&BaseRaidIntel.Known(s,e);
+                    if(reported||scheduled){row.Raids.Add(e.Title);row.EventIds.Add(e.Id);}
                 }
                 days.Add(row);
             }

@@ -39,6 +39,13 @@ namespace BaseConquest.Editor
             Debug.Log("[VerifyPlanningWorkbooks] PASS field reference export, identical full config, one-cell range patch");
         }
 
+        public static void VerifyCurrentMaster()
+        {
+            var preview=BuildPreview(MasterPath);
+            Need(preview.Changes.Length==0,"当前总表与正式运行配置存在差异");
+            Debug.Log("[VerifyPlanningWorkbooks] PASS current master matches runtime configuration");
+        }
+
         public static void VerifyExcelSaved()
         {
             const string sortedMaster = "../excel-sorted-master.xlsx";

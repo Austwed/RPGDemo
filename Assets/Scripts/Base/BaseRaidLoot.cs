@@ -10,7 +10,7 @@ namespace BaseConquest.Base
     // 口径：守军全灭（含撤退、含无人迎战）时，敌军按「还能搬多久」折算损失。
     //   掠夺价值 = 敌方残余单位数 × 坚守剩余秒数 × ValuePerUnitSecond（占位 1）
     //   例：剩 2 名敌兵、倒计时还剩 20 秒 → 约价值 40 的物资。
-    //   上限是该基地可掠夺库存的折算价值，扣完为止。
+    //   DEMO 修缮欠款上限取首防一次守胜赏金。
     //   敌方全灭，或守军撑到倒计时结束（敌军撤离），不产生掠夺。
     //
     // Demo 只扣金币，不动粮草、原料、军需和物品；完整版按钱币→粮草→原料→军需→物品
@@ -23,6 +23,16 @@ namespace BaseConquest.Base
         // 每名敌军每秒能搬走的价值。占位值，等 P100 平衡。
         public const int ValuePerUnitSecond = 1;
 
+        // 首防欠款用一份固定守胜赏金作上限，避免连续失守累加到无法募兵。
+        public static int DebtLimit(BaseState state)=>BaseDemo.Active(state)?Math.Max(0,state.Demo.Rpg?.OpeningDefenseReward?.Coins??0):0;
+        public static int Charge(BaseState state,int enemies,double seconds)
+        {
+            int availableCredit=Math.Max(0,state.Inventory.Coins+DebtLimit(state));
+            return Math.Min(Value(enemies,seconds),availableCredit);
+        }
+        public static bool ChargesRepairs(BaseCampaignEvent mission)=>
+            mission?.Kind=="defense" && (mission.FoodRaid>0||mission.MaterialRaid>0||mission.CoinRaid>0);
+        public static int Recovered(int down)=>Math.Max(0,down)/2;
         public static int Value(int enemyLeft, double secondsLeft)
         {
             if (enemyLeft <= 0 || secondsLeft <= 0) return 0;
@@ -43,8 +53,7 @@ namespace BaseConquest.Base
         public static int Apply(BaseState s, BaseCampaignEvent e, BaseCampaignReport r, bool win, bool auto,
             int enemyLeft = -1, double secondsLeft = -1)
         {
-            if (s == null || e == null || r == null || e.Kind != "defense") return 0;
-            if (e.FoodRaid + e.MaterialRaid + e.CoinRaid <= 0) return 0;
+            if (s == null || r == null || !ChargesRepairs(e)) return 0;
             if (win || s.Aftermath.GameOver) return 0;
 
             if (enemyLeft < 0)
@@ -53,14 +62,13 @@ namespace BaseConquest.Base
 
             int value = Value(enemyLeft, secondsLeft);
             if (value <= 0) return 0;
-            int take = Math.Min(Math.Max(0, s.Inventory.Coins), value);
-            if (take <= 0) return 0;
+            int take = Charge(s,enemyLeft,secondsLeft);
 
             s.Inventory.Coins -= take;
             r.CoinChange -= take;
 
             string who = r.Outcome == "Unopposed" ? "无人迎战" : auto ? "被动迎战" : "迎战失利";
-            r.RaidNote = who + " · 敌军 " + enemyLeft + " 人 × 剩余 " + Math.Round(secondsLeft) + " 秒，掠走钱币 " + take;
+            r.RaidNote = who + " · 敌军 " + enemyLeft + " 人 × 剩余 " + Math.Round(secondsLeft) + " 秒，设施修缮 " + take + " 币 · 余额 " + s.Inventory.Coins;
             return take;
         }
 

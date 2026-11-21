@@ -96,7 +96,7 @@ namespace BaseConquest.Base
                 if(r.Realtime)Line("即时作战 "+r.Seconds.ToString("0")+"秒",48,18);
                 Line("部署 " + r.Deployed + "；阵亡 " + r.Killed + "／失联 " + r.Missing + "；返营 " + r.Returned + "／伤兵 " + r.Wounded + "；倒地队长 " + r.LeadersDown + "；军需消耗 " + r.GearLost, 86, 18);
                 Line("战利品／劫掠：粮 " + r.FoodChange.ToString("+0;-0;0") + "／原料 " + r.MaterialChange.ToString("+0;-0;0") + "／钱币 " + r.CoinChange.ToString("+0;-0;0"), 67, 18);
-                if(r.DropMaterials>0) Line("敌军掉落原料 +"+r.DropMaterials,52,18);
+                if(r.DropMaterials>0) Line((r.EventId==BaseDemoDefense.EventId?"击倒回收原料 +":"敌军掉落原料 +")+r.DropMaterials,52,18);
                 if(!string.IsNullOrEmpty(r.SourceSiteId))Line("敌军：部署 "+r.EnemyDeployed+"／战损 "+r.EnemyLost+"／俘获 "+r.EnemyCaptured+"／撤回来源 "+r.EnemyReturned+"／溃散 "+r.EnemyDispersed,70,18);
             }
         }

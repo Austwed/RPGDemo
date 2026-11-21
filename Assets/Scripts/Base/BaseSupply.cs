@@ -85,6 +85,11 @@ namespace BaseConquest.Base
     public static class BaseSupply
     {
         public static readonly string[] Modes = { "full", "half", "none" };
+        public static string GradeText(BaseState s,int grade)
+        {
+            var rule=s.Supply.Rules.FirstOrDefault(r=>r.Product=="supply");
+            return rule==null?$"{grade}级":$"{grade}级 攻+{(grade==1?rule.LowBonus:rule.HighBonus):0} 防+{(grade==1?rule.LowDefense:rule.HighDefense):0}";
+        }
         public static string ModeName(string mode) => mode == "full" ? "尽量配足" : mode == "half" ? "最多半数供给" : "不使用军需";
         public static void Normalize(BaseState s)
         {
