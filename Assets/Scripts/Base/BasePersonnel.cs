@@ -89,15 +89,19 @@ namespace BaseConquest.Base
         private static IEnumerable<BasePersonnelUnit> SoldierRows(BaseState s, SoldierKind? kind)
         {
             s.EnsureSoldierNumbers();
+            var expeditionId = BaseWorldJourney.PlayerExpedition(s)?.Id;
+            bool atBlackCrow = BaseDemoFinale.Opened(s) && s.Campaign.CurrentMapId == BaseDemoFinale.Camp;
             for(int i=0;i<s.Workers.Count;i++)
             {
                 var w=s.Workers[i];
                 if(kind.HasValue && BaseCampaign.ToBattle(w.Kind)!=kind.Value)continue;
                 var stats=w.HasCombatProfile ? w.CombatStats.Clone() : new ArmyDefinition().Stats(BaseCampaign.ToBattle(w.Kind)).Clone();stats.Health=(float)w.MaxHealth;
+                bool withPlayer = w.Away && expeditionId != null && w.PartyId == expeditionId;
+                bool remote = !withPlayer && (atBlackCrow || !BaseSettlements.Local(s, w));
                 for(int n=0;n<w.Count;n++)
                 {
                     int number=w.SoldierNumbers[n];
-                    var u=new BasePersonnelUnit {Post=w.FacilityId, CanBattle=BaseSettlements.Local(s,w)&&BaseDevelopment.CanFight(w), FoughtToday=w.LastBattleDay==s.Day, Wounded=BaseDevelopment.HeavilyWounded(w),Key="soldier:"+number,SoldierNumber=number,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+number,w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),Remote=!BaseSettlements.Local(s,w),Relocating=w.Relocating,State=w.Relocating ? "调动中 · "+BaseSettlements.Name(!w.VillageResident) : !BaseSettlements.Local(s,w) ? "异地 · "+BaseSettlements.Name(w.VillageResident) : w.Away ? "外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.HeavilyWounded(w) ? "疗养" : w.LastBattleDay==s.Day ? "今日已作战" : "今日可生产",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
+                    var u=new BasePersonnelUnit {Post=w.FacilityId, CanBattle=!remote&&BaseDevelopment.CanFight(w), FoughtToday=w.LastBattleDay==s.Day, Wounded=BaseDevelopment.HeavilyWounded(w),Key="soldier:"+number,SoldierNumber=number,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+number,w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),Remote=remote,Relocating=w.Relocating,State=w.Relocating ? "调动中 · "+BaseSettlements.Name(!w.VillageResident) : remote ? "异地 · "+BaseSettlements.Name(w.VillageResident) : w.Away ? "外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.HeavilyWounded(w) ? "疗养" : w.LastBattleDay==s.Day ? "今日已作战" : "今日可生产",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
                     Effects(s,u,w.PartyId);yield return u;
                 }
             }

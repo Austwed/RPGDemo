@@ -77,7 +77,11 @@ namespace BaseConquest.Base
             foreach(var view in regionView.Root.GetComponentsInChildren<BaseConquest.Presentation.AuthoredMapView>(true))view.RefreshFarmAppearance(State);
         }
         public string Message { get; private set; } = "";
-        internal void ReportMessage(string message){Message=message;Hud?.RefreshSummary();}
+        internal void ReportMessage(string message, bool showFeedback = false)
+        {
+            Message = message;
+            Hud?.RefreshSummary(showFeedback);
+        }
         private Action preparationInventoryClosed;
         public void OpenPreparationInventory(Action closed)
         {var state=SaveStore.Load();if(!state.Campaign.HasActiveBattle||!BasePartyInventory.Peaceful(state))throw new InvalidOperationException("只能在布兵准备时打开背包");State=state;preparationInventoryClosed=closed;Hud.SetVisible(true);Hud.OpenBackpack();}
@@ -773,7 +777,12 @@ namespace BaseConquest.Base
                 RefreshFarmVisuals(); if (PlayerAway) ClearSelection(); Hud.RefreshSummary(); return true;
             }
             catch (BagFullException) { Hud.ShowBagFull(); return false; }
-            catch (Exception e) { Message = "操作未保存，原状态保留：" + e.Message; Hud.RefreshSummary(); return false; }
+            catch (Exception e)
+            {
+                Debug.LogException(e, this);
+                ReportMessage("操作未保存，原状态保留：" + e.Message);
+                return false;
+            }
         }
         public void Rest(int expectedDay)
         {

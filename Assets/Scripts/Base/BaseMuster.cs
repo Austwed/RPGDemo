@@ -331,13 +331,26 @@ namespace BaseConquest.Base
             s.Workers.RemoveAll(w => w.Count == 0);
         }
         public static bool Return(BaseState s, string id, Action<BaseWorkerBucket> afterReturn = null)
+            => Return(s, id, afterReturn, null);
+
+        internal static bool ReturnAtSettlement(BaseState s, string id, bool? village)
+            => Return(s, id, worker => worker.Resting = worker.Health < worker.MaxHealth * BaseDevelopment.DutyThreshold, village);
+
+        private static bool Return(BaseState s, string id, Action<BaseWorkerBucket> afterReturn, bool? destinationVillage)
         {
             BaseEconomy.Validate(s);
             var party = s.Muster.Parties.FirstOrDefault(p => p.Id == id); if (party == null || party.InCombat || s.Supply.Quotas.Any(q => q.PartyId == id)) return false;
             foreach (var record in party.Leaders)
             {
                 var leader = s.Leaders.Single(l => l.Id == record.LeaderId); leader.Away = false; leader.PartyId = "";
-                leader.DesiredFacility = record.OriginalFacility; leader.FacilityId = "";
+                if (destinationVillage.HasValue && leader.VillageResident != destinationVillage.Value)
+                {
+                    leader.VillageResident = destinationVillage.Value;
+                    leader.DesiredFacility = "";
+                    leader.PostLocked = false;
+                }
+                else leader.DesiredFacility = record.OriginalFacility;
+                leader.FacilityId = "";
                 leader.UnavailableDay = s.Day;
             }
             foreach (var source in party.Sources)
@@ -345,6 +358,12 @@ namespace BaseConquest.Base
                 foreach (var worker in s.Workers.Where(w => w.Away && w.PartyId == id && w.SourceId == source.Id).ToArray())
                 {
                     worker.Away = false; worker.PartyId = worker.SourceId = ""; worker.PartyOrder = 0; worker.DesiredFacility = source.FacilityId; worker.FacilityId = ""; worker.UnavailableDay = s.Day;
+                    if (destinationVillage.HasValue && worker.VillageResident != destinationVillage.Value)
+                    {
+                        worker.VillageResident = destinationVillage.Value;
+                        worker.DesiredFacility = "";
+                        worker.PostLocked = false;
+                    }
                     afterReturn?.Invoke(worker);
                 }
             }

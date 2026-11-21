@@ -70,6 +70,7 @@ namespace BaseConquest.Base
                 throw new ObsoleteDemoSaveException(error.Message,error);
             }
             if(!string.IsNullOrEmpty(document.State.SceneBattleId))throw new ArgumentException("不写入或恢复同图遭遇的战中存档，请使用战前节点");
+            if (demo) BaseWorldJourney.RestoreSettlementArrival(document.State);
             return document;
         }
     }

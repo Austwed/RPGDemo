@@ -85,7 +85,11 @@ namespace BaseConquest.Editor
             }
             At(state,"demo_camp_east");BaseWorldJourney.EnterWorld(state,"bandit_east_entry");
             BaseWorldJourney.Start(state,new[]{"bandit","home"});Need(BaseWorldJourney.Step(state,_=>null),"攻寨后未能向白桦村行军");
+            var beforeHome = state.Copy();
+            var homeExpedition = beforeHome.Muster.Parties.Single(p => p.Purpose == "expedition" &&
+                p.Leaders.Any(leader => leader.LeaderId == beforeHome.PlayerLeaderId));
             BaseWorldJourney.EnterScene(state,"home_entry");
+            VerifySettlementTravel.VerifyArrival(state, homeExpedition, beforeHome);
             Need(state.Day==day+1 && state.Campaign.CurrentMapId==BaseDemoFinale.Home && state.PlayerX<BaseSpatial.Objects(state).Single(o=>o.Id=="demo_home_world").X,"返乡日数或东口入村朝向错误");
             var bridge=state.Copy();At(bridge,"village_gate_out");
             Need(BaseCampaign.Travel(bridge,"custom","village_gate_out")&&bridge.Campaign.CurrentMapId==BaseDemoFinale.HomeField,"村西未通往独立西桥头");

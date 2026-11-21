@@ -135,6 +135,53 @@ namespace BaseConquest.Editor
             var restored=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));BaseEconomy.Validate(restored);
             Need(restored.Demo.Flow.RaidIntel.Count==1,"真实流程消息须能通过完整存档校验");Debug.Log("[IntelScheduleFlow] PASS");
         }
+        public static void VerifyFirstRaidWarningRoad()
+        {
+            string seed=System.IO.Path.Combine(Application.streamingAssetsPath,"BaseScenarios",BaseDemo.BalanceTemplate);
+            var state=DemoStageSaveTools.OpenFirstRuins(System.IO.File.ReadAllText(seed),"male",DemoBalanceRuntime.Load().Rules);
+            var session=BaseDemoRuins.Begin(state,"none");
+            state.Campaign.ActiveBattle.Scenario.RandomSeed=session.Opening.Scenario.RandomSeed=session.Battle.Scenario.RandomSeed=DemoStageSaveTools.StageGenerationSeed;
+            var battle=new RealtimeCampaignBattle(session);BaseDemoRuins.Configure(battle);battle.Model.SetPaused(false);
+            DemoStageSaveTools.CompleteFirstRuins(state,battle);
+            foreach(var leader in state.Leaders){leader.Health=leader.MaxHealth;leader.Fate="active";}
+            BaseSceneRules.LeaveDungeon(state);
+            At(state,"demo_ruins_return");Need(BaseCampaign.Travel(state,"town"),"古窟首通后返回城镇");
+            At(state,"town_quest");Need(BaseDemoRuins.Deliver(state),"交付证据并安排首防");
+            At(state,"travel_base");Need(BaseCampaign.Travel(state,"base"),"回营准备");
+            while(state.Day<BaseDemoDefense.WarningDay)
+            {
+                At(state,"home");Need(BaseEconomy.Rest(state,state.Day),"推进到来袭预告日");
+            }
+            Need(state.Demo.Stage==BaseDemoStage.DefenseWarned&&!BaseDemoDefense.Due(state),"预告日与实际到达日须分开");
+            At(state,"exit_east");Need(BaseCampaign.Travel(state,"town"),"预告日可从营地进城");
+            At(state,"demo_ruins_exit");
+            var before=state.Copy();
+            var transaction=state.Copy();
+            Need(BaseDemoRuins.TravelProblem(transaction,"outpost")==""&&BaseDemoRuins.Travel(transaction,"outpost"),"第 3 天预告期间应能从灰岩镇进入古窟外野");
+            BaseDemoIntro.CheckEquipment(transaction);BaseDevelopment.Allocate(transaction);
+            var path=System.IO.Path.Combine("Temp","first-raid-warning-road-"+Guid.NewGuid().ToString("N")+".json");
+            try
+            {
+                var store=new BaseSaveStore(path,document=>JsonUtility.ToJson(document),JsonUtility.FromJson<BaseSaveDocument>,true);
+                store.Save(transaction,beforeChange:before);
+                state=store.Load();
+                Need(state.Day==BaseDemoDefense.WarningDay&&state.Campaign.Location=="outpost"&&state.Demo.Stage==BaseDemoStage.DefenseWarned,
+                    "重新读档后应在第 3 天的野外，来袭仍处于预告");
+            }
+            finally{if(System.IO.File.Exists(path))System.IO.File.Delete(path);}
+            At(state,"demo_ruins_return");Need(BaseCampaign.Travel(state,"town"),"预告日可原路返回灰岩镇");
+            At(state,"travel_base");Need(BaseCampaign.Travel(state,"base"),"可回灰岩营地等待袭击");
+            while(!BaseDemoDefense.Due(state))
+            {
+                Need(state.Day<BaseDemoDefense.ArrivalDay,"预设首防应于第 6 天到达");
+                At(state,"home");Need(BaseEconomy.Rest(state,state.Day),"推进到来袭日");
+            }
+            At(state,"exit_east");Need(BaseCampaign.Travel(state,"town"),"来袭日仍可进城整备");
+            At(state,"demo_ruins_exit");
+            Need(!BaseDemoRuins.Travel(state,"outpost")&&state.Campaign.Location=="town"&&BaseDemoRuins.TravelProblem(state,"outpost").Contains("先处理营地入侵"),
+                "首防抵达后仍须先应对入侵，失败提示应保留");
+            Debug.Log("[FirstRaidWarningRoad] PASS：第 3 天灰岩镇出入古窟野外并写档回读；实际来袭后限制生效");
+        }
         public static void RunAll()
         {
             Run();VerifyNpcFallback.Run();VerifyDemoResources.Run();VerifyPortraits.Run();VerifyDemoCheckpoint.VerifyCampHandoff();

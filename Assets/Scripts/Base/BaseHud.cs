@@ -92,10 +92,18 @@ namespace BaseConquest.Base
             }
             regionStatus = Label(header, "", new Vector2(220, 17), new Vector2(404, 28), 17, TextAnchor.MiddleLeft, new Vector2(0, 0));
             regionStatus.raycastTarget=true;var threatLink=regionStatus.gameObject.GetOrAdd<Button>();threatLink.targetGraphic=regionStatus;threatLink.onClick.AddListener(()=>{if(owner.State!=null&&!owner.Busy)OpenThreatOverview();});
-            feedback = Label(header, "", Vector2.zero, Vector2.zero, 17);
-            feedback.rectTransform.anchorMin = Vector2.zero; feedback.rectTransform.anchorMax = new Vector2(1, 0);
-            feedback.rectTransform.offsetMin = new Vector2(446, 3); feedback.rectTransform.offsetMax = new Vector2(-250, 31);
-            feedback.horizontalOverflow = HorizontalWrapMode.Wrap; // 单行高度截断，完整反馈仍在功能页下方可看。
+            var feedbackPanel = Solid("OperationFeedback", header, new Vector2(.5f, 0), new Vector2(0, -8),
+                new Vector2(620, 38), new Color(.18f, .13f, .08f, .92f));
+            feedbackPanel.pivot = new Vector2(.5f, 1);
+            feedbackPanel.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
+            feedback = Label(feedbackPanel, "", Vector2.zero, Vector2.zero, 17);
+            feedback.color = DemoUiTheme.Current.Panel;
+            feedback.supportRichText = false;
+            feedback.rectTransform.anchorMin = Vector2.zero;
+            feedback.rectTransform.anchorMax = Vector2.one;
+            feedback.rectTransform.offsetMin = new Vector2(12, 6);
+            feedback.rectTransform.offsetMax = new Vector2(-12, -6);
+            feedbackPanel.gameObject.SetActive(false);
             var stick = Box("Joystick", controls, new Vector2(0, 0), new Vector2(125, 118), new Vector2(160, 160), new Color(0.93f, 0.95f, 0.88f, 0.72f));
             var knob = Box("Handle", stick, Vector2.one * 0.5f, Vector2.zero, new Vector2(64, 64), new Color(0.57f, 0.73f, 0.67f, 0.9f)); knob.GetComponent<Image>().raycastTarget = false;
             Joystick = stick.gameObject.GetOrAdd<BaseJoystick>(); Joystick.Handle = knob;
@@ -232,9 +240,18 @@ namespace BaseConquest.Base
             button.onClick.AddListener(() => { if (!owner.Busy) action(); });
             Label(rect, text, Vector2.zero, size - new Vector2(12, 6), DemoUiMetrics.FontSubhead, TextAnchor.MiddleCenter); return button;
         }
-        public void RefreshSummary()
+        public void RefreshSummary() => RefreshSummary(false);
+        internal void RefreshSummary(bool forceFeedback)
         {
-            var s = owner.State; feedback.text = owner.Message;feedback.gameObject.SetActive(owner.Message.Contains("失败")||owner.Message.Contains("未保存"));
+            var s = owner.State;
+            bool showFeedback = forceFeedback || owner.Message.Contains("失败") || owner.Message.Contains("未保存");
+            var feedbackPanel = (RectTransform)feedback.transform.parent;
+            if (showFeedback)
+            {
+                feedback.text = owner.Message;
+                feedbackPanel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(38, feedback.preferredHeight + 12));
+            }
+            feedbackPanel.gameObject.SetActive(showFeedback);
             if (heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf &&
                 (!BaseDemoIntro.Active(s) || !BaseDemoPrologue.Village(s) || s.Demo.Intro.Step != 0))
                 heroChoiceLayer.gameObject.SetActive(false);

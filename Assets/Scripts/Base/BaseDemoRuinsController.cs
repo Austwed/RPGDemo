@@ -84,6 +84,9 @@ namespace BaseConquest.Base
         }
         public void TravelDemo(string target)
         {
+            if(State==null||Busy)return;
+            var problem=BaseDemoRuins.TravelProblem(State,target);
+            if(problem!=""){ReportMessage(problem, showFeedback:true);return;}
             if(Change(next=>{if(!BaseDemoRuins.Travel(next,target))throw new InvalidOperationException(BaseDemoRuins.TravelProblem(next,target));},"已通过场景出口")){RefreshDemoRegion();Hud.ClosePanel();}
         }
         internal void RefreshDemoRegion()

@@ -20,6 +20,8 @@ namespace BaseConquest.Presentation
         private bool isMounted;
         private bool horseLoaded;
         private double distance;
+        private const double CivilianCycleCells = 1.4;
+        private const double DefaultCycleCells = 4;
         private double realtimeDownAt=double.NaN;
         private bool realtimeObserved;
         private double battleDownAt=double.NaN;
@@ -91,7 +93,11 @@ namespace BaseConquest.Presentation
                 if(!looking||now>=lookUntil){looking=false;facing=defaultFacing;}
             }
             wasNear=near;
-            Set(moving||autonomous ? HeroPose.Walk : HeroPose.Idle,moving||autonomous?distance/(BattleBoardView.CellSize*4):Time.unscaledTime,false,false,false);
+            bool walking = moving || autonomous;
+            // A civilian's short wander must reach the alternate foot contact before returning to idle.
+            double cycleCells = AppearanceId is "villager" or "villager-girl" or "chunshen" or "laozhou" ? CivilianCycleCells : DefaultCycleCells;
+            Set(walking ? HeroPose.Walk : HeroPose.Idle,
+                walking ? distance / (BattleBoardView.CellSize * cycleCells) : Time.unscaledTime, false, false, false);
             SortRig(MapSpriteOrder.At(feet.z));
         }
         public void Battle(BattleSimulation battle,BattleSoldier unit,float progress,bool carried)

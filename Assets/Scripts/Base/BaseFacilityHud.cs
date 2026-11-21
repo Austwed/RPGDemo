@@ -475,8 +475,10 @@ namespace BaseConquest.Base
             var rosterHeading = Ui<Text>(panel, "Right/Title");
             var portrait = Ui<RectTransform>(panel, "PortraitColumn");
             var rosterScroll = panelScroll;
-            var tally = BaseDevelopment.Tally(state);
-            FacilityText(actions, $"士兵 {tally[0]} · 队长 {state.Leaders.Count} · 可主动出战 {tally[2]} · 重伤 {tally[3]}");
+            var localTroops = state.Workers.Where(w => !w.Away && BaseSettlements.Local(state,w)).ToArray();
+            int ready = localTroops.Where(BaseDevelopment.CanFight).Sum(w => w.Count);
+            int injured = localTroops.Where(BaseDevelopment.HeavilyWounded).Sum(w => w.Count);
+            FacilityText(actions, $"士兵 {state.Workers.Sum(w => w.Count)} · 队长 {state.Leaders.Count} · 可主动出战 {ready} · 重伤 {injured}");
             var tabs = CloneSceneUi("FacilityActionRow", actions);
             if (state.Campaign.Location == "base")
                 FacilityButton(actions, "LanDuel", "模拟对抗", () => OpenLanDuel());

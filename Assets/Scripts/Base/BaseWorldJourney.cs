@@ -53,6 +53,8 @@ namespace BaseConquest.Base
         public static bool Active(BaseState state)=>state?.Campaign?.WorldJourney?.Version==1;
         public static bool OnWorld(BaseState state)=>Active(state)&&state.Campaign.Location=="world";
         public static bool Marching(BaseState state)=>Active(state)&&state.Campaign.WorldJourney.Route.Count>0;
+        internal static BaseOutsideParty PlayerExpedition(BaseState state) => state.Muster.Parties.FirstOrDefault(party =>
+            party.Purpose == "expedition" && party.Leaders.Any(leader => leader.LeaderId == state.PlayerLeaderId));
         internal static void StopAtNode(BaseState state)
         {
             var world=state.Campaign.WorldJourney;
@@ -119,7 +121,7 @@ namespace BaseConquest.Base
         public static void EnterWorld(BaseState state,string entryId)
         {
             var world=state.Campaign.WorldJourney;var entry=world.Entries.Single(item=>item.Id==entryId);var source=BaseSpatial.Layout(state);var marker=source.Objects.SingleOrDefault(obj=>obj.SourceObjectId==entry.ObjectId);
-            if(source.SourceMapId!=entry.MapId||marker==null||!BaseInteraction.CanReach(state,marker.Object)||state.Campaign.HasActiveBattle||BaseBattleLoot.Pending(state)||!state.Muster.Parties.Any(party=>party.Purpose=="expedition"&&party.Leaders.Any(leader=>leader.LeaderId==state.PlayerLeaderId)))throw new InvalidOperationException("请由主角出征队在同层一格内与世界出入口交互");
+            if(source.SourceMapId!=entry.MapId||marker==null||!BaseInteraction.CanReach(state,marker.Object)||state.Campaign.HasActiveBattle||BaseBattleLoot.Pending(state)||PlayerExpedition(state)==null)throw new InvalidOperationException("请由主角出征队在同层一格内与世界出入口交互");
             if(!world.Discovered.Contains(entryId))world.Discovered.Add(entryId);
             foreach(var crossing in world.Crossings.Where(crossing=>crossing.EntryId==world.LastEntryId&&crossing.ExitId==entryId||crossing.ExitId==world.LastEntryId&&crossing.EntryId==entryId))if(!world.Unlocked.Contains(crossing.Id))world.Unlocked.Add(crossing.Id);
             if(source.Region=="base"){state.Campaign.BaseX=state.PlayerX;state.Campaign.BaseY=state.PlayerY;}
@@ -130,10 +132,38 @@ namespace BaseConquest.Base
             var world=state.Campaign.WorldJourney;var entry=world.Entries.Single(item=>item.Id==entryId);
             if(!OnWorld(state)||Marching(state)||entry.NodeId!=world.NodeId||!world.Discovered.Contains(entryId)||BaseBattleLoot.Pending(state))throw new InvalidOperationException("只能从已抵达地点进入已发现入口");
             var map=BaseSceneInstances.Layout(state,entry.MapId);
-            if(map.Region=="base")foreach(var party in state.Muster.Parties.Where(party=>party.Purpose=="expedition").ToArray()){foreach(var quota in state.Supply.Quotas.Where(quota=>quota.PartyId==party.Id).ToArray())if(!BaseSupply.Cancel(state,quota.BattleId))throw new InvalidOperationException("战斗军需未解锁");if(!BaseMuster.Return(state,party.Id,worker=>{worker.Resting=worker.Health<worker.MaxHealth*BaseDevelopment.DutyThreshold;}))throw new InvalidOperationException("出征队无法返营");}
+            bool camp = map.Region == "base";
+            bool village = BaseDemoFinale.Opened(state) && map.SourceMapId == BaseDemoFinale.Home;
+            if (camp || village)
+            {
+                if (BaseDemo.Active(state))
+                {
+                    var party = PlayerExpedition(state);
+                    if (party != null) SettleExpedition(state, party, village);
+                }
+                else foreach (var party in state.Muster.Parties.Where(p => p.Purpose == "expedition").ToArray())
+                    SettleExpedition(state, party, null);
+            }
             world.LastEntryId=entryId;state.Campaign.CurrentMapId=map.SourceMapId;state.Campaign.Location=map.Region;state.PlayerX=entry.X;state.PlayerY=entry.Y;
             if(BaseDemo.Active(state))BaseDemoRelease.ArriveAtRoad(state,map.Objects.Single(o=>o.SourceObjectId==entry.ObjectId));
             BaseAdventure.Arrive(state);
+        }
+
+        private static void SettleExpedition(BaseState state, BaseOutsideParty party, bool? village)
+        {
+            foreach (var quota in state.Supply.Quotas.Where(q => q.PartyId == party.Id).ToArray())
+                if (!BaseSupply.Cancel(state, quota.BattleId)) throw new InvalidOperationException("战斗军需未解锁");
+            if (!BaseMuster.ReturnAtSettlement(state, party.Id, village)) throw new InvalidOperationException("出征队无法返营");
+        }
+
+        // Compatible saves made inside the village already completed this leg, but kept the party open.
+        internal static void RestoreSettlementArrival(BaseState state)
+        {
+            if (!BaseDemoFinale.Opened(state) || state.Campaign.HasActiveBattle || BaseBattleLoot.Pending(state) ||
+                state.Aftermath.GameOver || state.Campaign.Location != "custom" ||
+                state.Campaign.CurrentMapId != BaseDemoFinale.Home && state.Campaign.CurrentMapId != BaseDemoFinale.HomeField) return;
+            var party = PlayerExpedition(state);
+            if (party != null && !party.InCombat) SettleExpedition(state, party, true);
         }
         public static void Start(BaseState state,IEnumerable<string> path)
         {
