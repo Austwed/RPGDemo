@@ -142,14 +142,13 @@ namespace BaseConquest.Base
             for(int i=0;i<kinds.Length;i++){int index=i;RowButton((personnelFilter==i ? "● " : "")+BattleSimulation.KindName(kinds[i]),(i-(kinds.Length-1)*.5f)*spacing,spacing-10,()=>{personnelFilter=index;OpenBarracks();});}row+=60;
             var kind=kinds[personnelFilter];
             var units=(kind==SoldierKind.Hero ? BasePersonnel.Leaders(s) : BasePersonnel.Soldiers(s,kind)).ToArray();
-            Line("共 "+units.Length+"人；点击单位查看完整属性、工作与粮草／装备效果。",54,18);
+            Line("共 "+units.Length+" 人",46,18);
             string stamp=BaseMuster.Snapshot(s);
             foreach(var u in units)
             {
                 string key=u.Key;
                 AddPersonnelRow(content, u, u.State, () => OpenPersonnelDetail(key, stamp));
             }
-            Line(UnitDisplayNames.Mark("棕色姓名",true)+"：通过劝降加入。仅标记来源，工作、伤情、编队与战斗规则相同。",70,18);
         }
         private void OpenHeldPrisoners()
         {
@@ -188,13 +187,11 @@ namespace BaseConquest.Base
             if(person!=null)Line("获取来源："+(string.IsNullOrEmpty(person.AcquisitionSource)?"未记录":person.AcquisitionSource)+" · 游戏日："+(person.AcquisitionDay>0?"第"+person.AcquisitionDay+"天":"未记录"),64,19);
             var profession=u.IsLeader ? u.Current.HasProfessionKind?u.Current.ProfessionKind:u.Current.HasCombatKind?u.Current.CombatKind:BaseCommanderIdentity.Appearance(person)=="ahe"?SoldierKind.Ranged:BaseCommanderIdentity.Appearance(person)=="azhu"?SoldierKind.Cavalry:SoldierKind.Melee : u.Kind;
             double range=u.IsLeader?BasePersonalEquipment.RealtimeRange(person):BaseRpg.Active(s)?s.Demo.Rpg.Range[BaseRpg.Profession(u.Kind)]:RealtimeCombatRules.Range(u.Kind);
-            Line("攻击距离 "+range.ToString("0")+"细格 · 移速 "+(BaseRpg.Active(s)?person==null?s.Demo.Rpg.Speed[BaseRpg.Profession(profession)]:BaseRpg.MovementSpeed(person):RealtimeCombatRules.Speed(profession)).ToString("0")+"细格／秒"+(BaseRpg.Active(s)?" · 自然10暴击":" · 暴击率 "+(u.Current.CritChance*100).ToString("0")+"%")+" · 暴击伤害 "+u.Current.CritMultiplier.ToString("P0"),60,19);
+            Line("攻击距离 "+range.ToString("0")+"细格 · 移速 "+(BaseRpg.Active(s)?person==null?s.Demo.Rpg.Speed[BaseRpg.Profession(profession)]:BaseRpg.MovementSpeed(person):RealtimeCombatRules.Speed(profession)).ToString("0")+"细格／秒"+(BaseRpg.Active(s)?"":" · 暴击率 "+(u.Current.CritChance*100).ToString("0")+"%")+" · 暴击伤害 "+u.Current.CritMultiplier.ToString("P0"),60,19);
             Line("所在："+u.Facility+" · "+u.State+(u.IsLeader ? "" : "\n生产资格："+(u.Effective ? "今日可生产" : "今日不生产"))+"；岗位："+(u.Locked ? "手动锁定" : "自动安排"),76,19);
             Line(u.IsLeader ? "管理员增益：粮田 +"+(u.FarmEfficiency*100).ToString("0")+"%／工坊 +"+(u.WorkshopEfficiency*100).ToString("0")+"%" : "工作效率：粮田 "+u.FarmEfficiency.ToString("P0")+"／工坊 "+u.WorkshopEfficiency.ToString("P0"),60,19);
             Line("状态效果\n"+u.Effects.Replace("／","\n"),210,19);
-            // 请离基地入口收在营帐（2026-11-06 裁决）：名册只显示资格，不再提供按钮，避免在兵营把人踢掉。
-            if(person?.Rpg?.Version==1){Line(BaseRpg.Describe(person.Rpg),140,18);if(!person.Rpg.Story)Line(BaseRpg.DismissProblem(s,person.Id)==""?"要此人永久离开，请回营帐办理「请离基地」；装备与物品会退回基地仓库。":BaseRpg.DismissProblem(s,person.Id),66,18);}
-            if(u.Recruited)Line(UnitDisplayNames.Mark("棕色姓名",true)+"表示通过劝降加入；只标记来源。",60,18);
+            if(person?.Rpg?.Version==1)Line(BaseRpg.Describe(person.Rpg),140,18);
             EndPanel();
         }
     }

@@ -48,24 +48,24 @@ namespace BaseConquest.Base
         public static string[] Food(BaseState s)
         {
             var preview = BaseEconomy.ProjectDay(s);
-            int soldiers = s.Workers.Sum(w => w.Count);
-            int leaders = s.Leaders.Count(l => BaseAdventure.Alive(l));
             var farm = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == "farm");
+            string scope = BaseSettlements.Available(s, "farm", true) ? "两地" : "";
             return new[]
             {
-                "粮田在岗 " + BaseEconomy.WorkersAt(s, "farm") + " / " + (farm != null ? farm.Capacity : 0) + " 人 · 预计产粮 " + preview.FoodProduced + " / 日（生产系数 " + (preview.ProductionFactor * 100).ToString("0") + "%）",
-                "预计消耗 " + preview.FoodRequired + " / 日：士兵 " + soldiers + " 人／队长 " + leaders + " 人（骑兵与队长按 2 份）",
+                "粮田在岗 " + BaseEconomy.ProductionWorkersAt(s, "farm") + " / " + (farm != null ? farm.Capacity : 0) + " 人 · " + scope + "预计产粮 " + preview.FoodProduced + " / 日（生产系数 " + (preview.ProductionFactor * 100).ToString("0") + "%）",
+                "口粮需求 " + preview.FoodRequired + " / 日",
                 "日净变化 " + (preview.FoodProduced - preview.FoodRequired).ToString("+0;-0;0") + " / 日 · 库存 " + s.Inventory.Food
             };
         }
         public static string[] Materials(BaseState s)
         {
             var preview = BaseEconomy.ProjectDay(s);
+            string scope = BaseSettlements.Available(s, "workshop", true) ? "两地" : "";
             return new[]
             {
                 "工坊在岗 " + BaseEconomy.ProductionWorkersAt(s, "workshop") + " 人 · 当前产品 " + BaseEconomy.ProductName(s.WorkshopProduct) + "（" + BaseConstruction.ProductLevel(s) + " 级）",
-                "预计消耗原料 " + preview.MaterialsSpent + "：可做成 " + preview.ProductsMade + " 件（每件 " + BaseConstruction.MaterialCost(s, s.WorkshopProduct) + "）",
-                "库存 " + s.Inventory.Materials + (s.Inventory.Materials < preview.MaterialsSpent ? " · 原料不足，产能会打折" : "")
+                scope + "预计消耗原料 " + preview.MaterialsSpent + " · 可做成 " + preview.ProductsMade + " 件（每件 " + BaseConstruction.MaterialCost(s, s.WorkshopProduct) + "）",
+                "库存 " + s.Inventory.Materials + (preview.ProductsMade < preview.WorkCapacity ? " · 原料不足" : "")
             };
         }
         public static string[] Supply(BaseState s)
@@ -75,15 +75,15 @@ namespace BaseConquest.Base
             int high = s.Inventory.Equipment.Where(e => e.Product == "supply" && e.Level >= 2).Sum(e => e.Count);
             bool making = s.WorkshopProduct == "supply";
             var shop = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == "workshop");
+            string scope = BaseSettlements.Available(s, "workshop", true) ? "两地" : "";
             string output = making
-                ? "工坊在岗 " + BaseEconomy.WorkersAt(s, "workshop") + " / " + (shop != null ? shop.Capacity : 0) + " 人 · 预计产量 " + preview.ProductsMade + " 件 / 日（" + preview.ProductLevel + " 级）"
-                : "工坊当前生产 " + BaseEconomy.ProductName(s.WorkshopProduct) + "，没有在生产军需";
-            if (making && s.Inventory.Materials < preview.MaterialsSpent) output += " · 原料不足，预计 0 / 日";
+                ? "工坊在岗 " + BaseEconomy.ProductionWorkersAt(s, "workshop") + " / " + (shop != null ? shop.Capacity : 0) + " 人 · " + scope + "预计产量 " + preview.ProductsMade + " 件 / 日（" + preview.ProductLevel + " 级）"
+                : "工坊当前生产 " + BaseEconomy.ProductName(s.WorkshopProduct);
+            if (making && preview.ProductsMade < preview.WorkCapacity) output += " · 原料不足";
             return new[]
             {
                 "库存 一级 " + low + " 件／二级 " + high + " 件",
-                output,
-                "军需只在战斗内加攻防，战后只扣磨损；跨阶段越级使用属于经营选择"
+                output
             };
         }
         // 兵力四分类与 P38 的 Tally 同源：总数／可工作／可主动出战／重伤，外加在岗与闲置。
@@ -99,7 +99,7 @@ namespace BaseConquest.Base
                 working += onDuty; idle += free;
                 rows.Add(BaseEconomy.TroopName(kind) + "：总数 " + tally[0] + " · 可工作 " + tally[1] + " · 可主动出战 " + tally[2] + " · 重伤 " + tally[3] + "（在岗 " + onDuty + "／闲置 " + free + "）");
             }
-            rows.Add("全军在岗 " + working + " 人／闲置 " + idle + " 人；外出与随行不计入在岗");
+            rows.Add("全军在岗 " + working + " 人／闲置 " + idle + " 人");
             return rows.ToArray();
         }
     }

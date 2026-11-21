@@ -163,7 +163,7 @@ namespace BaseConquest.Base
                     target = (RectTransform)dialogueQuestTarget.transform;
                 else if (cue.Control == "sword" && panelViewKey == "party-inventory") target = questSwordTarget;
                 else if (cue.Control == "farm" && (panelViewKey == "intro_farm" || panelViewKey == "intro_smith")) target = questFarmTarget;
-                else if (panelViewKey == PreparationView && !PreparationHelpOpen && cue.ObjectId == "demo_defense_start")
+                else if (panelViewKey == PreparationView && cue.ObjectId == "demo_defense_start")
                     target = panel.Find("Continue") as RectTransform;
             }
             else if (cue.Control == "sword") target = (RectTransform)questBackpackButton.transform;

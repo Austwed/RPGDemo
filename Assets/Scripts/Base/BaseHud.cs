@@ -21,7 +21,6 @@ namespace BaseConquest.Base
         private Text panelFeedback;
         private readonly Button interact;
         private readonly UnityEngine.UI.Button construction;
-        private readonly Button reserveRules;
         private RectTransform[] labels=Array.Empty<RectTransform>();
         private Text[] npcMarkers;
         private BaseMapObject[] labelObjects;
@@ -79,7 +78,6 @@ namespace BaseConquest.Base
             {
                 var summaryLink = summary.gameObject.GetOrAdd<Button>(); summaryLink.targetGraphic = summary; summaryLink.onClick.AddListener(OpenResources);
                 DemoUiIcons.Attach(MakeButton(header, "任务", new Vector2(-364, -36), new Vector2(86, 44), ToggleQuests, new Vector2(1, 1)), "quest");
-                reserveRules = MakeButton(header, "i", new Vector2(-194, -36), new Vector2(44, 44), () => OpenResourceInfo(ClosePanel), new Vector2(1, 1));
             }
             if (!BaseBattleGateway.DemoMode)
             {
@@ -258,7 +256,6 @@ namespace BaseConquest.Base
             bool selectingHero = heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf;
             summary.transform.parent.gameObject.SetActive(!selectingHero &&
                 (!PanelOpen || panelViewKey != "npc-dialogue" && panelViewKey != DemoCompletionView));
-            if (reserveRules != null) reserveRules.interactable = s != null && !s.Aftermath.GameOver && !owner.Busy;
             if (panelFeedback != null) panelFeedback.text = owner.Message;
             owner.InvalidateObjects();
             if (resourceStrip != null) RefreshResourceStrip(s);
@@ -356,7 +353,7 @@ namespace BaseConquest.Base
             inspectionTitle.text = "格子（" + cell.X + ", " + cell.Y + "） · " + (facility?.Name ?? TerrainLabel(cell.X,cell.Y));
             if (facility != null)
             {
-                if (!owner.AtBase) inspectionDetails.text = facility.Id == "travel_base" ? "基地入口；接近后交互返回。" : facility.Id=="travel_world" ? "区域出口；接近后回到世界地图原节点，保持本队与军需。" : facility.Id == "campaign_defense" ? "查看入侵并预览迎战；确认才抽调人员。" : facility.Id == "campaign_attack" ? owner.State.Campaign.Location=="world" ? "区域入口；接近后进入据点区域。世界地图仅用于区域导航。" : BaseThreats.Site(owner.State)?.Owner=="player" ? "本区域已归己方，停止产生新入侵；接近后查看据点状态。" : "查看本区域驻军与威胁，使用真实队伍与军需在本图进攻。" : facility.Id=="town_quest" ? "镇务官：接取城镇防务委托，完成后交付领取营造图册。" : facility.Id=="town_market" ? "交易摊位：买卖粮草、原料和装备；接近后查看当日供货和报价。" : facility.Id=="town_recruit" ? (BaseDemoFlow.Active(owner.State)?"募兵处：付费招募三种普通兵，加入基地；今日即可安排生产。":"募兵处：付费招募三种普通兵，加入基地；今日不生产，次日正常分配。") : "城镇交互点。";
+                if (!owner.AtBase) inspectionDetails.text = facility.Id == "travel_base" ? "基地入口；接近后交互返回。" : facility.Id=="travel_world" ? "区域出口；接近后回到世界地图原节点，保持本队与军需。" : facility.Id == "campaign_defense" ? "查看入侵并预览迎战；确认才抽调人员。" : facility.Id == "campaign_attack" ? owner.State.Campaign.Location=="world" ? "接近后可进入据点。" : BaseThreats.Site(owner.State)?.Owner=="player" ? "本区域已归己方，接近后可查看据点状态。" : "查看本区域驻军与敌情。" : facility.Id=="town_quest" ? "镇务官：接取城镇防务委托，完成后交付领取营造图册。" : facility.Id=="town_market" ? "交易摊位：查看当日供货和报价。" : facility.Id=="town_recruit" ? "募兵处：查看当日可募兵种和报价。" : "城镇交互点。";
                 else { var info = BaseFacilityInfo.Read(owner.State, facility.Id); inspectionDetails.text = (info.Administrator == "" ? "" : "管理员：" + info.Administrator + "\n工人：" + info.Workers + "\n") + info.Production + "\n" + info.Status; }
             }
             else
@@ -477,7 +474,6 @@ namespace BaseConquest.Base
                 return;
             }
             if (ResourcePopoverOpen) { CloseResourcePopover(); return; }
-            if (ClosePreparationHelp()) return;
             if (DialogueExitLocked) return;
             if(owner.State?.Aftermath.GameOver==true || BaseBattleGateway.MainMenu || BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) return;
             if (OfferSmithLessonOnTradeExit() || OfferRecruiterHideoutClueOnExit()) return;
@@ -516,7 +512,7 @@ namespace BaseConquest.Base
                 if(BaseConquest.Presentation.PixelDemoArt.HasAttack(shellArt)){RowButton("攻击",0,800,()=>owner.SetMotionCheck(id,HeroPose.Attack));row+=60;}
                 EndPanel();return;
             }
-            if(owner.MapObjects.Any(o=>o.Id==id&&o.VisualOnly)){owner.ReportMessage("仅场景外观／待接入内容，当前不可使用");return;}
+            if(owner.MapObjects.Any(o=>o.Id==id&&o.VisualOnly)){owner.ReportMessage("目前无法在此交互");return;}
             if(BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             if(owner.PlayerAway||!BaseInteraction.CanReach(owner.State,owner.PresentedObject(id))){owner.ReportMessage("请在设施边缘一格以内、与地基同层交互");return;}
             if(id.StartsWith("motion-check:"))
@@ -680,7 +676,7 @@ namespace BaseConquest.Base
             }
             else
             {
-            RowButton("休息至明天",-290,270,()=>owner.Rest(day));RowButton("暂不休息",0,270,ClosePanel);RowButton("日结规则 i",290,270,()=>RuleInfo("日结规则",BaseExperienceRules.Home,OpenHome));row+=65;
+                RowButton("休息至明天",-210,400,()=>owner.Rest(day));RowButton("暂不休息",210,400,ClosePanel);row+=65;
             }
             foreach (var e in BaseCampaign.Due(s)) Line("待处理入侵：" + e.Title + "；产出为战前估算。", 64, 19);
             Line("第"+day+"天 → 第"+(day+1)+"天",48,22);
@@ -706,7 +702,7 @@ namespace BaseConquest.Base
             Line("工坊：" + Math.Max(1,r.ProductLevel) + "级" + BaseEconomy.ProductName(r.Product) + " +" + r.ProductsMade + "；原料 -" + r.MaterialsSpent);
             Line("昨天生产效率：" + (r.ProductionFactor * 100).ToString("0") + "%");
             Line("今天口粮：需要" + r.FoodRequired + "／已供" + r.FoodConsumed + "／缺少" + r.FoodMissing);
-            Line("昨日恢复生命：" + r.PeopleRecovered + "人（全员自动恢复）");
+            Line("昨日恢复生命：" + r.PeopleRecovered + " 人");
             CampaignReports();
             Line(r.FoodMissing > 0 ? "今天缺粮会降低产能，人员不会直接死亡。增加粮田人数可恢复供给。" : "今天粮草充足。关闭报告可继续安排工作。", 78);
         }

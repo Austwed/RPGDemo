@@ -363,12 +363,6 @@
       "notes": "功能占位，待回稿。"
     },
     {
-      "key": "story.ui.prep.travel_context",
-      "group": "界面／战前准备",
-      "text": "抵达黑鸦寨后，可在随行人员中重新编队及部署。",
-      "notes": "功能占位，待回稿。"
-    },
-    {
       "key": "story.ui.prep.production",
       "group": "界面／战前准备",
       "text": "当前编队无法保障生产",
@@ -405,39 +399,9 @@
       "notes": "功能占位，待回稿。"
     },
     {
-      "key": "story.ui.prep.help_title",
-      "group": "界面／战前准备",
-      "text": "备战说明",
-      "notes": "功能占位，待回稿。"
-    },
-    {
-      "key": "story.ui.prep.help_close",
-      "group": "界面／战前准备",
-      "text": "返回备战",
-      "notes": "功能占位，待回稿。"
-    },
-    {
       "key": "story.ui.prep.selected_count",
       "group": "界面／战前准备",
       "text": "已选",
-      "notes": "功能占位，待回稿。"
-    },
-    {
-      "key": "story.ui.prep.help_roster",
-      "group": "界面／战前准备",
-      "text": "选定队长后，可以修改各兵种人数，或在士兵名册中点选具体士兵。",
-      "notes": "功能占位，待回稿。"
-    },
-    {
-      "key": "story.ui.prep.help_supply",
-      "group": "界面／战前准备",
-      "text": "每名士兵需要一份军需，所有士兵使用同一等级。仅队长出战时无需军需。",
-      "notes": "功能占位，待回稿。"
-    },
-    {
-      "key": "story.ui.prep.help_place",
-      "group": "界面／战前准备",
-      "text": "敌方只显示已知情报。进入战场后先放置队长，再点按或拖划部署所属士兵。",
       "notes": "功能占位，待回稿。"
     },
     {
@@ -579,10 +543,10 @@
       "notes": "功能占位，待回稿。保留 {coins}、{delta} 与换行。"
     },
     {
-      "key": "story.ui.resource.energy.details",
+      "key": "story.ui.resource.energy.status",
       "group": "界面／资源栏",
-      "text": "当前 / 上限 {current} / {max}\n每日自然恢复最多 {recovery}，下次预计恢复 +{next}\n重战和扫荡各消耗 {cost} 点。",
-      "notes": "功能占位，待回稿。保留 {current}、{max}、{recovery}、{next}、{cost} 与换行。"
+      "text": "当前 / 上限 {current} / {max}\n每日恢复最多 {recovery}，下次预计恢复 +{next}",
+      "notes": "保留 {current}、{max}、{recovery}、{next} 与换行。"
     },
     {
       "key": "story.ui.resource.energy.disabled",

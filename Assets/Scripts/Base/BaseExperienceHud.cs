@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.UI;
 namespace BaseConquest.Base
 {
     public static class DepartureAdviceOptions
@@ -11,19 +10,26 @@ namespace BaseConquest.Base
     }
     public sealed partial class BaseHud
     {
-        private void OpenHelp()
+        private void OpenHelp() => OpenHelp(OpenMenu);
+        private void OpenTitleHelp() => OpenHelp(OpenMainMenu);
+        private void OpenHelp(Action back)
         {
-            BeginPanel("帮助");RowButton("返回",0,800,OpenMenu);row+=60;
-            RowButton("战斗与结算",0,800,()=>{BeginPanel("帮助 · 战斗与结算");RowButton("返回帮助",0,800,OpenHelp);row+=60;Line(BaseExperienceRules.FieldBattle,280,20);EndPanel();});row+=60;
-            string[] titles={"游戏操作","游戏规则","游戏术语"};
-            string[] texts={BaseExperienceRules.Operations,BaseExperienceRules.Rules,BaseExperienceRules.Terms};
-            for(int i=0;i<3;i++)
+            BeginPanel("帮助", "help");
+            RowButton("返回菜单",0,800,back);
+            row+=60;
+            foreach (var topic in BaseExperienceRules.Help)
             {
-                float x=(i-1)*292;
-                Label(content,titles[i],new Vector2(x,-row-24),new Vector2(276,42),23,TextAnchor.MiddleCenter,new Vector2(.5f,1));
-                Label(content,texts[i],new Vector2(x,-row-394),new Vector2(270,680),18,TextAnchor.UpperLeft,new Vector2(.5f,1));
+                RowButton(topic.Title,0,800,()=>
+                {
+                    BeginPanel("帮助 · "+topic.Title,"help:"+topic.Title);
+                    RowButton("返回帮助",0,800,()=>OpenHelp(back));
+                    row+=60;
+                    Line(topic.Text,300,20);
+                    EndPanel();
+                });
+                row+=60;
             }
-            row+=750;EndPanel();
+            EndPanel();
         }
         private bool CompanionAdvice(string location,string eventId,string mode,bool bypass)
         {

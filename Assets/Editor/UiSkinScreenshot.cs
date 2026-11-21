@@ -76,6 +76,12 @@ namespace BaseConquest.Editor
             Run();
         }
 
+        public static void RunMenuHelp()
+        {
+            stage = "menu-help-boot";
+            Run();
+        }
+
         public static void RunAndroidTouch()
         {
             androidTouch = true;
@@ -430,6 +436,45 @@ namespace BaseConquest.Editor
             if(stage.StartsWith("home-field-",StringComparison.Ordinal)){TickHomeField();return;}
             switch (stage)
             {
+                case "menu-help-boot":
+                    controller = C;
+                    if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    controller.LoadDemoStage("defense", "female");
+                    stage = "menu-help-perimeter";
+                    break;
+                case "menu-help-perimeter":
+                    controller = C;
+                    if (controller?.State?.Campaign.Location != "perimeter" || controller.Busy ||
+                        Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    H.ClosePanel();
+                    H.OpenMenu();
+                    VerifyExplorationHelp();
+                    VerifyResourceHud();
+                    if (!controller.Change(s => s.Inventory.Equipment.Single(e => e.Product == "supply" && e.Level == 1).Count += 10,
+                        "菜单帮助走查：备足军需"))
+                        throw new InvalidOperationException(controller.Message);
+                    Approach("demo_defense_start");
+                    H.OpenObject("demo_defense_start");
+                    var helpPrep = RequirePanel("BattlePreparation");
+                    if (helpPrep.Find("Help") != null || helpPrep.Find("HelpOverlay") != null)
+                        throw new InvalidOperationException("备战页仍包含旧的规则入口");
+                    SetPreparationSupply(helpPrep, 1);
+                    Press(helpPrep, "Continue");
+                    var helpBattle = RequireBattleDraft();
+                    VerifyBattleHelp(helpBattle);
+                    var helpDraft = (BaseBattlePreparation)Field(H, "battleDraft");
+                    PlaceByPointer(helpBattle, helpDraft, helpDraft.PlayerId);
+                    VerifyDeploymentSpace(helpBattle);
+                    FinishDialogue();
+                    Click("拔剑迎战");
+                    stage = "menu-help-battle";
+                    break;
+                case "menu-help-battle":
+                    var liveHelpBattle = Field(controller, "combatController") as BattleSceneController;
+                    if (liveHelpBattle == null || liveHelpBattle.PreviewSimulation.Phase != BattlePhase.Fighting) return;
+                    VerifyBattleHelp(liveHelpBattle);
+                    Finish(0, "菜单帮助走查通过");
+                    break;
                 case "soldiers-boot":
                     controller = C;
                     if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
@@ -460,7 +505,10 @@ namespace BaseConquest.Editor
                     Approach("town_recruit");
                     H.OpenObject("town_recruit");
                     if (H.DialogueOpen) { FinishDialogue(); Click("开始招募"); }
-                    var readOnly = RequirePanel("TownTrade").Find("RightBody").GetComponent<ScrollRect>().content;
+                    var recruit = RequirePanel("TownTrade");
+                    if (recruit.GetComponentsInChildren<Button>().Any(button => button.GetComponentInChildren<Text>()?.text == "规则 i"))
+                        throw new InvalidOperationException("招募面板仍包含旧的规则按钮");
+                    var readOnly = recruit.Find("RightBody").GetComponent<ScrollRect>().content;
                     var soldiers = RosterUnits(readOnly);
                     if (soldiers.Length != 8 || soldiers.Any(r => r.GetComponent<Button>().interactable))
                         throw new InvalidOperationException("募兵处未显示全部八名现役士兵");
@@ -1181,13 +1229,8 @@ namespace BaseConquest.Editor
                         throw new InvalidOperationException("战前编队未统一使用半身像");
                     if (defenseDraft.RequiredSupply(false) <= 0 || defenseDraft.SupplyGrade!=1)
                         throw new InvalidOperationException("首防测试编队缺少普通兵或未以一级军需起步");
-                    Press(preparation, "Help");
-                    if (!preparation.Find("HelpOverlay").gameObject.activeInHierarchy)
-                        throw new InvalidOperationException("备战说明未打开");
-                    H.ClosePanel();
-                    if (preparation.Find("HelpOverlay").gameObject.activeInHierarchy ||
-                        !ReferenceEquals(defenseDraft, Field(H, "battleDraft")))
-                        throw new InvalidOperationException("退出备战说明清空了草案");
+                    if (preparation.Find("Help") != null || preparation.Find("HelpOverlay") != null)
+                        throw new InvalidOperationException("备战页仍包含旧的规则入口");
                     Press(preparation, "Candidates/SortHealth");
                     preparation = RequirePanel("BattlePreparation");
                     var roster = preparation.Find("Candidates/List").GetComponent<ScrollRect>();
@@ -1700,6 +1743,47 @@ namespace BaseConquest.Editor
                 if(!BaseDemoFinale.HomeRepaired(controller.State,id))throw new InvalidOperationException(id+" 尚未修复");
             }
             CaptureViewports("ui-player-route-home-rebuilt-village");
+        }
+
+        private static void VerifyExplorationHelp()
+        {
+            Click("帮助");
+            foreach (var topic in BaseExperienceRules.Help)
+            {
+                Click(topic.Title);
+                VerifyHelpText(RequirePanel("CommonPanel"), topic.Text);
+                Click("返回帮助");
+            }
+            Click("返回菜单");
+            RequirePanel("CampMenu");
+            Log.Add("[PASS] 探索菜单帮助六个主题可阅读，并可返回菜单");
+        }
+
+        private static void VerifyBattleHelp(BattleSceneController battle)
+        {
+            Transform Menu() => ((GameObject)Field(battle, "campaignMenu")).GetComponentsInChildren<RectTransform>()
+                .Single(rect => rect.name == "选项面板");
+            battle.OpenCampaignMenu();
+            Press(Menu(), "Help");
+            for (int i = 0; i < BaseExperienceRules.Help.Count; i++)
+            {
+                Press(Menu(), "HelpTopic" + i);
+                VerifyHelpText(Menu().Find("HelpContent"), BaseExperienceRules.Help[i].Text);
+                Press(Menu(), "Back");
+            }
+            Press(Menu(), "Back");
+            Press(Menu(), "Continue");
+            if (Field(battle, "campaignMenu") != null)
+                throw new InvalidOperationException("未从帮助返回战场");
+            Log.Add("[PASS] " + (battle.DeploymentDraftActive ? "部署" : "战斗") + "菜单可查看并退出共享帮助");
+        }
+
+        private static void VerifyHelpText(Transform view, string expected)
+        {
+            Canvas.ForceUpdateCanvases();
+            var body = view.GetComponentsInChildren<Text>().SingleOrDefault(text => text.text == expected);
+            if (body == null || body.preferredHeight > body.rectTransform.rect.height + 1)
+                throw new InvalidOperationException("帮助正文未显示完整");
         }
 
         private static void VerifyResourceHud()

@@ -520,7 +520,7 @@ namespace BaseConquest.Battle
                 var label=skills[i].GetComponentInChildren<Text>();label.color=skillCharge[i].Ready?DemoUiTheme.Current.Ink:DemoUiTheme.Current.Panel;var shadow=label.GetComponent<Shadow>();if(shadow!=null)shadow.enabled=!skillCharge[i].Ready;
                 label.text=(owner.Realtime?.SkillName(owner.ControlledSide,i)??BattleSimulation.CommanderSkillName(i))+(cooldown>1e-7?"\n"+Math.Ceiling(cooldown).ToString("0"):"");
             }
-            for(int slot=0;slot<portraits.Length;slot++){var commander=battle.Commander(owner.ControlledSide,slot);if(commander?.IsDowned==true)portraitLabels[slot].text=battle.CommanderDisplayName(commander.Side,slot)+(owner.Realtime?.Session.Opening.DemoCombat==true?"\n倒地·战后1血恢复":"\n倒地·救援待接");}
+            for(int slot=0;slot<portraits.Length;slot++){var commander=battle.Commander(owner.ControlledSide,slot);if(commander?.IsDowned==true)portraitLabels[slot].text=battle.CommanderDisplayName(commander.Side,slot)+"\n倒地";}
             if(owner.InformationUnits.Count==0)information.text=owner.InformationCell.HasValue?(battle.CanInspectCell(owner.ControlledSide,owner.InformationCell.Value)?"格内无可显示单位":"当前无视野，无法查看单位或地形"):Application.platform == RuntimePlatform.Android
                 ? "点格查看单位和地形\n点按或拖划头像选队，点空地移动，点敌人集火\n单指拖动战场平移，双指捏合缩放"
                 : "点格子查看格内单位与地形\n点队长或头像选队，Shift点队长单选\n点空地移动／点敌人集火\n空格继续／暂停";
@@ -546,8 +546,7 @@ namespace BaseConquest.Battle
                 if(unit!=null)detailsInfo.text=battle.UnitName(unit)+"\n生命 "+CombatNumbers.RemainingHealth(unit.Health)+" / "+unit.Stats.Health.ToString("0")+
                     "\n攻击 "+unit.Stats.Damage.ToString("0")+" · 防御 "+unit.Stats.Defense.ToString("0")+"\n移速 "+owner.RealtimeSpeed(unit).ToString("0")+"细格／秒 · 攻击距离 "+owner.RealtimeRange(unit).ToString("0")+"细格\n视野 "+battle.Vision.SightRadius(unit)+" 格";
                 else detailsInfo.text=battle.CommanderDisplayName(owner.ControlledSide,owner.DetailsSlot)+"\n尚未部署，布兵后可查看本场实际属性";
-                detailsEffects.text=(unit?.Rpg==null?"":BaseConquest.Base.BaseRpg.Describe(unit.Rpg)+"\n")+(owner.DetailsSlot>=0&&owner.Realtime!=null?owner.Realtime.SkillDescription(unit?.Side??owner.ControlledSide,unit?.OriginCommanderSlot??owner.DetailsSlot)+"\n":"")
-                    +StoryText.Get("story.ui.battle.strategy_help","队长的直接命令优先。手动时队长原地攻击、士兵护卫。也可改为进攻或驻守。单击敌方队长攻击，双击队伍集火。\n可暂停下令，退出菜单后按空格继续。");
+                detailsEffects.text=(unit?.Rpg==null?"":BaseConquest.Base.BaseRpg.Describe(unit.Rpg)+"\n")+(owner.DetailsSlot>=0&&owner.Realtime!=null?owner.Realtime.SkillDescription(unit?.Side??owner.ControlledSide,unit?.OriginCommanderSlot??owner.DetailsSlot):"");
             }
             log.text=log.text.Replace("轮","秒");
         }

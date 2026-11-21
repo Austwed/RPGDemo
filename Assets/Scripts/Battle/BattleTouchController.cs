@@ -150,7 +150,7 @@ namespace BaseConquest.Battle
             if(IsRealtimeCampaign)
             {
                 // P44：只有副手战允许「观看 → 直接结算」，沿当前战场状态继续跑真实模型，不是战力估算。
-                if(realtime==null||campaignSession?.Opening.Deputy!=true){feedback="即时首版不跳过战斗，可暂停或切换3倍速";return;}
+                if(realtime==null||campaignSession?.Opening.Deputy!=true){feedback="可暂停战斗或切换到 3 倍速";return;}
                 FastForwardDeputy();
                 return;
             }
@@ -168,7 +168,7 @@ namespace BaseConquest.Battle
             int bound=(battle.Scenario.MaxRounds+1)*8;int steps=0;
             while(battle.Phase==BattlePhase.Fighting&&steps++<bound&&watch.ElapsedMilliseconds<1200)realtime.Tick(.5);
             SyncRealtimeViews();hud?.Refresh();
-            feedback=battle.Phase==BattlePhase.Finished?"副手已打完，战果按同一套规则结算":"已交给副手，战斗继续快进（"+realtime.Model.Elapsed.ToString("0")+"秒）";
+            feedback=battle.Phase==BattlePhase.Finished?"副手已结束战斗":"已交给副手，战斗继续快进（"+realtime.Model.Elapsed.ToString("0")+"秒）";
         }
         private void RunSkipBatch()
         {

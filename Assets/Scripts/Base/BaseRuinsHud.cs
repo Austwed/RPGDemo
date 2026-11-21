@@ -10,7 +10,7 @@ namespace BaseConquest.Base
         public void OpenRuinsWarning(Action proceed)
         {
             var s=owner.State;var lines=new List<NpcLine>();
-            lines.Add(new NpcLine(BaseScriptNames.Ruins+"警告","","严重警告：当前出战队伍有普通人。仅副本内，非异族、非异能者每秒损失最大生命的"+(BaseRuinsRewards.Exposure(s)*100).ToString("0")+"%；异族和异能者免受侵蚀伤害；"+BaseScriptNames.Ruins+"中受法术保护的村民暂免侵蚀。入口野外没有侵蚀，暂离成员不会进入副本。战斗中存在真实战损，请谨慎决定。"));
+            lines.Add(new NpcLine(BaseScriptNames.Ruins+"警告","","当前出战队伍中有成员会受到侵蚀。侵蚀基准为每秒扣除最大生命的"+BaseRuinsRewards.Exposure(s).ToString("P0")+"。"));
             NpcDialogue(lines.ToArray(),new[]{new NpcReply("知晓危险，仍让当前队伍进入",proceed),new NpcReply("暂不进入，先调整随行",owner.CancelRuinsEntry)});
         }
         public void OpenRuinsConfrontation(Action proceed)
@@ -142,13 +142,12 @@ namespace BaseConquest.Base
         public void OpenRuinsSweep(string mode="full")
         {
             var s=owner.State;var p=BaseRuinsSweep.Preview(s,mode);BeginPanel(BaseScriptNames.Ruins+" · 扫荡确认","ruins-sweep");activeObject="ruins-sweep";interactionObject="";
-            Line("已首通，且我方战力严格超过敌方战力的 150% 才可扫荡。确认前只给战力比，伤损在确认后结算，队长最低保留1生命。",48,21);
             RowButton("尽量配足军需"+(mode=="full"?" · 已选":""),-205,390,()=>OpenRuinsSweep("full"));RowButton("不使用军需"+(mode=="none"?" · 已选":""),205,390,()=>OpenRuinsSweep("none"));row+=60;
             Line("我方战力 "+p.AllyPower.ToString("0")+" / 敌方 "+p.EnemyPower.ToString("0")+" ≈ "+(p.EnemyPower>1e-9?(p.AllyPower/p.EnemyPower).ToString("P0"):"—")+"（需 >150%）；体力 "+BaseRuinsRewards.Energy(s)+" / "+BaseRuinsRewards.Maximum(s)+"，胜利后领奖消耗"+BaseRuinsRewards.Cost(s)+"。",50,21);
             if(p.Problem!="")Line(p.Problem,85,21);
-            else Line("确认后按该战力比结算伤损，不预告具体损失；不耗游戏日，军需照常磨损。",58,21);
+            else Line("确认后结算战损和军需消耗，停留在当天。",50,20);
             RowButton("确认扫荡",-205,390,()=>owner.SweepDemoRuins(mode),p.Problem=="");RowButton("取消",205,390,OpenRuinsChallenge);row+=60;
-            Line("不耗游戏日，军需照常磨损；体力不足不能领奖。扫荡不解锁“破咒不伤人”。",60,19);EndPanel();
+            EndPanel();
         }
         public void OpenSweepResult(BaseSweepPreview result, BasePrepRoute route = BasePrepRoute.Ruins)
         {

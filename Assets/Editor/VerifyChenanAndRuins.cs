@@ -506,11 +506,19 @@ namespace BaseConquest.Editor
             boundary.Day = 16;
             Need(BaseCalendar.Quarter(boundary, 1).All(day => day.Past) && BaseCalendar.Quarter(boundary).First().Today, "进入下一季度后应仍能浏览过去的季度");
             // 顶栏四项明细：粮食／原料／军需／兵力都不能是空壳。
-            Need(BaseTopBar.Food(s).Length==3&&BaseTopBar.Food(s)[0].Contains("预计产粮"),"粮食明细应包含岗位与预计产量");
+            var foodDetail=BaseTopBar.Food(s);
+            Need(foodDetail.Length==3&&foodDetail[0].Contains("预计产粮")&&
+                foodDetail[1].Contains("口粮需求 "+BaseEconomy.FoodRequired(s)+" / 日"),
+                "粮食明细应包含岗位、预计产量和实际预计消耗");
+            Need(!string.Join(" ",foodDetail).Contains("骑兵与队长"),"粮食明细不得显示过期的队长口粮");
             Need(BaseTopBar.Materials(s)[0].Contains("工坊在岗"),"原料明细应说明工坊在岗");
-            Need(BaseTopBar.Supply(s).Length==3&&BaseTopBar.Supply(s)[0].Contains("一级"),"军需明细应分档");
+            var supplyDetail=BaseTopBar.Supply(s);
+            Need(supplyDetail.Length==2&&supplyDetail[0].Contains("一级")&&supplyDetail[0].Contains("二级")&&
+                supplyDetail[1].Contains("预计产量"),"军需明细应显示两档库存与实际预估产量");
             var troops=BaseTopBar.Troops(s);
-            Need(troops.Length==4&&troops[0].Contains("可主动出战")&&troops[0].Contains("重伤"),"兵力明细应含四分类");
+            Need(troops.Length==BaseTown.TroopKinds(s).Count+1&&troops.Take(troops.Length-1).All(line=>
+                line.Contains("总数")&&line.Contains("可工作")&&line.Contains("可主动出战")&&line.Contains("重伤")),
+                "兵力明细应覆盖当前职业，各行包含总数、可工作、可主动出战和重伤");
             // 体力：按天部分恢复，跨天累加、封顶，补充入口拒绝溢出。
             // 用副本推进天数，避免破坏「醒来日期与阶段一致」的存档校验。
             var t=s.Copy();t.Demo.RuinsVersion=1;t.Demo.RuinsRewards=null;BaseRuinsRewards.Enable(t);

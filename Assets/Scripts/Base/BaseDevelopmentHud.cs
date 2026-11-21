@@ -27,7 +27,8 @@ namespace BaseConquest.Base
                 var option=RowButton((s.Development.Policy==id ? "● " : "　 ")+BaseDevelopment.PolicyName(id), 0, 800, () => { owner.Change(next => BaseDevelopment.SetPolicy(next, id), "已按发展策略安排有效人员"); OpenGovernment(); }, allowed);
                 option.GetComponentInChildren<UnityEngine.UI.Text>().color=Color.white;row += 56;
             }
-            Line("办公设施建成前只能逐人手动安排；建成后才会自动补位。切换策略立即重排，手动锁定的人不受影响。" + (string.IsNullOrEmpty(s.Layout?.PausedPolicy) ? "" : "上次策略：" + BaseDevelopment.PolicyName(s.Layout.PausedPolicy) + "（办公设施收存后暂停，重新放置后请再确认）"), 76, 18);
+            if (!string.IsNullOrEmpty(s.Layout?.PausedPolicy))
+                Line("上次策略：" + BaseDevelopment.PolicyName(s.Layout.PausedPolicy) + " · 重新放置办公设施后可选用", 58, 18);
             foreach (var facility in s.Muster.Facilities)
             {
                 string id = facility.FacilityId;
@@ -37,8 +38,6 @@ namespace BaseConquest.Base
             }
             ConstructionFacilities(OpenGovernment);
             Line("商队：" + BaseCaravan.Status(s), 60, 19);
-            Line("随行队长不管理设施；队长按日自然回血，不影响任职资格，也不受兵力阈值限制。士兵生命低于 30% 既不能工作也不能主动出战；遇袭守家例外，还能行动就上。全员每天自动恢复，满血停止。", 98, 18);
-            Line("管理员当前每设施一席，工人位有限；以后升级可扩容和解锁配方。手动调配会锁定意向，解锁后恢复自动安排。", 85, 18);
         }
         private void ConstructionFacilities(Action refresh)
         {
@@ -123,7 +122,7 @@ namespace BaseConquest.Base
         private void Recovery()
         {
             var s = owner.State;
-            Line("全员每天自然恢复最大生命的 " + (BaseDevelopment.RecoveryRatio(s) * 100).ToString("0") + "%（营帐 " + (s.Demo?.Rpg?.CampLevel ?? 1) + " 级），满血停止。队长不受血量阈值限制；士兵生命低于 30% 不能工作也不能主动出战，遇袭守家仍可迎战。", 98, 18);
+            Line("营帐 " + (s.Demo?.Rpg?.CampLevel ?? 1) + " 级 · 日结恢复最大生命的 " + BaseDevelopment.RecoveryRatio(s).ToString("P0"), 58, 18);
             if (!BaseDemo.Active(s))
             {
                 foreach (var person in s.Leaders)
@@ -135,7 +134,8 @@ namespace BaseConquest.Base
             for (int i = 0; i < s.Workers.Count; i++)
             {
                 int index = i; var worker = s.Workers[i]; if (worker.Away) continue;
-                Line(BaseEconomy.TroopName(worker.Kind) + " " + worker.Count + "人 · " + worker.Health.ToString("0") + "/" + worker.MaxHealth.ToString("0") + "生命 · " + (BaseDevelopment.Effective(s, worker) ? "今日可生产" : "重伤强制空闲"), 52);
+                string status = BaseDevelopment.Effective(s, worker) ? "今日可生产" : BaseDevelopment.HeavilyWounded(worker) ? "重伤疗养" : "今日不生产";
+                Line(BaseEconomy.TroopName(worker.Kind) + " " + worker.Count + "人 · " + worker.Health.ToString("0") + "/" + worker.MaxHealth.ToString("0") + "生命 · " + status, 52);
                 if (BaseDemo.ExperimentalManagementHidden(s)) continue;
                 string stamp = BaseMuster.Snapshot(s);
                 RowButton("解锁岗位意向", 220, 400, () => { owner.Change(next => { if (BaseMuster.Snapshot(next) != stamp) throw new InvalidOperationException("人员状态变化"); next.Workers[index].PostLocked = false; }, "已交由策略安排"); OpenBarracks(); }); row += 62;

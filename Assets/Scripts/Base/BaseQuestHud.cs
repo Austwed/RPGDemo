@@ -21,9 +21,9 @@ namespace BaseConquest.Base
             activeObject="quests";interactionObject="";var s=owner.State;
             BeginPanel("任务","quests");
             string accept=BaseQuests.AcceptProblem(s),claim=BaseQuests.ClaimProblem(s);
-            RowButton("接取委托",-290,270,()=>{owner.Change(next=>{if(!BaseQuests.Accept(next))throw new InvalidOperationException("接取条件已变化，请重新查看");},StoryText.Get("story.quest.town_defence.accepted","已接取城镇防务委托"));OpenTownQuestPanel();},accept=="");
-            RowButton("交付 · 领取图册",0,270,()=>{if(claim==BagFullException.Notice){ShowBagFull();return;}owner.Change(next=>{if(!BaseQuests.Claim(next))throw new InvalidOperationException("交付条件已变化或背包已满，请重新查看");},StoryText.Get("story.quest.town_defence.delivered","获得营造图册1本，已开放营造入门剧情条件"));OpenTownQuestPanel();},claim==""||claim==BagFullException.Notice);
-            RowButton("规则 i",290,270,()=>RuleInfo("委托规则","镇务官在城镇募兵处附近。接近后接取；亲自取得一场迎战或进攻胜利，再回镇务官处交付。无人迎战、自动过夜战斗和失败不会完成此项战斗目标。已攻占荒野据点的旧档也认可既有成果，接取后可以交付。\n\n奖励固定为营造图册1本，并满足营造入门剧情条件。读取存档、重复交互或再次胜利不会重复领奖。测试图册保留，正式委托与测试赠送各自记录。\n\n图册存入B背包，回到粮田／工坊升级页或迎敌固定工事处使用；仍需对应战略材料和钱币。",OpenTownQuestPanel));row+=66;
+            RowButton("接取委托",-210,400,()=>{owner.Change(next=>{if(!BaseQuests.Accept(next))throw new InvalidOperationException("接取条件已变化，请重新查看");},StoryText.Get("story.quest.town_defence.accepted","已接取城镇防务委托"));OpenTownQuestPanel();},accept=="");
+            RowButton("交付 · 领取图册",210,400,()=>{if(claim==BagFullException.Notice){ShowBagFull();return;}owner.Change(next=>{if(!BaseQuests.Claim(next))throw new InvalidOperationException("交付条件已变化或背包已满，请重新查看");},StoryText.Get("story.quest.town_defence.delivered","获得营造图册1本，已开放营造入门剧情条件"));OpenTownQuestPanel();},claim==""||claim==BagFullException.Notice);
+            row+=66;
             Line(BaseQuests.Title,34,DemoUiMetrics.FontPanelTitle);Line("状态："+BaseQuests.Status(s),24,DemoUiMetrics.FontBody);
             Line(StoryText.Get("story.quest.town_defence.description","“附近的军队威胁着往来商旅。协助我们恢复安全，城镇会提供营造图册，帮助你建设据点。”"),44,DemoUiMetrics.FontBody);
             Line(StoryText.Get("story.quest.town_defence.objective","目标：亲自赢得1场迎战／进攻，或让荒野据点归属己方。"),24,DemoUiMetrics.FontBody);

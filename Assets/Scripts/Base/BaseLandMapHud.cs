@@ -24,9 +24,6 @@ namespace BaseConquest.Base
             var s = owner.State;
             var nodes = BaseLandMap.Nodes(s);
             BeginPanel("领地地图", "landmap");
-            var info = MakeButton(content, "i", new Vector2(421, -17), new Vector2(34, 34), () => RuleInfo("领地地图", "基地、外围、城镇、野外与遗迹内部同属这块领地，进出靠各自出入口。地图上的蓝点是地表出入口、黄点通往内嵌场景；点出口旁的标记直接过去，不消耗日程。遗迹内部嵌在野外，得从野外的调查点进。世界旅行走基地南侧的斥候，不在本图范围。", OpenLandMap), new Vector2(.5f, 1));
-            var infoLabel = info.GetComponentInChildren<Text>();
-            if (infoLabel != null) infoLabel.fontSize = DemoUiMetrics.FontBody;
 
             var outside = nodes.Where(node => !node.Inside).ToList();
             if (outside.Count == 0)
@@ -56,7 +53,7 @@ namespace BaseConquest.Base
             var current = outside.FirstOrDefault(node => node.Current) ?? nodes.FirstOrDefault(node => node.Current);
             var pos = Label(content, "当前位置：" + (current == null ? BaseCampaign.LocationName(s.Campaign.Location) : current.Title) + " · X " + s.PlayerX.ToString("0") + "，Y " + s.PlayerY.ToString("0"), new Vector2(0, subY), new Vector2(850, 20), DemoUiMetrics.FontBody, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
             pos.color = DemoUiTheme.Current.Ink;
-            var legend = Label(content, "蓝点为地表出入口，黄点为遗迹内部进出位置；点击标记传送至入口附近，不消耗日程。", new Vector2(0, subY - 24), new Vector2(850, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
+            var legend = Label(content, "蓝点 · 地表出入口   黄点 · 遗迹出入口", new Vector2(0, subY - 24), new Vector2(850, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
             legend.color = DemoUiTheme.Current.Muted;
 
             MakeButton(content, "世界地图 →", new Vector2(0, subY - 70), new Vector2(240, 42), () => { ClosePanel(); owner.Travel("world"); }, new Vector2(.5f, 1)).interactable = BaseLandMap.WorldEntry(s);

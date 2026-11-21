@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using BaseConquest.Presentation;
 using UnityEngine;
@@ -9,18 +8,14 @@ namespace BaseConquest.Base
     // P33 顶栏明细、15 天日历与体力页。
     public sealed partial class BaseHud
     {
-        private void OpenResourceInfo(Action back) => RuleInfo("资源与人员信息",
-            "基地总兵力只统计己方士兵，包含驻外、在岗、闲置与重伤士兵。\n\n带正负号的数字是按当前岗位预计的一日净变化。粮食扣除全部人员口粮，原料扣除工坊耗料。军需显示两档总量，库存页可查看品质拆分。\n\n姓名为棕色表示通过劝降加入，只标记来源，工作、伤情、编队和作战规则相同。\n\n格子信息 3 秒自动收起，点击信息面板可立即收起。兵营完整单位详情保持打开。", back);
-
         public void OpenResources()
         {
             if (owner.State == null) return;
             var s = owner.State;
             interactionObject = "";
             BeginPanel("资源明细", "resources");
-            RowButton("体力", -290, 270, OpenEnergy);
-            RowButton("规则 i", 0, 270, () => RuleInfo("资源与人员信息", "括号内是按当前岗位预计的一日净变化：正值红色、负值绿色、零为中性色。粮食扣除全部人员口粮，原料扣除工坊耗料。军需只在战斗内加攻防。兵力四分类与编队同源：总数、可工作、可主动出战、重伤。", OpenResources));
-            RowButton("日历", 290, 270, OpenCalendar);
+            RowButton("体力", -210, 400, OpenEnergy);
+            RowButton("日历", 210, 400, OpenCalendar);
             row += 58;
             ResourceCard("粮食 " + s.Inventory.Food, BaseTopBar.Food(s), -1);
             ResourceCard("原料 " + s.Inventory.Materials, BaseTopBar.Materials(s), 1);
@@ -92,9 +87,9 @@ namespace BaseConquest.Base
             RowButton("返回", -290, 270, OpenCalendar);
             RowButton("关闭", 290, 270, ClosePanel);
             row += 58;
-            if (!BaseDemoRuins.Enabled(s)) { Line("本局没有启用体力（遗迹重战与扫荡消耗）。", 24); EndPanel(); return; }
+            if (!BaseDemoRuins.Enabled(s)) { Line("本局没有启用体力。", 24); EndPanel(); return; }
             Line("当前 " + BaseRuinsRewards.Energy(s) + " / 上限 " + BaseRuinsRewards.Maximum(s), 26, DemoUiMetrics.FontSubhead);
-            Line("每天恢复 " + BaseRuinsRewards.DailyRecovery + " 点，次日结算时补到上限为止；扫荡与重战各消耗 " + BaseRuinsRewards.Cost(s) + " 点。", 24, DemoUiMetrics.FontBody);
+            Line("次日预计恢复 +" + ExpectedEnergy(s) + " 点 · 扫荡与重战各需 " + BaseRuinsRewards.Cost(s) + " 点", 24, DemoUiMetrics.FontBody);
             EndPanel();
         }
     }

@@ -26,7 +26,6 @@ namespace BaseConquest.Base
         private Dictionary<string, BasePersonnelUnit> prepRosterUnits;
         private (GameObject Node, bool Visible)[] deploymentHudVisibility;
         private static string PrepText(string key, string fallback) => StoryText.Get("story.ui.prep." + key, fallback);
-        private bool PreparationHelpOpen => panelViewKey == PreparationView && panel != null && panel.Find("HelpOverlay").gameObject.activeSelf;
 
         internal void OpenBattlePreparation(BasePrepRoute route)
         {
@@ -89,7 +88,7 @@ namespace BaseConquest.Base
         {
             var button = Ui<Button>(view, path);
             if (label != null) Ui<Text>(button.transform, "Label").text = label;
-            button.onClick.AddListener(() => { if (!owner.Busy && !PreparationHelpOpen) click(); });
+            button.onClick.AddListener(() => { if (!owner.Busy) click(); });
             button.interactable = true;
         }
 
@@ -130,8 +129,6 @@ namespace BaseConquest.Base
             prepRoster = Ui<ScrollRect>(view, "Candidates/List");
             Ui<Text>(view, "Title").text = travel ? owner.WorldMarchTitle : PrepTitle(battleDraft.Route) + " · " + PrepText("preparation", "战前准备");
             PrepButton(view, "Back", PrepText("back", "返回"), ClosePanel);
-            PrepButton(view, "Help", null, ShowPreparationHelp);
-            BindPreparationHelp(view, travel);
             PrepButton(view, "Close", null, ClosePanel);
             PrepButton(view, "Reset", null, () => OpenBattlePreparation(battleDraft.Route));
             PrepButton(view, "Continue", travel ? "出发" : PrepText("deployment_enter", "进入战场"), ContinueBattlePreparation);
@@ -280,36 +277,6 @@ namespace BaseConquest.Base
             FitControl(view,"Reward",211,458,190,43);
         }
 
-        private void BindPreparationHelp(Transform view, bool travel)
-        {
-            var help = view.Find("HelpOverlay");
-            Ui<Text>(help, "Window/Title").text = PrepText("help_title", "备战说明");
-            string roster = PrepText("help_roster", "选定队长后，可以修改各兵种人数，或在士兵名册中点选具体士兵。");
-            Ui<Text>(help, "Window/Body").text = roster + "\n\n" + (travel
-                ? PrepText("travel_context", "抵达黑鸦寨后，可在随行人员中重新编队及部署。")
-                : PrepText("help_supply", "每名士兵需要一份军需，所有士兵使用同一等级。仅队长出战时无需军需。") + "\n\n" +
-                  PrepText("help_place", "敌方只显示已知情报。进入战场后先放置队长，再点按或拖划部署所属士兵。"));
-            var close = Ui<Button>(help, "Window/Close");
-            Ui<Text>(close.transform, "Label").text = PrepText("help_close", "返回备战");
-            close.onClick.AddListener(() => ClosePreparationHelp());
-            help.gameObject.SetActive(false);
-        }
-
-        private void ShowPreparationHelp()
-        {
-            var help = panel.Find("HelpOverlay");
-            help.gameObject.SetActive(true);
-            Ui<Button>(help, "Window/Close").Select();
-        }
-
-        private bool ClosePreparationHelp()
-        {
-            if (!PreparationHelpOpen) return false;
-            panel.Find("HelpOverlay").gameObject.SetActive(false);
-            Ui<Button>(panel, "Help").Select();
-            return true;
-        }
-
         private void RememberPreparationScroll()
         {
             if (prepRoster != null) prepRosterScroll = Mathf.Max(0, prepRoster.content.anchoredPosition.y);
@@ -317,7 +284,7 @@ namespace BaseConquest.Base
 
         private void SelectPreparationTeam(BasePrepUnit team)
         {
-            if (owner.Busy || PreparationHelpOpen || prepTeam == team.Id) return;
+            if (owner.Busy || prepTeam == team.Id) return;
             prepTeam = team.Id;
             prepDetail = "";
             RefreshPreparationTeams();
@@ -349,7 +316,7 @@ namespace BaseConquest.Base
             field.onEndEdit.AddListener(value =>
             {
                 if (battleDraft == null || panelViewKey != PreparationView || !PanelOpen) return;
-                if (!owner.Busy && !PreparationHelpOpen && int.TryParse(value, out int requested))
+                if (!owner.Busy && int.TryParse(value, out int requested))
                     SetPrepTroopCount(team, kind, requested);
                 field.SetTextWithoutNotify(PrepTroopCount(team, kind).ToString(CultureInfo.InvariantCulture));
             });
@@ -450,10 +417,9 @@ namespace BaseConquest.Base
                 {
                     var card = AddPersonnelRow(prepRoster.content, entry, "", () =>
                     {
-                        if (!PreparationHelpOpen && available) SelectPrepSoldier(soldier);
+                        if (available) SelectPrepSoldier(soldier);
                     }, details: () =>
                     {
-                        if (PreparationHelpOpen) return;
                         prepDetail = entry.Key;
                         RefreshPreparationRoster();
                     });
@@ -510,7 +476,7 @@ namespace BaseConquest.Base
             {
                 context = battleDraft.Route switch
                 {
-                    BasePrepRoute.Ruins => $"侵蚀 {BaseRuinsRewards.Exposure(state):P0} / 秒 · " + DungeonEnergy(state, battleDraft.Route),
+                    BasePrepRoute.Ruins => $"侵蚀基准 {BaseRuinsRewards.Exposure(state):P0} / 秒 · " + DungeonEnergy(state, battleDraft.Route),
                     BasePrepRoute.Defense => PrepText("first_objective", "坚守到敌军撤离，或击败全部来敌。"),
                     BasePrepRoute.Second => PrepText("second_objective", "击败全部来敌。开战后无法撤退。"),
                     BasePrepRoute.Hideout => DungeonEnergy(state, battleDraft.Route),

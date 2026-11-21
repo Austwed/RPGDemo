@@ -20,9 +20,9 @@ namespace BaseConquest.Base
             BeginPanel((purpose=="expedition" ? "出征 · " : "迎战 · ")+shownMode,"departure:"+key);
             var captured=plan;
             bool valid=existing!=null ? purpose!="expedition"||existing.Leaders.Any(l=>l.LeaderId==s.PlayerLeaderId) : plan!=null&&plan.Leaders.Count>0&&(bypass||plan.Production?.Allowed==true)&&(purpose!="expedition"||plan.Leaders.Contains(s.PlayerLeaderId));
-            RowButton(eventId==null ? BaseDemoDefense.Enabled(s)&&s.Campaign.Location=="perimeter"&&location=="perimeter"?"确认队伍并选择军需":"确认队伍并进入区域" : "确认队伍并开战",-290,270,()=>{if(eventId==null)owner.CompleteTravel(location,captured);else owner.LaunchCampaign(eventId,mode,captured);},valid);
-            RowButton("返回",0,270,()=>{if(existing!=null)OpenMenu();else OpenDeparture(location,eventId,mode,bypass);});
-            RowButton("规则 i",290,270,()=>RuleInfo("逐兵选取规则","点击兵种展开名单，可逐个勾选；加减与名单共用同一选择，不能超出真实可调人数。表内显示基础攻防、当前／最大生命、设施与今天的生产资格；生命低于30%、外出或无法行动者不可选（迎战守家例外，能行动即可上）。有资格的士兵按生命比例从高到低自动选取，确认前冻结名单。生产优先需要保障三天正常开工，作战优先可抽调生产人员；兵力按队长预设先后填补。实际出征时再计算军需与临时效果。进入世界地图即出征，走到节点进入区域，迎战在原区域内开战。",()=>OpenDepartureReview(location,eventId,mode,bypass)));row+=64;
+            RowButton(eventId==null ? BaseDemoDefense.Enabled(s)&&s.Campaign.Location=="perimeter"&&location=="perimeter"?"确认队伍并选择军需":"确认队伍并进入区域" : "确认队伍并开战",-210,400,()=>{if(eventId==null)owner.CompleteTravel(location,captured);else owner.LaunchCampaign(eventId,mode,captured);},valid);
+            RowButton("返回",210,400,()=>{if(existing!=null)OpenMenu();else OpenDeparture(location,eventId,mode,bypass);});
+            row+=64;
             if(existing!=null)
             {
                 int carried=s.Workers.Where(w=>w.PartyId==existing.Id&&w.Away).Sum(w=>w.Count);
@@ -45,7 +45,7 @@ namespace BaseConquest.Base
                 RowButton("−",160,100,()=>{departure.Adjust(s,k,-1,bypass,out departureMessage);Reopen();},count>0);
                 RowButton("+",300,100,()=>{departure.Adjust(s,k,1,bypass,out departureMessage);Reopen();},count<capacity.Limit);row+=52;
                 Line(capacity.Detail,60,17);
-                if(BaseTown.DemoRecruitment(s))Line("全军普通兵 "+BaseTown.TroopTotal(s)+"人（含外出） · 合计基准 "+BaseDemoCombat.BaselineTotal(s.Demo?.Rpg)+" · 普通兵即死率 "+BaseTown.HireProbability(s).ToString("P0")+"；调岗出征不改变总数。",62,17);
+                if(BaseTown.DemoRecruitment(s))Line("全军普通兵 "+BaseTown.TroopTotal(s)+"人（含外出） · 合计基准 "+BaseDemoCombat.BaselineTotal(s.Demo?.Rpg)+" · 普通兵即死率 "+BaseTown.HireProbability(s).ToString("P0"),62,17);
                 if(departureExpanded!=k)continue;
                 var roster=BasePersonnel.Soldiers(s,BaseCampaign.ToBattle(k)).ToDictionary(unit=>unit.Key);
                 Line("士兵名册",42,17);
@@ -66,7 +66,7 @@ namespace BaseConquest.Base
             if(departure.WarningCount(s)>0)Line("生命预警：已选 "+departure.WarningCount(s)+" 人低于 "+(BaseDevelopment.WarningThreshold(s)*100).ToString("0")+"%（最低 "+departure.WarningLowest(s).ToString("0")+"），可返回调整或继续。",70,18);
             if(!valid)Line("出征需带主角，且至少选择一名可出战队长。",55,18);
             if(plan!=null)Line("净产出变化：粮 "+(-plan.FoodLoss).ToString("+0;-0;0")+"／产品 "+(-plan.ProductLoss).ToString("+0;-0;0"),55,18);
-            if(BaseTown.DemoRecruitment(s))Line("出征人员仍计入全军口粮：每日 "+BaseEconomy.FoodRequired(s)+"；抽走岗位人员的产出影响见上方预览。",65,18);
+            if(BaseTown.DemoRecruitment(s))Line("出征人员仍计入全军口粮：每日 "+BaseEconomy.FoodRequired(s)+"。",65,18);
             EndPanel();
         }
     }

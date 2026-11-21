@@ -153,10 +153,9 @@ namespace BaseConquest.Base
                     break;
                 case ResourceKind.Energy:
                     if (!BaseDemoRuins.Enabled(state)) Details("体力", StoryText.Get("story.ui.resource.energy.disabled", "本局没有启用体力。"));
-                    else Details("体力", StoryText.Get("story.ui.resource.energy.details", "当前 / 上限 {current} / {max}\n每日自然恢复最多 {recovery}，下次预计恢复 +{next}\n重战和扫荡各消耗 {cost} 点。")
+                    else Details("体力", StoryText.Get("story.ui.resource.energy.status", "当前 / 上限 {current} / {max}\n每日恢复最多 {recovery}，下次预计恢复 +{next}")
                         .Replace("{current}", BaseRuinsRewards.Energy(state).ToString()).Replace("{max}", BaseRuinsRewards.Maximum(state).ToString())
-                        .Replace("{recovery}", BaseRuinsRewards.DailyRecovery.ToString()).Replace("{next}", ExpectedEnergy(state).ToString())
-                        .Replace("{cost}", BaseRuinsRewards.Cost(state).ToString()).Split('\n'));
+                        .Replace("{recovery}", BaseRuinsRewards.DailyRecovery.ToString()).Replace("{next}", ExpectedEnergy(state).ToString()).Split('\n'));
                     break;
                 case ResourceKind.Troops: Details("兵力 · 基地总览", BaseTopBar.Troops(state)); break;
             }

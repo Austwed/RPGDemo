@@ -13,8 +13,7 @@ namespace BaseConquest.Base
                 double bonus = product == "supply"?quota.SwordBonus:product == "sword" ? quota.SwordBonus : product == "bow" ? quota.BowBonus : quota.ArmorBonus;
                 Line(BaseEconomy.ProductName(product) + "：需求 " + quota.Demand(product) + "；一级 " + low + "／二级 " + high + "；缺 " + (quota.Demand(product) - low - high) + "\n对应普通兵均摊" + (product == "armor" ? "防御" : "攻击") + " +" + bonus.ToString("0")+(product=="supply"?"；防御 +"+quota.ArmorBonus.ToString("0"):""), 76, 20);
             }
-            Line(BaseRpg.Active(owner.State)?"军需覆盖全部普通兵，同一份同时提供攻防收益并只损耗一次；品质与配给数量决定均摊加成。队长使用个人装备。":"剑由近战和骑兵共用；甲覆盖全部普通兵。供给分母包含预备兵，开战后伤亡和再部署不改变比例；队长不使用普通兵军需加成。", 85, 18);
-            Line("口粮攻击系数 " + (quota.AttackFactor * 100).ToString("0") + "%（军需先加入基础攻击，再计算作战倍率）", 54, 18);
+            Line("口粮攻击系数 " + (quota.AttackFactor * 100).ToString("0") + "%", 42, 18);
         }
         private void PartySupply(string id, Action back)
         {
@@ -48,7 +47,7 @@ namespace BaseConquest.Base
                     owner.Change(next => { var p = next.Muster.Parties.Single(x => x.Id == id).Preset; string value = priority == "high" ? "low" : "high"; if (key == "sword") p.SwordPriority = value; else if (key == "bow") p.BowPriority = value; else p.ArmorPriority = value; }, "已更新本队军需优先级"); OpenSupply(id, mode, back);
                 }); row += 56;
             }
-            RowButton("军需规则 i",0,800,()=>RuleInfo("军需规则",BaseRpg.Active(owner.State)?"确认锁定全局可用军需，按全部出征普通兵人数均摊品质与数量收益；同一份同时提升攻击和防御。开战后比例固定，最终只计算一次实际磨损。队长使用个人装备。":"确认只锁全局可用装备，总量不扣出，取消只释放。近战／骑兵共用剑，弓兵用弓，甲覆盖普通兵；均摊分母含全部预备。本场比例冻结，实际磨损最终扣一次；追加前先解除准备，之后重算。",()=>OpenSupply(id,mode,back)));row+=60;SupplyLines(plan.Quota);
+            SupplyLines(plan.Quota);
             EndPanel();
         }
     }

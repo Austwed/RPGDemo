@@ -27,19 +27,21 @@ namespace BaseConquest.Base
     }
     public sealed partial class BaseHud
     {
-        private void RuleInfo(string title,string text,Action back)
-        { BeginPanel(title); RowButton("返回",0,800,back); row+=60; Line(text,Math.Max(260,text.Length/32*27+text.Count(c=>c=='\n')*24),20); EndPanel(); }
         public void OpenOptions()
         {
             BeginPanel("游戏选项");
             RowButton("返回",0,800,OpenMenu);row+=60;
-            if(BaseBattleGateway.MainMenu){RowButton("难度设置",0,800,OpenDifficulty);row+=64;}
+            if(BaseBattleGateway.MainMenu)
+            {
+                RowButton("难度设置",0,800,OpenDifficulty);row+=64;
+                RowButton("帮助",0,800,OpenTitleHelp);row+=64;
+            }
             RowButton("声音设置",0,800,OpenAudioOptions);row+=64;
             RowButton("和平地图格子描边："+(BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines ? "开启" : "关闭"),0,800,()=>{BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines=!BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines;OpenOptions();});row+=64;
             RowButton("战斗格子描边："+(BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines ? "开启" : "关闭"),0,800,()=>{BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines=!BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines;OpenOptions();});row+=64;
             if(RuntimeDeveloperOptions.Enabled&&BaseConquest.Presentation.HomeTerrainTrial.Eligible(owner.State))
             {RowButton("故乡地面试点："+(BaseConquest.Presentation.HomeTerrainTrial.Enabled?"新版候选":"原版"),0,800,()=>{owner.ToggleHomeTerrainTrial();OpenOptions();});row+=64;}
-            Line("战斗格线默认开启，和平地图单独设置。",100,19);EndPanel();
+            EndPanel();
         }
         private void OpenAudioOptions()
         {
@@ -64,7 +66,7 @@ namespace BaseConquest.Base
             RowButton("开始推荐测试",0,800,()=>owner.NewTemplate(owner.RecommendedTemplate)); row+=60;
             RowButton("开始新游戏",0,800,()=>{ BeginPanel("选择新开局"); AddTemplates(); EndPanel(); }); row+=60;
             RowButton("难度设置",0,800,OpenDifficulty);row+=60;RowButton("选项",0,800,OpenOptions);row+=60;
-            RowButton("难度规则 i",0,800,()=>RuleInfo("难度规则","新游戏默认普通难度。进入后在菜单选择简单／普通／困难；目前只影响战斗伤害。",OpenMainMenu)); row+=60; EndPanel();
+            RowButton("帮助",0,800,OpenTitleHelp);row+=60;EndPanel();
         }
         public void OpenGameOver()
         {
@@ -100,7 +102,7 @@ namespace BaseConquest.Base
             var difficulty=new BaseDifficulty();
             foreach(string key in new[] { "easy","normal","hard" }) { string id=key; RowButton((difficulty.Preset==id ? "● " : "")+(id=="easy" ? "简单" : id=="hard" ? "困难" : "普通"),id=="easy" ? -290 : id=="normal" ? 0 : 290,270,()=>{difficulty.Set(id);OpenDifficulty();}); } row+=66;
             RowButton("返回菜单",0,800,OpenMainMenu); row+=60;
-            Line("简单：我方造成伤害×2.0，受到伤害×0.5（含遗迹侵蚀）。普通：敌我攻防倍率均为×1.0。困难：我方受到伤害×1.3（含遗迹侵蚀）。",52,19); EndPanel();
+            EndPanel();
         }
         public void OpenPrisoners()=>OpenLoot();
     }

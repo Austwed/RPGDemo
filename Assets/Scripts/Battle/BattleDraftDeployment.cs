@@ -34,7 +34,7 @@ namespace BaseConquest.Battle
                 if (!DeploymentDraftActive || deploymentDraft.Route != BasePrepRoute.Ruins) return "";
                 var state = deploymentState();
                 return BaseRuinsRewards.RequiresWarning(state, deploymentDraft)
-                    ? $"普通参战成员每秒损失最大生命的 {BaseRuinsRewards.Exposure(state):P0} · 可返回备战调整"
+                    ? $"队中有成员会受到侵蚀 · 基准为每秒扣除最大生命的 {BaseRuinsRewards.Exposure(state):P0} · 可返回备战调整"
                     : "";
             }
         }

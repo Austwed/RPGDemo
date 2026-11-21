@@ -15,10 +15,6 @@ namespace BaseConquest.Base
         }
         public void OpenBackpack()=>OpenInventory(false);
         private void OpenBagItem(string id){inventorySelected=id;OpenInventory(false);}
-        private void ConstructionRules(Action back)
-        {
-            RuleInfo("设施与工程规则",BaseExperienceRules.Construction,back);
-        }
         private void FacilityUpgrade(string id,Action refresh)
         {
             var s=owner.State;string problem=BaseConstruction.UpgradeProblem(s,id);

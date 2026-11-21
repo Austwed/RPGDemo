@@ -46,16 +46,14 @@ namespace BaseConquest.Base
             if (armyPage == "protection") { ArmyProtection(); return; }
             if (armyPage == "parties") { OutsideParties(OpenGovernment); return; }
             var s = owner.State; var preset = ArmyPreset(s);
-            Line("预设仅保存希望编制；确认抽调前不会占用人物、兵力或产能。", 56, 18);
-            Line("队长沿用常驻冒险小队。可让伙伴原地等候或归队，回营后可调整随行人选。",56,18);
-            Line("默认带兵组成已移至兵营·队长编组；这里保留军需与留守设置。",58,18);
+            Line("默认带兵组成：兵营 · 队长编组。",58,18);
             foreach(var leader in BaseAdventure.Members(s))Line(BasePersonnel.LeaderName(leader)+" · "+TroopsText(leader.DefaultTroops),48,19);
             Line("当前冒险小队 "+s.Adventure.Members.Count+"/3 · 暂离占位 "+s.Adventure.Pauses.Count,48,20);
             foreach (var leader in BaseAdventure.Members(s))
             {
                 Line(BasePersonnel.LeaderName(leader)+" · 生命 "+leader.Health.ToString("0")+"/"+leader.MaxHealth.ToString("0")+(leader.Away ? " · 外出" : " · 随行"),50,20);
             }
-            Line("军需取用优先级（保存规则；不会提前扣出装备）", 56, 18);
+            Line("军需取用优先级", 56, 18);
             foreach (string product in BaseEconomy.ProductsFor(s))
             {
                 string id = product; string priority = id == "sword" ? preset.SwordPriority : id == "bow" ? preset.BowPriority : preset.ArmorPriority;
@@ -68,7 +66,6 @@ namespace BaseConquest.Base
         private void ArmyProtection()
         {
             var s = owner.State;
-            Line("先取闲置，再低优先设施；同级优先少减产。按兵种保留留守人数，按设施保留生产人数。", 75, 18);
             foreach (BaseTroopKind kind in BaseTown.TroopKinds(s))
             { var troop = kind; ArmyCounter("基地最低留守 · " + BaseEconomy.TroopName(troop), s.Muster.Keep(troop), 0, 10000, n => ArmyEdit(next => next.Muster.SetKeep(troop, n))); }
             foreach (var facility in s.Muster.Facilities)
@@ -79,7 +76,6 @@ namespace BaseConquest.Base
                 ArmyCounter("至少保留生产人数", facility.MinimumWorkers, 0, facility.Capacity, n => ArmyEdit(next => next.Muster.Facilities.Single(f => f.FacilityId == id).MinimumWorkers = n));
             }
             Line("人手不足时少带兵；需要增兵，可在出发前允许抽调留守和生产人员。", 58, 18);
-            Line("生产优先以这里的最低人数保障开工；即使设为0，每座生产设施仍至少需1名有效工人。原料紧张时工坊按最低人数节约生产，返营后恢复常规安排。",98,18);
         }
         private void OpenMusterPreview(bool bypass)
         {
@@ -102,9 +98,9 @@ namespace BaseConquest.Base
             activeObject="party";BeginPanel(BaseMuster.PurposeName(party.Purpose)+" · 外出队伍","party:"+id);
             var q=s.Supply.Quotas.FirstOrDefault(x=>x.PartyId==id);bool available=!party.InCombat&&!s.Campaign.HasActiveBattle;
             RowButton("前往本队区域",-290,270,()=>owner.Travel(party.Purpose=="defense"?"perimeter":"world"),available);RowButton("军需预览",0,270,()=>OpenSupply(id,"full",()=>OpenParty(id,back)),q==null&&available);RowButton("返回菜单",290,270,OpenMenu);row+=64;
-            RowButton("追加基地兵力",-290,270,()=>OpenAppend(id,back,false),available&&party.Purpose=="expedition"&&q==null);
-            RowButton("返营",0,270,()=>{if(owner.Change(next=>{if(!BaseMuster.Return(next,id))throw new InvalidOperationException("先结束战斗或取消军需");},"本队返营，今日不生产"))OpenMenu();},available&&q==null);
-            RowButton("规则 i",290,270,()=>RuleInfo("队伍规则","确认出征与追加后实际外出，按日仍消耗唯一仓库口粮。准备装备分配需先取消才能返营或追加；真实战损、伤势、来源及岗位意向持续保存。返营者今日不生产，不挤走今日可生产的替补。进入世界必须由主角带队。",()=>OpenParty(id,back)));row+=64;
+            RowButton("追加基地兵力",-210,400,()=>OpenAppend(id,back,false),available&&party.Purpose=="expedition"&&q==null);
+            RowButton("返营",210,400,()=>{if(owner.Change(next=>{if(!BaseMuster.Return(next,id))throw new InvalidOperationException("先结束战斗或取消军需");},"本队返营，今日不生产"))OpenMenu();},available&&q==null);
+            row+=64;
             if(q!=null){RowButton("取消军需准备",0,800,()=>{owner.Change(next=>{if(!BaseSupply.Cancel(next,q.BattleId))throw new InvalidOperationException("战斗装备分配不能取消");},"已释放准备装备分配");OpenParty(id,back);},q.Phase=="prepared");row+=60;}
             Line("队长："+string.Join("、",party.Leaders.Select(x=>BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==x.LeaderId)))),64);
             foreach(BaseTroopKind k in BaseTown.TroopKinds(s))Line(BaseEconomy.TroopName(k)+"："+s.Workers.Where(w=>w.Away&&w.PartyId==id&&w.Kind==k).Sum(w=>w.Count),42);

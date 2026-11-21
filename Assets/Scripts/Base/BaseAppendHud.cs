@@ -27,9 +27,8 @@ namespace BaseConquest.Base
                 else OpenAppend(id, back, bypass);
             }, plan.Total > 0);
             RowButton("取消，不追加", 220, 400, () => OpenParty(id, back)); row += 65;
-            RowButton(appendDetails ? "收起来源明细" : "查看来源明细",-210,400,()=>{appendDetails=!appendDetails;OpenAppend(id,back,bypass);}); RowButton("规则 i",210,400,()=>RuleInfo("追加规则","追加真实基地兵，保留伤势、岗位意向与锁定。每兵种本队合计最多30人；已有军需先取消后重算，战中禁止。保留人员不足时少带兵，允许抽调后才会使用这部分人员；重伤者保持强制空闲。",()=>OpenAppend(id,back,bypass)));row+=60;
+            RowButton(appendDetails ? "收起来源明细" : "查看来源明细",0,800,()=>{appendDetails=!appendDetails;OpenAppend(id,back,bypass);});row+=60;
             Line(bypass ? "允许抽调留守和生产人员，可能减产" : "保留留守和生产人员", 54, 22);
-            Line("追加实际基地兵，队长与原编制保留；每兵种本队合计最多30人。", 65, 18);
             foreach (BaseTroopKind kind in BaseTown.TroopKinds(owner.State))
             {
                 var troop = kind;

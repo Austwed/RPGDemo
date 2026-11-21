@@ -62,7 +62,7 @@ namespace BaseConquest.Battle
 
         private static string CampaignMenuText(string key, string fallback) => StoryText.Get("story.ui.battle.menu." + key, fallback);
 
-        private void BuildCampaignMenu(CampaignMenuPage page, string exitFailure = null)
+        private void BuildCampaignMenu(CampaignMenuPage page, string exitFailure = null, int helpTopic = -1)
         {
             if (ExternalDialogue) return;
             ManualPause();
@@ -97,7 +97,8 @@ namespace BaseConquest.Battle
                 (!IsSecondDefense || realtime.DefensePursuitReady) && !IsStandaloneTest && !realtime.RuinsExitOpen;
             bool demo = BaseBattleGateway.DemoMode && !IsStandaloneTest;
             float height = page == CampaignMenuPage.Audio ? 272 : page == CampaignMenuPage.Options ? 370 :
-                page == CampaignMenuPage.Help ? 390 : compact ? (confirmation ? 334 : canWithdraw ? 432 : 368) : 480;
+                page == CampaignMenuPage.Help ? (helpTopic < 0 ? 536 : 460) :
+                compact ? (confirmation ? 334 : canWithdraw ? 432 : 368) : 480;
             panel.sizeDelta = new Vector2(720, height);
             panel.gameObject.GetOrAdd<Image>();
             DemoUiTheme.Current.Frame(panel);
@@ -182,12 +183,36 @@ namespace BaseConquest.Battle
             }
             else if (page == CampaignMenuPage.Help)
             {
-                var rules=UiPrefabBinding.Rect("BattleRules",panel);
-                rules.anchorMin=new Vector2(0,0);rules.anchorMax=Vector2.one;
-                rules.offsetMin=new Vector2(25,80);rules.offsetMax=new Vector2(-25,-18);
-                Label(rules,BaseExperienceRules.FieldBattle,19);
-                rules.GetComponentInChildren<Text>().alignment=TextAnchor.MiddleLeft;
-                Option("Back","返回菜单",-151,OpenCampaignMenu);
+                if (helpTopic < 0)
+                {
+                    float y = height * .5f - 94;
+                    for (int i = 0; i < BaseExperienceRules.Help.Count; i++)
+                    {
+                        int index = i;
+                        Option("HelpTopic" + i, BaseExperienceRules.Help[i].Title, y,
+                            () => BuildCampaignMenu(CampaignMenuPage.Help, helpTopic: index));
+                        y -= 62;
+                    }
+                    Option("Back", "返回菜单", -height * .5f + 42, OpenCampaignMenu);
+                }
+                else
+                {
+                    var topic = BaseExperienceRules.Help[helpTopic];
+                    var content = UiPrefabBinding.Rect("HelpContent", panel);
+                    content.anchorMin = Vector2.zero;
+                    content.anchorMax = Vector2.one;
+                    content.offsetMin = new Vector2(40, 90);
+                    content.offsetMax = new Vector2(-40, -76);
+                    Label(content, topic.Text, 19);
+                    content.GetComponentInChildren<Text>().alignment = TextAnchor.UpperLeft;
+                    Option("Back", "返回帮助", -height * .5f + 42, () => BuildCampaignMenu(CampaignMenuPage.Help));
+                }
+                var heading = UiPrefabBinding.Rect("HelpHeading", panel);
+                heading.anchorMin = new Vector2(0, 1);
+                heading.anchorMax = Vector2.one;
+                heading.offsetMin = new Vector2(40, -61);
+                heading.offsetMax = new Vector2(-40, -14);
+                Label(heading, helpTopic < 0 ? "帮助" : BaseExperienceRules.Help[helpTopic].Title, 25);
             }
             else if (page == CampaignMenuPage.Audio)
                 Option("Back", "返回选项", 96, OpenCampaignOptions);

@@ -28,7 +28,6 @@ namespace BaseConquest.Base
             }
             RowButton("保存九项范围",0,800,()=>{if(owner.Change(next=>BaseMuster.SetRanges(next,fields.Select(f=>int.TryParse(f.text,out int n)?n:0).ToArray()),"已保存位次范围"))OpenBarracks();});row+=56;
             if(!all.Any(l=>l.Id==compositionLeader))compositionLeader=s.PlayerLeaderId;
-            Line("保存期望编制，不提前占用士兵。出征按常驻小队顺序补兵。",60,18);
             foreach(var leader in all.Skip(compositionPage*5).Take(5))
             {
                 string id=leader.Id;RowButton((id==compositionLeader ? "● " : "")+BasePersonnel.LeaderName(leader)+" · "+TroopsText(leader.DefaultTroops),0,800,()=>{compositionLeader=id;OpenBarracks();});row+=54;
@@ -43,7 +42,6 @@ namespace BaseConquest.Base
                     owner.Change(next=>{var l=next.Leaders.Single(x=>x.Id==compositionLeader);if(l.Away||next.Campaign.HasActiveBattle)throw new InvalidOperationException("队长外出期间保留冻结编制，请返营后修改");BaseMuster.SetPreferenceCount(next,l,kind,n);},"已保存队长预设，未抽调人员");OpenBarracks();
                 });
             }
-            Line("各队长可保存预设，实际出战全军最多24名士兵，超出部分显示缺编。未随行者保存预设但不会自动入队。",86,18);
         }
         public void OpenDeparture(string location,string eventId=null,string mode="full",bool bypass=false,bool adviceHandled=false)
         {
@@ -70,11 +68,10 @@ namespace BaseConquest.Base
                 var safe=production?.CommanderTroops?.FirstOrDefault(x=>x.LeaderId==entry.LeaderId);
                 Line(BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==entry.LeaderId))+" · 需求 "+TroopsText(entry.Requested)+"\n生产优先 "+(safe==null ? "无" : TroopsText(safe.Actual))+"\n作战优先 "+TroopsText(entry.Actual),106,19);
             }
-            RowButton(formationForecastOpen ? "收起三天预测" : "三天预测／规则",0,800,()=>{formationForecastOpen=!formationForecastOpen;OpenDeparture(location,eventId,mode,bypass);});row+=58;
+            RowButton(formationForecastOpen ? "收起三天预测" : "查看三天预测",0,800,()=>{formationForecastOpen=!formationForecastOpen;OpenDeparture(location,eventId,mode,bypass);}, production?.Production != null);row+=58;
             if(formationForecastOpen)
             {
                 if(production?.Production!=null)foreach(var d in production.Production.Days)Line("第"+d.Day+"天：粮田 "+d.FarmWorkers+"人／工坊 "+d.WorkshopWorkers+"人，产粮 "+d.FoodProduced+"，耗原料 "+d.MaterialsSpent+"；日结及次晨后粮 "+d.FoodAfter+"／原料 "+d.MaterialsAfter,76,18);
-                Line("生产优先按管理所最低人数（至少1人）保留各产线，允许减产；逐日计算现有粮草与原料，不计战利品或交易收入。预测不承诺入侵战果。作战优先可抽调生产人员，兵源不足按队长顺序缺编；生命低于30%或外出者不可选，守家迎战不受这条限制。自动迎战采用作战优先。",132,18);
             }
             EndPanel();
         }
