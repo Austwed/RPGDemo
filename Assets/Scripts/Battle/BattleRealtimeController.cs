@@ -407,6 +407,13 @@ namespace BaseConquest.Battle
             var inspected=InformationUnits.FirstOrDefault(unit=>unit.IsActive);
             var rangeUnit=inspected==null?routed.FirstOrDefault(unit=>unit.Role==PrototypeRole.Leader):realtime.Model.Units.FirstOrDefault(unit=>unit.Id==inspected.Id+1);
             rangeOverlay.RefreshRealtime(realtime,rangeUnit);
+            if (!MapDisplayOptions.BattleLines)
+            {
+                foreach (var line in realtimeArrows.Values)
+                    BattleBoardView.DestroyObject(line.gameObject);
+                realtimeArrows.Clear();
+                return;
+            }
             foreach(int id in realtimeArrows.Keys.Where(id=>!realtime.Model.Arrows.Any(arrow=>arrow.Id==id)).ToArray())
             {BattleBoardView.DestroyObject(realtimeArrows[id].gameObject);realtimeArrows.Remove(id);}
             foreach(var arrow in realtime.Model.Arrows)

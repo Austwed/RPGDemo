@@ -78,7 +78,7 @@ namespace BaseConquest.Battle
             if (rider != null) { rider.gameObject.SetActive(upright); rider.localPosition = new Vector3(0, 0.92f, 0); rider.localScale = new Vector3(0.3f, 0.3f, 0.3f) * (shared ? 0.72f : 1); riderRenderer.SetPropertyBlock(properties); }
             selection.transform.localScale = shared ? Vector3.one * 0.58f : Vector3.one;
             selection.enabled = Soldier.IsActive && (selected ?? (selectedUnit >= 0 ? Soldier.Id == selectedUnit : Soldier.SquadId == selectedSquad));
-            attack.enabled = showingAction && (Soldier.LastAction == RoundAction.Attack || Soldier.LastAction == RoundAction.Skill);
+            attack.enabled = MapDisplayOptions.BattleLines && showingAction && (Soldier.LastAction == RoundAction.Attack || Soldier.LastAction == RoundAction.Skill);
             if (attack.enabled) { attack.SetPosition(0, Root.transform.position + Vector3.up * 0.9f); attack.SetPosition(1, BattleBoardView.World(Soldier.LastTargetCell, battle.Board) + Vector3.up * 0.9f); }
         }
         public void ApplyVisibility(BattleSimulation battle, BattleSide observer, float presentation)

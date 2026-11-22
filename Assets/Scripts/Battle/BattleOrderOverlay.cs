@@ -51,18 +51,22 @@ namespace BaseConquest.Battle
             Root.SetActive(true);Current=null;Invalidate();
             path.enabled=aim.enabled=target.enabled=obstacle.enabled=destination.enabled=false;
             if(unit==null||!unit.Alive||unit.Side!=PrototypeSide.Ally||run.Battle.Phase!=BattlePhase.Fighting||!run.Battle.Vision.CanSee(BattleSide.A,run.Battle.Soldier(unit.Id-1)))return;
-            run.Model.PreviewPath(unit,realtimePath);
-            int count=0;
-            foreach(var point in realtimePath)
+            bool showLines = MapDisplayOptions.BattleLines;
+            if (showLines)
             {
-                if(!run.Battle.Vision.Explored(BattleSide.A,new GridPosition((int)point.X,(int)point.Z)))break;
-                count++;
-            }
-            if(count>=2)
-            {
-                path.enabled=true;path.positionCount=count;
-                Tint(path,unit.BlockedFor>.35?new Color(1,.68f,.2f):new Color(.3f,1,.48f));
-                for(int i=0;i<count;i++)path.SetPosition(i,RealtimePosition(realtimePath[i],run.Battle.Board));
+                run.Model.PreviewPath(unit,realtimePath);
+                int count=0;
+                foreach(var point in realtimePath)
+                {
+                    if(!run.Battle.Vision.Explored(BattleSide.A,new GridPosition((int)point.X,(int)point.Z)))break;
+                    count++;
+                }
+                if(count>=2)
+                {
+                    path.enabled=true;path.positionCount=count;
+                    Tint(path,unit.BlockedFor>.35?new Color(1,.68f,.2f):new Color(.3f,1,.48f));
+                    for(int i=0;i<count;i++)path.SetPosition(i,RealtimePosition(realtimePath[i],run.Battle.Board));
+                }
             }
             if (unit.Role == PrototypeRole.Leader && unit.ManualOrder && !unit.Steering && !unit.ObjectOrder &&
                 (unit.Order == PrototypeOrder.Move || unit.Order == PrototypeOrder.Guard))
@@ -85,7 +89,7 @@ namespace BaseConquest.Battle
             }
             var locked=run.Model.Units.FirstOrDefault(actor=>actor.Id==unit.TargetId&&actor.Alive&&actor.Side!=unit.Side);
             if(locked==null||!run.Battle.Vision.CanSee(BattleSide.A,run.Battle.Soldier(locked.Id-1)))return;
-            aim.enabled=target.enabled=true;var color=unit.Order==PrototypeOrder.Focus?new Color(1,.25f,.3f):new Color(1,.83f,.25f);Tint(aim,color);Tint(target,color);
+            aim.enabled=showLines;target.enabled=true;var color=unit.Order==PrototypeOrder.Focus?new Color(1,.25f,.3f):new Color(1,.83f,.25f);Tint(aim,color);Tint(target,color);
             var position=RealtimePosition(locked.Position,run.Battle.Board);aim.SetPosition(0,RealtimePosition(unit.Position,run.Battle.Board));aim.SetPosition(1,position);
             float radius=BattleBoardView.CellSize*.24f;
             target.SetPositions(new[]{position+new Vector3(-radius,0,-radius),position+new Vector3(-radius,0,radius),position+new Vector3(radius,0,radius),position+new Vector3(radius,0,-radius)});
@@ -105,7 +109,8 @@ namespace BaseConquest.Battle
             BattleSoldier soldier = battle.Soldier(id);
             if (Current == null || soldier == null || !soldier.IsActive || battle.Phase != BattlePhase.Fighting || !battle.Vision.CanSee(observer ?? soldier.Side, soldier)) return;
             var shownPath = presentation < 1 && soldier.LastAction == RoundAction.Move ? soldier.LastMovePath : Current.Path;
-            if (shownPath.Count > 1)
+            bool showLines = MapDisplayOptions.BattleLines;
+            if (showLines && shownPath.Count > 1)
             {
                 int count = 1;
                 while (count < shownPath.Count && battle.Vision.Explored(observer ?? soldier.Side, shownPath[count])) count++;
@@ -113,7 +118,7 @@ namespace BaseConquest.Battle
                 path.startColor = path.endColor = Current.NextStepBlocked ? new Color(1, 0.68f, 0.2f) : new Color(0.3f, 1, 0.48f);
                 for (int i = 0; i < count; i++) path.SetPosition(i, BattleBoardView.World(shownPath[i], battle.Board) + Vector3.up * 0.14f);
             }
-            if (presentation >= 1 && Current.ImmediateTargetId >= 0 && Current.ImmediateTargetId != Current.LockedTargetId && battle.Soldier(Current.ImmediateTargetId) is BattleSoldier blocker)
+            if (showLines && presentation >= 1 && Current.ImmediateTargetId >= 0 && Current.ImmediateTargetId != Current.LockedTargetId && battle.Soldier(Current.ImmediateTargetId) is BattleSoldier blocker)
             {
                 obstacle.enabled = true; obstacle.SetPosition(0, BattleSoldierView.Position(battle, soldier) + Vector3.up * 0.95f);
                 obstacle.SetPosition(1, BattleSoldierView.Position(battle, blocker) + Vector3.up * 0.95f);
@@ -121,7 +126,8 @@ namespace BaseConquest.Battle
             GridPosition? shownTarget = presentation < 1 && (soldier.LastAction == RoundAction.Attack || soldier.LastAction == RoundAction.Skill) ? soldier.LastTargetCell : Current.TargetCell;
             if (shownTarget.HasValue && battle.Vision.Explored(observer ?? soldier.Side, shownTarget.Value))
             {
-                aim.enabled = target.enabled = true;
+                aim.enabled = showLines;
+                target.enabled = true;
                 Color tint = Current.LockedTargetId >= 0 ? new Color(1, 0.25f, 0.3f) : new Color(1, 0.83f, 0.25f);
                 aim.startColor = aim.endColor = target.startColor = target.endColor = tint;
                 BattleSoldier locked = battle.Soldier(Current.LockedTargetId);

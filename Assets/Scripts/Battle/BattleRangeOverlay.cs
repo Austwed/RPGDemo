@@ -28,7 +28,7 @@ namespace BaseConquest.Battle
         }
         public void Refresh(BattleSimulation b, BattleSide observer, BattleSoldier commander)
         {
-            bool show = commander?.Kind == SoldierKind.Hero && commander.IsActive && b.Vision.CanSee(observer, commander);
+            bool show = MapDisplayOptions.BattleRanges && commander?.Kind == SoldierKind.Hero && commander.IsActive && b.Vision.CanSee(observer, commander);
             Root.SetActive(show); if (!show) { HighlightedRange = -1; return; }
             var q = b.Squads[commander.SquadId]; var config = b.Scenario.Army(commander.Side).Commanders[commander.OriginCommanderSlot];
             var center = q.GuardAssigned ? q.GuardCenter : commander.Cell;
@@ -67,8 +67,8 @@ namespace BaseConquest.Battle
 
         public void RefreshRealtime(RealtimeCampaignBattle run,PrototypeUnit unit)
         {
-            bool show=unit!=null&&unit.Alive&&run.Battle.Phase==BattlePhase.Fighting&&run.Battle.Vision.CanSee(BattleSide.A,run.Battle.Soldier(unit.Id-1));
-            Root.SetActive(show);Description="";if(!show)return;
+            bool show=MapDisplayOptions.BattleRanges&&unit!=null&&unit.Alive&&run.Battle.Phase==BattlePhase.Fighting&&run.Battle.Vision.CanSee(BattleSide.A,run.Battle.Soldier(unit.Id-1));
+            Root.SetActive(show);Description="";if(!show){HighlightedRange=-1;return;}
             bool guard=unit.Role==PrototypeRole.Leader&&run.Model.CommanderDoctrine;
             HighlightedRange=2;
             Description="范围："+run.Battle.UnitName(run.Battle.Soldier(unit.Id-1))+"\n蓝：攻击距离 "+(unit.Reach*2).ToString("0")+"细格（高度／墙体遮挡处截断，高处最多＋6细格）";

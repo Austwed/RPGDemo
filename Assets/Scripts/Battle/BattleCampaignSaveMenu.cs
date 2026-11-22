@@ -98,7 +98,7 @@ namespace BaseConquest.Battle
                 (realtime.HasBattlefieldExits && !realtime.RuinsExitOpen && !realtime.VictoryExitOpen ||
                  !demoBattle && !IsAzhuDuel && !IsDemoPractice && !IsDemoPursuit && !IsSecondDefense && !IsStandaloneTest);
             bool demo = demoBattle;
-            float height = page == CampaignMenuPage.Audio ? 272 : page == CampaignMenuPage.Options ? 370 :
+            float height = page == CampaignMenuPage.Audio ? 272 : page == CampaignMenuPage.Options ? 494 :
                 page == CampaignMenuPage.Help ? (helpTopic < 0 ? 536 : 460) :
                 compact ? (confirmation ? 334 : canWithdraw ? 432 : 368) : 480;
             panel.sizeDelta = new Vector2(720, height);
@@ -166,13 +166,25 @@ namespace BaseConquest.Battle
             }
             else if (page == CampaignMenuPage.Options)
             {
-                float y = 124;
+                float y = height * .5f - 61;
                 Option("Back", "返回菜单", y, OpenCampaignMenu);
                 Option("Audio", "声音设置", y -= 62, () => BuildCampaignMenu(CampaignMenuPage.Audio));
                 Option("Grid", "战斗格子描边：" + (MapDisplayOptions.BattleGridOutlines ? "开启" : "关闭"), y -= 62, () =>
                 {
                     MapDisplayOptions.BattleGridOutlines = !MapDisplayOptions.BattleGridOutlines;
                     boardView.SetGridOutlines(MapDisplayOptions.BattleGridOutlines);
+                    OpenCampaignOptions();
+                });
+                Option("Ranges", "角色范围：" + (MapDisplayOptions.BattleRanges ? "开启" : "关闭"), y -= 62, () =>
+                {
+                    MapDisplayOptions.BattleRanges = !MapDisplayOptions.BattleRanges;
+                    SyncViews();
+                    OpenCampaignOptions();
+                });
+                Option("Lines", "战斗线条：" + (MapDisplayOptions.BattleLines ? "开启" : "关闭"), y -= 62, () =>
+                {
+                    MapDisplayOptions.BattleLines = !MapDisplayOptions.BattleLines;
+                    SyncViews();
                     OpenCampaignOptions();
                 });
                 if (RuntimeDeveloperOptions.Available)
