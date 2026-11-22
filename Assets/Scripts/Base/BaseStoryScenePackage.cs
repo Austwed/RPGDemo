@@ -71,6 +71,7 @@ namespace BaseConquest.Base
             Swap(state,"town",byRole["town"]);
             if(state.Campaign.Layouts.Any(map=>map.Region=="outpost"))Swap(state,"outpost",byRole["ruins"]);
             if(state.Campaign.Layouts.Any(map=>map.Region=="perimeter"))Swap(state,"perimeter",byRole["field"]);
+            BaseDemoRelease.UpgradeHomeField(state);
             if(state.Demo.Finale!=null)state.Demo.Finale.CampBoard=byRole["bandit"].Board.Clone();
             var camp=byRole["camp"].Layout;
             // 工坊／兵营的「待修复」外观按当前修复进度接管，否则会和 BaseDemo.Validate 的外观一致性检查打架。

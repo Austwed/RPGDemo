@@ -20,7 +20,11 @@ namespace BaseConquest.Base
             foreach(var p in b.Positions())
             {var c=b.Cell(p);c.Terrain=TerrainKind.Ground;c.Zone=p.X>=(defense?25:3)&&p.X<=(defense?28:6)?DeploymentZone.A:p.X>=(defense?2:25)&&p.X<=(defense?5:28)?DeploymentZone.B:DeploymentZone.None;
              if(p.X==15&&p.Z>=4&&p.Z<=19&&p.Z!=8&&p.Z!=9&&p.Z!=16&&p.Z!=17){c.Terrain=TerrainKind.Wall;c.Zone=DeploymentZone.None;}}
-            if(defense)ShapeMarsh(b);
+            if (defense)
+            {
+                ShapeMarsh(b);
+                ShapeUpperFieldHill(b);
+            }
             return b;
         }
         private static void ShapeMarsh(BattleBoard board)
@@ -39,16 +43,39 @@ namespace BaseConquest.Base
                     if(cell.Terrain==TerrainKind.Swamp&&!cell.HasDeveloperTerrain)cell.Terrain=TerrainKind.Ground;
                 }
         }
+        private static void ShapeUpperFieldHill(BattleBoard board)
+        {
+            // 北侧中间的高台，南坡接迎敌点，东坡从外围绕行。
+            var plateau = from x in Enumerable.Range(18, 4)
+                          from z in Enumerable.Range(17, 4)
+                          select new GridPosition(x, z);
+            var south = new[] { new GridPosition(19, 16), new GridPosition(20, 16) };
+            var east = new[] { new GridPosition(22, 18), new GridPosition(22, 19) };
+            var footprint = plateau.Concat(south).Concat(east).Select(board.Cell).ToArray();
+            if (footprint.Any(cell => cell?.Terrain != TerrainKind.Ground || cell.Zone != DeploymentZone.None ||
+                cell.Elevation != 0 || cell.Ramp != RampAxis.None || cell.FixedCover ||
+                cell.ObstacleHealth != 0 || cell.HiddenTrap || cell.SandbagGroup != 0 || cell.HasDeveloperTerrain))
+                return;
+
+            foreach (var cell in footprint) cell.Elevation = 1;
+            foreach (var cell in south) board.Cell(cell).Ramp = RampAxis.NorthSouth;
+            foreach (var cell in east) board.Cell(cell).Ramp = RampAxis.EastWest;
+        }
+
         public static void UpgradeHomeField(BaseState state)
         {
             var board=state.Campaign.PerimeterBoard;
             if(board?.Width!=32||board.Height!=24||board.Cells?.Length!=32*24)return;
             bool bundledLegacy=state.Demo?.StoryScene?.Id=="b03ca0fe940be17c21a793d32dbe3f565172f0081ea70ef686990fc5149ac2aa";
             if(state.Demo?.StoryScene?.Valid==true&&!bundledLegacy)return;
+            var active=state.Campaign.ActiveBattle;
+            bool defenseActive = active?.EventId == BaseDemoDefense.EventId || active?.EventId == BaseDemoDefense.SecondEventId;
+            // 已开打的旧档沿用当时的地形与预约路线，战后再更新外围。
+            if (!defenseActive && (bundledLegacy || Enabled(state)) && board.Cell(new GridPosition(18, 17))?.Elevation == 0)
+                ShapeUpperFieldHill(board);
             bool oldMarsh=board.Cell(new GridPosition(10,12)).Terrain==TerrainKind.Swamp&&board.Cell(new GridPosition(20,5)).Terrain==TerrainKind.Swamp;
             if(!oldMarsh&&!bundledLegacy)return;
             ShapeMarsh(board);
-            var active=state.Campaign.ActiveBattle;
             if(active==null||(active.EventId!=BaseDemoDefense.EventId&&active.EventId!=BaseDemoDefense.SecondEventId))return;
             ShapeMarsh(active.Scenario.Board);
             if(active.HasCheckpoint)ShapeMarsh(active.Checkpoint.Scenario.Board);
