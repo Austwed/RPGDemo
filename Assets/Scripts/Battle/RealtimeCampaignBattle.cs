@@ -161,7 +161,7 @@ namespace BaseConquest.Battle
             Model.CanTarget=(source,target)=>Battle.Vision.CanSee(source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B,Battle.Soldier(target.Id-1));
             Model.CanMove=actor=>!Battle.Soldier(actor.Id-1).DeveloperImmobile;
             Model.SwordContactPinEnabled = true;
-            Model.SwordForContactPin = actor => !DefensePursuitReady && Battle.Soldier(actor.Id - 1)?.Kind == SoldierKind.Melee;
+            Model.SwordForContactPin = actor => Battle.Soldier(actor.Id - 1)?.Kind == SoldierKind.Melee;
             Model.SwordContactCombatOpen = () => Battle.Phase == BattlePhase.Fighting &&
                 session.Opening.EventId != BaseLocalDuel.Id && session.Opening.Id != BaseDemoIntro.BattleId &&
                 session.Opening.EventId != BaseDemoPrologue.BattleId;
@@ -170,7 +170,7 @@ namespace BaseConquest.Battle
                 Model.PursuitContactPin = (source, target) => DefensePursuitReady && source.Side == PrototypeSide.Ally &&
                     source.Role == PrototypeRole.Leader && source.ManualOrder && source.Order == PrototypeOrder.Focus &&
                     Battle.Soldier(source.Id - 1)?.ProfessionKind == SoldierKind.Melee &&
-                    target.Role == PrototypeRole.Leader && target.Squad == 0 && target.Order == PrototypeOrder.Retreat;
+                    target.Order == PrototypeOrder.Retreat;
                 Model.AttackAllowed = actor => actor.Side == PrototypeSide.Ally || !DefensePursuitReady ||
                     actor.Order == PrototypeOrder.Retreat && Model.ContactPinActive(actor);
             }
