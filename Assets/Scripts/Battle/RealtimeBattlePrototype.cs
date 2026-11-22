@@ -474,13 +474,22 @@ namespace BaseConquest.RealtimePrototype
             ValidateWindups();
             StartMovingMeleeWindups();
             RebuildReservations();
+            if (SwordContactPinEnabled) RefreshSwordContactPins();
             foreach(var unit in Units.Where(actor=>actor.Alive&&!actor.Moving))Think(unit);
+            if (SwordContactPinEnabled)
+            {
+                RefreshSwordContactPins();
+#if UNITY_EDITOR
+                SampleSwordContactHolds();
+#endif
+            }
             // 起步顺序：骑兵先挑格子。给冲锋中的骑兵优先选择通路，
             // 让它先手等价于给它的寻路优先级，其余单位只会从剩下的格子里挑，不会因此卡死。
             foreach(var unit in Units.Where(actor=>actor.Alive&&!actor.Moving&&actor.MoveGoal>=0)
                 .OrderBy(actor=>CavalryPathPriority&&IsCavalry(actor)?0:1).ThenByDescending(actor=>actor.BlockedFor).ThenBy(actor=>actor.Id).ToArray())
             {
                 if(unit.Moving)continue;
+                if (ContactPinActive(unit)) { unit.BlockedFor = 0; continue; }
                 var distances=Arena.Distances(unit.MoveGoal);
                 var heading=(Arena.Center(unit.MoveGoal)-unit.Position).Normalized;
                 var groupRoute=GroupRoute(unit);
@@ -552,6 +561,7 @@ namespace BaseConquest.RealtimePrototype
         {
             unit.MoveGoal = -1;
             if (unit.HitAt >= 0 && !unit.HitResolved) { FollowMeleeWindup(unit); return; }
+            if (DefendWhileContactPinned(unit)) return;
             if(CommanderDoctrine){ThinkDoctrine(unit);return;}
             if(unit.Order==PrototypeOrder.Retreat)
             {if(unit.Cell==Arena.CellAt(unit.Goal)){unit.Escaped=true;return;}unit.MoveGoal=Arena.CellAt(unit.Goal);return;}
@@ -594,6 +604,7 @@ namespace BaseConquest.RealtimePrototype
         private bool SlotClaimed(int cell,PrototypeUnit actor)=>Units.Any(other=>other.Alive&&other.Id!=actor.Id&&other.Side==actor.Side&&other.AttackSlot==cell);
         private bool TryBeginStep(PrototypeUnit unit,int destination)
         {
+            if (ContactPinActive(unit)) return false;
             if(!(CanMove?.Invoke(unit)??true)||!Arena.CanStep(unit.Cell,destination)||reservations.TryGetValue(destination,out int owner)&&owner!=unit.Id)return false;
             int deltaX=destination%Arena.FineColumns-unit.Cell%Arena.FineColumns,deltaZ=destination/Arena.FineColumns-unit.Cell/Arena.FineColumns;
             if(deltaX!=0&&deltaZ!=0&&(reservations.TryGetValue(unit.Cell+deltaX,out int horizontal)&&horizontal!=unit.Id||reservations.TryGetValue(unit.Cell+deltaZ*Arena.FineColumns,out int vertical)&&vertical!=unit.Id))return false;

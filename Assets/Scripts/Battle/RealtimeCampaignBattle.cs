@@ -146,6 +146,11 @@ namespace BaseConquest.Battle
             Model.DamageApplied=(source,target,actual)=>{Battle.RecordRealtimeHit(source.Id-1,target.Id-1,(float)actual,(float)target.Health);var soldier=Battle.Soldier(target.Id-1);target.Health=soldier.Health;target.KnockedDown=soldier.KnockedDown;ResolveImmediateVictory();};
             Model.CanTarget=(source,target)=>Battle.Vision.CanSee(source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B,Battle.Soldier(target.Id-1));
             Model.CanMove=actor=>!Battle.Soldier(actor.Id-1).DeveloperImmobile;
+            Model.SwordContactPinEnabled = true;
+            Model.SwordForContactPin = actor => Battle.Soldier(actor.Id - 1)?.Kind == SoldierKind.Melee;
+            Model.SwordContactCombatOpen = () => Battle.Phase == BattlePhase.Fighting && !DefensePursuitReady &&
+                session.Opening.EventId != BaseLocalDuel.Id && session.Opening.Id != BaseDemoIntro.BattleId &&
+                session.Opening.EventId != BaseDemoPrologue.BattleId;
             Model.DefaultDestination=source=>
             {
                 var side=source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B;
@@ -195,6 +200,7 @@ namespace BaseConquest.Battle
             Model.OtherSquadVision=(actor,cell)=>Model.Units.Any(other=>other.Alive&&other.Side==actor.Side&&other.Squad!=actor.Squad&&Battle.Vision.Observes(Battle.Soldier(other.Id-1),Coarse(cell)));
             InitializeSkills();InitializeRpgCombat();Tactics=new BattleTacticalRuntime(this);
             Synchronize(true);
+            Model.RefreshSwordContactPins();
         }
         public static void ValidateBoard(BattleBoard board)
         {if(board==null||board.Width<6||board.Width>64||board.Height<6||board.Height>64||board.Cells?.Length!=board.Width*board.Height)throw new ArgumentException("即时战场需6～64列／6～64行完整地图，不截取或改写");}

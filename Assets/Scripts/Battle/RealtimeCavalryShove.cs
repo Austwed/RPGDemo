@@ -27,6 +27,7 @@ namespace BaseConquest.RealtimePrototype
         // wanted 是骑兵下一步想踏进去的格。挡路有三种：占着格子、挡住扫掠体、挡住转向后的身体。
         private bool TryShoveThrough(PrototypeUnit rider,int wanted)
         {
+            if (ContactPinActive(rider)) return false;
             if(!CavalryShove||!IsCavalry(rider))return false;
             Tally("enter");
             if(wanted<0||!Arena.FineWalkable(wanted)){Tally("badcell");return false;}

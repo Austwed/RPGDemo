@@ -20,14 +20,18 @@ namespace BaseConquest.Battle
         public bool Hit,Critical,Settled,ImpactApplied;
         public RpgShotContext Context;
         public float DamageApplied, HealthAfter;
+        public bool MageSplashEligible, HasImpactPosition;
+        public int SplashTargetsHit;
+        public float SplashDamageApplied;
         public double Attack,CriticalMultiplier,LaunchedAt,ArriveAt;
-        public PrototypePoint Origin,Destination;
+        public PrototypePoint Origin,Destination,ImpactPosition;
         public RpgAttackPacket Copy()=>(RpgAttackPacket)MemberwiseClone();
     }
     public sealed partial class RealtimeCampaignBattle
     {
         private readonly List<RpgAttackPacket> rpgAttacks=new List<RpgAttackPacket>();
         private int rpgAttackSerial;
+        internal bool MageSplashEnabled { get; set; } = true;
         private RpgRules Rpg=>Session.Opening.Rpg;
         private string CombatDifficulty => hideoutDifficulty ?? Session.Opening.Difficulty.Preset;
         private double DifficultyIncoming(BattleSide side)=>!Session.Opening.DemoCombat||side!=BattleSide.A?1:CombatDifficulty=="easy"?.5:CombatDifficulty=="hard"?2:1;
@@ -57,6 +61,11 @@ namespace BaseConquest.Battle
                 if(a==null||a.Id<1||a.Id>rpgAttackSerial||!Model.Units.Any(u=>u.Id==a.SourceId)||!new[]{a.Attack,a.CriticalMultiplier,a.LaunchedAt,a.ArriveAt,a.DamageApplied,a.HealthAfter,a.Origin.X,a.Origin.Z,a.Destination.X,a.Destination.Z}.All(PrototypeArena.Finite)||a.Attack<0||a.CriticalMultiplier<1||a.CriticalMultiplier>10||a.LaunchedAt<0||a.ArriveAt<a.LaunchedAt||a.Level<1||a.Level>9)throw new ArgumentException("RPG攻击快照非法");
                 if(a.DamageApplied<0||a.HealthAfter<0||(a.Context & ~(RpgShotContext.MovingCavalry|RpgShotContext.MeleePressure))!=0)throw new ArgumentException("攻击结算快照非法");
                 if(a.ImpactApplied&&(!a.Settled||!a.Hit||!string.IsNullOrEmpty(a.ObjectId)))throw new ArgumentException("攻击包的命中表现与结算不符");
+                if(a.HasImpactPosition&&(!a.ImpactApplied||a.DamageType!="magic"||Model.Arena.CellAt(a.ImpactPosition)<0))
+                    throw new ArgumentException("法术命中位置非法");
+                if(!PrototypeArena.Finite(a.SplashDamageApplied) || a.SplashDamageApplied<0 || a.SplashTargetsHit<0 || a.SplashTargetsHit>8 ||
+                    (a.SplashDamageApplied>0)!=(a.SplashTargetsHit>0) || a.SplashTargetsHit>0&&(!a.ImpactApplied||!a.MageSplashEligible))
+                    throw new ArgumentException("法师溅射结算快照非法");
                 if(Rpg.HasProfessionCatalog&&a.DamageType!="physical"&&a.DamageType!="magic")throw new ArgumentException("攻击包伤害类型非法");
                 if(!string.IsNullOrEmpty(a.ObjectId)){if(!a.Settled||!a.Hit||a.Critical||a.First!=0||a.Second!=0||!Session.Opening.TacticalObjects.Any(o=>o.Id==a.ObjectId))throw new ArgumentException("物件攻击记录非法");continue;}
                 if(!Model.Units.Any(u=>u.Id==a.TargetId&&u.Side!=Model.Units.First(source=>source.Id==a.SourceId).Side)||Math.Abs(a.NetAdvantage)>1)throw new ArgumentException("原目标或优势记录非法");
@@ -109,6 +118,7 @@ namespace BaseConquest.Battle
             var packet=new RpgAttackPacket {Id=id,SourceId=source.Id,TargetId=target.Id,Context=context,First=roll.First,Second=roll.Second,Selected=roll.Selected,Hit=roll.Hit,Critical=roll.Critical,NetAdvantage=roll.NetAdvantage,HitPoints=(int)Rpg.Hit[BaseRpg.Profession(soldier.ProfessionKind)],EvasionPoints=(int)Rpg.Evasion[BaseRpg.Profession(Battle.Soldier(target.Id-1).ProfessionKind)],
                 DamageType=damageType,LaunchedAt=Model.Elapsed,Attack=Model.DamageFor(source)*multiplier*charge,Level=soldier.Stats.Level,CriticalMultiplier=soldier.Stats.CritMultiplier,Origin=source.Position,Destination=target.BodyCenter,
                 ArriveAt=Model.Elapsed+(source.Ranged?(target.BodyCenter-source.Position).Length/(Rpg.ArrowSpeed/PrototypeArena.Subdivision):0)};
+            packet.MageSplashEligible=MageSplashEnabled&&soldier.ProfessionKind==SoldierKind.Mage&&damageType=="magic"&&skillType==null&&chargeType==null;
             rpgAttacks.Add(packet);
             if(source.Ranged&&damageType!="magic")Model.AddVisualArrow(source,packet.Destination,Rpg.ArrowSpeed/PrototypeArena.Subdivision);
             SettleRpgAttacks();
@@ -133,12 +143,60 @@ namespace BaseConquest.Battle
                 var source=Model.Units.First(u=>u.Id==packet.SourceId);var defender=Battle.Soldier(target.Id-1);
                 Battle.Soldier(source.Id-1).LastAttackCritical=packet.Critical;
                 double damage=defender.DeveloperInvulnerable?0:RpgDamage(packet.DamageType,packet.Attack,packet.Level,packet.Critical?packet.CriticalMultiplier:1,Battle.Soldier(source.Id-1),defender);
-                double before = target.Health;
-                Model.ApplyResolvedHit(source,target,DamageLimit?.Invoke(source,target,damage)??damage);
-                packet.HealthAfter = (float)target.Health;
-                packet.DamageApplied = (float)Math.Max(0,before - target.Health);
-                packet.ImpactApplied=true;
+                double primaryDamage=DamageLimit?.Invoke(source,target,damage)??damage;
+                bool splash=packet.MageSplashEligible&&primaryDamage>0;
+                if(splash)damageBatch++;
+                try
+                {
+                    if(packet.DamageType=="magic")
+                    {
+                        packet.ImpactPosition=target.Position;
+                        packet.HasImpactPosition=true;
+                    }
+                    double before=target.Health;
+                    Model.ApplyResolvedHit(source,target,primaryDamage);
+                    packet.HealthAfter=(float)target.Health;
+                    packet.DamageApplied=(float)Math.Max(0,before-target.Health);
+                    packet.ImpactApplied=true;
+                    if(splash)ApplyMageSplash(packet,source,target,primaryDamage/8);
+                }
+                finally {if(splash)damageBatch--;}
+                if(splash)ResolveImmediateVictory();
             }
+        }
+        private void ApplyMageSplash(RpgAttackPacket packet,PrototypeUnit source,PrototypeUnit target,double damagePerCell)
+        {
+            var impact=packet.ImpactPosition;
+            var impactTile=new GridPosition((int)impact.X,(int)impact.Z);
+            var arena=Model.Arena;
+            int center=arena.CellAt(impact);
+            if(center<0)return;
+            int centerX=center%arena.FineColumns,centerZ=center/arena.FineColumns;
+            var usedCells=new HashSet<int>();
+            var attacker=Battle.Soldier(source.Id-1);
+            attacker.LastAttackCritical=false;
+            try
+            {
+                foreach(var victim in Model.Units.OrderBy(u=>u.Id))
+                {
+                    if(!victim.Alive||victim.Side==source.Side||victim==target)continue;
+                    int cell=arena.CellAt(victim.Position);
+                    if(cell<0||cell==center||Math.Abs(cell%arena.FineColumns-centerX)>1||Math.Abs(cell/arena.FineColumns-centerZ)>1||usedCells.Contains(cell))continue;
+                    var victimTile=new GridPosition((int)victim.Position.X,(int)victim.Position.Z);
+                    if(!Battle.Board.HasLineOfSight(impactTile,victimTile)||!Model.ClearAttack(impact,victim.Position))continue;
+                    usedCells.Add(cell);
+                    if(Battle.Soldier(victim.Id-1).DeveloperInvulnerable)continue;
+                    double amount=Math.Min(damagePerCell,DamageLimit?.Invoke(source,victim,damagePerCell)??damagePerCell);
+                    if(amount<=0)continue;
+                    double before=victim.Health;
+                    Model.ApplyResolvedHit(source,victim,amount);
+                    float lost=(float)Math.Max(0,before-victim.Health);
+                    if(lost<=0)continue;
+                    packet.SplashTargetsHit++;
+                    packet.SplashDamageApplied+=lost;
+                }
+            }
+            finally {attacker.LastAttackCritical=packet.Critical;}
         }
         private void SaveRpgCombat(RealtimeBattleState state)
         {state.RpgAttackSerial=rpgAttackSerial;state.RpgAttacks=rpgAttacks.Select(a=>a.Copy()).ToList();}

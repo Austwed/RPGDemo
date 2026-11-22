@@ -30,7 +30,8 @@ namespace BaseConquest.Battle
                 bool landed = sinceImpact >= 0;
                 if (landed && (!packet.ImpactApplied || sinceImpact >= .24)) continue;
                 double t = Math.Min(1, (now - packet.LaunchedAt) / Math.Max(.0001, packet.ArriveAt - packet.LaunchedAt));
-                var pos = packet.Origin + (packet.Destination - packet.Origin) * t;
+                var pos = landed && packet.HasImpactPosition ? packet.ImpactPosition :
+                    packet.Origin + (packet.Destination - packet.Origin) * t;
                 if (!run.Battle.Vision.Visible(observer, new GridPosition((int)pos.X, (int)pos.Z))) continue;
                 into.Add(new MageSpellVisual
                 {
