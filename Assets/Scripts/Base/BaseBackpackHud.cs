@@ -18,9 +18,38 @@ namespace BaseConquest.Base
             if (!GuardPendingRosterChanges(OpenBackpack)) OpenInventory(false);
         }
         private void OpenBagItem(string id){inventorySelected=id;OpenInventory(false);}
+
+        private static string WorkshopUpgradePrice =>
+            $"需要原料 {BaseUpgradeQuote.MaterialCost}、钱币 {BaseUpgradeQuote.CoinCost}";
+        private static string WorkshopUpgradeLabel =>
+            $"升级工坊 · 原料 {BaseUpgradeQuote.MaterialCost} · 钱币 {BaseUpgradeQuote.CoinCost}";
+
+        private void OpenWorkshopUpgrade()
+        {
+            var state = owner.State;
+            string problem = BaseConstruction.UpgradeProblem(state, "workshop");
+            if (problem != "") { owner.ReportMessage(problem); return; }
+
+            var quote = BaseConstruction.Preview(state, "workshop");
+            Confirm("升级工坊", $"{WorkshopUpgradePrice}。升级到 2 级后可切换一级和二级军需。",
+                () => FacilityChange(next =>
+                {
+                    if (!BaseConstruction.Confirm(next, quote))
+                        throw new InvalidOperationException("条件已变化，请重新查看升级");
+                }, "工坊已升级", OpenFacility), OpenFacility);
+        }
+
         private void FacilityUpgrade(string id,Action refresh)
         {
             var s=owner.State;string problem=BaseConstruction.UpgradeProblem(s,id);
+            if (BaseDemo.Active(s))
+            {
+                if (id != "workshop") { Line(problem, 80, 20); return; }
+                RowButton(WorkshopUpgradeLabel, 0, 800, OpenWorkshopUpgrade, problem == "");
+                row += 62;
+                if (problem != "") Line(problem, 80, 20);
+                return;
+            }
             BaseUpgradeQuote q=null;if(problem=="")try{q=BaseConstruction.Preview(s,id);}catch(Exception e){problem=e.Message;}
             RowButton(id=="fieldworks" ? "解锁固定工事" : "升级至2级",0,800,()=>{owner.Change(next=>{if(!BaseConstruction.Confirm(next,q))throw new InvalidOperationException("条件已变化，请重新查看升级");},"升级／解锁完成，营造图册消耗1本");owner.RefreshConstructionMap();refresh();},q!=null);row+=62;
             if(id=="fieldworks")

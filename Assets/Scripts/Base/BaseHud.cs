@@ -692,10 +692,10 @@ namespace BaseConquest.Base
             }
         }
 
-        private void Confirm(string title, string text, Action yes)
+        private void Confirm(string title, string text, Action yes, Action cancel = null)
         {
             BeginPanel(title); Line(text, 110);
-            RowButton("确认", -155, 270, yes); RowButton("取消", 155, 270, OpenMenu); row += 60; EndPanel();
+            RowButton("确认", -155, 270, yes); RowButton("取消", 155, 270, cancel ?? OpenMenu); row += 60; EndPanel();
         }
         // 营帐的旧布局只列可请离的非剧情角色。
         private void OpenDismiss()

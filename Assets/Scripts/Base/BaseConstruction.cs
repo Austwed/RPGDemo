@@ -15,8 +15,9 @@ namespace BaseConquest.Base
     }
     public sealed class BaseUpgradeQuote
     {
+        internal const int MaterialCost = 10, CoinCost = 20;
         public readonly string Facility, Stamp;
-        public readonly int Materials=10, Coins=20;
+        public readonly int Materials = MaterialCost, Coins = CoinCost;
         internal BaseUpgradeQuote(string facility,string stamp){Facility=facility;Stamp=stamp;}
     }
     public static class BaseConstruction
@@ -47,13 +48,32 @@ namespace BaseConquest.Base
         }
         public static string UpgradeProblem(BaseState s,string id)
         {
-            if(BaseDemo.Active(s))return "Demo使用固定修复，只开放基础功能，不使用旧营造图册升级";
-            if(!new[]{"farm","workshop"}.Contains(id))return "未知设施";
-            if(!Nearby(s,id))return "请在和平状态接近对应设施后交互";
+            bool demo = BaseDemo.Active(s);
+            if (demo)
+            {
+                if (id != "workshop") return "当前设施未开放升级";
+                if (!BaseDemoDefense.Won(s) || s.Layout?.OfficeGift != true)
+                    return "首防胜利后向霍恩领取建设许可";
+                bool village = BaseSettlements.AtVillage(s);
+                if (!BaseDemoDefense.Repaired(s, id) || (village && !BaseDemoFinale.HomeRepaired(s, id)))
+                    return "请先修复工坊";
+                if (!Editable(s) || BaseSceneCombat.Active(s) || BaseBattleLoot.Pending(s) ||
+                    !BaseInteraction.At(s, village ? "custom" : "base", id))
+                    return "请在和平状态接近工坊后交互";
+            }
+            else
+            {
+                if (id != "farm" && id != "workshop") return "未知设施";
+                if (!Nearby(s, id)) return "请在和平状态接近对应设施后交互";
+            }
             if(s.Muster.Facilities.Single(f=>f.FacilityId==id).Level>=2)return "本版已完成此项升级／解锁";
-            if(!s.Backpack.StoryFlags.Contains(BaseBackpack.Story))return "剧情未解锁：营造入门";
-            if(BasePartyInventory.AvailableMaterial(s,BaseBackpack.Blueprint)<1)return "缺少可用特殊道具：营造图册 ×1（基地可用仓库，外出需随身携带）";
-            if(s.Inventory.Materials<10||s.Inventory.Coins<20)return "需要原料10、钱币20";
+            if (!demo)
+            {
+                if(!s.Backpack.StoryFlags.Contains(BaseBackpack.Story))return "剧情未解锁：营造入门";
+                if(BasePartyInventory.AvailableMaterial(s,BaseBackpack.Blueprint)<1)return "缺少可用特殊道具：营造图册 ×1（基地可用仓库，外出需随身携带）";
+            }
+            if (s.Inventory.Materials < BaseUpgradeQuote.MaterialCost || s.Inventory.Coins < BaseUpgradeQuote.CoinCost)
+                return demo ? "原料或钱币不足" : "需要原料10、钱币20";
             return "";
         }
         public static string ModeProblem(BaseState s) => !BaseDemoFlow.Active(s)||!Editable(s)||BaseSceneCombat.Active(s)||s.Campaign.Location!="perimeter" ? "只能在迎敌战场战前布置" : "";
@@ -63,9 +83,12 @@ namespace BaseConquest.Base
         public static bool Confirm(BaseState s,BaseUpgradeQuote quote)
         {
             BaseEconomy.Validate(s);
-            if(quote==null||UpgradeProblem(s,quote.Facility)!=""||quote.Stamp!=UpgradeStamp(s)||!BasePartyInventory.ConsumeMaterial(s,BaseBackpack.Blueprint,1))return false;
+            if (quote == null || UpgradeProblem(s, quote.Facility) != "" || quote.Stamp != UpgradeStamp(s)) return false;
+            bool demo = BaseDemo.Active(s);
+            if (!demo && !BasePartyInventory.ConsumeMaterial(s, BaseBackpack.Blueprint, 1)) return false;
             s.Inventory.Materials-=quote.Materials;s.Inventory.Coins-=quote.Coins;
-            var f=s.Muster.Facilities.Single(x=>x.FacilityId==quote.Facility);f.Level=2;f.Capacity=Math.Min(10000,f.Capacity+2);
+            var f=s.Muster.Facilities.Single(x=>x.FacilityId==quote.Facility);f.Level=2;
+            if (!demo) f.Capacity = Math.Min(10000, f.Capacity + 2);
             if(quote.Facility=="workshop")f.MaxProductLevel=2;
             s.Construction.Revision++;BaseDevelopment.Allocate(s);BaseAchievements.Unlock(s,BaseAchievements.Startup);BaseEconomy.Validate(s);return true;
         }

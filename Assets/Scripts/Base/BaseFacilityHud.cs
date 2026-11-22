@@ -390,6 +390,13 @@ namespace BaseConquest.Base
             int level=BaseConstruction.ProductLevel(state);
             FacilityText(actions,"当前生产 · "+BaseEconomy.ProductName(state.WorkshopProduct)+" · "+(state.WorkshopProduct=="supply"?BaseSupply.GradeText(state,level):level+"级")
                 +$"　库存 一级 {BaseSupply.Available(state,state.WorkshopProduct,1)} / 二级 {BaseSupply.Available(state,state.WorkshopProduct,2)}");
+            if (facility.Level == 1)
+            {
+                string problem = BaseConstruction.UpgradeProblem(state, "workshop");
+                var upgrade = FacilityButton(actions, "UpgradeWorkshop", WorkshopUpgradeLabel, OpenWorkshopUpgrade, problem == "");
+                if (problem == "") draftLocks.Add(upgrade);
+                else FacilityText(actions, problem);
+            }
             var grades=CloneSceneUi("FacilityActionRow",actions);
             int targetLevel = level == 1 ? 2 : 1;
             bool canSelectLevel = BaseConstruction.CanSelectLevel(state, targetLevel);
