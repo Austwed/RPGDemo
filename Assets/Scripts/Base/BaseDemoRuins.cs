@@ -164,6 +164,7 @@ namespace BaseConquest.Base
             mission.Status="pending";mission.EnemyRecoveryDay=0;mission.EnemyArmy=fresh;
             var active=BaseCampaign.Begin(state,EventId,document,mode,plan,true,roster);if(state.Demo.RuinsDay==0)active.Difficulty.DropRate=0;active.RuinsExposureFraction=state.Demo.RuinsRewards.ExposureFraction;
             active.RuinsFirstClear=state.Demo.RuinsDay==0;
+            active.RuinsHalfHealthRetreatDisabled = state.Demo.RuinsHalfHealthRetreatUsed;
             var session=new BaseCampaignSession(active);
             if (!active.ManualDeployment) session.Battle.AutoDeploy(BattleSide.A);
             if (roster != null && session.Battle.Soldiers.Count(u => u.Side == BattleSide.A) != roster.Units.Length)
@@ -181,7 +182,7 @@ namespace BaseConquest.Base
             run.Battle.RuinsCivilianIds=new HashSet<int>(Civilians(run.Session).Select(v=>v.Id));
             var controller=run.Battle.Commander(BattleSide.B,0);if(controller!=null && run.Session.Opening.RuinsFirstClear)controller.AppearanceId="galan";
             run.EnableRuinsExposure(run.Session.Opening.RuinsExposureFraction>0?run.Session.Opening.RuinsExposureFraction:.03);
-            if (run.Session.Opening.RuinsFirstClear)
+            if (run.Session.Opening.AllowsRuinsHalfHealthRetreat)
                 run.DamageLimit = (_, target, damage) => target.Player && target.Health > target.MaxHealth * .5 && !ControllerDefeated(run)
                     ? Math.Min(damage, target.Health - target.MaxHealth * .5)
                     : damage;

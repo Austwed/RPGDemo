@@ -45,7 +45,8 @@ namespace BaseConquest.Base
         public int RealtimeRulesVersion;
         public double TacticalBaseDamage;
         public double RuinsExposureFraction;
-        public bool RuinsFirstClear;
+        public bool RuinsFirstClear, RuinsHalfHealthRetreatDisabled;
+        internal bool AllowsRuinsHalfHealthRetreat => RuinsFirstClear && !RuinsHalfHealthRetreatDisabled;
         public BattleTacticalRules TacticalRules;
         public List<BattleTacticalObject> TacticalObjects=new List<BattleTacticalObject>();
         public RealtimeBattleState RealtimeState;
@@ -54,7 +55,7 @@ namespace BaseConquest.Base
         public List<BaseEnemyMember> Enemies = new List<BaseEnemyMember>();
         public List<BaseEnemyBinding> EnemyBindings = new List<BaseEnemyBinding>();
         public BaseCampaignBattle Copy() => new BaseCampaignBattle { Id = Id, EventId = EventId, PartyId = PartyId, MapRegion=MapRegion, MapId=MapId, StartedDay = StartedDay, ManualDeployment=ManualDeployment, TroopSlots=TroopSlots?.ToList(),
-            Rpg=Rpg?.Copy(),TacticalBaseDamage=TacticalBaseDamage,RuinsExposureFraction=RuinsExposureFraction,RuinsFirstClear=RuinsFirstClear,TacticalRules=TacticalRules?.Copy(),TacticalObjects=(TacticalObjects??new List<BattleTacticalObject>()).Select(o=>o.Copy()).ToList(),Scenario = Scenario.Clone(), Leaders = Leaders.Select(l => l.Copy()).ToList(), Troops = Troops.Select(w => w.Copy()).ToList(), Difficulty = (Difficulty??new BaseDifficulty()).Copy(), SupplySnapshot = SupplySnapshot?.Copy(), HasCheckpoint=HasCheckpoint,Checkpoint=HasCheckpoint?Checkpoint.Copy():null,RealtimeRules=RealtimeRules,DemoCombat=DemoCombat,Deputy=Deputy,PlayerTroopCounts=PlayerTroopCounts?.ToArray(),RealtimeRulesVersion=RealtimeRulesVersion,HasRealtimeState=HasRealtimeState,RealtimeState=HasRealtimeState?RealtimeState?.Copy():null,Bindings=(Bindings??new List<BaseCampaignBinding>()).Select(x=>x.Copy()).ToList(), Enemies=(Enemies??new List<BaseEnemyMember>()).Select(u=>u.Copy()).ToList(),EnemyBindings=(EnemyBindings??new List<BaseEnemyBinding>()).Select(x=>x.Copy()).ToList() };
+            Rpg=Rpg?.Copy(),TacticalBaseDamage=TacticalBaseDamage,RuinsExposureFraction=RuinsExposureFraction,RuinsFirstClear=RuinsFirstClear,RuinsHalfHealthRetreatDisabled=RuinsHalfHealthRetreatDisabled,TacticalRules=TacticalRules?.Copy(),TacticalObjects=(TacticalObjects??new List<BattleTacticalObject>()).Select(o=>o.Copy()).ToList(),Scenario = Scenario.Clone(), Leaders = Leaders.Select(l => l.Copy()).ToList(), Troops = Troops.Select(w => w.Copy()).ToList(), Difficulty = (Difficulty??new BaseDifficulty()).Copy(), SupplySnapshot = SupplySnapshot?.Copy(), HasCheckpoint=HasCheckpoint,Checkpoint=HasCheckpoint?Checkpoint.Copy():null,RealtimeRules=RealtimeRules,DemoCombat=DemoCombat,Deputy=Deputy,PlayerTroopCounts=PlayerTroopCounts?.ToArray(),RealtimeRulesVersion=RealtimeRulesVersion,HasRealtimeState=HasRealtimeState,RealtimeState=HasRealtimeState?RealtimeState?.Copy():null,Bindings=(Bindings??new List<BaseCampaignBinding>()).Select(x=>x.Copy()).ToList(), Enemies=(Enemies??new List<BaseEnemyMember>()).Select(u=>u.Copy()).ToList(),EnemyBindings=(EnemyBindings??new List<BaseEnemyBinding>()).Select(x=>x.Copy()).ToList() };
     }
     [Serializable] public sealed class BaseCampaignBinding {public int SoldierId,TroopIndex;public BaseCampaignBinding Copy()=>(BaseCampaignBinding)MemberwiseClone();}
     [Serializable] public sealed class BaseCampaignReport

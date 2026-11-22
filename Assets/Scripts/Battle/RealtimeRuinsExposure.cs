@@ -17,7 +17,7 @@ namespace BaseConquest.Battle
 
         private void RecordRuinsRetreatThreshold(PrototypeUnit target, double healthBefore)
         {
-            if (!Session.Opening.RuinsFirstClear || !target.Player || RuinsExitOpen) return;
+            if (!Session.Opening.AllowsRuinsHalfHealthRetreat || !target.Player || RuinsExitOpen) return;
             double threshold = target.MaxHealth * .5;
             crossedRuinsRetreatThreshold |= healthBefore > threshold && target.Health <= threshold;
         }

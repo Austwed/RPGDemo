@@ -858,6 +858,8 @@ namespace BaseConquest.Editor
             var resumed = new RealtimeCampaignBattle(new BaseCampaignSession(loaded.Campaign.ActiveBattle));
             Need(resumed.RuinsHalfHealthRetreat && BaseDemoCombat.Fail(loaded, resumed) &&
                 loaded.Demo.RuinsDay == 0 && !loaded.Campaign.HasActiveBattle, "半血撤退读档未保留真实结算");
+            loaded = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(loaded.Copy()));
+            Need(loaded.Demo.RuinsHalfHealthRetreatUsed, "半血撤退次数未随战役存档持久化");
             BaseDemoCombat.RetreatPosition(loaded, false);
             BaseSceneRules.LeaveDungeon(loaded);
             At(loaded, "demo_ruins_return");
@@ -878,7 +880,15 @@ namespace BaseConquest.Editor
             Hit(retry, retry.Model.Units.First(unit => unit.Side == PrototypeSide.Enemy), retry.Model.Player, 1);
             Need(retry.Battle.Phase == BattlePhase.Fighting && !retry.RuinsHalfHealthRetreat &&
                 retry.Model.Player.Health < health, "带旧伤重进应可正常开战、受伤");
-            Debug.Log("[VerifyRuinsHalfHealthRetreat] 实际受击跨线、检查点读回、带阿铸半血重进 PASS");
+            retry.SaveCheckpoint(loaded);
+            var secondAttempt = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(loaded.Copy()));
+            var recovered = new RealtimeCampaignBattle(new BaseCampaignSession(secondAttempt.Campaign.ActiveBattle));
+            BaseDemoRuins.Configure(recovered);
+            recovered.Model.Player.Health = recovered.Model.Player.MaxHealth * .5 + 1;
+            Hit(recovered, recovered.Model.Units.First(unit => unit.Side == PrototypeSide.Enemy), recovered.Model.Player, 2);
+            Need(recovered.Battle.Phase == BattlePhase.Fighting && !recovered.RuinsHalfHealthRetreat &&
+                recovered.Model.Player.Health < recovered.Model.Player.MaxHealth * .5, "恢复半血以上后再次跨线重复触发剧情撤退");
+            Debug.Log("[VerifyRuinsHalfHealthRetreat] 单次跨线、存档持久化、带阿铸重进及恢复后再跨线 PASS");
 
             void Hit(RealtimeCampaignBattle battle, PrototypeUnit from, PrototypeUnit to, double raw)
             {
