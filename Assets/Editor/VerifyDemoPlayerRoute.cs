@@ -194,7 +194,7 @@ namespace BaseConquest.Editor
             At(state, "demo_ruins_investigate");
             var twoCaptains=state.Copy();
             twoCaptains.Adventure.Members.Remove("partner_farm");
-            VerifyRuinsCompanionRetreat(twoCaptains);
+            VerifyRuinsCompanionRetry(twoCaptains);
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
             draft.AutoPlace();
             var rescue = new RealtimeCampaignBattle(draft.Begin(state));
@@ -258,28 +258,21 @@ namespace BaseConquest.Editor
             Note($"第{state.Day}天 首防到达。已逐次购兵{hired}人，粮田{BaseEconomy.WorkersAt(state, "farm")}人，工坊{BaseEconomy.WorkersAt(state, "workshop")}人，一级军需{BaseSupply.Available(state, "supply", 1)}件。");
         }
 
-        private static void VerifyRuinsCompanionRetreat(BaseState state)
+        private static void VerifyRuinsCompanionRetry(BaseState state)
         {
+            Need(state.Demo.RuinsHalfHealthRetreatUsed, "单人退场未写入战役进度");
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
             draft.AutoPlace();
             var run = new RealtimeCampaignBattle(draft.Begin(state));
             run.EnableBattlefieldExits();
             BaseDemoRuins.Configure(run);
             var player = run.Model.Player;
-            player.Health = player.MaxHealth * .5;
-            run.Model.SetPaused(false);
-            run.Tick(.02);
-            Need(run.Session.Opening.Leaders.Count == 2 && run.RuinsHalfHealthRetreat &&
-                run.Battle.Report?.Outcome == BattleOutcome.Retreat && run.Model.Units.All(unit => !unit.Escaped),
-                "有搭档时半血没有从战场直接退场");
-            run.SaveCheckpoint(state);
-            var restored = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
-            BaseEconomy.Validate(restored);
-            var resumed = new RealtimeCampaignBattle(new BaseCampaignSession(restored.Campaign.ActiveBattle));
-            Need(resumed.RuinsHalfHealthRetreat && BaseDemoCombat.Fail(restored, resumed),
-                "有搭档半血撤退读档后未结算");
-            Need(restored.Leaders.Where(leader => leader.Id == restored.PlayerLeaderId || leader.Id == "partner_craft")
-                .All(leader => leader.Health > 0 && leader.Fate == "active"), "同行角色半血撤离未生还");
+            var attacker = run.Model.Units.First(unit => unit.Side == PrototypeSide.Enemy);
+            player.Health = player.MaxHealth * .5 + 1;
+            run.Model.ApplyResolvedHit(attacker, player, run.DamageLimit?.Invoke(attacker, player, 2) ?? 2);
+            Need(run.Session.Opening.Leaders.Count == 2 && !run.RuinsHalfHealthRetreat &&
+                run.Battle.Phase == BattlePhase.Fighting && player.Health < player.MaxHealth * .5,
+                "再次带队入场时重复触发了半血退场");
         }
 
         private static void VerifyRuinsSoloVictory(BaseState grown)

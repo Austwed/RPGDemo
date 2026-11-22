@@ -81,8 +81,8 @@
                 "BaseStats": {
                     "Level": 1,
                     "Health": 235.0,
-                    "Damage": 14.0,
-                    "Defense": 4.0,
+                    "Damage": 15.0,
+                    "Defense": 8.0,
                     "Penetration": 0.0,
                     "Resistance": 0.0,
                     "HasCombatKind": true,
@@ -250,8 +250,8 @@
                 "BaseStats": {
                     "Level": 1,
                     "Health": 150.0,
-                    "Damage": 22.0,
-                    "Defense": 2.0,
+                    "Damage": 17.0,
+                    "Defense": 3.0,
                     "Penetration": 0.0,
                     "Resistance": 0.0,
                     "HasCombatKind": true,
@@ -410,8 +410,8 @@
                 "BaseStats": {
                     "Level": 1,
                     "Health": 223.0,
-                    "Damage": 16.0,
-                    "Defense": 3.0,
+                    "Damage": 12.0,
+                    "Defense": 5.0,
                     "Penetration": 0.0,
                     "Resistance": 0.0,
                     "HasCombatKind": true,
@@ -536,6 +536,7 @@
             "SourceId": "",
             "HeldBy": "",
             "HeldSourceId": "",
+            "StationId": "",
             "PartyOrder": 0,
             "VillageResident": false,
             "Relocating": false,
@@ -555,7 +556,7 @@
                 "Level": 1,
                 "Health": 100.0,
                 "Damage": 12.0,
-                "Defense": 4.0,
+                "Defense": 6.0,
                 "Penetration": 0.0,
                 "Resistance": 0.0,
                 "HasCombatKind": true,
@@ -587,6 +588,7 @@
             "SourceId": "",
             "HeldBy": "",
             "HeldSourceId": "",
+            "StationId": "",
             "PartyOrder": 0,
             "VillageResident": false,
             "Relocating": false,
@@ -637,6 +639,7 @@
             "SourceId": "",
             "HeldBy": "",
             "HeldSourceId": "",
+            "StationId": "",
             "PartyOrder": 0,
             "VillageResident": false,
             "Relocating": false,
@@ -655,7 +658,7 @@
             "CombatStats": {
                 "Level": 1,
                 "Health": 100.0,
-                "Damage": 10.0,
+                "Damage": 9.0,
                 "Defense": 3.0,
                 "Penetration": 0.0,
                 "Resistance": 0.0,
@@ -710,6 +713,29 @@
             6,
             9
         ],
+        "SlotTroops": [
+            {
+                "Version": 1,
+                "Melee": 4,
+                "Ranged": 0,
+                "Cavalry": 0,
+                "Mage": 0
+            },
+            {
+                "Version": 1,
+                "Melee": 0,
+                "Ranged": 4,
+                "Cavalry": 0,
+                "Mage": 0
+            },
+            {
+                "Version": 1,
+                "Melee": 4,
+                "Ranged": 0,
+                "Cavalry": 2,
+                "Mage": 0
+            }
+        ],
         "Presets": [
             {
                 "Purpose": "defense",
@@ -762,7 +788,7 @@
         ],
         "Parties": [],
         "ReturnedIds": [
-            "2db60fd25318465aaadcc9dc13fbe4a1"
+            "28f70e286ef1449aa17e31517dc551a7"
         ],
         "AppliedAppendIds": []
     },
@@ -801,7 +827,7 @@
             }
         ],
         "FinishedIds": [
-            "4a32793b37134ae498c411d918223a01"
+            "05a66ed6d3024606a2f3d2377f12801e"
         ]
     },
     "Campaign": {
@@ -921,7 +947,7 @@
                         "Stats": {
                             "Level": 1,
                             "Health": 216.0,
-                            "Damage": 18.0,
+                            "Damage": 13.0,
                             "Defense": 3.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
@@ -943,7 +969,7 @@
                             "BaseStats": {
                                 "Level": 1,
                                 "Health": 216.0,
-                                "Damage": 18.0,
+                                "Damage": 13.0,
                                 "Defense": 3.0,
                                 "Penetration": 0.0,
                                 "Resistance": 0.0,
@@ -1002,7 +1028,7 @@
                             "Level": 1,
                             "Health": 100.0,
                             "Damage": 12.0,
-                            "Defense": 4.0,
+                            "Defense": 6.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -1082,7 +1108,7 @@
                             "Level": 1,
                             "Health": 100.0,
                             "Damage": 12.0,
-                            "Defense": 4.0,
+                            "Defense": 6.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -1178,17 +1204,17 @@
         ],
         "SettledIds": [
             "demo:smith:parting-gift",
-            "4a32793b37134ae498c411d918223a01"
+            "05a66ed6d3024606a2f3d2377f12801e"
         ],
         "SettledBattleCount": 1,
         "Reports": [
             {
-                "BattleId": "4a32793b37134ae498c411d918223a01",
+                "BattleId": "05a66ed6d3024606a2f3d2377f12801e",
                 "EventId": "demo:ruins:rescue",
                 "Title": "沉眠古窟 · 制服受控者并击败控制来源",
                 "Outcome": "SideAWin",
                 "Day": 1,
-                "Rounds": 24,
+                "Rounds": 31,
                 "Deployed": 0,
                 "Killed": 0,
                 "Missing": 0,
@@ -1211,7 +1237,7 @@
                 "Passive": false,
                 "Deputy": false,
                 "Realtime": true,
-                "Seconds": 24.099999999999913
+                "Seconds": 31.283333333332838
             }
         ],
         "HasActiveBattle": false,
@@ -1389,8 +1415,8 @@
                         "Stats": {
                             "Level": 1,
                             "Health": 175.0,
-                            "Damage": 13.0,
-                            "Defense": 4.0,
+                            "Damage": 14.0,
+                            "Defense": 7.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -1411,8 +1437,8 @@
                             "BaseStats": {
                                 "Level": 1,
                                 "Health": 175.0,
-                                "Damage": 13.0,
-                                "Defense": 4.0,
+                                "Damage": 14.0,
+                                "Defense": 7.0,
                                 "Penetration": 0.0,
                                 "Resistance": 0.0,
                                 "HasCombatKind": true,
@@ -1506,8 +1532,8 @@
                         "Stats": {
                             "Level": 1,
                             "Health": 235.0,
-                            "Damage": 14.0,
-                            "Defense": 4.0,
+                            "Damage": 15.0,
+                            "Defense": 8.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -1528,8 +1554,8 @@
                             "BaseStats": {
                                 "Level": 1,
                                 "Health": 235.0,
-                                "Damage": 14.0,
-                                "Defense": 4.0,
+                                "Damage": 15.0,
+                                "Defense": 8.0,
                                 "Penetration": 0.0,
                                 "Resistance": 0.0,
                                 "HasCombatKind": true,
@@ -1615,7 +1641,7 @@
                             "Level": 1,
                             "Health": 100.0,
                             "Damage": 12.0,
-                            "Defense": 4.0,
+                            "Defense": 6.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -1695,7 +1721,7 @@
                             "Level": 1,
                             "Health": 100.0,
                             "Damage": 12.0,
-                            "Defense": 4.0,
+                            "Defense": 6.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -1775,7 +1801,7 @@
                             "Level": 1,
                             "Health": 100.0,
                             "Damage": 12.0,
-                            "Defense": 4.0,
+                            "Defense": 6.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -1855,7 +1881,7 @@
                             "Level": 1,
                             "Health": 100.0,
                             "Damage": 12.0,
-                            "Defense": 4.0,
+                            "Defense": 6.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -1935,7 +1961,7 @@
                             "Level": 1,
                             "Health": 100.0,
                             "Damage": 12.0,
-                            "Defense": 4.0,
+                            "Defense": 6.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -2015,7 +2041,7 @@
                             "Level": 1,
                             "Health": 100.0,
                             "Damage": 12.0,
-                            "Defense": 4.0,
+                            "Defense": 6.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
                             "HasCombatKind": true,
@@ -2334,7 +2360,7 @@
                         "Stats": {
                             "Level": 1,
                             "Health": 100.0,
-                            "Damage": 10.0,
+                            "Damage": 9.0,
                             "Defense": 3.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
@@ -8325,6 +8351,7 @@
             "TacticalBaseDamage": 0.0,
             "RuinsExposureFraction": 0.0,
             "RuinsFirstClear": false,
+            "RuinsHalfHealthRetreatDisabled": false,
             "TacticalRules": {
                 "Version": 1,
                 "TreeLength": 3,
@@ -8351,6 +8378,9 @@
                 "Units": [],
                 "Arrows": [],
                 "RpgAttacks": [],
+                "BattlefieldVictoryPending": false,
+                "RuinsRescueDialogueComplete": false,
+                "RuinsHalfHealthRetreat": false,
                 "RpgAttackSerial": 0,
                 "Skills": []
             },
@@ -92361,8 +92391,8 @@
         },
         "Prisoners": [
             {
-                "Id": "4a32793b37134ae498c411d918223a01:0",
-                "BattleId": "4a32793b37134ae498c411d918223a01",
+                "Id": "05a66ed6d3024606a2f3d2377f12801e:0",
+                "BattleId": "05a66ed6d3024606a2f3d2377f12801e",
                 "Name": "敌方迦兰",
                 "Status": "awaiting-story",
                 "CaptureSource": "沉眠古窟 · 制服受控者并击败控制来源",
@@ -92387,7 +92417,7 @@
                 "Stats": {
                     "Level": 1,
                     "Health": 216.0,
-                    "Damage": 18.0,
+                    "Damage": 13.0,
                     "Defense": 3.0,
                     "Penetration": 0.0,
                     "Resistance": 0.0,
@@ -92495,7 +92525,7 @@
                     "Level": 1,
                     "Health": 100.0,
                     "Damage": 12.0,
-                    "Defense": 4.0,
+                    "Defense": 6.0,
                     "Penetration": 0.0,
                     "Resistance": 0.0,
                     "HasCombatKind": true,
@@ -92542,7 +92572,7 @@
                 "Stats": {
                     "Level": 1,
                     "Health": 100.0,
-                    "Damage": 10.0,
+                    "Damage": 9.0,
                     "Defense": 3.0,
                     "Penetration": 0.0,
                     "Resistance": 0.0,
@@ -93162,7 +93192,7 @@
             "Range": [
                 1.0,
                 12.0,
-                2.0,
+                1.0,
                 6.0
             ],
             "Speed": [
@@ -93193,25 +93223,25 @@
             "AttributeGrowthVersion": 1,
             "AttackGrowth": [
                 1.0,
-                1.18,
-                1.5,
-                1.85,
-                2.25,
-                3.0,
-                3.7,
-                4.5,
-                6.0
+                1.04,
+                1.08,
+                1.12,
+                1.16,
+                1.2,
+                1.24,
+                1.28,
+                1.32
             ],
             "DefenseGrowth": [
                 1.0,
-                1.18,
-                1.5,
-                1.85,
-                2.25,
-                3.0,
-                3.7,
-                4.5,
-                6.0
+                1.02,
+                1.04,
+                1.06,
+                1.08,
+                1.1,
+                1.12,
+                1.14,
+                1.16
             ],
             "Templates": [
                 {
@@ -93222,7 +93252,7 @@
                     "IsDefault": true,
                     "Health": 100.0,
                     "Attack": 12.0,
-                    "Defense": 4.0,
+                    "Defense": 6.0,
                     "SightRadius": 0
                 },
                 {
@@ -93243,7 +93273,7 @@
                     "Identity": "soldier",
                     "IsDefault": true,
                     "Health": 100.0,
-                    "Attack": 10.0,
+                    "Attack": 9.0,
                     "Defense": 3.0,
                     "SightRadius": 0
                 },
@@ -93265,8 +93295,8 @@
                     "Identity": "captain_normal",
                     "IsDefault": true,
                     "Health": 175.0,
-                    "Attack": 13.0,
-                    "Defense": 4.0,
+                    "Attack": 14.0,
+                    "Defense": 7.0,
                     "SightRadius": 0
                 },
                 {
@@ -93276,8 +93306,8 @@
                     "Identity": "captain_normal",
                     "IsDefault": true,
                     "Health": 150.0,
-                    "Attack": 22.0,
-                    "Defense": 2.0,
+                    "Attack": 17.0,
+                    "Defense": 3.0,
                     "SightRadius": 0
                 },
                 {
@@ -93287,8 +93317,8 @@
                     "Identity": "captain_normal",
                     "IsDefault": true,
                     "Health": 165.0,
-                    "Attack": 14.0,
-                    "Defense": 3.0,
+                    "Attack": 11.0,
+                    "Defense": 4.0,
                     "SightRadius": 0
                 },
                 {
@@ -93298,7 +93328,7 @@
                     "Identity": "captain_normal",
                     "IsDefault": true,
                     "Health": 132.0,
-                    "Attack": 14.0,
+                    "Attack": 12.0,
                     "Defense": 2.0,
                     "SightRadius": 0
                 },
@@ -93309,8 +93339,8 @@
                     "Identity": "captain_awakened",
                     "IsDefault": true,
                     "Health": 235.0,
-                    "Attack": 14.0,
-                    "Defense": 4.0,
+                    "Attack": 15.0,
+                    "Defense": 8.0,
                     "SightRadius": 0
                 },
                 {
@@ -93320,8 +93350,8 @@
                     "Identity": "captain_awakened",
                     "IsDefault": true,
                     "Health": 226.0,
-                    "Attack": 24.0,
-                    "Defense": 3.0,
+                    "Attack": 18.0,
+                    "Defense": 4.0,
                     "SightRadius": 0
                 },
                 {
@@ -93331,8 +93361,8 @@
                     "Identity": "captain_awakened",
                     "IsDefault": true,
                     "Health": 223.0,
-                    "Attack": 16.0,
-                    "Defense": 3.0,
+                    "Attack": 12.0,
+                    "Defense": 5.0,
                     "SightRadius": 0
                 },
                 {
@@ -93342,7 +93372,7 @@
                     "Identity": "captain_awakened",
                     "IsDefault": true,
                     "Health": 216.0,
-                    "Attack": 18.0,
+                    "Attack": 13.0,
                     "Defense": 3.0,
                     "SightRadius": 0
                 },
@@ -93903,7 +93933,7 @@
         "Stage": 9,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "75e4f75404b1c09e958998337f19a396cf336bf82b9527c2716a4fb3b28c566f",
-        "ConfigHash": "dcad6cb8b702a58666f85dbec756c35cba8348c081ec9cbcc929b9ce22c18c2a",
+        "ConfigHash": "63d55f080ef714a22260c9f2e3e87896ca7ecfbe8bbc269a01606511bb0c4d00",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -94858,6 +94888,7 @@
         "RuinsVersion": 1,
         "RuinsDay": 1,
         "DeliveredDay": 1,
+        "RuinsHalfHealthRetreatUsed": false,
         "RuinsPlayerHeard": false,
         "RuinsAzhuHeard": false,
         "RuinsAheHeard": false,
@@ -94907,8 +94938,8 @@
                     "BaseStats": {
                         "Level": 1,
                         "Health": 150.0,
-                        "Damage": 22.0,
-                        "Defense": 2.0,
+                        "Damage": 17.0,
+                        "Defense": 3.0,
                         "Penetration": 0.0,
                         "Resistance": 0.0,
                         "HasCombatKind": true,
@@ -95067,8 +95098,8 @@
                     "BaseStats": {
                         "Level": 1,
                         "Health": 223.0,
-                        "Damage": 16.0,
-                        "Defense": 3.0,
+                        "Damage": 12.0,
+                        "Defense": 5.0,
                         "Penetration": 0.0,
                         "Resistance": 0.0,
                         "HasCombatKind": true,
@@ -116941,6 +116972,7 @@
         "Flow": {
             "HiredKinds": 7,
             "CampConstructionOrdered": false,
+            "ZhouConstructionNoticeSeen": false,
             "HideoutRecruitClueSeen": false,
             "HideoutRecruitCluePending": false,
             "RecruitmentNotice": true,
@@ -116951,13 +116983,14 @@
             "FarmOfferShown": true,
             "NoviceShop": true,
             "AzhuDuelWon": true,
+            "AzhuDuelCompleted": false,
             "SmithGiftOffered": true,
             "ControllerAccepted": false,
             "ControllerPledged": false,
             "BanditCleared": false,
             "SmithLesson": 0,
             "ZhouTraining": 0,
-            "FirstControllerId": "4a32793b37134ae498c411d918223a01:0",
+            "FirstControllerId": "05a66ed6d3024606a2f3d2377f12801e:0",
             "FarmX": 0.0,
             "FarmY": 0.0,
             "FarmNpcX": 0.0,

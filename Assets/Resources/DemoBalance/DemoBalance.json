@@ -1,6 +1,6 @@
 {
     "Version": 1,
-    "WorkbookSha256": "dcad6cb8b702a58666f85dbec756c35cba8348c081ec9cbcc929b9ce22c18c2a",
+    "WorkbookSha256": "63d55f080ef714a22260c9f2e3e87896ca7ecfbe8bbc269a01606511bb0c4d00",
     "Rules": {
         "Professions": [
             {
@@ -321,7 +321,7 @@
         "Range": [
             1.0,
             12.0,
-            2.0,
+            1.0,
             6.0
         ],
         "Speed": [
@@ -352,25 +352,25 @@
         "AttributeGrowthVersion": 1,
         "AttackGrowth": [
             1.0,
-            1.18,
-            1.5,
-            1.85,
-            2.25,
-            3.0,
-            3.7,
-            4.5,
-            6.0
+            1.04,
+            1.08,
+            1.12,
+            1.16,
+            1.2,
+            1.24,
+            1.28,
+            1.32
         ],
         "DefenseGrowth": [
             1.0,
-            1.18,
-            1.5,
-            1.85,
-            2.25,
-            3.0,
-            3.7,
-            4.5,
-            6.0
+            1.02,
+            1.04,
+            1.06,
+            1.08,
+            1.1,
+            1.12,
+            1.14,
+            1.16
         ],
         "Templates": [
             {
@@ -381,7 +381,7 @@
                 "IsDefault": true,
                 "Health": 100.0,
                 "Attack": 12.0,
-                "Defense": 4.0,
+                "Defense": 6.0,
                 "SightRadius": 0
             },
             {
@@ -402,7 +402,7 @@
                 "Identity": "soldier",
                 "IsDefault": true,
                 "Health": 100.0,
-                "Attack": 10.0,
+                "Attack": 9.0,
                 "Defense": 3.0,
                 "SightRadius": 0
             },
@@ -424,8 +424,8 @@
                 "Identity": "captain_normal",
                 "IsDefault": true,
                 "Health": 175.0,
-                "Attack": 13.0,
-                "Defense": 4.0,
+                "Attack": 14.0,
+                "Defense": 7.0,
                 "SightRadius": 0
             },
             {
@@ -435,8 +435,8 @@
                 "Identity": "captain_normal",
                 "IsDefault": true,
                 "Health": 150.0,
-                "Attack": 22.0,
-                "Defense": 2.0,
+                "Attack": 17.0,
+                "Defense": 3.0,
                 "SightRadius": 0
             },
             {
@@ -446,8 +446,8 @@
                 "Identity": "captain_normal",
                 "IsDefault": true,
                 "Health": 165.0,
-                "Attack": 14.0,
-                "Defense": 3.0,
+                "Attack": 11.0,
+                "Defense": 4.0,
                 "SightRadius": 0
             },
             {
@@ -457,7 +457,7 @@
                 "Identity": "captain_normal",
                 "IsDefault": true,
                 "Health": 132.0,
-                "Attack": 14.0,
+                "Attack": 12.0,
                 "Defense": 2.0,
                 "SightRadius": 0
             },
@@ -468,8 +468,8 @@
                 "Identity": "captain_awakened",
                 "IsDefault": true,
                 "Health": 235.0,
-                "Attack": 14.0,
-                "Defense": 4.0,
+                "Attack": 15.0,
+                "Defense": 8.0,
                 "SightRadius": 0
             },
             {
@@ -479,8 +479,8 @@
                 "Identity": "captain_awakened",
                 "IsDefault": true,
                 "Health": 226.0,
-                "Attack": 24.0,
-                "Defense": 3.0,
+                "Attack": 18.0,
+                "Defense": 4.0,
                 "SightRadius": 0
             },
             {
@@ -490,8 +490,8 @@
                 "Identity": "captain_awakened",
                 "IsDefault": true,
                 "Health": 223.0,
-                "Attack": 16.0,
-                "Defense": 3.0,
+                "Attack": 12.0,
+                "Defense": 5.0,
                 "SightRadius": 0
             },
             {
@@ -501,7 +501,7 @@
                 "Identity": "captain_awakened",
                 "IsDefault": true,
                 "Health": 216.0,
-                "Attack": 18.0,
+                "Attack": 13.0,
                 "Defense": 3.0,
                 "SightRadius": 0
             },
