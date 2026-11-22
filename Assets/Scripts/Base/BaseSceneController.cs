@@ -240,9 +240,7 @@ namespace BaseConquest.Base
         public Vector3 WorldPoint(double x, double y) => new Vector3(((float)x-regionView.Board.Width*.5f)*BattleBoardView.CellSize,regionView.ExplorationHeight(x,y),((float)y-regionView.Board.Height*.5f)*BattleBoardView.CellSize);
         private void BuildWorld()
         {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            using var measuredBuild = TransitionBenchmark.MeasureWorld();
-#endif
+            using var measuredBuild = UnityEngine.Debug.isDebugBuild ? TransitionBenchmark.MeasureWorld() : default;
             // 布局随存档序列化：旧档读进来先做一次性迁移，否则改过的营地坐标在旧档里看不到。
             if(State!=null)BaseDemo.EnsureCampLayout(State);
             var ambientKey = State == null ? null : (State.Campaign.CurrentMapId ?? "") + "/" + State.Campaign.Location + "/" + BaseDemoPrologue.Village(State);

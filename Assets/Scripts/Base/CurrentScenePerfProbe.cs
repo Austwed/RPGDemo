@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || (DEVELOPMENT_BUILD && UNITY_STANDALONE_WIN)
+#if UNITY_EDITOR || UNITY_STANDALONE_WIN
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -40,7 +40,7 @@ namespace BaseConquest.Perf
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void Boot()
         {
-            if (!Environment.GetCommandLineArgs().Contains("-slgScenePerf") || Object.FindAnyObjectByType<CurrentScenePerfProbe>() != null)
+            if (!UnityEngine.Debug.isDebugBuild || !Environment.GetCommandLineArgs().Contains("-slgScenePerf") || Object.FindAnyObjectByType<CurrentScenePerfProbe>() != null)
                 return;
             string saveRoot = Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES");
             string report = Environment.GetEnvironmentVariable("SLG_SCENE_PERF_RESULT");

@@ -248,7 +248,7 @@ namespace BaseConquest.Base
         public static bool BeginEditorTest()
         {bool first=editorTestPending;editorTestPending=false;if(!workshopSession)editorTestSession=true;return first;}
         public static void UseWorkshop()=>workshopSession=true;
-#if UNITY_EDITOR || (UNITY_STANDALONE_WIN && DEVELOPMENT_BUILD)
+#if UNITY_EDITOR || UNITY_STANDALONE_WIN
         private static readonly Lazy<string> benchmarkSaveDirectory = new Lazy<string>(() =>
         {
             var args = Environment.GetCommandLineArgs();
@@ -264,8 +264,8 @@ namespace BaseConquest.Base
         {
             get
             {
-#if UNITY_EDITOR || (UNITY_STANDALONE_WIN && DEVELOPMENT_BUILD)
-                if (benchmarkSaveDirectory.Value is string benchmark) return Path.Combine(benchmark, "player-data");
+#if UNITY_EDITOR || UNITY_STANDALONE_WIN
+                if (Debug.isDebugBuild && benchmarkSaveDirectory.Value is string benchmark) return Path.Combine(benchmark, "player-data");
 #endif
 #if UNITY_EDITOR
                 // An isolated worktree may opt in by creating its own ignored UserSettings directory.
@@ -283,8 +283,8 @@ namespace BaseConquest.Base
         {
             get
             {
-#if UNITY_EDITOR || (UNITY_STANDALONE_WIN && DEVELOPMENT_BUILD)
-                if (benchmarkSaveDirectory.Value is string benchmark) return benchmark;
+#if UNITY_EDITOR || UNITY_STANDALONE_WIN
+                if (Debug.isDebugBuild && benchmarkSaveDirectory.Value is string benchmark) return benchmark;
 #endif
 #if UNITY_EDITOR
                 var checkPath = Environment.GetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES");

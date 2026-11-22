@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -58,7 +57,7 @@ namespace BaseConquest.Base
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Boot()
         {
-            if (!Requested) return;
+            if (!Debug.isDebugBuild || !Requested) return;
             var host = new GameObject(nameof(TransitionBenchmark));
             DontDestroyOnLoad(host);
             var probe = host.AddComponent<TransitionBenchmark>();
@@ -352,4 +351,3 @@ namespace BaseConquest.Base
     }
 
 }
-#endif

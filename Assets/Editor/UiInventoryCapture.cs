@@ -68,12 +68,12 @@ namespace BaseConquest.Editor
             if (target == null || !target.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).Any(m => m.Name == method)) return false;
             Call(target, method, args); return true;
         }
-        private static Type FindType(string fullName) => AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType(fullName)).FirstOrDefault(t => t != null);
+        private static Type FindType(string fullName) => UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies().Select(a => a.GetType(fullName)).FirstOrDefault(t => t != null);
         private static object Field(object target, string name)
             => target?.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
         private static string Click(params string[] prefixes)
         {
-            var buttons = Object.FindObjectsByType<Button>(FindObjectsSortMode.None).Where(b => b.isActiveAndEnabled && b.interactable).ToArray();
+            var buttons = Object.FindObjectsByType<Button>().Where(b => b.isActiveAndEnabled && b.interactable).ToArray();
             foreach (var prefix in prefixes)
                 foreach (var b in buttons)
                 {
@@ -230,7 +230,7 @@ namespace BaseConquest.Editor
             var cams = Camera.allCameras.Where(c => c.enabled && c.targetTexture == null).OrderBy(c => c.depth).ToList();
             if (cams.Count == 0 && C?.WorldCamera != null) cams.Add(C.WorldCamera);
             // 1280×720 当作整块屏幕：相机视口铺满，16:9 显示区域按 1:1 摆放（下一帧 LateUpdate 会按真实屏幕还原）。
-            foreach (var frame in Object.FindObjectsByType<BaseConquest.Presentation.GameFrameCanvas>(FindObjectsSortMode.None)) frame.ApplyLayout(new Rect(0, 0, w, h), w, h);
+            foreach (var frame in Object.FindObjectsByType<BaseConquest.Presentation.GameFrameCanvas>()) frame.ApplyLayout(new Rect(0, 0, w, h), w, h);
             var rects = cams.ToDictionary(c => c, c => c.rect);
             var targets = cams.ToDictionary(c => c, c => c.targetTexture);
             var rt = new RenderTexture(w, h, 24); rt.Create();
@@ -242,7 +242,7 @@ namespace BaseConquest.Editor
             // 第二遍只画 UI 到透明底：Overlay Canvas 临时挂到最上层相机（Camera 模式、专用层），再按 alpha 叠回世界画面。
             // URP 类管线的基础相机总会清屏，所以不能直接画在同一张图上。
             var top = cams.LastOrDefault();
-            var canvases = Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None).Where(c => c.isRootCanvas && c.isActiveAndEnabled && c.renderMode == RenderMode.ScreenSpaceOverlay).OrderBy(c => c.sortingOrder).ToArray();
+            var canvases = Object.FindObjectsByType<Canvas>().Where(c => c.isRootCanvas && c.isActiveAndEnabled && c.renderMode == RenderMode.ScreenSpaceOverlay).OrderBy(c => c.sortingOrder).ToArray();
             var layers = new Dictionary<GameObject, int>();
             if (top != null && canvases.Length > 0)
             {

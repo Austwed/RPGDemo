@@ -116,7 +116,7 @@ namespace BaseConquest.Base
                 var barracks = BaseSpatial.Objects(scene.State).Single(o => o.Id == "barracks");
                 BaseInteraction.Walk(new BasePoint(barracks.X - scene.State.PlayerX, barracks.Y - scene.State.PlayerY));
                 scene.Hud.OpenObject("barracks");
-                var entry = Object.FindObjectsByType<UnityEngine.UI.Button>(FindObjectsSortMode.None)
+                var entry = Object.FindObjectsByType<UnityEngine.UI.Button>()
                     .FirstOrDefault(b => b.IsInteractable() && b.GetComponentInChildren<UnityEngine.UI.Text>()?.text == "模拟对抗");
                 if (entry == null) throw new InvalidOperationException("兵营中没有模拟对抗按钮");
                 stateBefore=JsonUtility.ToJson(scene.State);

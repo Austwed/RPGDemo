@@ -389,9 +389,7 @@ namespace BaseConquest.Battle
         public void Refresh()
         {
             if (deferInitialRefresh) return;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            using var measuredRefresh = BaseConquest.Base.TransitionBenchmark.MeasureBoard();
-#endif
+            using var measuredRefresh = UnityEngine.Debug.isDebugBuild ? BaseConquest.Base.TransitionBenchmark.MeasureBoard() : default;
             visionRevision = -1;
             Material DungeonSkin(string id)
             {
