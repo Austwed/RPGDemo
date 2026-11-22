@@ -11,12 +11,6 @@ using UnityEngine;
 
 namespace BaseConquest.Editor
 {
-    public sealed class PlanningBalanceImport
-    {
-        public BaseScenarioDocument Document;
-        public string WorkbookPath, WorkbookHash, SeedPath, SeedHash, Preview;
-    }
-
     public sealed class DemoBalanceImport
     {
         public DemoBalancePackage Package;

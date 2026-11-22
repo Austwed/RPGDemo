@@ -8,7 +8,6 @@ using System.Reflection;
 using System.Text;
 using BaseConquest.Base;
 #if UNITY_EDITOR
-using UnityEditor;
 using UnityEngine;
 #endif
 
@@ -208,66 +207,4 @@ namespace BaseConquest.Editor
         }
 #endif
     }
-
-#if UNITY_EDITOR
-    public sealed class CoreBalanceWindow:EditorWindow
-    {
-        private string workbookPath,error="";
-        private CoreBalanceImport imported;
-        private Vector2 scroll;
-        [SerializeField] private bool equipmentOnly;
-        public static void Open()=>Open(false);
-
-        public static void OpenEquipment()=>Open(true);
-
-        private static void Open(bool equipmentOnly)
-        {
-            var window=GetWindow<CoreBalanceWindow>(equipmentOnly?"Demo个人装备与价格":"Demo核心六页表");
-            window.equipmentOnly=equipmentOnly;
-            window.workbookPath=Path.GetFullPath(equipmentOnly?DemoBalanceImporter.WorkbookPath:CoreBalanceImporter.WorkbookPath);
-            window.imported=null;
-            window.error="";
-            window.minSize=new Vector2(680,480);
-            window.Show();
-        }
-        private void OnGUI()
-        {
-            string scope=equipmentOnly?"05a 装备属性与价值阶段、05c 装备基础价与品质倍率":"六页已接入字段";
-            EditorGUILayout.HelpBox("以当前Demo数值快照为基底，可更新"+scope+"。确认后更新快照、来源记录与四份阶段档。",MessageType.Info);
-            using(new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode||EditorApplication.isCompiling||EditorApplication.isUpdating))
-            {
-                using(new EditorGUILayout.HorizontalScope())
-                {
-                    string next=EditorGUILayout.TextField(equipmentOnly?"Demo数值配置表":"独立六页表",workbookPath);
-                    if(next!=workbookPath){workbookPath=next;imported=null;}
-                    if(GUILayout.Button("选择",GUILayout.Width(55)))
-                    {
-                        string selected=EditorUtility.OpenFilePanel(equipmentOnly?"选择Demo数值配置表":"选择Demo核心六页表",Path.GetDirectoryName(workbookPath),"xlsx");
-                        if(selected!=""){workbookPath=selected;imported=null;}
-                    }
-                }
-                if(GUILayout.Button("校验并预览差异",GUILayout.Height(28)))
-                {
-                    try{imported=CoreBalanceImporter.Read(workbookPath,PlanningBalanceImporter.OutputPath,DemoBalanceImporter.OutputPath,JsonUtility.FromJson<DemoBalancePackage>,JsonUtility.FromJson<BaseScenarioDocument>,equipmentOnly);error="";}
-                    catch(Exception exception){imported=null;error=exception.Message;}
-                }
-                if(error!="")EditorGUILayout.HelpBox(error,MessageType.Error);
-                scroll=EditorGUILayout.BeginScrollView(scroll);
-                if(imported!=null)EditorGUILayout.LabelField(imported.Preview,EditorStyles.wordWrappedLabel);
-                EditorGUILayout.EndScrollView();
-                using(new EditorGUI.DisabledScope(imported==null))if(GUILayout.Button("确认应用并重建阶段档",GUILayout.Height(30)))
-                {
-                    try
-                    {
-                        if(Path.GetFullPath(workbookPath)!=imported.Import.WorkbookPath)throw new InvalidOperationException("配表路径已改变，请重新校验");
-                        CoreBalanceImporter.WriteWithStages(imported);
-                        AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);imported=null;error="";
-                        Debug.Log("数值变更已应用，来源记录与四份阶段档已一并更新。");
-                    }
-                    catch(Exception exception){error=exception.Message;}
-                }
-            }
-        }
-    }
-#endif
 }
