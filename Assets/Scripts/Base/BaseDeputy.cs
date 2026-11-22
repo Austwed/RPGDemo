@@ -128,6 +128,9 @@ namespace BaseConquest.Base
                 if (Enabled(s)) throw new ArgumentException("缺少副手记录");
                 return;
             }
+            // Unity can materialize null nested objects as empty records when a non-Demo save is read back.
+            if (s.Demo.Version == 0 && d.Version == 0 && !d.Unlocked && d.UnlockedDay == 0 &&
+                string.IsNullOrEmpty(d.LeaderId)) return;
             if (d.Version != Version) throw new ArgumentException("副手数据版本非法");
             if (d.UnlockedDay < 0 || d.UnlockedDay > s.Day) throw new ArgumentException("副手解锁日期非法");
             if (!d.Unlocked && (d.UnlockedDay != 0 || !string.IsNullOrEmpty(d.LeaderId))) throw new ArgumentException("未解锁副手不能有解锁日或人选");

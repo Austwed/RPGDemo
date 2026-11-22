@@ -17,7 +17,7 @@ namespace BaseConquest.Base
         public GameObject AuthoredHud;
         public GameObject[] AuthoredPages=Array.Empty<GameObject>();
         public GameObject PageTemplate(string key)=>AuthoredPages.Concat(BaseBattleGateway.SessionPages).FirstOrDefault(p=>p!=null&&p.GetComponent<BaseConquest.Presentation.UiPrefabBinding>()?.ResourceKey==key);
-        public string RecommendedTemplate = "33_即时格战经营闭环.json";
+        public string RecommendedTemplate = BaseDemo.BalanceTemplate;
         public string InitialTemplate = "08_入侵经营闭环.json";
         public bool LoadDesignPackage;
         [SerializeField,HideInInspector] private string realtimeProfile;

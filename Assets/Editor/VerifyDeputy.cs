@@ -30,9 +30,24 @@ namespace BaseConquest.Editor
             try
             {
                 RuntimeDeveloperOptions.Enabled = true;
+                VerifyTemplateSaveRoundTrip();
                 VerifyDeveloperDeputy();
             }
             finally { RuntimeDeveloperOptions.Enabled = wasEnabled; }
+        }
+
+        public static void VerifyTemplateSaveRoundTrip()
+        {
+            string path = Path.Combine(Application.streamingAssetsPath, "BaseScenarios", BaseDemo.BalanceTemplate);
+            var opening = JsonUtility.FromJson<BaseScenarioDocument>(File.ReadAllText(path));
+            var save = new BaseSaveDocument { State = opening.CreateState() };
+            var reloaded = JsonUtility.FromJson<BaseSaveDocument>(JsonUtility.ToJson(save)).State;
+            Need(!BaseDemo.Active(reloaded), "开发模板不应进入正式 Demo");
+            BaseEconomy.Validate(reloaded);
+
+            reloaded.Demo = new BaseDemoProgress { Deputy = new BaseDeputyState { Unlocked = true } };
+            Need(Rejects(() => BaseDeputy.Validate(reloaded)), "非 Demo 不能接受带有效内容的零版副手");
+            Debug.Log("[Deputy] PASS 35 号开发模板存档回读及损坏副手记录拦截");
         }
 
         private static void VerifyDeveloperDeputy()

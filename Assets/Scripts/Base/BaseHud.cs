@@ -624,7 +624,7 @@ namespace BaseConquest.Base
         private void AddTemplates()
         {
             if(BaseBattleGateway.DemoMode){RowButton("开始新游戏",0,830,()=>owner.NewTemplate(BaseDemo.Profile));row+=60;return;}
-            if(BaseDesignRoutes.Active(owner.State)){RowButton("重新开始当前设计组合",0,830,()=>Confirm("重开设计组合","只替换当前设计的隔离实验进度？",()=>owner.NewTemplate(owner.RecommendedTemplate)));row+=60;return;}
+            if(owner.State != null && BaseDesignRoutes.Active(owner.State)){RowButton("重新开始当前设计组合",0,830,()=>Confirm("重开设计组合","只替换当前设计的隔离实验进度？",()=>owner.NewTemplate(owner.RecommendedTemplate)));row+=60;return;}
             foreach(var entry in BaseSceneController.TemplateEntries)
             {
                 string name=entry.File;

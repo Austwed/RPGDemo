@@ -166,7 +166,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BaseConquest.Base.BaseSceneController
   AuthoredHud: {fileID: 0}
   AuthoredPages: []
-  RecommendedTemplate: "33_\u5373\u65F6\u683C\u6218\u7ECF\u8425\u95ED\u73AF.json"
+  RecommendedTemplate: "35_\u914d\u8868\u9a71\u52a8\u9a8c\u8bc1.json"
   InitialTemplate: "08_\u5165\u4FB5\u7ECF\u8425\u95ED\u73AF.json"
   LoadDesignPackage: 0
   realtimeProfile:
