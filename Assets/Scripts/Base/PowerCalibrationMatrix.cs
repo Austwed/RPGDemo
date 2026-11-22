@@ -214,8 +214,12 @@ namespace BaseConquest.Base
             opening.Enemies=opponents;scenario.A=Independent(challengers);
             if(scenario.Leaderless(BattleSide.B)) scenario.B=Independent(opponents);
             opening.PlayerTroopCounts=BattleSimulation.TroopKinds.Select(k=>challengers.Count(m=>m.Kind==k)).ToArray();
-            opening.Troops=challengers.Select((m,i)=>new BaseWorkerBucket { Kind=BaseCampaign.ToBase(m.Kind), HasCombatProfile=true, CombatStats=m.EffectiveStats(rules),
-                Health=m.Health,MaxHealth=m.Stats.Health,SoldierNumbers=new List<int>{i+1} }).ToList();
+            opening.Troops=challengers.Select((m,i)=>
+            {
+                var stats = m.EffectiveStats(rules);
+                return new BaseWorkerBucket { Kind=BaseCampaign.ToBase(m.Kind), HasCombatProfile=true, CombatStats=stats,
+                    Health=m.EffectiveHealth(stats), MaxHealth=stats.Health, SoldierNumbers=new List<int>{i+1} };
+            }).ToList();
             var session=new BaseCampaignSession(opening);
             session.Battle.AutoDeploy(BattleSide.A);session.Bind();
             if(session.Battle.Soldiers.Count!=challengers.Count+opponents.Count || session.Battle.Soldiers.Any(s=>s.Side==BattleSide.A&&s.Kind==SoldierKind.Hero))

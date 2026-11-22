@@ -158,6 +158,8 @@ namespace BaseConquest.Base
         public double[] EquipmentQuality={.5,.75,1,1.25,1.5,2};
         public int[] BowQualityRange={0,0,0,0,1,2};
         public double SupplyAttackLow=10,SupplyAttackHigh=16,SupplyDefenseLow=2,SupplyDefenseHigh=4;
+        public bool RatioSupply, CavalryOuterRangeDisadvantage;
+        public double SupplyHealthLow, SupplyHealthHigh;
         public double ArmorK=8,ArmorCap=.8,CriticalMultiplier=1.5,BaseInterval=1,MinimumInterval=.2,ArrowSpeed=14,HeightAdvantage=2,HealThreshold=.7;
         public double AttackEquipmentScale=.12,HealthEquipmentScale=.1,DefenseEquipmentScale=.2,BuyFactor=1.3,SellFactor=.7;
         public double WeaponAttackScale=.12;
@@ -258,6 +260,9 @@ namespace BaseConquest.Base
             if(!Finite(EnemyLeaderDeath)||EnemyLeaderDeath<0||EnemyLeaderDeath>1)throw new ArgumentException("敌方队长即死率非法");
             if(!Finite(SoldierDeathBase)||SoldierDeathBase<0||SoldierDeathBase>1||!Finite(SoldierDeathSensitivity)||SoldierDeathSensitivity<0||SoldierDeathSensitivity>10)throw new ArgumentException("普通兵即死率参数非法");
             if(!Finite(RecruitSupplyFactor)||RecruitSupplyFactor<0||RecruitSupplyFactor>1||!Finite(RecruitPriceSensitivity)||RecruitPriceSensitivity<0||RecruitPriceSensitivity>10)throw new ArgumentException("募兵公式参数非法");
+            if (RatioSupply && new[] { SupplyAttackLow, SupplyAttackHigh, SupplyDefenseLow, SupplyDefenseHigh,
+                SupplyHealthLow, SupplyHealthHigh }.Any(n => !Finite(n) || n < 0 || n > 1))
+                throw new ArgumentException("比例军需的攻防生命增幅须为 0～100%");
             if(new[]{SupplyAttackLow,SupplyAttackHigh,SupplyDefenseLow,SupplyDefenseHigh}.Any(x=>!Finite(x)||x<0||x>1000))throw new ArgumentException("军需攻击或防御加值须为0～1000");
             if(!Finite(SweepLossAtParity)||SweepLossAtParity<0||SweepLossAtParity>1||!Finite(SweepSecondsAtParity)||!Finite(SweepMinimumSeconds)||SweepMinimumSeconds<=0||SweepSecondsAtParity<SweepMinimumSeconds||SweepSecondsAtParity>90)throw new ArgumentException("扫荡默认参数非法");
             if(new[]{AwakenedChance}.Any(x=>!Finite(x)||x<0||x>1)||SupplyWorkValue<1)throw new ArgumentException("生成权重或军需工作点价值非法");

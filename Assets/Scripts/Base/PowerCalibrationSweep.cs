@@ -120,8 +120,10 @@ namespace BaseConquest.Base
                 {
                     var a=rules.Templates.Single(t=>t.Id==rules.DefaultTemplateId(identity,role));
                     var b=rules.Templates.Single(t=>t.Id==rules.DefaultTemplateId(identity,target));
-                    double attack=a.Attack+(grade==0?0:grade==1?rules.SupplyAttackLow:rules.SupplyAttackHigh);
-                    double defense=b.Defense+(grade==0?0:grade==1?rules.SupplyDefenseLow:rules.SupplyDefenseHigh);
+                    double attackBonus=grade==0?0:grade==1?rules.SupplyAttackLow:rules.SupplyAttackHigh;
+                    double defenseBonus=grade==0?0:grade==1?rules.SupplyDefenseLow:rules.SupplyDefenseHigh;
+                    double attack=rules.RatioSupply?a.Attack*(1+attackBonus):a.Attack+attackBonus;
+                    double defense=rules.RatioSupply?b.Defense*(1+defenseBonus):b.Defense+defenseBonus;
                     double result=0;
                     for(int die=1;die<=10;die++)
                     {

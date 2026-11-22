@@ -33,6 +33,8 @@ namespace BaseConquest.Base
             var supply = state.Supply.Rules.First(s => s.Product == "supply");
             double attack = grade == 1 ? supply.LowBonus : grade == 2 ? supply.HighBonus : 0;
             double defense = grade == 1 ? supply.LowDefense : grade == 2 ? supply.HighDefense : 0;
+            var rules = state.Demo.Rpg;
+            double health = grade == 1 ? rules.SupplyHealthLow : grade == 2 ? rules.SupplyHealthHigh : 0;
             var rows = new List<LanDuelMember>();
             // Place initial formations near the middle of the player's deployment zone.
             int[] lanes = {7,6,8,5,9,4,10,3,11,2,12,1};
@@ -45,8 +47,7 @@ namespace BaseConquest.Base
                 BaseWine.Apply(actor, leader, state.Day);
                 if (unit.Kind != SoldierKind.Hero)
                 {
-                    stats.Damage += (float)attack;
-                    stats.Defense += (float)defense;
+                    BaseSupply.ApplyStats(stats, rules.RatioSupply, attack, defense, health);
                 }
                 stats.Damage *= (float)BaseEconomy.AttackFactor(state) * actor.DrinkMultiplier;
                 int index = rows.Count;
@@ -56,7 +57,7 @@ namespace BaseConquest.Base
                 {
                     id = unit.Id, team = unit.TeamId, name = unit.Leader?.Name ?? unit.Name, kind = (int)unit.Kind,
                     x = LanDuelMatch.DeploymentWidth - 1 - index / lanes.Length, z = lanes[index % lanes.Length],
-                    hp = (float)unit.Health, stats = stats, appearance = appearance, soldierTemplateId = unit.SoldierTemplateId,
+                    hp = Math.Min(stats.Health, (float)(unit.Health * (stats.Health / unit.MaxHealth))), stats = stats, appearance = appearance, soldierTemplateId = unit.SoldierTemplateId,
                     profile = unit.Leader?.Rpg?.Copy(),
                     gear = unit.Leader?.PersonalEquipment?.Items.Select(i =>
                         new BasePersonalItem { Template = i.Template, Quality = i.Quality, Slot = i.Slot }).ToArray()

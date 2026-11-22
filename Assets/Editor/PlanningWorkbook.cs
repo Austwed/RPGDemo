@@ -379,7 +379,7 @@ namespace BaseConquest.Editor
                     var captions = new Dictionary<string, string>
                     {
                         {"cfg_try_value","共享基础价值 · 按槽位和阶段"},{"cfg_try_material","一级军需配方"},
-                        {"cfg_try_supply","军需攻防"},{"cfg_try_exact","指定槽位配装 · 每槽一人"},{"cfg_try_group","按职业／全军配装"}
+                        {"cfg_try_supply","军需攻防与生命"},{"cfg_try_exact","指定槽位配装 · 每槽一人"},{"cfg_try_group","按职业／全军配装"}
                     };
                     result.Add(new QuickTable { Id = quick.Id, Sheet = quick.Sheet, Fields = fields, Rows = rows, Caption = captions.TryGetValue(quick.Id,out var caption) ? caption : null });
                 }

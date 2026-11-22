@@ -85,6 +85,10 @@
       null,
       null
     ],
+    "RatioSupply": true,
+    "CavalryOuterRangeDisadvantage": true,
+    "SupplyHealthLow": null,
+    "SupplyHealthHigh": null,
     "SupplyAttackLow": null,
     "SupplyAttackHigh": null,
     "SupplyDefenseLow": null,
@@ -896,15 +900,21 @@
       "fields": [
         {
           "id": "atk",
-          "label": "攻击加值",
+          "label": "攻击增幅",
           "type": "d",
-          "description": "分发该档军需后获得的攻击加值，0～1000。"
+          "description": "普通兵战斗攻击的比例增幅，0.30 表示 +30%。"
         },
         {
           "id": "def",
-          "label": "防御加值",
+          "label": "防御增幅",
           "type": "d",
-          "description": "分发该档军需后获得的防御加值，0～1000。"
+          "description": "普通兵战斗防御的比例增幅，0.30 表示 +30%。"
+        },
+        {
+          "id": "health",
+          "label": "生命增幅",
+          "type": "d",
+          "description": "普通兵战斗生命的比例增幅，0.30 表示 +30%。"
         }
       ],
       "rows": [
@@ -913,7 +923,8 @@
           "label": "一级军需",
           "paths": [
             "SupplyAttackLow",
-            "SupplyDefenseLow"
+            "SupplyDefenseLow",
+            "SupplyHealthLow"
           ]
         },
         {
@@ -921,7 +932,8 @@
           "label": "二级军需",
           "paths": [
             "SupplyAttackHigh",
-            "SupplyDefenseHigh"
+            "SupplyDefenseHigh",
+            "SupplyHealthHigh"
           ]
         }
       ]
@@ -2741,7 +2753,8 @@
       "source": "cfg_supply",
       "fields": [
         "atk",
-        "def"
+        "def",
+        "health"
       ],
       "filterIds": null
     },

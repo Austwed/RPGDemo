@@ -410,7 +410,7 @@
                 "BaseStats": {
                     "Level": 1,
                     "Health": 223.0,
-                    "Damage": 12.0,
+                    "Damage": 13.0,
                     "Defense": 5.0,
                     "Penetration": 0.0,
                     "Resistance": 0.0,
@@ -658,7 +658,7 @@
             "CombatStats": {
                 "Level": 1,
                 "Health": 100.0,
-                "Damage": 9.0,
+                "Damage": 10.0,
                 "Defense": 3.0,
                 "Penetration": 0.0,
                 "Resistance": 0.0,
@@ -788,7 +788,7 @@
         ],
         "Parties": [],
         "ReturnedIds": [
-            "28f70e286ef1449aa17e31517dc551a7"
+            "bd0df2a6cdc346e9b3620097960b6a3e"
         ],
         "AppliedAppendIds": []
     },
@@ -807,10 +807,10 @@
         "Rules": [
             {
                 "Product": "supply",
-                "LowBonus": 6.0,
-                "HighBonus": 10.0,
-                "LowDefense": 2.0,
-                "HighDefense": 4.0
+                "LowBonus": 0.0,
+                "HighBonus": 0.3,
+                "LowDefense": 0.0,
+                "HighDefense": 0.3
             }
         ],
         "Quotas": [],
@@ -827,7 +827,7 @@
             }
         ],
         "FinishedIds": [
-            "05a66ed6d3024606a2f3d2377f12801e"
+            "e4176757505b490eba1923c50c5f66ce"
         ]
     },
     "Campaign": {
@@ -1204,17 +1204,17 @@
         ],
         "SettledIds": [
             "demo:smith:parting-gift",
-            "05a66ed6d3024606a2f3d2377f12801e"
+            "e4176757505b490eba1923c50c5f66ce"
         ],
         "SettledBattleCount": 1,
         "Reports": [
             {
-                "BattleId": "05a66ed6d3024606a2f3d2377f12801e",
+                "BattleId": "e4176757505b490eba1923c50c5f66ce",
                 "EventId": "demo:ruins:rescue",
                 "Title": "沉眠古窟 · 制服受控者并击败控制来源",
                 "Outcome": "SideAWin",
                 "Day": 1,
-                "Rounds": 31,
+                "Rounds": 27,
                 "Deployed": 0,
                 "Killed": 0,
                 "Missing": 0,
@@ -1237,7 +1237,7 @@
                 "Passive": false,
                 "Deputy": false,
                 "Realtime": true,
-                "Seconds": 31.283333333332838
+                "Seconds": 27.566666666666382
             }
         ],
         "HasActiveBattle": false,
@@ -2360,7 +2360,7 @@
                         "Stats": {
                             "Level": 1,
                             "Health": 100.0,
-                            "Damage": 9.0,
+                            "Damage": 10.0,
                             "Defense": 3.0,
                             "Penetration": 0.0,
                             "Resistance": 0.0,
@@ -8098,6 +8098,10 @@
                 "SupplyAttackHigh": 16.0,
                 "SupplyDefenseLow": 2.0,
                 "SupplyDefenseHigh": 4.0,
+                "RatioSupply": false,
+                "CavalryOuterRangeDisadvantage": false,
+                "SupplyHealthLow": 0.0,
+                "SupplyHealthHigh": 0.0,
                 "ArmorK": 8.0,
                 "ArmorCap": 0.8,
                 "CriticalMultiplier": 1.5,
@@ -92391,8 +92395,8 @@
         },
         "Prisoners": [
             {
-                "Id": "05a66ed6d3024606a2f3d2377f12801e:0",
-                "BattleId": "05a66ed6d3024606a2f3d2377f12801e",
+                "Id": "e4176757505b490eba1923c50c5f66ce:0",
+                "BattleId": "e4176757505b490eba1923c50c5f66ce",
                 "Name": "敌方迦兰",
                 "Status": "awaiting-story",
                 "CaptureSource": "沉眠古窟 · 制服受控者并击败控制来源",
@@ -92572,7 +92576,7 @@
                 "Stats": {
                     "Level": 1,
                     "Health": 100.0,
-                    "Damage": 9.0,
+                    "Damage": 10.0,
                     "Defense": 3.0,
                     "Penetration": 0.0,
                     "Resistance": 0.0,
@@ -93066,10 +93070,14 @@
                 1,
                 2
             ],
-            "SupplyAttackLow": 6.0,
-            "SupplyAttackHigh": 10.0,
-            "SupplyDefenseLow": 2.0,
-            "SupplyDefenseHigh": 4.0,
+            "SupplyAttackLow": 0.0,
+            "SupplyAttackHigh": 0.3,
+            "SupplyDefenseLow": 0.0,
+            "SupplyDefenseHigh": 0.3,
+            "RatioSupply": true,
+            "CavalryOuterRangeDisadvantage": true,
+            "SupplyHealthLow": 0.0,
+            "SupplyHealthHigh": 0.3,
             "ArmorK": 8.0,
             "ArmorCap": 0.8,
             "CriticalMultiplier": 1.5,
@@ -93192,7 +93200,7 @@
             "Range": [
                 1.0,
                 12.0,
-                1.0,
+                2.0,
                 6.0
             ],
             "Speed": [
@@ -93273,7 +93281,7 @@
                     "Identity": "soldier",
                     "IsDefault": true,
                     "Health": 100.0,
-                    "Attack": 9.0,
+                    "Attack": 10.0,
                     "Defense": 3.0,
                     "SightRadius": 0
                 },
@@ -93317,7 +93325,7 @@
                     "Identity": "captain_normal",
                     "IsDefault": true,
                     "Health": 165.0,
-                    "Attack": 11.0,
+                    "Attack": 12.0,
                     "Defense": 4.0,
                     "SightRadius": 0
                 },
@@ -93361,7 +93369,7 @@
                     "Identity": "captain_awakened",
                     "IsDefault": true,
                     "Health": 223.0,
-                    "Attack": 12.0,
+                    "Attack": 13.0,
                     "Defense": 5.0,
                     "SightRadius": 0
                 },
@@ -93933,7 +93941,7 @@
         "Stage": 9,
         "BalanceSource": "35_配表驱动验证.json",
         "BalanceHash": "75e4f75404b1c09e958998337f19a396cf336bf82b9527c2716a4fb3b28c566f",
-        "ConfigHash": "63d55f080ef714a22260c9f2e3e87896ca7ecfbe8bbc269a01606511bb0c4d00",
+        "ConfigHash": "3113cde39e710e6842f3e30dca3b4881010395c04228dd578d1d668181654807",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -94653,9 +94661,9 @@
                     true,
                     true,
                     true,
-                    true,
                     false,
                     false,
+                    false,
                     true,
                     true,
                     true,
@@ -94687,7 +94695,7 @@
                     true,
                     true,
                     true,
-                    true,
+                    false,
                     true,
                     true,
                     true,
@@ -95098,7 +95106,7 @@
                     "BaseStats": {
                         "Level": 1,
                         "Health": 223.0,
-                        "Damage": 12.0,
+                        "Damage": 13.0,
                         "Defense": 5.0,
                         "Penetration": 0.0,
                         "Resistance": 0.0,
@@ -116990,7 +116998,7 @@
             "BanditCleared": false,
             "SmithLesson": 0,
             "ZhouTraining": 0,
-            "FirstControllerId": "05a66ed6d3024606a2f3d2377f12801e:0",
+            "FirstControllerId": "e4176757505b490eba1923c50c5f66ce:0",
             "FarmX": 0.0,
             "FarmY": 0.0,
             "FarmNpcX": 0.0,

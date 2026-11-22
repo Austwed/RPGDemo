@@ -84,10 +84,14 @@ namespace BaseConquest.Base
             if (SupplyTier == 0) return result;
             if (rules == null || Kind == SoldierKind.Hero || SupplyTier < 1 || SupplyTier > 2)
                 throw new ArgumentException("敌兵军需配置无效：" + Id);
-            result.Damage += (float)(SupplyTier == 1 ? rules.SupplyAttackLow : rules.SupplyAttackHigh);
-            result.Defense += (float)(SupplyTier == 1 ? rules.SupplyDefenseLow : rules.SupplyDefenseHigh);
+            BaseSupply.ApplyStats(result, rules.RatioSupply,
+                SupplyTier == 1 ? rules.SupplyAttackLow : rules.SupplyAttackHigh,
+                SupplyTier == 1 ? rules.SupplyDefenseLow : rules.SupplyDefenseHigh,
+                SupplyTier == 1 ? rules.SupplyHealthLow : rules.SupplyHealthHigh);
             return result;
         }
+        internal float EffectiveHealth(SoldierStats effective) =>
+            Dead || KnockedDown ? Health : Math.Min(effective.Health, Health * (effective.Health / Stats.Health));
         public BaseEnemyMember Copy() => new BaseEnemyMember { SupplyTier=SupplyTier,SupplyScene=SupplyScene,Rpg=Rpg?.Copy(),Id=Id, Name=Name, Appearance=Appearance, Kind=Kind, CommanderSlot=CommanderSlot, PresetSlot=PresetSlot, Deployment=Deployment?.Copy(), Health=Health, KnockedDown=KnockedDown,Dead=Dead,IsAlien=IsAlien,IsAwakened=IsAwakened,IsControlled=IsControlled, Stats=Stats.Clone(),Equipment=Equipment?.Copy() };
     }
     [Serializable] public sealed class BaseEnemySite

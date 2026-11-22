@@ -333,7 +333,8 @@ namespace BaseConquest.Battle
         public bool MovedThisRound;
         public bool DeveloperInvulnerable, DeveloperImmobile, DeveloperSpawned;
         public bool Recruited, HasProvisionEffects;
-        public float ProvisionAttackFactor=1,ProvisionWeaponBonus,ProvisionArmorBonus;
+        public float ProvisionAttackFactor=1,ProvisionWeaponBonus,ProvisionArmorBonus,ProvisionHealthBonus;
+        public bool ProvisionRatios;
         public float DrinkMultiplier=1;
         public string DrinkLabel="";
         public float LastDamageTaken;

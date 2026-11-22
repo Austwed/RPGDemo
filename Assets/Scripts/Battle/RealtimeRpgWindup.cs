@@ -19,11 +19,14 @@ namespace BaseConquest.RealtimePrototype
     public sealed partial class RealtimeBattlePrototype
     {
         public bool InAttackRadius(PrototypeUnit actor, PrototypeUnit target, PrototypePoint? origin = null, PrototypePoint? axis = null)
+            => AttackGap(actor, target, origin, axis) <= ReachFor(actor, target, origin) + 1e-8;
+
+        internal double AttackGap(PrototypeUnit actor, PrototypeUnit target, PrototypePoint? origin = null, PrototypePoint? axis = null)
         {
             double gap = BodyGapAt(actor, target, origin ?? actor.Position, axis ?? actor.BodyAxis);
             // The melee radius touches the target's hit body, including its edge while it is between cells.
             if (AttackTriggered != null && !actor.Ranged && actor.FootprintLength == 1 && target.FootprintLength == 1) gap -= target.Radius;
-            return gap <= ReachFor(actor, target, origin) + 1e-8;
+            return gap;
         }
         private bool ReadyTarget(PrototypeUnit actor,PrototypeUnit target)=>target?.Alive==true&&InAttackRadius(actor,target)&&ClearAttack(actor.Position,target.BodyCenter);
         private PrototypeUnit PreferredTarget(PrototypeUnit actor,IEnumerable<PrototypeUnit> candidates)

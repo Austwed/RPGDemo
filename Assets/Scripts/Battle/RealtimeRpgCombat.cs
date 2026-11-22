@@ -88,7 +88,7 @@ namespace BaseConquest.Battle
             }
             return context;
         }
-        private RpgAttackRoll RollRpg(PrototypeUnit source,PrototypeUnit target,int id,RpgShotContext context, bool physicalArrow)
+        private RpgAttackRoll RollRpg(PrototypeUnit source,PrototypeUnit target,int id,RpgShotContext context, bool physicalArrow, bool normalAttack)
         {
             int advantage=(int)(Profile(source)?.Trait("advantage")??0),disadvantage=(int)(Profile(source)?.Trait("disadvantage")??0);
             if(!source.Ranged&&target.Ranged)advantage++;
@@ -97,6 +97,9 @@ namespace BaseConquest.Battle
             if(source.Ranged&&height<=-Rpg.HeightAdvantage)disadvantage++;
             var s=Battle.Soldier(source.Id-1);var t=Battle.Soldier(target.Id-1);
             if(s.ProfessionKind==SoldierKind.Cavalry&&Battle.Board.Cell(new GridPosition((int)source.Position.X,(int)source.Position.Z)).Terrain==TerrainKind.Swamp)disadvantage++;
+            if (normalAttack && Rpg.CavalryOuterRangeDisadvantage && s.ProfessionKind == SoldierKind.Cavalry &&
+                !source.Ranged && Model.AttackGap(source, target) > 1d / PrototypeArena.Subdivision + 1e-8)
+                disadvantage++;
             if (physicalArrow)
             {
                 if ((context & RpgShotContext.MovingCavalry) != 0) disadvantage++;
@@ -114,7 +117,7 @@ namespace BaseConquest.Battle
             string damageType=Rpg.HasProfessionCatalog?(skillType??chargeType??Rpg.AttackDamageType(BaseRpg.Profession(soldier.ProfessionKind))):"legacy";
             var context = ShotContext(source,target);
             bool physicalArrow = soldier.ProfessionKind == SoldierKind.Ranged && source.Ranged && damageType != "magic";
-            var roll = RollRpg(source,target,id,context,physicalArrow);
+            var roll = RollRpg(source,target,id,context,physicalArrow,skillType==null);
             var packet=new RpgAttackPacket {Id=id,SourceId=source.Id,TargetId=target.Id,Context=context,First=roll.First,Second=roll.Second,Selected=roll.Selected,Hit=roll.Hit,Critical=roll.Critical,NetAdvantage=roll.NetAdvantage,HitPoints=(int)Rpg.Hit[BaseRpg.Profession(soldier.ProfessionKind)],EvasionPoints=(int)Rpg.Evasion[BaseRpg.Profession(Battle.Soldier(target.Id-1).ProfessionKind)],
                 DamageType=damageType,LaunchedAt=Model.Elapsed,Attack=Model.DamageFor(source)*multiplier*charge,Level=soldier.Stats.Level,CriticalMultiplier=soldier.Stats.CritMultiplier,Origin=source.Position,Destination=target.BodyCenter,
                 ArriveAt=Model.Elapsed+(source.Ranged?(target.BodyCenter-source.Position).Length/(Rpg.ArrowSpeed/PrototypeArena.Subdivision):0)};

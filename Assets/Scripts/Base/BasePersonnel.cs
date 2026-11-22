@@ -71,7 +71,7 @@ namespace BaseConquest.Base
             var q=s.Supply.Quotas.FirstOrDefault(q=>q.PartyId==party&&!string.IsNullOrEmpty(party));
             double factor=q?.AttackFactor??BaseEconomy.AttackFactor(s),weapon=unit.IsLeader || q==null ? 0 : q.ByTeam ? q.SwordBonus : q.WeaponBonus(0,unit.Kind),armor=unit.IsLeader ? 0 : q?.ArmorBonus??0;
             unit.Current=unit.Basic.Clone();unit.Current.Damage=(float)((unit.Basic.Damage+weapon)*factor);unit.Current.Defense+=(float)armor;
-            unit.Effects=ProvisionEffects.Summary(unit.Kind,factor,weapon,armor,q!=null)+(unit.IsLeader?"":"／今日生产效率 "+BaseEconomy.ProductionFactor(s).ToString("P0")+"／过夜恢复最大生命的"+(BaseDevelopment.RecoveryRatio(s)*100).ToString("0")+"%（满血停止）");
+            unit.Effects=ProvisionEffects.Summary(unit.Kind,factor,weapon,armor,q!=null,s.Demo?.Rpg?.RatioSupply==true,q?.HealthBonus(-1,s.Demo?.Rpg)??0)+(unit.IsLeader?"":"／今日生产效率 "+BaseEconomy.ProductionFactor(s).ToString("P0")+"／过夜恢复最大生命的"+(BaseDevelopment.RecoveryRatio(s)*100).ToString("0")+"%（满血停止）");
             if(unit.IsLeader&&unit.Health>0)unit.Effects+="／每日自然恢复最大生命的"+(BaseDevelopment.RecoveryRatio(s)*100).ToString("0")+"%（满血停止）";
         }
         public static IEnumerable<BasePersonnelUnit> Units(BaseState s) => Leaders(s).Concat(Soldiers(s));

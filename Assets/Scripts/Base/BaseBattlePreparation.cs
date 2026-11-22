@@ -146,8 +146,12 @@ namespace BaseConquest.Base
             {
                 this.hideoutSeed = hideoutSeed ?? BaseCampaign.NextBattleSeed(state, BaseBanditHideout.EventId);
                 hideoutEnemies = BaseBanditHideout.DrawEnemies(state, this.hideoutSeed, hideoutEnemyCount);
-                enemyReference = hideoutEnemies.Select(e => new BattleSoldier { Kind = e.Kind, Health = e.Health,
-                    Stats = e.EffectiveStats(state.Demo.Rpg), Rpg = e.Rpg, OriginCommanderSlot = e.CommanderSlot }).ToArray();
+                enemyReference = hideoutEnemies.Select(e =>
+                {
+                    var stats = e.EffectiveStats(state.Demo.Rpg);
+                    return new BattleSoldier { Kind = e.Kind, Health = e.EffectiveHealth(stats),
+                        Stats = stats, Rpg = e.Rpg, OriginCommanderSlot = e.CommanderSlot };
+                }).ToArray();
             }
             else if (route == BasePrepRoute.Ruins && BaseRuinsSweep.Problem(state) == "")
             {
@@ -337,23 +341,23 @@ namespace BaseConquest.Base
             var leaders = chosen.Where(unit => unit.Kind == SoldierKind.Hero).ToArray();
             double attackBonus = SupplyGrade == 1 ? rule?.LowBonus ?? 0 : SupplyGrade == 2 ? rule?.HighBonus ?? 0 : 0;
             double defenseBonus = SupplyGrade == 1 ? rule?.LowDefense ?? 0 : SupplyGrade == 2 ? rule?.HighDefense ?? 0 : 0;
+            var rules = state.Demo?.Rpg;
+            double healthBonus = SupplyGrade == 1 ? rules?.SupplyHealthLow ?? 0 : SupplyGrade == 2 ? rules?.SupplyHealthHigh ?? 0 : 0;
             var allies = chosen.Select(u =>
             {
                 var stats = u.Stats.Clone();
                 stats.Health = (float)u.MaxHealth;
                 if (u.Kind != SoldierKind.Hero)
                 {
-                    stats.Damage += (float)attackBonus;
-                    stats.Defense += (float)defenseBonus;
+                    BaseSupply.ApplyStats(stats, rules?.RatioSupply == true, attackBonus, defenseBonus, healthBonus);
                 }
                 stats.Damage *= (float)BaseEconomy.AttackFactor(state);
                 int slot = Array.FindIndex(leaders, team => team.Id == u.TeamId);
-                var actor = new BattleSoldier { Kind = u.Kind, Health = (float)u.Health, Stats = stats, OriginCommanderSlot = slot,
+                var actor = new BattleSoldier { Kind = u.Kind, Health = Math.Min(stats.Health, (float)(u.Health * (stats.Health / u.MaxHealth))), Stats = stats, OriginCommanderSlot = slot,
                     Rpg = u.Leader?.Rpg, AppearanceId = u.Leader == null ? "" : BaseCommanderIdentity.Appearance(u.Leader) };
                 if (slot >= 0) BaseWine.Apply(actor, leaders[slot].Leader, state.Day);
                 return actor;
             }).ToArray();
-            var rules = state.Demo?.Rpg;
             if (enemyReference?.Length > 0 && rules != null && allies.Length > 0)
             {
                 var comparison = BasePower.Engage(allies, enemyReference, rules,0,state.Aftermath.Difficulty.Preset);

@@ -463,8 +463,38 @@ namespace BaseConquest.Editor
             var retreatDraft = new BaseBattlePreparation(retreatState, BasePrepRoute.Defense) { SupplyGrade = 2 };
             retreatDraft.AutoPlace();
             var retreat = Start(retreatState, retreatDraft);
+            int woundedNumber = 0;
+            double baseMax = 0;
+            if (retreatState.Demo.Rpg.RatioSupply)
+            {
+                var opening = retreat.Session.Opening;
+                var soldierIndex = Enumerable.Range(0, opening.Troops.Count).First(i => retreat.Session.UnitForTroop(i) != null);
+                var source = opening.Troops[soldierIndex];
+                var supplied = retreat.Session.UnitForTroop(soldierIndex);
+                bool Near(double a, double b) => Math.Abs(a - b) < .001;
+                Need(Near(supplied.Stats.Health, source.MaxHealth * 1.3) && Near(supplied.Health, source.Health * 1.3) &&
+                    Near(supplied.Stats.Damage, source.CombatStats.Damage * 1.3 * supplied.ProvisionAttackFactor) &&
+                    Near(supplied.Stats.Defense, source.CombatStats.Defense * 1.3), "二级军需攻血防增幅错误");
+                var main = retreat.Battle.Soldiers.Single(u => u.Side == BattleSide.A && u.Kind == SoldierKind.Hero && u.OriginCommanderSlot == 0);
+                Need(Near(main.Stats.Health, opening.Leaders[0].MaxHealth) && main.ProvisionHealthBonus == 0,
+                    "队长错误获得普通兵军需");
+                var restoredTier2 = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(retreatState));
+                BaseEconomy.Validate(restoredTier2);
+                var restoredBattle = new BaseCampaignSession(restoredTier2.Campaign.ActiveBattle);
+                Need(Near(restoredBattle.UnitForTroop(soldierIndex).Health, supplied.Health), "二级军需生命读档后变化");
+                woundedNumber = supplied.SoldierNumber;
+                baseMax = source.MaxHealth;
+                supplied.Health = supplied.Stats.Health * .5f;
+                retreat.Model.Units.Single(u => u.Id == supplied.Id + 1).Health = supplied.Health;
+            }
             Need(BaseDemoCombat.Fail(retreatState, retreat) && Stock(retreatState, 2).Count == 24 - retreatDraft.RequiredSupply(true) &&
                 Stock(retreatState, 1).Count == 24 && retreatState.Supply.Quotas.Count == 0, "正式撤退军需未全扣或错扣等级");
+            if (woundedNumber > 0)
+            {
+                var returned = retreatState.Workers.Single(w => w.SoldierNumbers.Contains(woundedNumber));
+                Need(returned.MaxHealth == baseMax && returned.Health == CombatNumbers.RemainingHealth(baseMax * .5),
+                    "归队后未按原上限保留伤情比例");
+            }
 
             var wear = state.Supply.Wear.Select(entry => entry.Fraction).ToArray();
             var battle = Start(state, draft);

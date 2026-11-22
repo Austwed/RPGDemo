@@ -48,6 +48,15 @@ namespace BaseConquest.Base
             var rule = Rules.Single(r => r.Product == "supply");
             return Teams[slot].Average(rule.LowBonus, rule.HighBonus);
         }
+        public double HealthBonus(int slot, RpgRules rules)
+        {
+            if (rules?.RatioSupply != true) return 0;
+            if (ByTeam && slot >= 0) return Teams[slot].Average(rules.SupplyHealthLow, rules.SupplyHealthHigh);
+            int demand = Demand("supply");
+            return demand == 0 ? 0 : Equipment.Where(item => item.Product == "supply")
+                .Sum(item => item.Count * (item.Level == 1 ? rules.SupplyHealthLow : rules.SupplyHealthHigh)) / demand;
+        }
+
         public double DefenseBonus(int slot)
         {
             if (!ByTeam) return ArmorBonus;
@@ -88,8 +97,35 @@ namespace BaseConquest.Base
         public static string GradeText(BaseState s,int grade)
         {
             var rule=s.Supply.Rules.FirstOrDefault(r=>r.Product=="supply");
-            return rule==null?$"{grade}级":$"{grade}级 攻+{(grade==1?rule.LowBonus:rule.HighBonus):0} 防+{(grade==1?rule.LowDefense:rule.HighDefense):0}";
+            if (rule == null) return $"{grade}级";
+            double attack = grade == 1 ? rule.LowBonus : rule.HighBonus;
+            double defense = grade == 1 ? rule.LowDefense : rule.HighDefense;
+            var rules = s.Demo?.Rpg;
+            if (rules?.RatioSupply != true) return $"{grade}级 攻+{attack:0} 防+{defense:0}";
+            double health = grade == 1 ? rules.SupplyHealthLow : rules.SupplyHealthHigh;
+            if ((attack, health, defense) == (0, 0, 0)) return $"{grade}级 · 基础军需";
+            if (attack == health && health == defense) return $"{grade}级 攻血防+{attack:P0}";
+            return $"{grade}级 攻+{attack:P0} 血+{health:P0} 防+{defense:P0}";
         }
+        internal static void ApplyStats(SoldierStats stats, bool ratio, double attack, double defense, double health)
+        {
+            if (ratio)
+            {
+                stats.Damage *= (float)(1 + attack);
+                stats.Defense *= (float)(1 + defense);
+                stats.Health *= (float)(1 + health);
+            }
+            else
+            {
+                stats.Damage += (float)attack;
+                stats.Defense += (float)defense;
+            }
+        }
+
+        internal static double UnboostedHealth(BattleSoldier soldier, double maxHealth) =>
+            soldier.KnockedDown ? 1 : Math.Min(maxHealth, soldier.ProvisionHealthBonus == 0 ? soldier.Health :
+                Math.Round(soldier.Health * (maxHealth / soldier.Stats.Health), 5));
+
         public static string ModeName(string mode) => mode == "full" ? "尽量配足" : mode == "half" ? "最多半数供给" : "不使用军需";
         public static void Normalize(BaseState s)
         {
@@ -272,10 +308,11 @@ namespace BaseConquest.Base
             if (!string.IsNullOrEmpty(copy.SupplyBattleId))
             { if (copy.SupplyBattleId != snapshotId) throw new ArgumentException("不能叠加不同战斗／阵营的装备快照"); return copy; }
             copy.SupplyBattleId = snapshotId;
-            double sword = q.ByTeam ? 0 : q.SwordBonus, bow = q.ByTeam ? 0 : q.BowBonus, armor = q.ByTeam ? 0 : q.ArmorBonus;
+            bool bindIndividual = q.ByTeam || s.Demo?.Rpg?.RatioSupply == true;
+            double sword = bindIndividual ? 0 : q.SwordBonus, bow = bindIndividual ? 0 : q.BowBonus, armor = bindIndividual ? 0 : q.ArmorBonus;
             army.Melee.Damage = (float)((army.Melee.Damage + sword) * q.AttackFactor); army.Cavalry.Damage = (float)((army.Cavalry.Damage + sword) * q.AttackFactor);
             army.Ranged.Damage = (float)((army.Ranged.Damage + bow) * q.AttackFactor); army.Hero.Damage *= (float)q.AttackFactor;
-            army.Mage.Damage = (float)((army.Mage.Damage + (q.ByTeam ? 0 : q.WeaponBonus(0, SoldierKind.Mage))) * q.AttackFactor);
+            army.Mage.Damage = (float)((army.Mage.Damage + (bindIndividual ? 0 : q.WeaponBonus(0, SoldierKind.Mage))) * q.AttackFactor);
             army.Melee.Defense += (float)armor; army.Ranged.Defense += (float)armor; army.Cavalry.Defense += (float)armor; army.Mage.Defense += (float)armor;
             return copy;
         }

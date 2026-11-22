@@ -106,7 +106,7 @@ namespace BaseConquest.Base
                 if(unit!=null)
                 {
                     if(!original.Dead)report.EnemyDeployed++;
-                    member.Health=unit.Health;member.Dead=unit.InstantDead;member.KnockedDown=unit.KnockedDown;
+                    member.Health=(float)BaseSupply.UnboostedHealth(unit, original.Stats.Health);member.Dead=unit.InstantDead;member.KnockedDown=unit.KnockedDown;
                     if(member.Dead&&!original.Dead)report.EnemyLost++;
                     if(state.Aftermath.Prisoners.Any(prisoner=>prisoner.Id==session.Opening.Id+":"+unit.Id))report.EnemyCaptured++;
                 }

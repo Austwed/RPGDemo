@@ -436,7 +436,7 @@ namespace BaseConquest.Base
                 bool lost = unit != null && (unit.InstantDead || !a.DemoCombat && lostField && !unit.Escaped && !unit.Rescued);
                 if (unit != null) { r.Deployed++; if (!lost) foughtNumbers.AddRange(snapshot.SoldierNumbers); }
                 if (lost) { if (unit.InstantDead) r.Killed++; else r.Missing++; }
-                else { var survivor = snapshot.Copy(); survivor.Health = unit == null ? snapshot.Health : Math.Max(1, CombatNumbers.RemainingHealth(Math.Min(snapshot.MaxHealth, unit.Health))); if (unit != null && !a.DemoCombat && survivor.Health < survivor.MaxHealth * BaseDevelopment.DutyThreshold) forcedRest.Add(survivor); survivors.Add(survivor); r.Returned++; if (survivor.Health < survivor.MaxHealth) r.Wounded++; }
+                else { var survivor = snapshot.Copy(); survivor.Health = unit == null ? snapshot.Health : Math.Max(1, CombatNumbers.RemainingHealth(BaseSupply.UnboostedHealth(unit, snapshot.MaxHealth))); if (unit != null && !a.DemoCombat && survivor.Health < survivor.MaxHealth * BaseDevelopment.DutyThreshold) forcedRest.Add(survivor); survivors.Add(survivor); r.Returned++; if (survivor.Health < survivor.MaxHealth) r.Wounded++; }
                 if (unit != null)
                 {
                     if (a.SupplySnapshot?.ByTeam == true) outcome.RecordTeam(unit.OriginCommanderSlot, lost);
@@ -617,6 +617,9 @@ namespace BaseConquest.Base
                 if(unit.OriginCommanderSlot>=0&&unit.OriginCommanderSlot<Opening.Leaders.Count)BaseWine.Apply(unit,Opening.Leaders[unit.OriginCommanderSlot],Opening.StartedDay);
                 unit.ProvisionWeaponBonus=unit.Kind==SoldierKind.Hero ? 0 : (float)(Opening.SupplySnapshot?.WeaponBonus(unit.OriginCommanderSlot, unit.Kind)??0);
                 unit.ProvisionArmorBonus=unit.Kind==SoldierKind.Hero ? 0 : (float)(Opening.SupplySnapshot?.DefenseBonus(unit.OriginCommanderSlot)??0);
+                unit.ProvisionRatios = Opening.Rpg?.RatioSupply == true;
+                unit.ProvisionHealthBonus = unit.Kind == SoldierKind.Hero ? 0 :
+                    (float)(Opening.SupplySnapshot?.HealthBonus(unit.OriginCommanderSlot, Opening.Rpg) ?? 0);
                 if (unit.Kind == SoldierKind.Hero)
                 {
                     unit.Recruited=Opening.Leaders[unit.OriginCommanderSlot].Recruited;
@@ -641,18 +644,18 @@ namespace BaseConquest.Base
                         && (!hasSlots || Opening.TroopSlots[n] == unit.OriginCommanderSlot) && !troops.ContainsValue(n));
                     troops.Add(unit.Id, i); var w = Opening.Troops[i];
                     unit.Recruited=w.Recruited;
-                    if (w.HasCombatProfile)
+                    if (w.HasCombatProfile) unit.Stats = w.CombatStats.Clone();
+                    unit.Stats.Level = 1;
+                    unit.Stats.Health = (float)w.MaxHealth;
+                    if (w.HasCombatProfile || Opening.SupplySnapshot?.ByTeam == true || unit.ProvisionRatios)
                     {
-                        unit.Stats = w.CombatStats.Clone();
-                        unit.Stats.Damage = (unit.Stats.Damage + unit.ProvisionWeaponBonus) * unit.ProvisionAttackFactor;
-                        unit.Stats.Defense += unit.ProvisionArmorBonus;
+                        double attack = unit.ProvisionWeaponBonus;
+                        if (!w.HasCombatProfile && !unit.ProvisionRatios) attack *= unit.ProvisionAttackFactor;
+                        BaseSupply.ApplyStats(unit.Stats, unit.ProvisionRatios, attack,
+                            unit.ProvisionArmorBonus, unit.ProvisionHealthBonus);
+                        if (w.HasCombatProfile) unit.Stats.Damage *= unit.ProvisionAttackFactor;
                     }
-                    else if (Opening.SupplySnapshot?.ByTeam == true)
-                    {
-                        unit.Stats.Damage += unit.ProvisionWeaponBonus * unit.ProvisionAttackFactor;
-                        unit.Stats.Defense += unit.ProvisionArmorBonus;
-                    }
-                    unit.Stats.Level=1;unit.Stats.Health = (float)w.MaxHealth; unit.Health = (float)w.Health;
+                    unit.Health = Math.Min(unit.Stats.Health, (float)(w.Health * (unit.Stats.Health / w.MaxHealth)));
                 }
                 if(unit.Kind!=SoldierKind.Hero&&troops.TryGetValue(unit.Id,out int sourceIndex))
                 {
@@ -687,7 +690,13 @@ namespace BaseConquest.Base
                 int index=Enumerable.Range(0,Opening.Enemies.Count).First(n=>Opening.Enemies[n].Kind==unit.Kind&&Opening.Enemies[n].CommanderSlot==unit.OriginCommanderSlot&&!enemies.ContainsValue(n));
                 enemies.Add(unit.Id,index);var source=Opening.Enemies[index];
                 if (source.IsControlled) unit.AppearanceId = "villager";
-                unit.Stats=source.EffectiveStats(Opening.Rpg);unit.Health=source.Health;unit.KnockedDown=source.KnockedDown;unit.InstantDead=source.Dead;unit.DeathResolved=source.KnockedDown||source.Dead;unit.BattlePower=unit.Stats.BaseBattlePower;
+                unit.Stats = source.EffectiveStats(Opening.Rpg);
+                unit.ProvisionHealthBonus = unit.Stats.Health / source.Stats.Health - 1;
+                unit.Health = source.EffectiveHealth(unit.Stats);
+                unit.KnockedDown = source.KnockedDown;
+                unit.InstantDead = source.Dead;
+                unit.DeathResolved = source.KnockedDown || source.Dead;
+                unit.BattlePower = unit.Stats.BaseBattlePower;
             }
         }
         public BattleSoldier UnitForEnemy(int index) => enemies.Where(x=>x.Value==index).Select(x=>Battle.Soldier(x.Key)).SingleOrDefault();
