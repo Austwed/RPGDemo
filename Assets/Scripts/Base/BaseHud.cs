@@ -71,7 +71,7 @@ namespace BaseConquest.Base
             summary.rectTransform.anchorMin = Vector2.zero; summary.rectTransform.anchorMax = Vector2.one;
             summary.rectTransform.offsetMin = new Vector2(18, 42); summary.rectTransform.offsetMax = new Vector2(-410, -10);
             bool authoredResources = BaseBattleGateway.DemoMode && owner.SceneUiTemplate("ResourceStrip") != null;
-            MakeButton(header, "菜单", new Vector2(-90, -36), new Vector2(140, 48), OpenMenu, new Vector2(1, 1));
+            var menuButton = MakeButton(header, "菜单", new Vector2(-90, -36), new Vector2(140, 48), OpenMenu, new Vector2(1, 1));
             questBackpackButton = MakeButton(header, "背包", new Vector2(-270, -36), new Vector2(86, 44), ToggleBackpack, new Vector2(1, 1));
             DemoUiIcons.Attach(questBackpackButton,"equipment");
             if (!authoredResources)
@@ -132,8 +132,8 @@ namespace BaseConquest.Base
                 knob.sizeDelta = new Vector2(64, 64);
                 ResizeTouchButton(interact, 78, 23);
                 ResizeTouchButton(construction, 78, 23);
-                ResizeTouchButton(header.Find("菜单").GetComponent<Button>(), 52, 22);
-                ResizeTouchButton(header.Find("背包").GetComponent<Button>(), 52, 22);
+                ResizeTouchButton(menuButton, 52, 22);
+                ResizeTouchButton(questBackpackButton, 52, 22);
                 if (resourceStrip != null)
                 {
                     header.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 84);
