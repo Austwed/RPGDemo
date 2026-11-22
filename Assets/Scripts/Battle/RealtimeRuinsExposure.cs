@@ -14,7 +14,8 @@ namespace BaseConquest.Battle
         private readonly HashSet<int> waitingOnRuinsExit=new HashSet<int>();
         public void ContinueRuinsExit() => AwaitingRescueDialogue = false;
         public bool EscortWithoutCaptain => RuinsExitOpen &&
-            !Model.Units.Any(u=>u.Side==PrototypeSide.Ally && u.Role==PrototypeRole.Leader && u.Alive);
+            !Model.Units.Any(u => u.Side == PrototypeSide.Ally && u.Role == PrototypeRole.Leader &&
+                u.Alive && (Model.CanMove?.Invoke(u) ?? true));
         public bool OrderRuinsExit(PrototypePoint goal,IReadOnlyCollection<int> selected)
         {
             if(!RuinsExitOpen || AwaitingRescueDialogue)return false;
@@ -46,16 +47,28 @@ namespace BaseConquest.Battle
             if (!RuinsExitOpen)
             {
                 RuinsExitOpen = true;
-                AwaitingRescueDialogue = Session.Opening.RuinsFirstClear;
+                AwaitingRescueDialogue = Session.Opening.RuinsFirstClear &&
+                    (!Session.Opening.HasRealtimeState || !Session.Opening.RealtimeState.RuinsRescueDialogueComplete);
                 Model.CanTarget = (_, _) => false;
-                Model.CanMove = actor => actor.Side == PrototypeSide.Ally;
+                Model.OnlyExitMovement = true;
+                var canMove = Model.CanMove;
+                Model.CanMove = actor => actor.Side == PrototypeSide.Ally && (canMove?.Invoke(actor) ?? true);
                 Model.AfterStep = null;
                 DamageLimit = (_, _, _) => 0;
                 foreach(var actor in Model.Units.Where(u=>u.Side==PrototypeSide.Ally&&OccupiesRuinsExit(u,exit)))
                     waitingOnRuinsExit.Add(actor.Id);
                 if (AwaitingRescueDialogue) Model.SetPaused(true);
             }
+            var movable = Model.Units.Where(unit => unit.Side == PrototypeSide.Ally && unit.Alive &&
+                (Model.CanMove?.Invoke(unit) ?? true)).ToArray();
             if (AwaitingRescueDialogue) return false;
+            if (movable.Length == 0) return true;
+            if (HasBattlefieldExits && !movable.Any(unit => unit.Role == PrototypeRole.Leader) &&
+                movable.Any(unit => unit.Order != PrototypeOrder.Retreat))
+            {
+                Model.IssueOrder(-1, -1, PrototypeOrder.Retreat, AllyExitPoint);
+                waitingOnRuinsExit.Clear();
+            }
             bool escort=EscortWithoutCaptain;
             foreach(var actor in Model.Units)
             {

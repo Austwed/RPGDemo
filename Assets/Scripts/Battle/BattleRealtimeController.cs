@@ -89,6 +89,7 @@ namespace BaseConquest.Battle
         private void AttachRealtime()
         {
             realtime=new RealtimeCampaignBattle(campaignSession);autoRun=false;animating=skipping=false;presentation=1;
+            if (IsSceneEncounter && !IsStandaloneTest) realtime.EnableBattlefieldExits();
             if(IsSceneEncounter)configureSceneEncounter?.Invoke(realtime);
             if (Application.isPlaying && (IsSceneEncounter || sharedMapSession != null) && (campaignSession.Opening.DemoCombat || campaignSession.Opening.EventId == BaseDemoPrologue.BattleId) && !DeploymentDraftActive)
             {
@@ -103,12 +104,14 @@ namespace BaseConquest.Battle
 
         private void SelectOpeningCommanders()
         {
-            var chosen = realtime.Model.Units.Where(unit => !IsDemoPractice && unit.Alive && unit.Side == PrototypeSide.Ally &&
-                unit.Role == PrototypeRole.Leader && unit.Strategy == PrototypeStrategy.Obey && battle.SelectableCommander(battle.Soldier(unit.Id - 1)))
+            bool allSquads = IsSceneEncounter && !IsStandaloneTest || BaseBattleGateway.DemoMode && !IsStandaloneTest;
+            var chosen = realtime.Model.Units.Where(unit => unit.Alive && unit.Side == PrototypeSide.Ally &&
+                unit.Role == PrototypeRole.Leader && (allSquads || unit.Strategy == PrototypeStrategy.Obey) &&
+                battle.SelectableCommander(battle.Soldier(unit.Id - 1)))
                 .OrderBy(unit => unit.Squad).ToArray();
             selection.Set(chosen.Select(unit => unit.Id - 1));
             selectedUnitId = selection.Primary;
-            realtimeSingleCommander = true;
+            realtimeSingleCommander = !allSquads;
             deploymentSlotChosen = chosen.Length > 0;
             deploymentCommanderSlot = deploymentSlotChosen ? chosen[0].Squad : 0;
         }
@@ -176,7 +179,7 @@ namespace BaseConquest.Battle
         {
             if(realtime==null)return;
             ManualPause();
-            if(IsDemoDefense&&!IsSecondDefense&&!realtime.DefensePursuitReady)
+            if(IsDemoDefense&&!IsSecondDefense&&!realtime.DefensePursuitReady&&!realtime.VictoryExitOpen)
             {
                 BuildCampaignMenu(CampaignMenuPage.ConfirmDefenseRetreat);
                 return;
@@ -185,8 +188,11 @@ namespace BaseConquest.Battle
         }
         private void CommitRealtimeRetreat()
         {
-            if(realtime.DefensePursuitReady)feedback=realtime.FinishDefensePursuit()?"已结束追击，存活敌军撤离":"无法结算";
-            else feedback=realtime.RetreatAll()?(realtime.Session.Opening.DemoCombat?"已撤退，返回后结算战损与军需":"全军向撤离口移动"):"暂无可撤离单位";
+            if (realtime.DefensePursuitReady)
+            {
+                if (realtime.FinishDefensePursuit()) feedback = "去出口";
+            }
+            else if (realtime.RetreatAll()) feedback = "去出口";
             SyncRealtimeViews();
             hud?.Refresh();
         }
@@ -228,10 +234,13 @@ namespace BaseConquest.Battle
             if(!plane.Raycast(ray,out float distance))return false;
             var world=ray.GetPoint(distance);var point=new PrototypePoint(world.x/BattleBoardView.CellSize+battle.Board.Width*.5,world.z/BattleBoardView.CellSize+battle.Board.Height*.5);
             int fine=realtime.Model.Arena.CellAt(point);if(fine<0)return false;
-            if(realtime.OrderRuinsExit(point,selection.Ids))
+            if (!holdGuard && ShowsBattleExit(BattleSide.A) && new GridPosition((int)point.X, (int)point.Z) == battle.ExitCell(BattleSide.A))
             {
-                feedback=realtime.EscortWithoutCaptain?"幸存士兵正前往撤离点":"队长正前往撤离点";
-                hud?.Refresh();return true;
+                if (realtime.OrderBattlefieldExit(selection.Ids)) feedback = "去出口";
+                else InspectRealtimeFine(point);
+                SyncRealtimeViews();
+                hud?.Refresh();
+                return true;
             }
             if (holdGuard)
             {
@@ -269,7 +278,7 @@ namespace BaseConquest.Battle
             if(guardDouble){MarkRealtimeGuard(point);return true;}
             if(picked?.Side==BattleSide.B&&picked.IsActive){RealtimeOrder(PrototypeOrder.Focus,point,picked.Id,twice);return true;}
             if(picked?.Side==BattleSide.B){feedback="查看倒地单位；当前目标无法被攻击";hud?.Refresh();return true;}
-            if(OrderTacticalObject(point))return true;
+            if (!realtime.VictoryExitOpen && !realtime.RuinsExitOpen && OrderTacticalObject(point)) return true;
             if(twice)MarkRealtimeGuard(point);else RealtimeOrder(PrototypeOrder.Move,point);return true;
         }
 
@@ -379,6 +388,7 @@ namespace BaseConquest.Battle
             if (battle.Report != null) battleAudio?.PlayResult(realtime);
             if(combatText==null)combatText=new BattleCombatTextView(unitsRoot,font,battle);
             SyncTacticalObjects();
+            UpdateBattleExitMarkers();
             selection.Prune(battle,BattleSide.A);selectedUnitId=selection.Primary;
             boardView.RefreshVision(battle.Vision,BattleSide.A,false,false);
             var routed=new List<PrototypeUnit>();

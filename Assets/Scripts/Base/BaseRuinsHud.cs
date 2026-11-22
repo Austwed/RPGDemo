@@ -42,7 +42,7 @@ namespace BaseConquest.Base
             NpcDialogue(new[]{
                 new NpcLine("获救百姓甲","villager","脑子里像蒙了层雾，手脚全不听使唤……多谢你。"),
                 new NpcLine("获救百姓乙","villager","现在腿能动了。先扶我一把，出去再说。")
-            },new[]{new NpcReply("去撤离点",resume)},lockExitUntilFinished:true);
+            },new[]{new NpcReply("去出口",resume)},lockExitUntilFinished:true);
         }
         public void OpenRescuedCivilian(string id,bool afterExtraction=false)
         {

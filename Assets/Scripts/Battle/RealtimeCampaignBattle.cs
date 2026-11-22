@@ -15,10 +15,12 @@ namespace BaseConquest.RealtimePrototype
         public List<PrototypeUnit> Units=new List<PrototypeUnit>();
         public List<PrototypeArrow> Arrows=new List<PrototypeArrow>();
         public List<RpgAttackPacket> RpgAttacks=new List<RpgAttackPacket>();
+        public bool BattlefieldVictoryPending, RuinsRescueDialogueComplete;
         public int RpgAttackSerial;
         public List<RealtimeCommanderSkill> Skills=new List<RealtimeCommanderSkill>();
         public RealtimeBattleState Copy()=>new RealtimeBattleState {Version=Version,NextUnit=NextUnit,NextArrow=NextArrow,Step=Step,Hits=Hits,Shots=Shots,
             CompletedSteps=CompletedSteps,YieldMoves=YieldMoves,HitSerial=HitSerial,ShoveMoves=ShoveMoves,Seconds=Seconds,Remainder=Remainder,RuinsCivilianDamaged=RuinsCivilianDamaged,
+            BattlefieldVictoryPending=BattlefieldVictoryPending,RuinsRescueDialogueComplete=RuinsRescueDialogueComplete,
             RpgAttackSerial=RpgAttackSerial,RpgAttacks=RpgAttacks.Select(a=>a.Copy()).ToList(),Units=Units.Select(unit=>unit.Copy()).ToList(),Arrows=Arrows.Select(arrow=>arrow.Copy()).ToList(),Skills=(Skills??new List<RealtimeCommanderSkill>()).Select(skill=>skill.Copy()).ToList()};
     }
     public sealed partial class RealtimeBattlePrototype
@@ -132,8 +134,9 @@ namespace BaseConquest.Battle
             Model=new RealtimeBattlePrototype(arena) {AutonomousOutcome=false,DamageResolver=Damage,LeaderlessEnemyAssault=Battle.Scenario.Leaderless(BattleSide.B),LeaderlessAllyAssault=Battle.Scenario.Leaderless(BattleSide.A)};
             Model.CellEntered=(actor,cellIndex)=>
             {
+                TryExitOnMovement(actor);
                 var cell=board.Cell(Coarse(cellIndex));
-                if(!session.Opening.DemoCombat||actor.Side!=PrototypeSide.Enemy||!actor.Alive||!cell.HiddenTrap)return;
+                if(VictoryExitOpen||!session.Opening.DemoCombat||actor.Side!=PrototypeSide.Enemy||!actor.Alive||!cell.HiddenTrap)return;
                 cell.HiddenTrap=false;var soldier=Battle.Soldier(actor.Id-1);
                 float damage=soldier.DeveloperInvulnerable?0:(float)Math.Min(actor.Health,actor.MaxHealth*.3);
                 Battle.RecordEnvironmentHit(soldier.Id,damage,"陷阱");actor.Health=soldier.Health;actor.KnockedDown=soldier.KnockedDown;actor.FlashUntil=Model.Elapsed+.12;
@@ -215,7 +218,8 @@ namespace BaseConquest.Battle
         }
         public bool Issue(IEnumerable<int> commanderIds,PrototypeOrder order,PrototypePoint point,int target=-1,bool commanderOnly=false,bool squadFocus=false)
         {
-            if(Battle.Phase!=BattlePhase.Fighting || RuinsExitOpen && order==PrototypeOrder.Focus)return false;
+            if (Battle.Phase != BattlePhase.Fighting ||
+                (RuinsExitOpen || VictoryExitOpen) && order is not (PrototypeOrder.Move or PrototypeOrder.Retreat)) return false;
             var commanders=commanderIds.Select(Battle.Soldier).Where(unit=>unit?.IsActive==true&&unit.Side==BattleSide.A&&unit.Kind==SoldierKind.Hero).ToArray();
             var targetUnit=Battle.Soldier(target);
             if(commanders.Length==0||order==PrototypeOrder.Focus&&(targetUnit?.IsActive!=true||targetUnit.Side!=BattleSide.B||!Battle.PlayerCanSee(BattleSide.A,targetUnit)))return false;
@@ -248,7 +252,7 @@ namespace BaseConquest.Battle
 
         public bool ChooseStrategy(IEnumerable<int> commanderIds, SquadStrategy strategy)
         {
-            if (Battle.Phase != BattlePhase.Fighting || strategy != SquadStrategy.Obey && strategy != SquadStrategy.Attack && strategy != SquadStrategy.Protect) return false;
+            if (VictoryExitOpen || Battle.Phase != BattlePhase.Fighting || strategy != SquadStrategy.Obey && strategy != SquadStrategy.Attack && strategy != SquadStrategy.Protect) return false;
             var ids = new HashSet<int>(commanderIds);
             bool changed = false;
             foreach (var actor in Model.Units.Where(u => u.Alive && u.Side == PrototypeSide.Ally && u.Role == PrototypeRole.Leader && ids.Contains(u.Id - 1)))
@@ -268,17 +272,20 @@ namespace BaseConquest.Battle
         }
         public int DefenseDown => Battle.Soldiers.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned&&!u.Escaped&&!u.IsAlive);
         public int DefenseTarget => (Battle.Soldiers.Count(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned)+1)/2;
-        public bool DefensePursuitReady => Session.Opening.EventId==BaseDemoDefense.EventId && Battle.Phase==BattlePhase.Fighting
+        public bool DefensePursuitReady => Session.Opening.EventId==BaseDemoDefense.EventId && Battle.Phase==BattlePhase.Fighting && !VictoryExitOpen
             && (DefenseDown>=DefenseTarget || Model.Elapsed+1e-8>=Battle.Scenario.Objective.HoldRounds);
         public bool FinishDefensePursuit()
         {
             if(!DefensePursuitReady)return false;
             foreach(var unit in Model.Units.Where(unit=>unit.Side==PrototypeSide.Enemy&&unit.Alive))unit.Escaped=true;
-            Synchronize();Battle.FinishRealtime(BattleOutcome.SideAWin);Model.SetPaused(true);return true;
+            Synchronize();
+            FinishRealtimeOutcome(ResolveBattlefieldExit(BattleOutcome.SideAWin));
+            return true;
         }
         public bool RetreatAll()
         {
             if(Session.Opening.EventId==BaseDemoDefense.SecondEventId||RuinsExitOpen)return false;
+            if (battlefieldExits) return OrderBattlefieldExit(null);
             if(Session.Opening.DemoCombat){if(Battle.Phase!=BattlePhase.Fighting)return false;Synchronize();Battle.FinishRealtime(BattleOutcome.Retreat);Model.SetPaused(true);return true;}
             var exit=Battle.ExitCell(BattleSide.A);var point=new PrototypePoint(exit.X+.25,exit.Z+.25);bool accepted=false;
             for(int squad=0;squad<3;squad++)accepted|=Model.IssueOrder(squad,-1,PrototypeOrder.Retreat,point);
@@ -297,10 +304,17 @@ namespace BaseConquest.Battle
         public void Tick(double seconds)
         {
             if(Battle.Phase!=BattlePhase.Fighting||Model.Paused||AwaitingRescueDialogue)return;
-            Model.Tick(seconds);if(Battle.Phase!=BattlePhase.Fighting){Synchronize();return;}if(!RuinsExitOpen)Tactics.Tick(seconds);Synchronize();if(Model.Paused)return;
+            PrepareBattlefieldExitStep();
+            Model.Tick(seconds);
+            if (Battle.Phase != BattlePhase.Fighting) { Synchronize(); return; }
+            if (!RuinsExitOpen && !VictoryExitOpen) Tactics.Tick(seconds);
+            Synchronize();
+            if (Model.Paused) return;
+            if (VictoryExitOpen) { FinishRealtimeOutcome(ResolveBattlefieldExit(BattleOutcome.None)); return; }
             if(OutcomeResolver!=null)
             {
-                var outcome=OutcomeResolver(this);if(outcome!=BattleOutcome.None){Battle.FinishRealtime(outcome);Model.SetPaused(true);}return;
+                FinishRealtimeOutcome(ResolveBattlefieldExit(OutcomeResolver(this)));
+                return;
             }
             bool allies=Model.Units.Any(unit=>unit.Side==PrototypeSide.Ally&&unit.Alive),enemies=Model.Units.Any(unit=>unit.Side==PrototypeSide.Enemy&&unit.Alive);
             BattleOutcome result=BattleOutcome.None;
@@ -308,7 +322,13 @@ namespace BaseConquest.Battle
             else if(!enemies||Battle.Scenario.Objective.Kind==ObjectiveKinds.Hold&&Model.Elapsed+1e-8>=Battle.Scenario.Objective.HoldRounds)result=BattleOutcome.SideAWin;
             else if(Battle.RealtimeVictorySatisfied)result=BattleOutcome.SideAWin;
             else if(Model.Elapsed+1e-8>=Battle.Scenario.MaxRounds)result=BattleOutcome.RoundLimit;
-            if(result!=BattleOutcome.None){Battle.FinishRealtime(result);Model.SetPaused(true);}
+            FinishRealtimeOutcome(ResolveBattlefieldExit(result));
+        }
+        private void FinishRealtimeOutcome(BattleOutcome outcome)
+        {
+            if (outcome == BattleOutcome.None) return;
+            Battle.FinishRealtime(outcome);
+            Model.SetPaused(true);
         }
         private void Synchronize(bool forceVision=false)
         {
@@ -330,7 +350,15 @@ namespace BaseConquest.Battle
         }
         public RealtimeBattleState CaptureState()
         {
-            Synchronize();var result=Model.Capture();result.Skills=skills.Select(skill=>skill.Copy()).ToList();result.HitSerial=hitSerial;result.RuinsCivilianDamaged=Battle.RuinsCivilianDamaged;SaveRpgCombat(result);return result;
+            Synchronize();
+            var result = Model.Capture();
+            result.Skills = skills.Select(skill => skill.Copy()).ToList();
+            result.HitSerial = hitSerial;
+            result.RuinsCivilianDamaged = Battle.RuinsCivilianDamaged;
+            result.BattlefieldVictoryPending = Battle.Phase == BattlePhase.Fighting && VictoryExitOpen;
+            result.RuinsRescueDialogueComplete = Battle.Phase == BattlePhase.Fighting && RuinsExitOpen && !AwaitingRescueDialogue;
+            SaveRpgCombat(result);
+            return result;
         }
         public void SaveCheckpoint(BaseState state)
         {

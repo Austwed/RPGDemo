@@ -131,7 +131,6 @@ namespace BaseConquest.Battle
             if (prepared == null && battle.ModernRules && !battle.Scenario.TestAutoDeployment && !suppressInitialDeploy) battle.AutoDeploy(BattleSide.B);
             boardView = sharedMapView ?? new BattleBoardView(battle.Board, transform, material, lineMaterial); boardView.FlatView = battle.ModernRules;
             float previousView=boardView.Camera.orthographicSize;bool preserve=sharedMapView!=null&&battle.Scenario.HeightVision;boardView.SetCombatMode(true,preserve,battle.Phase==BattlePhase.Deployment && !IsRealtimeCampaign);if(preserve)boardView.SetViewSize(previousView);
-            if (battle.ModernRules && !DeploymentDraftActive) { boardView.MarkExits(font,battle.ExitCell(BattleSide.A),battle.ExitCell(BattleSide.B)); boardView.Refresh(); }
             if (Application.isPlaying && boardView.Camera.GetComponent<AudioListener>()==null) boardView.Camera.gameObject.AddComponent<AudioListener>();
             unitsRoot = new GameObject("DeployedUnits").transform; unitsRoot.SetParent(transform, false);
             orderOverlay = new BattleOrderOverlay(transform, lineMaterial);
@@ -152,12 +151,25 @@ namespace BaseConquest.Battle
             foreach (BattleSoldier s in battle.Soldiers)
                 if (!views.ContainsKey(s.Id)) views[s.Id] = new BattleSoldierView(s, unitsRoot, material, lineMaterial, battle.ModernRules);
         }
+        internal bool ShowsBattleExit(BattleSide side)
+        {
+            if (DeploymentDraftActive || battle.Phase != BattlePhase.Fighting || !battle.ModernRules) return false;
+            if (!IsRealtimeCampaign) return true;
+            if (realtime?.HasBattlefieldExits != true || side == BattleSide.A && realtime.DefensePursuitReady) return false;
+            return side == BattleSide.A || !realtime.RuinsExitOpen && !realtime.VictoryExitOpen;
+        }
+        private void UpdateBattleExitMarkers()
+        {
+            boardView.SetVisibleExits(font,
+                ShowsBattleExit(BattleSide.A) ? battle.ExitCell(BattleSide.A) : (GridPosition?)null,
+                ShowsBattleExit(BattleSide.B) ? battle.ExitCell(BattleSide.B) : (GridPosition?)null);
+        }
         private void SyncViews()
         {
             if(realtime!=null){SyncRealtimeViews();return;}
             selection.Prune(battle, selectedSide); selectedUnitId = selection.Primary;
             if (battle.ModernRules && selectedUnitId >= 0 && informationUnitId < 0) informationUnitId = selectedUnitId;
-            if (!DeploymentDraftActive) boardView.MarkExits(battle.ExitCell(BattleSide.A),battle.ExitCell(BattleSide.B));
+            UpdateBattleExitMarkers();
             boardView.RefreshVision(battle.Vision, selectedSide, !battle.ModernRules && drawerOpen && tab == 0 && battle.Phase == BattlePhase.Deployment, battle.ModernRules && battle.Scenario.ShowEnemiesThroughFog);
             foreach (BattleSoldierView view in views.Values)
             {

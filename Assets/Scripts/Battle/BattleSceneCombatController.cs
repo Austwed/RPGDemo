@@ -14,7 +14,8 @@ namespace BaseConquest.Battle
         public bool IsAzhuDuel=>sceneEncounter?.Opening.Id==BaseLocalDuel.Id;
         public bool IsDemoPractice=>sceneEncounter?.Opening.Id==BaseDemoIntro.BattleId;
         private bool IsDemoPursuit=>sceneEncounter?.Opening.Id==BaseDemoPrologue.BattleId;
-        public bool ContinuesThroughDialogue=>IsAzhuDuel||IsDemoPractice||IsDemoPursuit||
+        private bool finishWithdrawalThroughDialogue;
+        public bool ContinuesThroughDialogue=>IsAzhuDuel||IsDemoPractice||IsDemoPursuit||finishWithdrawalThroughDialogue||
             IsDemoRuins&&battle?.Report?.Outcome==BattleOutcome.SideAWin;
         public bool IsDemoRuins=>BaseDemoRuins.Encounter(sceneEncounter);
         public bool IsDemoDefense=>BaseDemoDefense.Encounter(sceneEncounter);
@@ -38,7 +39,15 @@ namespace BaseConquest.Battle
             campaignSession=sceneEncounter;ReplaceSimulation(sceneEncounter.Battle.Scenario,sceneEncounter.Battle);if(battle.Phase!=BattlePhase.Deployment)AttachRealtime();
             feedback=IsBanditHideout?BaseBanditHideout.Objective:IsSecondDefense?"这一波敌军不会撤走；当前暂停，选中队长下令，空格继续。全员失能即营地失守。":IsAzhuDuel?"与阿铸点到为止；当前暂停，选中主角下令，空格继续。":IsDemoPractice?"搭档带你分步练习；当前暂停，按提示操作，打中一次即可完成。":IsDemoDefense||IsDemoAttack?"实际队伍已落位；当前暂停，可以选择队长下令。保留真实战损，队长倒地不立即判负，可以撤退。":IsDemoRuins?"击败控制者即可救出失踪者；己方有真实战损。已暂停，可选择队长／小队下令。":"两名古裔追兵都已负伤，村民正往东山口撤离。选中主角后点击敌人即可下令。";return true;
         }
-        public bool WithdrawSceneEncounter()=>FinishSceneEncounter(true);
+        public bool WithdrawSceneEncounter()
+        {
+            if (realtime?.HasBattlefieldExits != true || battle.Phase != BattlePhase.Fighting)
+                return FinishSceneEncounter(true);
+            if (!realtime.OrderBattlefieldExit(null)) return false;
+            finishWithdrawalThroughDialogue = true;
+            ResumeAfterDialogue(true);
+            return true;
+        }
         internal bool ContinueFinishedSceneDialogue()
         {
             if(!ContinuesThroughDialogue||finishSceneEncounter==null||ExternalDialogue||battle?.Phase!=BattlePhase.Finished||!CanReturnCampaign)return false;

@@ -125,8 +125,8 @@ namespace BaseConquest.Battle
             if (draftDeploymentZones == draft && showDraftDeploymentZones == show) return;
             draftDeploymentZones = draft;
             showDraftDeploymentZones = show;
-            foreach (Transform child in Root.transform)
-                if (child.name.StartsWith("ExitMarker_")) child.gameObject.SetActive(draft == null && CombatMode);
+            for (int side = 0; side < exitLabels.Length; side++)
+                if (exitLabels[side] != null) exitLabels[side].SetActive(draft == null && CombatMode && visibleExits[side].HasValue);
             Refresh();
         }
         private readonly Dictionary<int,BoardCell> appearanceCells=new Dictionary<int,BoardCell>();
@@ -176,7 +176,7 @@ namespace BaseConquest.Battle
             foreach(var tile in tiles) tile.enabled=true;
             gridKnown=null;SetGridOutlines(combat ? MapDisplayOptions.BattleGridOutlines : MapDisplayOptions.ShowGridOutlines);
             elevationView?.Rebuild();
-            foreach(Transform child in Root.transform) if(child.name.StartsWith("ExitMarker_")) child.gameObject.SetActive(combat);
+            if (!combat) SetVisibleExits(null, null, null);
         }
         private readonly MaterialPropertyBlock properties = new MaterialPropertyBlock();
         private readonly LineRenderer outline;
@@ -392,7 +392,6 @@ namespace BaseConquest.Battle
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             using var measuredRefresh = BaseConquest.Base.TransitionBenchmark.MeasureBoard();
 #endif
-            exitMarkers=false;
             visionRevision = -1;
             Material DungeonSkin(string id)
             {
@@ -515,6 +514,7 @@ namespace BaseConquest.Battle
                     }
                 }
                 if (CombatMode && draftAlly) color = Color.Lerp(color, new Color(.24f, .84f, 1f), .72f);
+                if (visibleExits[0] == p || visibleExits[1] == p) color = new Color(.1f, .55f, .32f);
                 properties.SetColor("_BaseColor", color); tile.SetPropertyBlock(properties);
                 tileColors[index] = color;
             }
@@ -544,13 +544,6 @@ namespace BaseConquest.Battle
                 new Vector3(-.5f,-.5f,-.5f),new Vector3(-.5f,-.5f,.5f),new Vector3(.5f,-.5f,.5f),new Vector3(.5f,-.5f,-.5f)};
             mesh.triangles=new[] {0,1,2,0,2,3,4,6,5,4,7,6,0,4,5,0,5,1,1,5,6,1,6,2,2,6,7,2,7,3,3,7,4,3,4,0};
             mesh.RecalculateNormals();mesh.RecalculateBounds();return mesh;
-        }
-        private bool exitMarkers;
-        private GridPosition markedExitA,markedExitB;
-        public void MarkExits(GridPosition a,GridPosition b)
-        {
-            if(exitMarkers&&a==markedExitA&&b==markedExitB)return;exitMarkers=true;markedExitA=a;markedExitB=b;
-            foreach(var p in new[] {a,b}) if(board.Contains(p)){int i=p.Z*board.Width+p.X;tileColors[i]=new Color(.1f,.55f,.32f);tiles[i].GetPropertyBlock(properties);properties.SetColor("_BaseColor",tileColors[i]);tiles[i].SetPropertyBlock(properties);}visionRevision=-1;
         }
         private BattleVision renderedVision;
         private Material heightFogMaterial;private Mesh heightFogMesh;private readonly Dictionary<int,Mesh> rampFogMeshes=new Dictionary<int,Mesh>();
@@ -707,19 +700,39 @@ namespace BaseConquest.Battle
             SelectedCell = cell; cellSelection.enabled = true; TintSelection(Color.white); position.y = 1.4f; float r = CellSize * 0.48f;
             cellSelection.SetPositions(new[] { position + new Vector3(-r, 0, -r), position + new Vector3(-r, 0, r), position + new Vector3(r, 0, r), position + new Vector3(r, 0, -r) });
         }
-        public void MarkExits(Font font, GridPosition? exitA=null, GridPosition? exitB=null)
+        private readonly GridPosition?[] visibleExits = new GridPosition?[2];
+        private readonly GameObject[] exitLabels = new GameObject[2];
+        internal void SetVisibleExits(Font font, GridPosition? ally, GridPosition? enemy)
         {
-            for (int i = 0; i < 2; i++)
+            if (visibleExits[0] == ally && visibleExits[1] == enemy) return;
+            SetExit(0, ally);
+            SetExit(1, enemy);
+            Refresh();
+
+            void SetExit(int side, GridPosition? cell)
             {
-                var cell = i == 0 ? exitA??new GridPosition(0, board.Height - 1) : exitB??new GridPosition(board.Width - 1, 0);
-                string name = "ExitMarker_" + (i == 0 ? "A" : "B");
-                var existing = Root.transform.Find(name);
-                var marker = existing != null ? existing.gameObject : new GameObject(name);
-                marker.transform.SetParent(Root.transform, false); marker.transform.position = World(cell, board) + new Vector3(0, 0.5f, -0.34f); marker.transform.rotation = Quaternion.Euler(90, 0, 0);
-                var text = marker.GetComponent<TextMesh>();
-                if (text == null) text = marker.AddComponent<TextMesh>();
-                text.text = i == 0 ? "我方撤离" : "敌方撤离"; text.fontSize = 36; text.characterSize = 0.08f; text.anchor = TextAnchor.MiddleCenter; text.color = new Color(0.65f, 1, 0.75f);
-                if (font != null) { text.font = font; marker.GetComponent<Renderer>().sharedMaterial = font.material; }
+                visibleExits[side] = cell;
+                if (!cell.HasValue)
+                {
+                    if (exitLabels[side] != null) exitLabels[side].SetActive(false);
+                    return;
+                }
+                var marker = exitLabels[side];
+                if (marker == null)
+                {
+                    marker = exitLabels[side] = new GameObject(side == 0 ? "ExitMarker_A" : "ExitMarker_B", typeof(TextMesh));
+                    marker.transform.SetParent(Root.transform, false);
+                    marker.transform.rotation = Quaternion.Euler(90, 0, 0);
+                    var text = marker.GetComponent<TextMesh>();
+                    text.text = side == 0 ? "我方出口" : "敌方出口";
+                    text.fontSize = 36;
+                    text.characterSize = .08f;
+                    text.anchor = TextAnchor.MiddleCenter;
+                    text.color = new Color(.65f, 1, .75f);
+                    if (font != null) { text.font = font; marker.GetComponent<Renderer>().sharedMaterial = font.material; }
+                }
+                marker.transform.position = World(cell.Value, board) + new Vector3(0, .5f, -.34f);
+                marker.SetActive(CombatMode && draftDeploymentZones == null);
             }
         }
         public static void DestroyObject(Object obj)

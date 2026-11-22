@@ -402,7 +402,7 @@ namespace BaseConquest.Battle
                     + "\n" + b.Behavior(inspected) + (b.EffectsSummary(inspected) == "" ? "" : "\n" + b.EffectsSummary(inspected)) + "\n长按单位查看详细属性");
             }
             information.text = descriptions.Count > 0 ? string.Join("\n\n", descriptions) : owner.InformationCell.HasValue && !b.Vision.Visible(owner.ControlledSide, owner.InformationCell.Value) ? "当前无视野，无法查看单位或地形" : "格内无可显示单位\n仅通过头像选队；地图队长点击只查看信息\n选队单击移动／集火\n双击空格或长按驻守此位置\n长按头像查看详情／设置范围";
-            if (owner.InformationCell.HasValue) information.text += "\n\n" + CellInformation(b, owner.InformationCell.Value, owner.ControlledSide);
+            if (owner.InformationCell.HasValue) information.text += "\n\n" + CellInformation(b, owner.InformationCell.Value, owner.ControlledSide, owner.ShowsBattleExit(BattleSide.A), owner.ShowsBattleExit(BattleSide.B));
             informationScroll.content.sizeDelta = new Vector2(0, Mathf.Max(informationScroll.viewport.rect.height, information.preferredHeight + 8));
             string key = owner.InformationCell?.ToString() ?? "unit:" + owner.InformationUnitId;
             if (informationKey != key) { informationKey = key; informationScroll.StopMovement(); informationScroll.verticalNormalizedPosition = 1; }
@@ -525,7 +525,7 @@ namespace BaseConquest.Battle
                 ? "点格查看单位和地形\n点按或拖划头像选队，点空地移动，点敌人集火\n单指拖动战场平移，双指捏合缩放"
                 : "点格子查看格内单位与地形\n点队长或头像选队，Shift点队长单选\n点空地移动／点敌人集火\n空格继续／暂停";
             else information.text=string.Join("\n\n",owner.InformationUnits.Select(unit=>battle.UnitName(unit)+"\n归属队长："+(battle.CommanderFor(unit) is BattleSoldier commander?battle.UnitName(commander):"无（自主作战）")+"\n生命 "+CombatNumbers.RemainingHealth(unit.Health)+" / "+unit.Stats.Health.ToString("0")+" · 攻击 "+owner.RealtimeAttack(unit).ToString("0")+" · 防御 "+unit.Stats.Defense.ToString("0")+"\n攻击距离 "+owner.RealtimeRange(unit).ToString("0")+"细格 · 移速 "+owner.RealtimeSpeed(unit).ToString("0")+"细格／秒\n视野 "+battle.Vision.SightRadius(unit)+" 格"));
-            if(owner.InformationCell.HasValue)information.text+="\n\n"+owner.RealtimeFineInformation+"\n"+CellInformation(battle,owner.InformationCell.Value,owner.ControlledSide);
+            if(owner.InformationCell.HasValue)information.text+="\n\n"+owner.RealtimeFineInformation+"\n"+CellInformation(battle, owner.InformationCell.Value, owner.ControlledSide, owner.ShowsBattleExit(BattleSide.A), owner.ShowsBattleExit(BattleSide.B));
             if(!string.IsNullOrEmpty(owner.RealtimeRangeDescription))information.text+="\n\n"+owner.RealtimeRangeDescription;
             informationScroll.content.sizeDelta=new Vector2(0,Mathf.Max(informationScroll.viewport.rect.height,information.preferredHeight+8));
             objectiveProgress.text=battle.Phase==BattlePhase.Deployment?"布置队伍":battle.Scenario.Objective.Kind==ObjectiveKinds.Hold?
@@ -533,9 +533,11 @@ namespace BaseConquest.Battle
             status.text=(battle.Phase==BattlePhase.Finished?"战斗结束 · "+BattleSceneController.OutcomeName(battle.Report.Outcome):owner.RealtimeStatus)+"\n"+owner.Feedback;
             if(owner.IsSceneEncounter)
             {
-                objectiveTitle.text=owner.Realtime?.RuinsExitOpen==true ? "前往我方撤离点" : owner.SceneEncounterObjective;
+                bool exitOpen = owner.Realtime is RealtimeCampaignBattle run && (run.RuinsExitOpen || run.VictoryExitOpen) &&
+                    battle.Phase == BattlePhase.Fighting;
+                objectiveTitle.text = exitOpen ? "去出口" : owner.SceneEncounterObjective;
                 objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsSecondDefense?"击败全部来敌":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 击倒 "+owner.Realtime?.DefenseDown+"/"+owner.Realtime?.DefenseTarget:owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":owner.SceneEncounterObjective;
-                if(owner.Realtime?.RuinsExitOpen==true)objectiveProgress.text=owner.Realtime.EscortWithoutCaptain?"点我方撤离点，让幸存士兵带队离开":"一名我方队长抵达即可撤离";
+                if (exitOpen) objectiveProgress.text = "我方出口";
                 status.text=owner.Feedback;
             }
             if(owner.DetailsVisible)
@@ -566,13 +568,16 @@ namespace BaseConquest.Battle
             objectiveProgress.color = progress.Failed || progress.Declared ? tone : objectiveProgressColor;
             if (progress.Failed || progress.Declared) objectiveBar.gameObject.SetActive(false);
         }
-        public static string CellInformation(BattleSimulation b, GridPosition p, BattleSide observer)
+        public static string CellInformation(BattleSimulation b, GridPosition p, BattleSide observer, bool showExitA = true, bool showExitB = true)
         {
             if (!b.CanInspectCell(observer, p)) return "格 " + p + (b.Vision.Explored(observer, p) ? " · 已探索，当前无视野" : " · 未探索地形");
             var c = b.Board.Cell(p); string terrain = c.Terrain == TerrainKind.Water ? "水域：不可通行，可透视／射击" : c.Terrain == TerrainKind.Building ? "建筑：不可通行，阻挡视线／射击" : c.Terrain == TerrainKind.Wall ? "城墙：不可通行，阻挡视线／射击" : c.Terrain == TerrainKind.Swamp ? "沼泽：可通行，脚力5，不挡视线／射击" : "地面：可以通行、部署与交战";
             if(FortificationInfo.Description(c)!="")terrain=FortificationInfo.Description(c);
             terrain+="\n"+b.Board.HeightDescription(p);
-            string exit = p == b.ExitCell(observer) ? " · 我方撤离点" : p == b.ExitCell(observer == BattleSide.A ? BattleSide.B : BattleSide.A) ? " · 敌方撤离点" : "";
+            var opponent = observer == BattleSide.A ? BattleSide.B : BattleSide.A;
+            bool ShowExit(BattleSide side) => side == BattleSide.A ? showExitA : showExitB;
+            string exit = ShowExit(observer) && p == b.ExitCell(observer) ? " · 我方出口" :
+                ShowExit(opponent) && p == b.ExitCell(opponent) ? " · 敌方出口" : "";
             string deployment = c.Zone == DeploymentZone.None ? "无部署权限" : (c.Zone == (observer == BattleSide.A ? DeploymentZone.A : DeploymentZone.B) ? "我方" : "敌方") + "部署区域";
             return "格 " + p + exit + "\n" + terrain + "\n" + deployment;
         }

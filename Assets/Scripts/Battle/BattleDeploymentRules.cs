@@ -49,7 +49,7 @@ namespace BaseConquest.Battle
             if (s.CarriedById >= 0) return "正在由" + UnitName(Soldier(s.CarriedById)) + "携带救援";
             if (s.IsDowned) return "倒地，等待救援";
             if (!s.IsAlive) return "已阵亡";
-            if (s.CarryingId >= 0) return "正在救援" + UnitName(Soldier(s.CarryingId)) + "，前往撤离点";
+            if (s.CarryingId >= 0) return "正在救援" + UnitName(Soldier(s.CarryingId)) + "，去出口";
             if (s.RescueTargetId >= 0) return "正在前往救援" + UnitName(Soldier(s.RescueTargetId));
             if (s.ResumeFollowing && !RetainedCombatValid(s)) return Squads[s.SquadId].IssuedCommand == SquadCommand.Auto ? "移动已完成，恢复小队策略" : "脱战／越界，重新跟随队长前往" + s.MoveGoal;
             if (s.Command == SquadCommand.Retreat) return "正在撤退至" + ExitCell(s.Side);

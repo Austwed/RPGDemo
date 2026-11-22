@@ -409,7 +409,7 @@ namespace BaseConquest.Battle
                 else SetMove(intent, FindPath(s, p => IsExit(s.Side, p), occupied));
                 return intent;
             }
-            if (ModernRules && s.Kind == SoldierKind.Hero && IsExit(s.Side, s.Cell)) { intent.Action = RoundAction.Escape; intent.Decision = "队长已到撤离点，离场"; return intent; }
+            if (ModernRules && s.Kind == SoldierKind.Hero && IsExit(s.Side, s.Cell)) { intent.Action = RoundAction.Escape; intent.Decision = "队长已到出口，离场"; return intent; }
             var rescue = PlanRescue(s, occupied); if (rescue != null) return rescue;
             if (AttackMemberLimited(s) && !AttackAreaContains(s, s.Cell))
             {

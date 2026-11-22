@@ -20,6 +20,7 @@ namespace BaseConquest.RealtimePrototype
     {
         public bool CommanderDoctrine;
         public bool BothSidesHuman;
+        internal bool OnlyExitMovement;
         public bool LeaderlessEnemyAssault;
         internal bool LeaderlessAllyAssault;
         internal bool IndependentAssault(PrototypeSide side) => side == PrototypeSide.Enemy ? LeaderlessEnemyAssault : LeaderlessAllyAssault;
@@ -102,13 +103,12 @@ namespace BaseConquest.RealtimePrototype
         {
             if(u.Role==PrototypeRole.Leader)u.EngagedUntil=Elapsed+3;
             u.TargetId=target.Id;var delta=target.BodyCenter-u.BodyCenter;
-            if(BodyGap(u,target)<=ReachFor(u,target)&&ClearAttack(u.Position,target.BodyCenter))
+            if(InAttackRadius(u,target)&&ClearAttack(u.Position,target.BodyCenter))
             {u.AttackSlot=u.Cell;if(Face(u,delta.Normalized)&&Elapsed+1e-9>=u.ReadyAt)BeginAttack(u);return;}
             u.AttackSlot=AttackPosition(u,target);u.MoveGoal=u.AttackSlot;
         }
         private void ThinkDoctrine(PrototypeUnit u)
         {
-            u.MoveGoal=-1;if(u.HitAt>=0&&!u.HitResolved)return;
             if(u.ObjectOrder)
             {if(u.Order==PrototypeOrder.Move)u.MoveGoal=Arena.CellAt(u.Goal);return;}
             if(u.Order==PrototypeOrder.Retreat)
@@ -122,7 +122,8 @@ namespace BaseConquest.RealtimePrototype
                     .OrderBy(c=>d[c]).DefaultIfEmpty(Arena.CellAt(u.Goal)).First();
                 u.Goal=Arena.Center(goal);u.MoveGoal=goal;return;
             }
-            if(IndependentAssault(u.Side))
+            if (OnlyExitMovement && !u.Steering && !(u.ManualOrder && u.Order == PrototypeOrder.Move)) return;
+            if(IndependentAssault(u.Side) && !OnlyExitMovement)
             {
                 var assaultTarget=Target(u);
                 if(assaultTarget!=null)DoctrinePursue(u,assaultTarget);
@@ -155,7 +156,7 @@ namespace BaseConquest.RealtimePrototype
                 if(captain)
                 {
                     if(u.ManualOrder&&u.Order==PrototypeOrder.Guard&&u.Cell!=Arena.CellAt(u.Anchor)){u.MoveGoal=Arena.CellAt(u.Anchor);return;}
-                    var ready=PreferredTarget(u,Units.Where(e=>e.Alive&&e.Side!=u.Side&&(CanTarget?.Invoke(u,e)??true)&&BodyGap(u,e)<=ReachFor(u,e)&&ClearAttack(u.Position,e.BodyCenter)));
+                    var ready=PreferredTarget(u,Units.Where(e=>e.Alive&&e.Side!=u.Side&&(CanTarget?.Invoke(u,e)??true)&&InAttackRadius(u,e)&&ClearAttack(u.Position,e.BodyCenter)));
                     u.TargetId=ready?.Id??-1;u.AttackSlot=ready==null?-1:u.Cell;
                     if(ready!=null){u.EngagedUntil=Elapsed+3;if(Face(u,(ready.BodyCenter-u.BodyCenter).Normalized)&&Elapsed+1e-9>=u.ReadyAt)BeginAttack(u);}return;
                 }
@@ -180,7 +181,7 @@ namespace BaseConquest.RealtimePrototype
             {
                 var focus=Units.FirstOrDefault(e=>e.Id==l.SquadTargetId&&Eligible(e));
                 bool rethink=Elapsed+1e-9>=u.NextThinkAt;
-                if(focus!=null&&(BodyGap(u,focus)<=u.Reach||!rethink&&u.TargetId==focus.Id&&u.AttackSlot>=0||rethink&&ReachableNow(u,AttackPosition(u,focus))))target=focus;
+                if(focus!=null&&(InAttackRadius(u,focus)||!rethink&&u.TargetId==focus.Id&&u.AttackSlot>=0||rethink&&ReachableNow(u,AttackPosition(u,focus))))target=focus;
                 if(target!=null&&rethink)u.NextThinkAt=Elapsed+.3;
             }
             if(target==null)

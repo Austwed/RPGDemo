@@ -471,6 +471,8 @@ namespace BaseConquest.RealtimePrototype
             foreach(var unit in Units.Where(actor=>!actor.Moving))unit.CarrySeconds=0;
             foreach(var unit in Units.Where(actor=>actor.Alive&&actor.Moving&&!actor.SteeringStopped))
                 AdvanceTransit(unit,FixedSeconds);
+            ValidateWindups();
+            StartMovingMeleeWindups();
             RebuildReservations();
             foreach(var unit in Units.Where(actor=>actor.Alive&&!actor.Moving))Think(unit);
             // 起步顺序：骑兵先挑格子。给冲锋中的骑兵优先选择通路，
@@ -545,8 +547,9 @@ namespace BaseConquest.RealtimePrototype
         }
         private void Think(PrototypeUnit unit)
         {
+            unit.MoveGoal = -1;
+            if (unit.HitAt >= 0 && !unit.HitResolved) { FollowMeleeWindup(unit); return; }
             if(CommanderDoctrine){ThinkDoctrine(unit);return;}
-            unit.MoveGoal=-1;if(unit.HitAt>=0&&!unit.HitResolved)return;
             if(unit.Order==PrototypeOrder.Retreat)
             {if(unit.Cell==Arena.CellAt(unit.Goal)){unit.Escaped=true;return;}unit.MoveGoal=Arena.CellAt(unit.Goal);return;}
             if(unit.Order==PrototypeOrder.Move&&unit.Cell==Arena.CellAt(unit.Goal))unit.Order=PrototypeOrder.Guard;
@@ -556,7 +559,7 @@ namespace BaseConquest.RealtimePrototype
             {
                 var offset=target.BodyCenter-unit.Position;
                 bool threatened=unit.Ranged&&Units.Any(enemy=>enemy.Alive&&enemy.Side!=unit.Side&&(enemy.Position-unit.Position).Length<1.4);
-                if(!threatened&&offset.Length<=unit.Reach&&double.IsPositiveInfinity(Arena.WallFraction(unit.Position,target.Position)))
+                if(!threatened&&InAttackRadius(unit,target)&&ClearAttack(unit.Position,target.BodyCenter))
                 {unit.AttackSlot=unit.Cell;if(Face(unit,offset.Normalized)&&Elapsed+1e-9>=unit.ReadyAt)BeginAttack(unit);return;}
                 int slot=AttackPosition(unit,target);
                 if(slot>=0){unit.AttackSlot=slot;unit.MoveGoal=slot;return;}
@@ -576,7 +579,7 @@ namespace BaseConquest.RealtimePrototype
                 {
                     int cell=positionZ*Arena.FineColumns+positionX;if(!Fits(actor,cell,(target.BodyCenter-Arena.Center(cell)).Normalized)||cell==target.Cell||double.IsPositiveInfinity(distances[cell]))continue;
                     var point=Arena.Center(cell);var axis=PrototypeUnit.MajorAxis(target.BodyCenter-point,actor.BodyAxis);double range=BodyGapAt(actor,target,point,axis),centerRange=(point-target.Position).Length;
-                    if(range>ReachFor(actor,target,point)||actor.Ranged&&centerRange<Math.Min(2,actor.Reach*.6)||SlotClaimed(cell,actor)||
+                    if(!InAttackRadius(actor,target,point,axis)||actor.Ranged&&centerRange<Math.Min(2,actor.Reach*.6)||SlotClaimed(cell,actor)||
                         reservations.TryGetValue(cell,out int owner)&&owner!=actor.Id||!ClearAttack(point,target.BodyCenter))continue;
                     if(CommanderDoctrine ? !DoctrineSlotAllowed(actor,point) : actor.Order==PrototypeOrder.Guard&&(point-actor.Anchor).Length>GuardMoveRadius)continue;
                     double danger=actor.Ranged ? Units.Count(enemy=>enemy.Alive&&enemy.Side!=actor.Side&&(enemy.Position-point).Length<1.5)*5 : 0;

@@ -138,7 +138,8 @@ namespace BaseConquest.Base
         public static bool Fail(BaseState state,RealtimeCampaignBattle run)
         {
             if(run==null||!run.Session.Opening.DemoCombat||!state.Campaign.HasActiveBattle||state.Campaign.ActiveBattle.Id!=run.Session.Opening.Id)return false;
-            if(run.Battle.Phase==BattlePhase.Fighting&&!run.RetreatAll())return false;
+            if (run.Battle.Phase == BattlePhase.Fighting &&
+                (run.HasBattlefieldExits || !run.RetreatAll())) return false;
             if(run.Battle.Report?.Outcome==BattleOutcome.SideAWin)return false;
             run.SaveCheckpoint(state);if(!BaseCampaign.Settle(state,run.Session))return false;
             if(run.Session.Opening.EventId==BaseDemoDefense.SecondEventId){state.Demo.Defense.SecondOutcome="failed";state.Aftermath.GameOver=true;state.Aftermath.Reason=BaseDemoDefense.SecondGameOverReason;}

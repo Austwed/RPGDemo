@@ -260,6 +260,112 @@ namespace BaseConquest.Editor
                 "扫荡未按实际编队人数全额扣军需");
         }
 
+        public static void VerifyBattlefieldExits()
+        {
+            (BaseState state, RealtimeCampaignBattle run) Defense()
+            {
+                var state = Load("defense");
+                Stock(state, 1).Count = 24;
+                At(state, "demo_defense_start");
+                var draft = new BaseBattlePreparation(state, BasePrepRoute.Defense) { SupplyGrade = 1 };
+                draft.AutoPlace();
+                var run = Start(state, draft);
+                run.EnableBattlefieldExits();
+                run.OutcomeResolver = _ => BattleOutcome.None;
+                run.Model.CanTarget = (_, _) => false;
+                run.Model.CanMove = unit => unit.Side == PrototypeSide.Ally;
+                Need(run.HasBattlefieldExits, "首防未使用正式出口");
+                return (state, run);
+            }
+
+            var (withdrawing, retreat) = Defense();
+            var commanders = retreat.Model.Units.Where(u => u.Side == PrototypeSide.Ally && u.Role == PrototypeRole.Leader).ToArray();
+            var first = commanders.First(unit => retreat.Model.Units.Any(ally => ally.Side == unit.Side &&
+                ally.Role != PrototypeRole.Leader && ally.Squad == unit.Squad));
+            Need(commanders.Length >= 2, "撤退夹具需要两个出战小队");
+            var hisTroops = retreat.Model.Units.Where(u => u.Side == PrototypeSide.Ally &&
+                u.Role != PrototypeRole.Leader && u.Squad == first.Squad).ToArray();
+            var otherSquad = retreat.Model.Units.Where(u => u.Side == PrototypeSide.Ally && u.Squad != first.Squad).ToArray();
+            Need(retreat.OrderBattlefieldExit(new[] { first.Id - 1 }), "选中的队长未收到出口指令");
+            Need(hisTroops.All(u => u.Order != PrototypeOrder.Retreat && !u.Escaped) && retreat.Battle.Report == null,
+                "队长尚未离场时，所属士兵已撤退，或产生了战报");
+            AdvanceUntil(retreat, () => first.Escaped && hisTroops.All(u => u.Escaped));
+            Need(otherSquad.All(u => !u.Escaped && u.Order != PrototypeOrder.Retreat) && retreat.Battle.Report == null,
+                "撤退指令影响了未选中的小队或提前结算");
+            Need(retreat.OrderBattlefieldExit(null), "剩余小队未收到出口指令");
+            AdvanceUntil(retreat, () => retreat.Battle.Phase == BattlePhase.Finished);
+            Need(retreat.Battle.Report?.Outcome == BattleOutcome.Retreat && otherSquad.All(u => u.Escaped),
+                "结算未保留实际离场小队");
+            Need(BaseDemoCombat.Fail(withdrawing, retreat), "实际离场后的首防败退不可结算");
+
+            var (winning, pending) = Defense();
+            pending.OutcomeResolver = _ => BattleOutcome.SideAWin;
+            pending.Model.SetPaused(false);
+            pending.Tick(1d / 60);
+            Need(pending.VictoryExitOpen && pending.Battle.Report == null && !BaseDemoDefense.Complete(winning, pending),
+                "锁胜后抵达出口前产生了战报或奖励");
+            Need(pending.OrderBattlefieldExit(null), "锁胜后仍需允许给队长下达出口指令");
+            pending.SaveCheckpoint(winning);
+            var copied = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(winning));
+            var restored = new RealtimeCampaignBattle(new BaseCampaignSession(copied.Campaign.ActiveBattle));
+            restored.EnableBattlefieldExits();
+            Need(restored.VictoryExitOpen && restored.Battle.Report == null, "恢复战中检查点后未保留出口阶段");
+            AdvanceUntil(restored, () => restored.Battle.Phase == BattlePhase.Finished);
+            Need(restored.Battle.Report?.Outcome == BattleOutcome.SideAWin && BaseDemoDefense.Complete(copied, restored),
+                "抵达出口后未执行原有首防胜利结算");
+            Debug.Log("[VerifyBattlefieldExits] PASS partial squad withdrawal, victory exit, checkpoint and settlement");
+
+            static void AdvanceUntil(RealtimeCampaignBattle run, Func<bool> done)
+            {
+                run.Model.SetPaused(false);
+                for (int t = 0; t < 800 && !done() && run.Battle.Phase == BattlePhase.Fighting; t++) run.Tick(.1);
+                Need(done(), "等待单位实际抵达出口超时");
+            }
+        }
+
+        public static void VerifyMeleePursuit()
+        {
+            var arena = new PrototypeArena(PrototypeLayout.Open);
+            var model = new RealtimeBattlePrototype(arena)
+            {
+                CommanderDoctrine = true,
+                AutonomousOutcome = false
+            };
+            var attacker = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Leader, new PrototypePoint(3.25, 4.25));
+            var target = model.AddUnit(PrototypeSide.Enemy, PrototypeRole.Leader, new PrototypePoint(3.75, 4.25));
+            attacker.Strategy = PrototypeStrategy.Obey;
+            attacker.AttackRange = .5;
+            attacker.Speed = 2;
+            target.Speed = 2;
+            int releases = 0;
+            bool sometimesMoving = false;
+            model.WindupDuration = _ => 1;
+            model.AttackTriggered = unit =>
+            {
+                if (unit != attacker) return;
+                Need(unit.WindupTarget == target.Id && model.InAttackRadius(unit, target),
+                    "近战在攻击半径外或对更换后的目标释放");
+                releases++;
+            };
+            var destination = new PrototypePoint(3.75, 11.25);
+            Need(model.IssueOrder(0, attacker.Id, PrototypeOrder.Focus, target.Position, target.Id), "追击指令失败");
+            model.MarkDirectOrder(new[] { 0 }, PrototypeOrder.Focus, target.Id, false);
+            Need(model.IssueOrder(0, target.Id, PrototypeOrder.Move, destination, side: PrototypeSide.Enemy), "撤退目标的移动指令失败");
+            model.MarkDirectOrder(new[] { 0 }, PrototypeOrder.Move, -1, false, PrototypeSide.Enemy);
+            model.SetPaused(false);
+            for (int frame = 0; frame < 150 && releases == 0; frame++)
+            {
+                model.Tick(1d / 60);
+                sometimesMoving |= attacker.Moving && attacker.HitAt >= 0 && !attacker.HitResolved;
+            }
+            Need(sometimesMoving && releases == 1, "贴着同一后退目标，未成功在持续移动中完成前摇");
+            var previousReleases = releases;
+            model.HeightShotClear = (_, _) => false;
+            for (int frame = 0; frame < 90; frame++) model.Tick(1d / 60);
+            Need(releases == previousReleases, "目标被遮挡后仍可释放近战攻击");
+            Debug.Log("[VerifyMeleePursuit] PASS moving windup, radius and obstruction");
+        }
+
         public static void VerifyDefenseWorkshopLoop()
         {
             // 使用随包首防存档及正式的备战、结算和生产入口。分别覆盖主动撤退、击退和超时撤军。

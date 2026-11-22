@@ -143,7 +143,7 @@ namespace BaseConquest.Base
         {
             if(beforeDemoRuins==null)return false;
             bool victory=run?.Battle.Report?.Outcome==BattleOutcome.SideAWin;
-            bool soloRetreat=abandon&&run!=null&&ruinsRetreatGuideId==run.Session.Opening.Id;
+            bool soloRetreat=run?.Battle.Report?.Outcome==BattleOutcome.Retreat&&ruinsRetreatGuideId==run.Session.Opening.Id;
             var next=run==null?beforeDemoRuins.Copy():State.Copy();
             if(victory?!BaseDemoRuins.Complete(next,run):run!=null&&!BaseDemoCombat.Fail(next,run))return false;
             if(!victory&&run!=null)BaseDemoCombat.RetreatPosition(next,false);

@@ -73,7 +73,7 @@ namespace BaseConquest.Battle
             foreach (var enemy in Model.Units)
             {
                 if (!enemy.Alive || enemy.Side == source.Side || enemy.Ranged || enemy.Order == PrototypeOrder.Retreat) continue;
-                if (RealtimeBattlePrototype.BodyGap(enemy, source) > Model.ReachFor(enemy, source) + 1e-8) continue;
+                if (!Model.InAttackRadius(enemy, source)) continue;
                 if (!(Model.CanTarget?.Invoke(enemy, source) ?? true) || !Model.ClearAttack(enemy.Position, source.BodyCenter)) continue;
                 return context | RpgShotContext.MeleePressure;
             }
@@ -128,7 +128,7 @@ namespace BaseConquest.Battle
                 if(Battle.Phase!=BattlePhase.Fighting)break;
                 packet.Settled=true;var target=Model.Units.First(u=>u.Id==packet.TargetId);
                 packet.HealthAfter=(float)target.Health;
-                if(!target.Alive || target.Side==PrototypeSide.Ally && DefensePursuitReady)continue;
+                if(VictoryExitOpen || !target.Alive || target.Side==PrototypeSide.Ally && DefensePursuitReady)continue;
                 if(!packet.Hit){Battle.RecordRpgMiss(packet.SourceId-1,packet.TargetId-1,packet.Selected);continue;}
                 var source=Model.Units.First(u=>u.Id==packet.SourceId);var defender=Battle.Soldier(target.Id-1);
                 Battle.Soldier(source.Id-1).LastAttackCritical=packet.Critical;

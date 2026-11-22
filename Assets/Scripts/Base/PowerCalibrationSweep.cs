@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using BaseConquest.Battle;
 using UnityEngine;
 
@@ -9,6 +10,99 @@ namespace BaseConquest.Base
 {
     public static partial class PowerCalibrationMatrix
     {
+        public static void RunPureSoldierMatrix()
+        {
+            try
+            {
+                WritePureSoldierMatrix();
+                Debug.Log("[PureSoldierMatrix] PASS");
+                if (Application.isBatchMode) UnityEditor.EditorApplication.Exit(0);
+            }
+            catch (Exception error)
+            {
+                Debug.LogError("[PureSoldierMatrix] FAIL " + error);
+                if (Application.isBatchMode) UnityEditor.EditorApplication.Exit(1);
+            }
+        }
+
+        private static void WritePureSoldierMatrix()
+        {
+            var state = JsonUtility.FromJson<BaseState>(File.ReadAllText("Assets/Resources/DemoStages/defense-male.json"));
+            var rules = JsonUtility.FromJson<DemoBalancePackage>(File.ReadAllText("Assets/Resources/DemoBalance/DemoBalance.json")).Rules;
+            rules.Validate();
+            state.Demo.Rpg = rules;
+            string split = Arg("split", "train");
+            if (split is not ("train" or "holdout")) throw new ArgumentException("split");
+            bool sensitivity = Arg("archer-cavalry-sensitivity", "false") == "true";
+            bool holdout = split == "holdout";
+            if (sensitivity && !holdout) throw new ArgumentException("Sensitivity uses independent seeds.");
+            double[] points = Arg("points", "100,100,100,100").Split(',').Select(value => double.Parse(value, Invariant)).ToArray();
+            if (points.Length != 4 || points.Any(value => !double.IsFinite(value) || value <= 0))
+                throw new ArgumentException("points");
+            int count = int.Parse(Arg("count", holdout ? "4" : "2"));
+            var samples = holdout ? new[] { (0, 0) } : new[] { (8, 8), (16, 16), (24, 24), (12, 16), (16, 12) };
+            var jobs = (from constrained in new[] { false, true }
+                        from grade in Enumerable.Range(0, 3)
+                        from a in Enumerable.Range(0, 4)
+                        from b in Enumerable.Range(a + 1, 3 - a)
+                        where !sensitivity || a == 1 && b == 2
+                        from size in samples
+                        from index in Enumerable.Range(0, count)
+                        from mirror in new[] { false, true }
+                        select (constrained, grade, a, b, size, index, mirror)).ToArray();
+            var rows = new string[jobs.Length];
+            Parallel.For(0, jobs.Length, new ParallelOptions { MaxDegreeOfParallelism = int.Parse(Arg("workers", "4")) }, i =>
+            {
+                var job = jobs[i];
+                var setup = ScenarioFor("flat", state);
+                var board = setup.Scenario.Board;
+                if (job.constrained)
+                {
+                    // A symmetric obstacle forces two approaches without changing deployment capacity.
+                    for (int x = 6; x <= 7; x++)
+                        for (int z = 2; z <= 7; z++)
+                            board.Cell(new GridPosition(x, z)).Terrain = TerrainKind.Wall;
+                }
+                int countA = holdout ? EqualBudgetSoldiers(points[job.a]) : job.size.Item1;
+                int countB = holdout ? EqualBudgetSoldiers(points[job.b]) : job.size.Item2;
+                // Try the neighboring archer count closest to the rounded cavalry budget.
+                if (sensitivity)
+                    countA = Math.Clamp((int)Math.Round(points[job.b] * countB / points[job.a]), 1, 24);
+                int seed = (sensitivity ? 862381 : holdout ? 644903 : 152117) + job.index * 1009;
+                rows[i] = PureSoldierMatch(state, rules, setup, job.a, job.b, countA, countB,
+                    job.grade, seed, job.constrained, job.mirror, points);
+            });
+            string directory = Arg("out", "Logs/pure-soldier-power");
+            Directory.CreateDirectory(directory);
+            using var csv = new StreamWriter(Path.Combine(directory, sensitivity ? "sensitivity.csv" : split + ".csv"));
+            csv.WriteLine("map,grade,role_a,role_b,count_a,count_b,points_a,points_b,seed,mirror,outcome,seconds,hp_a,hp_b,max_hp_a,max_hp_b");
+            foreach (string row in rows) csv.WriteLine(row);
+            Debug.Log($"[PureSoldierMatrix] {split}: {rows.Length} matches");
+        }
+
+        private static int EqualBudgetSoldiers(double points) =>
+            (int)Math.Clamp(Math.Round(1000 / points, MidpointRounding.AwayFromZero), 1, 24);
+
+        private static string PureSoldierMatch(BaseState state, RpgRules rules, BaseCampaignBattle setup,
+            int roleA, int roleB, int countA, int countB, int grade, int seed, bool constrained, bool mirror, double[] points)
+        {
+            int[] left = new int[4], right = new int[4];
+            left[roleA] = countA;
+            right[roleB] = countB;
+            var session = StartMatch("flat", setup, state, rules, 0, grade, seed, mirror, left, right);
+            var run = new RealtimeCampaignBattle(session, "normal");
+            run.Model.SetPaused(false);
+            for (int frame = 0; frame < 480 && session.Battle.Phase != BattlePhase.Finished; frame++) run.Tick(.25);
+            BattleSide sideA = mirror ? BattleSide.B : BattleSide.A;
+            var a = session.Battle.Soldiers.Where(unit => unit.Side == sideA).ToArray();
+            var b = session.Battle.Soldiers.Where(unit => unit.Side != sideA).ToArray();
+            var result = session.Battle.Report?.Outcome ?? BattleOutcome.RoundLimit;
+            string outcome = result is BattleOutcome.SideAWin or BattleOutcome.SideBWin
+                ? ((result == BattleOutcome.SideAWin) == !mirror ? "a" : "b")
+                : result == BattleOutcome.RoundLimit ? "timeout" : "draw";
+            return FormattableString.Invariant($"{(constrained ? "obstacle" : "flat")},{grade},{roleA},{roleB},{countA},{countB},{points[roleA] * countA:F2},{points[roleB] * countB:F2},{seed},{(mirror ? 1 : 0)},{outcome},{run.Model.Elapsed:F2},{a.Sum(unit => unit.Health):F2},{b.Sum(unit => unit.Health):F2},{a.Sum(unit => unit.Stats.Health):F2},{b.Sum(unit => unit.Stats.Health):F2}");
+        }
+
         public static void RunProfessionPairs()
         {
             var state=JsonUtility.FromJson<BaseState>(File.ReadAllText("Assets/Resources/DemoStages/defense-male.json"));

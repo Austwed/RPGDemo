@@ -62,7 +62,7 @@ namespace BaseConquest.Battle
         {
             if (!ModernRules) return false; bool changed = false;
             foreach (var s in Soldiers.Where(s => s.IsActive && !s.DeveloperImmobile && IsExit(s.Side, s.Cell) && (s.Kind == SoldierKind.Hero || s.Command == SquadCommand.Retreat || s.CarryingId >= 0)).ToArray())
-            { s.Escaped = true; changed = true; Notice(UnitName(s) + "抵达撤离点，已离场", s.Side, s.Id); }
+            { s.Escaped = true; changed = true; Notice(UnitName(s) + "抵达出口，已离场", s.Side, s.Id); }
             return changed;
         }
         private void ResolveLeadership()

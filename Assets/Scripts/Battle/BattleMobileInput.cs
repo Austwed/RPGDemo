@@ -350,7 +350,7 @@ namespace BaseConquest.Battle
                 {
                     var rescuer = inCell.FirstOrDefault(s => s.Side == selectedSide && s.IsActive);
                     bool assigned = rescuer != null && UserOrder(() => battle.AssignRescuer(selectedSide, requestedPatient, rescuer.Id));
-                    feedback = assigned ? "已指定救援单位" : "请选择可行动且能到达伤员／撤离点的己方单位";
+                    feedback = assigned ? "已指定救援单位" : "请选择可行动且能到达伤员和出口的己方单位";
                     if (assigned) requestedPatient = -1; SyncViews(); hud?.Refresh(); return;
                 }
                 if (unit != null)
@@ -370,7 +370,7 @@ namespace BaseConquest.Battle
                     {
                         ManualPause();
                         if (doubleGround) { bool ok = lastGroundMoved ? battle.GuardCommanders(selection.Ids, cell) : IssueSelectedGuard(cell); feedback = ok ? "驻守此位置：" + cell : "驻守命令失败"; lastGroundMoved = false; }
-                        else { lastGroundMoved = IssueSelectedMove(cell); feedback = lastGroundMoved ? (battle.IsExit(selectedSide,cell) ? "前往撤离点，携带的救援对象会一起离场" : "指挥者前往" + cell) : "位置不可达，原命令保留"; }
+                        else { lastGroundMoved = IssueSelectedMove(cell); feedback = lastGroundMoved ? (battle.IsExit(selectedSide,cell) ? "去出口，携带的救援对象会一起离场" : "指挥者前往" + cell) : "位置不可达，原命令保留"; }
                     }
                 }
                 SyncViews(); hud?.Refresh();
@@ -457,7 +457,7 @@ namespace BaseConquest.Battle
                 case CellCommandKind.EndDeployment: EndDeployment(); break;
                 case CellCommandKind.SpecifyRescuer: BeginRescueOverride(command.UnitId); break;
                 case CellCommandKind.CancelRescuer: requestedPatient = -1; feedback = "已取消选择救援者，已下达救援任务保持"; break;
-                case CellCommandKind.AssignRescuer: if (UserOrder(() => battle.AssignRescuer(selectedSide, requestedPatient, command.UnitId))) { requestedPatient = -1; feedback = "已指定救援单位"; } else feedback = "该单位无法到达伤员与撤离点"; break;
+                case CellCommandKind.AssignRescuer: if (UserOrder(() => battle.AssignRescuer(selectedSide, requestedPatient, command.UnitId))) { requestedPatient = -1; feedback = "已指定救援单位"; } else feedback = "该单位无法到达伤员与出口"; break;
                 case CellCommandKind.Rescue:
                     bool assigned = false;
                     UserOrder(() => { assigned = battle.RequestRescue(selectedSide, command.UnitId); return battle.Soldier(command.UnitId)?.RescueRequested == true; });

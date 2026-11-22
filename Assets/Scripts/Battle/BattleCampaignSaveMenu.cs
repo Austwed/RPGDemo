@@ -93,9 +93,11 @@ namespace BaseConquest.Battle
             panel.anchoredPosition = Vector2.zero;
             bool compact = UsesCampaignSystemMenu;
             bool confirmation = page == CampaignMenuPage.ConfirmMainMenu || page == CampaignMenuPage.ConfirmQuit;
+            bool demoBattle = BaseBattleGateway.DemoMode && !IsStandaloneTest;
             bool canWithdraw = !DeploymentDraftActive && realtime != null && battle?.Phase == BattlePhase.Fighting &&
-                (!IsSecondDefense || realtime.DefensePursuitReady) && !IsStandaloneTest && !realtime.RuinsExitOpen;
-            bool demo = BaseBattleGateway.DemoMode && !IsStandaloneTest;
+                (realtime.HasBattlefieldExits && !realtime.RuinsExitOpen && !realtime.VictoryExitOpen ||
+                 !demoBattle && !IsAzhuDuel && !IsDemoPractice && !IsDemoPursuit && !IsSecondDefense && !IsStandaloneTest);
+            bool demo = demoBattle;
             float height = page == CampaignMenuPage.Audio ? 272 : page == CampaignMenuPage.Options ? 370 :
                 page == CampaignMenuPage.Help ? (helpTopic < 0 ? 536 : 460) :
                 compact ? (confirmation ? 334 : canWithdraw ? 432 : 368) : 480;
@@ -150,7 +152,7 @@ namespace BaseConquest.Battle
                     Option("Quit", CampaignMenuText("quit", "退出游戏"), y -= 62, () =>
                     {if(demo)BaseBattleGateway.ExitDemoSession(true);else BuildCampaignMenu(CampaignMenuPage.ConfirmQuit);});
                 if (canWithdraw)
-                    Option("RealtimeRetreat", realtime.DefensePursuitReady ? "结束追击" : "撤退", y -= 62,
+                    Option("RealtimeRetreat", realtime.DefensePursuitReady ? "结束追击" : realtime.HasBattlefieldExits ? "去出口" : "撤退", y -= 62,
                         () => {CloseCampaignMenu();RealtimeRetreat();});
                 if (IsStandaloneTest)
                 {
