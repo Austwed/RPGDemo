@@ -70,8 +70,7 @@ namespace BaseConquest.Base
             bool running=combatController.PauseForDialogue();combatController.ExternalDialogue=true;Hud.SetVisible(true);
             Hud.OpenDefenseIntel(()=>{State.Demo.Defense.BattleIntelSeen=true;run.SaveCheckpoint(State);SaveStore.Save(State);Hud.ClosePanel();Hud.SetVisible(false);if(combatController!=null){combatController.ExternalDialogue=false;combatController.ResumeAfterDialogue(running);}});
         }
-        private string ruinsRetreatGuideId;
-        private bool TickRuinsRetreatGuide()
+        private bool TickRuinsRescueDialogue()
         {
             if(combatController?.IsDemoRuins!=true)return false;
             var run=combatController.Realtime;
@@ -93,10 +92,7 @@ namespace BaseConquest.Base
                 });
                 return true;
             }
-            if(Hud.PanelOpen||run==null||ruinsRetreatGuideId==run.Session.Opening.Id||!BaseDemoRuins.SoloRetreatGuide(run))return false;
-            ruinsRetreatGuideId=run.Session.Opening.Id;
-            combatController.PauseForDialogue();
-            return combatController.WithdrawSceneEncounter();
+            return false;
         }
         public void BeginAzhuDuel()
         {

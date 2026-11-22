@@ -172,13 +172,6 @@ namespace BaseConquest.Base
             if(!session.Battle.Start(out string problem))throw new InvalidOperationException(problem);return session;
         }
         public static IEnumerable<BattleSoldier> Civilians(BaseCampaignSession session)=>session.Opening.Enemies.Select((enemy,index)=>new {enemy,index}).Where(x=>x.enemy.IsControlled).Select(x=>session.UnitForEnemy(x.index));
-        public static bool SoloRetreatGuide(RealtimeCampaignBattle run)
-        {
-            if(run==null||!Encounter(run.Session)||!run.Session.Opening.RuinsFirstClear||run.Battle.Phase!=BattlePhase.Fighting||ControllerDefeated(run))return false;
-            var allies=run.Battle.Soldiers.Where(u=>u.Side==BattleSide.A).ToArray();
-            var player=run.Model.Player;
-            return allies.Length==1&&allies[0].Kind==SoldierKind.Hero&&player!=null&&player.Alive&&player.Health<=player.MaxHealth*.5;
-        }
         public static bool ControllerDefeated(RealtimeCampaignBattle run)
         {var unit=run.Battle.Commander(BattleSide.B,0);return unit!=null&&!unit.Escaped&&(unit.KnockedDown||unit.InstantDead||unit.Health<=0);}
         public static void Configure(RealtimeCampaignBattle run)
@@ -188,10 +181,22 @@ namespace BaseConquest.Base
             run.Battle.RuinsCivilianIds=new HashSet<int>(Civilians(run.Session).Select(v=>v.Id));
             var controller=run.Battle.Commander(BattleSide.B,0);if(controller!=null && run.Session.Opening.RuinsFirstClear)controller.AppearanceId="galan";
             run.EnableRuinsExposure(run.Session.Opening.RuinsExposureFraction>0?run.Session.Opening.RuinsExposureFraction:.03);
-            run.ImmediateVictory=()=>ControllerDefeated(run)&&!BaseDemoCombat.Defeated(run)&&run.CheckRuinsExit();
-            run.OutcomeResolver=current=>ControllerDefeated(current)&&(!BaseDemoCombat.Defeated(current)||current.RuinsExitOpen)
-                ? current.CheckRuinsExit()?BattleOutcome.SideAWin:BattleOutcome.None
-                : BaseDemoCombat.Defeated(current)?BattleOutcome.SideBWin:current.Model.Elapsed>=90?BattleOutcome.RoundLimit:BattleOutcome.None;
+            if (run.Session.Opening.RuinsFirstClear)
+                run.DamageLimit = (_, target, damage) => target.Player && !ControllerDefeated(run)
+                    ? Math.Min(damage, Math.Max(0, target.Health - target.MaxHealth * .5))
+                    : damage;
+            run.ImmediateOutcome = () => ControllerDefeated(run) && (!BaseDemoCombat.Defeated(run) || run.RuinsExitOpen)
+                ? run.CheckRuinsExit() ? BattleOutcome.SideAWin : BattleOutcome.None
+                : run.CheckRuinsHalfHealthRetreat();
+            run.OutcomeResolver = current =>
+            {
+                var outcome = current.ImmediateOutcome();
+                if (outcome != BattleOutcome.None || current.RuinsExitOpen) return outcome;
+                if (BaseDemoCombat.Defeated(current)) return BattleOutcome.SideBWin;
+                return current.Model.Elapsed >= 90 ? BattleOutcome.RoundLimit : BattleOutcome.None;
+            };
+            if (run.Battle.Phase == BattlePhase.Fighting && ControllerDefeated(run) && !BaseDemoCombat.Defeated(run))
+                run.CheckRuinsExit();
         }
         public static bool Complete(BaseState state,RealtimeCampaignBattle run,bool allowMercyAchievement=true)
         {

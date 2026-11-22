@@ -42,8 +42,6 @@ namespace BaseConquest.Editor
         private static bool campSceneryOnly;
         private static BaseDayPreview civilianDayPreview;
         private static AudioSource civilianMusic;
-        private static BaseWorkerJourney civilianCrossing;
-        private static Transform civilianCrossingView;
         private static readonly List<string> Log = new List<string>();
 
         private static BaseSceneController C => Object.FindAnyObjectByType<BaseSceneController>();
@@ -74,6 +72,50 @@ namespace BaseConquest.Editor
         {
             stage = "route-boot";
             Run();
+        }
+
+        public static void RunTradeFlow()
+        {
+            stage = "trade-flow-boot";
+            Run();
+        }
+
+        private static void CheckTradeFlow()
+        {
+            controller = C;
+            if (controller?.State == null || controller.Busy || Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+            if (stage == "trade-flow-boot")
+            {
+                LoadRouteView("first-intel");
+                stage = "trade-flow-intel";
+                return;
+            }
+            if (!RouteViewReady(state => state.Campaign.Location == "town" && BaseRaidIntel.CanClaimFirst(state))) return;
+            VerifyFirstIntelReopened();
+            H.ClosePanel();
+            Approach("town_peddler");
+            H.OpenObject("town_peddler");
+            FinishDialogue();
+            Click(BaseConquest.Story.StoryText.Get("story.ui.trade.market_entry", "买卖东西"));
+            var beforeSale = controller.State;
+            Click("我想卖点东西");
+            var saleShop = RequirePanel("TownTrade");
+            int salePrice = BaseTown.TradePrice(beforeSale, "food", false);
+            Click(BaseTown.Name("food") + " · " + salePrice + "币");
+            if (!saleShop.Find("Details").GetComponentsInChildren<Text>().Any(t => t.text.Contains("行军路粮")))
+                throw new InvalidOperationException("结算名称下没有商品说明");
+            Click("确认卖出 · " + salePrice + "币");
+            if (controller.State.Inventory.Food != beforeSale.Inventory.Food - 1 ||
+                controller.State.Inventory.Coins != beforeSale.Inventory.Coins + salePrice)
+                throw new InvalidOperationException("出售货架未按报价成交");
+            CaptureViewports("ui-skin-merchant-sell");
+            Click("我想买点东西");
+            if (!RequirePanel("TownTrade").Find("OfferList").GetComponentsInChildren<Text>()
+                .Any(t => t.text.StartsWith("锻造石 · ")))
+                throw new InvalidOperationException("切回购买后没有恢复商品列表");
+            CaptureViewports("ui-skin-merchant-buy");
+            Debug.Log("[TradeFlow] PASS 免费情报、日历、商品详情和买卖切换");
+            Finish(0, "OK");
         }
 
         public static void RunMenuHelp()
@@ -166,17 +208,44 @@ namespace BaseConquest.Editor
                 }
                 H.ClosePanel();
                 Approach("barracks"); H.OpenObject("barracks");
-                var barracks=RequirePanel("FacilityPanel");
-                var controls=barracks.Find("Left/List").GetComponent<ScrollRect>().content;
-                Press(controls,"EditFormation");
-                var barracksRoster=barracks.Find("Right/List").GetComponent<ScrollRect>().content;
-                var pick=RosterUnits(barracksRoster).First(r=>r.GetComponent<Button>().interactable);
-                ClickHudButton(pick);
-                if (RequirePanel("FacilityPanel")!=barracks || !pick.gameObject.activeInHierarchy ||
-                    !pick.Find("Status").GetComponent<Text>().text.Contains("已编入"))
-                    throw new InvalidOperationException("兵营点名未就地保存编队偏好");
+                var barracks = RequirePanel("FacilityPanel");
+                var controls = barracks.Find("Left/List").GetComponent<ScrollRect>().content;
+                if (controls.Find("EditFormation") != null)
+                    throw new InvalidOperationException("兵营保留了旧点名入口");
+                Press(barracks, "PortraitColumn/CaptainSeat0");
+                int initial = controller.State.Muster.SlotTroops[0].Melee;
+                int changed = initial < 30 ? initial + 1 : initial - 1;
+                string step = initial < 30 ? "Plus" : "Minus";
+                string undo = initial < 30 ? "Minus" : "Plus";
+                var rosterNumbers = BasePersonnel.Soldiers(controller.State).Select(u => u.SoldierNumber).ToArray();
+                Press(controls, "Melee/Input/" + step);
+                if (controller.State.Muster.SlotTroops[0].Melee != initial ||
+                    controls.Find("Melee/Input").GetComponent<InputField>().text != changed.ToString())
+                    throw new InvalidOperationException("兵营数量调整应先留在草稿");
                 Capture("p53-barracks-960x540",960,540);
+
                 H.ClosePanel();
+                ChooseRosterDraft("继续编辑");
+                if (RequirePanel("FacilityPanel") != barracks || controller.State.Muster.SlotTroops[0].Melee != initial)
+                    throw new InvalidOperationException("继续编辑提前提交了预设");
+                H.ClosePanel();
+                ChooseRosterDraft("放弃修改");
+                if (H.PanelOpen || controller.State.Muster.SlotTroops[0].Melee != initial)
+                    throw new InvalidOperationException("放弃后没有保留原编队");
+                H.OpenObject("barracks");
+                barracks = RequirePanel("FacilityPanel");
+                controls = barracks.Find("Left/List").GetComponent<ScrollRect>().content;
+                Press(controls, "Melee/Input/" + step);
+                H.ClosePanel();
+                ChooseRosterDraft("保存方案");
+                if (H.PanelOpen || controller.State.Muster.SlotTroops[0].Melee != changed ||
+                    !BasePersonnel.Soldiers(controller.State).Select(u => u.SoldierNumber).SequenceEqual(rosterNumbers))
+                    throw new InvalidOperationException("保存兵营预设未更新位次人数，或改动了实际名册");
+                H.OpenObject("barracks");
+                controls = RequirePanel("FacilityPanel").Find("Left/List").GetComponent<ScrollRect>().content;
+                Press(controls, "Melee/Input/" + undo);
+                H.ClosePanel();
+                ChooseRosterDraft("保存方案");
                 Approach("home"); H.OpenHome();
                 var tent = RequirePanel("FacilityPanel");
                 var captains = RosterUnits(tent.Find("Right/List").GetComponent<ScrollRect>().content);
@@ -430,6 +499,7 @@ namespace BaseConquest.Editor
             if (!EditorApplication.isPlaying) { Note("等待进入 playmode"); return; }
             if (stage.StartsWith("footstep-",StringComparison.Ordinal)){TickFootstepRecording();return;}
             if (stage.StartsWith("civilian-", StringComparison.Ordinal)) { TickCivilianWork(); return; }
+            if (stage.StartsWith("trade-flow-", StringComparison.Ordinal)) { CheckTradeFlow(); return; }
             if (stage.StartsWith("ruins-exit-", StringComparison.Ordinal)) { TickRuinsExit(); return; }
             if(stage.StartsWith("road-",StringComparison.Ordinal)){TickRoadContacts();return;}
             if(stage.StartsWith("mage-roster-",StringComparison.Ordinal)){CheckMageRoster();return;}
@@ -1650,25 +1720,23 @@ namespace BaseConquest.Editor
         {
             H.ClosePanel();
             H.OpenFirstRaidIntel();
-            FinishDialogue();
-            Click("离开");
+            RequirePanel("TownTrade");
+            H.ClosePanel();
             Approach("town_peddler");
             H.OpenObject("town_peddler");
             FinishDialogue();
             string reopen = BaseConquest.Story.StoryText.Get("story.ui.intel.first_reopen", "免费首防消息");
             string intel = BaseConquest.Story.StoryText.Get("story.ui.trade.intel_entry", "小道消息");
             Click(intel);
-            Click("查看首防消息");
-            FinishDialogue();
-            Click("领取免费首防消息");
-            FinishDialogue();
+            Click("领取免费首防消息 · 0币");
+            RequirePanel("TownTrade");
             int day = controller.State.Demo.Flow.FreeFirstRaidDay;
             var raid = controller.State.Campaign.Events.Single(item => item.Id == BaseDemoDefense.EventId);
             if (day != raid.AvailableDay || !BaseRaidIntel.Known(controller.State, raid) ||
                 !BaseCalendar.Quarter(controller.State, BaseCalendar.QuarterNumber(day)).Single(item => item.Day == day).Raids.Contains(raid.Title))
                 throw new InvalidOperationException("补领后首防消息和日历日期不一致");
             Capture("ui-player-route-first-intel");
-            Click("知道了");
+            H.ClosePanel();
             H.OpenObject("town_peddler");
             FinishDialogue();
             Click(intel);
@@ -2275,10 +2343,11 @@ namespace BaseConquest.Editor
             CaptureViewports("ui-skin-ruins-combat", mobile: true);
             var player = battle.Realtime.Model.Player;
             player.Health = player.MaxHealth * .5;
-            var retreat = controller.GetType().GetMethod("TickRuinsRetreatGuide", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (!(bool)retreat.Invoke(controller, null) || !controller.State.Campaign.HasActiveBattle)
-                throw new InvalidOperationException("主角半血应先向出口移动");
-            AdvanceBattleToExit(battle);
+            battle.ResumeAfterDialogue(true);
+            battle.AdvanceRealtime(.02);
+            if (!battle.Realtime.RuinsHalfHealthRetreat || battle.Realtime.Battle.Report?.Outcome != BattleOutcome.Retreat ||
+                battle.Realtime.Model.Units.Any(unit => unit.Escaped))
+                throw new InvalidOperationException("主角半血应直接离开，不用走向出口");
             battle.ReturnCampaign();
             if (controller.State.Campaign.HasActiveBattle || !BaseSceneRules.Entrance(controller.State))
                 throw new InvalidOperationException("主角半血没有真实撤退并回到遗迹入口");
@@ -3316,11 +3385,8 @@ namespace BaseConquest.Editor
 
             var state = controller.State;
             var travel = (BaseWorkerTravel)Field(controller, "workerTravel");
-            if (travel.Active.Count(j => j.AppearanceId == "villager") > 2)
-                throw new InvalidOperationException("同一时刻出现了超过两名村民");
-            if (stage.StartsWith("civilian-rapid-", StringComparison.Ordinal) &&
-                travel.Active.Any(j => j.AppearanceId == "villager" && j != civilianCrossing))
-                throw new InvalidOperationException("连续确认的中间方案产生了额外村民旅程");
+            if (travel.Active.Any(j => j.AppearanceId == "villager"))
+                throw new InvalidOperationException("粮田补益生成了村民派工演员");
             switch (stage)
             {
                 case "civilian-boot":
@@ -3351,11 +3417,12 @@ namespace BaseConquest.Editor
                     civilianDayPreview = BaseEconomy.Preview(controller.State);
                     H.OpenObject("home");
                     var home = RequirePanel("FacilityPanel");
-                    if (!home.Find("Right/List").GetComponent<ScrollRect>().content.GetComponentsInChildren<Text>()
+                    var forecast = home.Find("Left/List").GetComponent<ScrollRect>().content;
+                    if (!forecast.GetComponentsInChildren<Text>()
                         .Any(t => t.text.Contains($"预计产粮 +{civilianDayPreview.FoodProduced} · 明日口粮 {civilianDayPreview.FoodRequired} · 扣粮后库存 {civilianDayPreview.NextFood}")) ||
                         civilianDayPreview.FoodProduced != (int)controller.State.Rules.FarmPerWorker ||
                         civilianDayPreview.NextFood <= 0 || controller.State.Workers.Count != 0)
-                        throw new InvalidOperationException("零兵、零资源时的营帐预估未显示村民半工与净粮");
+                        throw new InvalidOperationException($"零兵、零资源时的营帐预估与隐含产粮补益不符：产粮 {civilianDayPreview.FoodProduced}，应为 {(int)controller.State.Rules.FarmPerWorker}，结余 {civilianDayPreview.NextFood}、工人 {controller.State.Workers.Count}");
                     CaptureViewports("ui-civilian-before-rest");
                     Press(home.Find("Left/List").GetComponent<ScrollRect>().content, "Rest");
                     CivilianStage("civilian-rest");
@@ -3373,7 +3440,7 @@ namespace BaseConquest.Editor
                         .Any(t => t.text.Contains($"产粮{report.FoodProduced} - 口粮{report.FoodConsumed} = {report.FoodAfter}")))
                         throw new InvalidOperationException("日结报告没有显示对应产粮与口粮");
                     CaptureViewports("ui-civilian-after-rest");
-                    Log.Add("[PASS] 驻岗村民读档后直接到岗；零兵零库存时名册、营帐预估与实际日结一致");
+                    Log.Add("[PASS] 零兵零库存时村民补益隐含在产粮，名册、营帐预估与实际日结一致");
                     H.ClosePanel();
                     Approach("exit_east");
                     var departingCamera = controller.WorldCamera;
@@ -3406,54 +3473,30 @@ namespace BaseConquest.Editor
                     if (state.Campaign.Location != "base") return;
                     if (!CivilianTravelIdle()) throw new InvalidOperationException("切图返营后村民重复从营帐出工");
                     H.ClosePanel();
+                    if (!controller.Change(s =>
+                    {
+                        int capacity = s.Muster.Facilities.Single(f => f.FacilityId == "farm").Capacity;
+                        foreach (var source in s.Workers.Where(w => w.FacilityId != "farm" && BaseDevelopment.Effective(s, w))
+                            .Select(w => (w.Kind, w.FacilityId, w.Count)).ToArray())
+                        {
+                            int needed = capacity - BaseEconomy.WorkersAt(s, "farm");
+                            if (needed <= 0) break;
+                            BaseEconomy.MoveWorkers(s, source.Kind, source.FacilityId, "farm", Math.Min(needed, source.Count));
+                        }
+                        if (BaseEconomy.WorkersAt(s, "farm") != capacity)
+                            throw new InvalidOperationException("首防阶段的士兵不足以准备满员粮田");
+                    }, "准备满员粮田")) throw new InvalidOperationException(controller.Message);
                     VerifyCivilianRoster("farm", 0, "ui-civilian-farm-full");
-                    VerifyCivilianRoster("workshop", 2, "ui-civilian-workshop-roster");
-                    CivilianStage("civilian-split-posts");
-                    break;
-                case "civilian-split-posts":
-                    if (!CivilianTravelIdle()) return;
+                    VerifyCivilianRoster("workshop", 0, "ui-civilian-workshop-roster");
                     ChangeCivilianFarmPost("Minus", 1);
                     VerifyCivilianRoster("farm", 1, "ui-civilian-split-farm");
-                    VerifyCivilianRoster("workshop", 1, "ui-civilian-split-workshop");
-                    CivilianStage("civilian-split-walk");
-                    break;
-                case "civilian-split-walk":
-                    if (!TrackCivilianCrossing("farm", out bool reachedFarmLeg) || !reachedFarmLeg) return;
-                    CivilianStage("civilian-replace");
-                    break;
-                case "civilian-replace":
-                    if (!CivilianTravelIdle()) return;
-                    civilianCrossing = null;
                     ChangeCivilianFarmPost("Plus", 0);
                     VerifyCivilianRoster("farm", 0, "ui-civilian-farm-replaced");
-                    VerifyCivilianRoster("workshop", 2, null);
-                    CivilianStage("civilian-return");
+                    CivilianStage("civilian-settled");
                     break;
-                case "civilian-return":
-                    if (!TrackCivilianCrossing("workshop", out _)) return;
-                    ChangeCivilianFarmPost("Minus", 1);
-                    frameDeadline = Time.frameCount + 3;
-                    CivilianStage("civilian-rapid-restore");
-                    break;
-                case "civilian-rapid-restore":
-                    if (Time.frameCount < frameDeadline) return;
-                    ChangeCivilianFarmPost("Plus", 0);
-                    CivilianStage("civilian-rapid-crossing");
-                    break;
-                case "civilian-rapid-crossing":
-                    if (!TrackCivilianCrossing("workshop", out bool reachedWorkshopLeg) || !reachedWorkshopLeg) return;
-                    CaptureViewports("ui-civilian-via-tent");
-                    CivilianStage("civilian-rapid-arrival");
-                    break;
-                case "civilian-rapid-arrival":
+                case "civilian-settled":
                     if (!CivilianTravelIdle()) return;
-                    frameDeadline = Time.frameCount + 20;
-                    CivilianStage("civilian-rapid-settled");
-                    break;
-                case "civilian-rapid-settled":
-                    if (Time.frameCount < frameDeadline) return;
-                    if (!CivilianTravelIdle()) throw new InvalidOperationException("最终排岗不变仍追加了村民旅程");
-                    Log.Add("[PASS] 确认士兵调工后村民先补粮田，田坊之间经营帐保持同一演员；连续调工只采纳最终岗位");
+                    Log.Add("[PASS] 调岗退出确认、粮田补益、工坊无村民岗位和派工形象");
                     Finish(0, "OK");
                     break;
             }
@@ -3463,35 +3506,6 @@ namespace BaseConquest.Editor
         {
             var travel = (BaseWorkerTravel)Field(controller, "workerTravel");
             return travel.Active.Count == 0 && travel.Pending == 0;
-        }
-
-        private static (BaseWorkerJourney journey, Transform view)[] VisibleCivilianJourneys(string destination)
-        {
-            var travel = (BaseWorkerTravel)Field(controller, "workerTravel");
-            var actors = (Dictionary<BaseWorkerJourney, Transform>)Field(controller, "workerTravelViews");
-            var door = BaseStageWalk.Door(controller.State, destination);
-            return travel.Active.Where(journey => journey.AppearanceId == "villager" &&
-                    journey.Route.Last().Distance(door) < .08 && actors.ContainsKey(journey))
-                .Select(journey => (journey, view: actors[journey]))
-                .Where(actor => actor.view != null && actor.view.gameObject.activeInHierarchy &&
-                    actor.view.GetComponent<CompanionSpriteView>()?.AppearanceId == "villager").ToArray();
-        }
-
-        private static bool TrackCivilianCrossing(string destination, out bool reachedSecondLeg)
-        {
-            reachedSecondLeg = false;
-            var (journey, view) = VisibleCivilianJourneys(destination).SingleOrDefault();
-            if (journey == null) return false;
-            var tent = BaseStageWalk.Door(controller.State, "home");
-            int node = journey.Route.FindIndex(point => point.Distance(tent) < .08);
-            if (node < 0 || node == journey.Route.Count - 1)
-                throw new InvalidOperationException("粮田与工坊切换的单条旅程应经过营帐");
-            if (civilianCrossing != null && (civilianCrossing != journey || civilianCrossingView != view))
-                throw new InvalidOperationException("村民换岗经过营帐时重建了旅程或演员");
-            civilianCrossing = journey;
-            civilianCrossingView = view;
-            reachedSecondLeg = journey.Waypoint > node;
-            return true;
         }
 
         private static Transform OpenCivilianFacility(string facility)
@@ -3505,12 +3519,28 @@ namespace BaseConquest.Editor
         private static void VerifyCivilianRoster(string facility, int civilians, string screenshot)
         {
             var view = OpenCivilianFacility(facility);
-            RequireCivilianRoster(view, civilians);
+            RequireCivilianRoster(view);
+            var actions = view.Find("Left/List").GetComponent<ScrollRect>().content;
+            int soldiers = BaseEconomy.ProductionWorkersAt(controller.State, facility);
+            int supplement = BaseEconomy.CivilianWorkersAt(controller.State, facility);
+            string posts = actions.GetComponentsInChildren<Text>().Select(t => t.text)
+                .FirstOrDefault(t => t.StartsWith("岗位 ", StringComparison.Ordinal));
+            if (supplement != civilians || posts?.StartsWith($"岗位 {soldiers}/", StringComparison.Ordinal) != true)
+                throw new InvalidOperationException($"{facility} 的隐含补益 {supplement}（应为 {civilians}），在岗士兵 {soldiers}，显示 {posts}");
             if (screenshot != null) CaptureViewports(screenshot);
             H.ClosePanel();
         }
 
-        private static void RequireCivilianRoster(Transform view, int civilians)
+        private static void ChooseRosterDraft(string label)
+        {
+            var dialog = H.VisualRoot.GetComponentsInChildren<RectTransform>().Single(node =>
+                node.name == "RosterDraftConfirmation");
+            var button = dialog.GetComponentsInChildren<Button>().Single(candidate =>
+                candidate.GetComponentInChildren<Text>().text == label);
+            button.onClick.Invoke();
+        }
+
+        private static void RequireCivilianRoster(Transform view)
         {
             var list = view.Find("Right/List").GetComponent<ScrollRect>().content;
             if (list.GetComponentsInChildren<Text>().Any(t=>t.text.StartsWith("村民 ×",StringComparison.Ordinal)))
@@ -3525,13 +3555,17 @@ namespace BaseConquest.Editor
             var field=actions.Find("Melee/Input").GetComponent<InputField>();
             field.onEndEdit.Invoke((int.Parse(field.text)+(adjustment=="Plus"?1:-1)).ToString());
             farm = RequirePanel("FacilityPanel");
-            RequireCivilianRoster(farm, expected);
+            RequireCivilianRoster(farm);
             if (BaseEconomy.CivilianWorkersAt(controller.State, "farm") != old)
                 throw new InvalidOperationException("调工草案未确认就变更实际村民岗位");
-            Press(farm.Find("Left/List").GetComponent<ScrollRect>().content, "FacilityActionRow/Apply");
-            if (BaseEconomy.CivilianWorkersAt(controller.State, "farm") != expected ||
-                BaseEconomy.CivilianWorkersAt(controller.State, "workshop") != 2 - expected)
-                throw new InvalidOperationException("确认士兵调工后没有按粮田优先重排村民");
+            H.ClosePanel();
+            ChooseRosterDraft("继续编辑");
+            RequirePanel("FacilityPanel");
+            H.ClosePanel();
+            ChooseRosterDraft("保存方案");
+            if (H.PanelOpen || BaseEconomy.CivilianWorkersAt(controller.State, "farm") != expected ||
+                BaseEconomy.CivilianWorkersAt(controller.State, "workshop") != 0)
+                throw new InvalidOperationException("退出确认没有保存调岗或错误地为工坊计入村民");
             H.ClosePanel();
         }
 

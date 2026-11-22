@@ -749,6 +749,7 @@ namespace BaseConquest.Editor
             At(state,"exit_east");Need(BaseCampaign.Travel(state,"town"),"无法进入城镇");
             At(state,"demo_ruins_exit");Need(BaseCampaign.Travel(state,"outpost"),"无法进入遗迹入口");At(state,"demo_ruins_investigate");
             Need(state.Demo.RuinsDay==0,"首通夹具 RuinsDay 非 0");
+            VerifyRuinsHalfHealthRetreat(state.Copy());
             var session=BaseDemoRuins.Begin(state,"none");
             Need(session.Opening.RuinsFirstClear,"RuinsDay==0 未标记首通");
             var hero=session.Battle.Soldiers.Single(u=>u.Side==BattleSide.B&&u.Kind==SoldierKind.Hero);
@@ -757,11 +758,36 @@ namespace BaseConquest.Editor
             var exit=run.Battle.ExitCell(BattleSide.A);
             Need(run.Model.PlaceNearest(run.Model.Player,new BaseConquest.RealtimePrototype.PrototypePoint(exit.X+.25,exit.Z+.25))&&
                 (int)run.Model.Player.Position.X==exit.X&&(int)run.Model.Player.Position.Z==exit.Z,"未能布置守在出口的队长");
+            var civilians = BaseDemoRuins.Civilians(run.Session).ToArray();
+            var fallen = civilians[0];
+            var fallenActor = run.Model.Units.Single(unit => unit.Id == fallen.Id + 1);
+            fallenActor.Health = fallen.Health = 1;
+            fallenActor.KnockedDown = fallen.KnockedDown = fallen.DeathResolved = true;
             var enemy=run.Model.Units.Single(u=>u.Id==hero.Id+1);enemy.Health=1;enemy.KnockedDown=true;hero.Health=1;hero.KnockedDown=true;hero.DeathResolved=true;
             run.Model.SetPaused(false);run.Tick(.02);
             Need(run.AwaitingRescueDialogue && !BaseDemoRuins.Complete(state,run),"首胜在对白和离场前提交");
-            run.ContinueRuinsExit();run.Model.SetPaused(false);run.Tick(.1);
+            Need(civilians.Length == 2 && civilians.All(unit => unit.IsAlive && run.Battle.IsFreedRuinsCivilian(unit) &&
+                !run.Battle.CanInspectUnit(BattleSide.A, unit)), "解控后仍有村民倒地或处于战斗名册");
+            var starts = run.Model.Units.Where(unit => civilians.Any(c => c.Id + 1 == unit.Id))
+                .ToDictionary(unit => unit.Id, unit => unit.Position);
+            run.ContinueRuinsExit();run.Model.SetPaused(false);
+            for (int i = 0; i < 12; i++) run.Tick(.1);
             Need(run.Battle.Phase==BattlePhase.Fighting,"对白结束时在出口待命的队长触发了自动离场");
+            Need(run.Model.Units.Where(unit => starts.ContainsKey(unit.Id)).Any(unit => (unit.Position - starts[unit.Id]).Length > .1),
+                "获救村民没有向出口自行移动");
+            run.SaveCheckpoint(state);
+            state = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            BaseEconomy.Validate(state);
+            session = new BaseCampaignSession(state.Campaign.ActiveBattle);
+            run = new RealtimeCampaignBattle(session);
+            BaseDemoRuins.Configure(run);
+            run.Model.SetPaused(false);
+            for (int i = 0; i < 480 && run.Model.Units.Any(unit => starts.ContainsKey(unit.Id) && !unit.Escaped); i++)
+                run.Tick(.1);
+            Need(run.RuinsExitOpen && !run.AwaitingRescueDialogue && run.Battle.Phase == BattlePhase.Fighting &&
+                run.Model.Units.Where(unit => starts.ContainsKey(unit.Id)).All(unit => unit.Escaped &&
+                    (int)unit.Position.X == exit.X && (int)unit.Position.Z == exit.Z),
+                "读档后村民未自行走到出口，或村民先离场触发了结算");
             WalkOutOfRuins(run);
             Need(BaseDemoRuins.Complete(state,run),"遗迹首通结算失败");
             var prisoner=state.Aftermath.Prisoners.Single(p=>p.BattleId==session.Opening.Id&&p.Kind==SoldierKind.Hero);
@@ -809,6 +835,30 @@ namespace BaseConquest.Editor
             var recruited=state.Leaders.Single(l=>l.Id=="partner_recruit:"+prisoner.Id);
             Need(BasePartnerDialogue.Prefix(state,recruited)=="story.partner_galan","首通迦兰未使用专属对白");
             Debug.Log("[VerifyRuinsFirstClear] 首通标记、控制者外观、接纳前置、ControllerAccepted/Pledged 与专属对白 PASS");
+        }
+
+        private static void VerifyRuinsHalfHealthRetreat(BaseState state)
+        {
+            var run = new RealtimeCampaignBattle(BaseDemoRuins.Begin(state, "none"));
+            run.EnableBattlefieldExits();
+            BaseDemoRuins.Configure(run);
+            var player = run.Model.Player;
+            player.Health = player.MaxHealth * .5 + .01;
+            run.Model.SetPaused(false);
+            run.Tick(.02);
+            Need(run.Battle.Phase == BattlePhase.Fighting && !run.RuinsHalfHealthRetreat,
+                "遗迹在半血以上提前退场");
+            player.Health = player.MaxHealth * .5;
+            run.Tick(.02);
+            Need(run.RuinsHalfHealthRetreat && run.Battle.Report?.Outcome == BattleOutcome.Retreat &&
+                run.Model.Units.All(unit => !unit.Escaped), "遗迹半血未直接退场");
+            run.SaveCheckpoint(state);
+            var loaded = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            BaseEconomy.Validate(loaded);
+            var resumed = new RealtimeCampaignBattle(new BaseCampaignSession(loaded.Campaign.ActiveBattle));
+            Need(resumed.RuinsHalfHealthRetreat && BaseDemoCombat.Fail(loaded, resumed) &&
+                loaded.Demo.RuinsDay == 0 && !loaded.Campaign.HasActiveBattle, "半血撤退读档未保留真实结算");
+            Debug.Log("[VerifyRuinsHalfHealthRetreat] 半血直接退场、真实出口、检查点及结算 PASS");
         }
 
         private static void VerifyFullPartyGalan(BaseState state,string captive)

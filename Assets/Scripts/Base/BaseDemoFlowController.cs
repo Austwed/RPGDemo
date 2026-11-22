@@ -62,17 +62,8 @@ namespace BaseConquest.Base
     }
     public sealed partial class BaseHud
     {
-        public void OpenFirstRaidIntel()
-        {
-            string offer = StoryText.Get("story.ui.intel.first_offer", "东家，回营前听我一句。黑鸦寨有点动静，这条消息算我送你的。");
-            NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),offer)},new[]{
-                new NpcReply("领取免费首防消息",()=>{
-                    if(!owner.Change(next=>{if(!BaseRaidIntel.ClaimFirst(next))throw new InvalidOperationException("首防消息不可用");},"已记录首防日期"))return;
-                    string text=StoryText.Get("story.ui.intel.first_claimed","黑鸦寨第{day}天就到。这几天赶紧备些粮和军需。")
-                        .Replace("{day}",owner.State.Demo.Flow.FreeFirstRaidDay.ToString());
-                    NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait("merchant"),text)},new[]{new NpcReply("知道了",ClosePanel)});
-                }),new NpcReply("离开",ClosePanel)});
-        }
+        public void OpenFirstRaidIntel() => StartTrade(TradeVendor.Merchant, TradeShelf.Intel, freeFirst: true);
+
         private void PrepareIntelTrade()
         {
             var s=owner.State;
@@ -89,11 +80,12 @@ namespace BaseConquest.Base
             var s=owner.State;
             bool configured=s.Demo.Rpg?.IntelPricingConfigured==true;
             bool free = BaseRaidIntel.CanClaimFirst(s);
-            bool showFree = free && (tradeSelection == "first-raid" || tradeSelection == "");
+            bool claimed = s.Demo.Flow.FreeFirstRaidDay > 0;
+            bool showFree = free && tradeSelection == "" || (free || claimed) && tradeSelection == "first-raid";
             int selected=tradeSelection=="10"?10:5;
             tradeSelection=showFree ? "first-raid" : selected.ToString();
-            if (free) TradeOffer(offers, "first-raid", StoryText.Get("story.ui.intel.first_reopen", "免费首防消息"));
-            foreach(int days in new[]{5,10})
+            if (free || showFree) TradeOffer(offers, "first-raid", StoryText.Get("story.ui.intel.first_reopen", "免费首防消息"));
+            foreach(int days in tradeFirstOfferOnly ? Array.Empty<int>() : new[]{5,10})
             {
                 var existing=BaseRaidIntel.Get(s,days);
                 int price=RaidIntelPrice(s,days);
@@ -102,7 +94,17 @@ namespace BaseConquest.Base
 
             if (showFree)
             {
-                TradeButton(details, "查看首防消息", OpenFirstRaidIntel);
+                if (claimed)
+                {
+                    TradeLine(details, StoryText.Get("story.ui.intel.first_claimed","黑鸦寨第{day}天就到。这几天赶紧备些粮和军需。")
+                        .Replace("{day}", s.Demo.Flow.FreeFirstRaidDay.ToString()));
+                }
+                else
+                {
+                    TradeLine(details, StoryText.Get("story.ui.intel.first_offer","东家，回营前听我一句。黑鸦寨有点动静，这条消息算我送你的。"));
+                    TradeButton(details, "领取免费首防消息 · 0币", () =>
+                        TradeCommit(BaseRaidIntel.ClaimFirst, "已记录首防日期"));
+                }
                 return;
             }
 

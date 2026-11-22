@@ -89,14 +89,12 @@ namespace BaseConquest.Base
         public static int CivilianWorkersAt(BaseState s,string facility) => CivilianWorkersAt(s,facility,BaseSettlements.AtVillage(s));
         private static int CivilianWorkersAt(BaseState s,string facility,bool village)
         {
-            if (!BaseDemo.Active(s) || (facility != "farm" && facility != "workshop") ||
+            if (!BaseDemo.Active(s) || facility != "farm" ||
                 village && !BaseDemoFinale.HomeVolunteers(s) || !BaseSettlements.Available(s,"farm",village)) return 0;
-            int farming = Math.Min(2, Vacancies("farm"));
-            if (facility == "farm") return farming;
-            return BaseSettlements.Available(s,"workshop",village) ? Math.Min(2 - farming,Vacancies("workshop")) : 0;
-            int Vacancies(string id) => Math.Max(0,(s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == id)?.Capacity ?? 0) - WorkersAt(s,id,village));
+            var farm = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == "farm");
+            return Math.Min(2, Math.Max(0, (farm?.Capacity ?? 0) - WorkersAt(s, "farm", village)));
         }
-        public static int ProductionWorkersAt(BaseState s,string facility) => EligibleWorkers(s,facility) + CivilianWorkersAt(s,facility);
+        public static int ProductionWorkersAt(BaseState s,string facility) => EligibleWorkers(s,facility);
         public static BaseLeader Manager(BaseState s,string facility) => s.Leaders.FirstOrDefault(l =>
             l.VillageResident == BaseSettlements.AtVillage(s) && BaseDevelopment.Effective(s,l) && l.FacilityId == facility);
         public static bool ProductionPaused(BaseState s, string facility) => s.Muster.Facilities.Any(f=>f.FacilityId==facility&&f.DeveloperProductionPaused);

@@ -138,7 +138,7 @@ namespace BaseConquest.Battle
                 if(Battle.Phase!=BattlePhase.Fighting)break;
                 packet.Settled=true;var target=Model.Units.First(u=>u.Id==packet.TargetId);
                 packet.HealthAfter=(float)target.Health;
-                if(VictoryExitOpen || !target.Alive || target.Side==PrototypeSide.Ally && DefensePursuitReady)continue;
+                if(VictoryExitOpen || RuinsExitOpen || !target.Alive || target.Side==PrototypeSide.Ally && DefensePursuitReady)continue;
                 if(!packet.Hit){Battle.RecordRpgMiss(packet.SourceId-1,packet.TargetId-1,packet.Selected);continue;}
                 var source=Model.Units.First(u=>u.Id==packet.SourceId);var defender=Battle.Soldier(target.Id-1);
                 Battle.Soldier(source.Id-1).LastAttackCritical=packet.Critical;
@@ -161,7 +161,7 @@ namespace BaseConquest.Battle
                     if(splash)ApplyMageSplash(packet,source,target,primaryDamage/8);
                 }
                 finally {if(splash)damageBatch--;}
-                if(splash)ResolveImmediateVictory();
+                if(splash)ResolveImmediateOutcome();
             }
         }
         private void ApplyMageSplash(RpgAttackPacket packet,PrototypeUnit source,PrototypeUnit target,double damagePerCell)

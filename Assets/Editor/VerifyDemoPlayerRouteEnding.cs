@@ -46,7 +46,7 @@ namespace BaseConquest.Editor
             Need(BaseMuster.Confirm(staged,travel.TravelPlan(staged)), "旧版出征队生成失败");
             BaseWorldJourney.EnterWorld(staged,"camp_entry");
             SaveRouteCheckpoint(staged, "world");
-            BaseWorldJourney.Depart(state,"camp_entry",itinerary.Path,travel,false);
+            BaseWorldJourney.Depart(state,"camp_entry",itinerary.Path,travel);
             Need(!BaseWorldJourney.RequiredBattles(state).Any(), "平日行军试图读取已结束战斗的资源");
             int departureDay = state.Day;
             Need(BaseWorldJourney.Step(state, _ => null) && state.Day == departureDay + 1, "攻营行军没有正确推进一天");
@@ -54,20 +54,26 @@ namespace BaseConquest.Editor
             if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"bandit");
             var returning=state.Copy();
             At(returning,"demo_camp_world");
-            var sameParty=returning.Muster.Parties.Single(p=>p.Purpose=="expedition");
-            var regroup=new BaseBattlePreparation(returning,BasePrepRoute.Travel);
-            Need(regroup.TravelingParty, "在寨外再次出发误用了营地人员");
-            var member=regroup.Units.FirstOrDefault(u=>u.Kind!=SoldierKind.Hero);
-            var other=regroup.Units.FirstOrDefault(u=>u.Kind==SoldierKind.Hero&&u.Id!=member?.TeamId);
-            if(member!=null&&other!=null)member.TeamId=other.Id;
+            var stopped=returning.Workers.Where(w => !w.Away && w.StationId == "bandit").SelectMany(w => w.SoldierNumbers).ToHashSet();
+            Need(stopped.Count>0 && !returning.Muster.Parties.Any(p=>p.Purpose=="expedition"),
+                "未占领黑鸦寨时抵达寨外仍应形成驻军");
+            Need(BasePersonnel.Soldiers(returning).Where(unit => stopped.Contains(unit.SoldierNumber))
+                .All(unit => !unit.Away && !unit.Remote && BasePersonnel.CompactPost(unit) == "黑鸦寨·寨外"),
+                "寨外驻军显示为外出、异地或可生产");
+            var regroup=new BaseBattlePreparation(returning,BasePrepRoute.Travel,draftTravelTroops:false);
+            var member=regroup.Units.First(u=>u.Kind!=SoldierKind.Hero);
+            Need(regroup.ToggleSoldier(regroup.PlayerId,member), "寨外返营不能选一名实际驻军");
             var back=BaseWorldJourney.Plan(returning,null,"camp","bandit_entry");
-            BaseWorldJourney.Depart(returning,"bandit_entry",back.Path,regroup,false);
-            Need(returning.Muster.Parties.Single().Id==sameParty.Id && (member==null||other==null||
-                sameParty.CommanderTroops.Single(row=>row.LeaderId==other.Id).SoldierNumbers.Contains(member.SoldierNumber)),
-                "从寨外调整编制替换了出征队或丢失士兵编号");
+            int food=returning.Inventory.Food;
+            BaseWorldJourney.Depart(returning,"bandit_entry",back.Path,regroup);
+            Need(returning.Inventory.Food==food-returning.Rules.SoldierFood, "寨外返营未按显式选中的一名士兵扣路粮");
             Need(BaseWorldJourney.Step(returning,_=>null),"返营路线未结算");
             BaseWorldJourney.EnterScene(returning,"camp_entry");
-            Need(returning.Campaign.Location=="base"&&returning.Muster.Parties.Count==0&&returning.Day==state.Day+1,"已出征的部队未正常返营");
+            Need(returning.Campaign.Location=="base"&&returning.Muster.Parties.Count==0&&returning.Day==state.Day+1,
+                "已调动的士兵未正常返营");
+            var afterMove=returning.Workers.SelectMany(w=>w.SoldierNumbers.Select(n=>(n,w))).ToDictionary(entry=>entry.n,entry=>entry.w);
+            Need(afterMove[member.SoldierNumber].StationId=="camp" && stopped.Where(n=>n!=member.SoldierNumber).All(n=>
+                afterMove[n].StationId=="bandit"&&!afterMove[n].Away), "未选黑鸦寨驻军被带回灰岩营地");
             At(state, "demo_camp_attack");
             Note($"第 {departureDay} 天从南侧出口查看世界地图，选黑鸦寨、整备后出发，第 {state.Day} 天抵达。行军前返乡路受敌寨阻断。");
 
@@ -79,19 +85,32 @@ namespace BaseConquest.Editor
             Need(!BaseDemoFinale.OccupiedBySecondDefense(state) && !BaseDemoFinale.SecondRaidReportPending(state) &&
                 !BaseSpatial.Objects(state).Any(obj => obj.Id == BaseDemoFinale.CampSuppliesMarker), "主动攻寨被识别为第二波自动接管");
             int day = state.Day;
+            var blackCrowGuard = state.Workers.Where(w => w.StationId == "bandit")
+                .SelectMany(w => w.SoldierNumbers).ToHashSet();
+            Need(blackCrowGuard.Count > 0 && !state.Muster.Parties.Any(p => p.Purpose == "expedition"), "攻寨后存活士兵未驻扎黑鸦寨");
+            Need(BasePersonnel.Soldiers(state).Where(unit => blackCrowGuard.Contains(unit.SoldierNumber))
+                .All(unit => !unit.Away && !unit.Remote && BasePersonnel.CompactPost(unit) == "黑鸦寨"),
+                "攻占后同一驻地没有更新为黑鸦寨");
             foreach(var gate in new[]{("demo_camp_world","bandit_entry"),("demo_camp_east","bandit_east_entry")})
             {
                 var leaving=state.Copy();
-                At(leaving,gate.Item1);BaseWorldJourney.EnterWorld(leaving,gate.Item2);
+                At(leaving,gate.Item1);
+                var walk=new BaseBattlePreparation(leaving,BasePrepRoute.Travel,draftTravelTroops:false);
+                Need(BaseMuster.Confirm(leaving,walk.TravelPlan(leaving)), "角色出门未建立行程");
+                BaseWorldJourney.EnterWorld(leaving,gate.Item2);
                 Need(BaseWorldJourney.OnWorld(leaving)&&leaving.Day==day,"寨门未返回世界地图："+gate.Item1);
             }
-            At(state,"demo_camp_east");BaseWorldJourney.EnterWorld(state,"bandit_east_entry");
-            BaseWorldJourney.Start(state,new[]{"bandit","home"});Need(BaseWorldJourney.Step(state,_=>null),"攻寨后未能向白桦村行军");
+            At(state,"demo_camp_east");
+            var homeDraft=new BaseBattlePreparation(state,BasePrepRoute.Travel,draftTravelTroops:false);
+            BaseWorldJourney.Depart(state,"bandit_east_entry",new[]{"bandit","home"},homeDraft);
+            Need(BaseWorldJourney.Step(state,_=>null),"攻寨后未能向白桦村行军");
             var beforeHome = state.Copy();
             var homeExpedition = beforeHome.Muster.Parties.Single(p => p.Purpose == "expedition" &&
                 p.Leaders.Any(leader => leader.LeaderId == beforeHome.PlayerLeaderId));
             BaseWorldJourney.EnterScene(state,"home_entry");
             VerifySettlementTravel.VerifyArrival(state, homeExpedition, beforeHome);
+            Need(state.Workers.Where(w => w.SoldierNumbers.Any(blackCrowGuard.Contains)).All(w => !w.Away &&
+                w.StationId == "bandit"), "角色返乡移动了黑鸦寨驻军");
             Need(state.Day==day+1 && state.Campaign.CurrentMapId==BaseDemoFinale.Home && state.PlayerX<BaseSpatial.Objects(state).Single(o=>o.Id=="demo_home_world").X,"返乡日数或东口入村朝向错误");
             var bridge=state.Copy();At(bridge,"village_gate_out");
             Need(BaseCampaign.Travel(bridge,"custom","village_gate_out")&&bridge.Campaign.CurrentMapId==BaseDemoFinale.HomeField,"村西未通往独立西桥头");
@@ -122,7 +141,7 @@ namespace BaseConquest.Editor
             var formation=PrepareRouteRoster(state,BasePrepRoute.Travel);
             var outbound=BaseWorldJourney.Plan(state,null,"bandit","camp_entry");
             Need(outbound.Reachable && outbound.Days==1 && state.Day==6,"第六日不能直接备战出征");
-            BaseWorldJourney.Depart(state,"camp_entry",outbound.Path,formation,false);
+            BaseWorldJourney.Depart(state,"camp_entry",outbound.Path,formation);
             Need(BaseWorldJourney.Step(state,_=>null) && state.Day==7 && !BaseDemoDefense.MerchantReminderDue(state),
                 "行军途中第七日被商人打断");
             BaseWorldJourney.EnterScene(state,"bandit_entry");
@@ -132,10 +151,10 @@ namespace BaseConquest.Editor
             ResolveLoot(state);
             Need(state.Demo.Stage==BaseDemoStage.AttackWon && !state.Demo.Defense.MerchantDone,"直攻战果错误");
             At(state,"demo_camp_world");
-            BaseWorldJourney.EnterWorld(state,"bandit_entry");
             var home=BaseWorldJourney.Plan(state,null,"camp","bandit_entry");
             Need(home.Reachable && home.Days==1,"攻寨后不能直接返营");
-            BaseWorldJourney.Start(state,home.Path);
+            var returning = new BaseBattlePreparation(state, BasePrepRoute.Travel, draftTravelTroops:false);
+            BaseWorldJourney.Depart(state, "bandit_entry", home.Path, returning);
             Need(BaseWorldJourney.Step(state,_=>null),"直攻后返营未完成");
             BaseWorldJourney.EnterScene(state,"camp_entry");
             Need(state.Campaign.Location=="base" && !state.Demo.Defense.MerchantDone &&
@@ -231,7 +250,7 @@ namespace BaseConquest.Editor
             int day = state.Day;
             try
             {
-                BaseWorldJourney.Depart(state,"camp_entry",route.Path,draft,false);
+                BaseWorldJourney.Depart(state,"camp_entry",route.Path,draft);
                 throw new Exception("已经到场的第二波被行军跳过");
             }
             catch (InvalidOperationException error) when (error.Message.Contains("需先处理本日入侵")) { }
@@ -326,7 +345,10 @@ namespace BaseConquest.Editor
             var restored = saves.Load();
             Need(restored.Demo.Finale.CampSuppliesTaken && !BaseDemoFinale.ClaimCampSupplies(restored),
                 "读档后重复领到了黑鸦寨物资");
-            At(restored,"demo_camp_east");BaseWorldJourney.EnterWorld(restored,"bandit_east_entry");
+            At(restored,"demo_camp_east");
+            var leavingCamp=new BaseBattlePreparation(restored,BasePrepRoute.Travel,draftTravelTroops:false);
+            Need(BaseMuster.Confirm(restored,leavingCamp.TravelPlan(restored)), "搜查物资后无法创建角色行程");
+            BaseWorldJourney.EnterWorld(restored,"bandit_east_entry");
             Need(BaseWorldJourney.OnWorld(restored)&&BaseWorldJourney.Plan(restored,null,"home").Days==1,"搜查后不能从寨东口走一天返乡");
             Note("第二波胜利自动占领黑鸦寨，验证直接行军返乡、进寨领取物资、读档防重领及寨内出口。");
         }

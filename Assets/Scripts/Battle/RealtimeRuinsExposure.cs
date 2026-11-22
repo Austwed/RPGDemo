@@ -11,6 +11,16 @@ namespace BaseConquest.Battle
     {
         public bool RuinsExitOpen { get; private set; }
         public bool AwaitingRescueDialogue { get; private set; }
+        public bool RuinsHalfHealthRetreat { get; private set; }
+
+        internal BattleOutcome CheckRuinsHalfHealthRetreat()
+        {
+            var player = Model.Player;
+            if (!Session.Opening.RuinsFirstClear || RuinsExitOpen || player?.Alive != true ||
+                player.Health > player.MaxHealth * .5) return BattleOutcome.None;
+            RuinsHalfHealthRetreat = true;
+            return BattleOutcome.Retreat;
+        }
         private readonly HashSet<int> waitingOnRuinsExit=new HashSet<int>();
         public void ContinueRuinsExit() => AwaitingRescueDialogue = false;
         public bool EscortWithoutCaptain => RuinsExitOpen &&
@@ -52,11 +62,21 @@ namespace BaseConquest.Battle
                 Model.CanTarget = (_, _) => false;
                 Model.OnlyExitMovement = true;
                 var canMove = Model.CanMove;
-                Model.CanMove = actor => actor.Side == PrototypeSide.Ally && (canMove?.Invoke(actor) ?? true);
+                Model.CanMove = actor => (actor.Side == PrototypeSide.Ally || Battle.IsFreedRuinsCivilian(Battle.Soldier(actor.Id - 1)))
+                    && (canMove?.Invoke(actor) ?? true);
                 Model.AfterStep = null;
                 DamageLimit = (_, _, _) => 0;
-                foreach(var actor in Model.Units.Where(u=>u.Side==PrototypeSide.Ally&&OccupiesRuinsExit(u,exit)))
-                    waitingOnRuinsExit.Add(actor.Id);
+                Model.Arrows.Clear();
+                foreach (var packet in rpgAttacks.Where(attack => !attack.Settled)) packet.Settled = true;
+                foreach (var actor in Model.Units)
+                {
+                    Model.CancelWindup(actor);
+                    actor.ObjectOrder = false;
+                    actor.ObjectTargetId = "";
+                    actor.TargetId = actor.AttackSlot = actor.MoveGoal = -1;
+                    if (actor.Side == PrototypeSide.Ally && OccupiesRuinsExit(actor, exit)) waitingOnRuinsExit.Add(actor.Id);
+                }
+                if (Session.Opening.RuinsFirstClear) ReleaseRuinsCivilians(exit);
                 if (AwaitingRescueDialogue) Model.SetPaused(true);
             }
             var movable = Model.Units.Where(unit => unit.Side == PrototypeSide.Ally && unit.Alive &&
@@ -77,6 +97,29 @@ namespace BaseConquest.Battle
                 if(!waitingOnRuinsExit.Contains(actor.Id) && (actor.Role==PrototypeRole.Leader || escort&&actor.Order==PrototypeOrder.Retreat))return true;
             }
             return false;
+        }
+
+        private void ReleaseRuinsCivilians(GridPosition exit)
+        {
+            foreach (var civilian in BaseDemoRuins.Civilians(Session))
+            {
+                var actor = Model.Units.Single(unit => unit.Id == civilian.Id + 1);
+                civilian.Rescued = true;
+                if (actor.Escaped) continue;
+                // An ally may now occupy the cell where this civilian was knocked down.
+                if (!actor.Alive)
+                {
+                    if (!Model.PlaceNearest(actor, actor.Position)) continue;
+                    actor.Health = civilian.Health = Math.Max(1, civilian.Health);
+                    actor.KnockedDown = civilian.KnockedDown = civilian.InstantDead = false;
+                    civilian.DeathResolved = false;
+                }
+                actor.ManualOrder = actor.Steering = actor.SteeringStopped = false;
+                actor.FlashUntil = Model.Elapsed;
+                actor.NextThinkAt = 0;
+                actor.Order = PrototypeOrder.Retreat;
+                actor.Anchor = actor.Goal = new PrototypePoint(exit.X + .5, exit.Z + .5);
+            }
         }
 
         public double RuinsExposureFraction {get;private set;}

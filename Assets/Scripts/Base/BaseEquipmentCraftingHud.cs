@@ -20,7 +20,8 @@ namespace BaseConquest.Base
             int remaining=s.PersonalEquipment.StonesRemaining, revision=s.Backpack.Revision, day=s.Day;
             TradeStockDetails(details,"锻造石",price,remaining,BaseEquipmentCrafting.StockLimit(s),BaseEquipmentCrafting.PreviewMaxBuy(s),
                 "买入",(next,count)=>next.Day==day&&BaseEquipmentCrafting.BuyPrice(next)==price&&BaseEquipmentCrafting.Buy(next,count,revision),
-                "已购买锻造石",PurchaseProblem(remaining,price,BagFullException.Notice));
+                "已购买锻造石",PurchaseProblem(remaining,price,BagFullException.Notice),
+                BaseEquipmentCrafting.DescribeStone(s.Backpack.Catalog.Single(d => d.Id == BaseEquipmentCrafting.Stone).Description));
         }
 
         private void RenderReforgeTrade(RectTransform offers,RectTransform details,BaseLeader person)

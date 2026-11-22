@@ -50,6 +50,10 @@ namespace BaseConquest.Base
             int price=BasePersonalEquipment.BuyPrice(s,id),remaining=s.PersonalEquipment.Offers.Single(o=>o.Template==id).Remaining;
             bool full=recipient!=null&&BasePartyInventory.FreeCell(s,holder)<0;
             TradeLine(details,selected.Name+" · 单价 "+price+"币");
+            var sample=new BasePersonalItem {Template=id,Quality=2};
+            TradeDescription(details,BaseRpg.Active(s)?BaseRpg.GearDescription(s,sample,includeName:false):
+                "攻击 "+selected.Damage.ToString("0")+" · 防御 "+selected.Defense.ToString("0")+" · 生命 "+selected.Health.ToString("0")
+                +(selected.Slot=="weapon"?" · 攻击距离 "+BasePersonalEquipment.RealtimeRange(sample)+"细格":""));
             TradeLine(details,"今日剩余 "+remaining+"/1");
             if(recipient!=null)TradeLine(details,StoryText.Get("story.ui.trade.recipient","收货人：{name}").Replace("{name}",recipient.Name));
             if(remaining==0)TradeLine(details,"今日售罄");
@@ -57,10 +61,6 @@ namespace BaseConquest.Base
             else if(s.Inventory.Coins<price)TradeLine(details,"钱币不足");
             TradeButton(details,"确认买入 · "+price+"币",()=>{if(full){ShowBagFull();return;}TradeCommit(next=>BasePersonalEquipment.Buy(next,id,holder,price),"已购入 "+selected.Name);},
                 BasePersonalEquipment.CanBuy(s,id,holder)||full&&remaining>0&&s.Inventory.Coins>=price);
-            var sample=new BasePersonalItem {Template=id,Quality=2};
-            if(BaseRpg.Active(s))TradeLine(details,BaseRpg.GearDescription(s,sample,includeName:false));
-            else TradeLine(details,"攻击 "+selected.Damage.ToString("0")+" · 防御 "+selected.Defense.ToString("0")+" · 生命 "+selected.Health.ToString("0")
-                +(selected.Slot=="weapon"?" · 攻击距离 "+BasePersonalEquipment.RealtimeRange(sample)+"细格":""));
         }
 
     }

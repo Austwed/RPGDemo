@@ -314,8 +314,10 @@ namespace BaseConquest.Battle
             var kinds = new[] { SoldierKind.Hero, SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry, SoldierKind.Mage };
             var ally = kinds.Select(kind => battle.Vision.Status(BattleSide.A, BattleSide.A, kind).InField).ToArray();
             var enemy = kinds.Select(kind => battle.Vision.Status(BattleSide.A, BattleSide.B, kind)).ToArray();
+            var freed = battle.Soldiers.Count(unit => unit.IsActive && battle.IsFreedRuinsCivilian(unit)
+                && battle.Vision.CanSee(BattleSide.A, unit));
             string hostile = enemy.Any(s => s.Exact || s.SeenTotal > 0)
-                ? $"可见队长 {enemy[0].InField} · 剑 {enemy[1].InField} · 弓 {enemy[2].InField} · 骑 {enemy[3].InField} · 法 {enemy[4].InField}" : "暂无已知情报";
+                ? $"可见队长 {enemy[0].InField} · 剑 {System.Math.Max(0, enemy[1].InField - freed)} · 弓 {enemy[2].InField} · 骑 {enemy[3].InField} · 法 {enemy[4].InField}" : "暂无已知情报";
             var supply = owner.Realtime?.Session.Opening.SupplySnapshot?.Equipment.FirstOrDefault(e => e.Product == "supply" && e.Count > 0);
             string supplyText = supply == null ? "配给 0 件" : $"{supply.Level} 级 · 配给 {supply.Count} 件";
             return ($"我方在场  队长 {ally[0]} · 剑 {ally[1]} · 弓 {ally[2]} · 骑 {ally[3]} · 法 {ally[4]}", "敌方  " + hostile, "军需  " + supplyText);

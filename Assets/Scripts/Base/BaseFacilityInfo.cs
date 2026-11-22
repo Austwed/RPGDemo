@@ -50,7 +50,7 @@ namespace BaseConquest.Base
                 "／弓兵" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Ranged) + "／骑兵" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Cavalry) + "／法师" + BaseEconomy.WorkersAt(state, id, BaseTroopKind.Mage) + "）";
             info.Production = id == "farm" ? "今日预计产粮 " + preview.FoodProduced + "；累计进度 " + state.FarmFraction.ToString("P0")
                 : "今日预计" + preview.ProductLevel + "级" + BaseEconomy.ProductName(preview.Product) + " " + preview.ProductsMade + "件；消耗原料 " + preview.MaterialsSpent;
-            info.Status = BaseEconomy.ProductionPaused(state,id) ? "开发者已暂停产出" : producing == 0 ? "无人可生产" : id == "workshop" && preview.ProductsMade < preview.WorkCapacity ? "原料不足" : "正常生产";
+            info.Status = BaseEconomy.ProductionPaused(state,id) ? "开发者已暂停产出" : producing == 0 ? "暂无士兵在岗" : id == "workshop" && preview.ProductsMade < preview.WorkCapacity ? "原料不足" : "正常生产";
             info.Status += " · 今日生产人数 " + producing + "/" + state.Muster.Facilities.Single(f => f.FacilityId == id).Capacity + " · 士兵产能系数 " + (preview.ProductionFactor * 100).ToString("0") + "%";
             return info;
         }

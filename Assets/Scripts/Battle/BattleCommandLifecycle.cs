@@ -40,7 +40,7 @@ namespace BaseConquest.Battle
         public string CommanderRole(BattleSoldier s) => s == null ? "指挥者" : s.OriginCommanderSlot == CaptainSlot(s.Side) ? "队长" : "副队长";
         public bool PlayerCanSee(BattleSide side, BattleSoldier s) => s != null && (Vision.CanSee(side, s) || ModernRules && Scenario.ShowEnemiesThroughFog);
         public bool CanInspectCell(BattleSide side, GridPosition cell) => Vision.Visible(side, cell);
-        public bool CanInspectUnit(BattleSide side, BattleSoldier unit) => Vision.CanSee(side, unit);
+        public bool CanInspectUnit(BattleSide side, BattleSoldier unit) => !IsFreedRuinsCivilian(unit) && Vision.CanSee(side, unit);
         public void SetFog(bool enabled, bool reveal)
         {
             Scenario.FogEnabled = enabled; Scenario.ShowEnemiesThroughFog = reveal; Vision.Refresh();

@@ -15,12 +15,12 @@ namespace BaseConquest.RealtimePrototype
         public List<PrototypeUnit> Units=new List<PrototypeUnit>();
         public List<PrototypeArrow> Arrows=new List<PrototypeArrow>();
         public List<RpgAttackPacket> RpgAttacks=new List<RpgAttackPacket>();
-        public bool BattlefieldVictoryPending, RuinsRescueDialogueComplete;
+        public bool BattlefieldVictoryPending, RuinsRescueDialogueComplete, RuinsHalfHealthRetreat;
         public int RpgAttackSerial;
         public List<RealtimeCommanderSkill> Skills=new List<RealtimeCommanderSkill>();
         public RealtimeBattleState Copy()=>new RealtimeBattleState {Version=Version,NextUnit=NextUnit,NextArrow=NextArrow,Step=Step,Hits=Hits,Shots=Shots,
             CompletedSteps=CompletedSteps,YieldMoves=YieldMoves,HitSerial=HitSerial,ShoveMoves=ShoveMoves,Seconds=Seconds,Remainder=Remainder,RuinsCivilianDamaged=RuinsCivilianDamaged,
-            BattlefieldVictoryPending=BattlefieldVictoryPending,RuinsRescueDialogueComplete=RuinsRescueDialogueComplete,
+            BattlefieldVictoryPending=BattlefieldVictoryPending,RuinsRescueDialogueComplete=RuinsRescueDialogueComplete,RuinsHalfHealthRetreat=RuinsHalfHealthRetreat,
             RpgAttackSerial=RpgAttackSerial,RpgAttacks=RpgAttacks.Select(a=>a.Copy()).ToList(),Units=Units.Select(unit=>unit.Copy()).ToList(),Arrows=Arrows.Select(arrow=>arrow.Copy()).ToList(),Skills=(Skills??new List<RealtimeCommanderSkill>()).Select(skill=>skill.Copy()).ToList()};
     }
     public sealed partial class RealtimeBattlePrototype
@@ -82,12 +82,17 @@ namespace BaseConquest.Battle
         public readonly RealtimeBattlePrototype Model;
         public Func<PrototypeUnit,PrototypeUnit,double,double> DamageLimit;
         public Func<RealtimeCampaignBattle,BattleOutcome> OutcomeResolver;
+        internal Func<BattleOutcome> ImmediateOutcome;
         public Func<bool> ImmediateVictory;
         private int damageBatch;
-        private void ResolveImmediateVictory()
+        private void ResolveImmediateOutcome()
         {
-            if(damageBatch!=0||Battle.Phase!=BattlePhase.Fighting||ImmediateVictory?.Invoke()!=true)return;
-            Synchronize();Battle.FinishRealtime(BattleOutcome.SideAWin);Model.SetPaused(true);
+            if (damageBatch != 0 || Battle.Phase != BattlePhase.Fighting) return;
+            var outcome = ImmediateOutcome?.Invoke() ??
+                (ImmediateVictory?.Invoke() == true ? BattleOutcome.SideAWin : BattleOutcome.None);
+            if (outcome == BattleOutcome.None) return;
+            Synchronize();
+            FinishRealtimeOutcome(outcome);
         }
         private int hitSerial;
         private readonly HashSet<int> visionActive=new HashSet<int>();
@@ -136,14 +141,14 @@ namespace BaseConquest.Battle
             {
                 TryExitOnMovement(actor);
                 var cell=board.Cell(Coarse(cellIndex));
-                if(VictoryExitOpen||!session.Opening.DemoCombat||actor.Side!=PrototypeSide.Enemy||!actor.Alive||!cell.HiddenTrap)return;
+                if(VictoryExitOpen||RuinsExitOpen||!session.Opening.DemoCombat||actor.Side!=PrototypeSide.Enemy||!actor.Alive||!cell.HiddenTrap)return;
                 cell.HiddenTrap=false;var soldier=Battle.Soldier(actor.Id-1);
                 float damage=soldier.DeveloperInvulnerable?0:(float)Math.Min(actor.Health,actor.MaxHealth*.3);
                 Battle.RecordEnvironmentHit(soldier.Id,damage,"陷阱");actor.Health=soldier.Health;actor.KnockedDown=soldier.KnockedDown;actor.FlashUntil=Model.Elapsed+.12;
-                ResolveImmediateVictory();
+                ResolveImmediateOutcome();
             };
             if(session.Opening.DemoCombat)Battle.CasualtyChance=unit=>BaseDemoCombat.DeathChance(session,unit);
-            Model.DamageApplied=(source,target,actual)=>{Battle.RecordRealtimeHit(source.Id-1,target.Id-1,(float)actual,(float)target.Health);var soldier=Battle.Soldier(target.Id-1);target.Health=soldier.Health;target.KnockedDown=soldier.KnockedDown;ResolveImmediateVictory();};
+            Model.DamageApplied=(source,target,actual)=>{Battle.RecordRealtimeHit(source.Id-1,target.Id-1,(float)actual,(float)target.Health);var soldier=Battle.Soldier(target.Id-1);target.Health=soldier.Health;target.KnockedDown=soldier.KnockedDown;ResolveImmediateOutcome();};
             Model.CanTarget=(source,target)=>Battle.Vision.CanSee(source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B,Battle.Soldier(target.Id-1));
             Model.CanMove=actor=>!Battle.Soldier(actor.Id-1).DeveloperImmobile;
             Model.SwordContactPinEnabled = true;
@@ -159,6 +164,7 @@ namespace BaseConquest.Battle
             if(session.Opening.HasRealtimeState)
             {
                 Battle.RuinsCivilianDamaged=session.Opening.RealtimeState.RuinsCivilianDamaged;
+                RuinsHalfHealthRetreat=session.Opening.RealtimeState.RuinsHalfHealthRetreat;
                 Model.Restore(session.Opening.RealtimeState,session.Opening.Rpg!=null?RealtimeBattlePrototype.RpgAttackDamageLimit:1000000);hitSerial=session.Opening.RealtimeState.HitSerial;
                 if(Model.Units.Count!=Battle.Soldiers.Count)throw new ArgumentException("即时检查点与真实编制数量不一致");
                 foreach(var unit in Model.Units)
@@ -362,6 +368,7 @@ namespace BaseConquest.Battle
             result.HitSerial = hitSerial;
             result.RuinsCivilianDamaged = Battle.RuinsCivilianDamaged;
             result.BattlefieldVictoryPending = Battle.Phase == BattlePhase.Fighting && VictoryExitOpen;
+            result.RuinsHalfHealthRetreat = RuinsHalfHealthRetreat;
             result.RuinsRescueDialogueComplete = Battle.Phase == BattlePhase.Fighting && RuinsExitOpen && !AwaitingRescueDialogue;
             SaveRpgCombat(result);
             return result;
@@ -379,6 +386,7 @@ namespace BaseConquest.Battle
     {
         public HashSet<int> RuinsCivilianIds=new HashSet<int>();
         public bool RuinsCivilianDamaged;
+        public bool IsFreedRuinsCivilian(BattleSoldier unit) => unit?.Rescued == true && RuinsCivilianIds.Contains(unit.Id);
         internal bool RealtimeVictorySatisfied=>CommanderVictorySatisfied;
         internal void RecordRealtimeOrder()=>CommandsIssued++;
         internal void SetRealtimeClock(double seconds){RoundNumber=(int)Math.Floor(seconds+1e-8);LastRoundSummary="即时作战 "+seconds.ToString("0")+"秒";}

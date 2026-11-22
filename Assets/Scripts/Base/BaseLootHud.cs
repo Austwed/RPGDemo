@@ -211,6 +211,8 @@ namespace BaseConquest.Base
             string id=item.Id,holder=item.Holder;
             int price=BaseBattleLoot.SellPrice(s,item);
             TradeLine(details,item.Name+(item.Count>1?" ×"+item.Count:""));
+            TradeDescription(details, item.Gear != null && BaseRpg.Active(s)
+                ? BaseRpg.GearDescription(s, item.Gear, includeName: false) : item.Description);
             if(item.Worn)TradeLine(details,"已穿戴，请先卸下");
             else if(price==0)TradeLine(details,"此物品不可出售");
             else TradeLine(details,"出售 1 件 · 获得 "+price+"币");
@@ -218,8 +220,6 @@ namespace BaseConquest.Base
                 var entry=BasePartyInventory.Find(next,id);
                 return entry?.Holder==holder&&BaseBattleLoot.SellPrice(next,entry)==price&&BaseBattleLoot.Sell(next,id);
             },"已出售 "+item.Name),BaseBattleLoot.CanSell(s,id));
-            TradeButton(details,"返回货架",()=>{tradeSale=tradeFeedback="";RenderTownTrade();});
-            TradeLine(details,item.Description);
         }
 
     }

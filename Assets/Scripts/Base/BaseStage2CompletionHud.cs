@@ -54,7 +54,7 @@ namespace BaseConquest.Base
             TradeStockDetails(details,chosen.Name,price,selected.Remaining,BaseProgressSupplies.Stock(chosen.Id),
                 BaseProgressSupplies.PreviewMaxBuy(s,chosen.Id),"买入",
                 (next,count)=>next.Day==day&&BaseProgressSupplies.Price(next,chosen.Id)==price&&BaseProgressSupplies.Buy(next,chosen.Id,count,revision),
-                "已购入补给",PurchaseProblem(selected.Remaining,price,BagFullException.Notice));
+                "已购入补给",PurchaseProblem(selected.Remaining,price,BagFullException.Notice),chosen.Description);
         }
 
         private void OpenWine(string selected="")

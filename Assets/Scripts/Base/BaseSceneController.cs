@@ -402,7 +402,7 @@ namespace BaseConquest.Base
                 RefreshSceneSight();
                 if (combatController?.CampaignMenuOpen != true)
                 {
-                    if (combatController?.ContinueFinishedSceneDialogue() == true || TickRuinsRetreatGuide()) return;
+                    if (combatController?.ContinueFinishedSceneDialogue() == true || TickRuinsRescueDialogue()) return;
                     TickPracticeGuide();
                     TickDefenseIntel();
                 }

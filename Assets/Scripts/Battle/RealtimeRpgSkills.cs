@@ -57,7 +57,7 @@ namespace BaseConquest.Battle
             }
             string count = sweepTargets != null ? $"攻击 {sweepTargets.Length} 人" : $"影响 {skill.Recipients.Count} 人";
             Battle.RecordRpgSkill(actor.Id - 1, d.Name, count, SkillEffect(d));
-            ResolveImmediateVictory();return true;
+            ResolveImmediateOutcome();return true;
         }
         private double ConsumeCharge(PrototypeUnit actor,out string damageType)
         {

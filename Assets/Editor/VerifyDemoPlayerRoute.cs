@@ -153,11 +153,12 @@ namespace BaseConquest.Editor
             var lost = new RealtimeCampaignBattle(solo.Begin(state));
             if(state.Demo.StoryScene?.Version==2)CheckAuthoredBoard(state,state.Demo.StoryScene,"dungeon",lost.Battle.Board);
             var inBattle=state.Copy();
+            lost.EnableBattlefieldExits();
             BaseDemoRuins.Configure(lost);
             // To exercise the retreat branch, hold in spell range; focusing the caster can now win this fight.
             var enemyCaster = lost.Model.Units.Single(u => u.Id == lost.Battle.Commander(BattleSide.B, 0).Id + 1);
             lost.Model.SetPaused(false);
-            for (int frame = 0; frame < 5400 && lost.Battle.Phase == BattlePhase.Fighting && !BaseDemoRuins.SoloRetreatGuide(lost); frame++)
+            for (int frame = 0; frame < 5400 && lost.Battle.Phase == BattlePhase.Fighting; frame++)
             {
                 if (frame % 30 == 0)
                 {
@@ -168,8 +169,10 @@ namespace BaseConquest.Editor
                 }
                 lost.Tick(1d / 60);
             }
-            Need(BaseDemoRuins.SoloRetreatGuide(lost), "初装主角独闯未打到半血撤退："+lost.Battle.Report?.Outcome+"，主角 "+lost.Model.Player.Health+"，敌队长 "+lost.Battle.Commander(BattleSide.B,0).Health);
-            Need(BaseDemoRuins.SoloRetreatGuide(lost) && BaseDemoCombat.Fail(state, lost), "独闯半血撤退未结算");
+            Need(lost.RuinsHalfHealthRetreat && lost.Battle.Report?.Outcome==BattleOutcome.Retreat &&
+                Math.Abs(lost.Model.Player.Health-lost.Model.Player.MaxHealth*.5)<.001,
+                "初装主角独闯未在半血直接退场："+lost.Battle.Report?.Outcome+"，主角 "+lost.Model.Player.Health);
+            Need(BaseDemoCombat.Fail(state, lost), "独闯半血撤退未结算");
             BaseSceneRules.LeaveDungeon(state);
             Need(BaseSceneRules.Entrance(state) && state.Demo.RuinsDay == 0 && !state.Campaign.HasActiveBattle, "撤退没有回到遗迹入口");
             VerifyRuinsAutosaves(beforeSolo,inBattle,state);
@@ -181,6 +184,9 @@ namespace BaseConquest.Editor
             Need(BaseRpg.UpgradeCamp(state), "无法升级营帐为伙伴腾出名额");
             At(state, "demo_ahe");
             Need(BaseDemoRuins.Meet(state, "partner_farm") && BaseDemoRuins.Join(state, "partner_farm"), "新营地无法邀请阿禾");
+            var hero = state.Leaders.Single(leader => leader.Id == state.PlayerLeaderId);
+            for (int night = 0; night < 6 && hero.Health < hero.MaxHealth; night++) Rest(state);
+            Need(hero.Health == hero.MaxHealth, "半血退场后无法通过实际休息恢复");
             Travel(state, "exit_east", "town");
             RecruitAzhu(state);
             ReforgeGift(state);
@@ -188,20 +194,15 @@ namespace BaseConquest.Editor
             At(state, "demo_ruins_investigate");
             var twoCaptains=state.Copy();
             twoCaptains.Adventure.Members.Remove("partner_farm");
-            var withAzhu=new BaseBattlePreparation(twoCaptains,BasePrepRoute.Ruins);
-            withAzhu.AutoPlace();
-            var two=new RealtimeCampaignBattle(withAzhu.Begin(twoCaptains));
-            BaseDemoRuins.Configure(two);
-            ApproachController(two,true,5400);
-            Need(two.Session.Opening.Leaders.Count==2&&BaseDemoRuins.Complete(twoCaptains,two),"主角和阿铸未正常完成古窟首通");
-            Note("沉眠古窟旁支：仅主角与阿铸出战，正常击败控制来源。");
+            VerifyRuinsCompanionRetreat(twoCaptains);
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
             draft.AutoPlace();
             var rescue = new RealtimeCampaignBattle(draft.Begin(state));
             BaseDemoRuins.Configure(rescue);
             // 12 rendered frames/s at 3× advances a quarter second of battle per frame.
             ApproachController(rescue, true, 360, frameSeconds:.25);
-            Need(BaseDemoRuins.Complete(state, rescue), "古窟重试没有击败控制来源：" + rescue.Battle.Report?.Outcome);
+            Need(rescue.Session.Opening.Leaders.Count == 3 && BaseDemoRuins.Complete(state, rescue),
+                $"三人古窟重试没有击败控制来源：{rescue.Battle.Report?.Outcome}，主角 {rescue.Model.Player.Health:F1}/{rescue.Model.Player.MaxHealth:F1}");
             Need(!BaseDemoRuins.Complete(state,rescue),"古窟战果能重复提交");
             string controller = state.Demo.Flow.FirstControllerId;
             Need(BaseDemoStories.AcceptController(state, controller), "古窟结算无法接纳迦兰");
@@ -230,7 +231,6 @@ namespace BaseConquest.Editor
                         hired++;
                     }
                 }
-                if (state.Day == 1) CheckEarlyRestAfterBuyingFood(state.Copy());
                 if (!intel && state.Demo.Flow.FirstIntelEligible)
                 {
                     At(state, "town_peddler");
@@ -258,6 +258,30 @@ namespace BaseConquest.Editor
             Note($"第{state.Day}天 首防到达。已逐次购兵{hired}人，粮田{BaseEconomy.WorkersAt(state, "farm")}人，工坊{BaseEconomy.WorkersAt(state, "workshop")}人，一级军需{BaseSupply.Available(state, "supply", 1)}件。");
         }
 
+        private static void VerifyRuinsCompanionRetreat(BaseState state)
+        {
+            var draft = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
+            draft.AutoPlace();
+            var run = new RealtimeCampaignBattle(draft.Begin(state));
+            run.EnableBattlefieldExits();
+            BaseDemoRuins.Configure(run);
+            var player = run.Model.Player;
+            player.Health = player.MaxHealth * .5;
+            run.Model.SetPaused(false);
+            run.Tick(.02);
+            Need(run.Session.Opening.Leaders.Count == 2 && run.RuinsHalfHealthRetreat &&
+                run.Battle.Report?.Outcome == BattleOutcome.Retreat && run.Model.Units.All(unit => !unit.Escaped),
+                "有搭档时半血没有从战场直接退场");
+            run.SaveCheckpoint(state);
+            var restored = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            BaseEconomy.Validate(restored);
+            var resumed = new RealtimeCampaignBattle(new BaseCampaignSession(restored.Campaign.ActiveBattle));
+            Need(resumed.RuinsHalfHealthRetreat && BaseDemoCombat.Fail(restored, resumed),
+                "有搭档半血撤退读档后未结算");
+            Need(restored.Leaders.Where(leader => leader.Id == restored.PlayerLeaderId || leader.Id == "partner_craft")
+                .All(leader => leader.Health > 0 && leader.Fate == "active"), "同行角色半血撤离未生还");
+        }
+
         private static void VerifyRuinsSoloVictory(BaseState grown)
         {
             var hero=grown.Leaders.Single(l=>l.Id==grown.PlayerLeaderId);
@@ -278,7 +302,7 @@ namespace BaseConquest.Editor
                 var encounter=draft.Begin(grown);
                 var run=new RealtimeCampaignBattle(encounter);
                 BaseDemoRuins.Configure(run);
-                ApproachController(run,true,5400,()=>BaseDemoRuins.SoloRetreatGuide(run));
+                ApproachController(run,true,5400);
                 Need(run.Session.Opening.Leaders.Count==1&&BaseDemoRuins.Complete(grown,run),"三级主角手动指挥独胜失败："+run.Battle.Report?.Outcome);
             }
             finally{PlayerPrefs.SetString(difficultyKey,previous);}
@@ -291,6 +315,11 @@ namespace BaseConquest.Editor
             Need(BaseDemoRuins.Deliver(grown)&&grown.Demo.AcceptedDay==grown.Day&&BaseDemoDefense.Delivered(grown)&&
                 !BaseDemoRuins.Deliver(grown),"先救人交差未能补记委托，或可重复发放许可");
             Note("沉眠古窟旁支：未领委托，简单难度三级主角独自实战取胜。返镇交差时补记委托，许可仅发一次。");
+            At(grown, "town_recruit");
+            foreach (var kind in new[] { BaseTroopKind.Melee, BaseTroopKind.Ranged, BaseTroopKind.Cavalry })
+                for (int i = 0; i < 2; i++)
+                    Need(BaseTown.Confirm(grown, BaseTown.QuoteHire(grown, kind, 1)), "早期日结分支募兵失败："+kind);
+            CheckEarlyRestAfterBuyingFood(grown);
         }
 
         private static void VerifyFullCampInvitation(BaseState state)
@@ -509,22 +538,13 @@ namespace BaseConquest.Editor
         {
             Travel(branch, "travel_base", "base");
             RepairAndAssign(branch);
-            Need(BaseDemoFlow.Recruited(branch), "首日尚未招齐教学要求的剑、弓、骑");
+            Need(BaseDemoFlow.Recruited(branch), "首次募兵尚未招齐教学要求的剑、弓、骑");
             var unstaffed = branch.Copy();
             At(unstaffed, "workshop");
             foreach (var group in unstaffed.Workers.Where(person => person.FacilityId == "workshop").GroupBy(person => person.Kind).ToArray())
                 Need(BaseEconomy.MoveWorkers(unstaffed, group.Key, "workshop", "", group.Sum(person => person.Count)), "无法清空工坊岗位样本");
-            // 正式工人撤走后，村民会先补粮田，剩余人手能继续生产军需。
-            int volunteers = BaseEconomy.CivilianWorkersAt(unstaffed, "workshop");
-            if (volunteers > 0)
-            {
-                Need(BaseEconomy.ProductionWorkersAt(unstaffed, "workshop") == volunteers &&
-                    !BaseDemoFlow.RestAdvice(unstaffed).Contains("工坊"), "有村民补位时误报工坊空岗");
-                var forecast = BaseEconomy.Preview(unstaffed);
-                var staffed = unstaffed.Copy();
-                Need(BaseEconomy.Rest(staffed, staffed.Day) && staffed.LastReport.ProductsMade == forecast.ProductsMade,
-                    "村民补位日结与预计军需不一致");
-            }
+            Need(BaseEconomy.CivilianWorkersAt(unstaffed, "workshop") == 0,
+                "工坊不应接收粮田补益");
             int farmCapacity = unstaffed.Muster.Facilities.Single(f => f.FacilityId == "farm").Capacity;
             while (farmCapacity - BaseEconomy.WorkersAt(unstaffed, "farm") < 2)
             {

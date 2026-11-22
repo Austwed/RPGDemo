@@ -12,7 +12,7 @@ namespace BaseConquest.Battle
     public sealed class CommanderBattleReport
     {
         public int Slot;
-        public bool Recruited;
+        public bool Recruited, Downed, InstantDead;
         public string Name, Status;
         public float Health, MaxHealth, Damage, Healing;
     }
@@ -46,11 +46,11 @@ namespace BaseConquest.Battle
                     if (s.InstantDead) { row.CommandersDowned++; state="阵亡"; }
                     else if (s.Rescued) { row.CommandersRescued++; state = "已救出"; }
                     else if (s.IsAlive && s.Escaped) { row.CommandersEscaped++; state = "健康撤离"; }
-                    else if (!s.IsAlive) { row.CommandersDowned++; state = s.CarriedById >= 0 ? "携带中·未救出" : "倒地·未救出"; }
+                    else if (!s.IsAlive) { row.CommandersDowned++; state = "倒地"; }
                     else { row.CommandersStanding++; state = "存活留场"; }
                     row.Commanders.Add(new CommanderBattleReport { Slot = s.OriginCommanderSlot, Name = RawCommanderName(side,s.OriginCommanderSlot),
                         Recruited = Scenario.Army(side).CommanderRecruited.ElementAtOrDefault(s.OriginCommanderSlot),
-                        Status = state, Health = s.Health, MaxHealth = s.Stats.Health, Damage = s.DamageDealt, Healing = s.HealingDone });
+                        Status = state, Downed = !s.IsAlive && !s.InstantDead, InstantDead = s.InstantDead, Health = s.Health, MaxHealth = s.Stats.Health, Damage = s.DamageDealt, Healing = s.HealingDone });
                 }
                 row.Damage = units.Sum(s => s.DamageDealt); row.Healing = units.Sum(s => s.HealingDone);
                 Report.Armies.Add(row);

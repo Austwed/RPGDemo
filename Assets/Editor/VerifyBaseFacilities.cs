@@ -357,19 +357,8 @@ namespace BaseConquest.Editor
             BaseEconomy.Validate(saved);
             Need(BaseEconomy.CivilianWorkersAt(saved, "farm") == 2 && saved.Workers.Count == 0,
                 "读档应从岗位重算村民工量");
-            var travel = new BaseWorkerTravel();
-            var tent = BaseStageWalk.Door(camp, "home");
-            var farm = BaseStageWalk.Door(camp, "farm");
-            travel.EnqueueCivilians(camp, "home", "farm", 1);
-            travel.EnqueueCivilians(camp, "farm", "home", 1);
-            travel.Tick(camp, 0);
-            var outbound = travel.Active.Single();
-            Need(outbound.AppearanceId == "villager" && outbound.Position.Distance(tent) < .01 &&
-                outbound.Route.Last().Distance(farm) < .08, "村民应沿营地通路从营帐走到粮田");
-            travel.Tick(camp, .4);
-            var returning = travel.Active.Single(journey => journey != outbound);
-            Need(returning.AppearanceId == "villager" && returning.Route.Last().Distance(tent) < .08,
-                "调回村民应走回营帐");
+            Need(BaseEconomy.ProductionWorkersAt(saved, "farm") == 0,
+                "粮田补益不应计入生产岗位人数");
 
             var defense = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/defense-male").text);
             BaseEconomy.Validate(defense);
@@ -382,16 +371,16 @@ namespace BaseConquest.Editor
                 farmRoom-=count;
             }
             Need(BaseEconomy.CivilianWorkersAt(defense, "farm") == 0 &&
-                BaseEconomy.CivilianWorkersAt(defense, "workshop") == 2, "粮田已被士兵填满时村民应补到工坊");
+                BaseEconomy.CivilianWorkersAt(defense, "workshop") == 0, "粮田满岗时补益结束，工坊没有村民补益");
             Need(BaseEconomy.MoveWorkers(defense, BaseTroopKind.Melee, "farm", "", 1) &&
                 BaseEconomy.CivilianWorkersAt(defense, "farm") == 1 &&
-                BaseEconomy.CivilianWorkersAt(defense, "workshop") == 1, "两处同时有空岗时应先补足粮田");
+                BaseEconomy.CivilianWorkersAt(defense, "workshop") == 0, "有一个粮田空岗时只增加半份粮田工量");
             Need(BaseEconomy.MoveWorkers(defense, BaseTroopKind.Melee, "", "farm", 1) &&
                 BaseEconomy.CivilianWorkersAt(defense, "farm") == 0 &&
-                BaseEconomy.CivilianWorkersAt(defense, "workshop") == 2, "士兵应能调入被村民补位的岗位");
+                BaseEconomy.CivilianWorkersAt(defense, "workshop") == 0, "粮田的空岗补益不应阻止士兵进岗");
             defense.Inventory.Materials = 0;
-            Need(BaseEconomy.Preview(defense).ProductsMade == 0, "工坊有村民时仍须原料才能生产军需");
-            Debug.Log("[CivilianWork] 零兵零库存日结、派工优先、工坊原料、存档重算、营帐到岗路线 PASS");
+            Need(BaseEconomy.Preview(defense).ProductsMade == 0, "工坊军需仍需原料");
+            Debug.Log("[CivilianWork] 零兵粮田补益、工坊无补益、实际岗位、存档重算 PASS");
         }
     }
 }

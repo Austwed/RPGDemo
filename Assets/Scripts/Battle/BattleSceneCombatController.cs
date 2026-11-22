@@ -16,7 +16,7 @@ namespace BaseConquest.Battle
         private bool IsDemoPursuit=>sceneEncounter?.Opening.Id==BaseDemoPrologue.BattleId;
         private bool finishWithdrawalThroughDialogue;
         public bool ContinuesThroughDialogue=>IsAzhuDuel||IsDemoPractice||IsDemoPursuit||finishWithdrawalThroughDialogue||
-            IsDemoRuins&&battle?.Report?.Outcome==BattleOutcome.SideAWin;
+            IsDemoRuins&&(battle?.Report?.Outcome==BattleOutcome.SideAWin||realtime?.RuinsHalfHealthRetreat==true);
         public bool IsDemoRuins=>BaseDemoRuins.Encounter(sceneEncounter);
         public bool IsDemoDefense=>BaseDemoDefense.Encounter(sceneEncounter);
         public bool IsSecondDefense=>IsDemoDefense&&sceneEncounter.Opening.EventId==BaseDemoDefense.SecondEventId;

@@ -72,12 +72,14 @@ namespace BaseConquest.Battle
                     commanders[i]=TextAt("Captain"+i,leaders,font,16,0,0,1,1,0,0,0,0);
             }
 
-            public void Show(ArmyBattleReport army,string batuOutcome=null)
+            public void Show(ArmyBattleReport army,string batuOutcome=null,bool returnedThroughExit=false)
             {
                 if(army==null){totals.text=rows.text="";foreach(var label in commanders)label.text="";return;}
                 totals.text=$"队长 {army.Commanders.Count}    士兵 {army.Deployed}";
                 int deaths=army.Troops.Sum(t=>t.InstantKilled);
-                rows.text=$"留场 {army.Standing}    撤离 {army.Escaped}\n倒地 {army.Killed-deaths}    阵亡 {deaths}";
+                rows.text=returnedThroughExit
+                    ? $"撤离 {army.Deployed-deaths}    阵亡 {deaths}\n其中倒地 {army.Killed-deaths}"
+                    : $"留场 {army.Standing}    撤离 {army.Escaped}\n倒地 {army.Killed-deaths}    阵亡 {deaths}";
                 for(int i=0;i<commanders.Length;i++)
                 {
                     var label=commanders[i];
@@ -87,7 +89,9 @@ namespace BaseConquest.Battle
                     label.rectTransform.anchorMin=new Vector2(0,top-1f/commanders.Length);
                     label.rectTransform.anchorMax=new Vector2(1,top);
                     label.color=hero.Recruited?new Color32(139,81,47,255):DemoUiTheme.Current.Ink;
-                    label.text=$"{hero.Name} · {(hero.Slot==0&&batuOutcome!=null?batuOutcome:hero.Status)}";
+                    string status = hero.Slot==0 && batuOutcome!=null ? batuOutcome : hero.Status;
+                    if (returnedThroughExit && !hero.InstantDead) status = hero.Downed ? "倒地 · 已撤离" : "已撤离";
+                    label.text=$"{hero.Name} · {status}";
                 }
             }
         }
@@ -121,8 +125,13 @@ namespace BaseConquest.Battle
                     ?owner.FirstDefenseSettlement(report.Outcome!=BattleOutcome.SideAWin):"";
                 bool firstDefenseVictory=owner?.IsDemoDefense==true&&!owner.IsSecondDefense&&report.Outcome==BattleOutcome.SideAWin;
                 string batuOutcome=firstDefenseVictory?(BaseDemoDefense.BatuFell(battle)?"战死":"逃脱"):null;
-                own.Show(report.Armies.FirstOrDefault(a=>a.Side==observer),observer==BattleSide.B?batuOutcome:null);
-                opposing.Show(report.Armies.FirstOrDefault(a=>a.Side!=observer),observer==BattleSide.A?batuOutcome:null);
+                bool returnedThroughExit = run?.Session.Opening.DemoCombat == true &&
+                    (report.Outcome == BattleOutcome.Retreat ||
+                     report.Outcome == BattleOutcome.SideAWin && run.VictoryExitOpen);
+                own.Show(report.Armies.FirstOrDefault(a=>a.Side==observer),observer==BattleSide.B?batuOutcome:null,
+                    returnedThroughExit && observer==BattleSide.A);
+                opposing.Show(report.Armies.FirstOrDefault(a=>a.Side!=observer),observer==BattleSide.A?batuOutcome:null,
+                    returnedThroughExit && observer==BattleSide.B);
                 returnBase.GetComponentInChildren<Text>(true).text=owner?.IsBanditHideout==true?BaseBanditHideout.ReturnText
                     :owner?.IsDemoAttack==true&&report.Outcome==BattleOutcome.SideAWin?"结算并留在当地"
                     :report.Outcome==BattleOutcome.SideAWin?"结算并返回营地":"结算并撤退";

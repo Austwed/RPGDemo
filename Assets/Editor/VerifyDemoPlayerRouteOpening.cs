@@ -189,7 +189,6 @@ namespace BaseConquest.Editor
             AdvanceUntil(() => practice.Battle.Phase == BattlePhase.Finished, 1200, "演练最后一击未结算");
             Need(practice.Battle.Report.Outcome == BattleOutcome.SideAWin && BaseDemoIntro.FinishPractice(state, true), "无法交出演练战果");
             BaseEconomy.Validate(state);
-            BaseSceneRules.RememberStrategy(state, practice.Session);
         }
 
         private static void PlayOpeningPursuit(BaseState state)
@@ -211,7 +210,6 @@ namespace BaseConquest.Editor
             for(int step=0;step<1800&&pursuit.Battle.Phase==BattlePhase.Fighting;step++)pursuit.Tick(.05);
             Need(pursuit.Battle.Report?.Outcome == BattleOutcome.SideAWin && BaseDemoPrologue.Resolve(state, pursuit),
                 "追兵胜利条件未触发重伤");
-            BaseSceneRules.RememberStrategy(state, pursuit.Session);
         }
 
         private static void CheckPursuitDefeat(BaseState state)

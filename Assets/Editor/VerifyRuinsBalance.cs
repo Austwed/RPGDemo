@@ -64,7 +64,7 @@ namespace BaseConquest.Editor
                             frame++;
                             if (heroFrame == 0 && player.Health <= player.MaxHealth * .5) heroFrame = frame;
                             if (galanFrame == 0 && controller.Health <= controller.MaxHealth * .5) galanFrame = frame;
-                            if (BaseDemoRuins.SoloRetreatGuide(run)) { end = "story_retreat"; break; }
+                            if (run.RuinsHalfHealthRetreat) { end = "story_retreat"; break; }
                             if (run.RuinsExitOpen || run.Battle.Phase != BattlePhase.Fighting) { end = "outcome"; break; }
                             if (heroFrame != 0 && galanFrame != 0) { end = "both"; break; }
                         }
