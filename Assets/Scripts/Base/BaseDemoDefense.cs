@@ -246,8 +246,7 @@ namespace BaseConquest.Base
             if((progress.WorkshopRepaired||progress.BarracksRepaired)&&!Delivered(state))throw new ArgumentException("没有交付许可不能修复设施");
             var workshop=state.Muster.Facilities.Single(facility=>facility.FacilityId=="workshop");
             bool workshopLevelValid = workshop.Level == 1 && workshop.MaxProductLevel == 1 ||
-                workshop.Level == 2 && workshop.MaxProductLevel == 2 &&
-                progress.WorkshopRepaired && Won(state) && state.Layout?.OfficeGift == true;
+                workshop.Level == 2 && workshop.MaxProductLevel == 2 && progress.WorkshopRepaired;
             if(workshop.Capacity!=(progress.WorkshopRepaired?progress.Workshop.Capacity:0)||workshop.MinimumWorkers!=(progress.WorkshopRepaired?progress.Workshop.MinimumWorkers:0)||!workshopLevelValid)throw new ArgumentException("工坊实际能力与修复或升级状态不符");
             var camp=state.Campaign.Layouts.Single(map=>map.Region=="base");
             if(!BaseDemoPrologue.Village(state))foreach(string id in new[]{"workshop","barracks"})

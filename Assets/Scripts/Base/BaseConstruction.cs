@@ -52,8 +52,6 @@ namespace BaseConquest.Base
             if (demo)
             {
                 if (id != "workshop") return "当前设施未开放升级";
-                if (!BaseDemoDefense.Won(s) || s.Layout?.OfficeGift != true)
-                    return "首防胜利后向霍恩领取建设许可";
                 bool village = BaseSettlements.AtVillage(s);
                 if (!BaseDemoDefense.Repaired(s, id) || (village && !BaseDemoFinale.HomeRepaired(s, id)))
                     return "请先修复工坊";

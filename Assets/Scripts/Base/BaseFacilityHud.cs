@@ -177,6 +177,7 @@ namespace BaseConquest.Base
             public readonly Dictionary<int,RectTransform> Soldiers = new Dictionary<int,RectTransform>();
             public Color RosterColor;
             public Text Empty;
+            public UnityEngine.UI.Button UpgradeWorkshop;
             public Action<bool> UpdateManagerAvailability;
             public Action<BaseState, BaseDayPreview, int, bool> RefreshActions;
         }
@@ -223,7 +224,9 @@ namespace BaseConquest.Base
 
             var view = productionView;
             panelFeedback.gameObject.SetActive(false);
-            Ui<Text>(panel, "Title").text = title;
+            var titleLabel = Ui<Text>(panel, "Title");
+            titleLabel.text = title;
+            if (id == "workshop") RefreshWorkshopUpgrade(view, titleLabel, facility.Level, pending);
 
             bool hidePostLock = BaseDemo.ExperimentalManagementHidden(state);
             bool rebuildActions = view.State != state || view.HidePostLock != hidePostLock;
@@ -243,6 +246,29 @@ namespace BaseConquest.Base
 
             FillFacilityWorkers(view, draft);
             if (rebuildActions) RestoreProductionScroll(facilityControls, actionOffset);
+        }
+
+        private void RefreshWorkshopUpgrade(ProductionFacilityView view, UnityEngine.UI.Text title, int level, bool pending)
+        {
+            if (level >= 2)
+            {
+                view.UpgradeWorkshop?.gameObject.SetActive(false);
+                return;
+            }
+
+            if (view.UpgradeWorkshop == null)
+            {
+                var button = FacilityButton(title.rectTransform, "UpgradeWorkshop", "+", OpenWorkshopUpgrade);
+                var rect = (RectTransform)button.transform;
+                rect.anchorMin = rect.anchorMax = new Vector2(0, .5f);
+                rect.pivot = new Vector2(0, .5f);
+                rect.anchoredPosition = new Vector2(title.preferredWidth + 12, 0);
+                rect.sizeDelta = new Vector2(40, 40);
+                button.GetComponentInChildren<UnityEngine.UI.Text>().fontSize = 26;
+                view.UpgradeWorkshop = button;
+            }
+
+            view.UpgradeWorkshop.interactable = !pending && BaseConstruction.UpgradeProblem(owner.State, "workshop") == "";
         }
 
         private Action<bool> BindFacilityManager(RectTransform column, BaseState state, string facility, BaseLeader manager)
@@ -390,13 +416,6 @@ namespace BaseConquest.Base
             int level=BaseConstruction.ProductLevel(state);
             FacilityText(actions,"当前生产 · "+BaseEconomy.ProductName(state.WorkshopProduct)+" · "+(state.WorkshopProduct=="supply"?BaseSupply.GradeText(state,level):level+"级")
                 +$"　库存 一级 {BaseSupply.Available(state,state.WorkshopProduct,1)} / 二级 {BaseSupply.Available(state,state.WorkshopProduct,2)}");
-            if (facility.Level == 1)
-            {
-                string problem = BaseConstruction.UpgradeProblem(state, "workshop");
-                var upgrade = FacilityButton(actions, "UpgradeWorkshop", WorkshopUpgradeLabel, OpenWorkshopUpgrade, problem == "");
-                if (problem == "") draftLocks.Add(upgrade);
-                else FacilityText(actions, problem);
-            }
             var grades=CloneSceneUi("FacilityActionRow",actions);
             int targetLevel = level == 1 ? 2 : 1;
             bool canSelectLevel = BaseConstruction.CanSelectLevel(state, targetLevel);
