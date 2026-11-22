@@ -98,7 +98,10 @@ namespace BaseConquest.Editor
             Commit(BuildPreview(MasterPath));
             var old = OpenDemonstration();
             VerifyShot(old, 6, false);
-            Commit(BuildPreview(alphaFile));
+            var rangePreview = BuildPreview(alphaFile);
+            Need(rangePreview.Changes.Length == 1 && rangePreview.Changes[0].Contains("6 → 8") &&
+                rangePreview.Package.Rules.Range[3] == 8, "法师射程覆盖必须只预览 6 → 8 一项");
+            Commit(rangePreview);
             VerifyShot(OpenDemonstration(), 8, true);
             VerifyShot(old, 6, false);
             var replacement = BuildPreview(betaFile);
