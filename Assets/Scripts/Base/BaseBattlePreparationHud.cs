@@ -585,7 +585,7 @@ namespace BaseConquest.Base
                 (projected?.NextMissing > 0 ? $"（缺 {projected.NextMissing}）" : "");
             Ui<Text>(box, "RoadFood").text = travel
                 ? $"路粮 {roadFood} · 库粮 " + Change(state.Inventory.Food, state.Inventory.Food >= roadFood ? state.Inventory.Food - roadFood : null)
-                : "预计按当前出战名单计算";
+                : "";
         }
 
         private static string DungeonEnergy(BaseState state, BasePrepRoute route)

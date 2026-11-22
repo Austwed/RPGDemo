@@ -57,7 +57,7 @@ namespace BaseConquest.Base
             var legend = Label(content, "蓝点 · 地表出入口   黄点 · 遗迹出入口", new Vector2(0, subY - 24), new Vector2(850, 20), DemoUiMetrics.FontCaption, TextAnchor.MiddleLeft, new Vector2(.5f, 1));
             legend.color = DemoUiTheme.Current.Muted;
 
-            MakeButton(content, "世界地图 →", new Vector2(0, subY - 70), new Vector2(240, 42), () => { ClosePanel(); owner.Travel("world"); }, new Vector2(.5f, 1)).interactable = BaseLandMap.WorldEntry(s);
+            MakeButton(content, "世界地图", new Vector2(0, subY - 70), new Vector2(240, 42), () => { ClosePanel(); owner.Travel("world"); }, new Vector2(.5f, 1)).interactable = BaseLandMap.WorldEntry(s);
             EndPanel();
         }
 

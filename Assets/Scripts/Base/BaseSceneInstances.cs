@@ -60,8 +60,6 @@ namespace BaseConquest.Base
             if(!Active(state)||BaseBattleLoot.Pending(state)||state.Aftermath.GameOver||state.Campaign.HasActiveBattle||state.Muster.Parties.Any(party=>party.InCombat))return false;
             var link=BaseDesignRoutes.Reachable(state,region,objectId);if(link==null)return false;
             var source=Layout(state);var target=BaseDesignRoutes.Target(state,link);if(!CanLink(source,target)&&!BaseWorldJourney.LocalLink(state,source,target))return false;
-            var context=target;while(context.Region=="custom"&&!string.IsNullOrEmpty(context.ParentMapId))context=Layout(state,context.ParentMapId);
-            if((context.Region=="world"||context.Region=="outpost")&&!state.Muster.Parties.Any(party=>party.Purpose=="expedition"&&party.Leaders.Any(leader=>leader.LeaderId==state.PlayerLeaderId)))return false;
             if(source.Region=="base"){state.Campaign.BaseX=state.PlayerX;state.Campaign.BaseY=state.PlayerY;}
             state.Campaign.CurrentMapId=target.SourceMapId;state.Campaign.Location=target.Region;state.PlayerX=link.X;state.PlayerY=link.Y;
             if(BaseDemo.Active(state))BaseDemoRelease.ArriveAtRoad(state,target.Objects.FirstOrDefault(o=>o.SourceObjectId==link.TargetObjectId));

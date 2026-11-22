@@ -24,7 +24,7 @@ namespace BaseConquest.Base
         public static bool EnterAttackRegion(BaseState state,BattleScenarioDocument document)
         {
             BaseEconomy.Validate(state);
-            if(state.Campaign.Location!="world"||state.Campaign.HasActiveBattle||!state.Muster.Parties.Any(p=>p.Purpose=="expedition"&&p.Leaders.Any(l=>l.LeaderId==state.PlayerLeaderId)))return false;
+            if(state.Campaign.Location!="world"||state.Campaign.HasActiveBattle)return false;
             PrepareAttackRegion(state,document);return BaseCampaign.Travel(state,"outpost");
         }
     }

@@ -58,9 +58,8 @@ namespace BaseConquest.Base
         }
         private static string TitleOf(BaseState s, string key)
         {
-            var map = Scene(s, key); if (map == null) return key;
-            var node = s.Campaign.Layouts.FirstOrDefault(candidate => KeyOf(s, candidate) == key);
-            return string.IsNullOrEmpty(node?.Title) ? BaseCampaign.LocationName(map.Region) : node.Title;
+            var map = Scene(s, key);
+            return map == null ? key : BaseMap.DisplayTitle(map);
         }
         // 同一领地：世界旅程开启后只看当前节点登记的场景，否则就是整套 Demo 领地。
         private static IEnumerable<BaseMapLayout> Domain(BaseState s)
@@ -90,7 +89,7 @@ namespace BaseConquest.Base
                     double px, py; Spot(Scene(s, parent)?.Region ?? "", out px, out py);
                     x = px + .18; y = py - .3;
                 }
-                var node = new BaseLandMapNode { Key = key, Region = map.Region, Title = string.IsNullOrEmpty(map.Title) ? BaseCampaign.LocationName(map.Region) : map.Title, ParentKey = parent, X = x, Y = y, Columns = Math.Max(1, map.Columns), Rows = Math.Max(1, map.Rows), Inside = inside, Current = key == current };
+                var node = new BaseLandMapNode { Key = key, Region = map.Region, Title = BaseMap.DisplayTitle(map), ParentKey = parent, X = x, Y = y, Columns = Math.Max(1, map.Columns), Rows = Math.Max(1, map.Rows), Inside = inside, Current = key == current };
                 foreach (var marker in map.Objects.Where(obj => !obj.VisualOnly && !obj.Blocks))
                 {
                     string target = TargetOf(s, map, marker);
@@ -98,7 +97,7 @@ namespace BaseConquest.Base
                     string problem = Problem(s, target);
                     node.Exits.Add(new BaseLandMapExit
                     {
-                        ObjectId = marker.Id, Label = marker.Name, TargetKey = target, TargetTitle = TitleOf(s, target),
+                        ObjectId = marker.Id, Label = BaseMap.DisplayName(marker.Id, marker.Name), TargetKey = target, TargetTitle = TitleOf(s, target),
                         X = marker.X, Y = marker.Y, Inside = InsideTarget(s, target), Available = problem == "" || problem == SamePlace, Problem = problem
                     });
                 }

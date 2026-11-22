@@ -270,8 +270,7 @@ namespace BaseConquest.RealtimePrototype
             unit.MaxHealth=unit.Health;Units.Add(unit);RebuildReservations();return unit;
         }
         public void SetPaused(bool paused){Paused=paused;if(paused&&remainder>=FixedSeconds)remainder%=FixedSeconds;}
-        // Read-only route preview: committed transit first, then the same weighted fine-grid field.
-        // Other units may yield/replan while moving; drawing never advances AI or reservations.
+        // Draw committed transit and any active detour before falling back to the weighted fine-grid field.
         public void PreviewPath(PrototypeUnit unit,List<PrototypePoint> points)
         {
             points.Clear();
@@ -293,6 +292,7 @@ namespace BaseConquest.RealtimePrototype
                 }
             }
             if(!Arena.FineWalkable(goal)||goal==cell)return;
+            if(PreviewDetour(unit,cell,goal,points))return;
             if(unit.FootprintLength==2)
             {
                 var arrival = unit.GroupArrivalAxis;
@@ -493,14 +493,16 @@ namespace BaseConquest.RealtimePrototype
                 var distances=Arena.Distances(unit.MoveGoal);
                 var heading=(Arena.Center(unit.MoveGoal)-unit.Position).Normalized;
                 var groupRoute=GroupRoute(unit);
-                int preferred=unit.BlockedFor<.6 ? GroupRouteNext(unit,groupRoute) : -1;
+                int recovered=RecoverBlockedRoute(unit,groupRoute,distances[unit.Cell]);
+                int preferred=recovered;
+                if(preferred<0&&unit.BlockedFor<.6)preferred=GroupRouteNext(unit,groupRoute);
                 if(preferred<0)preferred=DetourNext(unit);
                 var candidates=Arena.Neighbours(unit.Cell).Where(cell=>!double.IsPositiveInfinity(distances[cell])&&GroupArrivalAllowed(unit,groupRoute,cell))
                     .OrderBy(cell=>cell==preferred?-10000:distances[cell]+Arena.StepCost(unit.Cell,cell)+(reservations.TryGetValue(cell,out int owner)&&owner!=unit.Id ? 3 : 0)+(cell==unit.PreviousCell ? .5 : 0)+Math.Max(0,Cross(heading,(Arena.Center(cell)-unit.Position).Normalized))).ToArray();
                 bool started=false;
                 foreach(int cell in candidates)
                 {
-                    if(cell==unit.PreviousCell&&(groupRoute==null||cell!=preferred)&&unit.BlockedFor<.75)continue;
+                    if(cell==unit.PreviousCell&&(cell!=preferred||groupRoute==null&&recovered<0)&&unit.BlockedFor<.75)continue;
                     if(cell!=preferred&&distances[cell]>=distances[unit.Cell]-.001&&unit.BlockedFor<.6)continue;
                     if(cell!=preferred&&distances[cell]>distances[unit.Cell]+.8&&unit.BlockedFor<.5)continue;
                     if(TryBeginStep(unit,cell)){started=true;break;}
@@ -592,7 +594,7 @@ namespace BaseConquest.RealtimePrototype
                 {
                     int cell=positionZ*Arena.FineColumns+positionX;if(!Fits(actor,cell,(target.BodyCenter-Arena.Center(cell)).Normalized)||cell==target.Cell||double.IsPositiveInfinity(distances[cell]))continue;
                     var point=Arena.Center(cell);var axis=PrototypeUnit.MajorAxis(target.BodyCenter-point,actor.BodyAxis);double range=BodyGapAt(actor,target,point,axis),centerRange=(point-target.Position).Length;
-                    if(!InAttackRadius(actor,target,point,axis)||actor.Ranged&&centerRange<Math.Min(2,actor.Reach*.6)||SlotClaimed(cell,actor)||
+                    if(!InAttackRadius(actor,target,point,axis)||actor.Ranged&&centerRange<Math.Min(2,actor.Reach*.6)||SlotClaimed(cell,actor)||RecentlyBlockedAttackPosition(actor,target,cell)||
                         reservations.TryGetValue(cell,out int owner)&&owner!=actor.Id||!ClearAttack(point,target.BodyCenter))continue;
                     if(CommanderDoctrine ? !DoctrineSlotAllowed(actor,point) : actor.Order==PrototypeOrder.Guard&&(point-actor.Anchor).Length>GuardMoveRadius)continue;
                     double danger=actor.Ranged ? Units.Count(enemy=>enemy.Alive&&enemy.Side!=actor.Side&&(enemy.Position-point).Length<1.5)*5 : 0;
@@ -602,12 +604,17 @@ namespace BaseConquest.RealtimePrototype
             return best;
         }
         private bool SlotClaimed(int cell,PrototypeUnit actor)=>Units.Any(other=>other.Alive&&other.Id!=actor.Id&&other.Side==actor.Side&&other.AttackSlot==cell);
+        private bool ReservationStepAllowed(PrototypeUnit unit,int from,int destination)
+        {
+            bool Free(int cell) => !reservations.TryGetValue(cell,out int owner)||owner==unit.Id;
+            int deltaX=destination%Arena.FineColumns-from%Arena.FineColumns,deltaZ=destination/Arena.FineColumns-from/Arena.FineColumns;
+            return Free(destination)&&(deltaX==0||deltaZ==0||Free(from+deltaX)&&Free(from+deltaZ*Arena.FineColumns));
+        }
+
         private bool TryBeginStep(PrototypeUnit unit,int destination)
         {
             if (ContactPinActive(unit)) return false;
-            if(!(CanMove?.Invoke(unit)??true)||!Arena.CanStep(unit.Cell,destination)||reservations.TryGetValue(destination,out int owner)&&owner!=unit.Id)return false;
-            int deltaX=destination%Arena.FineColumns-unit.Cell%Arena.FineColumns,deltaZ=destination/Arena.FineColumns-unit.Cell/Arena.FineColumns;
-            if(deltaX!=0&&deltaZ!=0&&(reservations.TryGetValue(unit.Cell+deltaX,out int horizontal)&&horizontal!=unit.Id||reservations.TryGetValue(unit.Cell+deltaZ*Arena.FineColumns,out int vertical)&&vertical!=unit.Id))return false;
+            if(!(CanMove?.Invoke(unit)??true)||!Arena.CanStep(unit.Cell,destination)||!ReservationStepAllowed(unit,unit.Cell,destination))return false;
             var target=Arena.Center(destination);
             var heading=(target-unit.Position).Normalized;
             if(!BodyStep(unit,destination,heading)||!Face(unit,heading))return false;

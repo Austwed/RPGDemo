@@ -179,7 +179,7 @@ namespace BaseConquest.Editor
             var expected = draft.Units.Where(u => u.SoldierNumber > 0 && draft.Positions.ContainsKey(u.Id))
                 .ToDictionary(u => u.SoldierNumber, u => u.TeamId);
             var opening = session.Opening;
-            var enemies = opening.Enemies.Where(e => !e.Dead && !e.KnockedDown && !e.IsControlled && e.Health > 0).ToArray();
+            var enemies = opening.Enemies.Where(e => !e.Dead && !e.KnockedDown && e.Health > 0).ToArray();
             Need(draft.KnownEnemyCount() == enemies.Length && BattleSimulation.TroopKinds.Prepend(SoldierKind.Hero)
                 .All(kind => draft.KnownEnemyCount(kind) == enemies.Count(e => e.Kind == kind)),
                 "敌军编成与备战情报不一致：" + draft.Route);
@@ -217,7 +217,9 @@ namespace BaseConquest.Editor
             Need(BaseCampaign.Travel(state, "outpost"), "前往沉眠古窟");
             At(state, "demo_ruins_investigate");
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
-            Need(draft.KnownEnemyPower(state) > 0 && draft.KnownEnemyCount() == 1, "首战敌情应显示古窟队长，不计受控制村民");
+            Need(draft.KnownEnemyPower(state) > 0 && draft.KnownEnemyCount(SoldierKind.Hero) == 1 &&
+                draft.KnownEnemyCount(SoldierKind.Melee) == 2 && draft.KnownEnemyCount() == 3,
+                "古窟首战应显示队长和两名受控制的剑士");
             Need(draft.AutoPlace() > 0, "古窟没有可用部署区");
             var battle = Start(state, draft);
             BaseDemoRuins.Configure(battle);

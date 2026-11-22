@@ -111,9 +111,9 @@ namespace BaseConquest.Base
         public static string LocationName(BaseState state)
         {
             if (state.Campaign.Location == "perimeter" && BaseDemoDefense.SecondDue(state))
-                return "营地外围 · 第二波防守";
-            return BaseSceneInstances.Active(state) || BaseDemo.Active(state)
-                ? BaseSpatial.Layout(state).Title : LocationName(state.Campaign.Location);
+                return "营地外围 第二波防守";
+            var layout = BaseSceneInstances.Active(state) || BaseDemo.Active(state) ? BaseSpatial.Layout(state) : null;
+            return layout == null ? LocationName(state.Campaign.Location) : BaseMap.DisplayTitle(layout);
         }
         // Plans and save reloads must reproduce the pending fight. Real victories and retreats create reports.
         public static int NextBattleSeed(BaseState state, string eventId)
@@ -250,7 +250,6 @@ namespace BaseConquest.Base
             var link=BaseDesignRoutes.Active(s) ? BaseDesignRoutes.Reachable(s,location,connectionId) : null;
             if(BaseDesignRoutes.Active(s)&&link==null)return false;
             if(location=="outpost"&&(!s.Campaign.RegionMaps.Any(m=>m.Id=="outpost")||!BaseDesignRoutes.Active(s)&&s.Campaign.Location!="world"))return false;
-            if(BaseDesignRoutes.Active(s)&&(location=="outpost"||location=="world")&&!s.Muster.Parties.Any(p=>p.Purpose=="expedition"&&p.Leaders.Any(l=>l.LeaderId==s.PlayerLeaderId)))return false;
             if (s.Campaign.Location == "base") { s.Campaign.BaseX = s.PlayerX; s.Campaign.BaseY = s.PlayerY; }
             bool fromOutpost=s.Campaign.Location=="outpost";
             if(s.Campaign.Location=="world"){s.Campaign.WorldX=s.PlayerX;s.Campaign.WorldY=s.PlayerY;}

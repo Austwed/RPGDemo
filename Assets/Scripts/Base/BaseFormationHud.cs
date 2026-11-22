@@ -58,21 +58,5 @@ namespace BaseConquest.Base
                 });
             }
         }
-        public void OpenDeparture(string location, string eventId = null, string mode = "full", bool adviceHandled = false)
-        {
-            interactionObject = "";
-            var state = owner.State;
-            bool demoDefense = BaseDemoDefense.Enabled(state) && location == "perimeter" &&
-                (eventId == null || eventId == BaseDemoDefense.EventId || eventId == BaseDemoDefense.SecondEventId);
-            if (demoDefense)
-            {
-                if (BaseDemoDefense.AnyDue(state) && BaseInteraction.At(state, "perimeter", "demo_defense_start"))
-                    OpenBattlePreparation(BaseDemoDefense.SecondDue(state) ? BasePrepRoute.Second : BasePrepRoute.Defense);
-                else owner.ReportMessage(BaseDemoDefense.Objective(state));
-                return;
-            }
-            if (!adviceHandled && CompanionAdvice(location, eventId, mode)) return;
-            OpenDepartureReview(location, eventId, mode);
-        }
     }
 }

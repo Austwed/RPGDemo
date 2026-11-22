@@ -477,15 +477,15 @@ namespace BaseConquest.Base
                 BaseDemoIntro.Walk(State, travelled);
                 OpeningAudio?.Footstep(travelled, regionView, x, y);
             }
-            double previousX = State.PlayerX, previousY = State.PlayerY;
             State.PlayerX = x; State.PlayerY = y; PlacePlayer(cardinal?BaseConquest.Presentation.PlayerHeroFrames.FaceWalking(input.x,input.y,BaseConquest.Presentation.HeroFacing.South):null);
             CheckPrologueTrigger();
-            if ((movedX != 0 || movedY != 0) && !Busy && !Hud.PanelOpen && !ConstructionMode &&
+            if (lastTouchedRoad != null && !PushingThroughRoad(lastTouchedRoad, x, y, input.x, input.y))
+                lastTouchedRoad = null;
+            if (input.sqrMagnitude > .0001f && !Busy && !Hud.PanelOpen && !ConstructionMode &&
                 BaseDemo.Active(State) && !BaseDemoPrologue.Village(State))
             {
-                if (lastTouchedRoad != null && !lastTouchedRoad.Contains(x, y)) lastTouchedRoad = null;
                 foreach (var gate in MapObjects)
-                    if (gate.Id != lastTouchedRoad?.Id && CrossedRoadEdge(gate, previousX, previousY, x, y) && BaseInteraction.CanReach(State, gate))
+                    if (gate.Id != lastTouchedRoad?.Id && PushingThroughRoad(gate, x, y, input.x, input.y) && BaseInteraction.CanReach(State, gate))
                     {
                         lastTouchedRoad = gate;
                         Hud.OpenObject(gate.Id);
@@ -494,15 +494,16 @@ namespace BaseConquest.Base
             }
         }
         private BaseMapObject lastTouchedRoad;
-        internal static bool CrossedRoadEdge(BaseMapObject gate, double fromX, double fromY, double toX, double toY)
+        internal static bool PushingThroughRoad(BaseMapObject gate, double x, double y, double inputX, double inputY)
         {
-            if (gate == null || gate.VisualOnly || !gate.Contains(toX, toY)) return false;
+            if (gate == null || gate.VisualOnly || !gate.Contains(x, y, BaseInteraction.FacingSlack)) return false;
             var inward = BaseDemoNpcs.RoadInward(gate.Id);
-            double along = (toX - fromX) * inward.X + (toY - fromY) * inward.Y;
+            // At the map boundary the movement solver can clip the entire outward step.
+            double along = inputX * inward.X + inputY * inward.Y;
             if (along >= -1e-6) return false;
             double depth = inward.X != 0 ? gate.BoundsWidth : gate.BoundsHeight;
             double edge = Math.Min(.5, depth) - depth / 2;
-            double after = (toX - gate.X) * inward.X + (toY - gate.Y) * inward.Y;
+            double after = (x - gate.X) * inward.X + (y - gate.Y) * inward.Y;
             return after <= edge;
         }
 
@@ -883,7 +884,6 @@ namespace BaseConquest.Base
                         BaseBattleGateway.ShowPrisoners = false;
                         Hud.OpenLoot();
                     }
-                    else if ((State.Campaign.Location == "world" || State.Campaign.Location == "outpost") && !State.Muster.Parties.Any(p => p.Purpose == "expedition")) Hud.OpenDeparture("world");
                 }
             }
             catch (Exception e) { Message = "载入失败，当前状态保留：" + e.Message; }
@@ -1038,7 +1038,6 @@ namespace BaseConquest.Base
             BaseBattleGateway.MainMenu=false;Message="新开局 · "+opening.Title+"；首日口粮已扣一次";RebuildRegion();RebuildHud();Companions.Synchronize(State,true);PlaceCompanions();PlacePlayer();ClearSelection();Hud.ClosePanel();
             if(BaseDemo.Active(State)&&(State.Demo.Stage==BaseDemoStage.Waking||BaseDemoPrologue.Village(State)))Hud.OpenDemoStory();
             if(changedLocation)SceneLoadingCover.LoadExploration();
-            else if((State.Campaign.Location=="world"||State.Campaign.Location=="outpost")&&!State.Muster.Parties.Any(p=>p.Purpose=="expedition"))Hud.OpenDeparture("world");
         }
         private void OnApplicationPause(bool paused) { if (paused) SaveAfterInputReset(); }
         private void OnApplicationFocus(bool focused) { if (!focused) SaveAfterInputReset(); }

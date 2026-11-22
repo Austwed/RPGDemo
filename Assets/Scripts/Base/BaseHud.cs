@@ -161,7 +161,7 @@ namespace BaseConquest.Base
             npcMarkers=new Text[labelObjects.Length];
             for(int i=0;i<labels.Length;i++)
             {
-                var label=Label(mapLabels,labelObjects[i].Name.Replace("伙伴 · ",""),Vector2.zero,new Vector2(180,36),18,TextAnchor.MiddleCenter);
+                var label=Label(mapLabels,labelObjects[i].DisplayName,Vector2.zero,new Vector2(180,36),18,TextAnchor.MiddleCenter);
                 StyleMapName(label);
                 labels[i]=label.rectTransform;
                 npcMarkers[i]=CreateNpcStatusMarker(labels[i]);
@@ -303,11 +303,9 @@ namespace BaseConquest.Base
             if (nearbyId != id)
             {
                 nearbyId = id;
-                interact.GetComponentInChildren<Text>().text = nearby == null ? "接近对象后交互" : nearby.Id == "exit_east" && BaseDemo.Active(owner.State) ? "前往" + BaseScriptNames.Town + " →" : nearby.Kind == BaseSceneController.BenchSeatKind ? nearby.Name : (nearby.Kind=="npc"||owner.State.Leaders.Any(l=>l.Id==nearby.Id)||nearby.Id.StartsWith("demo_villager")||nearby.Id=="prologue_ahe") ? "交谈 · " + nearby.Name.Replace("伙伴 · ","").Replace(" · 交谈","") : (nearby.Kind=="facility"?"管理 · ":nearby.Id.Contains("exit")||nearby.Id.Contains("travel")||nearby.Id.Contains("trigger")?"前往 · ":"使用 · ")+nearby.Name;
-                bool touch = Application.platform == RuntimePlatform.Android;
-                hint.text = owner.PlayerAway ? "主角外出中：入侵信息查看敌情，兵营查看外出队伍" : nearby == null
-                    ? touch ? "拖动左侧摇杆移动，靠近人物或设施后点按右侧按钮" : "设施需在边缘一格内且同层；伙伴靠近对话\n电脑：WASD／方向键移动，E交互 · B背包 · N任务 · M地图"
-                    : "附近：" + nearby.Name + (touch ? "\n点按右侧按钮交互" : "\n点击右侧交互，或按 E");
+                interact.GetComponentInChildren<Text>().text = nearby?.DisplayName ?? "";
+                hint.text = owner.PlayerAway ? "主角外出中" : Application.isMobilePlatform ? ""
+                    : "WASD／方向键移动　E交互　B背包　N任务　M地图";
             }
             if (mapLabels.gameObject.activeSelf) RefreshWorldLabels();
             hint.gameObject.SetActive(owner.SelectedCell == null && !PanelOpen && !owner.ConstructionMode);RefreshConstructionPalette();
@@ -320,7 +318,7 @@ namespace BaseConquest.Base
                 var obj = owner.PresentedObject(labelObjects[i].Id); labels[i].gameObject.SetActive(obj != null);
                 if (obj == null) continue;
                 var name = labels[i].GetComponent<Text>();
-                string displayName = obj.Name.Replace("伙伴 · ", "");
+                string displayName = obj.DisplayName;
                 bool nameChanged = name.text != displayName;
                 name.text = displayName;
                 var status = npcMarkers[i];
@@ -344,13 +342,13 @@ namespace BaseConquest.Base
             var cell = owner.SelectedCell; var facility = owner.DisplayObjects.FirstOrDefault(o => !BaseEnvironment.Decorative(o) && cell.X < o.X + o.Width / 2 && cell.X + 1 > o.X - o.Width / 2 && cell.Y < o.Y + o.Height / 2 && cell.Y + 1 > o.Y - o.Height / 2);
             if(owner.State.Campaign.Location=="world")
             {
-                inspectionTitle.text="世界坐标（"+cell.X+", "+cell.Y+"） · "+(facility?.Name??"区域导航");
+                inspectionTitle.text="世界坐标（"+cell.X+", "+cell.Y+"） · "+(facility?.DisplayName??"区域导航");
                 inspectionDetails.text=facility==null ? "世界地图用于行走与选择区域。接近基地或敌军据点节点，再交互前往该区域。" : facility.Id=="travel_base" ? "基地节点；接近后交互返营。" : BaseThreats.Site(owner.State)?.Owner=="player" ? "己方据点入口；占领状态已保存，仍可进入区域。已出发的敌军仍会抵达。" : "敌方据点入口；进入区域查看驻军，再在原地图进攻。";
                 return;
             }
             string engineering=FortificationInfo.Description(BaseBattlefield.Board(owner.State).Cell(new GridPosition(cell.X,cell.Y)));
             if(engineering!=""){inspectionTitle.text="格子（"+cell.X+", "+cell.Y+"） · 工程";inspectionDetails.text=engineering;return;}
-            inspectionTitle.text = "格子（" + cell.X + ", " + cell.Y + "） · " + (facility?.Name ?? TerrainLabel(cell.X,cell.Y));
+            inspectionTitle.text = "格子（" + cell.X + ", " + cell.Y + "） · " + (facility?.DisplayName ?? TerrainLabel(cell.X,cell.Y));
             if (facility != null)
             {
                 if (!owner.AtBase) inspectionDetails.text = facility.Id == "travel_base" ? "基地入口；接近后交互返回。" : facility.Id=="travel_world" ? "区域出口；接近后回到世界地图原节点，保持本队与军需。" : facility.Id == "campaign_defense" ? "查看入侵并预览迎战；确认才抽调人员。" : facility.Id == "campaign_attack" ? owner.State.Campaign.Location=="world" ? "接近后可进入据点。" : BaseThreats.Site(owner.State)?.Owner=="player" ? "本区域已归己方，接近后可查看据点状态。" : "查看本区域驻军与敌情。" : facility.Id=="town_quest" ? "镇务官：接取城镇防务委托，完成后交付领取营造图册。" : facility.Id=="town_market" ? "交易摊位：查看当日供货和报价。" : facility.Id=="town_recruit" ? "募兵处：查看当日可募兵种和报价。" : "城镇交互点。";
@@ -770,7 +768,7 @@ namespace BaseConquest.Base
         {
             if (owner.State == null || activeObject != "government") return;
             if (BaseDemo.ExperimentalManagementHidden(owner.State)) return;
-            BeginPanel(BaseDemo.Active(owner.State)?"营地管理 · 库存与人员":"据点管理所 · 库存与人员", "government:" + activePage + (activePage == "army" ? ":" + armyPurpose + ":" + armyPage : ""));
+            BeginPanel(BaseDemo.Active(owner.State)?"营地管理":"据点管理所", "government:" + activePage + (activePage == "army" ? ":" + armyPurpose + ":" + armyPage : ""));
             ManagementTabs(OpenGovernment);
             if (activePage == "report") DailyReportContent(); else if (activePage == "administrators") Administrators(); else if (activePage == "workers") Workers(BaseDemo.Active(owner.State)?(BaseFacilityLayout.Built(owner.State,"caravan")?new[]{"farm","caravan"}:new[]{"farm"}):new[] { "farm", "workshop", "caravan" }, OpenGovernment); else if (activePage == "army") Army(); else if (activePage == "development") Development(); else Inventory(); EndPanel();
         }

@@ -472,9 +472,19 @@ namespace BaseConquest.Editor
                     LoadStage("camp", true); stage = "road-town"; break;
                 case "road-town":
                     if (controller.State.Campaign.Location != "town") return;
+                    if (BaseSpatial.Objects(controller.State).Single(gate => gate.Id == "demo_ruins_exit").DisplayName != "野外")
+                        throw new InvalidOperationException("灰岩镇东口应显示短名「野外」");
                     WalkGate("demo_ruins_exit",Vector2.right); Arrival("demo_ruins_return",1);
+                    var outside = controller.State;
+                    if (H.PanelOpen || outside.Muster.Parties.Any(party => party.Purpose == "expedition") ||
+                        BaseCampaign.LocationName(outside) != "野外")
+                        throw new InvalidOperationException("领地内进入野外不应要求出征编队");
+                    controller.SaveStore.RestoreSession(outside);
+                    controller.LoadSaved();
+                    if (controller.State.Campaign.Location != outside.Campaign.Location || H.PanelOpen)
+                        throw new InvalidOperationException("读取野外存档应直接恢复地图");
                     WalkGate("demo_ruins_return",Vector2.left); Arrival("demo_ruins_exit",-1);
-                    Finish(0,"迎敌战场与营地、灰岩镇与野外往返均由实际移动触发，四处落点与朝向通过"); break;
+                    Finish(0,"灰岩镇与野外步行往返和野外读档均直接进入地图，四处出口落点与朝向通过"); break;
             }
         }
 
@@ -1735,6 +1745,14 @@ namespace BaseConquest.Editor
         {
             H.ClosePanel();
             H.OpenFirstRaidIntel();
+            FinishDialogue();
+            var replies = RequirePanel("NpcDialogue").Find("Replies").GetComponent<ScrollRect>().content;
+            var options = replies.GetComponentsInChildren<Button>()
+                .Where(button => button.isActiveAndEnabled && button.interactable)
+                .Select(button => button.GetComponentInChildren<Text>().text).ToArray();
+            if (!options.SequenceEqual(new[] { "那我看看" }))
+                throw new InvalidOperationException("老莫拦路应只提供进入消息页的选项：" + string.Join("、", options));
+            Click("那我看看");
             RequirePanel("TownTrade");
             H.ClosePanel();
             Approach("town_peddler");
@@ -1757,7 +1775,15 @@ namespace BaseConquest.Editor
             Click(intel);
             if (RequirePanel("TownTrade").GetComponentsInChildren<Text>().Any(label => label.text == reopen))
                 throw new InvalidOperationException("补领后小道消息仍显示免费首防消息");
-            Log.Add("[PASS] 免费首防消息离开后可从老莫补领，日历日期一致，领取后入口消失");
+            var trade = RequirePanel("TownTrade");
+            var listing = trade.Find("OfferList").GetComponentsInChildren<Text>().Select(label => label.text)
+                .Single(label => label.StartsWith("十日军情"));
+            if (listing.Contains("日期") || listing.Contains("兵力"))
+                throw new InvalidOperationException("消息列表仍含详情文字");
+            Click(listing);
+            if (!RequirePanel("TownTrade").Find("Details").GetComponentsInChildren<Text>().Any(label => label.text.Contains("每波兵力")))
+                throw new InvalidOperationException("详情缺少十日军情说明");
+            Log.Add("[PASS] 老莫拦路对白、免费消息补领、日历日期与军情商品详情");
         }
 
         private static bool RectWithin(RectTransform child, RectTransform ancestor)

@@ -52,7 +52,7 @@ namespace BaseConquest.Base
                 NpcDialogue(new[]{
                     new NpcLine("获救百姓乙","villager","总算能喘口气了。多亏你手下留情，我们才出得来。"),
                     new NpcLine("获救百姓甲","villager","我们这就回灰岩镇。见了霍恩爵士，会把经过说清楚。")
-                },new[]{new NpcReply("路上小心，我们城里见",()=>owner.ReturnRescuedVillagers(afterExtraction)),new NpcReply("稍后再谈",ClosePanel)});return;
+                },new[]{new NpcReply("路上小心，我们城里见",()=>owner.ReturnRescuedVillagers(afterExtraction))});return;
             }
             bool first=id=="demo_rescued_1";
             bool inTown=state.Campaign.Location=="town"&&state.Demo.Rescue?.Stage==3;

@@ -61,7 +61,6 @@ namespace BaseConquest.Base
                 Label(content, BaseEconomy.ProductName(id), new Vector2(-285, -row - 26), new Vector2(200, 48), 20, TextAnchor.MiddleLeft, new Vector2(0.5f, 1));
                 RowButton(priority == "high" ? "优先高级，低级补足" : "优先低级，节约高级", 110, 540, () => ArmyEdit(next => { var p = ArmyPreset(next); string value = priority == "high" ? "low" : "high"; if (id == "sword") p.SwordPriority = value; else if (id == "bow") p.BowPriority = value; else p.ArmorPriority = value; })); row += 56;
             }
-            RowButton("预览本次队伍", 0, 800, () => OpenMusterPreview(), !s.Muster.Parties.Any(p => p.Purpose == armyPurpose)); row += 65;
             if (s.Muster.Parties.Any(p => p.Purpose == armyPurpose)) Line("该用途已有外出队伍，可在外出队伍页查看或返营。", 56, 18);
         }
         private void ArmyProtection()
@@ -78,9 +77,6 @@ namespace BaseConquest.Base
             }
             Line("人手不足时少带兵；需要增兵，可在出发前允许抽调留守和生产人员。", 58, 18);
         }
-        private void OpenMusterPreview() =>
-            OpenDeparture(armyPurpose == "defense" ? "perimeter" : "world");
-
         private void OutsideParties(Action back)
         {
             Line("外出队伍", 50, 22);

@@ -49,20 +49,68 @@ namespace BaseConquest.Base
         private void OpenCampaignPreview(string id, string mode)
         {
             var s=owner.State;var e=s.Campaign.Events.Single(x=>x.Id==id);string purpose=e.Kind=="defense"?"defense":"expedition";
+            if (OpenFormalCampaignPreparation(s, id)) return;
             var party=s.Muster.Parties.FirstOrDefault(p=>p.Purpose==purpose);
-            if(party==null){OpenDeparture(e.Kind=="defense"?"perimeter":"world",id,mode);return;}
+            BaseMusterPlan plan = null;
+            if (party == null)
+            {
+                try { plan = BaseMuster.PreviewFormation(s, purpose, "combat"); }
+                catch (InvalidOperationException error) { owner.ReportMessage(error.Message); return; }
+            }
+            var leaders = party?.Leaders.Select(leader => leader.LeaderId).ToList() ?? plan.Leaders;
+            bool valid = leaders.Count > 0 && (e.Kind != "attack" || leaders.Contains(s.PlayerLeaderId));
+            int soldiers = party == null ? plan.Total : s.Workers.Where(w=>w.Away&&w.PartyId==party.Id).Sum(w=>w.Count);
             BeginPanel(e.Title+" · 战前确认","campaign-preview:"+id);
-            RowButton("确认进入战场",-210,400,()=>owner.LaunchCampaign(id,mode,null),e.Kind!="attack"||party.Leaders.Any(l=>l.LeaderId==s.PlayerLeaderId));RowButton("返回",210,400,()=>OpenCampaignEvents(e.Kind));row+=64;
-            Line("实际队长："+string.Join("、",party.Leaders.Select(x=>BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==x.LeaderId))))+"／"+s.Workers.Where(w=>w.Away&&w.PartyId==party.Id).Sum(w=>w.Count)+"兵",60,20);
-            var groups=BaseMuster.CurrentFormation(s,party);if(groups!=null)foreach(var group in groups)Line(BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==group.LeaderId))+" · "+TroopsText(group.Actual),50,18);
+            RowButton("确认进入战场",-210,400,()=>owner.LaunchCampaign(id,mode,plan),valid);RowButton("返回",210,400,()=>OpenCampaignEvents(e.Kind));row+=64;
+            if (!valid) Line("出征需带主角，且至少选择一名可出战队长。", 55, 18);
+            Line("实际队长："+string.Join("、",leaders.Select(leader=>BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==leader))))+"／"+soldiers+"兵",60,20);
+            var groups=party == null ? plan.CommanderTroops : BaseMuster.CurrentFormation(s,party);if(groups!=null)foreach(var group in groups)Line(BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==group.LeaderId))+" · "+TroopsText(group.Actual),50,18);
             if(e.Kind=="defense")ThreatEventLines(e);
             else {var source=BaseThreats.Site(s,e.SourceSiteId);if(source!=null)Line("敌方驻军："+BaseThreats.ForceSummary(source.Garrison),64,18);}
-            var held=s.Supply.Quotas.FirstOrDefault(q=>q.PartyId==party.Id);
+            var held=party == null ? null : s.Supply.Quotas.FirstOrDefault(q=>q.PartyId==party.Id);
             if(held==null){foreach(string key in BaseSupply.Modes){string option=key;RowButton((mode==option?"● ":"")+BaseSupply.ModeName(option),option=="full"?-290:option=="half"?0:290,270,()=>OpenCampaignPreview(id,option));}row+=62;}
             else Line("沿用本队已准备军需",50,19);
-            RowButton(campaignDetails?"收起人员／供给明细":"人员／供给明细",0,800,()=>{campaignDetails=!campaignDetails;OpenCampaignPreview(id,mode);});row+=60;
-            if(campaignDetails)try{foreach(var w in s.Workers.Where(w=>w.PartyId==party.Id&&w.Away))Line(BaseEconomy.TroopName(w.Kind)+" "+w.Count+"人，生命 "+w.Health+"/"+w.MaxHealth,44,18);SupplyLines(held??BaseSupply.Preview(s,party.Id,mode).Quota);}catch(Exception error){Line(error.Message,75);}
+            if (party != null)
+            {
+                RowButton(campaignDetails?"收起人员／供给明细":"人员／供给明细",0,800,()=>{campaignDetails=!campaignDetails;OpenCampaignPreview(id,mode);});row+=60;
+                if(campaignDetails)try{foreach(var w in s.Workers.Where(w=>w.PartyId==party.Id&&w.Away))Line(BaseEconomy.TroopName(w.Kind)+" "+w.Count+"人，生命 "+w.Health+"/"+w.MaxHealth,44,18);SupplyLines(held??BaseSupply.Preview(s,party.Id,mode).Quota);}catch(Exception error){Line(error.Message,75);}
+            }
             var f=s.Aftermath.Difficulty.RewardFactor;Line("胜利奖励：粮 "+(int)(e.FoodReward*f)+"／原料 "+(int)(e.MaterialReward*f)+"／币 "+(int)(e.CoinReward*f),64,19);EndPanel();
+        }
+
+        private bool OpenFormalCampaignPreparation(BaseState state, string eventId)
+        {
+            if (!BaseDemo.Active(state)) return false;
+            if (eventId == BaseDemoDefense.EventId || eventId == BaseDemoDefense.SecondEventId)
+            {
+                bool second = eventId == BaseDemoDefense.SecondEventId;
+                if (BaseDemoDefense.AnyDue(state) && BaseDemoDefense.SecondDue(state) == second &&
+                    BaseInteraction.At(state, "perimeter", "demo_defense_start"))
+                    OpenDemoDefenseInteraction("demo_defense_start");
+                else
+                    owner.ReportMessage(BaseDemoDefense.Objective(state));
+                return true;
+            }
+            if (eventId == BaseDemoRuins.EventId)
+            {
+                var marker = BaseSpatial.Objects(state).FirstOrDefault(obj => obj.Id == "demo_ruins_investigate");
+                if (BaseInteraction.CanReach(state, marker)) OpenRuinsChallenge();
+                else owner.ReportMessage("请靠近遗迹入口");
+                return true;
+            }
+            if (eventId == BaseBanditHideout.EventId)
+            {
+                if (BaseBanditHideout.CanEnter(state)) OpenBattlePreparation(BasePrepRoute.Hideout);
+                else owner.ReportMessage(BaseBanditHideout.ApproachText);
+                return true;
+            }
+            if (eventId != BaseThreats.Site(state, BaseDemoFinale.Camp)?.AttackEventId) return false;
+            if (state.Campaign.CurrentMapId == BaseDemoFinale.Camp &&
+                BaseInteraction.At(state, "outpost", "demo_camp_attack"))
+                OpenDemoFinaleInteraction("demo_camp_attack");
+            else
+                owner.ReportMessage("请到黑鸦寨备战");
+            return true;
         }
         // 副手迎战入口（P43）：剧情防守不给按钮，其余袭击给出后台模拟与观战两条路。
         private void DeputyRows(string id)

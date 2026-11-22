@@ -184,7 +184,7 @@ namespace BaseConquest.Base
             var enemies = BaseCampaign.SnapshotEnemies(state, mission, army, true);
             BaseRpg.PrepareEnemies(state, enemies, eventId);
             BaseThreats.ConfigureEnemy(new BattleScenario { B = army, BanditHideout = Route == BasePrepRoute.Hideout }, enemies);
-            return enemies.Where(e => !e.Dead && !e.KnockedDown && !e.IsControlled && e.Health > 0).Select(e =>
+            return enemies.Where(e => !e.Dead && !e.KnockedDown && e.Health > 0).Select(e =>
             {
                 var stats = e.EffectiveStats(state.Demo.Rpg);
                 return new BattleSoldier { Side = BattleSide.B, Kind = e.Kind, Health = e.EffectiveHealth(stats),

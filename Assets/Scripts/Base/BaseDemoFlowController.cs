@@ -10,7 +10,7 @@ namespace BaseConquest.Base
         private bool OfferFirstRaidIntel()
         {
             if(!BaseDemoFlow.Active(State)||!State.Demo.Flow.FirstIntelEligible||State.Demo.Flow.FirstIntelOffered)return false;
-            if(!Change(s=>{if(!BaseRaidIntel.OfferFirst(s))throw new InvalidOperationException("消息引导不可用");},"消息引导"))return false;
+            if(!Change(s=>{if(!BaseRaidIntel.OfferFirst(s))throw new InvalidOperationException("消息引导不可用");},""))return false;
             if(!BaseRaidIntel.CanClaimFirst(State))return false;
             Hud.OpenFirstRaidIntel();return true;
         }
@@ -27,7 +27,7 @@ namespace BaseConquest.Base
             }
             if(BaseDemoFlow.Recruited(State)&&!f.RecruitmentNotice&&!BaseDemoDefense.Won(State)&&
                 State.Campaign.Location=="town"&&BaseInteraction.At(State,"town","town_recruit"))
-            {if(Change(s=>s.Demo.Flow.RecruitmentNotice=true,"招募建设人手已完成"))Hud.OpenRecruitmentComplete();return;}
+            {if(Change(s=>s.Demo.Flow.RecruitmentNotice=true,""))Hud.OpenRecruitmentComplete();return;}
             if(State.Campaign.Location=="town"&&State.Demo.RuinsDay>0&&!f.NoviceShop&&new BasePoint(State.PlayerX,State.PlayerY).Distance(BaseDemoFlow.SmithApproach(State))<=2)
             {if(Change(s=>s.Demo.Flow.NoviceShop=true,"铁匠铺已开放新手装备"))Hud.OpenSmithGoods();return;}
             if(State.Campaign.Location!="base"||!f.FarmOfferPending||f.FarmOfferShown)return;
@@ -62,7 +62,13 @@ namespace BaseConquest.Base
     }
     public sealed partial class BaseHud
     {
-        public void OpenFirstRaidIntel() => StartTrade(TradeVendor.Merchant, TradeShelf.Intel, freeFirst: true);
+        public void OpenFirstRaidIntel()
+        {
+            string line = StoryText.Get("story.ui.intel.first_offer",
+                "东家，回营前听我一句。黑鸦寨有点动静，这条消息算我送你的。");
+            NpcDialogue(new[] { new NpcLine(BaseScriptNames.Merchant, BaseScriptNames.Portrait("merchant"), line) },
+                new[] { new NpcReply("那我看看", () => StartTrade(TradeVendor.Merchant, TradeShelf.Intel, freeFirst: true)) });
+        }
 
         private void PrepareIntelTrade()
         {
@@ -71,7 +77,7 @@ namespace BaseConquest.Base
             {
                 RpgRules latest=null;
                 try{latest=DemoBalanceRuntime.Load().Rules;}catch(InvalidOperationException){}catch(ArgumentException){}
-                if(latest?.IntelPricingConfigured==true)owner.Change(next=>BaseRaidIntel.FillMissingPrices(next,latest),"消息价格已载入");
+                if(latest?.IntelPricingConfigured==true)owner.Change(next=>BaseRaidIntel.FillMissingPrices(next,latest),"");
             }
         }
 
@@ -89,7 +95,8 @@ namespace BaseConquest.Base
             {
                 var existing=BaseRaidIntel.Get(s,days);
                 int price=RaidIntelPrice(s,days);
-                TradeOffer(offers,days.ToString(),(days==5?"五日军情 · 日期":"十日军情 · 日期与兵力")+" · "+(existing!=null?"免费复习":configured?price+"币":"价格待配置"));
+                string name = days == 5 ? "五日军情" : "十日军情";
+                TradeOffer(offers, days.ToString(), name + (existing != null || !configured ? "" : " · " + price + "币"));
             }
 
             if (showFree)
@@ -101,7 +108,7 @@ namespace BaseConquest.Base
                 }
                 else
                 {
-                    TradeLine(details, StoryText.Get("story.ui.intel.first_offer","东家，回营前听我一句。黑鸦寨有点动静，这条消息算我送你的。"));
+                    TradeLine(details, "首防的确切日期");
                     TradeButton(details, "领取免费首防消息 · 0币", () =>
                         TradeCommit(BaseRaidIntel.ClaimFirst, "已记录首防日期"));
                 }
@@ -113,7 +120,7 @@ namespace BaseConquest.Base
             {
                 int price=RaidIntelPrice(s,selected);
                 TradeLine(details,selected==5?"未来五日 · 确切袭击日期":"未来十日 · 确切日期与每波兵力");
-                TradeButton(details,"购买 "+selected+" 日消息 · "+price+"币",
+                TradeButton(details,(selected==5?"购买五日军情":"购买十日军情")+" · "+price+"币",
                     ()=>TradeCommit(next=>RaidIntelPrice(next,selected)==price&&BaseRaidIntel.Buy(next,selected)!=null,"消息已记录"),
                     configured&&s.Inventory.Coins>=price);
                 if(!configured)TradeLine(details,"消息价格待配置");

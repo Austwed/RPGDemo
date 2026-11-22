@@ -147,6 +147,7 @@ namespace BaseConquest.Editor
         }
         public static void Run()
         {
+            VerifyBlockedRouteAndGate();
             VerifyGroupDestinations();
             foreach(double degrees in new[]{44d,45d,46d})
             {
@@ -215,6 +216,46 @@ namespace BaseConquest.Editor
             Need(shoveModel.ShoveMoves==1&&blocker.Cell!=wanted&&!RealtimeBattlePrototype.BodiesCross(shover,shoveModel.Arena.Center(wanted),blocker,blocker.Position),"斜向挤开后仍有穿体");
             Directory.CreateDirectory("Logs");File.WriteAllText("Logs/cavalry-diagonal-verification.txt",$"before horse→foot={beforeA:F6} foot→horse={beforeB:F6}\nafter horse→foot={afterA:F6} foot→horse={afterB:F6}\n");
             Debug.Log("[VerifyCavalryDiagonal] PASS");
+        }
+
+        public static void VerifyBlockedRouteAndGate()
+        {
+            const int columns = 8;
+            int Cell(int x, int row) => row * columns * PrototypeArena.Subdivision + x;
+            var initial = Cell(5, 5);
+            var occupied = Cell(6, 5);
+            var goal = Cell(7, 5);
+            var forward = new[] { initial, occupied, goal };
+            var alternate = new[] { initial, Cell(4, 5), Cell(4, 6), Cell(4, 7), Cell(5, 7),
+                Cell(6, 7), Cell(7, 7), Cell(7, 6), goal };
+            var links = forward.Zip(forward.Skip(1), (from, to) => (from, to))
+                .Concat(alternate.Zip(alternate.Skip(1), (from, to) => (from, to))).ToHashSet();
+            var terrain = new bool[columns * columns];
+            var arena = new PrototypeArena(terrain, terrain,
+                (from, to) => links.Contains((from, to)) || links.Contains((to, from)), columns, columns);
+            var model = new RealtimeBattlePrototype(arena) { AutonomousOutcome = false, CanTarget = (_, _) => false };
+            var mover = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Melee, arena.Center(initial));
+            var blocker = model.AddUnit(PrototypeSide.Enemy, PrototypeRole.Melee, arena.Center(occupied));
+            model.CanMove = unit => unit != blocker;
+            model.DefaultDestination = unit => unit == mover ? goal : -1;
+            var visited = new System.Collections.Generic.List<int> { initial };
+            model.CellEntered = (unit, cell) => { if (unit == mover) visited.Add(cell); };
+            model.SetPaused(false);
+            for (int step = 0; step < 400 && mover.Cell != goal; step++) model.Tick(.02);
+            Need(visited.SequenceEqual(alternate) && blocker.Cell == occupied,
+                "AI 未沿可行绕路抵达目标，或穿过被占细格：" + string.Join(",", visited));
+
+            var gate = new BaseMapObject("demo_ruins_return", "灰岩镇", .7, 7.5, 1, 2, false);
+            var hit = typeof(BaseSceneController).GetMethod("PushingThroughRoad",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            bool Leaves(double x, double y, double dx, double dy) =>
+                (bool)hit.Invoke(null, new object[] { gate, x, y, dx, dy });
+            Need(Leaves(BaseMap.Radius, 7.5, -1, 0), "贴地图左边界时继续向镇外走没有触发");
+            Need(Leaves(BaseMap.Radius, 8.55, -1, -.2), "接触出口侧边且朝外没有触发");
+            Need(!Leaves(BaseMap.Radius, 7.5, 0, 0) && !Leaves(BaseMap.Radius, 7.5, 1, 0)
+                && !Leaves(BaseMap.Radius, 9, -1, 0) && !Leaves(1.1, 7.5, -1, 0),
+                "停留、向内走、偏离出口或仍在内侧时误触发离图");
+            Debug.Log("[BlockedRouteAndGate] PASS AI reroute with reserved cell and west gate outward input");
         }
 
         private static void VerifyGroupDestinations()

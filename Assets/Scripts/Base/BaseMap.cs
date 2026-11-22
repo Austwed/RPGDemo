@@ -14,6 +14,8 @@ namespace BaseConquest.Base
         public readonly string Shape;
         public readonly int Rotation;
         public readonly BaseObjectRect[] Parts;
+        private string displayName;
+        public string DisplayName => displayName ??= BaseMap.DisplayName(Id, Name);
         public double BoundsWidth=>Rotation%180==0?Width:Height;
         public double BoundsHeight=>Rotation%180==0?Height:Width;
         public BaseMapObject(string id, string name, double x, double y, double width, double height, bool blocks = true, string sourceObjectId = null, string assetId = null, string kind = null, bool visualOnly = false,string shape=null,int rotation=0)
@@ -23,6 +25,38 @@ namespace BaseConquest.Base
     }
     public static class BaseMap
     {
+        private static readonly char[] LabelDecoration = { ' ', '←', '→', '↑', '↓', '·' };
+
+        internal static string DisplayName(string id, string name)
+        {
+            switch (id)
+            {
+                case "demo_ruins_exit": return "野外";
+                case "demo_ruins_return": return "返回" + BaseScriptNames.Town;
+                case "demo_defense_exit": return "迎敌战场";
+                case "demo_defense_start": return "迎战";
+                case "demo_camp_attack": return "进攻" + BaseScriptNames.Bandit;
+                case "demo_camp_east": return "东口";
+                case "demo_camp_west": return "西口";
+            }
+
+            string label = (name ?? "").Trim(LabelDecoration);
+            if (label.StartsWith("伙伴 · ", StringComparison.Ordinal)) label = label.Substring("伙伴 · ".Length);
+            else if (label.StartsWith("伙伴·", StringComparison.Ordinal)) label = label.Substring("伙伴·".Length);
+            if (label.EndsWith("·交谈", StringComparison.Ordinal)) label = label.Substring(0, label.Length - "·交谈".Length).TrimEnd();
+            int separator = label.IndexOf(" · ", StringComparison.Ordinal);
+            return (separator < 0 ? label : label.Substring(0, separator)).Trim(LabelDecoration);
+        }
+
+        internal static string DisplayTitle(BaseMapLayout layout)
+        {
+            if (layout.SourceMapId == "demo_ruins" ||
+                (layout.Region == "outpost" && layout.Objects.Any(obj => obj.Id == "demo_ruins_return")))
+                return "野外";
+            string title = string.IsNullOrEmpty(layout.Title) ? BaseCampaign.LocationName(layout.Region) : layout.Title;
+            return title.Trim(LabelDecoration).Replace(" · ", " ").Replace('·', ' ');
+        }
+
         public const double Width = 24, Height = 14, Radius = 0.28, InteractionDistance = 1.35;
         public static readonly BaseMapObject[] Objects = {
             new BaseMapObject("home", "家", 4, 10.5, 4, 3),
