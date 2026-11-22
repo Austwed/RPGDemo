@@ -96,42 +96,79 @@ namespace BaseConquest.Base
         private void OpenSceneCampMenu()
         {
             var view = OpenScenePanel("CampMenu", "camp-menu");
-            var state = owner.State;
+            const float width = 600, height = 416;
+            view.sizeDelta = new Vector2(width, height);
+            view.anchoredPosition = new Vector2(-width / 2 - 15, view.anchoredPosition.y);
+            Place("TitleRail", 0, height / 2 - 28, width, 55);
+            Place("Title", -width / 2 + 140, height / 2 - 28, 240, 39);
+            Place("Close", width / 2 - 32, height / 2 - 28, 42, 36);
+            Place("Actions", 0, -5, width - 36, 302);
+            Place("SaveNotice", 0, -height / 2 + 24, width - 36, 30);
             var rows = Ui<ScrollRect>(view, "Actions").content;
+            var columns = UiPrefabBinding.Rect("Columns", rows).gameObject.AddComponent<HorizontalLayoutGroup>();
+            columns.spacing = 12;
+            columns.childAlignment = TextAnchor.UpperLeft;
+            columns.childControlWidth = columns.childControlHeight = true;
+            columns.childForceExpandWidth = true;
+            columns.childForceExpandHeight = false;
+            var gameplay = Column("Gameplay");
+            var system = Column("System");
             Ui<Button>(view, "Close").onClick.AddListener(ClosePanel);
             var saveNotice = Ui<Text>(view, "SaveNotice");
             saveNotice.gameObject.SetActive(Application.isPlaying && BaseBattleGateway.Session().HasUnsavedChanges);
 
-            void Add(string title, Action action, bool enabled = true)
+            RegisterCampMenuActions((title, action, enabled) => Add(gameplay, title, action, enabled),
+                (title, action, enabled) => Add(system, title, action, enabled));
+
+            void Place(string name, float x, float y, float w, float h)
             {
-                var button = CloneSceneUi("CampMenuAction", rows).GetComponent<Button>();
+                var rect = Ui<RectTransform>(view, name);
+                rect.anchoredPosition = new Vector2(x, y);
+                rect.sizeDelta = new Vector2(w, h);
+            }
+
+            RectTransform Column(string name)
+            {
+                var column = UiPrefabBinding.Rect(name, columns.transform);
+                var layout = column.gameObject.AddComponent<VerticalLayoutGroup>();
+                layout.spacing = 6;
+                layout.childControlWidth = true;
+                layout.childForceExpandWidth = true;
+                layout.childControlHeight = false;
+                layout.childForceExpandHeight = false;
+                return column;
+            }
+
+            void Add(RectTransform column, string title, Action action, bool enabled)
+            {
+                var button = CloneSceneUi("CampMenuAction", column).GetComponent<Button>();
                 button.GetComponentInChildren<Text>(true).text = title;
                 button.interactable = enabled;
                 button.onClick.AddListener(() => { if (!owner.Busy) action(); });
             }
+            RefreshSummary();
+        }
 
-            Add("领地地图 · M", OpenLandMap, BaseLandMap.Available(state));
-            Add(StoryText.Get("story.ui.menu.tasks", "任务 · N"), () => OpenQuests());
-            Add("日结报告", OpenReport);
-            if (BaseAchievements.Active(state)) Add("成就 · " + state.Achievements.Records.Count + "/9", OpenAchievements);
-            if (state.Campaign.HasActiveBattle) Add("恢复当前战斗", owner.ResumeCampaign);
-            else if (!owner.AtBase)
-                Add(BaseDesignRoutes.Active(state) ? "经绑定出口返回基地" : "返回基地", () => owner.Travel("base"),
-                    !BaseDesignRoutes.Active(state) || BaseDesignRoutes.Reachable(state, "base") != null);
-            if (BaseDemoFlow.Active(state) && !BaseDemoPrologue.Village(state) && state.Campaign.Location == "perimeter" && !BaseSceneCombat.Active(state))
-                Add("战前布置工事", owner.ArmConstruction);
-            Add("手动保存", () => OpenSlots(true), !state.Campaign.HasActiveBattle);
-            Add("读取存档", () => OpenSlots(false));
-            Add("选项", OpenOptions);
-            Add("帮助", OpenHelp);
-            Add("回主菜单", owner.ToMainMenu);
-            if(BaseBattleGateway.DemoMode)Add("退出游戏",()=>BaseBattleGateway.ExitDemoSession(true));
+        private void RegisterCampMenuActions(Action<string, Action, bool> gameplay, Action<string, Action, bool> system)
+        {
+            var state = owner.State;
+            gameplay("领地地图 · M", OpenLandMap, BaseLandMap.Available(state));
+            gameplay(StoryText.Get("story.ui.menu.tasks", "任务 · N"), () => OpenQuests(), true);
+            gameplay("日结报告", OpenReport, true);
+            if (BaseAchievements.Active(state)) gameplay("成就 · " + state.Achievements.Records.Count + "/9", OpenAchievements, true);
+            if (state.Campaign.HasActiveBattle) gameplay("恢复当前战斗", owner.ResumeCampaign, true);
             if (BaseConquest.Battle.RuntimeDeveloperOptions.Enabled)
             {
-                if (!BaseBattleGateway.CustomMapTestMode) Add("阶段测试档", OpenDemoStages);
-                if (BaseDemo.Active(state)) Add("独立即时战斗测试", OpenStandaloneBattleTest);
+                if (BaseBattleGateway.DemoMode && !BaseBattleGateway.CustomMapTestMode) gameplay("阶段测试档", OpenDemoStages, true);
+                if (BaseDemo.Active(state)) gameplay("独立即时战斗测试", OpenStandaloneBattleTest, true);
             }
-            RefreshSummary();
+
+            system("手动保存", () => OpenSlots(true), !state.Campaign.HasActiveBattle);
+            system("读取存档", () => OpenSlots(false), true);
+            system("选项", OpenOptions, true);
+            system("帮助", OpenHelp, true);
+            system("回主菜单", owner.ToMainMenu, true);
+            if (BaseBattleGateway.DemoMode) system("退出游戏", () => BaseBattleGateway.ExitDemoSession(true), true);
         }
     }
 }

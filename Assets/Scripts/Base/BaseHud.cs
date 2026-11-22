@@ -629,19 +629,20 @@ namespace BaseConquest.Base
                 return;
             }
             BeginPanel(BaseBattleGateway.CustomMapTestMode ? "自定义地图测试 · 菜单" : "据点菜单");
-            // 阶段测试档属开发期入口（P16）：正常游玩不显示，确认开发者模式后才出现。
-            if(BaseBattleGateway.DemoMode&&!BaseBattleGateway.CustomMapTestMode&&RuntimeDeveloperOptions.Enabled){RowButton("阶段测试档",0,800,OpenDemoStages);row+=60;}
-            Line("3个手动／6个节点自动档；经营设置不会持续落盘。"+(UnityEngine.Application.isPlaying&&BaseBattleGateway.Session().HasUnsavedChanges?"\n有未手动保存的会话更改。":""),65,18);
-            DemoUiIcons.Attach(RowButton("手动保存",-210,400,()=>OpenSlots(true),!owner.State.Campaign.HasActiveBattle),"save");RowButton("读取存档",210,400,()=>OpenSlots(false));row+=60;
-            if(owner.State.Campaign.HasActiveBattle){RowButton("恢复当前战斗",0,800,owner.ResumeCampaign);row+=60;}
-            else if(!owner.AtBase){RowButton(BaseDesignRoutes.Active(owner.State) ? "经绑定出口返回基地" : "返回基地",0,800,()=>owner.Travel("base"),!BaseDesignRoutes.Active(owner.State)||BaseDesignRoutes.Reachable(owner.State,"base")!=null);row+=60;}
-            if(BaseAchievements.Active(owner.State)){RowButton("成就 · "+owner.State.Achievements.Records.Count+"/9",0,800,OpenAchievements);row+=60;}
-            RowButton("领地地图 · M",-210,400,OpenLandMap,BaseLandMap.Available(owner.State));
-            RowButton("日结报告",210,400,OpenReport);row+=60;
-            if(BaseDemoFlow.Active(owner.State)&&!BaseDemoPrologue.Village(owner.State)&&owner.State.Campaign.Location=="perimeter"&&!BaseSceneCombat.Active(owner.State)){RowButton("战前布置工事",0,800,owner.ArmConstruction);row+=60;}
-            RowButton("选项",0,800,OpenOptions);row+=60;
-            RowButton("帮助",-210,400,OpenHelp);RowButton("回主菜单",210,400,owner.ToMainMenu);row+=60;
-            if(BaseDemo.Active(owner.State)&&RuntimeDeveloperOptions.Enabled){RowButton("独立即时战斗测试",0,800,OpenStandaloneBattleTest);row+=60;}
+            float start = row;
+            float left = start, right = start;
+            RegisterCampMenuActions((title, action, enabled) => Add(title, action, enabled, -210, ref left),
+                (title, action, enabled) => Add(title, action, enabled, 210, ref right));
+            row = Math.Max(left, right);
+            if (Application.isPlaying && BaseBattleGateway.Session().HasUnsavedChanges)
+                Line("有未手动保存的会话更改。", 48, 18);
+
+            void Add(string title, Action action, bool enabled, float x, ref float nextRow)
+            {
+                row = nextRow;
+                RowButton(title, x, 400, action, enabled);
+                nextRow += 60;
+            }
             if(BaseDemo.Active(owner.State)){EndPanel();return;}
             RowButton(developerTemplatesOpen ? "开发存档 ▴" : "开发存档 ▾",0,800,()=>{developerTemplatesOpen=!developerTemplatesOpen;OpenMenu();});row+=60;
             if(developerTemplatesOpen)AddTemplates();

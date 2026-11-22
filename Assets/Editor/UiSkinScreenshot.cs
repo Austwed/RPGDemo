@@ -118,6 +118,9 @@ namespace BaseConquest.Editor
             Finish(0, "OK");
         }
 
+        private static IEnumerable<string> MenuLabels(Transform root) =>
+            root.GetComponentsInChildren<Button>().Select(button => button.GetComponentInChildren<Text>()?.text ?? "");
+
         public static void RunMenuHelp()
         {
             stage = "menu-help-boot";
@@ -518,6 +521,18 @@ namespace BaseConquest.Editor
                         Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
                     H.ClosePanel();
                     H.OpenMenu();
+                    var menu = RequirePanel("CampMenu");
+                    var actions = menu.Find("Actions/Viewport/Content/Columns");
+                    var left = actions.Find("Gameplay");
+                    var right = actions.Find("System");
+                    if (!MenuLabels(left).Contains("日结报告") || !MenuLabels(left).Contains("任务 · N") ||
+                        !MenuLabels(right).Take(4).SequenceEqual(new[] { "手动保存", "读取存档", "选项", "帮助" }) ||
+                        MenuLabels(actions).Any(label => label.Contains("返回基地") || label == "战前布置工事"))
+                        throw new InvalidOperationException("据点菜单分栏或移除旧入口失败");
+                    Canvas.ForceUpdateCanvases();
+                    if (((RectTransform)left).anchoredPosition.x >= ((RectTransform)right).anchoredPosition.x)
+                        throw new InvalidOperationException("据点菜单两栏重叠或左右颠倒");
+                    CaptureViewports("camp-menu-two-columns");
                     VerifyExplorationHelp();
                     VerifyResourceHud();
                     if (!controller.Change(s => s.Inventory.Equipment.Single(e => e.Product == "supply" && e.Level == 1).Count += 10,

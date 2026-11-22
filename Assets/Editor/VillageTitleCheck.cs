@@ -38,6 +38,9 @@ namespace BaseConquest.Editor
             Directory.CreateDirectory(Output);
             Environment.SetEnvironmentVariable("BASE_CONQUEST_UI_CHECK_SAVES",
                 Path.GetFullPath(Path.Combine(Output, "check-saves", Guid.NewGuid().ToString("N"))));
+            EditorSceneManager.OpenScene("Assets/Scenes/Base_Stage2.unity");
+            var canvasSource = Object.FindAnyObjectByType<VillageTitleLoop>(FindObjectsInactive.Include);
+            Require(canvasSource != null && !canvasSource.gameObject.activeSelf, "编辑模式显示了旧静态标题画面");
             EditorSceneManager.OpenScene(DemoStartup.Launcher);
             checking = true;
             step = 0;
