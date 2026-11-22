@@ -214,8 +214,9 @@ namespace BaseConquest.Base
             BaseMuster.Validate(s);
             for(int n=0;n<scenario.A.Commanders.Count&&n<leaders.Count;n++)
             {
-                var c=scenario.A.Commanders[n];c.Strategy=Tier((SquadStrategy)s.Muster.Strategies[n]);
-                c.GuardRange=s.Muster.Ranges[n*3];c.AlertRange=s.Muster.Ranges[n*3+1];c.AttackRange=s.Muster.Ranges[n*3+2];
+                int slot = BaseMuster.BarracksSlot(s, leaders[n].Id, n);
+                var c=scenario.A.Commanders[n];c.Strategy=Tier((SquadStrategy)s.Muster.Strategies[slot]);
+                c.GuardRange=s.Muster.Ranges[slot*3];c.AlertRange=s.Muster.Ranges[slot*3+1];c.AttackRange=s.Muster.Ranges[slot*3+2];
             }
         }
         public static void ApplyBanditSight(BattleScenario scenario)
@@ -226,13 +227,6 @@ namespace BaseConquest.Base
             scenario.DefenderSide=(int)BattleSide.B;
             scenario.ShowEnemiesThroughFog=false;
         }
-        public static void RememberStrategy(BaseState s,BaseCampaignSession session)
-        {
-            if(!Active(s))return;
-            BaseMuster.Validate(s);
-            foreach(var actor in session.Battle.Soldiers.Where(u=>u.Side==BattleSide.A&&u.Kind==SoldierKind.Hero))
-                if(actor.OriginCommanderSlot>=0&&actor.OriginCommanderSlot<3)
-                    s.Muster.Strategies[actor.OriginCommanderSlot]=(int)Tier(session.Battle.Scenario.A.Commanders[actor.OriginCommanderSlot].Strategy);
-        }
+
     }
 }

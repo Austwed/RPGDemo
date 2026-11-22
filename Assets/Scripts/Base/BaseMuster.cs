@@ -57,6 +57,7 @@ namespace BaseConquest.Base
     {
         public int Version = 1, KeepMelee = 1, KeepRanged = 1, KeepCavalry, KeepMage;
         public List<int> Strategies, Ranges;
+        public List<BaseCommanderTroops> SlotTroops;
         public List<BaseArmyPreset> Presets = new List<BaseArmyPreset>();
         public List<BaseFacilityProtection> Facilities = new List<BaseFacilityProtection>();
         public List<BaseOutsideParty> Parties = new List<BaseOutsideParty>();
@@ -64,7 +65,7 @@ namespace BaseConquest.Base
         public List<string> AppliedAppendIds = new List<string>();
         public int Keep(BaseTroopKind kind) => kind == BaseTroopKind.Melee ? KeepMelee : kind == BaseTroopKind.Ranged ? KeepRanged : kind == BaseTroopKind.Mage ? KeepMage : KeepCavalry;
         public void SetKeep(BaseTroopKind kind, int value) { if (kind == BaseTroopKind.Melee) KeepMelee = value; else if (kind == BaseTroopKind.Ranged) KeepRanged = value; else if (kind == BaseTroopKind.Mage) KeepMage = value; else KeepCavalry = value; }
-        public BaseMusterState Copy() => new BaseMusterState { Version = Version, KeepMelee = KeepMelee, KeepRanged = KeepRanged, KeepCavalry = KeepCavalry, KeepMage = KeepMage, Strategies = Strategies?.ToList(), Ranges = Ranges?.ToList(), Presets = Presets.Select(x => x.Copy()).ToList(), Facilities = Facilities.Select(x => x.Copy()).ToList(), Parties = Parties.Select(x => x.Copy()).ToList(), ReturnedIds = ReturnedIds.ToList(), AppliedAppendIds = (AppliedAppendIds ?? new List<string>()).ToList() };
+        public BaseMusterState Copy() => new BaseMusterState { Version = Version, KeepMelee = KeepMelee, KeepRanged = KeepRanged, KeepCavalry = KeepCavalry, KeepMage = KeepMage, Strategies = Strategies?.ToList(), Ranges = Ranges?.ToList(), SlotTroops = SlotTroops?.Select(troops => troops.Copy()).ToList(), Presets = Presets.Select(x => x.Copy()).ToList(), Facilities = Facilities.Select(x => x.Copy()).ToList(), Parties = Parties.Select(x => x.Copy()).ToList(), ReturnedIds = ReturnedIds.ToList(), AppliedAppendIds = (AppliedAppendIds ?? new List<string>()).ToList() };
     }
     public sealed class BaseMusterTake
     {
@@ -197,7 +198,7 @@ namespace BaseConquest.Base
             parts.AddRange(s.Leaders.Select(l => l.Id + ":" + l.FacilityId + ":" + l.Away + ":" + l.PartyId + ":" + l.UnavailableDay + ":" + N(l.ProductionBonus)+":"+l.Recruited));
             parts.AddRange(s.Workers.Select(w => w.Kind + ":" + w.FacilityId + ":" + string.Join(",",w.SoldierNumbers) + ":" + w.Away + ":" + w.PartyId + ":" + w.SourceId + ":" + w.UnavailableDay+":"+w.Recruited+(w.LastBattleDay>0 ? ":battle="+w.LastBattleDay : "")));
             parts.Add(BaseSettlements.AtVillage(s) + ":" + s.Development.VillagePolicy);
-            parts.AddRange(s.Workers.Select(w => w.VillageResident + ":" + w.Relocating + ":" + w.DepartureFacility));
+            parts.AddRange(s.Workers.Select(w => BaseSettlements.Station(w) + ":" + w.Relocating + ":" + w.DepartureFacility));
             parts.AddRange(s.Leaders.Select(l => l.VillageResident + ":" + l.Relocating + ":" + l.ArrivalFacility));
             parts.AddRange(s.Leaders.Select(l=>l.Id+":training:"+BaseTraining.Key(l.Training)));
             parts.AddRange(s.Inventory.Equipment.Select(e => e.Product + ":" + e.Level + ":" + e.Count));
@@ -221,7 +222,7 @@ namespace BaseConquest.Base
             parts.AddRange(s.Workers.Select(w => BaseDevelopment.ProfileKey(w.HasCombatProfile,w.CombatStats)));
             parts.AddRange(s.Leaders.Select(l => BaseDevelopment.ProfileKey(l.HasCombatProfile,l.CombatStats)));
             parts.Add("adventure:" + s.Adventure?.Version + ":" + string.Join(",", s.Adventure?.Members ?? new List<string>()));
-            parts.AddRange(s.Leaders.Where(l=>l.PreferredSoldiers?.Count>0).Select(l=>l.Id+":preferences:"+string.Join(",",l.PreferredSoldiers)));
+            parts.AddRange(s.Muster.SlotTroops?.Select(t => $"slot:{t.Melee}:{t.Ranged}:{t.Cavalry}:{t.Mage}") ?? Enumerable.Empty<string>());
             parts.AddRange(s.Leaders.Select(l=>l.Id+":composition:"+(l.DefaultTroops==null ? "legacy" : l.DefaultTroops.Version+":"+l.DefaultTroops.Melee+":"+l.DefaultTroops.Ranged+":"+l.DefaultTroops.Cavalry+":"+l.DefaultTroops.Mage)));
             parts.AddRange(s.Muster.Parties.Select(p=>p.Id+":"+p.PriorityMode+":"+p.ConserveMaterials+":"+string.Join(";",p.CommanderTroops?.Select(r=>r.LeaderId+":"+r.Requested.Melee+":"+r.Requested.Ranged+":"+r.Requested.Cavalry+":"+r.Requested.Mage+":"+r.Actual.Melee+":"+r.Actual.Ranged+":"+r.Actual.Cavalry+":"+r.Actual.Mage)??Enumerable.Empty<string>())));
             parts.AddRange(s.Muster.Facilities.Select(f=>f.DeveloperProductionPaused.ToString()));
@@ -333,16 +334,18 @@ namespace BaseConquest.Base
         public static bool Return(BaseState s, string id, Action<BaseWorkerBucket> afterReturn = null)
             => Return(s, id, afterReturn, null);
 
-        internal static bool ReturnAtSettlement(BaseState s, string id, bool? village)
-            => Return(s, id, worker => worker.Resting = worker.Health < worker.MaxHealth * BaseDevelopment.DutyThreshold, village);
+        internal static bool ReturnAtSettlement(BaseState s, string id, string station)
+            => Return(s, id, worker => worker.Resting = worker.Health < worker.MaxHealth * BaseDevelopment.DutyThreshold, station);
 
-        private static bool Return(BaseState s, string id, Action<BaseWorkerBucket> afterReturn, bool? destinationVillage)
+        private static bool Return(BaseState s, string id, Action<BaseWorkerBucket> afterReturn, string destinationStation)
         {
             BaseEconomy.Validate(s);
             var party = s.Muster.Parties.FirstOrDefault(p => p.Id == id); if (party == null || party.InCombat || s.Supply.Quotas.Any(q => q.PartyId == id)) return false;
             foreach (var record in party.Leaders)
             {
                 var leader = s.Leaders.Single(l => l.Id == record.LeaderId); leader.Away = false; leader.PartyId = "";
+                bool? destinationVillage = destinationStation == null || destinationStation == BaseSettlements.BlackCrowStation
+                    ? null : destinationStation == BaseSettlements.VillageStation;
                 if (destinationVillage.HasValue && leader.VillageResident != destinationVillage.Value)
                 {
                     leader.VillageResident = destinationVillage.Value;
@@ -358,9 +361,10 @@ namespace BaseConquest.Base
                 foreach (var worker in s.Workers.Where(w => w.Away && w.PartyId == id && w.SourceId == source.Id).ToArray())
                 {
                     worker.Away = false; worker.PartyId = worker.SourceId = ""; worker.PartyOrder = 0; worker.DesiredFacility = source.FacilityId; worker.FacilityId = ""; worker.UnavailableDay = s.Day;
-                    if (destinationVillage.HasValue && worker.VillageResident != destinationVillage.Value)
+                    if (destinationStation != null &&
+                        (BaseSettlements.Station(worker) != destinationStation || destinationStation == BaseSettlements.BlackCrowStation))
                     {
-                        worker.VillageResident = destinationVillage.Value;
+                        BaseSettlements.SetStation(worker, destinationStation);
                         worker.DesiredFacility = "";
                         worker.PostLocked = false;
                     }

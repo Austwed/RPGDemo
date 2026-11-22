@@ -124,10 +124,10 @@ namespace BaseConquest.Base
             workerSelectionOrder.Clear();
         }
 
-        private void CommitWorkerDraft(Action refresh)
+        private bool CommitWorkerDraft(Action refresh)
         {
             var moves = workerMoves.ToArray();
-            if (moves.Length == 0) return;
+            if (moves.Length == 0) return true;
             bool saved = owner.Change(next =>
             {
                 if (BaseMuster.Snapshot(next) != workerDraftStamp) throw new InvalidOperationException("人员已变化，请取消方案后重新安排");
@@ -145,6 +145,7 @@ namespace BaseConquest.Base
                 panelFeedback.text = owner.Message;
                 panelFeedback.gameObject.SetActive(true);
             }
+            return saved;
         }
 
         private static void ApplyNamedTransfers(BaseState next, KeyValuePair<int,(BaseTroopKind kind,string from,string to)>[] moves)
@@ -464,9 +465,63 @@ namespace BaseConquest.Base
             return row;
         }
 
-        private void OpenBarracksFacility(string[] rangeDraft = null)
+        private int barracksSeat;
+        private BaseCommanderTroops[] barracksTroops;
+        private int[] barracksStrategies;
+        private string[] barracksRanges;
+        private string barracksOriginal;
+
+        private static string BarracksDraftKey(IEnumerable<BaseCommanderTroops> troops, IEnumerable<int> strategies, IEnumerable<string> ranges)
+            => string.Join(";", troops.Select(t => $"{t.Melee},{t.Ranged},{t.Cavalry},{t.Mage}")) +
+                "/" + string.Join(",", strategies) + "/" + string.Join(",", ranges);
+
+        private static string BarracksDraftKey(BaseState state) => BarracksDraftKey(state.Muster.SlotTroops,
+            state.Muster.Strategies,state.Muster.Ranges.Select(n => n.ToString()));
+
+        private void DiscardBarracksDraft()
+        {
+            barracksTroops = null;
+            barracksStrategies = null;
+            barracksRanges = null;
+            barracksOriginal = null;
+        }
+
+        private bool TryResolveBarracksDraft(Action leave)
+        {
+            if (barracksTroops == null) return false;
+            if (BarracksDraftKey(barracksTroops,barracksStrategies,barracksRanges) == barracksOriginal)
+            {
+                DiscardBarracksDraft();
+                return false;
+            }
+            ShowRosterDiscardConfirmation(SaveBarracksDraft, DiscardBarracksDraft, leave);
+            return true;
+        }
+
+        private bool SaveBarracksDraft()
+        {
+            bool saved = owner.Change(next =>
+            {
+                if (BarracksDraftKey(next) != barracksOriginal) throw new InvalidOperationException("兵营预设已变化，请重新打开兵营");
+                var values = barracksRanges.Select(value => int.TryParse(value, out int number) ? number : 0).ToArray();
+                BaseMuster.SetRanges(next, values);
+                BaseMuster.SetSlotTroops(next, barracksTroops);
+                next.Muster.Strategies = barracksStrategies.ToList();
+            }, "已保存兵营预设");
+            if (saved) DiscardBarracksDraft();
+            return saved;
+        }
+
+        private void OpenBarracksFacility()
         {
             var state = owner.State;
+            if (barracksTroops == null)
+            {
+                barracksTroops = state.Muster.SlotTroops.Select(t => t.Copy()).ToArray();
+                barracksStrategies = state.Muster.Strategies.ToArray();
+                barracksRanges = state.Muster.Ranges.Select(n => n.ToString()).ToArray();
+                barracksOriginal = BarracksDraftKey(state);
+            }
             var (actions, filters, list) = OpenFacilityPanel("barracks:facility",
                 "兵营", FacilityCopy("barracks", "军队与编队"), "士兵名册");
             var rosterHeading = Ui<Text>(panel, "Right/Title");
@@ -476,89 +531,71 @@ namespace BaseConquest.Base
             int ready = localTroops.Where(BaseDevelopment.CanFight).Sum(w => w.Count);
             int injured = localTroops.Where(BaseDevelopment.HeavilyWounded).Sum(w => w.Count);
             FacilityText(actions, $"士兵 {state.Workers.Sum(w => w.Count)} · 队长 {state.Leaders.Count} · 可主动出战 {ready} · 重伤 {injured}");
-            var tabs = CloneSceneUi("FacilityActionRow", actions);
             if (state.Campaign.Location == "base")
-                FacilityButton(actions, "LanDuel", "模拟对抗", () => OpenLanDuel());
-            FacilityButton(tabs, "Recovery", "伤情与岗位", () =>
+                FacilityButton(actions, "LanDuel", "模拟对抗", () => LeaveBarracks(() => OpenLanDuel()));
+            if (state.Muster.Parties.Count > 0 || state.Aftermath.Prisoners.Any(p => p.Status == "held"))
             {
-                BeginPanel("兵营 · 伤情与岗位", "barracks:recovery");
-                RowButton("返回兵营", 0, 800, OpenBarracks); row += 60;
-                Recovery();
-                EndPanel();
-            });
-            if (state.Muster.Parties.Count > 0) FacilityButton(tabs, "Away", "外出队伍", () =>
-            {
-                BeginPanel("兵营 · 外出队伍", "barracks:away");
-                RowButton("返回兵营", 0, 800, OpenBarracks); row += 60;
-                OutsideParties(OpenBarracks);
-                EndPanel();
-            });
-            if (state.Aftermath.Prisoners.Any(p => p.Status == "held")) FacilityButton(tabs, "Prisoners", "俘虏名册", OpenHeldPrisoners);
+                var tabs = CloneSceneUi("FacilityActionRow", actions);
+                if (state.Muster.Parties.Count > 0) FacilityButton(tabs, "Away", "外出队伍", () => LeaveBarracks(() =>
+                {
+                    BeginPanel("兵营 · 外出队伍", "barracks:away");
+                    RowButton("返回兵营", 0, 800, OpenBarracks); row += 60;
+                    OutsideParties(OpenBarracks);
+                    EndPanel();
+                }));
+                if (state.Aftermath.Prisoners.Any(p => p.Status == "held"))
+                    FacilityButton(tabs, "Prisoners", "俘虏名册", () => LeaveBarracks(OpenHeldPrisoners));
+            }
 
-            BaseLeader Commander(BaseState current) => current.Leaders.FirstOrDefault(l => l.Id == compositionLeader && BaseAdventure.Alive(l))
-                ?? current.Leaders.Single(l => l.Id == current.PlayerLeaderId);
-            var commanderHeading = FacilityText(actions, "", true);
-            bool editingFormation = false;
-            Action refreshEditing = null;
-            Button editRoster = null;
-            editRoster = FacilityButton(actions,"EditFormation","点名编队",() =>
+            void LeaveBarracks(Action next)
             {
-                editingFormation = !editingFormation;
-                facilityPersonnelDetail = null;
-                editRoster.GetComponentInChildren<Text>().text = editingFormation ? "结束编队" : "点名编队";
-                refreshEditing?.Invoke();
-            });
-            var counters = new Dictionary<BaseTroopKind, RectTransform>();
+                if (!GuardPendingRosterChanges(next)) next();
+            }
+
+            var commanderHeading = FacilityText(actions, "", true);
+            var counters = new Dictionary<BaseTroopKind, InputField>();
             var refreshCounters = new Dictionary<BaseTroopKind, Action>();
-            var player = state.Leaders.Single(l => l.Id == state.PlayerLeaderId);
-            var captains = new[] { player }.Concat(BaseAdventure.Members(state)
-                .Where(l => l.Id != player.Id && BaseAdventure.Alive(l))).Take(BaseAdventure.Capacity).ToArray();
+            var captains = BaseMuster.BarracksSeatIds(state).Select(id => state.Leaders.Single(l => l.Id == id)).ToArray();
+            bool editable = !state.Campaign.HasActiveBattle;
             Button[] seats = null;
             foreach (var kind in BattleSimulation.TroopKinds.Select(BaseCampaign.ToBase))
             {
                 var counter = FacilityTarget(actions, kind.ToString(), BaseEconomy.TroopName(kind), amount => ChangeTroopCount(kind, amount));
-                counters.Add(kind, counter);
                 counter.Find("Unlock").gameObject.SetActive(false);
                 var number = Ui<InputField>(counter, "Input");
+                counters.Add(kind, number);
                 number.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 124);
                 refreshCounters.Add(kind, AddBarracksStepper(number, 0, 30, false, value => ChangeTroopCount(kind, value)));
             }
 
-            if (!captains.Any(l => l.Id == compositionLeader)) compositionLeader = player.Id;
-            seats = BuildBarracksSeats(portrait, state, captains, id =>
+            seats = BuildBarracksSeats(portrait, state, captains, slot =>
             {
-                compositionLeader = id;
+                barracksSeat = slot;
                 RefreshCommander();
-                refreshEditing?.Invoke();
             });
 
             void RefreshCommander()
             {
-                var current = owner.State;
-                var leader = Commander(current);
-                bool available = !leader.Away && !current.Campaign.HasActiveBattle;
-                PaintBarracksSeats(seats, captains, leader.Id);
-                commanderHeading.text = BasePersonnel.LeaderName(leader) + " · 默认带兵";
-                foreach (var (kind, counter) in counters)
+                PaintBarracksSeats(seats, captains, barracksSeat);
+                var captain = captains.ElementAtOrDefault(barracksSeat);
+                commanderHeading.text = $"{(char)('A' + barracksSeat)} 位 · " + (captain == null ? "默认带兵" :
+                    BasePersonnel.LeaderName(captain) + " · 默认带兵");
+                foreach (var (kind, input) in counters)
                 {
-                    int count = leader.DefaultTroops.Count(kind);
-                    var input = Ui<InputField>(counter, "Input");
-                    input.SetTextWithoutNotify(count.ToString());
-                    input.interactable = available;
+                    input.SetTextWithoutNotify(barracksTroops[barracksSeat].Count(kind).ToString());
+                    input.interactable = editable;
                     refreshCounters[kind]();
                 }
             }
 
-            void ChangeTroopCount(BaseTroopKind kind, int delta)
+            void ChangeTroopCount(BaseTroopKind kind, int value)
             {
-                var leader = Commander(owner.State);
-                int count = Mathf.Clamp(delta, 0, 30);
-                SetFacilityCommanderTroops(leader.Id, kind, count, () => { RefreshCommander(); refreshEditing?.Invoke(); });
+                if (barracksTroops == null) return;
+                barracksTroops[barracksSeat].Set(kind, Mathf.Clamp(value, 0, 30));
+                RefreshCommander();
             }
 
             FacilityText(actions, "默认策略与范围 · 驻守 / 威胁 / 进攻", true);
-            var fields = new InputField[9];
-            var refreshRanges = new Action[fields.Length];
             var strategies = new[] { SquadStrategy.Obey, SquadStrategy.Attack, SquadStrategy.Protect };
             string rosterStamp = null;
             for (int i = 0; i < 3; i++)
@@ -568,52 +605,31 @@ namespace BaseConquest.Base
                 config.name = "Slot" + (char)('A' + slot);
                 Ui<Text>(config, "Label").text = (char)('A' + slot) + " 位";
                 var toggle = Ui<Button>(config, "Strategy");
-                void RefreshStrategy()
-                {
-                    var current = owner.State;
-                    toggle.GetComponentInChildren<Text>().text = BattleSimulation.StrategyName(BaseSceneRules.Tier((SquadStrategy)current.Muster.Strategies[slot]));
-                    toggle.interactable = !current.Campaign.HasActiveBattle;
-                }
-                RefreshStrategy();
+                var label = toggle.GetComponentInChildren<Text>();
+                SquadStrategy Strategy() => BaseSceneRules.Tier((SquadStrategy)barracksStrategies[slot]);
+                label.text = BattleSimulation.StrategyName(Strategy());
+                toggle.interactable = editable;
                 toggle.onClick.AddListener(() =>
                 {
-                    if (owner.Busy) return;
-                    FacilityChange(next =>
-                    {
-                        if (next.Campaign.HasActiveBattle) throw new InvalidOperationException("战斗中不能修改默认策略");
-                        var strategy = BaseSceneRules.Tier((SquadStrategy)next.Muster.Strategies[slot]);
-                        next.Muster.Strategies[slot] = (int)strategies[(Array.IndexOf(strategies, strategy) + 1) % strategies.Length];
-                    }, "已保存默认策略", () =>
-                    {
-                        RefreshStrategy();
-                        rosterStamp = BaseMuster.Snapshot(owner.State);
-                    });
+                    if (owner.Busy || !editable || barracksStrategies == null) return;
+                    barracksStrategies[slot] = (int)strategies[(Array.IndexOf(strategies, Strategy()) + 1) % strategies.Length];
+                    label.text = BattleSimulation.StrategyName(Strategy());
                 });
                 var names = new[] { "Guard", "Threat", "Attack" };
                 for (int j = 0; j < names.Length; j++)
                 {
                     int index = slot * 3 + j;
-                    fields[index] = Ui<InputField>(config, names[j]);
-                    fields[index].SetTextWithoutNotify(rangeDraft?[index] ?? state.Muster.Ranges[index].ToString());
-                    fields[index].interactable = !state.Campaign.HasActiveBattle;
-                    refreshRanges[index] = AddBarracksStepper(fields[index], 1, 32, true,
-                        value => fields[index].SetTextWithoutNotify(value.ToString()));
-                    refreshRanges[index]();
+                    var field = Ui<InputField>(config, names[j]);
+                    field.SetTextWithoutNotify(barracksRanges[index]);
+                    field.interactable = editable;
+                    field.onValueChanged.AddListener(value => { if (barracksRanges != null) barracksRanges[index] = value; });
+                    AddBarracksStepper(field, 1, 32, true, value =>
+                    {
+                        if (barracksRanges == null) return;
+                        field.SetTextWithoutNotify(barracksRanges[index] = value.ToString());
+                    })();
                 }
             }
-            FacilityButton(actions, "SaveRanges", "保存位次范围", () => FacilityChange(next =>
-            {
-                var values = fields.Select(field => int.TryParse(field.text, out int value) ? value : 0).ToArray();
-                BaseMuster.SetRanges(next, values);
-            }, "已保存位次范围", () =>
-            {
-                for (int i = 0; i < fields.Length; i++)
-                {
-                    fields[i].SetTextWithoutNotify(owner.State.Muster.Ranges[i].ToString());
-                    refreshRanges[i]();
-                }
-                rosterStamp = BaseMuster.Snapshot(owner.State);
-            }), !state.Campaign.HasActiveBattle);
 
             float listOffset = 0;
             var soldierCards = new Dictionary<int,RectTransform>();
@@ -627,7 +643,6 @@ namespace BaseConquest.Base
                 facilityPersonnelDetail = null;
                 RefreshRoster(listOffset);
             });
-            refreshEditing = () => RefreshRoster(list.anchoredPosition.y);
             RefreshRoster();
             RefreshCommander();
             FinishFacilityPanel();
@@ -647,50 +662,31 @@ namespace BaseConquest.Base
                 if (detail != null)
                 {
                     int first = list.childCount;
-                    FillBarracksDetail(list, detail, () =>
-                {
-                    var draft = fields.Select(field => field.text).ToArray();
-                    OpenPersonnelDetail(detail.Key, rosterStamp, () => OpenBarracksFacility(draft), "返回兵营");
-                    });
+                    FillBarracksDetail(list,detail,() => OpenPersonnelDetail(detail.Key, rosterStamp, OpenBarracksFacility, "返回兵营"));
                     for (int n=first; n<list.childCount; n++) detailsPanel.Add(list.GetChild(n).gameObject);
                 }
                 else
                 {
                     var units = filter.Apply(personnel).ToArray();
-                    var commander=Commander(current);
                     int index=0;
                     foreach (var unit in units)
                     {
                         int number=unit.SoldierNumber;
-                        bool picked=commander.PreferredSoldiers.Contains(number);
                         if (!soldierCards.TryGetValue(number,out var card))
                         {
                             card = AddPersonnelRow(list,unit,unit.State,() =>
                             {
-                                if (editingFormation)
-                                {
-                                    string leaderId=Commander(owner.State).Id;
-                                    FacilityChange(next=>
-                                    {
-                                        if (!BaseMuster.TogglePreference(next,next.Leaders.Single(l=>l.Id==leaderId),number))
-                                            throw new InvalidOperationException("这名士兵当前无法编入队伍");
-                                    },"",()=>{RefreshCommander(); refreshEditing();});
-                                }
-                                else
-                                {
-                                    listOffset=Mathf.Max(0,list.anchoredPosition.y);
-                                    facilityPersonnelDetail="soldier:"+number;
-                                    RefreshRoster();
-                                }
+                                listOffset=Mathf.Max(0,list.anchoredPosition.y);
+                                facilityPersonnelDetail="soldier:"+number;
+                                RefreshRoster();
                             });
                             soldierCards.Add(number,card);
                         }
-                        bool eligible = !editingFormation || (!commander.Away && !current.Campaign.HasActiveBattle && (unit.CanBattle || picked));
-                        card.GetComponent<Button>().interactable=eligible;
+                        card.GetComponent<Button>().interactable=true;
                         card.gameObject.SetActive(true);
                         card.SetSiblingIndex(index++);
-                        UpdatePersonnelRow(card,unit,editingFormation && picked ? "已编入" : unit.State);
-                        TintRoster(card, editingFormation ? eligible : unit.Effective && !unit.Remote,false,editingFormation && picked);
+                        UpdatePersonnelRow(card,unit,unit.State,showFacility:unit.Facility != unit.State);
+                        TintRoster(card, unit.Effective && !unit.Remote,false);
                     }
                     if (units.Length == 0) detailsPanel.Add(FacilityText(list,"暂无符合条件的人员。").gameObject);
                 }
@@ -726,12 +722,6 @@ namespace BaseConquest.Base
             }
         }
 
-        private void SetFacilityCommanderTroops(string leaderId, BaseTroopKind kind, int count, Action refresh) => FacilityChange(next =>
-        {
-            var leader = next.Leaders.Single(x => x.Id == leaderId);
-            if (leader.Away || next.Campaign.HasActiveBattle) throw new InvalidOperationException("队长外出期间保留冻结编队，请返营后修改");
-            BaseMuster.SetPreferenceCount(next,leader,kind,count);
-        }, "已保存队长预设，未抽调人员", refresh);
 
         private void OpenHomeFacility()
         {

@@ -15,7 +15,8 @@ namespace BaseConquest.Editor
             int index = Array.IndexOf(args, "-settlementFixture");
             if (index < 0 || index + 1 >= args.Length) throw new ArgumentException("Provide -settlementFixture with the old village arrival save copy.");
             var raw = File.ReadAllText(args[index + 1]);
-            var legacy = JsonUtility.FromJson<BaseSaveDocument>(raw).State ?? JsonUtility.FromJson<BaseState>(raw);
+            var legacy = JsonUtility.FromJson<BaseSaveDocument>(raw).State;
+            if (legacy?.Muster?.Parties?.Count is not > 0) legacy = JsonUtility.FromJson<BaseState>(raw);
             BaseEconomy.Validate(legacy);
             Need(legacy.Campaign.CurrentMapId == BaseDemoFinale.Home, "需要已返乡但仍保留外出队伍的存档");
 
@@ -28,42 +29,61 @@ namespace BaseConquest.Editor
             var state = legacy.Copy();
             OnWorld(state, "bandit");
             BaseWorldJourney.EnterScene(state, "bandit_east_entry");
-            Need(state.Muster.Parties.Any(p => p.Id == expedition.Id), "黑鸦寨中转提前解散了队伍");
-            var atBlackCrow = BasePersonnel.Soldiers(state).ToArray();
-            Need(atBlackCrow.Where(u => moved.Contains(u.SoldierNumber)).All(u => u.Away && !u.Remote), "经过黑鸦寨的随队士兵仍被判为异地");
-            Need(atBlackCrow.Where(u => remaining.Contains(u.SoldierNumber)).All(u => !u.Away && u.Remote), "基地留守兵被判为在黑鸦寨");
+            Need(state.Muster.Parties.All(p => p.Id != expedition.Id), "抵达友方黑鸦寨未结束该次调动");
+            var atBlackCrow = BasePersonnel.Soldiers(state).ToDictionary(u => u.SoldierNumber);
+            Need(moved.All(number => !atBlackCrow[number].Away && !atBlackCrow[number].Remote &&
+                atBlackCrow[number].State == BaseScriptNames.Bandit), "已抵达人员未驻扎黑鸦寨");
+            Need(remaining.All(number => !atBlackCrow[number].Away && atBlackCrow[number].Remote), "基地留守兵被判为在黑鸦寨");
 
             var gate = BaseSpatial.Objects(state).Single(o => o.Id == "demo_camp_east");
             state.PlayerX = gate.X;
             state.PlayerY = gate.Y;
-            BaseWorldJourney.EnterWorld(state, "bandit_east_entry");
-            BaseWorldJourney.Start(state, new[] { "bandit", "home" });
+            var route = new[] { "bandit", "home" };
+            var walk = state.Copy();
+            var peaceful = new BaseBattlePreparation(walk, BasePrepRoute.Travel, draftTravelTroops:false);
+            Need(peaceful.Units.All(u => u.Kind == SoldierKind.Hero || !u.Selected), "友方路线自动调动了驻军");
+            int walkFood = walk.Inventory.Food;
+            BaseWorldJourney.Depart(walk, "bandit_east_entry", route, peaceful);
+            Need(walk.Inventory.Food == walkFood && BaseWorldJourney.Step(walk, _ => null), "仅角色出门错误预扣路粮");
+            BaseWorldJourney.EnterScene(walk, "home_entry");
+            Need(walk.Workers.Where(w => w.SoldierNumbers.Any(moved.Contains)).All(w => !w.Away &&
+                w.StationId == "bandit"), "仅角色出门带走了黑鸦寨驻军");
+
+            var military = new BaseBattlePreparation(state, BasePrepRoute.Travel, draftTravelTroops:false);
+            var transfer = military.Units.First(u => moved.Contains(u.SoldierNumber));
+            Need(military.ToggleSoldier(military.PlayerId,transfer), "无法从黑鸦寨明确调动驻军");
+            var outgoing = state.Inventory.Food;
+            BaseWorldJourney.Depart(state, "bandit_east_entry", route, military);
+            Need(state.Inventory.Food == outgoing - state.Rules.SoldierFood, "单兵调动预扣路粮错误");
+            var traveling = state.Muster.Parties.Single(p => p.Purpose == "expedition");
             Need(BaseWorldJourney.Step(state, _ => null) && state.Day == legacy.Day + 1, "黑鸦寨至白桦村应行军一天");
             var beforeArrival = state.Copy();
             BaseWorldJourney.EnterScene(state, "home_entry");
-            VerifyArrival(state, expedition, beforeArrival);
+            VerifyArrival(state, traveling, beforeArrival);
+            Need(state.Workers.Where(w => w.SoldierNumbers.Any(n => n != transfer.SoldierNumber && moved.Contains(n))).All(w =>
+                w.StationId == "bandit" && !w.Away), "黑鸦寨留守人员被搬到了白桦村");
 
             var restored = ReloadLegacy(legacy);
             VerifyArrival(restored, expedition, legacy);
             Need(restored.Day == legacy.Day, "旧档修正额外推进了一天");
 
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Travel);
-            var soldier = draft.Units.First(u => u.Kind != SoldierKind.Hero && moved.Contains(u.SoldierNumber));
-            Need(!draft.TravelingParty && draft.Units.Where(u => u.Kind != SoldierKind.Hero).All(u => moved.Contains(u.SoldierNumber)
+            var soldier = draft.Units.Single(u => u.SoldierNumber == transfer.SoldierNumber);
+            Need(!draft.TravelingParty && draft.Units.Where(u => u.Kind != SoldierKind.Hero).All(u => u.SoldierNumber == transfer.SoldierNumber
                 || legacy.Workers.Any(w => w.VillageResident && w.SoldierNumbers.Contains(u.SoldierNumber))), "白桦村备战混入异地兵");
             foreach (var u in draft.Units) u.Selected = u.Id == draft.PlayerId;
             soldier.TeamId = draft.PlayerId;
             soldier.Selected = true;
             var back = BaseWorldJourney.Plan(state, null, "camp", "home_entry");
             Need(back.Reachable && back.Days == 2, "白桦村至灰岩营地应经黑鸦寨行军两天");
-            BaseWorldJourney.Depart(state, "home_entry", back.Path, draft, false);
+            BaseWorldJourney.Depart(state, "home_entry", back.Path, draft);
             Need(BaseWorldJourney.Step(state, _ => null) && BaseWorldJourney.Step(state, _ => null), "返灰岩营地未结算完整行军");
             BaseWorldJourney.EnterScene(state, "camp_entry");
             Need(state.Muster.Parties.All(p => p.Purpose != "expedition") &&
                 state.Workers.Single(w => w.SoldierNumbers.Contains(soldier.SoldierNumber)) is { Away: false, VillageResident: false } &&
-                state.Workers.Where(w => w.SoldierNumbers.Any(n => n != soldier.SoldierNumber && moved.Contains(n))).All(w => w.VillageResident && !w.Away),
+                state.Workers.Where(w => w.SoldierNumbers.Any(n => n != soldier.SoldierNumber && moved.Contains(n))).All(w => !w.Away && w.StationId == "bandit"),
                 "白桦村至灰岩营地必须只搬迁此次随队人员");
-            Debug.Log("[VerifySettlementTravel] PASS: blackcrow transit, village arrival, legacy load, local roster, returning to camp.");
+            Debug.Log("[VerifySettlementTravel] PASS: blackcrow garrison, ordinary travel, explicit village transfer, legacy load and selected return.");
         }
 
         private static void OnWorld(BaseState state, string node)

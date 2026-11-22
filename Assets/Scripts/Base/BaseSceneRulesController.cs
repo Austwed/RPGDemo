@@ -112,7 +112,6 @@ namespace BaseConquest.Base
             if(beforeAzhuDuel==null)return false;var next=beforeAzhuDuel.Copy();
             var outcome = abandon ? BattleOutcome.None : run?.Battle.Report?.Outcome ?? BattleOutcome.None;
             bool completed = BaseLocalDuel.RecordResult(next, outcome);
-            if (completed) BaseSceneRules.RememberStrategy(next, run.Session);
             BaseEconomy.Validate(next); SaveStore.Save(next); State = next; beforeAzhuDuel = null;
             FinishLocalScene(mainMenu, completed ? () => Hud.OpenAzhuAfterDuel(outcome == BattleOutcome.SideAWin) : () => Hud.OpenDemoPartner("partner_craft"));
             return true;

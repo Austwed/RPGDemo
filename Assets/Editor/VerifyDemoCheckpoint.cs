@@ -127,26 +127,54 @@ namespace BaseConquest.Editor
             }
             finally{if(had)PlayerPrefs.SetString(key,previous);else PlayerPrefs.DeleteKey(key);PlayerPrefs.Save();}
         }
-        public static void VerifySecondRules(){VerifySecondOutcome();VerifySecondFailure();}
+        public static void VerifySecondRules(){VerifySecondOutcome();VerifySecondFailure();Debug.Log("SecondRules PASS");}
         public static void VerifySecondFailure()
         {
             var asset=Resources.Load<TextAsset>("DemoStages/defense-male");Need(asset!=null,"缺少首防阶段档");
             var state=JsonUtility.FromJson<BaseState>(asset.text);var first=BaseDemoDefense.Begin(state,"none");BattleScenePlacement.Start(state,first);
             var firstRun=new RealtimeCampaignBattle(first);BattleScenePlacement.Snap(state,firstRun);BaseDemoDefense.Configure(firstRun);
-            Need(firstRun.Strategy(0,SquadStrategy.Protect),"首防切换策略失败");
+            var slotStrategies=state.Muster.Strategies.ToArray();
+            var slotRanges=state.Muster.Ranges.ToArray();
+            string Troops() => string.Join("|", state.Muster.SlotTroops.Select(t => JsonUtility.ToJson(t)));
+            var troopTargets=Troops();
+            bool PresetUnchanged() => state.Muster.Strategies.SequenceEqual(slotStrategies) &&
+                state.Muster.Ranges.SequenceEqual(slotRanges) && Troops()==troopTargets;
+            var temporaryStrategy=slotStrategies[0]==(int)SquadStrategy.Protect ? SquadStrategy.Attack : SquadStrategy.Protect;
+            Need(firstRun.Strategy(0,temporaryStrategy),"首防切换策略失败");
             foreach(var enemy in firstRun.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))enemy.Escaped=true;
             firstRun.Model.SetPaused(false);firstRun.Tick(.02);Need(firstRun.Battle.Report?.Outcome==BattleOutcome.SideAWin,"首防夹具未获胜");
-            Need(BaseDemoDefense.Complete(state,firstRun),"首防结算夹具失败");Need(state.Muster.Strategies[0]==(int)SquadStrategy.Protect,"胜利结算未回写位次策略");BaseDemoDefense.AcknowledgeBatu(state);
+            Need(BaseDemoDefense.Complete(state,firstRun),"首防结算夹具失败");Need(PresetUnchanged(),"胜利结算改写了兵营预设");BaseDemoDefense.AcknowledgeBatu(state);
             var advance=typeof(BaseEconomy).GetMethod("CompleteProductionDay",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic);
             Need(advance!=null,"缺少日结入口");while(state.Day<BaseDemoDefense.SecondArrival(state))advance.Invoke(null,new object[]{state,false});
             state.Campaign.Location="perimeter";var marker=BaseSpatial.Objects(state,"perimeter").Single(o=>o.Id=="demo_defense_start");state.PlayerX=marker.X;state.PlayerY=marker.Y;BaseAdventure.Arrive(state);
+            var win=state.Copy();
+            var winningSession=BaseDemoDefense.Begin(win,"none");
+            BattleScenePlacement.Start(win,winningSession);
+            var winner=new RealtimeCampaignBattle(winningSession);
+            BattleScenePlacement.Snap(win,winner);
+            BaseDemoDefense.Configure(winner);
+            foreach (var enemy in winner.Model.Units.Where(u=>u.Side==PrototypeSide.Enemy))
+            {
+                enemy.Health=1;
+                enemy.KnockedDown=true;
+                var soldier=winner.Battle.Soldier(enemy.Id-1);
+                soldier.Health=1;
+                soldier.KnockedDown=true;
+                soldier.DeathResolved=true;
+            }
+            winner.Model.SetPaused(false);
+            winner.Tick(.02);
+            Need(winningSession.Opening.EventId==BaseDemoDefense.SecondEventId &&
+                winner.Battle.Report?.Outcome==BattleOutcome.SideAWin &&
+                BaseDemoDefense.Complete(win,winner) && win.Demo.Defense.SecondOutcome=="defended" &&
+                BaseDemoFinale.OccupiedBySecondDefense(win),"第二波全歼后未正确结算及接管黑鸦寨");
             var second=BaseDemoDefense.Begin(state,"none");BattleScenePlacement.Start(state,second);var run=new RealtimeCampaignBattle(second);BattleScenePlacement.Snap(state,run);BaseDemoDefense.Configure(run);
-            Need(run.Strategy(0,SquadStrategy.Attack),"第二波切换策略失败");
+            Need(run.Strategy(0,temporaryStrategy),"第二波切换策略失败");
             Need(!run.RetreatAll()&&run.Battle.Phase==BattlePhase.Fighting,"第二波撤退入口未被逻辑层阻止");
             foreach(var ally in run.Model.Units.Where(u=>u.Side==PrototypeSide.Ally)){ally.Health=1;ally.KnockedDown=true;var soldier=run.Battle.Soldier(ally.Id-1);soldier.Health=1;soldier.KnockedDown=true;soldier.DeathResolved=true;}
             run.Model.SetPaused(false);run.Tick(.02);Need(run.Battle.Report?.Outcome==BattleOutcome.SideBWin,"第二波我方全倒未判失败");
             Need(BaseDemoCombat.Fail(state,run)&&state.Aftermath.GameOver&&state.Demo.Defense.SecondOutcome=="failed","第二波失败未进入游戏结束状态");
-            Need(state.Muster.Strategies[0]==(int)SquadStrategy.Attack,"失败结算未回写位次策略");
+            Need(PresetUnchanged(),"失败结算改写了兵营预设");
             Need(state.Aftermath.Reason==BaseDemoDefense.SecondGameOverReason,"第二波失败原因未使用定稿");
             var pendingReason=state.Copy();pendingReason.Aftermath.Reason="待写";BaseAftermath.Normalize(pendingReason);Need(pendingReason.Aftermath.Reason==BaseDemoDefense.SecondGameOverReason,"旧档第二波失败原因未更新");
             BaseEconomy.Validate(state);

@@ -47,6 +47,7 @@ namespace BaseConquest.Base
         public string FacilityId = "";
         public string PartyId = "", SourceId = "";
         public string HeldBy = "", HeldSourceId = "";
+        public string StationId;
         public int PartyOrder;
         public bool VillageResident, Relocating;
         public int PrepaidRoadFood;

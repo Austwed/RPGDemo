@@ -30,43 +30,6 @@ namespace BaseConquest.Base
     }
     public static partial class BaseMuster
     {
-        public static bool TogglePreference(BaseState state, BaseLeader leader, int soldierNumber)
-        {
-            if (leader.Away || state.Campaign.HasActiveBattle) return false;
-            var soldier = state.Workers.FirstOrDefault(w => w.SoldierNumbers.Contains(soldierNumber));
-            if (soldier == null) return false;
-            leader.PreferredSoldiers ??= new List<int>();
-            if (leader.PreferredSoldiers.Remove(soldierNumber))
-            {
-                leader.DefaultTroops.Set(soldier.Kind,Math.Max(0,leader.DefaultTroops.Count(soldier.Kind)-1));
-                return true;
-            }
-            if (!BaseSettlements.Local(state,soldier) || !BaseDevelopment.CanFight(soldier)) return false;
-            int named = state.Workers.Where(w => w.Kind == soldier.Kind).SelectMany(w => w.SoldierNumbers)
-                .Count(leader.PreferredSoldiers.Contains);
-            if (named >= 30) return false;
-            foreach (var other in state.Leaders.Where(l => l != leader))
-                if (other.PreferredSoldiers?.Remove(soldierNumber)==true)
-                    other.DefaultTroops.Set(soldier.Kind,Math.Max(0,other.DefaultTroops.Count(soldier.Kind)-1));
-            leader.PreferredSoldiers.Add(soldierNumber);
-            leader.DefaultTroops.Set(soldier.Kind,Math.Max(leader.DefaultTroops.Count(soldier.Kind),named+1));
-            return true;
-        }
-
-        public static void SetPreferenceCount(BaseState state, BaseLeader leader, BaseTroopKind kind, int target)
-        {
-            target = Math.Max(0,Math.Min(30,target));
-            leader.PreferredSoldiers ??= new List<int>();
-            var kindIds = state.Workers.Where(w=>w.Kind==kind).SelectMany(w=>w.SoldierNumbers).ToHashSet();
-            var explicitIds = leader.PreferredSoldiers.Where(kindIds.Contains).ToArray();
-            foreach (int id in explicitIds.Skip(target)) leader.PreferredSoldiers.Remove(id);
-            var reserved = state.Leaders.SelectMany(l=>l.PreferredSoldiers??Enumerable.Empty<int>()).ToHashSet();
-            var available = state.Workers.Where(w=>w.Kind==kind && BaseSettlements.Local(state,w) && BaseDevelopment.CanFight(w))
-                .SelectMany(w=>w.SoldierNumbers).Where(id=>!reserved.Contains(id)).OrderBy(id=>id);
-            leader.PreferredSoldiers.AddRange(available.Take(Math.Max(0,target-explicitIds.Length)));
-            leader.DefaultTroops.Set(kind,target);
-        }
-
         public static bool CompositionValid(BaseCommanderTroops c)=>c!=null&&c.Version==1&&Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>().All(k=>c.Count(k)>=0&&c.Count(k)<=30);
         public static void NormalizeCompositions(BaseState s)
         {
@@ -81,11 +44,38 @@ namespace BaseConquest.Base
                 l.PreferredSoldiers ??= new List<int>();
                 if(!CompositionValid(l.DefaultTroops))throw new ArgumentException("队长默认兵力版本或人数非法");
             }
+            var seats = BarracksSeatIds(s);
+            if (s.Muster.SlotTroops == null || s.Muster.SlotTroops.Count == 0)
+                s.Muster.SlotTroops = Enumerable.Range(0,3).Select(slot =>
+                    slot >= seats.Length ? new BaseCommanderTroops() :
+                    s.Leaders.Single(l => l.Id == seats[slot]).DefaultTroops.Copy()).ToList();
+            if (s.Muster.SlotTroops.Count != 3 || s.Muster.SlotTroops.Any(t => !CompositionValid(t)))
+                throw new ArgumentException("兵营各位次默认兵力非法");
         }
+        internal static string[] BarracksSeatIds(BaseState state) => new[] { state.PlayerLeaderId }
+            .Concat(state.Adventure.Members.Where(id => id != state.PlayerLeaderId))
+            .Take(3).ToArray();
+
+        internal static int BarracksSlot(BaseState state, string leaderId, int fallback)
+        {
+            int slot = Array.IndexOf(BarracksSeatIds(state), leaderId);
+            return slot < 0 ? fallback : slot;
+        }
+
+        internal static void SetSlotTroops(BaseState state, IReadOnlyList<BaseCommanderTroops> troops)
+        {
+            if (state.Campaign.HasActiveBattle) throw new InvalidOperationException("战斗中不能修改兵营预设");
+            if (troops.Count != 3 || troops.Any(t => !CompositionValid(t)))
+                throw new ArgumentException("兵营各位次默认兵力非法");
+            state.Muster.SlotTroops = troops.Select(t => t.Copy()).ToList();
+        }
+
         public static BaseArmyPreset FormationSelection(BaseState s,string purpose)
         {
             var selected=BaseAdventure.Selection(s,purpose);
-            foreach(BaseTroopKind k in Enum.GetValues(typeof(BaseTroopKind)))selected.SetCount(k,Math.Min(30,selected.Candidates.Sum(id=>s.Leaders.Single(l=>l.Id==id).DefaultTroops.Count(k))));
+            foreach (BaseTroopKind kind in Enum.GetValues(typeof(BaseTroopKind)))
+                selected.SetCount(kind, Math.Min(30, selected.Candidates.Select((id, i) =>
+                    s.Muster.SlotTroops[BarracksSlot(s,id,i)].Count(kind)).Sum()));
             return selected;
         }
         public static BaseMusterPlan PreviewFormation(BaseState s,string purpose,string mode="production")
@@ -137,8 +127,8 @@ namespace BaseConquest.Base
         }
         private static void SetFormation(BaseState s,BaseMusterPlan plan)
         {
-            var requested = plan.ManualTeams ?? plan.Leaders.Select(id=>new BaseCommanderAllocation
-                {LeaderId=id,Requested=s.Leaders.Single(l=>l.Id==id).DefaultTroops.Copy()}).ToList();
+            var requested = plan.ManualTeams ?? plan.Leaders.Select((id, i) => new BaseCommanderAllocation
+                {LeaderId=id,Requested=s.Muster.SlotTroops[BarracksSlot(s,id,i)].Copy()}).ToList();
             int Taken(BaseTroopKind kind) => plan.Takes.Where(t => s.Workers[t.BucketIndex].Kind == kind).Sum(t => t.Count);
             if (plan.ManualTeams != null && (!requested.Select(team => team.LeaderId).SequenceEqual(plan.Leaders) ||
                 requested.Any(team => !CompositionValid(team.Requested)) ||
@@ -156,10 +146,10 @@ namespace BaseConquest.Base
         }
         private static void FinishFormation(BaseState s,BaseMusterPlan plan)
         {
-            if(plan.PriorityMode=="")return;
+            if(plan.PriorityMode=="" && plan.ManualTeams == null)return;
             plan.Takes=plan.Takes.GroupBy(t=>t.BucketIndex).Select(g=>new BaseMusterTake {BucketIndex=g.Key,Count=g.Sum(t=>t.Count)}).Where(t=>t.Count>0).ToList();
             SetFormation(s,plan);
-            plan.Production=ForecastPlan(s,plan);
+            if (plan.PriorityMode == "production") plan.Production=ForecastPlan(s,plan);
         }
         private static void PrepareProduction(BaseState s,BaseMusterPlan plan)
         {
@@ -169,7 +159,7 @@ namespace BaseConquest.Base
         {
             foreach(var id in plan.Leaders)
             {
-                var desired=s.Leaders.Single(l=>l.Id==id).DefaultTroops;
+                var desired=s.Muster.SlotTroops[BarracksSlot(s,id,plan.Leaders.IndexOf(id))];
                 var request=selection.Copy();
                 foreach(BaseTroopKind k in Enum.GetValues(typeof(BaseTroopKind)))
                 {
@@ -204,6 +194,5 @@ namespace BaseConquest.Base
             }
             forecast.Allowed=true;return forecast;
         }
-        public static string ModeName(string mode)=>mode=="production" ? "生产优先" : "作战优先";
     }
 }

@@ -466,6 +466,12 @@ namespace BaseConquest.Base
         }
         public void ClosePanel()
         {
+            if (rosterConfirmation != null)
+            {
+                CloseRosterConfirmation();
+                return;
+            }
+            if (GuardPendingRosterChanges(ClosePanel)) return;
             if (SlotListOpen)
             {
                 if (BaseBattleGateway.MainMenu) OpenMainMenu();
@@ -495,6 +501,51 @@ namespace BaseConquest.Base
             if (owner.State != null) RefreshSummary();
             owner.NotifyPanelClosed();
         }
+        private RectTransform rosterConfirmation;
+
+        private bool GuardPendingRosterChanges(Action leave)
+        {
+            if (rosterConfirmation != null) return true;
+            if (!PanelOpen) return false;
+            if (workerMoves.Count > 0)
+            {
+                ShowRosterDiscardConfirmation(() => CommitWorkerDraft(() => { }), ResetWorkerDraft, leave);
+                return true;
+            }
+            return TryResolveBarracksDraft(leave);
+        }
+
+        private void ShowRosterDiscardConfirmation(Func<bool> save, Action discard, Action leave)
+        {
+            if (rosterConfirmation != null) return;
+            rosterConfirmation = Box("RosterDraftConfirmation", modal, Vector2.one * .5f,
+                Vector2.zero, Vector2.zero, new Color(0, 0, 0, .52f));
+            rosterConfirmation.anchorMin = Vector2.zero;
+            rosterConfirmation.anchorMax = Vector2.one;
+            rosterConfirmation.offsetMin = rosterConfirmation.offsetMax = Vector2.zero;
+            rosterConfirmation.SetAsLastSibling();
+            var dialog = Box("Dialog", rosterConfirmation, Vector2.one * .5f,
+                Vector2.zero, new Vector2(620, 190), DemoUiTheme.Current.Panel);
+            Label(dialog, "保存当前方案？", new Vector2(0, 57), new Vector2(590, 36), 22, TextAnchor.MiddleCenter);
+            var problem = Label(dialog, "", new Vector2(0, 12), new Vector2(580, 48), 17, TextAnchor.MiddleCenter);
+            void Proceed() { CloseRosterConfirmation(); leave(); }
+            MakeButton(dialog, "保存方案", new Vector2(-190, -51), new Vector2(174, 44), () =>
+            {
+                if (save()) Proceed();
+                else problem.text = owner.Message;
+            });
+            MakeButton(dialog, "放弃修改", new Vector2(0, -51), new Vector2(174, 44), () => { discard(); Proceed(); });
+            MakeButton(dialog, "继续编辑", new Vector2(190, -51), new Vector2(174, 44), CloseRosterConfirmation);
+        }
+
+        private void CloseRosterConfirmation()
+        {
+            if (rosterConfirmation == null) return;
+            rosterConfirmation.gameObject.SetActive(false);
+            BattleBoardView.DestroyObject(rosterConfirmation.gameObject);
+            rosterConfirmation = null;
+        }
+
         private void ClearPanelSelection()
         {
             var events=UnityEngine.EventSystems.EventSystem.current;
@@ -563,6 +614,7 @@ namespace BaseConquest.Base
         }
         public void OpenMenu()
         {
+            if (GuardPendingRosterChanges(OpenMenu)) return;
             if (owner.CampPlacementMode) { owner.RequestExitCampPlacement(); return; }
             interactionObject="";
             owner.StopConstruction();
@@ -729,7 +781,12 @@ namespace BaseConquest.Base
             for (int i = 0; i < pages.Length; i++)
             {
                 string page = pages[i]; float x = (i - (pages.Length - 1) / 2f) * step;
-                RowButton((activePage == page ? "● " : "") + BaseFacilityPages.PageName(page), x, width, () => { activePage = page; refresh(); });
+                RowButton((activePage == page ? "● " : "") + BaseFacilityPages.PageName(page), x, width, () =>
+                {
+                    void Switch() { activePage = page; refresh(); }
+                    if (page != activePage && GuardPendingRosterChanges(Switch)) return;
+                    Switch();
+                });
             }
             row += 70;
         }

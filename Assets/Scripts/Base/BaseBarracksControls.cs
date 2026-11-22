@@ -8,7 +8,7 @@ namespace BaseConquest.Base
 {
     public sealed partial class BaseHud
     {
-        private Button[] BuildBarracksSeats(Transform column, BaseState state, BaseLeader[] captains, Action<string> select)
+        private Button[] BuildBarracksSeats(Transform column, BaseState state, BaseLeader[] captains, Action<int> select)
         {
             Ui<Text>(column, "Name").gameObject.SetActive(false);
             Ui<Text>(column, "Effect").gameObject.SetActive(false);
@@ -27,8 +27,8 @@ namespace BaseConquest.Base
                 var button = card.gameObject.AddComponent<Button>();
                 button.targetGraphic = image;
                 button.transition = Selectable.Transition.None;
-                button.interactable = captain != null;
-                if (captain != null) button.onClick.AddListener(() => { if (!owner.Busy) select(captain.Id); });
+                int slot = index;
+                button.onClick.AddListener(() => { if (!owner.Busy) select(slot); });
                 seats[index] = button;
 
                 var name = Label(card, captain == null ? "空位" : BasePersonnel.LeaderName(captain),
@@ -49,15 +49,15 @@ namespace BaseConquest.Base
             return seats;
         }
 
-        private static void PaintBarracksSeats(Button[] seats, BaseLeader[] captains, string selected)
+        private static void PaintBarracksSeats(Button[] seats, BaseLeader[] captains, int selected)
         {
             for (int i = 0; i < seats.Length; i++)
             {
                 var label = seats[i].GetComponentInChildren<Text>();
                 bool occupied = i < captains.Length;
-                bool active = occupied && captains[i].Id == selected;
-                label.text = occupied ? (active ? "◆ " : "") + BasePersonnel.LeaderName(captains[i]) : "空位";
-                label.color = occupied ? active ? DemoUiTheme.Current.Copper : DemoUiTheme.Current.Ink : DemoUiTheme.Current.Muted;
+                bool active = i == selected;
+                label.text = $"{(active ? "◆ " : "")}{(char)('A' + i)} · " + (occupied ? BasePersonnel.LeaderName(captains[i]) : "空位");
+                label.color = active ? DemoUiTheme.Current.Copper : occupied ? DemoUiTheme.Current.Ink : DemoUiTheme.Current.Muted;
                 label.fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
             }
         }

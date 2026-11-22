@@ -394,9 +394,17 @@ namespace BaseConquest.Base
             BaseEconomy.Validate(s); if (session.Battle.Phase != BattlePhase.Deployment || !s.Campaign.HasActiveBattle || s.Campaign.ActiveBattle.Id != session.Opening.Id) return false;
             var a = s.Campaign.ActiveBattle; s.Campaign.HasActiveBattle = false; s.Campaign.ActiveBattle = new BaseCampaignBattle();
             var q = s.Supply.Quotas.Single(x => x.BattleId == a.Id); q.Phase = "prepared"; s.Muster.Parties.Single(p => p.Id == a.PartyId).InCombat = false;
-            if (!BaseSupply.Cancel(s, a.Id) || !(BaseWorldJourney.Active(s)&&s.Muster.Parties.Single(party=>party.Id==a.PartyId).Purpose=="expedition")&&!BaseMuster.Return(s, a.PartyId)) throw new InvalidOperationException("未能取消战场准备");
+            bool blackCrow = IsBlackCrowEncounter(s,a);
+            bool keepExpedition = !blackCrow && BaseWorldJourney.Active(s) &&
+                s.Muster.Parties.Single(party=>party.Id==a.PartyId).Purpose=="expedition";
+            if (!BaseSupply.Cancel(s, a.Id) || !keepExpedition && !(blackCrow
+                ? BaseMuster.ReturnAtSettlement(s,a.PartyId,BaseSettlements.BlackCrowStation)
+                : BaseMuster.Return(s,a.PartyId))) throw new InvalidOperationException("未能取消战场准备");
             ToBaseLocation(s); return true;
         }
+        private static bool IsBlackCrowEncounter(BaseState state, BaseCampaignBattle battle) =>
+            battle.MapId == BaseDemoFinale.Camp && battle.EventId == BaseThreats.Site(state,BaseDemoFinale.Camp)?.AttackEventId;
+
         private static void ToBaseLocation(BaseState s)
         {
             if(BaseWorldJourney.Active(s)||BaseBanditHideout.InHideout(s)||BaseDemoRuins.Enabled(s)&&(s.Campaign.Location=="outpost"||BaseSceneRules.Dungeon(s))){BaseSpatial.RepairGridPositions(s);BaseAdventure.Arrive(s);return;}
@@ -464,9 +472,13 @@ namespace BaseConquest.Base
             s.Campaign.HasActiveBattle = false; s.Campaign.ActiveBattle = new BaseCampaignBattle();
             BaseWine.Finish(s,session);
             // 先清除外出状态再置重伤闲置标记，避免“外出且休养”的中间状态被军需验证拒绝，导致战报无法返营。
-            bool keepExpedition=BaseWorldJourney.Active(s)&&returning.Purpose=="expedition"&&a.EventId!=BaseDemoRuins.EventId
+            bool blackCrow = IsBlackCrowEncounter(s,a);
+            bool keepExpedition=!blackCrow&&BaseWorldJourney.Active(s)&&returning.Purpose=="expedition"&&a.EventId!=BaseDemoRuins.EventId
                 && (a.EventId != BaseBanditHideout.EventId || a.SupplySnapshot?.PartySubset == true);
-            if (!BaseSupply.Finish(s, a.Id, outcome) || !keepExpedition&&!BaseMuster.Return(s, a.PartyId, w=> {if(forcedRest.Contains(w))w.Resting=true;})) throw new InvalidOperationException("未能回写真实军需／返营");
+            if (!BaseSupply.Finish(s,a.Id,outcome) || !keepExpedition && !(blackCrow
+                ? BaseMuster.ReturnAtSettlement(s,a.PartyId,BaseSettlements.BlackCrowStation)
+                : BaseMuster.Return(s,a.PartyId,w=> { if (forcedRest.Contains(w)) w.Resting=true; })))
+                throw new InvalidOperationException("未能回写真实军需／返营");
             BaseDevelopment.MarkFoughtToday(s, foughtNumbers);
             r.GearLost = gear - s.Inventory.Equipment.Sum(x => x.Count);
             foreach (var id in down) { var l = s.Leaders.Single(x => x.Id == id); l.Resting = false; l.UnavailableDay = s.Day; }
@@ -492,7 +504,6 @@ namespace BaseConquest.Base
             BaseRaidLoot.Apply(s, e, r, win, passive, enemyLeft, holdLeft);
             RecordSettlement(s.Campaign, r); BaseQuests.RecordVictory(s,r); if(!passive&&!a.Deputy)ToBaseLocation(s);
             if (!rescueOnly) BaseBattleLoot.Create(s,r,win&&!s.Aftermath.GameOver?e.ItemRewards:Enumerable.Empty<BaseLootReward>(),capturedEquipment);
-            if (a.EventId != BaseBanditHideout.EventId) BaseSceneRules.RememberStrategy(s,session);
             BaseDevelopment.Allocate(s); BaseEconomy.Validate(s); return true;
         }
         internal static void ApplyEventInventory(BaseState s, BaseCampaignEvent e, bool win, BaseCampaignReport r, double? rewardFactor=null)

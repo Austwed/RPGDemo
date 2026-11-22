@@ -136,12 +136,13 @@ namespace BaseConquest.Base
             var map=BaseSceneInstances.Layout(state,entry.MapId);
             bool camp = map.Region == "base";
             bool village = BaseDemoFinale.Opened(state) && map.SourceMapId == BaseDemoFinale.Home;
-            if (camp || village)
+            bool blackCrow = BaseDemoFinale.Opened(state) && map.SourceMapId == BaseDemoFinale.Camp;
+            if (camp || village || blackCrow)
             {
                 if (BaseDemo.Active(state))
                 {
                     var party = PlayerExpedition(state);
-                    if (party != null) SettleExpedition(state, party, village);
+                    if (party != null) SettleExpedition(state, party, blackCrow ? BaseSettlements.BlackCrowStation : BaseSettlements.Station(village));
                 }
                 else foreach (var party in state.Muster.Parties.Where(p => p.Purpose == "expedition").ToArray())
                     SettleExpedition(state, party, null);
@@ -151,21 +152,25 @@ namespace BaseConquest.Base
             BaseAdventure.Arrive(state);
         }
 
-        private static void SettleExpedition(BaseState state, BaseOutsideParty party, bool? village)
+        private static void SettleExpedition(BaseState state, BaseOutsideParty party, string station)
         {
             foreach (var quota in state.Supply.Quotas.Where(q => q.PartyId == party.Id).ToArray())
                 if (!BaseSupply.Cancel(state, quota.BattleId)) throw new InvalidOperationException("战斗军需未解锁");
-            if (!BaseMuster.ReturnAtSettlement(state, party.Id, village)) throw new InvalidOperationException("出征队无法返营");
+            if (!BaseMuster.ReturnAtSettlement(state, party.Id, station)) throw new InvalidOperationException("出征队无法返营");
         }
 
-        // Compatible saves made inside the village already completed this leg, but kept the party open.
+        // Legacy camp/village saves that completed arrival can still have an open expedition.
         internal static void RestoreSettlementArrival(BaseState state)
         {
-            if (!BaseDemoFinale.Opened(state) || state.Campaign.HasActiveBattle || BaseBattleLoot.Pending(state) ||
-                state.Aftermath.GameOver || state.Campaign.Location != "custom" ||
-                state.Campaign.CurrentMapId != BaseDemoFinale.Home && state.Campaign.CurrentMapId != BaseDemoFinale.HomeField) return;
+            if (!BaseDemoFinale.Opened(state) || state.Campaign.HasActiveBattle ||
+                state.Aftermath.GameOver || OnWorld(state)) return;
             var party = PlayerExpedition(state);
-            if (party != null && !party.InCombat) SettleExpedition(state, party, true);
+            if (party == null || party.InCombat) return;
+            if (state.Campaign.CurrentMapId == BaseDemoFinale.Camp)
+                SettleExpedition(state, party, BaseSettlements.BlackCrowStation);
+            else if (!BaseBattleLoot.Pending(state) && state.Campaign.Location == "custom" &&
+                (state.Campaign.CurrentMapId == BaseDemoFinale.Home || state.Campaign.CurrentMapId == BaseDemoFinale.HomeField))
+                SettleExpedition(state, party, BaseSettlements.VillageStation);
         }
         internal static int TripFood(BaseState state,IReadOnlyList<string> route,int troopCount)
         {
@@ -193,7 +198,7 @@ namespace BaseConquest.Base
             // P42：首次出发讨伐黑鸦寨时解锁副手设立；此前没有副手，剧情防守也只能玩家亲自。
             if(route[route.Count-1]=="bandit")BaseDeputy.Unlock(state);
         }
-        public static void Depart(BaseState state,string entry,IEnumerable<string> path,BaseBattlePreparation draft,bool production)
+        public static void Depart(BaseState state,string entry,IEnumerable<string> path,BaseBattlePreparation draft)
         {
             if(Marching(state)||draft?.Route!=BasePrepRoute.Travel)throw new InvalidOperationException("请先在地图上选择目的地并整备队伍");
             var route = path.ToList();
@@ -202,7 +207,7 @@ namespace BaseConquest.Base
             int roadCost=TripFood(state,route,draft.Units.Count(u=>u.Selected&&u.Kind!=BaseConquest.Battle.SoldierKind.Hero));
             if(state.Inventory.Food<roadCost)throw new InvalidOperationException($"路粮不足 · 需要 {roadCost}，库存 {state.Inventory.Food}");
             if(entry!=null)BaseAdventure.RecallPaused(state);
-            draft.CommitTravelParty(state,production);
+            draft.CommitTravelParty(state);
             if(entry!=null)EnterWorld(state,entry);
             Start(state,route);
         }

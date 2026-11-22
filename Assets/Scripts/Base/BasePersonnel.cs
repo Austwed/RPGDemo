@@ -9,7 +9,7 @@ namespace BaseConquest.Base
         public string Key,Name,Facility,State,Effects,LeaderId;
         public int BucketIndex=-1,Ordinal,SoldierNumber;
         public bool Remote,Relocating,FoughtToday,Wounded,CanBattle;
-        public string Post;
+        public string Post, StationId;
         public bool IsLeader,Recruited,Effective,Resting,Away,Locked;
         public SoldierKind Kind;
         public double Health,MaxHealth,FarmEfficiency,WorkshopEfficiency;
@@ -60,7 +60,7 @@ namespace BaseConquest.Base
     {
         public static string CompactPost(BasePersonnelUnit u)
         {
-            if (u.Relocating || u.Remote || u.Away) return u.State;
+            if (u.Relocating || u.Remote || u.Away || u.StationId == BaseSettlements.BlackCrowStation) return u.State;
             string duty = u.Wounded || u.Health <= 0 ? "疗养" : u.FoughtToday ? "已作战" : "可生产";
             return $"{u.Facility} · {duty}";
         }
@@ -90,18 +90,19 @@ namespace BaseConquest.Base
         {
             s.EnsureSoldierNumbers();
             var expeditionId = BaseWorldJourney.PlayerExpedition(s)?.Id;
-            bool atBlackCrow = BaseDemoFinale.Opened(s) && s.Campaign.CurrentMapId == BaseDemoFinale.Camp;
             for(int i=0;i<s.Workers.Count;i++)
             {
                 var w=s.Workers[i];
                 if(kind.HasValue && BaseCampaign.ToBattle(w.Kind)!=kind.Value)continue;
                 var stats=w.HasCombatProfile ? w.CombatStats.Clone() : new ArmyDefinition().Stats(BaseCampaign.ToBattle(w.Kind)).Clone();stats.Health=(float)w.MaxHealth;
                 bool withPlayer = w.Away && expeditionId != null && w.PartyId == expeditionId;
-                bool remote = !withPlayer && (atBlackCrow || !BaseSettlements.Local(s, w));
+                bool remote = !withPlayer && !BaseSettlements.Local(s, w);
+                bool stationedAtBlackCrow = !w.Away && BaseSettlements.Station(w) == BaseSettlements.BlackCrowStation;
+                string stationName = BaseSettlements.StationName(s, w);
                 for(int n=0;n<w.Count;n++)
                 {
                     int number=w.SoldierNumbers[n];
-                    var u=new BasePersonnelUnit {Post=w.FacilityId, CanBattle=!remote&&BaseDevelopment.CanFight(w), FoughtToday=w.LastBattleDay==s.Day, Wounded=BaseDevelopment.HeavilyWounded(w),Key="soldier:"+number,SoldierNumber=number,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+number,w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : BaseEconomy.FacilityName(w.FacilityId),Remote=remote,Relocating=w.Relocating,State=w.TravelingMerchant ? "随商队出发" : w.Relocating ? "调动中 · "+BaseSettlements.Name(!w.VillageResident) : remote ? "异地 · "+BaseSettlements.Name(w.VillageResident) : w.Away ? "外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.HeavilyWounded(w) ? "疗养" : w.LastBattleDay==s.Day ? "今日已作战" : "今日可生产",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
+                    var u=new BasePersonnelUnit {Post=w.FacilityId, StationId=BaseSettlements.Station(w), CanBattle=!remote&&BaseDevelopment.CanFight(w), FoughtToday=w.LastBattleDay==s.Day, Wounded=BaseDevelopment.HeavilyWounded(w),Key="soldier:"+number,SoldierNumber=number,BucketIndex=i,Ordinal=n,Name=UnitDisplayNames.Mark(BaseEconomy.TroopName(w.Kind)+" #"+number,w.Recruited),Kind=BaseCampaign.ToBattle(w.Kind),Recruited=w.Recruited,Health=w.Health,MaxHealth=w.MaxHealth,Basic=stats.Clone(),Facility=w.Away ? "外出队伍" : stationedAtBlackCrow ? stationName : BaseEconomy.FacilityName(w.FacilityId),Remote=remote,Relocating=w.Relocating,State=w.TravelingMerchant ? "随商队出发" : w.Relocating ? "调动中 · "+BaseSettlements.Name(!w.VillageResident) : stationedAtBlackCrow ? stationName : remote ? "异地 · "+stationName : w.Away ? "外出" : w.Health<=0 ? "无法行动" : BaseDevelopment.HeavilyWounded(w) ? "疗养" : w.LastBattleDay==s.Day ? "今日已作战" : "今日可生产",Effective=BaseDevelopment.Effective(s,w),Resting=w.Resting,Away=w.Away,Locked=w.PostLocked,FarmEfficiency=w.FarmEfficiency,WorkshopEfficiency=w.WorkshopEfficiency};
                     Effects(s,u,w.PartyId);yield return u;
                 }
             }

@@ -31,6 +31,8 @@ namespace BaseConquest.Base
         private readonly BasePrepUnit[] units;
         private readonly BattleSoldier[] enemyReference;
         private readonly int hideoutSeed;
+        private readonly bool draftTravelTroops;
+        public bool DraftTravelTroops => draftTravelTroops;
         private readonly List<BaseEnemyMember> hideoutEnemies;
         private static readonly PrototypePoint East = new PrototypePoint(1, 0);
         public BasePrepRoute Route { get; }
@@ -53,7 +55,7 @@ namespace BaseConquest.Base
             if (target < included.Length)
                 foreach (var u in included.Take(included.Length - target)) u.Selected = false;
             else
-                foreach (var u in units.Where(u => u.Kind == kind && !u.Selected).OrderBy(u => u.SoldierNumber).Take(target - included.Length))
+                foreach (var u in units.Where(u => u.Kind == kind && !u.Selected).OrderByDescending(u => u.Health / u.MaxHealth).ThenBy(u => u.SoldierNumber).Take(target - included.Length))
                 {
                     u.Selected = true;
                     u.TeamId = teamId;
@@ -76,68 +78,64 @@ namespace BaseConquest.Base
             return true;
         }
 
-        public BaseBattlePreparation(BaseState state, BasePrepRoute route, int? hideoutSeed = null, int? hideoutEnemyCount = null)
+        public BaseBattlePreparation(BaseState state, BasePrepRoute route, int? hideoutSeed = null, int? hideoutEnemyCount = null, bool draftTravelTroops = true)
         {
+            BaseEconomy.Validate(state);
             Route = route;
+            this.draftTravelTroops = draftTravelTroops;
             PlayerId = state.PlayerLeaderId;
             purpose = route == BasePrepRoute.Defense || route == BasePrepRoute.Second ? "defense" : "expedition";
             stamp = BaseMuster.Snapshot(state);
             mapKey = state.Campaign.CurrentMapId ?? state.Campaign.Location;
             var party = route is BasePrepRoute.BlackCrow or BasePrepRoute.Hideout or BasePrepRoute.Travel
                 ? state.Muster.Parties.FirstOrDefault(p => p.Purpose == purpose) : null;
-            if (route == BasePrepRoute.BlackCrow && party == null) throw new InvalidOperationException("请率出征队到黑鸦寨");
+            if (route == BasePrepRoute.BlackCrow && state.Campaign.CurrentMapId != BaseDemoFinale.Camp)
+                throw new InvalidOperationException("请到黑鸦寨备战");
             arrivedPartyId = party?.Id;
-            var selected = party == null
-                ? route == BasePrepRoute.Travel ? BaseMuster.PreviewFormation(state, purpose, "combat") : BaseAdventure.Preview(state, purpose, true)
-                : null;
             var leaders = party == null ? BaseAdventure.Members(state).Where(BaseDevelopment.CanFight)
                 : party.Leaders.Select(p => state.Leaders.Single(l => l.Id == p.LeaderId)).Where(l => TravelingParty || BaseAdventure.Alive(l) && l.Health > 0);
             var rows = leaders.OrderByDescending(l => l.Id == PlayerId).Select(l => new BasePrepUnit
             {
                 Id = l.Id, Name = BasePersonnel.LeaderName(l), TeamId = l.Id, Kind = SoldierKind.Hero, Leader = l,
                 Health = l.Health, MaxHealth = l.MaxHealth, Stats = BaseCommanderIdentity.Stats(l, new ArmyDefinition().Hero),
-                Selected = selected == null || selected.Leaders.Contains(l.Id)
+                Selected = true
             }).ToList();
-            var teams = rows.Where(l => l.Selected).ToArray();
-            var initialFormation = party == null ? selected.CommanderTroops : BaseMuster.CurrentFormation(state, party);
+            var teams = rows.ToArray();
             var assignedTeams = new Dictionary<int, string>();
-            foreach (var allocation in initialFormation ?? Enumerable.Empty<BaseCommanderAllocation>())
-                if (allocation.SoldierNumbers != null && teams.Any(team => team.Id == allocation.LeaderId))
-                    foreach (int number in allocation.SoldierNumbers)
-                        assignedTeams[number] = allocation.LeaderId;
-            var selectedBuckets = selected?.Takes.ToDictionary(t => t.BucketIndex, t => t.Count);
-            foreach (var kind in BattleSimulation.TroopKinds)
-            {
-                var baseKind = BaseCampaign.ToBase(kind);
-                var order = teams.SelectMany(team => Enumerable.Repeat(team.Id,
-                    initialFormation?.FirstOrDefault(group => group.LeaderId == team.Id)?.Actual.Count(baseKind) ?? 0)).ToArray();
-                int assigned = 0;
-                foreach (var bucket in state.Workers.Select((worker, index) => (worker, index))
-                    .Where(p => p.worker.Kind == baseKind && (party == null ? BaseDevelopment.Eligible(state,purpose, p.worker)
-                        : p.worker.Away && p.worker.PartyId == party.Id && (TravelingParty || p.worker.Health >= p.worker.MaxHealth * BaseDevelopment.DutyThreshold)))
-                    .OrderByDescending(p => p.worker.Health / p.worker.MaxHealth).ThenBy(p => p.index))
+            if (party != null)
+                foreach (var allocation in BaseMuster.CurrentFormation(state, party) ?? Enumerable.Empty<BaseCommanderAllocation>())
+                    if (allocation.SoldierNumbers != null && teams.Any(team => team.Id == allocation.LeaderId))
+                        foreach (int number in allocation.SoldierNumbers) assignedTeams[number] = allocation.LeaderId;
+
+            if (route != BasePrepRoute.Ruins || BaseRuinsRewards.Cleared(state, route))
+                foreach (var (worker, index) in state.Workers.Select((worker, index) => (worker, index)))
                 {
-                    var worker = bucket.worker;
-                    int count = selectedBuckets == null ? worker.Count : selectedBuckets.GetValueOrDefault(bucket.index);
+                    bool eligible = party == null ? BaseDevelopment.Eligible(state, purpose, worker) :
+                        worker.Away && worker.PartyId == party.Id && (TravelingParty || worker.Health >= worker.MaxHealth * BaseDevelopment.DutyThreshold);
+                    if (!eligible) continue;
+                    var kind = BaseCampaign.ToBattle(worker.Kind);
                     for (int i = 0; i < worker.Count; i++)
                     {
-                        var pick = BaseSoldierPick.At(state, bucket.index, i);
-                        bool chosen = i < count && teams.Length > 0;
-                        string team = teams.FirstOrDefault()?.Id;
-                        if (chosen)
+                        var pick = BaseSoldierPick.At(state, index, i);
+                        rows.Add(new BasePrepUnit
                         {
-                            if (!assignedTeams.TryGetValue(pick.SoldierNumber, out team))
-                                team = assigned < order.Length ? order[assigned] : teams[assigned % teams.Length].Id;
-                            assigned++;
-                        }
-                        rows.Add(new BasePrepUnit { Id = "soldier:" + pick.SoldierNumber, Name = BattleSimulation.KindName(kind) + " #" + pick.SoldierNumber,
-                            SoldierTemplateId = worker.TemplateId, TeamId = team, Kind = kind, Pick = pick, Health = worker.Health, MaxHealth = worker.MaxHealth,
-                            Stats = worker.HasCombatProfile ? worker.CombatStats.Clone() : new ArmyDefinition().Stats(kind).Clone(), Selected = chosen });
+                            Id = "soldier:" + pick.SoldierNumber, Name = BattleSimulation.KindName(kind) + " #" + pick.SoldierNumber,
+                            SoldierTemplateId = worker.TemplateId,
+                            TeamId = assignedTeams.GetValueOrDefault(pick.SoldierNumber, teams.FirstOrDefault()?.Id),
+                            Kind = kind, Pick = pick, Health = worker.Health, MaxHealth = worker.MaxHealth,
+                            Stats = worker.HasCombatProfile ? worker.CombatStats.Clone() : new ArmyDefinition().Stats(kind).Clone(),
+                            Selected = party != null && teams.Length > 0
+                        });
                     }
                 }
-            }
             units = rows.ToArray();
-            if (party == null) RestorePreferredSoldiers(teams);
+            if (party == null && (route != BasePrepRoute.Travel || draftTravelTroops))
+                foreach (var (team, index) in teams.Select((team, index) => (team, index)))
+                {
+                    var desired = state.Muster.SlotTroops[BaseMuster.BarracksSlot(state,team.Id,index)];
+                    foreach (var kind in BattleSimulation.TroopKinds)
+                        SetTeamCount(team.Id, kind, desired.Count(BaseCampaign.ToBase(kind)));
+                }
             if (Route != BasePrepRoute.Travel)
             {
                 Board = Project(state);
@@ -159,44 +157,6 @@ namespace BaseConquest.Base
                     enemyReference = reference.Battle.Soldiers.Where(u => u.Side == BattleSide.B && u.IsAlive).ToArray();
                 }
                 catch (InvalidOperationException) { }
-            }
-        }
-
-        private void RestorePreferredSoldiers(BasePrepUnit[] leaders)
-        {
-            if (!leaders.Any(team => team.Leader.PreferredSoldiers?.Count > 0)) return;
-            foreach (var kind in BattleSimulation.TroopKinds)
-            {
-                var pool = units.Where(u => u.Kind == kind).ToDictionary(u => u.SoldierNumber);
-                var original = leaders.ToDictionary(team => team.Id,team =>
-                    pool.Values.Where(u => u.Selected && u.TeamId == team.Id).ToList());
-                foreach (var u in pool.Values) u.Selected = false;
-                foreach (var team in leaders)
-                {
-                    int needed = original[team.Id].Count;
-                    foreach (var id in team.Leader.PreferredSoldiers ?? Enumerable.Empty<int>())
-                    {
-                        if (needed == 0) break;
-                        if (!pool.TryGetValue(id,out var named) || named.Selected) continue;
-                        Assign(named,team.Id);
-                        needed--;
-                    }
-                }
-                foreach (var team in leaders)
-                {
-                    int remaining = original[team.Id].Count - TeamCount(team.Id,kind);
-                    foreach (var candidate in original[team.Id].Concat(pool.Values.OrderBy(u=>u.SoldierNumber)).Where(u=>!u.Selected))
-                    {
-                        if (remaining-- <= 0) break;
-                        Assign(candidate,team.Id);
-                    }
-                }
-            }
-            void Assign(BasePrepUnit soldier, string teamId)
-            {
-                soldier.Selected = true;
-                soldier.TeamId = teamId;
-                soldier.SelectionOrder = ++lastSelection;
             }
         }
 
@@ -306,7 +266,7 @@ namespace BaseConquest.Base
             return added;
         }
 
-        internal BaseMusterPlan Plan(BaseState state, bool deployed, string priority = "")
+        internal BaseMusterPlan Plan(BaseState state, bool deployed)
         {
             var selected = Taking(deployed).ToArray();
             var preset = state.Muster.Presets.Single(p => p.Purpose == purpose).Copy();
@@ -314,7 +274,7 @@ namespace BaseConquest.Base
             foreach (var kind in BattleSimulation.TroopKinds)
                 preset.SetCount(BaseCampaign.ToBase(kind), selected.Count(u => u.Kind == kind));
             var picks = selected.Where(u => u.Pick != null).Select(u => u.Pick);
-            if (priority == "") return BaseMuster.Preview(state, purpose, true, preset, picks);
+            if (Route != BasePrepRoute.Travel) return BaseMuster.Preview(state, purpose, true, preset, picks);
             var teams = preset.Candidates.Select(id =>
             {
                 var row = new BaseCommanderAllocation { LeaderId = id, SoldierNumbers = selected.Where(u => u.Pick != null && u.TeamId == id)
@@ -323,22 +283,22 @@ namespace BaseConquest.Base
                     row.Requested.Set(BaseCampaign.ToBase(kind), selected.Count(u => u.Kind == kind && u.TeamId == id));
                 return row;
             }).ToList();
-            return BaseMuster.Preview(state, purpose, priority != "production", preset, picks, priority, teams);
+            return BaseMuster.Preview(state, purpose, true, preset, picks, "", teams);
         }
 
-        public BaseMusterPlan TravelPlan(BaseState state, bool production = false)
+        public BaseMusterPlan TravelPlan(BaseState state)
         {
             var problem = Problem(state, false);
             if (problem != "") throw new InvalidOperationException(problem);
-            return Plan(state, false, production ? "production" : "combat");
+            return Plan(state, false);
         }
 
-        internal void CommitTravelParty(BaseState state, bool production)
+        internal void CommitTravelParty(BaseState state)
         {
             if (!TravelingParty)
             {
-                var plan = TravelPlan(state, production);
-                if (production && plan.Production?.Allowed != true || !BaseMuster.Confirm(state, plan))
+                var plan = TravelPlan(state);
+                if (!BaseMuster.Confirm(state, plan))
                     throw new InvalidOperationException("出征队伍有变化，请重新整备");
                 return;
             }
@@ -414,7 +374,7 @@ namespace BaseConquest.Base
             var plan = arrivedPartyId == null ? Plan(state, true) : null;
             var session = Route == BasePrepRoute.Ruins ? BaseDemoRuins.Begin(state, "none", plan, roster)
                 : Route == BasePrepRoute.Hideout ? BaseBanditHideout.Begin(state, plan, roster, hideoutEnemies, hideoutSeed)
-                : Route == BasePrepRoute.BlackCrow ? BaseDemoFinale.Begin(state, "none", roster)
+                : Route == BasePrepRoute.BlackCrow ? BaseDemoFinale.Begin(state, "none", plan, roster)
                 : BaseDemoDefense.Begin(state, "none", plan, roster, Route == BasePrepRoute.Second);
             BattleScenePlacement.Start(state, session);
             if (session.Battle.Phase == BattlePhase.Deployment)

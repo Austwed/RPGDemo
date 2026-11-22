@@ -17,6 +17,8 @@ namespace BaseConquest.Base
         public bool WorldMarchRunning { get; private set; }
         internal bool JourneyMapOpen => journeyHud != null;
         internal int WorldRoadFood(int soldiers)=>BaseWorldJourney.TripFood(State,pendingWorldRoute,soldiers);
+        internal bool WorldMarchTargetsHostileCamp => pendingWorldRoute?.LastOrDefault() == "bandit" &&
+            !BaseDemoFinale.Later(State);
         internal string WorldMarchTitle => "行军整备 · " + WorldNodeTitle(pendingWorldRoute?.LastOrDefault());
         internal string WorldNodeTitle(string id)
         {
@@ -98,13 +100,13 @@ namespace BaseConquest.Base
             pendingWorldRoute = path.ToList();
             Hud.OpenBattlePreparation(BasePrepRoute.Travel);
         }
-        internal bool DepartWorldMarch(BaseBattlePreparation draft, bool production)
+        internal bool DepartWorldMarch(BaseBattlePreparation draft)
         {
             if (Busy || WorldMarchRunning || pendingWorldRoute == null) return false;
             string problem = BaseWorldJourney.DayAdvanceProblem(State, pendingWorldRoute);
             if (problem != "") { ReportMessage(problem, showFeedback:true); return false; }
             var entry = pendingWorldEntry;
-            if (!Change(state => BaseWorldJourney.Depart(state, entry, pendingWorldRoute, draft, production), "队伍已出发")) return false;
+            if (!Change(state => BaseWorldJourney.Depart(state, entry, pendingWorldRoute, draft), "队伍已出发")) return false;
             pendingWorldRoute = null;
             pendingWorldEntry = null;
             Hud.ClosePanel();

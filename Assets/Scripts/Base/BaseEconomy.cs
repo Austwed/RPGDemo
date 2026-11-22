@@ -83,7 +83,7 @@ namespace BaseConquest.Base
         public static int WorkersAt(BaseState s, string facility, BaseTroopKind? kind = null)
             => WorkersAt(s, facility, BaseSettlements.AtVillage(s),kind);
         internal static int WorkersAt(BaseState s, string facility, bool village, BaseTroopKind? kind = null)
-            => s.Workers.Where(w => w.VillageResident == village && !w.Relocating && !w.Away && w.FacilityId == facility
+            => s.Workers.Where(w => BaseSettlements.Station(w) == BaseSettlements.Station(village) && !w.Relocating && !w.Away && w.FacilityId == facility
                 && (facility == "" || facility=="caravan"&&w.TravelingMerchant || BaseDevelopment.Effective(s,w)) && (!kind.HasValue || w.Kind == kind)).Sum(w => w.Count);
         public static int EligibleWorkers(BaseState s,string facility) => WorkersAt(s,facility);
         public static int CivilianWorkersAt(BaseState s,string facility) => CivilianWorkersAt(s,facility,BaseSettlements.AtVillage(s));
@@ -109,7 +109,7 @@ namespace BaseConquest.Base
                 if (!BaseSettlements.Available(s,facility,village)) return 0;
                 var chief = s.Leaders.FirstOrDefault(l => l.VillageResident == village && BaseDevelopment.Effective(s,l) && l.FacilityId == facility);
                 double bonus = chief == null ? 1 : 1 + BaseDevelopment.Bonus(chief,facility);
-                double work = s.Workers.Where(w => w.VillageResident == village && BaseDevelopment.Effective(s,w) && w.FacilityId == facility)
+                double work = s.Workers.Where(w => BaseSettlements.Station(w) == BaseSettlements.Station(village) && BaseDevelopment.Effective(s,w) && w.FacilityId == facility)
                     .Sum(w => w.Count * BaseDevelopment.Efficiency(w,facility)) * soldierFactor;
                 return (work + CivilianWorkersAt(s,facility,village)*.5) * bonus;
             }
@@ -279,7 +279,7 @@ namespace BaseConquest.Base
             if (count <= 0 || from == to || !Facilities.Contains(from) || !Facilities.Contains(to)||!BaseSettlements.Available(s,to,BaseSettlements.AtVillage(s))) return false;
             if (bucket.HasValue && (bucket.Value < 0 || bucket.Value >= s.Workers.Count)) return false;
             var sources = s.Workers.Where((x, index) => (!bucket.HasValue || bucket.Value == index) &&
-                !x.Away && !x.TravelingMerchant && !x.Relocating && x.VillageResident == BaseSettlements.AtVillage(s) && x.FacilityId == from && x.Kind == kind && (to == "" || BaseDevelopment.Effective(s, x))).ToArray();
+                !x.Away && !x.TravelingMerchant && !x.Relocating && BaseSettlements.Local(s,x) && x.FacilityId == from && x.Kind == kind && (to == "" || BaseDevelopment.Effective(s, x))).ToArray();
             if (sources.Sum(x => x.Count) < count || to != "" && WorkersAt(s, to) + count > s.Muster.Facilities.Single(f => f.FacilityId == to).Capacity) return false;
             if (BaseDemo.Active(s) && BaseDevelopment.EffectivePolicy(s) != "manual")
                 BaseSettlements.RecordPolicy(s,"manual");

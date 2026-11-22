@@ -19,7 +19,6 @@ namespace BaseConquest.Base
         private SoldierRosterFilter prepFilter;
         private Button[] prepToolbar;
         private float prepRosterScroll;
-        private bool prepProduction;
         private ScrollRect prepRoster;
         private readonly Dictionary<string, (RectTransform Card, Color PortraitColor)> prepCards = new();
         private readonly Dictionary<string, (RectTransform Card, Color Background)> prepRows = new();
@@ -32,7 +31,8 @@ namespace BaseConquest.Base
             ClearBattlePreparation();
             try
             {
-                battleDraft = new BaseBattlePreparation(PreparationState(route), route);
+                battleDraft = new BaseBattlePreparation(PreparationState(route), route,
+                    draftTravelTroops: route != BasePrepRoute.Travel || owner.WorldMarchTargetsHostileCamp);
                 prepTeam = battleDraft.PlayerId;
                 ShowBattlePreparation();
             }
@@ -53,7 +53,6 @@ namespace BaseConquest.Base
             prepCards.Clear();
             prepRows.Clear();
             prepRosterUnits = null;
-            prepProduction = false;
         }
 
         internal void BattlePreparationPanelClosed() => ClearBattlePreparation();
@@ -132,13 +131,8 @@ namespace BaseConquest.Base
             PrepButton(view, "Close", null, ClosePanel);
             PrepButton(view, "Reset", null, () => OpenBattlePreparation(battleDraft.Route));
             PrepButton(view, "Continue", travel ? "出发" : PrepText("deployment_enter", "进入战场"), ContinueBattlePreparation);
-            var priority = Ui<Button>(view, "Priority");
-            priority.gameObject.SetActive(travel && !battleDraft.TravelingParty);
-            if (travel) PrepButton(view, "Priority", null, () =>
-            {
-                prepProduction = !prepProduction;
-                RefreshPreparationFields();
-            });
+            var oldPriority = view.Find("Priority");
+            if (oldPriority != null) oldPriority.gameObject.SetActive(false);
             var route = battleDraft.Route;
             bool dungeon = BaseRuinsRewards.IsDungeon(route);
             Ui<Button>(view, "Sweep").gameObject.SetActive(dungeon && BaseRuinsRewards.Cleared(state, route));
@@ -154,7 +148,8 @@ namespace BaseConquest.Base
                 {
                     var original=battleDraft;
                     if(!owner.Change(next=>BaseCaravan.Stop(next,"中断跑商，剩余粮草已退回"),"商队已召回"))return;
-                    battleDraft=new BaseBattlePreparation(PreparationState(route),route){SupplyGrade=original.SupplyGrade};
+                    battleDraft = new BaseBattlePreparation(PreparationState(route), route,
+                        draftTravelTroops: original.DraftTravelTroops) { SupplyGrade = original.SupplyGrade };
                     var assigned=original.Units.ToDictionary(u=>u.Id);
                     foreach(var u in battleDraft.Units)
                     {
@@ -314,7 +309,6 @@ namespace BaseConquest.Base
             FitControl(view,"Reset",258,565,170,56);
             FitControl(view,"Continue",435,565,259,56);
             FitControl(view,"Sweep",14,506,190,38);
-            FitControl(view,"Priority",14,506,190,38);
             FitControl(view,"Reward",211,506,198,38);
         }
 
@@ -472,12 +466,16 @@ namespace BaseConquest.Base
         private void RefreshPrepSupply(BaseState state)
         {
             int grade = battleDraft.SupplyGrade;
-            int required = battleDraft.Route == BasePrepRoute.Travel ? 0 : battleDraft.RequiredSupply(false);
+            int required = PreparationSupplyDemand();
             var button = Ui<Button>(panel,"Supply/Grade1");
             button.GetComponentInChildren<Text>().text = "切换军需";
             Ui<Text>(panel,"Supply/Demand").text=BaseSupply.GradeText(state,grade)+$"\n库存 {battleDraft.AvailableSupply(state,grade)} · 需求 {required}";
             button.targetGraphic.color = DemoUiTheme.Current.Button;
         }
+
+        private int PreparationSupplyDemand() => battleDraft.Route == BasePrepRoute.Travel
+            ? SelectedPrepSoldiers.Count()
+            : battleDraft.RequiredSupply(false);
 
         private void RefreshPreparationFields()
         {
@@ -485,7 +483,6 @@ namespace BaseConquest.Base
             bool travel = battleDraft.Route == BasePrepRoute.Travel;
             var problem = battleDraft.Problem(state, false);
             Ui<Text>(panel, "Context").text = PreparationObjective(state);
-            if (travel) Ui<Text>(panel, "Priority/Label").text = prepProduction ? "生产优先" : "作战优先";
             RefreshPreparationForecast(state, ref problem);
             RefreshPrepSupply(state);
             var (ally, enemy) = battleDraft.Power(state, false);
@@ -503,8 +500,15 @@ namespace BaseConquest.Base
             Ui<Button>(panel, "Continue").interactable = problem == "";
             Ui<Button>(panel, "Sweep").interactable = problem == "";
             int warning = SelectedPrepSoldiers.Count(unit => PrepLowHealth(state, unit));
+            int missingSupply = PreparationSupplyDemand() - battleDraft.AvailableSupply(state, battleDraft.SupplyGrade);
+            var warnings = new List<string>(2);
+            if (warning > 0) warnings.Add($"生命预警 · {warning} 人低于 {BaseDevelopment.WarningThreshold(state):P0}");
+            if (missingSupply > 0) warnings.Add($"军需预警 · 缺 {missingSupply} 件");
             var feedback = Ui<Text>(panel, "Feedback");
-            feedback.text = problem != "" ? problem : !string.IsNullOrEmpty(prepFeedback) ? prepFeedback : warning > 0 ? $"生命预警 · {warning} 名所选士兵低于 {BaseDevelopment.WarningThreshold(state):P0}" : "";
+            bool supplyProblemOnly = missingSupply > 0 && problem == battleDraft.SupplyProblem(state, false);
+            feedback.text = problem != "" && !supplyProblemOnly ? problem
+                : !string.IsNullOrEmpty(prepFeedback) ? prepFeedback
+                : string.Join("　", warnings);
             if (feedback.text != "") feedback.color = PrepInvalid;
             RefreshQuestCue();
         }
@@ -549,10 +553,8 @@ namespace BaseConquest.Base
                 {
                     try
                     {
-                        var plan = battleDraft.TravelPlan(state, prepProduction);
-                        if (prepProduction && plan.Production?.Allowed != true)
-                            problem = plan.Production?.Problem ?? PrepText("production", "当前编队无法保障生产");
-                        else if (!BaseMuster.Confirm(after, plan))
+                        var plan = battleDraft.TravelPlan(state);
+                        if (!BaseMuster.Confirm(after, plan))
                             problem = PrepText("validation.changed", "现场已变化，请重新备战");
                     }
                     catch (ArgumentException error) { problem = error.Message; }
@@ -598,7 +600,7 @@ namespace BaseConquest.Base
             if (battleDraft.Route != BasePrepRoute.Travel) { ShowBattleDeployment(); return; }
             try
             {
-                if (!owner.DepartWorldMarch(battleDraft, prepProduction))
+                if (!owner.DepartWorldMarch(battleDraft))
                 { prepFeedback = owner.Message; RefreshPreparationFields(); }
             }
             catch (InvalidOperationException error) { prepFeedback = error.Message; RefreshPreparationFields(); }

@@ -9,6 +9,7 @@ namespace BaseConquest.Base
         // tab 只在 Demo 面板生效（main／side／achievement）；不传就沿用上次选中的页。
         public void OpenQuests(string tab=null)
         {
+            if (GuardPendingRosterChanges(() => OpenQuests(tab))) return;
             if(owner.State==null)return;
             if(owner.State.Aftermath.GameOver){OpenGameOver();return;}
             if(BaseDemo.Active(owner.State)){questTab=string.IsNullOrEmpty(tab)?"tasks":tab;OpenDemoQuestPanel();return;}

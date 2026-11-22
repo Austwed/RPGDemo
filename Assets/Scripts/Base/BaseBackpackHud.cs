@@ -13,7 +13,10 @@ namespace BaseConquest.Base
             if(PanelOpen&&activeObject=="backpack"){ClosePanel();return;}
             OpenBackpack();
         }
-        public void OpenBackpack()=>OpenInventory(false);
+        public void OpenBackpack()
+        {
+            if (!GuardPendingRosterChanges(OpenBackpack)) OpenInventory(false);
+        }
         private void OpenBagItem(string id){inventorySelected=id;OpenInventory(false);}
         private void FacilityUpgrade(string id,Action refresh)
         {

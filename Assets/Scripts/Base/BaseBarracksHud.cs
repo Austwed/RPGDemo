@@ -11,7 +11,7 @@ namespace BaseConquest.Base
     public sealed partial class BaseHud
     {
         private int personnelFilter;
-        private static readonly Color RosterUnavailable = new Color32(232, 192, 182, 255);
+        private static readonly Color RosterUnavailable = new Color32(195, 54, 45, 100);
         private static readonly Color RosterAtPost = new Color32(194, 211, 168, 255);
 
         private Button[] RosterToolbar(Transform parent, SoldierRosterFilter filter, Action refresh)

@@ -19,6 +19,7 @@ namespace BaseConquest.Base
 
         public void OpenLandMap()
         {
+            if (GuardPendingRosterChanges(OpenLandMap)) return;
             if (owner.State == null) return;
             interactionObject = "";
             var s = owner.State;

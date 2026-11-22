@@ -22,6 +22,7 @@ namespace BaseConquest.Editor
         private static readonly Queue<(BasePrepRoute Route, BaseState State)> Fixtures = new();
         private static (BasePrepRoute Route, BaseState State) currentFixture;
         private static int step, developerPreference;
+        private static bool enteredSecondField;
         private static bool hadDeveloperPreference;
         private static double deadline;
 
@@ -63,7 +64,11 @@ namespace BaseConquest.Editor
                         step++;
                         return;
                     case 2:
-                        VerifyFixture(owner);
+                        if (currentFixture.Route == BasePrepRoute.Second)
+                        {
+                            if (!VerifySecondWaveEntry(owner)) return;
+                        }
+                        else VerifyFixture(owner);
                         if (Fixtures.Count != 0) RestoreNextFixture(owner);
                         else
                         {
@@ -123,15 +128,24 @@ namespace BaseConquest.Editor
             var battle = (RealtimeCampaignBattle)PrepHarness("Start", defense, draft);
             BaseDemoDefense.Configure(battle);
             PrepHarness("Win", defense, battle, (Func<bool>)(() => BaseDemoDefense.Complete(defense, battle)));
-            BaseDemoDefense.AcknowledgeBatu(defense);
-
-            var second = defense.Copy();
             var advance = typeof(BaseEconomy).GetMethod("CompleteProductionDay", PrivateStatic);
-            while (second.Day < BaseDemoDefense.SecondArrival(second)) advance.Invoke(null, new object[] { second, false });
-            second.Campaign.Location = "perimeter";
-            At(second, "demo_defense_start");
-            Fixtures.Enqueue((BasePrepRoute.Second, second));
+            foreach (string fate in new[] { "escaped", "dead" })
+            {
+                var second = defense.Copy();
+                second.Demo.Defense.BatuFate = fate;
+                second.Campaign.Location = "base";
+                At(second, "demo_march_exit");
+                BaseDemoDefense.AcknowledgeBatu(second);
+                BaseDemoFinale.OpenWorld(second);
+                int arrival = BaseDemoDefense.SecondArrival(second);
+                while (second.Day < arrival) advance.Invoke(null, new object[] { second, false });
+                At(second, "demo_defense_exit");
+                BaseEconomy.Validate(second);
+                second.Muster.SlotTroops[0].Melee = Math.Max(second.Muster.SlotTroops[0].Melee, 1);
+                Fixtures.Enqueue((BasePrepRoute.Second, second));
+            }
 
+            BaseDemoDefense.AcknowledgeBatu(defense);
             var march = defense.Copy();
             march.Campaign.Location = "base";
             At(march, "demo_march_exit");
@@ -175,9 +189,106 @@ namespace BaseConquest.Editor
         private static void RestoreNextFixture(BaseSceneController owner)
         {
             currentFixture = Fixtures.Dequeue();
+            enteredSecondField = false;
             owner.SaveStore.RestoreSession(currentFixture.State);
             owner.LoadSaved();
         }
+
+        private static bool VerifySecondWaveEntry(BaseSceneController owner)
+        {
+            const string gate = "demo_defense_exit", start = "demo_defense_start";
+            var state = owner.State;
+            var (route, expected) = currentFixture;
+            Need(route == BasePrepRoute.Second && state.Day == expected.Day &&
+                state.Demo.Defense.BatuFate == expected.Demo.Defense.BatuFate &&
+                BaseDemoFinale.Opened(state) && BaseDemoDefense.SecondDue(state), "第二波路线夹具未到达");
+            BaseInteraction.Facing = default;
+            if (!enteredSecondField)
+            {
+                Need(state.Campaign.Location == "base" && state.Campaign.CurrentMapId == "demo_camp" &&
+                    BaseInteraction.At(state, "base", gate), "第二波应从营地真实出口出发");
+                owner.Hud.ClosePanel();
+                string workers = RosterBindings(state);
+                owner.Hud.OpenObject(gate);
+                Need(owner.State.Campaign.Location == "perimeter" && owner.State.Campaign.CurrentMapId == "demo_field",
+                    "营地出口未进入外围：" + owner.Message);
+                Need(!owner.State.Muster.Parties.Any(party => party.Purpose == "defense") &&
+                    workers == RosterBindings(owner.State) && owner.State.Day == state.Day,
+                    "营地转场提前抽兵或推进了日期");
+                enteredSecondField = true;
+                return false;
+            }
+
+            Need(state.Campaign.Location == "perimeter" && state.Campaign.CurrentMapId == "demo_field",
+                "第二波外围场景未载入");
+            owner.Hud.ClosePanel();
+            At(state, start);
+            if (state.Demo.Defense.BatuFate == "dead")
+            {
+                var old = BaseMuster.PreviewFormation(state, "defense", "combat");
+                Need(BaseMuster.Confirm(state, old), "无法恢复旧防守选兵样本");
+                int before = state.Workers.Sum(worker => worker.Count);
+                owner.Hud.OpenObject(start);
+                FindPanel(owner.Hud, "BattlePreparation");
+                state = owner.State;
+                Need(state.Workers.Sum(worker => worker.Count) == before &&
+                    !state.Muster.Parties.Any(party => party.Purpose == "defense"),
+                    "旧预备守军进入统一备战时未归队");
+                owner.Hud.ClosePanel();
+            }
+            var stock = state.Inventory.Equipment.Single(item => item.Product == "supply" && item.Level == 1);
+            stock.Count = 0;
+            string untouched = JsonUtility.ToJson(state);
+            owner.Hud.OpenObject(start);
+            var panel = FindPanel(owner.Hud, "BattlePreparation");
+            var go = panel.Find("Continue").GetComponent<Button>();
+            Need(!go.interactable && panel.Find("Feedback").GetComponent<Text>().text.Contains("军需预警") &&
+                !state.Campaign.HasActiveBattle && JsonUtility.ToJson(owner.State) == untouched,
+                "不足一级军需时应明确提示并阻止开战");
+            panel.Find("Close").GetComponent<Button>().onClick.Invoke();
+            Need(JsonUtility.ToJson(owner.State) == untouched, "关闭备战写入实际进度");
+            stock.Count = 24;
+            untouched = JsonUtility.ToJson(state);
+            owner.Hud.OpenObject(start);
+            panel = FindPanel(owner.Hud, "BattlePreparation");
+            var draft = (BaseBattlePreparation)typeof(BaseHud).GetField("battleDraft", PrivateInstance).GetValue(owner.Hud);
+            go = panel.Find("Continue").GetComponent<Button>();
+            Need(draft.Route == BasePrepRoute.Second && panel.Find("Title").GetComponent<Text>().text.Contains("第二波") &&
+                panel.Find("Priority")?.gameObject.activeSelf != true && go.interactable &&
+                JsonUtility.ToJson(owner.State) == untouched, "外围入口未打开正确的统一备战");
+            CaptureBoth("campaign-prep-second-" + state.Demo.Defense.BatuFate);
+            go.onClick.Invoke();
+            var combat = Object.FindObjectsByType<BattleSceneController>().Single(view => view.DeploymentDraftActive);
+            Button DeployButton(string id) =>
+                combat.GetComponentsInChildren<RectTransform>().Single(control => control.name == "DraftPreparationControls")
+                    .Find(id).GetComponent<Button>();
+            Button Reply(string phrase)
+            {
+                var dialogue = FindPanel(owner.Hud, "NpcDialogue");
+                dialogue.GetComponentsInChildren<Button>().Single(button => button.name == "SkipDialogue").onClick.Invoke();
+                return dialogue.GetComponentsInChildren<Button>().Single(button =>
+                    button.name == "Reply" && button.GetComponentInChildren<Text>().text == phrase);
+            }
+            DeployButton("Auto").onClick.Invoke();
+            Need(draft.Positions.Count == draft.Units.Count(unit => unit.Selected) && DeployButton("Start").interactable,
+                "第二波一键布阵或确认按钮未生效");
+            DeployButton("Start").onClick.Invoke();
+            Reply("暂缓迎战").onClick.Invoke();
+            Need(combat.DeploymentDraftActive && !combat.ExternalDialogue && !owner.State.Campaign.HasActiveBattle &&
+                JsonUtility.ToJson(owner.State) == untouched, "暂缓迎战应回到未提交的布阵");
+            DeployButton("Start").onClick.Invoke();
+            Reply("准备迎战").onClick.Invoke();
+            Need(owner.State.Campaign.HasActiveBattle && owner.State.Campaign.ActiveBattle.EventId == BaseDemoDefense.SecondEventId &&
+                owner.State.Demo.Defense.SecondBriefingSeen && !combat.DeploymentDraftActive && combat.IsRealtimeCampaign,
+                "正式确认后未启动正确的即时战斗：" + owner.Message);
+            Debug.Log("[SecondWaveEntry] PASS " + state.Demo.Defense.BatuFate);
+            return true;
+        }
+
+        private static string RosterBindings(BaseState state) => string.Join("|", state.Workers
+            .SelectMany(worker => worker.SoldierNumbers.Select(number =>
+                number + ":" + worker.Kind + ":" + worker.Away + ":" + worker.PartyId))
+            .OrderBy(key => key, StringComparer.Ordinal));
 
         private static void VerifyFixture(BaseSceneController owner)
         {
@@ -205,7 +316,7 @@ namespace BaseConquest.Editor
             if (route == BasePrepRoute.Travel)
             {
                 var projection = state.Copy();
-                BaseWorldJourney.Depart(projection, "camp_entry", new[] { "camp", "bandit" }, draft, false);
+                BaseWorldJourney.Depart(projection, "camp_entry", new[] { "camp", "bandit" }, draft);
                 Need(forecast.Find("RoadFood").GetComponent<Text>().text.Contains($"{state.Inventory.Food} → {projection.Inventory.Food}") &&
                     !forecast.Find("EndFood").GetComponent<Text>().text.EndsWith("—"), "行军库存预估与真实预扣不符");
             }

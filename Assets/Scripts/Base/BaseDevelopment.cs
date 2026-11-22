@@ -21,7 +21,25 @@ namespace BaseConquest.Base
     {
         public static bool AtVillage(BaseState s) => s.Campaign?.CurrentMapId == BaseDemoFinale.Home;
         public static bool AtHomeDoor(BaseState s) => BaseInteraction.At(s,AtVillage(s) ? "custom" : "base","home");
-        public static bool Local(BaseState s, BaseWorkerBucket w) => w.VillageResident == (AtVillage(s) || s.Campaign?.CurrentMapId == BaseDemoFinale.HomeField);
+        public const string CampStation = "camp", VillageStation = "village", BlackCrowStation = "bandit";
+        public static string Station(BaseWorkerBucket worker) => string.IsNullOrEmpty(worker.StationId)
+            ? worker.VillageResident ? VillageStation : CampStation : worker.StationId;
+        public static string Station(bool village) => village ? VillageStation : CampStation;
+        public static string LocalStation(BaseState state) => state.Campaign?.CurrentMapId == BaseDemoFinale.Camp ? BlackCrowStation :
+            Station(AtVillage(state) || state.Campaign?.CurrentMapId == BaseDemoFinale.HomeField);
+        public static bool Local(BaseState state, BaseWorkerBucket worker) => Station(worker) == LocalStation(state);
+        public static string StationName(BaseState state, BaseWorkerBucket worker)
+        {
+            if (Station(worker) != BlackCrowStation) return Name(worker.VillageResident);
+            return BaseDemoFinale.Later(state) || BaseDemoFinale.OccupiedBySecondDefense(state)
+                ? BaseScriptNames.Bandit : BaseScriptNames.Bandit + "·寨外";
+        }
+
+        public static void SetStation(BaseWorkerBucket worker, string destination)
+        {
+            worker.StationId = destination;
+            worker.VillageResident = destination == VillageStation;
+        }
         public static string Name(bool village) => village ? "白桦村" : "灰岩营地";
         public static bool Available(BaseState s, string facility, bool village)
             => facility == "" || (village ? BaseDemoFinale.HomeRepaired(s, facility) : BaseDemo.FacilityAvailable(s, facility));
@@ -43,7 +61,7 @@ namespace BaseConquest.Base
                 s.Development.Policy = policy;
                 s.Development.Automatic = policy != "manual";
             }
-            foreach (var worker in s.Workers.Where(w => w.VillageResident == village && !w.Away))
+            foreach (var worker in s.Workers.Where(w => Station(w) == Station(village) && !w.Away))
             {
                 worker.DesiredFacility = worker.FacilityId;
                 worker.PostLocked = policy == "manual";
@@ -55,11 +73,11 @@ namespace BaseConquest.Base
             foreach (bool village in new[] { false, true })
             {
                 string policy = Policy(s, village);
-                var workers = s.Workers.Where(w => w.VillageResident == village && !w.Away && !w.TravelingMerchant && w.Count > 0).ToArray();
+                var workers = s.Workers.Where(w => Station(w) == Station(village) && !w.Away && !w.TravelingMerchant && w.Count > 0).ToArray();
                 if (policy == "manual")
                 {
                     var room = s.Muster.Facilities.ToDictionary(f => f.FacilityId,f => f.Capacity);
-                    if(room.ContainsKey("caravan"))room["caravan"]-=s.Workers.Where(w=>w.TravelingMerchant&&w.VillageResident==village).Sum(w=>w.Count);
+                    if(room.ContainsKey("caravan"))room["caravan"]-=s.Workers.Where(w=>w.TravelingMerchant&&Station(w)==Station(village)).Sum(w=>w.Count);
                     foreach (var worker in workers.OrderByDescending(w => w.FacilityId != "" && w.FacilityId == w.DesiredFacility))
                     {
                         string post = worker.DesiredFacility;
@@ -126,6 +144,7 @@ namespace BaseConquest.Base
         }
         public static string TransferProblem(BaseState s, BaseWorkerBucket w)
         {
+            if (Station(w) == BlackCrowStation) return "黑鸦寨驻军请通过世界地图调动";
             if (!Available(s,"barracks",true)) return "白桦村缺少兵营";
             if (!Available(s,"barracks",false)) return "灰岩营地缺少兵营";
             if (w.Away || w.TravelingMerchant || w.Health <= 0 || s.Campaign.HasActiveBattle) return "当前无法调动";
@@ -166,7 +185,7 @@ namespace BaseConquest.Base
         {
             foreach (var w in s.Workers.Where(w => w.Relocating))
             {
-                w.VillageResident = !w.VillageResident;
+                SetStation(w, Station(!w.VillageResident));
                 w.PrepaidRoadFood=0;
                 w.Relocating = false;
                 w.DepartureFacility = "";
@@ -250,7 +269,7 @@ namespace BaseConquest.Base
             }
             Allocate(s);
         }
-        public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.TravelingMerchant && w.LastBattleDay != s.Day && !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
+        public static bool Effective(BaseState s, BaseWorkerBucket w) => BaseSettlements.Station(w) != BaseSettlements.BlackCrowStation && !w.TravelingMerchant && w.LastBattleDay != s.Day && !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
         public static bool CanManage(BaseState s, BaseLeader l) => !l.Relocating && !l.Away && !l.WaitingAtRecruitment && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && l.Health > 0;
         public static bool Effective(BaseState s, BaseLeader l) => CanManage(s,l);
         public static bool CanFight(BaseWorkerBucket w) => !w.TravelingMerchant && !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
@@ -326,6 +345,10 @@ namespace BaseConquest.Base
         {
             var d = s.Development;
             if (BaseDemo.Active(s) && (d.VillagePolicy != "manual" && d.VillagePolicy != "food" && d.VillagePolicy != "equipment" ||
+                s.Workers.Any(w => !string.IsNullOrEmpty(w.StationId) &&
+                    (w.StationId != BaseSettlements.CampStation && w.StationId != BaseSettlements.VillageStation && w.StationId != BaseSettlements.BlackCrowStation ||
+                    w.VillageResident != (w.StationId == BaseSettlements.VillageStation) ||
+                    w.StationId == BaseSettlements.BlackCrowStation && (w.FacilityId != "" || w.DesiredFacility != "" || w.PostLocked || w.Relocating || w.TravelingMerchant))) ||
                 s.Workers.Any(w => w.PrepaidRoadFood<0 || w.PrepaidRoadFood>100 || !w.Relocating&&w.PrepaidRoadFood!=0) ||
                 s.Workers.Any(w => w.Relocating && (w.Away || w.FacilityId != "" || w.DesiredFacility != "" || !BaseEconomy.Facilities.Contains(w.DepartureFacility))) ||
                 s.Leaders.Any(l => l.Relocating && (l.Away || l.FacilityId != "" || !BaseEconomy.Facilities.Contains(l.ArrivalFacility)))))
@@ -466,7 +489,7 @@ namespace BaseConquest.Base
             {
                 if (w.SoldierNumbers == null || w.SoldierNumbers.Count == 0) s.EnsureSoldierNumbers();
                 string key = w.Kind + "|" + w.FacilityId + "|" + w.DesiredFacility + "|" + w.PostLocked + "|" + w.Resting + "|" + w.Away + "|" + w.PartyId + "|" + w.SourceId + "|" + w.UnavailableDay + "|" + w.Health.ToString("R", CultureInfo.InvariantCulture) + "|" + w.MaxHealth.ToString("R", CultureInfo.InvariantCulture) + "|" + w.FarmEfficiency.ToString("R", CultureInfo.InvariantCulture) + "|" + w.WorkshopEfficiency.ToString("R", CultureInfo.InvariantCulture);
-                key += "|" + w.LastBattleDay + "|" + w.VillageResident + "|" + w.Relocating + "|" + w.PrepaidRoadFood + "|" + w.TravelingMerchant + "|" + w.DepartureFacility;
+                key += "|" + w.LastBattleDay + "|" + BaseSettlements.Station(w) + "|" + w.Relocating + "|" + w.PrepaidRoadFood + "|" + w.TravelingMerchant + "|" + w.DepartureFacility;
                 key += "|" + w.Recruited + "|" + ProfileKey(w.HasCombatProfile,w.CombatStats) + "|" + w.HeldBy + "|" + w.HeldSourceId + "|" + w.PartyOrder;
                 if (groups.TryGetValue(key, out var found)) { found.SoldierNumbers.AddRange(w.SoldierNumbers); found.Count += w.Count; }
                 else { groups.Add(key, w); merged.Add(w); }

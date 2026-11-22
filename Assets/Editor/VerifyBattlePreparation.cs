@@ -99,24 +99,23 @@ namespace BaseConquest.Editor
         private static void VerifySavedPreferences()
         {
             var s=Load("defense");
-            var leader=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId);
-            var soldiers=BasePersonnel.Soldiers(s,SoldierKind.Melee).ToArray();
-            var id=soldiers.Last().SoldierNumber;
-            BaseMuster.SetPreferenceCount(s,leader,BaseTroopKind.Melee,0);
-            Need(BaseMuster.TogglePreference(s,leader,id),"不能按实名保存偏好");
-            var before=s.Workers.Select(w=>(w.FacilityId,w.LastBattleDay)).ToArray();
+            s.Muster.SlotTroops = new [] {new BaseCommanderTroops {Melee=1},new BaseCommanderTroops(),new BaseCommanderTroops()}.ToList();
+            var soldiers=BasePersonnel.Soldiers(s,SoldierKind.Melee).Where(u => u.Health > 0).ToArray();
+            int healthiest=soldiers.OrderByDescending(u=>u.Health/u.MaxHealth).ThenBy(u=>u.SoldierNumber).First().SoldierNumber;
+            var player=s.Leaders.Single(l=>l.Id==s.PlayerLeaderId);
+            player.PreferredSoldiers.Add(soldiers.OrderByDescending(u=>u.SoldierNumber).First().SoldierNumber);
+            var before=JsonUtility.ToJson(s.Muster.SlotTroops[0]);
+            var workerState=s.Workers.Select(w=>(w.FacilityId,w.LastBattleDay)).ToArray();
             s=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(s));
             BaseEconomy.Validate(s);
             var draft=new BaseBattlePreparation(s,BasePrepRoute.Defense);
-            Need(draft.Units.Any(u=>u.SoldierNumber==id && u.Selected && u.TeamId==draft.PlayerId) &&
-                before.SequenceEqual(s.Workers.Select(w=>(w.FacilityId,w.LastBattleDay))),"恢复编队未优先点名或提前占用人员");
-            var named=s.Workers.Single(w=>w.SoldierNumbers.Contains(id));
-            foreach(var w in s.Workers.Where(w=>w.Kind==BaseTroopKind.Melee)) w.VillageResident=true;
-            s.Workers.Add(new BaseWorkerBucket{Count=1,Kind=BaseTroopKind.Melee,Health=100,MaxHealth=100});
-            BaseDevelopment.Allocate(s);
+            var selected=draft.Units.Single(u=>u.Selected && u.Kind==SoldierKind.Melee);
+            Need(selected.SoldierNumber==healthiest && selected.TeamId==draft.PlayerId &&
+                workerState.SequenceEqual(s.Workers.Select(w=>(w.FacilityId,w.LastBattleDay))),"预设未按健康自动填充，或提前占用人员");
+            draft.SetTeamCount(draft.PlayerId,SoldierKind.Melee,0);
+            Need(!selected.Selected && before==JsonUtility.ToJson(s.Muster.SlotTroops[0]), "手动调整本场编队覆写了兵营");
             var replacement=new BaseBattlePreparation(s,BasePrepRoute.Defense);
-            Need(replacement.Units.Any(u=>u.Kind==SoldierKind.Melee && u.TeamId==replacement.PlayerId && u.Selected && u.SoldierNumber!=id),
-                "异地指定兵应由可用同兵种代替");
+            Need(replacement.Units.Any(u=>u.SoldierNumber==healthiest && u.Selected),"重新备战未按原兵营预设填充");
             Debug.Log("[SavedPreferences] PASS");
         }
 
@@ -533,41 +532,45 @@ namespace BaseConquest.Editor
             var savedMarch=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
             BaseEconomy.Validate(savedMarch);
             Need(savedMarch.Campaign.WorldJourney.ReservedRoadFood==departingTeams.Count,"行军读档丢失预扣路粮");
+            var legacyTravel = ReadLegacyRoster(savedMarch);
+            var legacyDraft = new BaseBattlePreparation(legacyTravel, BasePrepRoute.Travel);
+            var legacyParty = legacyTravel.Muster.Parties.Single(p => p.Purpose == "expedition");
+            Need(legacyParty.CommanderTroops.All(team => BattleSimulation.TroopKinds.All(kind =>
+                legacyDraft.Units.Count(unit => unit.Selected && unit.Kind == kind && unit.TeamId == team.LeaderId) ==
+                team.Actual.Count(BaseCampaign.ToBase(kind)))), "旧行军存档没有按原有兵种人数恢复出征分队");
+            var marchingDraft = new BaseBattlePreparation(savedMarch, BasePrepRoute.Travel);
+            Need(marchingDraft.Units.Where(unit => unit.Selected && unit.SoldierNumber > 0).All(unit =>
+                departingTeams.TryGetValue(unit.SoldierNumber, out var captain) && captain == unit.TeamId),
+                "行军读档后士兵编号或队长归属变化");
             Need(BaseWorldJourney.Step(state, _ => null), "行军失败");
             BaseWorldJourney.EnterScene(state, "bandit_entry");
             At(state, "demo_camp_attack");
-            var legacyTravel = ReadLegacyRoster(state);
-            var legacyDraft = new BaseBattlePreparation(legacyTravel, BasePrepRoute.BlackCrow);
-            var legacyParty = legacyTravel.Muster.Parties.Single(p => p.Purpose == "expedition");
-            var expectedCounts = legacyParty.CommanderTroops;
-            Need(expectedCounts.All(team => BattleSimulation.TroopKinds.All(kind =>
-                legacyDraft.Units.Count(unit => unit.Selected && unit.Kind == kind && unit.TeamId == team.LeaderId) ==
-                team.Actual.Count(BaseCampaign.ToBase(kind)))), "旧行军存档没有按原有兵种人数恢复出征分队");
             state = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
             BaseEconomy.Validate(state);
             var attack = new BaseBattlePreparation(state, BasePrepRoute.BlackCrow);
-            var arrived = attack.Units.Where(unit => unit.Selected && unit.SoldierNumber > 0).ToArray();
-            Need(arrived.Length == departingTeams.Count && arrived.All(unit =>
-                departingTeams.TryGetValue(unit.SoldierNumber, out var leader) && leader == unit.TeamId), "行军抵达读档后士兵编号或队长归属变化");
-            var party = state.Muster.Parties.Single(p => p.Purpose == "expedition");
-            var reserve = state.Workers.Where(w => w.PartyId == party.Id).Sum(w => w.Count);
-            Need(reserve > 0, "攻营夹具没有随行士兵");
-            VerifySubsetWound(state.Copy(), party.Id);
+            var arrived = state.Workers.Where(w => !w.Away && w.StationId == "bandit")
+                .SelectMany(w => w.SoldierNumbers).ToHashSet();
+            Need(arrived.SetEquals(departingTeams.Keys) && !state.Muster.Parties.Any(p => p.Purpose == "expedition") &&
+                attack.Units.Where(unit => unit.SoldierNumber > 0).All(unit => arrived.Contains(unit.SoldierNumber)),
+                "抵达寨外围后应按实际兵员驻扎，攻寨不能调用别处士兵");
+            var reserve = arrived.Count;
+            Need(reserve > 0, "攻营夹具没有驻军");
+            VerifySubsetWound(state.Copy());
             Need(attack.Place(attack.PlayerId, attack.Board.Positions().First(p => attack.CanPlace(attack.PlayerId, p))), "无法仅部署主角");
             Need(attack.RequiredSupply(true) == 0 && attack.SupplyProblem(state, true) == "", "只有队长上场时被要求配军需");
             var encounter = Start(state, attack);
-            Need(encounter.Session.Opening.Troops.Count == 0 && state.Workers.Where(w => w.PartyId == party.Id).Sum(w => w.Count) == reserve,
-                "未参战随行士兵被锁进战场");
+            Need(encounter.Session.Opening.Troops.Count == 0 && state.Workers.Where(w => !w.Away && w.StationId == "bandit").Sum(w => w.Count) == reserve,
+                "未参战驻军被锁进战场");
             BaseDemoFinale.Configure(encounter);
             Win(state, encounter, () => BaseDemoFinale.Complete(state, encounter));
-            Need(state.Workers.Where(w => w.PartyId == party.Id).Sum(w => w.Count) == reserve && state.Campaign.Reports.Last().GearLost == 0,
+            Need(state.Workers.Where(w => !w.Away && w.StationId == "bandit").Sum(w => w.Count) == reserve && state.Campaign.Reports.Last().GearLost == 0,
                 "仅队长参战时误扣军需或改动了场外随行士兵");
             Debug.Log("[VerifyBattlePreparation] 首防、第二波、行军、黑鸦寨、军需与存读 PASS");
         }
 
-        private static void VerifySubsetWound(BaseState state, string partyId)
+        private static void VerifySubsetWound(BaseState state)
         {
-            var source = state.Workers.Where(w => w.PartyId == partyId && w.Health >= w.MaxHealth * BaseDevelopment.DutyThreshold)
+            var source = state.Workers.Where(w => !w.Away && w.StationId == "bandit" && w.Health >= w.MaxHealth * BaseDevelopment.DutyThreshold)
                 .OrderByDescending(w => w.Count).First();
             int chosen = source.SoldierNumbers.Last();
             var originalHealth = state.Workers.SelectMany(w => w.SoldierNumbers.Select(n => (Number: n, w.Health))).ToDictionary(p => p.Number, p => p.Health);
