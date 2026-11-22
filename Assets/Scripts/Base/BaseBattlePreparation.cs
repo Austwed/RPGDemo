@@ -110,8 +110,11 @@ namespace BaseConquest.Base
             if (route != BasePrepRoute.Ruins || BaseRuinsRewards.Cleared(state, route))
                 foreach (var (worker, index) in state.Workers.Select((worker, index) => (worker, index)))
                 {
-                    bool eligible = party == null ? BaseDevelopment.Eligible(state, purpose, worker) :
-                        worker.Away && worker.PartyId == party.Id && (TravelingParty || worker.Health >= worker.MaxHealth * BaseDevelopment.DutyThreshold);
+                    bool eligible = party == null
+                        ? BaseSettlements.Local(state, worker) && (Route == BasePrepRoute.Travel
+                            ? BaseDevelopment.CanMarch(worker) : BaseDevelopment.Eligible(purpose, worker))
+                        : worker.Away && worker.PartyId == party.Id && worker.Health > 0 &&
+                            (TravelingParty || worker.Health >= worker.MaxHealth * BaseDevelopment.DutyThreshold);
                     if (!eligible) continue;
                     var kind = BaseCampaign.ToBattle(worker.Kind);
                     for (int i = 0; i < worker.Count; i++)
@@ -315,7 +318,7 @@ namespace BaseConquest.Base
                     row.Requested.Set(BaseCampaign.ToBase(kind), selected.Count(u => u.Kind == kind && u.TeamId == id));
                 return row;
             }).ToList();
-            return BaseMuster.Preview(state, purpose, true, preset, picks, "", teams);
+            return BaseMuster.Preview(state, purpose, true, preset, picks, "", teams, forMarch: true);
         }
 
         public BaseMusterPlan TravelPlan(BaseState state)

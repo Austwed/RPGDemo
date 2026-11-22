@@ -44,12 +44,15 @@ namespace BaseConquest.Base
         private static void SelectExactWorkers(BaseState s, BaseMusterPlan plan, BaseArmyPreset preset)
         {
             var picks=plan.ManualPicks;
+            bool EligibleWorker(BaseWorkerBucket worker) => plan.ForMarch
+                ? BaseSettlements.Local(s, worker) && BaseDevelopment.CanMarch(worker)
+                : BaseDevelopment.Eligible(s, plan.Purpose, worker);
             if(picks.Count>90||picks.Any(p=>p==null||p.BucketIndex<0||p.BucketIndex>=s.Workers.Count||p.Ordinal<0||p.Ordinal>=s.Workers[p.BucketIndex].Count||
-                p.SoldierNumber!=0 && s.Workers[p.BucketIndex].SoldierNumbers[p.Ordinal]!=p.SoldierNumber || !BaseDevelopment.Eligible(s,plan.Purpose,s.Workers[p.BucketIndex]))||picks.Select(p=>p.Key).Distinct().Count()!=picks.Count)
-                throw new ArgumentException("逐兵选择已变化或包含不可出战／重复单位，请重新选择");
+                p.SoldierNumber!=0 && s.Workers[p.BucketIndex].SoldierNumbers[p.Ordinal]!=p.SoldierNumber || !EligibleWorker(s.Workers[p.BucketIndex]))||picks.Select(p=>p.Key).Distinct().Count()!=picks.Count)
+                throw new ArgumentException("逐兵选择已变化或包含不可调用／重复单位，请重新选择");
             foreach(var kind in Enum.GetValues(typeof(BaseTroopKind)).Cast<BaseTroopKind>())
             {
-                int selected=picks.Count(p=>s.Workers[p.BucketIndex].Kind==kind),available=s.Workers.Where(w=>w.Kind==kind&&BaseDevelopment.Eligible(s,plan.Purpose,w)).Sum(w=>w.Count);
+                int selected=picks.Count(p=>s.Workers[p.BucketIndex].Kind==kind),available=s.Workers.Where(w=>w.Kind==kind&&EligibleWorker(w)).Sum(w=>w.Count);
                 if(selected!=preset.Count(kind)||selected>Math.Min(30,available))throw new ArgumentException("所选人数不能超过可用兵力或本队兵种上限");
                 if(!plan.IgnoreProtection&&selected>Math.Max(0,available-s.Muster.Keep(kind)))throw new InvalidOperationException("已达到留守限制：本兵种须留在基地 "+s.Muster.Keep(kind)+"人；可切换为允许抽调留守和生产人员");
             }

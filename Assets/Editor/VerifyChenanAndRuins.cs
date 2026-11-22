@@ -324,7 +324,7 @@ namespace BaseConquest.Editor
             Debug.Log("[ExplorationInteraction] 正面半圆含左右边界、贴身背后人物、领主高台距离与楼梯判定 PASS");
         }
         // P38（2026-11-04 最新裁决，取代伤员三档的 50%／20%）：
-        // 士兵生命 <30% 不能工作也不能主动出战；≥30% 两者都可以。遇袭守家例外：还能行动就能迎战。
+        // 士兵生命 <30% 可以随军转移；工作、进攻和防守均要求生命至少 30%。
         // 队长不受阈值限制；自动选兵按生命比例从高到低；30%~100% 生命预警线默认 50%，拖到 30% 即关闭。
         public static void VerifyInjuryTiers()
         {
@@ -336,11 +336,11 @@ namespace BaseConquest.Editor
             w.Health=31;Need(BaseDevelopment.Effective(s,w)&&BaseDevelopment.CanFight(w),"生命 31% 应可工可战");
             w.Health=30;Need(BaseDevelopment.Effective(s,w)&&BaseDevelopment.CanFight(w),"生命正好 30% 应可工可战（阈值不带等号）");
             w.Health=29;Need(!BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w),"生命 29% 应强制空闲");
-            Need(BaseDevelopment.CanDefend(w),"遇袭守家例外：29% 仍应能迎战");
-            w.Health=1;Need(!BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w)&&BaseDevelopment.CanDefend(w),"1 血士兵应只能守家");
+            Need(BaseDevelopment.CanMarch(w)&&!BaseDevelopment.CanDefend(w),"29% 士兵可以行军但不能迎战");
+            w.Health=1;Need(!BaseDevelopment.Effective(s,w)&&!BaseDevelopment.CanFight(w)&&BaseDevelopment.CanMarch(w),"1 血士兵可以随军转移");
             BaseDevelopment.Normalize(s);
             Need(w.Resting,"重伤士兵应带闲置（Resting）标记");
-            w.Health=0;Need(!BaseDevelopment.CanDefend(w),"生命归零不参战");
+            w.Health=0;Need(!BaseDevelopment.CanDefend(w)&&!BaseDevelopment.CanMarch(w),"生命归零不能行军或参战");
             // 当天返岗：UnavailableDay 生产禁令已摘除，返营／招降当天即可排班。
             w.Health=100;w.Resting=false;w.UnavailableDay=s.Day;
             Need(BaseDevelopment.Effective(s,w),"当天返营／招降的士兵应可立即排班（生产禁令已摘除）");
@@ -372,7 +372,7 @@ namespace BaseConquest.Editor
             BaseDevelopment.SetWarningThreshold(s,.2);
             Need(Math.Abs(BaseDevelopment.WarningThreshold(s)-.3)<1e-9,"预警线下限锁在 30%");
             BaseDevelopment.SetWarningThreshold(s,.5);
-            // 自动选兵：生命比例高的先上；守家迎战放宽到还能行动的伤兵。
+            // 自动选兵：进攻和防守优先生命比例较高的合格士兵。
             s.Workers.Clear();
             s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,MaxHealth=100,Health=80,FarmEfficiency=1,WorkshopEfficiency=1});
             s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,MaxHealth=100,Health=45,FarmEfficiency=1,WorkshopEfficiency=1});
@@ -391,8 +391,8 @@ namespace BaseConquest.Editor
             Need(extra.Total==0&&!BaseMuster.ConfirmAppend(large,extra),"满编队伍不能通过追加超过24人");
             preset.SetCount(BaseTroopKind.Melee,3);preset.Purpose="defense";
             var defend=BaseMuster.Preview(s,"defense",true,preset);
-            Need(defend.Takes.Sum(t=>t.Count)==3,"守家迎战应放宽到还能行动的伤兵（含 10%），实际 "+defend.Takes.Sum(t=>t.Count));
-            Need(plan.Takes.Sum(t=>t.Count)==2,"出征不应把 10% 伤兵编进队");
+            Need(defend.Takes.Sum(t=>t.Count)==2,"防守自动选兵应排除 10% 伤兵");
+            Need(plan.Takes.Sum(t=>t.Count)==2,"进攻自动选兵应排除 10% 伤兵");
             // 生产岗位和四分类：重伤不占岗位，手动调入健康士兵。
             s.Workers.Clear();
             s.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=2,MaxHealth=100,Health=100,FarmEfficiency=1,WorkshopEfficiency=1});
@@ -406,7 +406,7 @@ namespace BaseConquest.Editor
                 "兵力四分类不符：总数"+tally[0]+"／可工作"+tally[1]+"／可出战"+tally[2]+"／重伤"+tally[3]);
             // 手动休养入口已关闭（恢复全员自动，Resting 由血量派生）。
             Need(!BaseDevelopment.RestWorkers(s,0,1,true),"手动休养入口应一律拒绝");
-            Debug.Log("[InjuryTiers] 30% 不带等号、守家例外、队长豁免、当天返岗、全员自动恢复、预警开关、生命降序选兵、补位与四分类 PASS");
+            Debug.Log("[InjuryTiers] 30% 门槛、伤兵随军、队长豁免、当天返岗、全员自动恢复、预警开关、生命降序选兵、补位与四分类 PASS");
         }
         // P32（2026-11-04 裁决）：领地地图只列同一领地场景与出入口；点击传送落到出口旁、不耗日程。
         public static void VerifyLandMap()

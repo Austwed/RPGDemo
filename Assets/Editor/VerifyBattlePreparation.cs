@@ -305,22 +305,21 @@ namespace BaseConquest.Editor
                 "结算未保留实际离场小队");
             Need(BaseDemoCombat.Fail(withdrawing, retreat), "实际离场后的首防败退不可结算");
 
-            var (winning, pending) = Defense();
-            pending.OutcomeResolver = _ => BattleOutcome.SideAWin;
-            pending.Model.SetPaused(false);
-            pending.Tick(1d / 60);
-            Need(pending.VictoryExitOpen && pending.Battle.Report == null && !BaseDemoDefense.Complete(winning, pending),
-                "锁胜后抵达出口前产生了战报或奖励");
-            Need(pending.OrderBattlefieldExit(null), "锁胜后仍需允许给队长下达出口指令");
-            pending.SaveCheckpoint(winning);
-            var copied = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(winning));
-            var restored = new RealtimeCampaignBattle(new BaseCampaignSession(copied.Campaign.ActiveBattle));
+            var (winning, defense) = Defense();
+            defense.SaveCheckpoint(winning);
+            var legacy = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(winning));
+            legacy.Campaign.ActiveBattle.RealtimeState.BattlefieldVictoryPending = true;
+            var restored = new RealtimeCampaignBattle(new BaseCampaignSession(legacy.Campaign.ActiveBattle));
             restored.EnableBattlefieldExits();
-            Need(restored.VictoryExitOpen && restored.Battle.Report == null, "恢复战中检查点后未保留出口阶段");
-            AdvanceUntil(restored, () => restored.Battle.Phase == BattlePhase.Finished);
-            Need(restored.Battle.Report?.Outcome == BattleOutcome.SideAWin && BaseDemoDefense.Complete(copied, restored),
-                "抵达出口后未执行原有首防胜利结算");
-            Debug.Log("[VerifyBattlefieldExits] PASS partial squad withdrawal, victory exit, checkpoint and settlement");
+            Need(!restored.VictoryExitOpen && restored.Battle.Report?.Outcome == BattleOutcome.SideAWin &&
+                BaseDemoDefense.Complete(legacy, restored), "首防旧版出口检查点未恢复为可结算的战报");
+
+            defense.OutcomeResolver = _ => BattleOutcome.SideAWin;
+            defense.Model.SetPaused(false);
+            defense.Tick(1d / 60);
+            Need(!defense.VictoryExitOpen && defense.Battle.Report?.Outcome == BattleOutcome.SideAWin &&
+                BaseDemoDefense.Complete(winning, defense), "首防达到胜利条件后应在当前战场结算");
+            Debug.Log("[VerifyBattlefieldExits] PASS partial squad withdrawal and immediate defense settlement");
 
             static void AdvanceUntil(RealtimeCampaignBattle run, Func<bool> done)
             {
@@ -628,12 +627,31 @@ namespace BaseConquest.Editor
             var named = resumed.Session.UnitForTroop(0);
             Need(named.SoldierNumber == chosen && resumed.Battle.UnitName(named).Contains("#" + chosen), "战场显示的士兵编号与名册不同");
             BaseDemoFinale.Configure(resumed);
+            resumed.EnableBattlefieldExits();
             var actor = resumed.Model.Units.Single(u => u.Side == PrototypeSide.Ally && u.Role != PrototypeRole.Leader);
             actor.Health = 7;
             Win(restored, resumed, () => BaseDemoFinale.Complete(restored, resumed));
             var after = BasePersonnel.Soldiers(restored).ToDictionary(u => u.SoldierNumber);
             Need(after.Count == originalHealth.Count && originalHealth.All(p => after[p.Key].Health == (p.Key == chosen ? 7 : p.Value)),
                 "攻营战损写到未上场士兵或改变了编号");
+            Need(!resumed.VictoryExitOpen, "攻寨胜利后应直接显示战报");
+
+            At(restored, "demo_camp_world");
+            var march = new BaseBattlePreparation(restored, BasePrepRoute.Travel, draftTravelTroops: false);
+            var wounded = march.Units.Single(unit => unit.SoldierNumber == chosen);
+            Need(!wounded.Selected && march.ToggleSoldier(march.PlayerId, wounded), "黑鸦寨伤兵不可选中行军");
+            var back = new[] { "bandit", "camp" };
+            int food = restored.Inventory.Food;
+            BaseWorldJourney.Depart(restored, "bandit_entry", back, march);
+            Need(restored.Inventory.Food == food - restored.Rules.SoldierFood &&
+                restored.Workers.Single(w => w.SoldierNumbers.Contains(chosen)).Away, "伤兵未按真实编号出发或预扣路粮");
+            restored = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(restored));
+            Need(BaseWorldJourney.Step(restored, _ => null), "带伤兵返营的行军无法推进");
+            BaseWorldJourney.EnterScene(restored, "camp_entry");
+            var returned = restored.Workers.Single(w => w.SoldierNumbers.Contains(chosen));
+            Need(!returned.Away && returned.StationId == "camp" &&
+                (!BaseDevelopment.HeavilyWounded(returned) || !BaseDevelopment.CanDefend(returned)), "伤兵返营后驻地或防守资格错误");
+            Debug.Log("[VerifyWoundedMarch] PASS Black Crow settlement, march, reload and return");
         }
 
         private static void Win(BaseState state, RealtimeCampaignBattle battle, Func<bool> complete)

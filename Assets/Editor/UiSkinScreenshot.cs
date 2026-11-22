@@ -374,6 +374,13 @@ namespace BaseConquest.Editor
             stage="mage-roster-camp";
         }
 
+        private static bool resourceStripOnly;
+        public static void RunResourceStrip()
+        {
+            resourceStripOnly = true;
+            RunSoldierRoster();
+        }
+
         public static void RunSoldierRoster()
         {
             stage = "soldiers-boot";
@@ -588,6 +595,12 @@ namespace BaseConquest.Editor
                     controller = C;
                     if (controller?.State?.Campaign.Location != "base" || controller.Busy ||
                         Object.FindAnyObjectByType<SceneLoadingCover>() != null) return;
+                    if (resourceStripOnly)
+                    {
+                        VerifyResourceStripAfterDialogue();
+                        Finish(0, "从对白直接切到粮田立即恢复资源栏");
+                        break;
+                    }
                     VerifySharedSoldiers();
                     Approach("exit_east");
                     controller.TravelDemo("town");
@@ -1559,9 +1572,8 @@ namespace BaseConquest.Editor
                     for(int tick=0;tick<run.Battle.Scenario.Objective.HoldRounds*60+3&&run.Battle.Phase==BattlePhase.Fighting;tick++)
                         run.Tick(1d/60);
                     if (run.DefensePursuitReady) defenseBattle.RealtimeRetreat();
-                    if (!run.VictoryExitOpen || run.Battle.Report != null || !run.OrderBattlefieldExit(null))
-                        throw new InvalidOperationException("首防锁胜后应先前往出口");
-                    AdvanceBattleToExit(defenseBattle);
+                    if (run.VictoryExitOpen || run.Battle.Report == null)
+                        throw new InvalidOperationException("首防胜利应当场显示战报");
                     if(run.Battle.Report?.Outcome!=BattleOutcome.SideAWin||run.Model.Elapsed<=1)
                         throw new InvalidOperationException("由备战名册部署的队伍未能在实战中守住营地");
                     defenseBattle.PreviewHud.Refresh();
@@ -3277,6 +3289,20 @@ namespace BaseConquest.Editor
             if (a.xMax > b.xMin + .1f || Mathf.Abs(a.center.y - b.center.y) > 1f ||
                 (infoVisible && b.xMax > SceneRect((RectTransform)row.Find("Info"), container).xMin + .1f))
                 throw new InvalidOperationException("名册左右文字或详情按钮重叠");
+        }
+
+        private static void VerifyResourceStripAfterDialogue()
+        {
+            Approach("farm");
+            var strip = (RectTransform)Field(H, "resourceStrip");
+            H.OpenRecruitmentComplete();
+            if (strip.gameObject.activeInHierarchy)
+                throw new InvalidOperationException("对白未隐藏资源栏，无法复现界面切换");
+            H.OpenObject("farm");
+            RequirePanel("FacilityPanel");
+            if (!strip.gameObject.activeInHierarchy)
+                throw new InvalidOperationException("对白切换到粮田面板后未及时恢复资源栏");
+            Debug.Log("[VerifyResourceStrip] PASS facility restores resource HUD without changing focus");
         }
 
         private static void VerifySharedSoldiers()

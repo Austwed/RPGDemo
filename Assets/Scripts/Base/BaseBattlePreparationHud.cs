@@ -474,7 +474,7 @@ namespace BaseConquest.Base
         }
 
         private int PreparationSupplyDemand() => battleDraft.Route == BasePrepRoute.Travel
-            ? SelectedPrepSoldiers.Count()
+            ? SelectedPrepSoldiers.Count(unit => unit.Health >= unit.MaxHealth * BaseDevelopment.DutyThreshold)
             : battleDraft.RequiredSupply(false);
 
         private void RefreshPreparationFields()

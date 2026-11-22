@@ -254,8 +254,7 @@ namespace BaseConquest.Base
                 (!BaseDemoIntro.Active(s) || !BaseDemoPrologue.Village(s) || s.Demo.Intro.Step != 0))
                 heroChoiceLayer.gameObject.SetActive(false);
             bool selectingHero = heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf;
-            summary.transform.parent.gameObject.SetActive(!owner.VillageTitlePreview && !selectingHero &&
-                (!PanelOpen || panelViewKey != "npc-dialogue" && panelViewKey != DemoCompletionView));
+            RefreshHeaderVisibility();
             if (panelFeedback != null) panelFeedback.text = owner.Message;
             owner.InvalidateObjects();
             if (resourceStrip != null) RefreshResourceStrip(s);
@@ -268,7 +267,6 @@ namespace BaseConquest.Base
                 summary.text=BaseCampaign.LocationName(s)+(BaseDemoPrologue.Village(s)?"":" · 第 "+s.Day+" 天")+"   "+Amount("粮食",s.Inventory.Food,delta.Food)+"   "+Amount("原料",s.Inventory.Materials,delta.Materials)+"   "+Amount("钱币",s.Inventory.Coins,delta.Coins)+"\n"+Amount("军需",s.Inventory.Equipment.Where(e=>e.Product=="supply").Sum(e=>e.Count),delta.Supply)+"   兵力：剑士 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Melee).Sum(w=>w.Count)+"／弓兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Ranged).Sum(w=>w.Count)+"／骑兵 "+s.Workers.Where(w=>w.Kind==BaseTroopKind.Cavalry).Sum(w=>w.Count)+"／法师 "+BaseTown.TroopCount(s,BaseTroopKind.Mage);
                 if(BaseDemoRuins.Enabled(s))summary.text+=" · 体力 "+BaseRuinsRewards.Energy(s)+"/"+BaseRuinsRewards.Maximum(s);
             }
-            if(panel!=null&&panelViewKey!="npc-dialogue"){var header=summary.transform.parent;header.SetAsLastSibling();}
             int raids = s.Campaign.Events.Count(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= s.Day);
             regionStatus.text = BaseDemo.Active(s) ? (raids>0 ? "入侵已到达" : "") : s.Campaign.ThreatVersion>0 ? BaseThreats.Warning(s) : raids > 0 ? "入侵 " + raids + "：左侧迎战／过夜自动处理" : "";
             Joystick.gameObject.SetActive(Application.isMobilePlatform && !PanelOpen && !owner.Busy && !owner.PlayerAway && !s.Campaign.HasActiveBattle);
@@ -279,6 +277,17 @@ namespace BaseConquest.Base
             }
             if (!owner.DeploymentWorldActive) RefreshTrackedQuest();
             nearbyId = null; RefreshMovement(); RefreshInspection();
+        }
+
+        private void RefreshHeaderVisibility()
+        {
+            var header = summary.transform.parent;
+            bool show = !owner.VillageTitlePreview && !owner.DeploymentWorldActive &&
+                heroChoiceLayer?.gameObject.activeSelf != true &&
+                (!PanelOpen || panelViewKey != "npc-dialogue" && panelViewKey != DemoCompletionView);
+            header.gameObject.SetActive(show);
+            if (show && PanelOpen && header.GetSiblingIndex() != header.parent.childCount - 1)
+                header.SetAsLastSibling();
         }
         private int introObjectiveKey=-1;
         private static int IntroObjectiveKey(BaseDemoIntroState i) => i.Step * 100 + i.FarmWorkers * 4 + (i.Walked > 0 ? 1 : 0) + (i.Zoomed ? 2 : 0);

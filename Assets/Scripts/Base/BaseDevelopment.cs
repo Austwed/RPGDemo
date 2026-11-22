@@ -244,7 +244,7 @@ namespace BaseConquest.Base
             return Math.Max(.01, Math.Min(1, baseValue + CampRecoveryStep * (level - 1)));
         }
         // 2026-11-04 最新裁决（取代伤员三档的 50%／20%）：士兵生命 <30% 不可工作、不可主动出战；
-        // ≥30% 可工作也可主动出战。遇袭防守例外：生命仍 >0 就能参加迎敌战场。
+        // 工作、进攻和防守均要求至少 30% 生命。存活士兵仍可随军转移。
         // 队长不受血量阈值限制；恢复仍是营内全员每日自动，Resting 是「重伤闲置」的派生标记。
         public const double DutyThreshold = .3;
         public const double WarningDefault = .5, WarningFloor = .3, WarningCeiling = 1;
@@ -272,10 +272,9 @@ namespace BaseConquest.Base
         public static bool Effective(BaseState s, BaseWorkerBucket w) => BaseSettlements.Station(w) != BaseSettlements.BlackCrowStation && !w.TravelingMerchant && w.LastBattleDay != s.Day && !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
         public static bool CanManage(BaseState s, BaseLeader l) => !l.Relocating && !l.Away && !l.WaitingAtRecruitment && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && l.Health > 0;
         public static bool Effective(BaseState s, BaseLeader l) => CanManage(s,l);
-        public static bool CanFight(BaseWorkerBucket w) => !w.TravelingMerchant && !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
-        // 遇袭防守例外：守家时只要还能行动就上，不受 30% 门槛限制。
-        public static bool CanDefend(BaseWorkerBucket w) => !w.TravelingMerchant && !w.Relocating && !w.Away && w.Health > 0;
-        // 编队资格：防守用途放宽到 CanDefend，其余用途一律 CanFight。
+        public static bool CanMarch(BaseWorkerBucket w) => !w.TravelingMerchant && !w.Relocating && !w.Away && w.Health > 0;
+        public static bool CanFight(BaseWorkerBucket w) => CanMarch(w) && w.Health >= w.MaxHealth * DutyThreshold;
+        public static bool CanDefend(BaseWorkerBucket w) => CanFight(w);
         public static bool Eligible(BaseState s, string purpose, BaseWorkerBucket w) => BaseSettlements.Local(s,w) && Eligible(purpose,w);
         public static bool Eligible(string purpose, BaseWorkerBucket w) => purpose == "defense" ? CanDefend(w) : CanFight(w);
         public static bool LocalLeader(BaseState s,BaseLeader l) => !BaseDemo.Active(s) || BaseAdventure.Contains(s,l.Id) || l.VillageResident == (BaseSettlements.AtVillage(s) || s.Campaign?.CurrentMapId == BaseDemoFinale.HomeField);

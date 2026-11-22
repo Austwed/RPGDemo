@@ -12,6 +12,8 @@ namespace BaseConquest.Battle
         private readonly System.Collections.Generic.HashSet<int> victoryMovers = new();
         private bool noVictoryMover;
         private bool victoryExitReached;
+        private bool SettleVictoryHere => Session.Opening.EventId == BaseDemoDefense.EventId ||
+            BaseDemoFinale.Encounter(Session);
         private PrototypePoint AllyExitPoint
         {
             get
@@ -34,7 +36,10 @@ namespace BaseConquest.Battle
                  BaseDemoFinale.Encounter(Session) && eventId != BaseDemoDefense.SecondEventId);
             if (battlefieldExits && Battle.Phase == BattlePhase.Fighting &&
                 Session.Opening.HasRealtimeState && Session.Opening.RealtimeState.BattlefieldVictoryPending)
-                LockBattlefieldVictory(resume: true);
+            {
+                if (SettleVictoryHere) FinishRealtimeOutcome(BattleOutcome.SideAWin);
+                else LockBattlefieldVictory(resume: true);
+            }
         }
 
         public bool OrderBattlefieldExit(System.Collections.Generic.IReadOnlyCollection<int> selected)
@@ -121,6 +126,7 @@ namespace BaseConquest.Battle
                     ? BattleOutcome.SideAWin : BattleOutcome.None;
             if (proposed == BattleOutcome.SideAWin && !BaseDemoRuins.Encounter(Session))
             {
+                if (SettleVictoryHere) return proposed;
                 LockBattlefieldVictory();
                 return ResolveBattlefieldExit(BattleOutcome.None);
             }
