@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
+using BaseConquest.Presentation;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace BaseConquest.Base
 {
@@ -64,6 +66,7 @@ namespace BaseConquest.Base
         {
             var s = owner.State;
             activeObject = "caravan"; interactionObject = "caravan";
+            if (UseFacilityPanel) { OpenCaravanMarket(); return; }
             BeginPanel("商队", "caravan");
             bool hidden = BaseDemo.ExperimentalManagementHidden(s);
             Line("人员 " + BaseCaravan.Crew(s) + "人 · " + (hidden ? "" : "运力 " + BaseCaravan.Capacity(s) + " · ") + "每日口粮 " + BaseCaravan.DailyFood(s) + "（双倍）", 56, 21);
@@ -81,6 +84,137 @@ namespace BaseConquest.Base
             foreach (var entry in s.Caravan.Log.Skip(Math.Max(0, s.Caravan.Log.Count - 5))) Line(entry, 44, 17);
             EndPanel();
         }
+        private void OpenCaravanMarket()
+        {
+            const string key = "caravan-market", facility = "caravan";
+            if (!PanelOpen || panelViewKey != key) ResetWorkerDraft();
+            EnsureWorkerDraft();
+            var (actions, filters, list) = OpenFacilityPanel(key, "商队", "路线与收益", "士兵名册");
+            var view = panel;
+            var portrait = view.Find("PortraitColumn");
+            Ui<Text>(portrait, "Name").text = "商队";
+            var artwork = PixelDemoArt.Load("Buildings", facility);
+            var artBox = Ui<RectTransform>(portrait, "Portrait");
+            artBox.gameObject.SetActive(artwork != null);
+            if (artwork != null)
+            {
+                var picture = Rect("CaravanArt", artBox, Vector2.one * .5f, Vector2.zero, new Vector2(132, 132))
+                    .gameObject.AddComponent<RawImage>();
+                picture.texture = artwork;
+                picture.raycastTarget = false;
+                var fit = picture.gameObject.AddComponent<AspectRatioFitter>();
+                fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+                fit.aspectRatio = (float)artwork.width / artwork.height;
+            }
+            var standing = Ui<Text>(portrait, "Effect");
+            var stateText = FacilityText(actions, "", heading: true);
+            stateText.name = "RouteState";
+            var staffText = FacilityText(actions, "");
+            var foodText = FacilityText(actions, "");
+            foodText.name = "Rations";
+            var coinsText = FacilityText(actions, "");
+            coinsText.name = "TripReward";
+            var reason = FacilityText(actions, "");
+            reason.name = "DispatchCondition";
+            Ui<LayoutElement>(reason.transform, "").minHeight = 42;
+            var assignments = CloneSceneUi("FacilityActionRow", actions);
+            Button apply = null, cancel = null, dispatch = null, crow = null, recall = null;
+            var logs = new System.Collections.Generic.List<RectTransform>();
+            var filter = new SoldierRosterFilter();
+            apply = FacilityButton(assignments, "ConfirmCrew", "确认调配", () => CommitWorkerDraft(Refresh));
+            cancel = FacilityButton(assignments, "CancelCrew", "取消调配", () =>
+            {
+                ResetWorkerDraft();
+                Refresh();
+            });
+            var leftScroll = Ui<ScrollRect>(view, "Left/List");
+            leftScroll.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 422);
+            leftScroll.viewport.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 422);
+            var footer = CloneSceneUi("FacilityActionRow", view.Find("Left"));
+            footer.name = "TripActions";
+            FitControl(view.Find("Left"), footer.name, 8, 472, 502, 42);
+            dispatch = FacilityButton(footer, "Dispatch", "开始跑商", () => StartRoute("local"), selected: true);
+            crow = BaseDemo.ExperimentalManagementHidden(owner.State) ? null
+                : FacilityButton(footer, "Crow", "运送原料", () => StartRoute("crow"));
+            recall = FacilityButton(footer, "Recall", "召回商队", () => FacilityChange(
+                next => BaseCaravan.Stop(next, "玩家召回商队，人员回到基地空闲"), "商队已召回", Refresh));
+            RosterToolbar(filters, filter, RefreshRoster);
+            Refresh();
+            FinishFacilityPanel();
+
+            void StartRoute(string route)
+            {
+                FacilityChange(next =>
+                {
+                    if (!BaseCaravan.Start(next, route, out string problem)) throw new InvalidOperationException(problem);
+                }, "商队已出发", Refresh);
+            }
+
+            void Refresh()
+            {
+                EnsureWorkerDraft();
+                var state = owner.State;
+                var trip = state.Caravan;
+                bool pending = workerMoves.Count > 0;
+                bool running = trip.Route != "" || trip.Phase != "";
+                int count = BaseCaravan.Crew(workerDraft);
+                int reserve = BaseCaravan.DailyFood(workerDraft) * BaseCaravan.TripDays;
+                int capacity = state.Muster.Facilities.FirstOrDefault(post => post.FacilityId == facility)?.Capacity ?? 0;
+                var localProblem = BaseCaravan.Problem(state, "local");
+
+                standing.text = running ? "跑商中" : "待命";
+                stateText.text = trip.Route == "crow" ? BaseCaravan.Status(state) : "领地内跑商 · 三天往返";
+                staffText.text = $"商队人员 {BaseCaravan.Crew(state)}" + (pending ? $" → {count}" : "") + $" / {capacity}";
+                foodText.text = running
+                    ? $"随车粮 {trip.FoodOnBoard} · 剩 {trip.DaysProvisioned} 天"
+                    : $"出发预扣粮食 {reserve} · 库存 {state.Inventory.Food}";
+                coinsText.text = trip.Route == "crow" ? $"运输原料 {trip.Cargo} / {BaseCaravan.Capacity(state)}"
+                    : $"每趟收益 {count * BaseCaravan.LocalCoinsPerCrew * BaseCaravan.TripDays} 币";
+                reason.text = pending ? "请先确认或取消人员调配。" : running
+                    ? trip.Route == "local" ? "每趟完成后结算，口粮充足时自动续程。" : ""
+                    : localProblem;
+                reason.gameObject.SetActive(reason.text.Length > 0);
+                apply.interactable = cancel.interactable = pending;
+                dispatch.interactable = !pending && localProblem == "";
+                recall.interactable = !pending && running;
+                if (crow != null) crow.interactable = !pending && BaseCaravan.Problem(state, "crow") == "";
+                if (panelFeedback != null) panelFeedback.gameObject.SetActive(false);
+                foreach (var line in logs)
+                {
+                    line.gameObject.SetActive(false);
+                    line.SetParent(null, false);
+                    UiPrefabBinding.DestroyView(line.gameObject);
+                }
+                logs.Clear();
+                if (trip.Log.Count > 0) logs.Add(FacilityText(actions, "商队记录", heading: true).rectTransform);
+                foreach (var entry in trip.Log.Skip(Math.Max(0, trip.Log.Count - 5)))
+                {
+                    var line = FacilityText(actions, entry);
+                    Ui<LayoutElement>(line.transform, "").minHeight = 39;
+                    logs.Add(line.rectTransform);
+                }
+                RefreshRoster();
+            }
+
+            void RefreshRoster()
+            {
+                var offset = list.anchoredPosition.y;
+                ClearPanelChildren(list);
+                var units = filter.Apply(BasePersonnel.Soldiers(workerDraft)).ToArray();
+                foreach (var unit in units)
+                {
+                    int number = unit.SoldierNumber;
+                    bool eligible = unit.Effective && !unit.Remote && !unit.Relocating;
+                    var card = AddPersonnelRow(list, unit, WorkerRowStatus(unit),
+                        () => ToggleWorker(number, facility, Refresh), eligible, showFacility: false);
+                    card.name = "Soldier" + number;
+                    TintRoster(card, eligible, unit.Post == facility, workerMoves.ContainsKey(number));
+                }
+                if (units.Length == 0) FacilityText(list, "当前没有符合筛选条件的士兵。");
+                RestoreProductionScroll(panelScroll, offset);
+            }
+        }
+
         private void OpenCaravanWorkers()
         {
             BeginPanel("商队 · 人员调配", "caravan-workers");

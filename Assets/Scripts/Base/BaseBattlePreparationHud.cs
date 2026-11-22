@@ -149,7 +149,7 @@ namespace BaseConquest.Base
             {
                 var recall=UnityEngine.Object.Instantiate(Ui<Button>(view,"Reward"),view);
                 recall.name="RecallCaravan";recall.onClick.RemoveAllListeners();recall.gameObject.SetActive(true);
-                FitControl(view,recall.name,410,458,260,43);
+                FitControl(view,recall.name,422,506,272,38);
                 PrepButton(view,recall.name,"召回商队 · 退粮 "+state.Caravan.FoodOnBoard,()=>
                 {
                     var original=battleDraft;
@@ -252,30 +252,45 @@ namespace BaseConquest.Base
                 FitControl(group,"Input",3,10,98,48);
             }
         }
-        private static void LayoutPreparation(Transform view)
+        private void LayoutPreparation(Transform view)
         {
             EnsureFourthColumn(view,"MageHeading","RangedHeading");
             view.Find("MageHeading").GetComponent<Text>().text = "法师";
-            FitControl(view,"TeamHeading",20,177,209,27);
+            FitControl(view,"TeamHeading",20,234,209,27);
             int column=0;
             foreach(var kind in BattleSimulation.TroopKinds)
-                FitControl(view,BaseCampaign.ToBase(kind)+"Heading",235+column++*113,177,107,27);
-            FitControl(view,"Ally",14,57,315,87);
-            FitControl(view,"Versus",330,64,42,57);
-            FitControl(view,"Enemy",372,57,322,87);
+                FitControl(view,BaseCampaign.ToBase(kind)+"Heading",235+column++*113,234,107,27);
+            FitControl(view,"Ally",14,57,315,76);
+            FitControl(view,"Versus",330,62,42,57);
+            FitControl(view,"Enemy",372,57,322,76);
             foreach (var side in new[] {"Ally","Enemy"})
             {
                 var box = view.Find(side);
-                FitControl(box,"Value",9,3,300,57);
-                FitControl(box,"Meter",9,66,297,10);
+                FitControl(box,"Value",9,3,300,53);
+                FitControl(box,"Meter",9,58,297,10);
                 var label = box.Find("Value").GetComponent<Text>();
                 label.resizeTextMaxSize=label.fontSize; label.resizeTextForBestFit=true; label.resizeTextMinSize=13;
             }
-            FitControl(view,"Context",18,142,676,35);
-            var context=view.Find("Context").GetComponent<Text>();
-            context.resizeTextForBestFit=true;
-            context.resizeTextMinSize=13;
-            context.resizeTextMaxSize=18;
+            FitControl(view,"Context",18,134,674,27);
+            var context = Ui<Text>(view, "Context");
+            context.fontSize = 20;
+            context.resizeTextForBestFit = false;
+            var topLeft = new Vector2(0, 1);
+            var forecast = Solid("Forecast", view, topLeft, new Vector2(354, -198), new Vector2(680, 72), DemoUiTheme.Current.Inset);
+            forecast.GetComponent<Image>().raycastTarget = false;
+            AddForecastLabel("Food", 159, -12, 300);
+            AddForecastLabel("Supply", 490, -12, 300);
+            AddForecastLabel("Posts", 181, -36, 342);
+            AddForecastLabel("EndFood", 490, -36, 300);
+            AddForecastLabel("RoadFood", 339, -60, 658);
+            FitControl(view,"Teams",14,262,680,240);
+
+            void AddForecastLabel(string key, float x, float y, float width)
+            {
+                var label = Label(forecast, "", new Vector2(x, y), new Vector2(width, 24), 18, anchor: topLeft);
+                label.name = key;
+                label.GetComponent<Shadow>().enabled = false;
+            }
             FitControl(view,"Candidates",706,57,450,563);
             var roster = view.Find("Candidates");
             foreach (var key in new[] {"SortHeading","SortRole","Ranged","Cavalry"}) roster.Find(key).gameObject.SetActive(false);
@@ -285,7 +300,7 @@ namespace BaseConquest.Base
             foreach (var key in new[] {"List","Detail"}) FitControl(roster,key,8,83,434,472);
             FitControl(roster,"List/Viewport",0,0,434,472);
             FitControl(roster,"Empty",12,89,422,42);
-            FitControl(view,"Feedback",14,510,676,43);
+            FitControl(view,"Feedback",14,544,676,21);
             FitControl(view,"Supply",14,565,237,56);
             var supply = view.Find("Supply");
             foreach (var key in new[] {"Heading","Stock1","Stock2","Grade2"}) supply.Find(key).gameObject.SetActive(false);
@@ -298,9 +313,9 @@ namespace BaseConquest.Base
             details.raycastTarget=false;
             FitControl(view,"Reset",258,565,170,56);
             FitControl(view,"Continue",435,565,259,56);
-            FitControl(view,"Sweep",14,458,190,43);
-            FitControl(view,"Priority",14,458,190,43);
-            FitControl(view,"Reward",211,458,190,43);
+            FitControl(view,"Sweep",14,506,190,38);
+            FitControl(view,"Priority",14,506,190,38);
+            FitControl(view,"Reward",211,506,198,38);
         }
 
         private void RememberPreparationScroll()
@@ -469,50 +484,9 @@ namespace BaseConquest.Base
             var state = PreparationState(battleDraft.Route);
             bool travel = battleDraft.Route == BasePrepRoute.Travel;
             var problem = battleDraft.Problem(state, false);
-            var context = "";
+            Ui<Text>(panel, "Context").text = PreparationObjective(state);
             if (travel) Ui<Text>(panel, "Priority/Label").text = prepProduction ? "生产优先" : "作战优先";
-            if (battleDraft.TravelingParty) context = "沿用随行队伍，可将士兵调给另一名队长。";
-            else if (travel && problem == "")
-            {
-                try
-                {
-                    var plan = battleDraft.TravelPlan(state, prepProduction);
-                    context = $"预计日产变化   粮食 {(-plan.FoodLoss):+0;-0;0}  ·  军需 {(-plan.ProductLoss):+0;-0;0}";
-                    if (prepProduction && plan.Production?.Allowed != true) problem = plan.Production?.Problem ?? PrepText("production", "当前编队无法保障生产");
-                }
-                catch (ArgumentException error) { problem = error.Message; }
-                catch (InvalidOperationException error) { problem = error.Message; }
-            }
-            else if (!travel)
-            {
-                context = battleDraft.Route switch
-                {
-                    BasePrepRoute.Ruins => $"侵蚀基准 {BaseRuinsRewards.Exposure(state):P0} / 秒 · " + DungeonEnergy(state, battleDraft.Route),
-                    BasePrepRoute.Defense => PrepText("first_objective", "坚守到时或击倒半数来敌。"),
-                    BasePrepRoute.Second => PrepText("second_objective", "击败全部来敌。开战后无法撤退。"),
-                    BasePrepRoute.Hideout => DungeonEnergy(state, battleDraft.Route),
-                    _ => PrepText("attack_objective", "使用已抵达的队伍攻占黑鸦寨。")
-                };
-            }
-            if(travel)
-            {
-                int cost=owner.WorldRoadFood(SelectedPrepSoldiers.Count());
-                context+=$"　行军路粮 {cost} · 库存 {state.Inventory.Food}";
-                if(state.Inventory.Food<cost)problem="路粮不足";
-            }
-            if(battleDraft.Route==BasePrepRoute.Defense)
-            {
-                var ids=SelectedPrepSoldiers.Select(u=>u.SoldierNumber).ToHashSet();
-                var workers=state.Workers.Where(w=>BaseDevelopment.Effective(state,w));
-                int Left(string facility)=>workers.Where(w=>w.FacilityId==facility).Sum(w=>w.SoldierNumbers.Count(ids.Contains));
-                var before=BaseEconomy.ProjectDay(state);
-                var copy=state.Copy();
-                BaseDevelopment.MarkFoughtToday(copy,ids);
-                var after=BaseEconomy.ProjectDay(copy);
-                var raid=state.Campaign.Events.First(e=>e.Id==BaseDemoDefense.EventId);
-                var size=BaseRaidIntel.Counts(state,raid).Sum();
-                context=$"守住 {raid.HoldRounds} 秒或击倒 {(size+1)/2}/{size} 人　离岗：粮田 {Left("farm")} · 工坊 {Left("workshop")}\n预计少产：粮 {before.FoodProduced-after.FoodProduced} · 军需 {before.ProductsMade-after.ProductsMade}　结日余粮 {after.NextFood}"+(after.NextMissing>0?$"（缺 {after.NextMissing}）":"");
-            }
+            RefreshPreparationForecast(state, ref problem);
             RefreshPrepSupply(state);
             var (ally, enemy) = battleDraft.Power(state, false);
             Ui<Text>(panel, "Ally/Value").text = (travel ? "我方出征" : "我方战力 " + Number(ally)) + "\n" + PrepSummary();
@@ -526,7 +500,6 @@ namespace BaseConquest.Base
                     : PrepCounts(battleDraft.KnownEnemyCount))
                 : PrepText("enemy_unknown", "敌方 · 暂无已知情报");
             if (enemy.HasValue) PrepMeter(panel, "Enemy/Meter/Fill", enemy.Value / maxPower);
-            Ui<Text>(panel, "Context").text = context;
             Ui<Button>(panel, "Continue").interactable = problem == "";
             Ui<Button>(panel, "Sweep").interactable = problem == "";
             int warning = SelectedPrepSoldiers.Count(unit => PrepLowHealth(state, unit));
@@ -534,6 +507,77 @@ namespace BaseConquest.Base
             feedback.text = problem != "" ? problem : !string.IsNullOrEmpty(prepFeedback) ? prepFeedback : warning > 0 ? $"生命预警 · {warning} 名所选士兵低于 {BaseDevelopment.WarningThreshold(state):P0}" : "";
             if (feedback.text != "") feedback.color = PrepInvalid;
             RefreshQuestCue();
+        }
+
+        private string PreparationObjective(BaseState state)
+        {
+            switch (battleDraft.Route)
+            {
+                case BasePrepRoute.Travel:
+                    return battleDraft.TravelingParty ? "沿用随行队伍，可将士兵调给另一名队长。" : "选定随行队伍后出发。";
+                case BasePrepRoute.Ruins:
+                    return $"侵蚀基准 {BaseRuinsRewards.Exposure(state):P0} / 秒 · " + DungeonEnergy(state, battleDraft.Route);
+                case BasePrepRoute.Defense:
+                    var raid = state.Campaign.Events.First(e => e.Id == BaseDemoDefense.EventId);
+                    int size = BaseRaidIntel.Counts(state, raid).Sum();
+                    return $"目标 · 守住 {raid.HoldRounds} 秒或击倒 {(size + 1) / 2}/{size} 人";
+                case BasePrepRoute.Second:
+                    return PrepText("second_objective", "击败全部来敌。开战后无法撤退。");
+                case BasePrepRoute.Hideout:
+                    return DungeonEnergy(state, battleDraft.Route);
+                default:
+                    return PrepText("attack_objective", "使用已抵达的队伍攻占黑鸦寨。");
+            }
+        }
+
+        private void RefreshPreparationForecast(BaseState state, ref string problem)
+        {
+            var before = BaseEconomy.ProjectDay(state);
+            var after = state.Copy();
+            bool travel = battleDraft.Route == BasePrepRoute.Travel;
+            bool valid = !travel || problem == "";
+            int roadFood = 0;
+            if (travel)
+            {
+                roadFood = owner.WorldRoadFood(SelectedPrepSoldiers.Count());
+                if (valid && state.Inventory.Food < roadFood)
+                {
+                    problem = "路粮不足";
+                    valid = false;
+                }
+                if (valid && !battleDraft.TravelingParty)
+                {
+                    try
+                    {
+                        var plan = battleDraft.TravelPlan(state, prepProduction);
+                        if (prepProduction && plan.Production?.Allowed != true)
+                            problem = plan.Production?.Problem ?? PrepText("production", "当前编队无法保障生产");
+                        else if (!BaseMuster.Confirm(after, plan))
+                            problem = PrepText("validation.changed", "现场已变化，请重新备战");
+                    }
+                    catch (ArgumentException error) { problem = error.Message; }
+                    catch (InvalidOperationException error) { problem = error.Message; }
+                    valid = problem == "";
+                }
+                if (valid) after.Inventory.Food -= roadFood;
+            }
+            else if (valid)
+            {
+                BaseDevelopment.MarkFoughtToday(after, SelectedPrepSoldiers.Select(unit => unit.SoldierNumber));
+            }
+
+            var projected = valid ? BaseEconomy.ProjectDay(after) : null;
+            string Change(int now, int? next) => now + " → " + (next?.ToString() ?? "—");
+            string Posts(string id) => Change(BaseEconomy.WorkersAt(state, id), valid ? BaseEconomy.WorkersAt(after, id) : null);
+            var box = panel.Find("Forecast");
+            Ui<Text>(box, "Food").text = "日产粮食 " + Change(before.FoodProduced, projected?.FoodProduced);
+            Ui<Text>(box, "Supply").text = "日产军需 " + Change(before.ProductsMade, projected?.ProductsMade);
+            Ui<Text>(box, "Posts").text = "在岗  粮田 " + Posts("farm") + " · 工坊 " + Posts("workshop");
+            Ui<Text>(box, "EndFood").text = "结日余粮 " + Change(before.NextFood, projected?.NextFood) +
+                (projected?.NextMissing > 0 ? $"（缺 {projected.NextMissing}）" : "");
+            Ui<Text>(box, "RoadFood").text = travel
+                ? $"路粮 {roadFood} · 库粮 " + Change(state.Inventory.Food, state.Inventory.Food >= roadFood ? state.Inventory.Food - roadFood : null)
+                : "预计按当前出战名单计算";
         }
 
         private static string DungeonEnergy(BaseState state, BasePrepRoute route)

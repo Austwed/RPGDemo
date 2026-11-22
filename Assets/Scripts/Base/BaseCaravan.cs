@@ -85,7 +85,7 @@ namespace BaseConquest.Base
             Provision(s,CrewRoster(s).ToArray());
             c.Route = route; c.DepartDay = route == "crow" ? s.Day : 0;
             if (route == "crow") { c.Phase = "out"; c.Cargo = 0; message = "商队已出发前往" + BaseScriptNames.Bandit + "，第 2 天取货、第 3 天回营"; }
-            else { c.Phase = ""; message = "商队开始在领地内跑商，按日结算金币"; }
+            else { c.Phase = ""; message = "商队开始在领地内跑商，完成一趟后结算金币"; }
             Record(s, message);
             return true;
         }
