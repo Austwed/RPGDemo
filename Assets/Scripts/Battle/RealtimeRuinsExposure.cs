@@ -13,11 +13,18 @@ namespace BaseConquest.Battle
         public bool AwaitingRescueDialogue { get; private set; }
         public bool RuinsHalfHealthRetreat { get; private set; }
 
+        private bool crossedRuinsRetreatThreshold;
+
+        private void RecordRuinsRetreatThreshold(PrototypeUnit target, double healthBefore)
+        {
+            if (!Session.Opening.RuinsFirstClear || !target.Player || RuinsExitOpen) return;
+            double threshold = target.MaxHealth * .5;
+            crossedRuinsRetreatThreshold |= healthBefore > threshold && target.Health <= threshold;
+        }
+
         internal BattleOutcome CheckRuinsHalfHealthRetreat()
         {
-            var player = Model.Player;
-            if (!Session.Opening.RuinsFirstClear || RuinsExitOpen || player?.Alive != true ||
-                player.Health > player.MaxHealth * .5) return BattleOutcome.None;
+            if (!crossedRuinsRetreatThreshold) return BattleOutcome.None;
             RuinsHalfHealthRetreat = true;
             return BattleOutcome.Retreat;
         }

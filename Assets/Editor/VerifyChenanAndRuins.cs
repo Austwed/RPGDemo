@@ -848,8 +848,8 @@ namespace BaseConquest.Editor
             run.Tick(.02);
             Need(run.Battle.Phase == BattlePhase.Fighting && !run.RuinsHalfHealthRetreat,
                 "遗迹在半血以上提前退场");
-            player.Health = player.MaxHealth * .5;
-            run.Tick(.02);
+            var enemy = run.Model.Units.First(unit => unit.Side == PrototypeSide.Enemy);
+            Hit(run, enemy, player, 100);
             Need(run.RuinsHalfHealthRetreat && run.Battle.Report?.Outcome == BattleOutcome.Retreat &&
                 run.Model.Units.All(unit => !unit.Escaped), "遗迹半血未直接退场");
             run.SaveCheckpoint(state);
@@ -858,7 +858,33 @@ namespace BaseConquest.Editor
             var resumed = new RealtimeCampaignBattle(new BaseCampaignSession(loaded.Campaign.ActiveBattle));
             Need(resumed.RuinsHalfHealthRetreat && BaseDemoCombat.Fail(loaded, resumed) &&
                 loaded.Demo.RuinsDay == 0 && !loaded.Campaign.HasActiveBattle, "半血撤退读档未保留真实结算");
-            Debug.Log("[VerifyRuinsHalfHealthRetreat] 半血直接退场、真实出口、检查点及结算 PASS");
+            BaseDemoCombat.RetreatPosition(loaded, false);
+            BaseSceneRules.LeaveDungeon(loaded);
+            At(loaded, "demo_ruins_return");
+            Need(BaseCampaign.Travel(loaded, "town"), "撤退后无法回灰岩镇");
+            At(loaded, "demo_azhu");
+            Need(BaseDemoRuins.Meet(loaded, "partner_craft") && BaseDemoRuins.Join(loaded, "partner_craft"), "无法邀请阿铸同行");
+            At(loaded, "demo_ruins_exit");
+            Need(BaseCampaign.Travel(loaded, "outpost"), "无法重新进入遗迹入口");
+            At(loaded, "demo_ruins_investigate");
+            var retry = new RealtimeCampaignBattle(BaseDemoRuins.Begin(loaded, "none"));
+            retry.EnableBattlefieldExits();
+            BaseDemoRuins.Configure(retry);
+            Need(retry.Session.Opening.Leaders.Any(leader => leader.Id == "partner_craft") &&
+                retry.Model.Player.Health <= retry.Model.Player.MaxHealth * .5, "重进夹具应保留旧伤和阿铸");
+            retry.Model.SetPaused(false);
+            retry.Tick(.02);
+            var health = retry.Model.Player.Health;
+            Hit(retry, retry.Model.Units.First(unit => unit.Side == PrototypeSide.Enemy), retry.Model.Player, 1);
+            Need(retry.Battle.Phase == BattlePhase.Fighting && !retry.RuinsHalfHealthRetreat &&
+                retry.Model.Player.Health < health, "带旧伤重进应可正常开战、受伤");
+            Debug.Log("[VerifyRuinsHalfHealthRetreat] 实际受击跨线、检查点读回、带阿铸半血重进 PASS");
+
+            void Hit(RealtimeCampaignBattle battle, PrototypeUnit from, PrototypeUnit to, double raw)
+            {
+                var amount = battle.DamageLimit?.Invoke(from, to, raw) ?? raw;
+                battle.Model.ApplyResolvedHit(from, to, amount);
+            }
         }
 
         private static void VerifyFullPartyGalan(BaseState state,string captive)

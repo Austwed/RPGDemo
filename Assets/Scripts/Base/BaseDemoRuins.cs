@@ -182,8 +182,8 @@ namespace BaseConquest.Base
             var controller=run.Battle.Commander(BattleSide.B,0);if(controller!=null && run.Session.Opening.RuinsFirstClear)controller.AppearanceId="galan";
             run.EnableRuinsExposure(run.Session.Opening.RuinsExposureFraction>0?run.Session.Opening.RuinsExposureFraction:.03);
             if (run.Session.Opening.RuinsFirstClear)
-                run.DamageLimit = (_, target, damage) => target.Player && !ControllerDefeated(run)
-                    ? Math.Min(damage, Math.Max(0, target.Health - target.MaxHealth * .5))
+                run.DamageLimit = (_, target, damage) => target.Player && target.Health > target.MaxHealth * .5 && !ControllerDefeated(run)
+                    ? Math.Min(damage, target.Health - target.MaxHealth * .5)
                     : damage;
             run.ImmediateOutcome = () => ControllerDefeated(run) && (!BaseDemoCombat.Defeated(run) || run.RuinsExitOpen)
                 ? run.CheckRuinsExit() ? BattleOutcome.SideAWin : BattleOutcome.None

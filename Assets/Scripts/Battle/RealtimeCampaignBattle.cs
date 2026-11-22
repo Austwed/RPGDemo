@@ -148,7 +148,16 @@ namespace BaseConquest.Battle
                 ResolveImmediateOutcome();
             };
             if(session.Opening.DemoCombat)Battle.CasualtyChance=unit=>BaseDemoCombat.DeathChance(session,unit);
-            Model.DamageApplied=(source,target,actual)=>{Battle.RecordRealtimeHit(source.Id-1,target.Id-1,(float)actual,(float)target.Health);var soldier=Battle.Soldier(target.Id-1);target.Health=soldier.Health;target.KnockedDown=soldier.KnockedDown;ResolveImmediateOutcome();};
+            Model.DamageApplied = (source, target, actual) =>
+            {
+                double healthBefore = target.Health + actual;
+                Battle.RecordRealtimeHit(source.Id-1,target.Id-1,(float)actual,(float)target.Health);
+                var soldier = Battle.Soldier(target.Id-1);
+                target.Health = soldier.Health;
+                target.KnockedDown = soldier.KnockedDown;
+                if (actual > 0) RecordRuinsRetreatThreshold(target, healthBefore);
+                ResolveImmediateOutcome();
+            };
             Model.CanTarget=(source,target)=>Battle.Vision.CanSee(source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B,Battle.Soldier(target.Id-1));
             Model.CanMove=actor=>!Battle.Soldier(actor.Id-1).DeveloperImmobile;
             Model.SwordContactPinEnabled = true;
