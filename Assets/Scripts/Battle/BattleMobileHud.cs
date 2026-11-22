@@ -571,7 +571,7 @@ namespace BaseConquest.Battle
         public static string CellInformation(BattleSimulation b, GridPosition p, BattleSide observer, bool showExitA = true, bool showExitB = true)
         {
             if (!b.CanInspectCell(observer, p)) return "格 " + p + (b.Vision.Explored(observer, p) ? " · 已探索，当前无视野" : " · 未探索地形");
-            var c = b.Board.Cell(p); string terrain = c.Terrain == TerrainKind.Water ? "水域：不可通行，可透视／射击" : c.Terrain == TerrainKind.Building ? "建筑：不可通行，阻挡视线／射击" : c.Terrain == TerrainKind.Wall ? "城墙：不可通行，阻挡视线／射击" : c.Terrain == TerrainKind.Swamp ? "沼泽：可通行，脚力5，不挡视线／射击" : "地面：可以通行、部署与交战";
+            var c = b.Board.Cell(p); string terrain = c.Terrain == TerrainKind.Water ? "水域：不可通行，可透视／射击" : c.Terrain == TerrainKind.Building ? "建筑：不可通行，阻挡视线／射击" : c.Terrain == TerrainKind.Wall ? "城墙：不可通行，阻挡视线／射击" : c.Terrain == TerrainKind.Swamp ? "沼泽：可通行，移速减半（行军期间免减速），不挡视线／射击" : "地面：可以通行、部署与交战";
             if(FortificationInfo.Description(c)!="")terrain=FortificationInfo.Description(c);
             terrain+="\n"+b.Board.HeightDescription(p);
             var opponent = observer == BattleSide.A ? BattleSide.B : BattleSide.A;

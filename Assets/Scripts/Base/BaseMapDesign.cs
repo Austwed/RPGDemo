@@ -110,6 +110,7 @@ namespace BaseConquest.Base
         private static bool TerrainConnection(BattleBoard b,GridPosition from,GridPosition to)
         {
             if(!b.HeightConnection(from,to))return false;
+            if (b.IsDoubleLowRamp(from) || b.IsDoubleLowRamp(to)) return true;
             var a=b.Cell(from);var c=b.Cell(to);
             var axis=from.X==to.X ? RampAxis.NorthSouth : RampAxis.EastWest;
             if((a.Ramp==RampAxis.None||a.Ramp==axis)&&(c.Ramp==RampAxis.None||c.Ramp==axis))return true;

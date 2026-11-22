@@ -518,7 +518,9 @@ namespace BaseConquest.RealtimePrototype
             foreach(var arrow in Arrows.ToArray()){if(Paused)return;AdvanceArrow(arrow);}
             AfterStep?.Invoke();
             if(Paused)return;
-            if(AttackTriggered!=null)foreach(var actor in Units.Where(u=>u.HitResolved&&u.HitAt>=0&&u.HitAt<=Elapsed+1e-9).ToArray())if(WindupLegal(actor))StartWindup(actor);
+            if (AttackTriggered != null)
+                foreach (var actor in Units.Where(u => u.HitResolved && u.HitAt >= 0 && u.HitAt <= Elapsed + 1e-9).ToArray())
+                    if (WindupLegal(actor) && !ShouldResumeSquadFocus(actor)) StartWindup(actor);
             RebuildReservations();
             if(AutonomousOutcome&&Units.Count>0)
             {

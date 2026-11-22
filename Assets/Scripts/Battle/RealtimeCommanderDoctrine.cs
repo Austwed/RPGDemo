@@ -107,6 +107,17 @@ namespace BaseConquest.RealtimePrototype
             {u.AttackSlot=u.Cell;if(Face(u,delta.Normalized)&&Elapsed+1e-9>=u.ReadyAt)BeginAttack(u);return;}
             u.AttackSlot=AttackPosition(u,target);u.MoveGoal=u.AttackSlot;
         }
+        private bool ShouldResumeSquadFocus(PrototypeUnit unit)
+        {
+            if (!CommanderDoctrine || !unit.Ranged || unit.Role == PrototypeRole.Leader || IndependentAssault(unit.Side)) return false;
+            var captain = Owner(unit);
+            if (captain == null || captain.SquadTargetId < 0 || captain.SquadTargetId == unit.TargetId ||
+                (unit.Position - captain.Position).Length > captain.CommandRadius) return false;
+            var focus = Units.FirstOrDefault(e => e.Id == captain.SquadTargetId);
+            double boundary = Guards(captain) ? captain.ThreatRadius : captain.CommandRadius;
+            return focus?.Alive == true && focus.Side != unit.Side && (CanTarget?.Invoke(unit, focus) ?? true) &&
+                (focus.Position - captain.Position).Length <= boundary && ReadyTarget(unit, focus);
+        }
         private void ThinkDoctrine(PrototypeUnit u)
         {
             if(u.ObjectOrder)
@@ -181,7 +192,16 @@ namespace BaseConquest.RealtimePrototype
             {
                 var focus=Units.FirstOrDefault(e=>e.Id==l.SquadTargetId&&Eligible(e));
                 bool rethink=Elapsed+1e-9>=u.NextThinkAt;
-                if(focus!=null&&(InAttackRadius(u,focus)||!rethink&&u.TargetId==focus.Id&&u.AttackSlot>=0||rethink&&ReachableNow(u,AttackPosition(u,focus))))target=focus;
+                if (focus != null)
+                {
+                    bool ready = u.Ranged ? ReadyTarget(u, focus) : InAttackRadius(u, focus);
+                    if (u.Ranged && !ready)
+                        target = PreferredTarget(u, Units.Where(e => e != focus && Eligible(e) && ReadyTarget(u, e)));
+                    if (target == null && (ready ||
+                        !rethink && u.TargetId == focus.Id && u.AttackSlot >= 0 ||
+                        rethink && ReachableNow(u, AttackPosition(u, focus))))
+                        target = focus;
+                }
                 if(target!=null&&rethink)u.NextThinkAt=Elapsed+.3;
             }
             if(target==null)

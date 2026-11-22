@@ -16,26 +16,59 @@ namespace BaseConquest.Battle
         public double SurfaceLevel(GridPosition position,double localX,double localZ)
         {
             var cell=Cell(position);if(cell==null)return 0;
-            int low=RampLowEdge(position);
-            if(low==0)return cell.Elevation;
-            double along=Math.Max(0,Math.Min(1,cell.Ramp==RampAxis.EastWest ? localX : localZ));
-            return cell.Elevation-(low<0?1-along:along);
+            var (negative, positive) = RampLowEdges(position);
+            if (!negative && !positive) return cell.Elevation;
+            double along = Math.Max(0, Math.Min(1, cell.Ramp == RampAxis.EastWest ? localX : localZ));
+            if (negative && positive) return cell.Elevation - Math.Abs(2 * along - 1);
+            return cell.Elevation - (negative ? 1 - along : along);
         }
+
+        private (bool negative, bool positive) RampLowEdges(GridPosition position)
+        {
+            var cell = Cell(position);
+            if (cell == null || cell.Ramp == RampAxis.None) return (false, false);
+            var step = cell.Ramp == RampAxis.EastWest ? new GridPosition(1, 0) : new GridPosition(0, 1);
+            int lower = cell.Elevation - 1;
+            return (Cell(position + new GridPosition(-step.X, -step.Z))?.Elevation == lower,
+                Cell(position + step)?.Elevation == lower);
+        }
+
+        public bool IsDoubleLowRamp(GridPosition position)
+        {
+            var (negative, positive) = RampLowEdges(position);
+            return negative && positive;
+        }
+
         public int RampLowEdge(GridPosition position)
         {
-            var cell=Cell(position);
-            if(cell==null||cell.Ramp==RampAxis.None)return 0;
-            var step=cell.Ramp==RampAxis.EastWest ? new GridPosition(1,0) : new GridPosition(0,1);
-            if(Cell(position+new GridPosition(-step.X,-step.Z))?.Elevation==cell.Elevation-1)return -1;
-            return Cell(position+step)?.Elevation==cell.Elevation-1?1:0;
+            var (negative, positive) = RampLowEdges(position);
+            return negative ? -1 : positive ? 1 : 0;
         }
+
         public bool HeightConnection(GridPosition from,GridPosition to)
         {
             if(!Contains(from)||!Contains(to)||GridPosition.Distance(from,to)!=1)return false;
             var a=Cell(from);var b=Cell(to);int difference=Math.Abs(a.Elevation-b.Elevation);
+            if (IsDoubleLowRamp(from) || IsDoubleLowRamp(to))
+                return difference <= 1 && MatchingRampBoundary(from, to);
             if(difference==0)return true;
             var axis=from.X!=to.X ? RampAxis.EastWest : RampAxis.NorthSouth;
             return difference==1&&(a.Ramp==axis||b.Ramp==axis);
+        }
+
+        private bool MatchingRampBoundary(GridPosition from, GridPosition to)
+        {
+            int dx = to.X - from.X, dz = to.Z - from.Z;
+            bool Matches(double along)
+            {
+                double a = dx != 0 ? SurfaceLevel(from, dx > 0 ? 1 : 0, along) :
+                    SurfaceLevel(from, along, dz > 0 ? 1 : 0);
+                double b = dx != 0 ? SurfaceLevel(to, dx > 0 ? 0 : 1, along) :
+                    SurfaceLevel(to, along, dz > 0 ? 0 : 1);
+                return Math.Abs(a - b) < 1e-8;
+            }
+            // Flat and sloped profiles are linear in each half, with a possible center crest.
+            return Matches(0) && Matches(.5) && Matches(1);
         }
         public bool CanStep(GridPosition from,GridPosition to)=>Walkable(from)&&Walkable(to)&&HeightConnection(from,to);
         public string HeightDescription(GridPosition p)
