@@ -32,16 +32,18 @@ namespace BaseConquest.Base
     {
         public const string PartyReceipt="@party";
         public const string WarehouseReceipt="@warehouse";
+        public static string PendingPrisonerBattle(BaseState state) =>
+            state?.Aftermath?.GameOver==false ? state.Aftermath.Prisoners?.FirstOrDefault(p=>p.Status=="held")?.BattleId : null;
         private static bool NeedsResolution(BaseState state,BaseLootManifest manifest)
         {
             if (manifest.Closed) return false;
             if (!BaseDemo.Active(state) || !manifest.DeferredItems) return true;
-            return !BaseRpg.Active(state) && state.Aftermath.Prisoners.Any(p=>p.BattleId==manifest.BattleId && p.Status=="held");
+            return state.Aftermath.Prisoners.Any(p=>p.BattleId==manifest.BattleId && p.Status=="held");
         }
-        public static bool Pending(BaseState s)=>s?.Aftermath!=null && !s.Aftermath.GameOver && s.Aftermath.Loot.Any(m=>NeedsResolution(s,m));
+        public static bool Pending(BaseState s)=>s?.Aftermath!=null && !s.Aftermath.GameOver && (s.Aftermath.Loot.Any(m=>NeedsResolution(s,m)) || BaseDemo.Active(s)&&PendingPrisonerBattle(s)!=null);
         public static BaseLootManifest NextResult(BaseState state)=>state?.Aftermath==null || state.Aftermath.GameOver ? null :
             state.Aftermath.Loot.FirstOrDefault(m=>NeedsResolution(state,m) || BaseDemo.Active(state) && m.HasReceipt);
-        public static bool ShouldPresent(BaseState s)=>NextResult(s)!=null;
+        public static bool ShouldPresent(BaseState s)=>NextResult(s)!=null || BaseDemo.Active(s)&&PendingPrisonerBattle(s)!=null;
         public static IEnumerable<BaseLootManifest> Unclaimed(BaseState state)=>state.Aftermath.Loot.Where(m=>!m.Closed && m.Items.Any(i=>i.Status=="pending"));
         public static void DeferItems(BaseState state,string battle)
         {
@@ -56,7 +58,7 @@ namespace BaseConquest.Base
         {
             foreach(var e in s.Campaign.Events)if(e.ItemRewards==null||e.ItemRewards.Count>100||e.ItemRewards.Any(r=>!ValidReward(s,r)))throw new ArgumentException("战役道具奖励非法");
             var list=s.Aftermath.Loot;
-            if(list==null||list.Count>1000||list.Any(m=>m==null||string.IsNullOrWhiteSpace(m.BattleId)||string.IsNullOrWhiteSpace(m.Title)||!m.Closed&&!s.Campaign.SettledIds.Contains(m.BattleId)||m.Items==null||m.Items.Count(i=>i!=null&&string.IsNullOrEmpty(i.CapturedId))>100||m.Items.Count>100+93*BasePersonalEquipment.Slots.Length||m.Items.Any(i=>i==null||string.IsNullOrWhiteSpace(i.Id)||!new[]{"pending","taken","discarded"}.Contains(i.Status)||!ValidReward(s,i.Reward)||i.Reward.RandomQuality||!string.IsNullOrEmpty(i.CapturedId)&&string.IsNullOrEmpty(i.Reward.Template))||m.Items.Select(i=>i.Id).Distinct().Count()!=m.Items.Count||m.Closed&&!CanFinish(s,m))||list.Select(m=>m.BattleId).Distinct().Count()!=list.Count)
+            if(list==null||list.Count>1000||list.Any(m=>m==null||string.IsNullOrWhiteSpace(m.BattleId)||string.IsNullOrWhiteSpace(m.Title)||!m.Closed&&!s.Campaign.SettledIds.Contains(m.BattleId)||m.Items==null||m.Items.Count(i=>i!=null&&string.IsNullOrEmpty(i.CapturedId))>100||m.Items.Count>100+93*BasePersonalEquipment.Slots.Length||m.Items.Any(i=>i==null||string.IsNullOrWhiteSpace(i.Id)||!new[]{"pending","taken","discarded"}.Contains(i.Status)||!ValidReward(s,i.Reward)||i.Reward.RandomQuality||!string.IsNullOrEmpty(i.CapturedId)&&string.IsNullOrEmpty(i.Reward.Template))||m.Items.Select(i=>i.Id).Distinct().Count()!=m.Items.Count||m.Closed&&m.Items.Any(i=>i.Status=="pending"))||list.Select(m=>m.BattleId).Distinct().Count()!=list.Count)
                 throw new ArgumentException("战利品清单身份、状态或奖励非法");
         }
         public static void Create(BaseState s,BaseCampaignReport report,IEnumerable<BaseLootReward> rewards,IEnumerable<BasePersonalItem> captured = null)
@@ -142,7 +144,7 @@ namespace BaseConquest.Base
             return receipt;
         }
         public static string Name(BaseState s,BaseLootLine line)=>line.Reward.Template!=""?BasePersonalEquipment.Name(new BasePersonalItem {Template=line.Reward.Template,Quality=line.Reward.Quality}):s.Backpack.Catalog.Single(d=>d.Id==line.Reward.ItemId).Name+" ×"+line.Reward.Count;
-        public static bool CanFinish(BaseState s,BaseLootManifest m)=>m.Items.All(i=>i.Status!="pending")&&(BaseRpg.Active(s)||!s.Aftermath.Prisoners.Any(p=>p.BattleId==m.BattleId&&p.Status=="held"));
+        public static bool CanFinish(BaseState s,BaseLootManifest m)=>m.Items.All(i=>i.Status!="pending")&&!s.Aftermath.Prisoners.Any(p=>p.BattleId==m.BattleId&&p.Status=="held");
         public static bool Finish(BaseState s,string battle)
         {var m=s.Aftermath.Loot.SingleOrDefault(x=>x.BattleId==battle);if(m==null||m.Closed||!BasePartyInventory.Peaceful(s)||!CanFinish(s,m))return false;m.Closed=true;return true;}
         public static int CollectAll(BaseState s,string battle)
@@ -156,7 +158,7 @@ namespace BaseConquest.Base
         }
         public static int RecruitAll(BaseState s,string battle)
         {
-            if(!s.Aftermath.Loot.Any(m=>m.BattleId==battle&&(BaseDemo.Active(s)||!m.Closed))||!BasePartyInventory.Peaceful(s))return 0;
+            if(!BasePartyInventory.Peaceful(s) || !BaseDemo.Active(s)&&!s.Aftermath.Loot.Any(m=>m.BattleId==battle&&!m.Closed))return 0;
             int count=0;
             foreach(var p in s.Aftermath.Prisoners.Where(p=>p.BattleId==battle&&p.Status=="held").ToArray())
                 if(BaseAftermath.Decide(s,p.Id,"recruit"))count++;

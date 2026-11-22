@@ -72,6 +72,7 @@ namespace BaseConquest.Base
             var manifest=battle==null ? BaseBattleLoot.NextResult(state) : state.Aftermath.Loot.FirstOrDefault(m=>m.BattleId==battle && (!m.Closed||m.HasReceipt));
             if(manifest==null)
             {
+                battle??=BaseBattleLoot.PendingPrisonerBattle(state);
                 if(battle!=null&&state.Aftermath.Prisoners.Any(p=>p.BattleId==battle&&p.Status=="held"))OpenRewardPrisoners(battle);
                 else ClosePanel();
                 return;
@@ -84,7 +85,7 @@ namespace BaseConquest.Base
                 bool hasPrisoners=owner.State.Aftermath.Prisoners.Any(p=>p.BattleId==battle && p.Status=="held");
                 activeObject="loot";
                 BeginPanel(manifest.Title,"loot-pending:"+battle);
-                if (BaseRpg.Active(owner.State) || !hasPrisoners)
+                if (!hasPrisoners)
                 {
                     var close = panel.GetComponentsInChildren<Button>(true).FirstOrDefault(b=>b.name=="Close" || b.name=="关闭");
                     if (close!=null) close.interactable=true;
@@ -170,7 +171,13 @@ namespace BaseConquest.Base
             interactionObject="";
             var state=owner.State;
             var held=state.Aftermath.Prisoners.Where(p=>p.BattleId==battle&&p.Status=="held").ToArray();
-            if(held.Length==0){ClosePanel();return;}
+            if(held.Length==0)
+            {
+                var manifest=state.Aftermath.Loot.FirstOrDefault(m=>m.BattleId==battle && !m.Closed && !m.HasReceipt);
+                if(manifest!=null && BaseBattleLoot.CanFinish(state,manifest))
+                    owner.Change(next=>BaseBattleLoot.Finish(next,battle),"");
+                ClosePanel();return;
+            }
             BeginPanel(StoryText.Get("ui.reward.prisoners","处理俘虏"),"reward-prisoners:"+battle);
             Line("释放后无法再招降，处死将永久移除。",42,18);
             RowButton("一键招募",0,800,()=>

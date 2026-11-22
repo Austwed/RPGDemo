@@ -19,6 +19,51 @@ namespace BaseConquest.Editor
             Debug.Log("[VerifyBattlePreparation] PASS");
         }
 
+        public static void VerifyRationsAndPrisoners()
+        {
+            var opening=Load("defense");
+            var rules=opening.Demo.Rpg;
+            Need(rules.TroopBaseline.Sum()==16&&rules.SoldierDeathSensitivity==1.5,"正式数值快照不匹配");
+            double P(int n,double modifier=0)=>BaseDemoCombat.TroopDeathChance(16,n,rules,modifier);
+            Need(P(8)==0&&P(16)==.5&&P(32)==1&&P(40,-.1)==1&&Math.Abs(P(32,-.1)-.9)<1e-9&&P(2,.1)==0,"P47 特性与截断顺序");
+            var state=opening.Copy();
+            state.Workers.Clear();
+            state.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Cavalry,Count=1,Health=100,MaxHealth=100});
+            state.Workers.Add(new BaseWorkerBucket{Kind=BaseTroopKind.Melee,Count=1,Health=100,MaxHealth=100});
+            BaseDevelopment.Allocate(state);
+            state.Inventory.Food=1;
+            state.Day++;
+            var saved=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            var lost=new System.Collections.Generic.List<int>();
+            Need(BaseEconomy.PayMorningFood(state,lost)&&lost.Count==1&&state.Workers.Sum(w=>w.Count)==1&&state.TodayFoodRequired==2&&state.TodayFoodConsumed==1,"四职业应各吃一份，仅一个未领粮者离队");
+            Need(!BaseEconomy.PayMorningFood(state)&&BaseEconomy.AttackFactor(state)==1&&BaseEconomy.ProductionFactor(state)==1,"重复扣粮或饥饿减益");
+            var copyLost=new System.Collections.Generic.List<int>();BaseEconomy.PayMorningFood(saved,copyLost);
+            Need(lost.SequenceEqual(copyLost),"重复读档分粮结果变化");
+
+            state=opening.Copy();
+            var captive=new BasePrisoner{Id="p47-held",BattleId="p47-old",Name="剑士",Kind=SoldierKind.Melee,
+                Stats=new SoldierStats{Health=100},Health=30};
+            state.Aftermath.Prisoners.Add(captive);
+            var ledger=new BaseLootManifest{BattleId=captive.BattleId,Title="旧战果",Closed=true};
+            state.Aftermath.Loot.Add(ledger);
+            BaseEconomy.Validate(state);
+            Need(BaseBattleLoot.Pending(state)&&BaseBattleLoot.ShouldPresent(state)&&!BaseBattleLoot.CanFinish(state,ledger),"旧档已关清单掩盖待处置俘虏");
+            Need(BaseAftermath.Decide(state,captive.Id,"release")&&BaseBattleLoot.CanFinish(state,ledger),"释放俘虏后仍无法离场");
+
+            state=opening.Copy();At(state,"demo_defense_start");Stock(state,1).Count=24;
+            var draft=new BaseBattlePreparation(state,BasePrepRoute.Defense);
+            draft.AutoPlace();var run=Start(state,draft);
+            var targets=run.Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&u.Kind!=SoldierKind.Hero).Take(2).ToArray();
+            var test=targets[0];var earlier=targets[1];
+            run.Session.Opening.PlayerTroopCounts=new[]{16,0,0,0};
+            double before=BaseDemoCombat.DeathChance(run.Session,test);
+            test.KnockedDown=test.DeathResolved=true;earlier.KnockedDown=true;
+            Need(BaseDemoCombat.DeathChance(run.Session,test)==before,"当前单位或未判定单位计入 N");
+            earlier.DeathResolved=true;Need(BaseDemoCombat.DeathChance(run.Session,test)>before,"已判定倒地存活未计入 N");
+            earlier.InstantDead=true;Need(BaseDemoCombat.DeathChance(run.Session,test)==before,"永久阵亡计入敌方存活数");
+            Debug.Log("[P47] PASS casualty curve, survivors, legacy captives, whole rations and stable reload");
+        }
+
         private static void VerifyNamedWorker()
         {
             var state = Load("defense");
@@ -373,7 +418,15 @@ namespace BaseConquest.Editor
             Need(BaseMuster.Confirm(state, travel.TravelPlan(state)), "黑鸦寨行军编队失败");
             At(state, "demo_march_exit");
             BaseWorldJourney.EnterWorld(state, "camp_entry");
+            var tooPoor=state.Copy();tooPoor.Inventory.Food=0;bool denied=false;
+            try{BaseWorldJourney.Start(tooPoor,new[]{"camp","bandit"});}catch(InvalidOperationException){denied=true;}
+            Need(denied&&!BaseWorldJourney.Marching(tooPoor)&&tooPoor.Inventory.Food==0,"路粮不足仍能出发");
+            int foodBeforeMarch=state.Inventory.Food;
             BaseWorldJourney.Start(state, new[] { "camp", "bandit" });
+            Need(foodBeforeMarch-state.Inventory.Food==departingTeams.Count&&state.Campaign.WorldJourney.ReservedRoadFood==departingTeams.Count,"大地图一日路应预扣每兵一份额外粮");
+            var savedMarch=JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
+            BaseEconomy.Validate(savedMarch);
+            Need(savedMarch.Campaign.WorldJourney.ReservedRoadFood==departingTeams.Count,"行军读档丢失预扣路粮");
             Need(BaseWorldJourney.Step(state, _ => null), "行军失败");
             BaseWorldJourney.EnterScene(state, "bandit_entry");
             At(state, "demo_camp_attack");

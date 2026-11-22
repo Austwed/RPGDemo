@@ -55,10 +55,11 @@ namespace BaseConquest.Base
             foreach (bool village in new[] { false, true })
             {
                 string policy = Policy(s, village);
-                var workers = s.Workers.Where(w => w.VillageResident == village && !w.Away && w.Count > 0).ToArray();
+                var workers = s.Workers.Where(w => w.VillageResident == village && !w.Away && !w.TravelingMerchant && w.Count > 0).ToArray();
                 if (policy == "manual")
                 {
                     var room = s.Muster.Facilities.ToDictionary(f => f.FacilityId,f => f.Capacity);
+                    if(room.ContainsKey("caravan"))room["caravan"]-=s.Workers.Where(w=>w.TravelingMerchant&&w.VillageResident==village).Sum(w=>w.Count);
                     foreach (var worker in workers.OrderByDescending(w => w.FacilityId != "" && w.FacilityId == w.DesiredFacility))
                     {
                         string post = worker.DesiredFacility;
@@ -127,7 +128,8 @@ namespace BaseConquest.Base
         {
             if (!Available(s,"barracks",true)) return "白桦村缺少兵营";
             if (!Available(s,"barracks",false)) return "灰岩营地缺少兵营";
-            if (w.Away || w.Health <= 0 || s.Campaign.HasActiveBattle) return "当前无法调动";
+            if (w.Away || w.TravelingMerchant || w.Health <= 0 || s.Campaign.HasActiveBattle) return "当前无法调动";
+            if (!w.Relocating && s.Inventory.Food<BaseEconomy.Ration(s,w)) return "路粮不足";
             return "";
         }
         public static void Order(BaseState s, int number)
@@ -143,6 +145,8 @@ namespace BaseConquest.Base
             if (w.Relocating)
             {
                 w.Relocating = false;
+                s.Inventory.Food=Math.Min(100000000,s.Inventory.Food+w.PrepaidRoadFood);
+                w.PrepaidRoadFood=0;
                 var origin = s.Muster.Facilities.FirstOrDefault(f => f.FacilityId == w.DepartureFacility);
                 if (origin != null && BaseEconomy.WorkersAt(s,origin.FacilityId,w.VillageResident) < origin.Capacity)
                     w.FacilityId = w.DesiredFacility = w.DepartureFacility;
@@ -152,6 +156,8 @@ namespace BaseConquest.Base
             {
                 w.DepartureFacility = w.FacilityId;
                 w.FacilityId = w.DesiredFacility = "";
+                w.PrepaidRoadFood=BaseEconomy.Ration(s,w);
+                s.Inventory.Food-=w.PrepaidRoadFood;
                 w.Relocating = true;
             }
             Allocate(s);
@@ -161,6 +167,7 @@ namespace BaseConquest.Base
             foreach (var w in s.Workers.Where(w => w.Relocating))
             {
                 w.VillageResident = !w.VillageResident;
+                w.PrepaidRoadFood=0;
                 w.Relocating = false;
                 w.DepartureFacility = "";
             }
@@ -243,12 +250,12 @@ namespace BaseConquest.Base
             }
             Allocate(s);
         }
-        public static bool Effective(BaseState s, BaseWorkerBucket w) => w.LastBattleDay != s.Day && !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
+        public static bool Effective(BaseState s, BaseWorkerBucket w) => !w.TravelingMerchant && w.LastBattleDay != s.Day && !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
         public static bool CanManage(BaseState s, BaseLeader l) => !l.Relocating && !l.Away && !l.WaitingAtRecruitment && BaseAdventure.Alive(l) && !BaseAdventure.Contains(s,l.Id) && l.Health > 0;
         public static bool Effective(BaseState s, BaseLeader l) => CanManage(s,l);
-        public static bool CanFight(BaseWorkerBucket w) => !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
+        public static bool CanFight(BaseWorkerBucket w) => !w.TravelingMerchant && !w.Relocating && !w.Away && w.Health > 0 && w.Health >= w.MaxHealth * DutyThreshold;
         // 遇袭防守例外：守家时只要还能行动就上，不受 30% 门槛限制。
-        public static bool CanDefend(BaseWorkerBucket w) => !w.Relocating && !w.Away && w.Health > 0;
+        public static bool CanDefend(BaseWorkerBucket w) => !w.TravelingMerchant && !w.Relocating && !w.Away && w.Health > 0;
         // 编队资格：防守用途放宽到 CanDefend，其余用途一律 CanFight。
         public static bool Eligible(BaseState s, string purpose, BaseWorkerBucket w) => BaseSettlements.Local(s,w) && Eligible(purpose,w);
         public static bool Eligible(string purpose, BaseWorkerBucket w) => purpose == "defense" ? CanDefend(w) : CanFight(w);
@@ -319,6 +326,7 @@ namespace BaseConquest.Base
         {
             var d = s.Development;
             if (BaseDemo.Active(s) && (d.VillagePolicy != "manual" && d.VillagePolicy != "food" && d.VillagePolicy != "equipment" ||
+                s.Workers.Any(w => w.PrepaidRoadFood<0 || w.PrepaidRoadFood>100 || !w.Relocating&&w.PrepaidRoadFood!=0) ||
                 s.Workers.Any(w => w.Relocating && (w.Away || w.FacilityId != "" || w.DesiredFacility != "" || !BaseEconomy.Facilities.Contains(w.DepartureFacility))) ||
                 s.Leaders.Any(l => l.Relocating && (l.Away || l.FacilityId != "" || !BaseEconomy.Facilities.Contains(l.ArrivalFacility)))))
                 throw new ArgumentException("据点策略或人员调令非法");
@@ -458,7 +466,7 @@ namespace BaseConquest.Base
             {
                 if (w.SoldierNumbers == null || w.SoldierNumbers.Count == 0) s.EnsureSoldierNumbers();
                 string key = w.Kind + "|" + w.FacilityId + "|" + w.DesiredFacility + "|" + w.PostLocked + "|" + w.Resting + "|" + w.Away + "|" + w.PartyId + "|" + w.SourceId + "|" + w.UnavailableDay + "|" + w.Health.ToString("R", CultureInfo.InvariantCulture) + "|" + w.MaxHealth.ToString("R", CultureInfo.InvariantCulture) + "|" + w.FarmEfficiency.ToString("R", CultureInfo.InvariantCulture) + "|" + w.WorkshopEfficiency.ToString("R", CultureInfo.InvariantCulture);
-                key += "|" + w.LastBattleDay + "|" + w.VillageResident + "|" + w.Relocating + "|" + w.DepartureFacility;
+                key += "|" + w.LastBattleDay + "|" + w.VillageResident + "|" + w.Relocating + "|" + w.PrepaidRoadFood + "|" + w.TravelingMerchant + "|" + w.DepartureFacility;
                 key += "|" + w.Recruited + "|" + ProfileKey(w.HasCombatProfile,w.CombatStats) + "|" + w.HeldBy + "|" + w.HeldSourceId + "|" + w.PartyOrder;
                 if (groups.TryGetValue(key, out var found)) { found.SoldierNumbers.AddRange(w.SoldierNumbers); found.Count += w.Count; }
                 else { groups.Add(key, w); merged.Add(w); }
@@ -482,7 +490,7 @@ namespace BaseConquest.Base
             foreach (var l in s.Leaders.Where(l => BaseAdventure.Alive(l) && l.Health > 0 && l.Health < l.MaxHealth))
             { l.Health = Math.Min(l.MaxHealth, l.Health + l.MaxHealth * ratio); l.Resting = false; count++; }
             // 2026-11-04 选A：恢复不再是休养专属——营内所有伤兵每天自动恢复；Resting 只作重伤闲置标记。
-            foreach (var w in s.Workers.Where(w => !w.Relocating && !w.Away && w.Health > 0 && w.Health < w.MaxHealth))
+            foreach (var w in s.Workers.Where(w => !w.TravelingMerchant && !w.Relocating && !w.Away && w.Health > 0 && w.Health < w.MaxHealth))
             { w.Health = Math.Min(w.MaxHealth, w.Health + w.MaxHealth * ratio); count += w.Count; w.Resting = w.Health < w.MaxHealth * DutyThreshold; }
             return count;
         }

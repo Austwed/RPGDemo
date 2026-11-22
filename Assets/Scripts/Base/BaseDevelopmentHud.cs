@@ -67,8 +67,10 @@ namespace BaseConquest.Base
             BeginPanel("商队", "caravan");
             bool hidden = BaseDemo.ExperimentalManagementHidden(s);
             Line("人员 " + BaseCaravan.Crew(s) + "人 · " + (hidden ? "" : "运力 " + BaseCaravan.Capacity(s) + " · ") + "每日口粮 " + BaseCaravan.DailyFood(s) + "（双倍）", 56, 21);
+            Line(s.Caravan.DaysProvisioned>0 ? $"随车粮 {s.Caravan.FoodOnBoard} · 剩 {s.Caravan.DaysProvisioned} 天" :
+                $"三天往返粮 {BaseCaravan.TripDays*BaseCaravan.DailyFood(s)} · 库存 {s.Inventory.Food}",44,19);
             Line(BaseCaravan.Status(s), 52, 21);
-            RowButton("领地内跑商 · 每日金币+" + BaseCaravan.Crew(s) * BaseCaravan.LocalCoinsPerCrew, hidden ? 0 : -210, hidden ? 800 : 400,
+            RowButton("领地内跑商 · 完成一趟金币+" + BaseCaravan.Crew(s) * BaseCaravan.LocalCoinsPerCrew * BaseCaravan.TripDays, hidden ? 0 : -210, hidden ? 800 : 400,
                 () => owner.Change(next => { if (!BaseCaravan.Start(next, "local", out string problem)) throw new InvalidOperationException(problem); }, "商队已开始跑商"), BaseCaravan.Problem(s, "local") == "");
             if (!hidden) RowButton("黑鸦寨运输 · 三天往返", 210, 400,
                 () => owner.Change(next => { if (!BaseCaravan.Start(next, "crow", out string problem)) throw new InvalidOperationException(problem); }, "商队已出发前往黑鸦寨"), BaseCaravan.Problem(s, "crow") == "");

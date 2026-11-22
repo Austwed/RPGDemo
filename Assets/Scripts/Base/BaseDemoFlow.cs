@@ -120,7 +120,7 @@ namespace BaseConquest.Base
             if(BaseEconomy.ProductionWorkersAt(s,"workshop")<1)
                 return StoryText.Get("story.ui.rest.workshop_shortage","工坊无人值守，今日不生产军需。");
             int missing=(preview??BaseEconomy.Preview(s)).NextMissing;
-            return missing==0?"":StoryText.Get("story.ui.rest.food_shortage","明日缺粮 {missing} 份。请增派粮田工人，或到灰岩镇买粮。")
+            return missing==0?"":StoryText.Get("story.ui.rest.food_shortage","明日缺粮 {missing} 份。未分足口粮的普通兵将离队。")
                 .Replace("{missing}",missing.ToString());
         }
         public static void Validate(BaseState s)

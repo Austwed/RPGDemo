@@ -119,15 +119,21 @@ namespace BaseConquest.Editor
 
             int selected = state.Workers.First(w => !w.VillageResident && w.FacilityId == "farm").SoldierNumbers[0];
             int normalRations = BaseEconomy.FoodRequired(state);
+            int startingFood=state.Inventory.Food;
+            state.Inventory.Food=0;
+            bool shortRoad=false;
+            try{order(state,selected);}catch(InvalidOperationException){shortRoad=true;}
+            Need(shortRoad && !Soldier(selected).Relocating,"路粮不足不得调动人员");
+            state.Inventory.Food=startingFood;
             order(state,selected);
             Need(Soldier(selected).Relocating && Soldier(selected).FacilityId == "" && !BaseDevelopment.Eligible(state,"defense",Soldier(selected)),
                 "调动中士兵仍可上岗或出战");
-            Need(BaseEconomy.FoodRequired(state) == normalRations + BaseEconomy.Ration(state,Soldier(selected)),"路粮应增加该兵种的一份口粮");
+            Need(state.Inventory.Food==startingFood-BaseEconomy.Ration(state,Soldier(selected))&&BaseEconomy.FoodRequired(state)==normalRations,"路粮应增加该兵种的一份口粮");
             Need(state.Workers.Where(w => !w.VillageResident && w.FacilityId == "farm").Sum(w => w.Count) == 2 &&
                 BaseEconomy.WorkersAt(state,"workshop") == 1,"原岗应由本地士兵补足，目的地不应预占岗位");
 
             order(state,selected);
-            Need(!Soldier(selected).Relocating && !Soldier(selected).VillageResident && BaseEconomy.FoodRequired(state) == normalRations,
+            Need(!Soldier(selected).Relocating && !Soldier(selected).VillageResident && BaseEconomy.FoodRequired(state) == normalRations && state.Inventory.Food==startingFood,
                 "撤销调动应恢复原地资格并撤回路粮");
             village.Objects.Remove(barracks);
             bool refused = false;
@@ -221,7 +227,7 @@ namespace BaseConquest.Editor
             Need(BaseCaravan.DailyFood(s) == 4, "商队口粮应按双倍计");
             var normal = s.Copy();
             foreach (var worker in normal.Workers) { worker.FacilityId = ""; worker.DesiredFacility = ""; }
-            Need(BaseEconomy.FoodRequired(s) - BaseEconomy.FoodRequired(normal) == 2, "商队人员应比在岗多耗一份口粮");
+            Need(BaseEconomy.FoodRequired(s) == BaseEconomy.FoodRequired(normal), "未出发人员只领普通口粮");
             s.Inventory.Food = 0;
             Need(BaseCaravan.Problem(s, "local").Contains("口粮"), "口粮不足应拒绝出发");
             // 走一次真实日结：商队在日结里结算金币，不能破坏日期／口粮不变量。
@@ -230,7 +236,7 @@ namespace BaseConquest.Editor
             int localCoins = daily.Inventory.Coins;
             Need(BaseCaravan.Start(daily, "local", out _), "应能开始领地内跑商");
             Need(BaseEconomy.Rest(daily, daily.Day), "带商队的日结应能推进");
-            Need(daily.Inventory.Coins == localCoins + 8, "日结后本地跑商应结算金币");
+            Need(daily.Inventory.Coins == localCoins && daily.Caravan.FoodOnBoard==8, "商队途中只消耗随车粮，完成整趟才结收益");
             BaseEconomy.Validate(daily);
             s.Inventory.Food = 100;
             Need(BaseCaravan.Problem(s, "crow").Contains("黑鸦寨"), "未攻占黑鸦寨时不能跑运输线");
@@ -260,9 +266,18 @@ namespace BaseConquest.Editor
             trip.Inventory.Food = 100; int coinsBefore = trip.Inventory.Coins;
             Need(BaseCaravan.Start(trip, "local", out _), "应能开始领地内跑商");
             Need(!BaseCaravan.Start(trip, "local", out _), "跑商进行中不应重复出发");
+            Need(trip.Inventory.Food==88 && trip.Caravan.FoodOnBoard==12 && BaseEconomy.FoodRequired(trip)==0,"两名剑士出发须实扣三日路粮，日常不重复领取");
+            var traveling=trip.Workers.First(w=>w.TravelingMerchant);
+            Need(!BaseDevelopment.CanFight(traveling)&&!BaseDevelopment.CanDefend(traveling)&&!BaseEconomy.MoveWorker(trip,traveling.SoldierNumbers.First(),"caravan",""),"在途商队成员可被调走");
+            var renewal=trip.Copy();Day(renewal);Day(renewal);Day(renewal);
+            Need(renewal.Inventory.Coins==coinsBefore+24&&renewal.Inventory.Food==76&&renewal.Caravan.DaysProvisioned==3&&renewal.Caravan.FoodOnBoard==12,"第三日未扣新一趟粮");
+            renewal.Inventory.Food=0;Day(renewal);Day(renewal);
+            Need(renewal.Caravan.Route=="local","仓库断粮中止了有随车粮的商队");
+            Day(renewal);Need(renewal.Caravan.Route==""&&renewal.Caravan.FoodOnBoard==0,"粮不足仍续程");
             Day(trip);
-            Need(trip.Inventory.Coins == coinsBefore + 8, "本地跑商应按 4 金币／人结算");
+            Need(trip.Inventory.Coins == coinsBefore, "跑商中途不得提前发放收益");
             BaseCaravan.Stop(trip, "测试结束");
+            Need(trip.Inventory.Food==96&&!trip.Workers.Any(w=>w.TravelingMerchant),"中途召回应退回未吃的 8 粮并解锁名册");
             Need(trip.Caravan.Route == "" && !trip.Workers.Any(w => w.FacilityId == "caravan"), "解散商队应清空事务并释放人员");
             // 收存商队设施：岗位记录一并移除（出发中的事务会被终止）。
             Need(BaseFacilityLayout.Store(s, "caravan", out _), "商队设施应能收存");
@@ -358,6 +373,14 @@ namespace BaseConquest.Editor
 
             var defense = JsonUtility.FromJson<BaseState>(Resources.Load<TextAsset>("DemoStages/defense-male").text);
             BaseEconomy.Validate(defense);
+            int farmRoom=defense.Muster.Facilities.Single(f=>f.FacilityId=="farm").Capacity-BaseEconomy.WorkersAt(defense,"farm");
+            foreach(var worker in defense.Workers.Where(w=>w.FacilityId==""&&BaseDevelopment.Effective(defense,w)).ToArray())
+            {
+                int count=Math.Min(farmRoom,worker.Count);
+                if(count==0)break;
+                Need(BaseEconomy.MoveWorkers(defense,worker.Kind,"","farm",count),"未能布置满粮田夹具");
+                farmRoom-=count;
+            }
             Need(BaseEconomy.CivilianWorkersAt(defense, "farm") == 0 &&
                 BaseEconomy.CivilianWorkersAt(defense, "workshop") == 2, "粮田已被士兵填满时村民应补到工坊");
             Need(BaseEconomy.MoveWorkers(defense, BaseTroopKind.Melee, "farm", "", 1) &&

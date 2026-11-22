@@ -3,8 +3,8 @@
     "Day": 6,
     "FoodPaidDay": 6,
     "LastCompletedDay": 5,
-    "TodayFoodRequired": 15,
-    "TodayFoodConsumed": 15,
+    "TodayFoodRequired": 11,
+    "TodayFoodConsumed": 11,
     "TodayFoodMissing": 0,
     "PlayerLeaderId": "player",
     "TemplateTitle": "Demo · 序章与灰岩营地",
@@ -13,7 +13,7 @@
     "PlayerY": 6.5,
     "FarmFraction": 0.0,
     "Inventory": {
-        "Food": 210,
+        "Food": 228,
         "Materials": 72,
         "Coins": 735,
         "Equipment": [
@@ -31,12 +31,12 @@
     },
     "Rules": {
         "SoldierFood": 1,
-        "CavalryFood": 2,
+        "CavalryFood": 1,
         "LeaderFood": 0,
         "FarmPerWorker": 4.0,
         "WorkshopPerWorker": 1.0,
-        "HungerProductionPenalty": 0.5,
-        "HungerAttackPenalty": 0.2,
+        "HungerProductionPenalty": 0.0,
+        "HungerAttackPenalty": 0.0,
         "SwordMaterial": 2,
         "BowMaterial": 2,
         "ArmorMaterial": 3
@@ -539,6 +539,8 @@
             "PartyOrder": 0,
             "VillageResident": false,
             "Relocating": false,
+            "PrepaidRoadFood": 0,
+            "TravelingMerchant": false,
             "DepartureFacility": "",
             "DesiredFacility": "",
             "PostLocked": true,
@@ -588,6 +590,8 @@
             "PartyOrder": 0,
             "VillageResident": false,
             "Relocating": false,
+            "PrepaidRoadFood": 0,
+            "TravelingMerchant": false,
             "DepartureFacility": "",
             "DesiredFacility": "",
             "PostLocked": true,
@@ -636,6 +640,8 @@
             "PartyOrder": 0,
             "VillageResident": false,
             "Relocating": false,
+            "PrepaidRoadFood": 0,
+            "TravelingMerchant": false,
             "DepartureFacility": "",
             "DesiredFacility": "",
             "PostLocked": true,
@@ -756,7 +762,7 @@
         ],
         "Parties": [],
         "ReturnedIds": [
-            "be4bb5bd07d34a5d9a9a809b209b9493"
+            "2db60fd25318465aaadcc9dc13fbe4a1"
         ],
         "AppliedAppendIds": []
     },
@@ -795,7 +801,7 @@
             }
         ],
         "FinishedIds": [
-            "3c9d3247581b4115b98958ff7b5f6ef8"
+            "4a32793b37134ae498c411d918223a01"
         ]
     },
     "Campaign": {
@@ -818,7 +824,9 @@
             "Unlocked": [],
             "Route": [],
             "RoadIndex": 0,
-            "RoadDay": 0
+            "RoadDay": 0,
+            "ReservedRoadFood": 0,
+            "MarchDailyFood": 0
         },
         "DesignLinks": [],
         "BaseX": 0.7,
@@ -1170,12 +1178,12 @@
         ],
         "SettledIds": [
             "demo:smith:parting-gift",
-            "3c9d3247581b4115b98958ff7b5f6ef8"
+            "4a32793b37134ae498c411d918223a01"
         ],
         "SettledBattleCount": 1,
         "Reports": [
             {
-                "BattleId": "3c9d3247581b4115b98958ff7b5f6ef8",
+                "BattleId": "4a32793b37134ae498c411d918223a01",
                 "EventId": "demo:ruins:rescue",
                 "Title": "沉眠古窟 · 制服受控者并击败控制来源",
                 "Outcome": "SideAWin",
@@ -92353,8 +92361,8 @@
         },
         "Prisoners": [
             {
-                "Id": "3c9d3247581b4115b98958ff7b5f6ef8:0",
-                "BattleId": "3c9d3247581b4115b98958ff7b5f6ef8",
+                "Id": "4a32793b37134ae498c411d918223a01:0",
+                "BattleId": "4a32793b37134ae498c411d918223a01",
                 "Name": "敌方迦兰",
                 "Status": "awaiting-story",
                 "CaptureSource": "沉眠古窟 · 制服受控者并击败控制来源",
@@ -92528,8 +92536,8 @@
             {
                 "Kind": 2,
                 "Price": 60,
-                "DailyCount": 1,
-                "Remaining": 1,
+                "DailyCount": 2,
+                "Remaining": 2,
                 "MissingDays": 0,
                 "Stats": {
                     "Level": 1,
@@ -92716,6 +92724,8 @@
         "DepartDay": 0,
         "Cargo": 0,
         "TotalDelivered": 0,
+        "FoodOnBoard": 0,
+        "DaysProvisioned": 0,
         "Route": "",
         "Phase": "",
         "Report": "",
@@ -92961,7 +92971,7 @@
             "AwakenedChance": 0.2,
             "EnemyLeaderDeath": 0.5,
             "SoldierDeathBase": 0.5,
-            "SoldierDeathSensitivity": 1.0,
+            "SoldierDeathSensitivity": 1.5,
             "RecruitSupplyFactor": 0.35,
             "RecruitPriceSensitivity": 2.0,
             "SweepLossAtParity": 0.25,
@@ -93777,12 +93787,12 @@
             ],
             "OpeningEconomy": {
                 "SoldierFood": 1,
-                "CavalryFood": 2,
+                "CavalryFood": 1,
                 "LeaderFood": 0,
                 "FarmPerWorker": 4.0,
                 "WorkshopPerWorker": 1.0,
-                "HungerProductionPenalty": 0.5,
-                "HungerAttackPenalty": 0.2,
+                "HungerProductionPenalty": 0.0,
+                "HungerAttackPenalty": 0.0,
                 "SwordMaterial": 2,
                 "BowMaterial": 2,
                 "ArmorMaterial": 3
@@ -93892,8 +93902,8 @@
         },
         "Stage": 9,
         "BalanceSource": "35_配表驱动验证.json",
-        "BalanceHash": "c23d35742a36be3d790561b943b0be1478918da9837c4e861b85bed250e6b33e",
-        "ConfigHash": "acd7267606501da3d679a306721835e87166052e5052fb0dabcb949e8e0b1af2",
+        "BalanceHash": "75e4f75404b1c09e958998337f19a396cf336bf82b9527c2716a4fb3b28c566f",
+        "ConfigHash": "dcad6cb8b702a58666f85dbec756c35cba8348c081ec9cbcc929b9ce22c18c2a",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -116947,7 +116957,7 @@
             "BanditCleared": false,
             "SmithLesson": 0,
             "ZhouTraining": 0,
-            "FirstControllerId": "3c9d3247581b4115b98958ff7b5f6ef8:0",
+            "FirstControllerId": "4a32793b37134ae498c411d918223a01:0",
             "FarmX": 0.0,
             "FarmY": 0.0,
             "FarmNpcX": 0.0,
@@ -161190,17 +161200,19 @@
     "LastReport": {
         "CompletedDay": 5,
         "NewDay": 6,
-        "FoodBefore": 221,
+        "FoodBefore": 235,
         "FoodProduced": 4,
         "MaterialsSpent": 0,
         "ProductsMade": 0,
-        "FoodRequired": 15,
-        "FoodConsumed": 15,
+        "FoodRequired": 11,
+        "FoodConsumed": 11,
         "FoodMissing": 0,
-        "FoodAfter": 210,
+        "FoodAfter": 228,
         "Product": "supply",
         "ProductLevel": 1,
         "ProductionFactor": 1.0,
-        "PeopleRecovered": 0
+        "PeopleRecovered": 0,
+        "CaravanFoodChange": 0,
+        "DepartedSoldiers": []
     }
 }

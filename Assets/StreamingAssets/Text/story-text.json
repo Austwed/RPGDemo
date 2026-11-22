@@ -601,7 +601,7 @@
     {
       "key": "story.ui.rest.food_shortage",
       "group": "界面／营帐与旅店",
-      "text": "明日缺粮 {missing} 份。请增派粮田工人，或到灰岩镇买粮。",
+      "text": "明日缺粮 {missing} 份。未分足口粮的普通兵将离队。",
       "notes": "开局首次休息、次日口粮不足时的功能占位。保留 {missing}。"
     },
     {

@@ -1,15 +1,126 @@
 {
     "Version": 1,
-    "WorkbookSha256": "acd7267606501da3d679a306721835e87166052e5052fb0dabcb949e8e0b1af2",
+    "WorkbookSha256": "dcad6cb8b702a58666f85dbec756c35cba8348c081ec9cbcc929b9ce22c18c2a",
     "Rules": {
+        "Professions": [
+            {
+                "Id": "warrior",
+                "Name": "剑士",
+                "AttackMode": "melee",
+                "DamageType": "physical",
+                "Weapon": "sword",
+                "TrainingBasic": "training_sword_basic",
+                "TrainingAdvanced": "training_sword_advanced"
+            },
+            {
+                "Id": "archer",
+                "Name": "弓兵",
+                "AttackMode": "ranged",
+                "DamageType": "physical",
+                "Weapon": "bow",
+                "TrainingBasic": "training_bow_basic",
+                "TrainingAdvanced": "training_bow_advanced"
+            },
+            {
+                "Id": "knight",
+                "Name": "骑兵",
+                "AttackMode": "melee",
+                "DamageType": "physical",
+                "Weapon": "spear",
+                "TrainingBasic": "training_spear_basic",
+                "TrainingAdvanced": "training_spear_advanced"
+            },
+            {
+                "Id": "mage",
+                "Name": "法师",
+                "AttackMode": "ranged",
+                "DamageType": "magic",
+                "Weapon": "staff",
+                "TrainingBasic": "training_mage_basic",
+                "TrainingAdvanced": "training_mage_advanced"
+            }
+        ],
+        "EnemySupplies": [
+            {
+                "Scene": "hideout",
+                "Slot": "",
+                "Profession": "warrior",
+                "Count": 1,
+                "Tier": 1
+            },
+            {
+                "Scene": "defense",
+                "Slot": "",
+                "Profession": "warrior",
+                "Count": 2,
+                "Tier": 1
+            },
+            {
+                "Scene": "bandit",
+                "Slot": "ranged-3",
+                "Profession": "",
+                "Count": 1,
+                "Tier": 1
+            },
+            {
+                "Scene": "bandit",
+                "Slot": "",
+                "Profession": "warrior",
+                "Count": 2,
+                "Tier": 1
+            },
+            {
+                "Scene": "bandit",
+                "Slot": "",
+                "Profession": "archer",
+                "Count": 1,
+                "Tier": 1
+            },
+            {
+                "Scene": "second",
+                "Slot": "",
+                "Profession": "",
+                "Count": 8,
+                "Tier": 2
+            }
+        ],
+        "EncounterUnits": [
+            {
+                "Scene": "bandit",
+                "Slot": "ranged-3",
+                "TemplateId": "blackcrow_watch_mage"
+            },
+            {
+                "Scene": "second",
+                "Slot": "melee-1",
+                "TemplateId": "blackcrow_armored_elite"
+            },
+            {
+                "Scene": "second",
+                "Slot": "melee-2",
+                "TemplateId": "blackcrow_armored_elite"
+            },
+            {
+                "Scene": "second",
+                "Slot": "melee-3",
+                "TemplateId": "blackcrow_armored_elite"
+            }
+        ],
+        "TemplateDefenseCaps": [
+            8.0,
+            16.0,
+            24.0
+        ],
+        "MageFood": 1,
         "GenerationSeed": 0,
         "SceneRulesVersion": 0,
+        "HideoutEnemyCount": 12,
+        "RuinsFirstControllerTemplate": "captain_awakened_mage",
         "IntelPricingConfigured": true,
         "ThreeDayIntelPrice": 30,
         "FiveDayIntelPrice": 50,
         "Version": 1,
         "CampLevel": 1,
-        "InnDailyFee": 2,
         "LeaderFood": 0,
         "ArcherFood": 1,
         "SupplyMaterial": 2,
@@ -19,9 +130,7 @@
         "AwakenedChance": 0.2,
         "EnemyLeaderDeath": 0.5,
         "SoldierDeathBase": 0.5,
-        "SoldierDeathSensitivity": 1.0,
-        "HideoutEnemyCount": 12,
-        "RuinsFirstControllerTemplate": "captain_awakened_mage",
+        "SoldierDeathSensitivity": 1.5,
         "RecruitSupplyFactor": 0.35,
         "RecruitPriceSensitivity": 2.0,
         "SweepLossAtParity": 0.25,
@@ -837,12 +946,12 @@
         ],
         "OpeningEconomy": {
             "SoldierFood": 1,
-            "CavalryFood": 2,
+            "CavalryFood": 1,
             "LeaderFood": 0,
             "FarmPerWorker": 4.0,
             "WorkshopPerWorker": 1.0,
-            "HungerProductionPenalty": 0.5,
-            "HungerAttackPenalty": 0.2,
+            "HungerProductionPenalty": 0.0,
+            "HungerAttackPenalty": 0.0,
             "SwordMaterial": 2,
             "BowMaterial": 2,
             "ArmorMaterial": 3
@@ -868,6 +977,8 @@
             "ItemCount": 1,
             "ExposureFraction": 0.03,
             "PendingBattleId": "",
+            "HideoutPendingBattleId": "",
+            "HideoutFirstClearBattleId": "",
             "PendingFirstClear": false,
             "FirstCoins": 60,
             "FirstFood": 20,
@@ -947,115 +1058,5 @@
             500
         ],
         "ForgeDailyStock": 10
-    ,
-        "Professions": [
-            {
-                "Id": "warrior",
-                "Name": "剑士",
-                "AttackMode": "melee",
-                "DamageType": "physical",
-                "Weapon": "sword",
-                "TrainingBasic": "training_sword_basic",
-                "TrainingAdvanced": "training_sword_advanced"
-            },
-            {
-                "Id": "archer",
-                "Name": "弓兵",
-                "AttackMode": "ranged",
-                "DamageType": "physical",
-                "Weapon": "bow",
-                "TrainingBasic": "training_bow_basic",
-                "TrainingAdvanced": "training_bow_advanced"
-            },
-            {
-                "Id": "knight",
-                "Name": "骑兵",
-                "AttackMode": "melee",
-                "DamageType": "physical",
-                "Weapon": "spear",
-                "TrainingBasic": "training_spear_basic",
-                "TrainingAdvanced": "training_spear_advanced"
-            },
-            {
-                "Id": "mage",
-                "Name": "法师",
-                "AttackMode": "ranged",
-                "DamageType": "magic",
-                "Weapon": "staff",
-                "TrainingBasic": "training_mage_basic",
-                "TrainingAdvanced": "training_mage_advanced"
-            }
-        ],
-        "EncounterUnits": [
-            {
-                "Scene": "bandit",
-                "Slot": "ranged-3",
-                "TemplateId": "blackcrow_watch_mage"
-            },
-            {
-                "Scene": "second",
-                "Slot": "melee-1",
-                "TemplateId": "blackcrow_armored_elite"
-            },
-            {
-                "Scene": "second",
-                "Slot": "melee-2",
-                "TemplateId": "blackcrow_armored_elite"
-            },
-            {
-                "Scene": "second",
-                "Slot": "melee-3",
-                "TemplateId": "blackcrow_armored_elite"
-            }
-        ],
-        "TemplateDefenseCaps": [
-            8.0,
-            16.0,
-            24.0
-        ],
-        "MageFood": 1,
-        "EnemySupplies": [
-            {
-                "Scene": "hideout",
-                "Slot": "",
-                "Profession": "warrior",
-                "Count": 1,
-                "Tier": 1
-            },
-            {
-                "Scene": "defense",
-                "Slot": "",
-                "Profession": "warrior",
-                "Count": 2,
-                "Tier": 1
-            },
-            {
-                "Scene": "bandit",
-                "Slot": "ranged-3",
-                "Profession": "",
-                "Count": 1,
-                "Tier": 1
-            },
-            {
-                "Scene": "bandit",
-                "Slot": "",
-                "Profession": "warrior",
-                "Count": 2,
-                "Tier": 1
-            },
-            {
-                "Scene": "bandit",
-                "Slot": "",
-                "Profession": "archer",
-                "Count": 1,
-                "Tier": 1
-            },
-            {
-                "Scene": "second",
-                "Slot": "",
-                "Profession": "",
-                "Count": 8,
-                "Tier": 2
-            }
-        ]}
+    }
 }

@@ -47,12 +47,17 @@ namespace BaseConquest.Base
         public static int Baseline(SoldierKind kind,RpgRules rules=null)=>rules==null?(kind==SoldierKind.Melee?10:kind==SoldierKind.Ranged?8:4):rules.TroopBaseline[BaseRpg.Profession(kind)];
         // 2026-11-04 起普通兵即死率改用三兵种合计口径：编队不再改变死亡概率，只改变战术。
         public static int BaselineTotal(RpgRules rules=null)=>rules==null?22:rules.TroopBaseline.Sum();
-        public static double Probability(int baseline,int count,RpgRules rules=null)
+        public static double Probability(int baseline,int count,RpgRules rules=null) =>
+            Math.Max(0,Math.Min(1,RawProbability(baseline,count,rules)));
+
+        public static double RawProbability(int baseline,int count,RpgRules rules=null)
         {
             if(baseline<0||count<0)throw new ArgumentOutOfRangeException();
             double center=rules?.SoldierDeathBase??.5,sensitivity=rules?.SoldierDeathSensitivity??1;
-            return baseline+count==0?center:Math.Max(0,Math.Min(1,center-sensitivity*(double)(baseline-count)/(baseline+count)));
+            return baseline+count==0?center:center-sensitivity*(double)(baseline-count)/(baseline+count);
         }
+        public static double TroopDeathChance(int baseline,int count,RpgRules rules,double lethalModifier) =>
+            Math.Max(0,Math.Min(1,RawProbability(baseline,count,rules)+lethalModifier));
         public static double DeathChance(BaseCampaignSession session,BattleSoldier unit)
         {
             if(unit.Kind==SoldierKind.Hero)
@@ -69,11 +74,11 @@ namespace BaseConquest.Base
             }
             var counts=session.Opening.PlayerTroopCounts;
             if(counts==null||counts.Length!=(session.Opening.Rpg?.HasProfessionCatalog==true ? 4 : 3)||counts.Any(count=>count<0))throw new InvalidOperationException("Demo兵力基准快照非法");
-            // 合计口径：N = 开战全体普通兵 − 本场我方已真死 + 本场敌方已倒地（倒地即入池，视为可俘归我方）。
+            // 每次判定只使用此前已完成的生死结果，当前伤员尚未计入。
             // 队长不计入 N，敌方队长倒地也不计入。
             int count=counts.Sum()-session.Battle.Soldiers.Count(other=>other.Side==BattleSide.A&&other.Kind!=SoldierKind.Hero&&other.InstantDead&&!other.DeveloperSpawned)
-                +session.Battle.Soldiers.Count(other=>other.Side==BattleSide.B&&other.Kind!=SoldierKind.Hero&&other.KnockedDown&&!other.DeveloperSpawned);
-            return Math.Max(0,Math.Min(1,Probability(BaselineTotal(session.Opening.Rpg),Math.Max(0,count),session.Opening.Rpg)+BaseRpg.LethalModifier(session,unit)));
+                +session.Battle.Soldiers.Count(other=>other!=unit&&other.Side==BattleSide.B&&other.Kind!=SoldierKind.Hero&&other.DeathResolved&&other.KnockedDown&&!other.InstantDead&&!other.Rescued&&!session.Battle.RuinsCivilianIds.Contains(other.Id)&&!other.Escaped&&!other.DeveloperSpawned);
+            return TroopDeathChance(BaselineTotal(session.Opening.Rpg),Math.Max(0,count),session.Opening.Rpg,BaseRpg.LethalModifier(session,unit));
         }
         public static List<BaseEnemyMember> CreateEnemies(string eventId,ArmyDefinition army,BaseEnemyPreset preset=null)
         {

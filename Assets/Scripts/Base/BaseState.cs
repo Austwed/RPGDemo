@@ -49,6 +49,8 @@ namespace BaseConquest.Base
         public string HeldBy = "", HeldSourceId = "";
         public int PartyOrder;
         public bool VillageResident, Relocating;
+        public int PrepaidRoadFood;
+        public bool TravelingMerchant;
         public string DepartureFacility = "";
         public string DesiredFacility = "";
         public bool PostLocked, Resting;
@@ -120,7 +122,14 @@ namespace BaseConquest.Base
         public int ProductLevel;
         public double ProductionFactor;
         public int PeopleRecovered;
-        public BaseDayReport Copy() => (BaseDayReport)MemberwiseClone();
+        public int CaravanFoodChange;
+        public List<int> DepartedSoldiers = new List<int>();
+        public BaseDayReport Copy()
+        {
+            var copy=(BaseDayReport)MemberwiseClone();
+            copy.DepartedSoldiers=DepartedSoldiers?.ToList()??new List<int>();
+            return copy;
+        }
     }
     [Serializable] public sealed class BaseState
     {

@@ -31,12 +31,12 @@
     },
     "Rules": {
         "SoldierFood": 1,
-        "CavalryFood": 2,
+        "CavalryFood": 1,
         "LeaderFood": 0,
         "FarmPerWorker": 4.0,
         "WorkshopPerWorker": 1.0,
-        "HungerProductionPenalty": 0.5,
-        "HungerAttackPenalty": 0.2,
+        "HungerProductionPenalty": 0.0,
+        "HungerAttackPenalty": 0.0,
         "SwordMaterial": 2,
         "BowMaterial": 2,
         "ArmorMaterial": 3
@@ -347,7 +347,9 @@
             "Unlocked": [],
             "Route": [],
             "RoadIndex": 0,
-            "RoadDay": 0
+            "RoadDay": 0,
+            "ReservedRoadFood": 0,
+            "MarchDailyFood": 0
         },
         "DesignLinks": [],
         "BaseX": 2.3,
@@ -91895,6 +91897,8 @@
         "DepartDay": 0,
         "Cargo": 0,
         "TotalDelivered": 0,
+        "FoodOnBoard": 0,
+        "DaysProvisioned": 0,
         "Route": "",
         "Phase": "",
         "Report": "",
@@ -92128,7 +92132,7 @@
             "AwakenedChance": 0.2,
             "EnemyLeaderDeath": 0.5,
             "SoldierDeathBase": 0.5,
-            "SoldierDeathSensitivity": 1.0,
+            "SoldierDeathSensitivity": 1.5,
             "RecruitSupplyFactor": 0.35,
             "RecruitPriceSensitivity": 2.0,
             "SweepLossAtParity": 0.25,
@@ -92944,12 +92948,12 @@
             ],
             "OpeningEconomy": {
                 "SoldierFood": 1,
-                "CavalryFood": 2,
+                "CavalryFood": 1,
                 "LeaderFood": 0,
                 "FarmPerWorker": 4.0,
                 "WorkshopPerWorker": 1.0,
-                "HungerProductionPenalty": 0.5,
-                "HungerAttackPenalty": 0.2,
+                "HungerProductionPenalty": 0.0,
+                "HungerAttackPenalty": 0.0,
                 "SwordMaterial": 2,
                 "BowMaterial": 2,
                 "ArmorMaterial": 3
@@ -93059,8 +93063,8 @@
         },
         "Stage": 0,
         "BalanceSource": "35_配表驱动验证.json",
-        "BalanceHash": "c23d35742a36be3d790561b943b0be1478918da9837c4e861b85bed250e6b33e",
-        "ConfigHash": "acd7267606501da3d679a306721835e87166052e5052fb0dabcb949e8e0b1af2",
+        "BalanceHash": "75e4f75404b1c09e958998337f19a396cf336bf82b9527c2716a4fb3b28c566f",
+        "ConfigHash": "dcad6cb8b702a58666f85dbec756c35cba8348c081ec9cbcc929b9ce22c18c2a",
         "PrologueVersion": 0,
         "PrologueAttempts": 0,
         "PrologueCompleted": false,
@@ -159548,6 +159552,8 @@
         "Product": "",
         "ProductLevel": 0,
         "ProductionFactor": 0.0,
-        "PeopleRecovered": 0
+        "PeopleRecovered": 0,
+        "CaravanFoodChange": 0,
+        "DepartedSoldiers": []
     }
 }

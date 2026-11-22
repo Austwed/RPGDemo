@@ -59,7 +59,7 @@ namespace BaseConquest.Base
             if(s.Day<=1)return FirstDayStock*3;
             int baseline=BaseDemoCombat.BaselineTotal(s.Demo?.Rpg);if(baseline<=0)return FirstDayStock*3;
             if(TroopTotal(s)>baseline*(1+StockOverflowRatio))return 0;
-            int stock=(int)Math.Floor(baseline*(s.Demo?.Rpg?.RecruitSupplyFactor??.5)*(1-HireProbability(s)));
+            int stock=(int)Math.Floor(baseline*(s.Demo?.Rpg?.RecruitSupplyFactor??.5)*(1-HireProbability(s))+1e-9);
             return Math.Max(1,stock);
         }
         public static int DemoDailyCount(BaseState s,BaseTroopKind kind)=>s.Town.Recruits.FirstOrDefault(item=>item.Kind==kind)?.DailyCount ?? 0;
@@ -104,7 +104,7 @@ namespace BaseConquest.Base
             // 以基准原价为原点：高于基准每 1% 涨 2%（+50% 即翻倍），低于基准每 1% 降 1%，最低五折。
             double ratio=(double)(TroopTotal(s)-baseline)/baseline;
             double factor=ratio>0?1+(s.Demo?.Rpg?.RecruitPriceSensitivity??2)*ratio:Math.Max(PriceDiscountFloor,1+ratio);
-            return (int)Math.Ceiling(offer.Price*factor);
+            return (int)Math.Ceiling(offer.Price*factor-1e-9);
         }
         public static void EnableDemoRecruitment(BaseState s)
         {

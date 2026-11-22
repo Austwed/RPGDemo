@@ -266,6 +266,7 @@ namespace BaseConquest.Base
             string mode, BaseMusterPlan plan, bool realtime, BasePreparedRoster roster)
         {
             BaseEconomy.Validate(s); BattleScenarioDocument.Validate(document);
+            if(BaseDemo.Active(s)&&BaseBattleLoot.PendingPrisonerBattle(s)!=null)throw new InvalidOperationException("请先处理本场俘虏");
             if (document.StartInCombat || document.InitialHealth?.Count > 0 || document.InitialEffects?.Count > 0) throw new ArgumentException("战役模板需从准备阶段开始，不能使用独立倒地／临效预置");
             var e = s.Campaign.Events.Single(x => x.Id == eventId);
             bool hideout = e.Id == BaseBanditHideout.EventId;

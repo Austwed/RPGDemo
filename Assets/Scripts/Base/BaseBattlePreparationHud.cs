@@ -145,6 +145,25 @@ namespace BaseConquest.Base
             Ui<Button>(view, "Reward").gameObject.SetActive(dungeon && BaseRuinsRewards.PendingBattle(state, route) != "");
             PrepButton(view, "Sweep", "扫荡预览", ShowPreparedSweep);
             PrepButton(view, "Reward", null, () => { ClearBattlePreparation(); OpenRuinsReward(route); });
+            if(state.Caravan?.Route=="local" && !battleDraft.TravelingParty && route!=BasePrepRoute.BlackCrow && !BaseSettlements.AtVillage(state))
+            {
+                var recall=UnityEngine.Object.Instantiate(Ui<Button>(view,"Reward"),view);
+                recall.name="RecallCaravan";recall.onClick.RemoveAllListeners();recall.gameObject.SetActive(true);
+                FitControl(view,recall.name,410,458,260,43);
+                PrepButton(view,recall.name,"召回商队 · 退粮 "+state.Caravan.FoodOnBoard,()=>
+                {
+                    var original=battleDraft;
+                    if(!owner.Change(next=>BaseCaravan.Stop(next,"中断跑商，剩余粮草已退回"),"商队已召回"))return;
+                    battleDraft=new BaseBattlePreparation(PreparationState(route),route){SupplyGrade=original.SupplyGrade};
+                    var assigned=original.Units.ToDictionary(u=>u.Id);
+                    foreach(var u in battleDraft.Units)
+                    {
+                        if(assigned.TryGetValue(u.Id,out var previous)){u.Selected=previous.Selected;u.TeamId=previous.TeamId;}
+                        else u.Selected=false;
+                    }
+                    ShowBattlePreparation();
+                });
+            }
             var supply = view.Find("Supply");
             PrepButton(supply, "Grade1", null, () => ChoosePrepSupply(battleDraft.SupplyGrade == 1 ? 2 : 1));
             var cards = Ui<RectTransform>(view, "Teams");
@@ -474,6 +493,12 @@ namespace BaseConquest.Base
                     BasePrepRoute.Hideout => DungeonEnergy(state, battleDraft.Route),
                     _ => PrepText("attack_objective", "使用已抵达的队伍攻占黑鸦寨。")
                 };
+            }
+            if(travel)
+            {
+                int cost=owner.WorldRoadFood(SelectedPrepSoldiers.Count());
+                context+=$"　行军路粮 {cost} · 库存 {state.Inventory.Food}";
+                if(state.Inventory.Food<cost)problem="路粮不足";
             }
             if(battleDraft.Route==BasePrepRoute.Defense)
             {

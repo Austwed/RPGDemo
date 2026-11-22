@@ -39,8 +39,8 @@ namespace BaseConquest.Base
         public List<BaseWorldEntry> Entries=new List<BaseWorldEntry>();
         public List<BaseWorldCrossing> Crossings=new List<BaseWorldCrossing>();
         public List<string> Discovered=new List<string>(),Unlocked=new List<string>(),Route=new List<string>();
-        public int RoadIndex,RoadDay;
-        public BaseWorldJourneyState Copy()=>new BaseWorldJourneyState{Version=Version,NodeId=NodeId,LastEntryId=LastEntryId,BackgroundResource=BackgroundResource,Nodes=Nodes.Select(node=>node.Copy()).ToList(),Roads=Roads.Select(road=>road.Copy()).ToList(),Entries=Entries.Select(entry=>entry.Copy()).ToList(),Crossings=Crossings.Select(crossing=>crossing.Copy()).ToList(),Discovered=Discovered.ToList(),Unlocked=Unlocked.ToList(),Route=Route.ToList(),RoadIndex=RoadIndex,RoadDay=RoadDay};
+        public int RoadIndex,RoadDay,ReservedRoadFood,MarchDailyFood;
+        public BaseWorldJourneyState Copy()=>new BaseWorldJourneyState{Version=Version,NodeId=NodeId,LastEntryId=LastEntryId,BackgroundResource=BackgroundResource,Nodes=Nodes.Select(node=>node.Copy()).ToList(),Roads=Roads.Select(road=>road.Copy()).ToList(),Entries=Entries.Select(entry=>entry.Copy()).ToList(),Crossings=Crossings.Select(crossing=>crossing.Copy()).ToList(),Discovered=Discovered.ToList(),Unlocked=Unlocked.ToList(),Route=Route.ToList(),RoadIndex=RoadIndex,RoadDay=RoadDay,ReservedRoadFood=ReservedRoadFood,MarchDailyFood=MarchDailyFood};
     }
     public sealed class BaseWorldPlan
     {
@@ -59,6 +59,7 @@ namespace BaseConquest.Base
         {
             var world=state.Campaign.WorldJourney;
             if(!OnWorld(state)||world.RoadDay!=0)throw new InvalidOperationException("路段途中无法返回");
+            RefundRoadFood(state);
             world.Route.Clear();world.RoadIndex=0;
         }
         public static bool LocalLink(BaseState state,BaseMapLayout source,BaseMapLayout target)=>Active(state)&&AreaForMap(state,source.SourceMapId)!=""&&AreaForMap(state,source.SourceMapId)==AreaForMap(state,target.SourceMapId);
@@ -87,7 +88,8 @@ namespace BaseConquest.Base
             foreach(bool reverse in new[]{false,true}){var reached=new HashSet<string>{home};int previous=-1;while(previous!=reached.Count){previous=reached.Count;foreach(var road in world.Roads){string from=reverse?road.To:road.From,to=reverse?road.From:road.To;if(reached.Contains(from))reached.Add(to);if(road.Bidirectional&&reached.Contains(to))reached.Add(from);}}if(reached.Count!=world.Nodes.Count)throw new ArgumentException("世界道路缺少出发或返程的潜在路径");}
             if(world.Crossings.Any(crossing=>crossing==null||!Identity(crossing.Id)||crossing.EntryId==crossing.ExitId||!world.Entries.Any(entry=>entry.Id==crossing.EntryId)||!world.Entries.Any(entry=>entry.Id==crossing.ExitId))||world.Crossings.Select(crossing=>crossing.Id).Distinct().Count()!=world.Crossings.Count||world.Roads.Any(road=>!string.IsNullOrEmpty(road.CrossingId)&&!world.Crossings.Any(crossing=>crossing.Id==road.CrossingId)))throw new ArgumentException("首次穿越引用非法");
             if(!ids.Contains(world.NodeId)||world.Discovered==null||world.Unlocked==null||world.Route==null||world.Discovered.Distinct().Count()!=world.Discovered.Count||world.Unlocked.Distinct().Count()!=world.Unlocked.Count||world.Discovered.Any(id=>!world.Entries.Any(entry=>entry.Id==id))||world.Unlocked.Any(id=>!world.Crossings.Any(crossing=>crossing.Id==id))||!string.IsNullOrEmpty(world.LastEntryId)&&!world.Entries.Any(entry=>entry.Id==world.LastEntryId))throw new ArgumentException("世界位置或发现状态非法");
-            if(world.Route.Count==0){if(world.RoadIndex!=0||world.RoadDay!=0)throw new ArgumentException("空行程不能保留路段进度");}
+            if(world.MarchDailyFood<0||world.ReservedRoadFood<0||world.ReservedRoadFood>100000000)throw new ArgumentException("行军路粮非法");
+            if(world.Route.Count==0){if(world.RoadIndex!=0||world.RoadDay!=0||world.ReservedRoadFood!=0||world.MarchDailyFood!=0)throw new ArgumentException("空行程不能保留路段进度");}
             else if(world.Route.Count<2||world.Route.Count>64||world.Route.Distinct().Count()!=world.Route.Count||world.Route.Any(id=>!ids.Contains(id))||world.RoadIndex<0||world.RoadIndex>=world.Route.Count-1||world.NodeId!=world.Route[world.RoadIndex]||world.Route.Skip(1).Where((id,index)=>Road(world,world.Route[index],id)==null).Any()||world.RoadDay<0||world.RoadDay>=Math.Max(1,Road(world,world.Route[world.RoadIndex],world.Route[world.RoadIndex+1]).Days)||state.Campaign.Location!="world")throw new ArgumentException("活动行程或路段进度非法");
         }
         public static BaseWorldPlan Plan(BaseState state,IEnumerable<string> previous,string target,string departureEntry=null)
@@ -165,11 +167,28 @@ namespace BaseConquest.Base
             var party = PlayerExpedition(state);
             if (party != null && !party.InCombat) SettleExpedition(state, party, true);
         }
+        internal static int TripFood(BaseState state,IReadOnlyList<string> route,int troopCount)
+        {
+            if(route==null||route.Count<2)return 0;
+            int days=route.Skip(1).Select((node,i)=>Road(state.Campaign.WorldJourney,route[i],node)?.Days??0).Sum();
+            return checked(troopCount*state.Rules.SoldierFood*days);
+        }
+        private static void RefundRoadFood(BaseState state)
+        {
+            var world=state.Campaign.WorldJourney;
+            state.Inventory.Food=Math.Min(100000000,state.Inventory.Food+world.ReservedRoadFood);
+            world.ReservedRoadFood=world.MarchDailyFood=0;
+        }
         public static void Start(BaseState state,IEnumerable<string> path)
         {
             if(!OnWorld(state)||Marching(state)||BaseBattleLoot.Pending(state))throw new InvalidOperationException("目前不能开始新行程");
             var route=path.ToList();var world=state.Campaign.WorldJourney;
             if(route.Count<2||route[0]!=world.NodeId||route.Distinct().Count()!=route.Count||route.Skip(1).Where((id,index)=>!Passable(state,Road(world,route[index],id))).Any())throw new InvalidOperationException("路线已失效，请重新规划");
+            var party=PlayerExpedition(state);
+            int soldiers=party==null?0:state.Workers.Where(w=>w.Away&&w.PartyId==party.Id).Sum(w=>w.Count);
+            int cost=TripFood(state,route,soldiers);
+            if(state.Inventory.Food<cost)throw new InvalidOperationException($"路粮不足 · 需要 {cost}，库存 {state.Inventory.Food}");
+            state.Inventory.Food-=cost;world.ReservedRoadFood=cost;world.MarchDailyFood=soldiers*state.Rules.SoldierFood;
             world.Route=route;world.RoadDay=world.RoadIndex=0;
             // P42：首次出发讨伐黑鸦寨时解锁副手设立；此前没有副手，剧情防守也只能玩家亲自。
             if(route[route.Count-1]=="bandit")BaseDeputy.Unlock(state);
@@ -180,6 +199,8 @@ namespace BaseConquest.Base
             var route = path.ToList();
             string problem = DayAdvanceProblem(state, route);
             if (problem != "") throw new InvalidOperationException(problem);
+            int roadCost=TripFood(state,route,draft.Units.Count(u=>u.Selected&&u.Kind!=BaseConquest.Battle.SoldierKind.Hero));
+            if(state.Inventory.Food<roadCost)throw new InvalidOperationException($"路粮不足 · 需要 {roadCost}，库存 {state.Inventory.Food}");
             if(entry!=null)BaseAdventure.RecallPaused(state);
             draft.CommitTravelParty(state,production);
             if(entry!=null)EnterWorld(state,entry);
@@ -227,8 +248,8 @@ namespace BaseConquest.Base
             var world=state.Campaign.WorldJourney;var road=Road(world,world.NodeId,world.Route[world.RoadIndex+1]);
             if(!Passable(state,road)||DayAdvanceProblem(state,world.Route,world.RoadIndex)!="")return false;
             if(InterceptsSecond(state,road))BaseDemoDefense.CancelSecond(state,"intercepted");
-            if(road.Days>0){int day=state.Day;if(!BaseCampaign.Rest(state,day,resolve,true))return false;if(state.Aftermath.GameOver)return true;if(state.Day!=day+1)return false;world.RoadDay++;}
-            if(world.RoadDay>=road.Days){world.NodeId=world.Route[++world.RoadIndex];world.RoadDay=0;if(world.RoadIndex==world.Route.Count-1){world.Route.Clear();world.RoadIndex=0;}}
+            if(road.Days>0){int day=state.Day;if(!BaseCampaign.Rest(state,day,resolve,true))return false;if(state.Aftermath.GameOver)return true;if(state.Day!=day+1)return false;world.ReservedRoadFood=Math.Max(0,world.ReservedRoadFood-world.MarchDailyFood);world.RoadDay++;}
+            if(world.RoadDay>=road.Days){world.NodeId=world.Route[++world.RoadIndex];world.RoadDay=0;if(world.RoadIndex==world.Route.Count-1){RefundRoadFood(state);world.Route.Clear();world.RoadIndex=0;}}
             return true;
         }
     }

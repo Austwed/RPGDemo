@@ -273,8 +273,8 @@
       "LeaderFood": null,
       "FarmPerWorker": null,
       "WorkshopPerWorker": null,
-      "HungerProductionPenalty": null,
-      "HungerAttackPenalty": null,
+      "HungerProductionPenalty": 0,
+      "HungerAttackPenalty": 0,
       "SwordMaterial": 2,
       "BowMaterial": 2,
       "ArmorMaterial": 3
@@ -391,7 +391,10 @@
   },
   "mirrors": {
     "LeaderFood": "OpeningEconomy/LeaderFood",
-    "OpeningRewards/Energy": "OpeningRewards/MaximumEnergy"
+    "OpeningRewards/Energy": "OpeningRewards/MaximumEnergy",
+    "ArcherFood": "OpeningEconomy/SoldierFood",
+    "MageFood": "OpeningEconomy/SoldierFood",
+    "OpeningEconomy/CavalryFood": "OpeningEconomy/SoldierFood"
   },
   "group": [
     {
@@ -1930,28 +1933,6 @@
       ],
       "rows": [
         {
-          "id": "OpeningEconomy_HungerProductionPenalty",
-          "label": "缺粮产能惩罚上限",
-          "paths": [
-            "OpeningEconomy/HungerProductionPenalty"
-          ],
-          "types": [
-            "d"
-          ],
-          "description": "缺粮造成的产能下降比例上限，0 ≤ 值 < 1。"
-        },
-        {
-          "id": "OpeningEconomy_HungerAttackPenalty",
-          "label": "缺粮攻击惩罚上限",
-          "paths": [
-            "OpeningEconomy/HungerAttackPenalty"
-          ],
-          "types": [
-            "d"
-          ],
-          "description": "缺粮造成的攻击下降比例上限，0 ≤ 值 < 1。"
-        },
-        {
           "id": "OpeningRecoveryPerDay",
           "label": "日恢复生命比例",
           "paths": [
@@ -2012,12 +1993,6 @@
           "label": "基础招募价（币）",
           "type": "i",
           "description": "该职业招募报价的基础钱币，1～1000000。"
-        },
-        {
-          "id": "food",
-          "label": "每人日口粮",
-          "type": "i",
-          "description": "该职业普通兵每人每日消耗的粮食。"
         }
       ],
       "rows": [
@@ -2026,8 +2001,7 @@
           "label": "剑士",
           "paths": [
             "TroopBaseline/0",
-            "RecruitBasePrices/0",
-            "OpeningEconomy/SoldierFood"
+            "RecruitBasePrices/0"
           ]
         },
         {
@@ -2035,8 +2009,7 @@
           "label": "弓兵",
           "paths": [
             "TroopBaseline/1",
-            "RecruitBasePrices/1",
-            "ArcherFood"
+            "RecruitBasePrices/1"
           ]
         },
         {
@@ -2044,8 +2017,7 @@
           "label": "骑兵",
           "paths": [
             "TroopBaseline/2",
-            "RecruitBasePrices/2",
-            "OpeningEconomy/CavalryFood"
+            "RecruitBasePrices/2"
           ]
         },
         {
@@ -2053,8 +2025,7 @@
           "label": "法师",
           "paths": [
             "TroopBaseline/3",
-            "RecruitBasePrices/3",
-            "MageFood"
+            "RecruitBasePrices/3"
           ]
         }
       ]
@@ -2102,6 +2073,17 @@
             "d"
           ],
           "description": "普通兵倒地时进入即死计算的基础概率，0～1。"
+        },
+        {
+          "id": "SoldierDailyFood",
+          "label": "普通兵每人日口粮",
+          "paths": [
+            "OpeningEconomy/SoldierFood"
+          ],
+          "types": [
+            "i"
+          ],
+          "description": "四职业共用；每行一日，另按同额计算路粮。"
         },
         {
           "id": "SoldierDeathSensitivity",

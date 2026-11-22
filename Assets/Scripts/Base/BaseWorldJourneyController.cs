@@ -16,6 +16,7 @@ namespace BaseConquest.Base
         private bool attemptedSavedMarch;
         public bool WorldMarchRunning { get; private set; }
         internal bool JourneyMapOpen => journeyHud != null;
+        internal int WorldRoadFood(int soldiers)=>BaseWorldJourney.TripFood(State,pendingWorldRoute,soldiers);
         internal string WorldMarchTitle => "行军整备 · " + WorldNodeTitle(pendingWorldRoute?.LastOrDefault());
         internal string WorldNodeTitle(string id)
         {

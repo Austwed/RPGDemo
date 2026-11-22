@@ -477,6 +477,12 @@ namespace BaseConquest.Base
             if (DialogueExitLocked) return;
             if(owner.State?.Aftermath.GameOver==true || BaseBattleGateway.MainMenu || BaseDemoIntro.Daily(owner.State)&&owner.State.Demo.Intro.Step==0) return;
             if (OfferSmithLessonOnTradeExit() || OfferRecruiterHideoutClueOnExit()) return;
+            if(BaseDemo.Active(owner.State) && !owner.State.Campaign.HasActiveBattle &&
+                BaseBattleLoot.PendingPrisonerBattle(owner.State) is string battle)
+            {
+                OpenRewardPrisoners(battle);
+                return;
+            }
             if(!BaseDemo.Active(owner.State)&&BaseBattleLoot.Pending(owner.State)){OpenLoot();return;}
             ResetWorkerDraft();
             productionView = null;
@@ -704,7 +710,10 @@ namespace BaseConquest.Base
             Line("今天口粮：需要" + r.FoodRequired + "／已供" + r.FoodConsumed + "／缺少" + r.FoodMissing);
             Line("昨日恢复生命：" + r.PeopleRecovered + " 人");
             CampaignReports();
-            Line(r.FoodMissing > 0 ? "今天缺粮会降低产能，人员不会直接死亡。增加粮田人数可恢复供给。" : "今天粮草充足。关闭报告可继续安排工作。", 78);
+            if(r.CaravanFoodChange!=0)Line("商队路粮 · 仓库 "+r.CaravanFoodChange.ToString("+0;-0;0"),40);
+            if(r.DepartedSoldiers?.Count>0)
+                Line("缺粮离队 "+r.DepartedSoldiers.Count+" 人 · "+string.Join("、",r.DepartedSoldiers.Select(n=>"#"+n)),78);
+            else if(r.FoodMissing==0)Line("今天粮草充足。",42);
         }
         private void OpenGovernment()
         {
