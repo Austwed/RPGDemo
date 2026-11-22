@@ -1092,10 +1092,10 @@
       "notes": "接取前，老周第1页。"
     },
     {
-      "key": "story.quest.zhou_training.offer.camp",
+      "key": "story.quest.zhou_training.offer.books",
       "group": "支线／老周",
-      "text": "老莫那儿有{0}。凑齐{1}本，就去营帐练。练完来找我。",
-      "notes": "接取前第2页，未开始训练时也作提醒。{0}为所需基础兵书名，{1}为数量。",
+      "text": "这{1}本{0}给你。去营帐练，练完来找我。",
+      "notes": "{0}为所需兵书名，{1}为按配表计算的数量。旧档补发沿用此页。",
       "revision": 1
     },
     {
@@ -1108,13 +1108,13 @@
       "key": "story.quest.zhou_training.finish.1",
       "group": "支线／老周",
       "text": "这架势稳了。书上的招肯下功夫练，到了阵前才使得出来。",
-      "notes": "主角达到2级后回报第1页。"
+      "notes": "主角达到任务训练等级后回报第1页。"
     },
     {
-      "key": "story.quest.zhou_training.finish.2",
+      "key": "story.quest.zhou_training.finish.books",
       "group": "支线／老周",
-      "text": "我箱角下压着本旧兵书。你拿去，我换块木头垫就是。",
-      "notes": "主角达到2级后回报第2页，确认后发本职业高阶兵书。",
+      "text": "这{1}本{0}也拿去，够你接着练一级。",
+      "notes": "回报时发下一等级所需的本职业兵书。{0}为兵书名，{1}为按配表计算的数量。",
       "revision": 1
     },
     {
