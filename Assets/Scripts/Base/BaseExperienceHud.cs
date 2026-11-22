@@ -31,7 +31,7 @@ namespace BaseConquest.Base
             }
             EndPanel();
         }
-        private bool CompanionAdvice(string location,string eventId,string mode,bool bypass)
+        private bool CompanionAdvice(string location,string eventId,string mode)
         {
             var candidates=BaseDepartureAdvice.Candidates(owner.State,location,DepartureAdviceOptions.Disabled);
             if(candidates.Length==0)return false;
@@ -42,11 +42,11 @@ namespace BaseConquest.Base
                 string id=person.Id;
                 RowButton("加入 "+person.Name,0,800,()=>{
                     owner.Change(next=>{if(!BaseDepartureAdvice.Candidates(next,location,false).Any(l=>l.Id==id)||!BaseAdventure.SetMember(next,id,true))throw new InvalidOperationException("伙伴状态已变化，请重新查看");},"已加入伙伴；岗位已释放，生产安排已更新");
-                    OpenDeparture(location,eventId,mode,bypass,true);
+                    OpenDeparture(location,eventId,mode,true);
                 });row+=60;
             }
-            RowButton("继续出征",-210,400,()=>OpenDeparture(location,eventId,mode,bypass,true));
-            RowButton("不再提示",210,400,()=>{DepartureAdviceOptions.Disabled=true;OpenDeparture(location,eventId,mode,bypass,true);});row+=60;
+            RowButton("继续出征",-210,400,()=>OpenDeparture(location,eventId,mode,true));
+            RowButton("不再提示",210,400,()=>{DepartureAdviceOptions.Disabled=true;OpenDeparture(location,eventId,mode,true);});row+=60;
             EndPanel();return true;
         }
     }

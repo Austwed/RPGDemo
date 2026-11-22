@@ -114,7 +114,7 @@ namespace BaseConquest.Base
             {
                 case BasePrepRoute.Ruins: BeginDemoRuins("none", prepared: prepared); break;
                 case BasePrepRoute.Defense:
-                case BasePrepRoute.Second: BeginDemoDefense("none", prepared: prepared); break;
+                case BasePrepRoute.Second: BeginDemoDefense(prepared); break;
                 case BasePrepRoute.BlackCrow: BeginDemoAttack("none", prepared: prepared); break;
                 case BasePrepRoute.Hideout: BeginBanditHideout(prepared); break;
             }

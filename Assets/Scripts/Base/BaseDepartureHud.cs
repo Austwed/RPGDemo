@@ -8,20 +8,19 @@ namespace BaseConquest.Base
         private BaseDepartureSelection departure;
         private string departureKey, departureMessage="";
         private BaseTroopKind? departureExpanded;
-        private void OpenDepartureReview(string location,string eventId=null,string mode="full",bool bypass=false)
+        private void OpenDepartureReview(string location, string eventId, string mode)
         {
             string purpose=location=="world"||location=="outpost" ? "expedition" : "defense",key=location+":"+eventId;
             var s=owner.DepartureState(location);var existing=s.Muster.Parties.FirstOrDefault(p=>p.Purpose==purpose);
             if(existing==null&&(departureKey!=key||departure==null||departure.Stamp!=BaseMuster.Snapshot(s)))
-            {departureKey=key;departure=new BaseDepartureSelection(s,purpose,bypass,bypass ? "combat" : "production");departureExpanded=null;departureMessage="";}
+            {departureKey=key;departure=new BaseDepartureSelection(s, purpose, true);departureExpanded=null;departureMessage="";}
             BaseMusterPlan plan=null;string error="";
-            if(existing==null)try {plan=departure.Preview(s,bypass);}catch(Exception e){error=e.Message;}
-            string shownMode=existing==null ? BaseMuster.ModeName(bypass ? "combat" : "production") : string.IsNullOrEmpty(existing.PriorityMode) ? "已有队伍" : BaseMuster.ModeName(existing.PriorityMode);
-            BeginPanel((purpose=="expedition" ? "出征 · " : "迎战 · ")+shownMode,"departure:"+key);
+            if(existing==null)try {plan=departure.Preview(s,true);}catch(Exception e){error=e.Message;}
+            BeginPanel(purpose == "expedition" ? "出征整备" : "迎战整备", "departure:" + key);
             var captured=plan;
-            bool valid=existing!=null ? purpose!="expedition"||existing.Leaders.Any(l=>l.LeaderId==s.PlayerLeaderId) : plan!=null&&plan.Leaders.Count>0&&(bypass||plan.Production?.Allowed==true)&&(purpose!="expedition"||plan.Leaders.Contains(s.PlayerLeaderId));
+            bool valid=existing!=null ? purpose!="expedition"||existing.Leaders.Any(l=>l.LeaderId==s.PlayerLeaderId) : plan!=null&&plan.Leaders.Count>0&&(purpose!="expedition"||plan.Leaders.Contains(s.PlayerLeaderId));
             RowButton(eventId==null ? BaseDemoDefense.Enabled(s)&&s.Campaign.Location=="perimeter"&&location=="perimeter"?"确认队伍并选择军需":"确认队伍并进入区域" : "确认队伍并开战",-210,400,()=>{if(eventId==null)owner.CompleteTravel(location,captured);else owner.LaunchCampaign(eventId,mode,captured);},valid);
-            RowButton("返回",210,400,()=>{if(existing!=null)OpenMenu();else OpenDeparture(location,eventId,mode,bypass);});
+            RowButton("返回",210,400,ClosePanel);
             row+=64;
             if(existing!=null)
             {
@@ -29,21 +28,20 @@ namespace BaseConquest.Base
                 Line("队长："+string.Join("、",existing.Leaders.Select(x=>BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==x.LeaderId)))),60);
                 Line("已携带／可调总量（含本队）："+carried+"／"+(carried+s.Workers.Where(w=>BaseDevelopment.Eligible(s,purpose,w)).Sum(w=>w.Count)),54);
                 var groups=BaseMuster.CurrentFormation(s,existing);if(groups!=null)foreach(var group in groups)Line(BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==group.LeaderId))+" · "+TroopsText(group.Actual),50,18);
-                RowButton("查看本队／军需／战外追加",0,800,()=>OpenParty(existing.Id,()=>OpenDepartureReview(location,eventId,mode,bypass)));row+=60;EndPanel();return;
+                RowButton("查看本队／军需／战外追加",0,800,()=>OpenParty(existing.Id,()=>OpenDepartureReview(location,eventId,mode)));row+=60;EndPanel();return;
             }
-            void Reopen()=>OpenDepartureReview(location,eventId,mode,bypass);
-            RowButton("重新读取默认预设",-210,400,()=>{departure=new BaseDepartureSelection(s,purpose,bypass,bypass ? "combat" : "production");departureMessage="已按可用人数读取预设";Reopen();});
-            RowButton("返回模式选择",210,400,()=>OpenDeparture(location,eventId,mode,bypass));row+=60;
+            void Reopen()=>OpenDepartureReview(location,eventId,mode);
+            RowButton("重新读取默认预设",-210,400,()=>{departure=new BaseDepartureSelection(s, purpose, true);departureMessage="已按可用人数读取预设";Reopen();});
+            row += 60;
             if(error!="")Line(error,76,18);
-            if(!bypass&&plan?.Production?.Allowed!=true)Line(plan?.Production?.Problem??"无法保障三天经营",76,18);
             if(departureMessage!="")Line(departureMessage,55,18);
             Line("已选士兵 "+departure.Picks.Count+"人；常驻队长 "+departure.Preset.Candidates.Count+"人（上限3人）",48,20);
             foreach(var kind in BaseTown.TroopKinds(s))
             {
-                var k=kind;var capacity=departure.Capacity(s,k,bypass);int count=capacity.Selected;
+                var k=kind;var capacity=departure.Capacity(s,k,true);int count=capacity.Selected;
                 RowButton((departureExpanded==k ? "▾ " : "▸ ")+BaseEconomy.TroopName(k)+" · "+capacity.Summary,-155,500,()=>{departureExpanded=departureExpanded==k ? (BaseTroopKind?)null : k;Reopen();});
-                RowButton("−",160,100,()=>{departure.Adjust(s,k,-1,bypass,out departureMessage);Reopen();},count>0);
-                RowButton("+",300,100,()=>{departure.Adjust(s,k,1,bypass,out departureMessage);Reopen();},count<capacity.Limit);row+=52;
+                RowButton("−",160,100,()=>{departure.Adjust(s,k,-1,true,out departureMessage);Reopen();},count>0);
+                RowButton("+",300,100,()=>{departure.Adjust(s,k,1,true,out departureMessage);Reopen();},count<capacity.Limit);row+=52;
                 Line(capacity.Detail,60,17);
                 if(BaseTown.DemoRecruitment(s))Line("全军普通兵 "+BaseTown.TroopTotal(s)+"人（含外出） · 合计基准 "+BaseDemoCombat.BaselineTotal(s.Demo?.Rpg)+" · 普通兵即死率 "+BaseTown.HireProbability(s).ToString("P0"),62,17);
                 if(departureExpanded!=k)continue;
@@ -51,10 +49,10 @@ namespace BaseConquest.Base
                 Line("士兵名册",42,17);
                 foreach(var unit in BaseMuster.SoldierRows(s,k,purpose).OrderBy(row=>row.Pick.SoldierNumber))
                 {
-                    var pick=unit.Pick;bool selected=departure.Selected(pick);bool allowed=selected||departure.CanToggle(s,pick,bypass,out _);
+                    var pick=unit.Pick;bool selected=departure.Selected(pick);bool allowed=selected||departure.CanToggle(s,pick,true,out _);
                     string status=unit.Available ? unit.EffectiveWorker ? "今日可生产" : "今日不生产" : unit.UnavailableReason+" · 今日不生产";
                     AddPersonnelRow(content,roster["soldier:"+pick.SoldierNumber],(selected?"已选 · ":"")+status,
-                        ()=>{departure.Toggle(s,pick,bypass,out departureMessage);Reopen();},allowed,selected);
+                        ()=>{departure.Toggle(s,pick,true,out departureMessage);Reopen();},allowed,selected);
                 }
             }
             foreach(var leader in BaseAdventure.Members(s))

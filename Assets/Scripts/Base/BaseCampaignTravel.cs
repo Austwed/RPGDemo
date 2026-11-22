@@ -59,7 +59,8 @@ namespace BaseConquest.Base
             var link=BaseDesignRoutes.ForObject(State,objectId);
             if(link==null||BaseDesignRoutes.Reachable(State,BaseDesignRoutes.Target(State,link).Region,objectId)==null){ReportMessage("出口未绑定，或不在同层一格以内");return;}
             pendingDesignExit=objectId;string target=BaseDesignRoutes.Target(State,link).Region;
-            if((target=="world"||target=="outpost"||target=="perimeter")&&!State.Muster.Parties.Any(p=>p.Purpose==(target=="perimeter"?"defense":"expedition"))) {Hud.OpenDeparture(target);return;}
+            bool demoDefenseGate = BaseDemoDefense.Enabled(State) && objectId == "demo_defense_exit" && target == "perimeter";
+            if(!demoDefenseGate&&(target=="world"||target=="outpost"||target=="perimeter")&&!State.Muster.Parties.Any(p=>p.Purpose==(target=="perimeter"?"defense":"expedition"))) {Hud.OpenDeparture(target);return;}
             CompleteTravel(target,null);
         }
         public void Travel(string location)
@@ -72,6 +73,11 @@ namespace BaseConquest.Base
                 if(link==null){ReportMessage("请靠近已绑定该目标的出入口，不能从菜单远程旅行");return;}
                 var source=BaseSpatial.Layout(State).Objects.Single(obj=>obj.SourceObjectId==link.SourceObjectId);TravelConnection(source.Id);return;
             }
+            if (BaseDemoDefense.Enabled(State) && (location == "perimeter" || State.Campaign.Location == "perimeter"))
+            {
+                TravelDemo(location);
+                return;
+            }
             if(location=="outpost"){if(State.Campaign.Location=="world")StartCoroutine(EnterAttackRegionRoutine());return;}
             if (location == "world" && State.Campaign.Location!="outpost" || location == "perimeter" && State.Campaign.Events.Any(e => e.Kind == "defense" && e.Status == "pending" && e.AvailableDay <= State.Day)) { Hud.OpenDeparture(location); return; }
             CompleteTravel(location, null);
@@ -79,7 +85,13 @@ namespace BaseConquest.Base
         public void CompleteTravel(string location, BaseMusterPlan plan)
         {
             if(location=="base"&&State.Campaign.Location!="base"&&OfferFirstRaidIntel())return;
-            if(BaseDemoDefense.Enabled(State)&&State.Campaign.Location=="perimeter"&&location=="perimeter"){PrepareDemoDefense(plan);return;}
+            if (BaseDemoDefense.Enabled(State) && State.Campaign.Location == "perimeter" && location == "perimeter")
+            {
+                if (BaseDemoDefense.AnyDue(State) && BaseInteraction.At(State, "perimeter", "demo_defense_start"))
+                    Hud.OpenBattlePreparation(BaseDemoDefense.SecondDue(State) ? BasePrepRoute.Second : BasePrepRoute.Defense);
+                else ReportMessage("请到外围迎战点确认");
+                return;
+            }
             if (Change(s => {
                 if(location=="base"&&(s.Campaign.Location=="world"||s.Campaign.Location=="outpost"||s.Campaign.Location=="perimeter")){string purpose=s.Campaign.Location=="perimeter"?"defense":"expedition";var returning=s.Muster.Parties.FirstOrDefault(p=>p.Purpose==purpose);if(returning!=null){foreach(var q in s.Supply.Quotas.Where(q=>q.PartyId==returning.Id).ToArray())if(!BaseSupply.Cancel(s,q.BattleId))throw new InvalidOperationException("战斗中不能返营");if(!BaseMuster.Return(s,returning.Id))throw new InvalidOperationException("未能返营");}}
                 if (plan != null && !BaseMuster.Confirm(s, plan)) throw new InvalidOperationException("编制已变化，重新选择"); if ((BaseSceneInstances.Active(s)||s.Campaign.Location!=location)&&!BaseCampaign.Travel(s, location,pendingDesignExit)) throw new InvalidOperationException("目前不能前往该区域，请重新靠近原出口并确认连接"); }, "前往" + BaseCampaign.LocationName(location)))

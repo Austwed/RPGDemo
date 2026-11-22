@@ -107,7 +107,13 @@ namespace BaseConquest.Base
     {
         public static readonly string[] Locations = { "base", "perimeter", "town", "world", "outpost", "dungeon", BaseBanditHideout.Region };
         public static string LocationName(string id) => id == "base" ? "基地" : id == "perimeter" ? "迎敌战场" : id == "town" ? "城镇" : id=="outpost" ? "荒野据点区域" : "世界地图";
-        public static string LocationName(BaseState state)=>BaseSceneInstances.Active(state)||BaseDemo.Active(state)?BaseSpatial.Layout(state).Title:LocationName(state.Campaign.Location);
+        public static string LocationName(BaseState state)
+        {
+            if (state.Campaign.Location == "perimeter" && BaseDemoDefense.SecondDue(state))
+                return "营地外围 · 第二波防守";
+            return BaseSceneInstances.Active(state) || BaseDemo.Active(state)
+                ? BaseSpatial.Layout(state).Title : LocationName(state.Campaign.Location);
+        }
         // Plans and save reloads must reproduce the pending fight. Real victories and retreats create reports.
         public static int NextBattleSeed(BaseState state, string eventId)
         {

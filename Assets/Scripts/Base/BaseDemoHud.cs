@@ -228,6 +228,8 @@ namespace BaseConquest.Base
             if(id=="demo_rescued_1"||id=="demo_rescued_2"){OpenRescuedCivilian(id);return true;}
             if(id==BaseDemoStories.GalanMarker){OpenWaitingGalan();return true;}
             if(id=="demo_ruins_investigate"){OpenRuinsChallenge();return true;}
+            if (id is "demo_defense_exit" or "demo_defense_return" or "demo_defense_start")
+                return OpenDemoDefenseInteraction(id);
             if(BaseDemoFinale.Opened(owner.State))return false;
             if(OpenDemoDefenseInteraction(id))return true;
             if(id=="demo_ruins_exit"||id=="demo_ruins_return"){owner.TravelDemo(id=="demo_ruins_exit"?"outpost":"town");return true;}

@@ -61,7 +61,7 @@ namespace BaseConquest.Base
                 Label(content, BaseEconomy.ProductName(id), new Vector2(-285, -row - 26), new Vector2(200, 48), 20, TextAnchor.MiddleLeft, new Vector2(0.5f, 1));
                 RowButton(priority == "high" ? "优先高级，低级补足" : "优先低级，节约高级", 110, 540, () => ArmyEdit(next => { var p = ArmyPreset(next); string value = priority == "high" ? "low" : "high"; if (id == "sword") p.SwordPriority = value; else if (id == "bow") p.BowPriority = value; else p.ArmorPriority = value; })); row += 56;
             }
-            RowButton("预览本次队伍", 0, 800, () => OpenMusterPreview(false), !s.Muster.Parties.Any(p => p.Purpose == armyPurpose)); row += 65;
+            RowButton("预览本次队伍", 0, 800, () => OpenMusterPreview(), !s.Muster.Parties.Any(p => p.Purpose == armyPurpose)); row += 65;
             if (s.Muster.Parties.Any(p => p.Purpose == armyPurpose)) Line("该用途已有外出队伍，可在外出队伍页查看或返营。", 56, 18);
         }
         private void ArmyProtection()
@@ -78,10 +78,8 @@ namespace BaseConquest.Base
             }
             Line("人手不足时少带兵；需要增兵，可在出发前允许抽调留守和生产人员。", 58, 18);
         }
-        private void OpenMusterPreview(bool bypass)
-        {
-            OpenDeparture(armyPurpose=="defense" ? "perimeter" : "world",null,"full",bypass);
-        }
+        private void OpenMusterPreview() =>
+            OpenDeparture(armyPurpose == "defense" ? "perimeter" : "world");
 
         private void OutsideParties(Action back)
         {
@@ -106,7 +104,6 @@ namespace BaseConquest.Base
             Line("队长："+string.Join("、",party.Leaders.Select(x=>BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==x.LeaderId)))),64);
             foreach(BaseTroopKind k in BaseTown.TroopKinds(s))Line(BaseEconomy.TroopName(k)+"："+s.Workers.Where(w=>w.Away&&w.PartyId==id&&w.Kind==k).Sum(w=>w.Count),42);
             var groups=BaseMuster.CurrentFormation(s,party);if(groups!=null)foreach(var group in groups)Line(BasePersonnel.LeaderName(s.Leaders.Single(l=>l.Id==group.LeaderId))+" · "+TroopsText(group.Actual),50,18);
-            if(!string.IsNullOrEmpty(party.PriorityMode))Line("本次抽调："+BaseMuster.ModeName(party.PriorityMode)+(party.ConserveMaterials ? "；工坊按最低开工人数节约原料，返营解除" : ""),72,18);
             Line(q==null?"尚未准备军需":q.Phase=="prepared"?"军需已准备；追加前需取消":"军需已锁定于本场战斗",60,18);EndPanel();
         }
     }

@@ -10,27 +10,26 @@ namespace BaseConquest.Base
     public sealed partial class BaseSceneController
     {
         private BaseState beforeDemoDefense;
-        private BaseMusterPlan pendingDemoDefense;
-        public BaseMusterPlan DemoDefensePlan=>pendingDemoDefense;
         public void RepairDemoFacility(string id)
         {
             if(Change(next=>{if(!BaseDemoDefense.Repair(next,id))throw new InvalidOperationException(BaseDemoDefense.RepairProblem(next,id));},"设施已修复，只恢复一级基础功能；未使用营造图册"))
             {RefreshDemoRegion();Hud.OpenDemoStory();}
         }
-        public void PrepareDemoDefense(BaseMusterPlan plan)
+        internal void BeginDemoDefense(BaseBattlePreparation prepared, bool briefingConfirmed = false)
         {
-            if(!BaseDemoDefense.AnyDue(State)||plan==null||plan.Purpose!="defense"||plan.Stamp!=BaseMuster.Snapshot(State)){ReportMessage("选兵预览已变化，请重新选择队伍");return;}
-            pendingDemoDefense=plan;Hud.OpenDemoDefenseSupply();
-        }
-        public void BeginDemoDefense(string mode,bool briefingConfirmed=false,BaseBattlePreparation prepared=null)
-        {
-            bool second = BaseDemoDefense.SecondDue(State);
+            bool second = prepared.Route == BasePrepRoute.Second;
+            if (!BaseDemoDefense.AnyDue(State) || second != BaseDemoDefense.SecondDue(State))
+            {
+                ReportMessage("迎战事件已变化，请重新备战");
+                Hud.RefreshPreparedFailure();
+                return;
+            }
             bool seen = second ? State.Demo.Defense.SecondBriefingSeen : State.Demo.Defense.FirstBriefingSeen;
             if (!seen && !briefingConfirmed)
             {
-                if (prepared != null) ShowDeploymentBriefing();
-                Action proceed = () => BeginDemoDefense(mode, true, prepared);
-                Action back = prepared == null ? Hud.OpenDemoDefenseSupply : Hud.ReturnToBattleDeployment;
+                ShowDeploymentBriefing();
+                Action proceed = () => BeginDemoDefense(prepared, true);
+                Action back = Hud.ReturnToBattleDeployment;
                 if (second) Hud.OpenSecondRaidBriefing(proceed, back);
                 else Hud.OpenFirstRaidBriefing(proceed, back);
                 return;
@@ -40,9 +39,9 @@ namespace BaseConquest.Base
             {
                 if (second) next.Demo.Defense.SecondBriefingSeen = true;
                 else next.Demo.Defense.FirstBriefingSeen = true;
-                encounter = prepared == null ? BaseDemoDefense.Begin(next, mode, pendingDemoDefense) : prepared.Begin(next);
-            }, "真实队伍与军需已锁定")) { if (prepared != null) Hud.RefreshPreparedFailure(); return; }
-            beforeDemoDefense=before;pendingDemoDefense=null;
+                encounter = prepared.Begin(next);
+            }, "真实队伍与军需已锁定")) { Hud.RefreshPreparedFailure(); return; }
+            beforeDemoDefense=before;
             try{BeginSceneEncounter(encounter,BaseDemoDefense.Configure,null,FinishDemoDefenseEncounter,encounter.Opening.EventId==BaseDemoDefense.SecondEventId?"第二波防守 · 击败全部来敌":"首次防守 · 守住营地外围",prepared);}
             catch(Exception error)
             {
@@ -89,10 +88,28 @@ namespace BaseConquest.Base
         private bool OpenDemoDefenseInteraction(string id)
         {
             if(!BaseDemoDefense.Enabled(owner.State))return false;
-            if(id=="demo_defense_exit"||id=="demo_defense_return"){owner.TravelDemo(id=="demo_defense_exit"?"perimeter":"base");return true;}
+            if (id is "demo_defense_exit" or "demo_defense_return")
+            {
+                if (BaseDemoFinale.Opened(owner.State)) owner.TravelConnection(id);
+                else owner.TravelDemo(id == "demo_defense_exit" ? "perimeter" : "base");
+                return true;
+            }
             if(id=="demo_defense_start")
             {
-                if(BaseDemoDefense.AnyDue(owner.State))OpenBattlePreparation(BaseDemoDefense.SecondDue(owner.State) ? BasePrepRoute.Second : BasePrepRoute.Defense);else OpenDemoStory();return true;
+                if (!BaseDemoDefense.AnyDue(owner.State)) { OpenDemoStory(); return true; }
+                if (owner.State.Campaign.HasActiveBattle) return true;
+
+                // A save made after the retired selection screen can contain a staged defense party.
+                var staged = owner.State.Muster.Parties.FirstOrDefault(party => party.Purpose == "defense");
+                if (staged != null && !owner.Change(next =>
+                {
+                    foreach (var quota in next.Supply.Quotas.Where(q => q.PartyId == staged.Id).ToArray())
+                        if (!BaseSupply.Cancel(next, quota.BattleId)) throw new InvalidOperationException("战斗军需尚未解锁");
+                    if (!BaseMuster.Return(next, staged.Id)) throw new InvalidOperationException("旧守军无法归队");
+                }, "")) return true;
+
+                OpenBattlePreparation(BaseDemoDefense.SecondDue(owner.State) ? BasePrepRoute.Second : BasePrepRoute.Defense);
+                return true;
             }
             if(id!="demo_fix_workshop"&&id!="demo_fix_barracks")return false;
             var state = owner.State;
@@ -111,11 +128,11 @@ namespace BaseConquest.Base
             return true;
         }
         // DEF_01_START_01/02：首次防守开战前巴图叫阵，主角拔剑回应。
-        public void OpenFirstRaidBriefing(Action proceed, Action back = null)
+        public void OpenFirstRaidBriefing(Action proceed, Action back)
         {
             NpcDialogue(new[]{
                 new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"新打的军械都留下！这座营地，黑鸦寨也要了！")
-            },new[]{new NpcReply("拔剑迎战",proceed),new NpcReply("先看布防",back ?? OpenDemoDefenseSupply)});
+            },new[]{new NpcReply("拔剑迎战",proceed),new NpcReply("先看布防",back)});
         }
         // DEF_01_MID_INTEL：敌军只剩一人时崩溃泄密，供出敌营位置。同场只播一次（BattleIntelSeen 由调用方记录）。
         public void OpenDefenseIntel(Action proceed)
@@ -127,13 +144,13 @@ namespace BaseConquest.Base
                 new NpcLine(BaseScriptNames.Bandit+"匪兵","saber","南边官道拐口的山坳里。山道两边都是枯树和大石。")
             },new[]{new NpcReply("继续战斗",proceed)});
         }
-        public void OpenSecondRaidBriefing(Action proceed, Action back = null)
+        public void OpenSecondRaidBriefing(Action proceed, Action back)
         {
             var lines=new System.Collections.Generic.List<NpcLine>{new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"上回没拿下你们的营地。今天我亲自来。")};
             if(owner.State.Demo.Defense.BatuFate=="escaped")lines.Add(new NpcLine(BaseScriptNames.Batu,BaseScriptNames.Portrait("batu"),"寨主，就是这伙人。上回是我没拿下，今儿让我打头阵。"));
             else lines.Add(new NpcLine(BaseScriptNames.Chief,BaseScriptNames.Portrait("chief"),"巴图的账，今天一起算！"));
             lines.Add(new NpcLine(BaseScriptNames.Huoya,BaseScriptNames.Portrait("huoya"),"弟兄们，跟紧我！别让他们冲散了！"));
-            NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备迎战",proceed),new NpcReply("暂缓迎战",back ?? OpenDemoDefenseSupply)});
+            NpcDialogue(lines.ToArray(),new[]{new NpcReply("准备迎战",proceed),new NpcReply("暂缓迎战",back)});
         }
         public void OpenDemoDefenseAftermath()
         {
@@ -163,16 +180,6 @@ namespace BaseConquest.Base
                 }
                 ClosePanel();
             }
-        }
-        public void OpenDemoDefenseSupply()
-        {
-            var state=owner.State;var plan=owner.DemoDefensePlan;if(plan==null){OpenDeparture("perimeter");return;}
-            bool second=BaseDemoDefense.SecondDue(state);activeObject="demo-defense-supply";interactionObject="";BeginPanel(second?"第二波防守 · 军需确认":"首次防守 · 军需确认");
-            Line("队长："+string.Join("、",plan.Leaders.Select(id=>state.Leaders.Single(person=>person.Id==id).Name))+"；实际选兵 "+plan.Total+"人。",90,22);
-            Line(second?"军需按当前库存配给。这一波没有时限，敌军不死不退——击败全部来敌才算守住；我方全员失能即营地失守，行动中止。":"军需按当前库存配给。坚守到时或击倒半数来敌即可击退，其余敌军撤离。失守支付修缮费，残军次日再袭。",130,21);
-            foreach(string choice in new[]{"full","half","none"})
-            {string mode=choice;RowButton("确认迎战 · "+(mode=="full"?"尽量配足军需":mode=="half"?"最多半数供给":"不使用军需"),0,800,()=>owner.BeginDemoDefense(mode));row+=60;}
-            RowButton("返回重新选兵",0,800,()=>OpenDeparture("perimeter"));row+=60;EndPanel();
         }
     }
 }
