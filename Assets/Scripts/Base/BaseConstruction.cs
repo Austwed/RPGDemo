@@ -69,9 +69,13 @@ namespace BaseConquest.Base
             if(quote.Facility=="workshop")f.MaxProductLevel=2;
             s.Construction.Revision++;BaseDevelopment.Allocate(s);BaseAchievements.Unlock(s,BaseAchievements.Startup);BaseEconomy.Validate(s);return true;
         }
+        internal static bool CanSelectLevel(BaseState s, int level) =>
+            Editable(s) && level >= 1 && level <= 2 &&
+            level <= s.Muster.Facilities.Single(f => f.FacilityId == "workshop").MaxProductLevel;
+
         public static bool SelectLevel(BaseState s,int level)
         {
-            if(!Editable(s)||level<1||level>2||level>s.Muster.Facilities.Single(f=>f.FacilityId=="workshop").MaxProductLevel)return false;
+            if (!CanSelectLevel(s, level)) return false;
             s.Construction.ProductLevel=level;s.Construction.Revision++;return true;
         }
         public static string DemoFieldworkProblem(BaseState s,GridPosition p,ConstructionProject project)

@@ -391,10 +391,16 @@ namespace BaseConquest.Base
             FacilityText(actions,"当前生产 · "+BaseEconomy.ProductName(state.WorkshopProduct)+" · "+(state.WorkshopProduct=="supply"?BaseSupply.GradeText(state,level):level+"级")
                 +$"　库存 一级 {BaseSupply.Available(state,state.WorkshopProduct,1)} / 二级 {BaseSupply.Available(state,state.WorkshopProduct,2)}");
             var grades=CloneSceneUi("FacilityActionRow",actions);
-            draftLocks.Add(FacilityButton(grades,"Grade"+level,state.WorkshopProduct=="supply"?"切换军需":"切换等级",()=>FacilityChange(next=>
+            int targetLevel = level == 1 ? 2 : 1;
+            bool canSelectLevel = BaseConstruction.CanSelectLevel(state, targetLevel);
+            string gradeLabel = targetLevel > facility.MaxProductLevel
+                ? "工坊未解锁二级生产"
+                : state.WorkshopProduct == "supply" ? "切换军需" : "切换等级";
+            var gradeButton = FacilityButton(grades, "Grade" + level, gradeLabel, () => FacilityChange(next =>
             {
-                if(!BaseConstruction.SelectLevel(next,level==1?2:1))throw new InvalidOperationException("当前不能改配方");
-            },"已选择生产等级",OpenFacility),facility.MaxProductLevel>1));
+                if (!BaseConstruction.SelectLevel(next, targetLevel)) throw new InvalidOperationException("当前不能改配方");
+            }, "已选择生产等级", OpenFacility), canSelectLevel);
+            if (canSelectLevel) draftLocks.Add(gradeButton);
             var recipes = CloneSceneUi("FacilityActionRow", actions);
             foreach (string product in BaseEconomy.ProductsFor(state))
                 draftLocks.Add(FacilityButton(recipes, product, BaseEconomy.ProductName(product) + " · 原料" + BaseConstruction.MaterialCost(state, product),
