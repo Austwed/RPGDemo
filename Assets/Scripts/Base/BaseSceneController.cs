@@ -158,6 +158,9 @@ namespace BaseConquest.Base
             HideDeveloperDiagnostics();
         }
         private bool RuntimeMissing() => Hud == null || Companions == null || SaveStore == null || WorldCamera == null || player == null || selectionFrame == null;
+        internal bool VillageTitlePreview { get; private set; }
+        private string villageTitleOpeningName;
+
         private void BeginSession()
         {
             if (SceneUiSource != null) SceneUiSource.gameObject.SetActive(false);
@@ -166,6 +169,7 @@ namespace BaseConquest.Base
             regionView?.Dispose(); if(mapMaterial!=null)BattleBoardView.DestroyObject(mapMaterial); combatController=null;
             initializedSession = session; constructionOpen=false;constructionBrush.Cancel();constructionTouch=-1; StopAllCoroutines(); State = null; Busy = loadingTemplate = false;
             fallenGalan = null;
+            VillageTitlePreview = false;
             ClearWorkerTravel();
             ambientMap = null;
             environmentMapKey=null;environmentAnimals.Clear();playerMotion=new BaseMotionAssist(); SelectedCell = null; Companions = new BaseCompanionMovement(); companionViews.Clear(); touches.Clear(); mouseTap = null;
@@ -202,9 +206,9 @@ namespace BaseConquest.Base
             bool showMainMenu = BaseBattleGateway.DemoMode && BaseBattleGateway.MainMenu;
             bool restoreOnStart = hasSavedProgress && !showMainMenu && packageProblem == null;
             bool restored = restoreOnStart && TryReadSavedState(false);
-            if (hasSavedProgress && !restored)
+            if (hasSavedProgress && !restored && !showMainMenu)
             {
-                // 主菜单和恢复页读取现有进度，归整失败时也保留能读取的状态。
+                // 恢复页归整失败时也保留能读取的状态。
                 try { State = SaveStore.Load(); BaseCampaign.SeedContent(State); }
                 catch (Exception e) { if (!restoreOnStart) Message = e.Message; }
             }
@@ -212,7 +216,11 @@ namespace BaseConquest.Base
 
             BuildWorld(); Hud = new BaseHud(this, runtimeRoot, font);
             developerPanel=GetComponent<DeveloperPanel>()??gameObject.AddComponent<DeveloperPanel>();developerPanel.Initialize(this,font);
-            if(showMainMenu){Hud.OpenMainMenu();SetRegionReady(true);return;}
+            if (showMainMenu)
+            {
+                StartCoroutine(ReadTemplate(BaseDemo.Profile, previewTitle: true));
+                return;
+            }
             if(packageProblem!=null){Message=packageProblem;Hud.OpenRecovery();SetRegionReady(true);return;}
             if (restoreOnStart)
             {
@@ -383,6 +391,11 @@ namespace BaseConquest.Base
             RefreshOpeningAudio();
             if (DeploymentWorldActive) { UpdateDeploymentWorld(); return; }
             if(combatController==null) regionView?.UpdateCamera(0,0);
+            if (VillageTitlePreview)
+            {
+                TickVillageOpeningCrowd();
+                return;
+            }
             if(State!=null&&!Busy&&runtimeRoot!=null&&runtimeRoot.gameObject.activeInHierarchy)Hud.RefreshAchievementNotice(Time.unscaledDeltaTime);
             if(State!=null&&!Busy)
             {
@@ -401,7 +414,12 @@ namespace BaseConquest.Base
             TickWorkerTravel(Math.Min(Time.deltaTime,.05));
             TickVillageReturn();
             TickDemoIntro(Math.Min(Time.deltaTime,.05));if(!Hud.PanelOpen)TickRescueJourney(Math.Min(Time.deltaTime,.05));
-            if(BaseDemoIntro.Daily(State)&&State.Demo.Intro.Step==0&&!BaseBattleGateway.MainMenu&&!Hud.PanelOpen){TickHeroChoice(Time.deltaTime);return;}
+            if (BaseDemoIntro.Daily(State) && State.Demo.Intro.Step == 0 && !Hud.PanelOpen)
+            {
+                TickVillageOpeningCrowd();
+                TickHeroChoice(Time.deltaTime);
+                return;
+            }
             AdvanceExplorationCompanions(Time.deltaTime);PlaceCompanions();
             UpdateExplorationInput();
             if (combatController == null && !BaseWorldJourney.OnWorld(State))
@@ -506,6 +524,13 @@ namespace BaseConquest.Base
                 BaseDemoPrologue.Village(State) ? VillageOpeningAudio.Place.Village : VillageOpeningAudio.Place.Field;
             OpeningAudio.SetExploration(this, place);
         }
+        private void TickVillageOpeningCrowd()
+        {
+            double seconds = Time.unscaledDeltaTime;
+            Companions.Update(State, seconds, allowFollowing: false, readGeometry: ReadNpcGeometry);
+            WalkAmbientPeople(seconds);
+            PlaceCompanions();
+        }
         private void AdvanceExplorationCompanions(double seconds)
         {
             if(BaseBattleGateway.MainMenu||State.Aftermath.GameOver)return;
@@ -540,7 +565,11 @@ namespace BaseConquest.Base
                         if (agent.Visible && agent.Position.Distance(new BasePoint(x, y)) < .55) return false;
                     return true;
                 }
-                if (!entry.Value.Tick(seconds, playerFeet, Walkable, board.Width, board.Height)) continue;
+                if (!entry.Value.Tick(seconds, playerFeet, Walkable, board.Width, board.Height))
+                {
+                    view.FinishAmbientWalk(WorldPoint(playerFeet.X, playerFeet.Y), Time.unscaledTimeAsDouble);
+                    continue;
+                }
                 var position = entry.Value.Position;
                 var moved = ambientPositions[entry.Key] = AtAmbientPosition(person, position);
                 // MapObjects is the shared array for this frame. Update only this body so the next walker also sees it.
@@ -792,7 +821,7 @@ namespace BaseConquest.Base
         }
         public void Save()
         {
-            if (!Application.isPlaying || State == null || Busy || SaveStore == null || Hud == null) return;
+            if (!Application.isPlaying || State == null || Busy || BaseBattleGateway.MainMenu || SaveStore == null || Hud == null) return;
             if (DuelScreen != null) return;
             if(combatController!=null) return;
             try { Companions.Capture(State); SaveStore.Save(State); }
@@ -877,7 +906,18 @@ namespace BaseConquest.Base
             StopConstruction();
             StartCoroutine(ReadTemplate(filename));
         }
-        private IEnumerator ReadTemplate(string filename)
+        internal void StartVillageTitleGame()
+        {
+            if (!VillageTitlePreview) { NewTemplate(BaseDemo.Profile); return; }
+
+            BaseBattleGateway.Session().Start(State);
+            VillageTitlePreview = false;
+            BaseBattleGateway.MainMenu = false;
+            Message = "新开局 · " + villageTitleOpeningName + "；首日口粮已扣一次";
+            Hud.OpenDemoStory();
+        }
+
+        private IEnumerator ReadTemplate(string filename, bool previewTitle = false)
         {
             SetRegionReady(false);
             if(BaseBattleGateway.DesignMode||LoadDesignPackage)
@@ -929,16 +969,20 @@ namespace BaseConquest.Base
                         opening = BaseDemo.CreateOpening(opening, request.downloadHandler.text, true, release, true, config.Rules, config.WorkbookSha256, story);
                     }
                     if (opening == null) throw new ArgumentException("模板为空");
-                    InstallOpening(opening);
+                    if (previewTitle && !BaseBattleGateway.DesignMode) InstallVillageTitlePreview(opening);
+                    else InstallOpening(opening);
                 }
                 catch (Exception e)
                 {
                     Message = (BaseBattleGateway.CustomMapTestMode ? "自定义地图开局失败：" : "开局失败，原进度保留：") + e.Message;
                     if (Application.isBatchMode) Debug.LogException(e);
-                    if (State == null) Hud.OpenRecovery();
+                    if (!previewTitle && State == null) Hud.OpenRecovery();
                 }
             }
-            Busy = loadingTemplate = false; Hud.RefreshSummary();SetRegionReady(true);
+            Busy = loadingTemplate = false;
+            if (previewTitle) Hud.OpenMainMenu();
+            Hud.RefreshSummary();
+            SetRegionReady(true);
         }
 #if UNITY_EDITOR
         public static BaseStoryScenePackage ReadCustomMapTestPackage(string path = null)
@@ -972,6 +1016,23 @@ namespace BaseConquest.Base
                 return null;
             }
         }
+        private void InstallVillageTitlePreview(BaseScenarioDocument opening)
+        {
+            var preview = opening.CreateState();
+            if (!BaseDemoIntro.Daily(preview) || preview.Demo.Intro.Step != 0)
+                throw new InvalidOperationException("主菜单需要白桦村的序章开局配置");
+            BaseThreats.Enable(preview);
+            State = preview;
+            RebuildRegion();
+            Companions.Synchronize(State, true);
+            PlaceCompanions();
+            PlacePlayer();
+            regionView.SetViewSize(5f);
+            BeginHeroChoice();
+            VillageTitlePreview = true;
+            villageTitleOpeningName = opening.Title;
+        }
+
         private void InstallOpening(BaseScenarioDocument opening)
         {
             pendingDesignExit=null;

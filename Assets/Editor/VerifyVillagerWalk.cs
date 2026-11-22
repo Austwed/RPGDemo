@@ -20,7 +20,7 @@ namespace BaseConquest.Editor
                     VerifyWalk(source, appearance, Vector3.forward, HeroFacing.North);
                     VerifyWalk(source, appearance, Vector3.back, HeroFacing.South);
                 }
-                Debug.Log("[VerifyVillagerWalk] PASS four civilian atlases, four directions, alternate foot contact during a 0.75-cell walk; idle on stopping");
+                Debug.Log("[VerifyVillagerWalk] PASS four civilian atlases, four directions, full gait during the shortest ambient walk; idle on stopping");
             }
             finally { UnityEngine.Object.DestroyImmediate(source); }
         }
@@ -41,9 +41,9 @@ namespace BaseConquest.Editor
                 int count = walk.width / (walk.height / 4);
                 var origin = Vector3.zero;
                 sprite.Exploration(origin);
-                // The shortest ambient path covers 0.75 cells at 1.5 cells/sec.
-                const int frames = 30;
-                var end = direction * (.75f * BattleBoardView.CellSize);
+                // The shortest ambient path covers 1.25 cells at 1.5 cells/sec.
+                const int frames = 50;
+                var end = direction * (1.25f * BattleBoardView.CellSize);
                 for (int frame = 1; frame <= frames; frame++)
                 {
                     sprite.Exploration(Vector3.Lerp(origin, end, frame / (float)frames));
@@ -54,7 +54,7 @@ namespace BaseConquest.Editor
                 }
                 // The generic villager, Chunshen and Laozhou hold each drawn pose for two columns.
                 // A single short walk has to progress from contact through passing to alternate contact.
-                if (!columns.Contains(0) || !columns.Contains(2) || !columns.Contains(4))
+                if (!columns.Contains(0) || !columns.Contains(2) || !columns.Contains(4) || !columns.Contains(6))
                     throw new InvalidOperationException("Short walk misses step phases: " + appearance + " / " + facing);
                 sprite.Exploration(end);
                 renderer.GetPropertyBlock(ink);

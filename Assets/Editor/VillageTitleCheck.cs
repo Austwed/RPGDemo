@@ -17,6 +17,10 @@ namespace BaseConquest.Editor
         private static double deadline;
         private static int step;
         private static bool checking;
+        private static Camera titleCamera;
+        private static BaseState titleState;
+        private static Vector3 titlePosition;
+        private static float titleZoom;
 
         [MenuItem("Jobs/DEMO/预览动态主菜单", false, 14)]
         public static void Preview()
@@ -64,17 +68,14 @@ namespace BaseConquest.Editor
                 {
                     case 0:
                         if (title == null) return;
-                        Require(BaseBattleGateway.MainMenu && owner.State == null && !Btn("Continue").interactable,
-                            "空档应进入标题并禁用继续");
-                        CheckScene(title);
-                        title.Sample(3.5f);
+                        Require(BaseBattleGateway.MainMenu && BaseDemoIntro.Daily(owner.State) &&
+                            owner.State.Demo.Intro.Step == 0 && !Btn("Continue").interactable,
+                            "空档应显示白桦村序章并禁用继续");
+                        Require(!title.transform.Find("Village").gameObject.activeSelf, "标题下应显示实际地图");
+                        owner.Save();
+                        Require(!owner.SaveStore.Exists, "停留标题不得创建会话存档");
                         UiSkinScreenshot.Capture("village-title-1280x720");
                         UiSkinScreenshot.Capture("village-title-960x432", 960, 432);
-                        for (int i = 0; i < 96; i++)
-                        {
-                            title.Sample(i / 8f);
-                            UiSkinScreenshot.Capture("village-title-frame-" + i.ToString("D2"), 640, 360);
-                        }
                         Btn("Options").onClick.Invoke();
                         Require(!title.transform.Find("Actions").gameObject.activeSelf, "子页遮挡主按键");
                         PressText("声音设置");
@@ -86,12 +87,25 @@ namespace BaseConquest.Editor
                             b.GetComponentInChildren<Text>()?.text == "返回"), "读档页只保留关闭");
                         PressText("关闭");
                         Require(Btn("New").gameObject.activeInHierarchy, "读档返回标题");
+                        titleCamera = owner.WorldCamera;
+                        titleState = owner.State;
+                        titlePosition = titleCamera.transform.position;
+                        titleZoom = titleCamera.orthographicSize;
                         Btn("New").onClick.Invoke();
                         step++;
                         break;
                     case 1:
                         if (owner.State == null || BaseBattleGateway.MainMenu) return;
                         Require(BaseDemoIntro.Daily(owner.State) && owner.State.Demo.Intro.Step == 0, "新游戏进入白桦村选人");
+                        Require(owner.WorldCamera == titleCamera && owner.State == titleState &&
+                            Vector3.Distance(titleCamera.transform.position, titlePosition) < .001f &&
+                            Mathf.Abs(titleCamera.orthographicSize - titleZoom) < .001f,
+                            "开始新游戏须保持同一份地图状态和镜头");
+                        Require(title == null && owner.Hud.VisualRoot.GetComponentsInChildren<Button>().Any(b => b.name == "HeroChoice_male"),
+                            "标题应切换为人物选角");
+                        Require(!BaseBattleGateway.Catalog(false).Entries().Any(e => e.Error == null),
+                            "确认姓名前不得写入新游戏存档");
+                        UiSkinScreenshot.Capture("village-hero-choice-1280x720");
                         var seeded = owner.State.Copy();
                         Require(BaseDemoIntro.Choose(seeded, "female", "菜单验收"), "预备近期存档");
                         BaseBattleGateway.Catalog().SaveSlot("slot1", seeded, "标题继续检查");
@@ -112,31 +126,6 @@ namespace BaseConquest.Editor
                 }
             }
             catch (Exception error) { Finish(1, error.ToString()); }
-        }
-
-        private static void CheckScene(VillageTitleLoop title)
-        {
-            var village = title.transform.Find("Village");
-            var hero = village.Find("SeatedHero").GetComponent<RawImage>();
-            var partner = village.Find("SeatedCompanion").GetComponent<RawImage>();
-            Require(hero.texture.name == "player-sit-v2" && partner.texture.name == "female-sit-v2" &&
-                hero.uvRect.x == .75f && partner.uvRect.x == .75f, "长椅上两人使用坐姿末帧");
-            var walker = village.Find("MarketWalker").GetComponent<RawImage>();
-            var rabbit = village.Find("MeadowRabbit").GetComponent<RawImage>();
-            title.Sample(11);
-            var pause = walker.rectTransform.anchoredPosition;
-            title.Sample(12);
-            Require(walker.rectTransform.anchoredPosition == pause && walker.texture.name.EndsWith("-v1"),
-                "村民须在路端停下并换回站姿");
-            title.Sample(3);
-            Require(walker.rectTransform.anchoredPosition != pause && walker.texture.name.EndsWith("-walk-v2"),
-                "村民沿路线行走");
-            var position = rabbit.rectTransform.anchoredPosition;
-            title.Sample(9);
-            Require(!rabbit.enabled, "兔子入洞后短暂停留");
-            title.Sample(15);
-            Require(rabbit.enabled && Vector2.Distance(position, rabbit.rectTransform.anchoredPosition) < .01f,
-                "兔子回到下一轮相同位置");
         }
 
         private static void Require(bool pass, string message)

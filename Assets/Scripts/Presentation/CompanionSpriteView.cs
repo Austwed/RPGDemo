@@ -20,7 +20,8 @@ namespace BaseConquest.Presentation
         private bool isMounted;
         private bool horseLoaded;
         private double distance;
-        private const double CivilianCycleCells = 1.4;
+        private const double CivilianCycleCells = 1.2;
+        private bool civilianWasMoving;
         private const double DefaultCycleCells = 4;
         private double realtimeDownAt=double.NaN;
         private bool realtimeObserved;
@@ -82,7 +83,11 @@ namespace BaseConquest.Presentation
         public void Exploration(Vector3 feet,Vector3? observer=null,double now=0,bool autonomous=false)
         {
             var delta=hasPrevious ? feet-previous : Vector3.zero;previous=feet;hasPrevious=true;
-            bool moving=delta.sqrMagnitude>.000001f;if(moving)distance+=new Vector2(delta.x,delta.z).magnitude;
+            bool moving=delta.sqrMagnitude>.000001f;
+            bool civilian = AppearanceId is "villager" or "villager-girl" or "chunshen" or "laozhou";
+            if (civilian && moving && !civilianWasMoving) distance = 0;
+            if (moving) distance += new Vector2(delta.x, delta.z).magnitude;
+            civilianWasMoving = moving || autonomous;
             if(moving)defaultFacing=PlayerHeroFrames.FaceWalking(delta.x,delta.z,defaultFacing);
             bool near=observer.HasValue&&new Vector2(observer.Value.x-feet.x,observer.Value.z-feet.z).sqrMagnitude<=4*BattleBoardView.CellSize*BattleBoardView.CellSize+.0001f;
             if(moving||autonomous){facing=defaultFacing;looking=wasNear=false;lookUntil=0;}
@@ -95,7 +100,7 @@ namespace BaseConquest.Presentation
             wasNear=near;
             bool walking = moving || autonomous;
             // A civilian's short wander must reach the alternate foot contact before returning to idle.
-            double cycleCells = AppearanceId is "villager" or "villager-girl" or "chunshen" or "laozhou" ? CivilianCycleCells : DefaultCycleCells;
+            double cycleCells = civilian ? CivilianCycleCells : DefaultCycleCells;
             Set(walking ? HeroPose.Walk : HeroPose.Idle,
                 walking ? distance / (BattleBoardView.CellSize * cycleCells) : Time.unscaledTime, false, false, false);
             SortRig(MapSpriteOrder.At(feet.z));

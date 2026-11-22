@@ -54,7 +54,7 @@ namespace BaseConquest.Base
                 wait -= seconds;
                 if (wait > 0) return false;
                 int first = (int)(Next() * 8);
-                double length = .75 + Next() * .9;
+                double length = 1.25 + Next() * .65;
                 for (int i = 0; i < 8; i++)
                 {
                     double angle = (first + 3 * i) * (Math.PI / 4);

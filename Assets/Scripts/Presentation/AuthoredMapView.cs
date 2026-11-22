@@ -164,6 +164,12 @@ namespace BaseConquest.Presentation
         public bool AutonomousMoving=>Time.unscaledTimeAsDouble<autonomousUntil;
         public void MoveTo(Vector3 position)
         {bool moving=(position-feet).sqrMagnitude>1e-7f;if(moving)autonomousUntil=Time.unscaledTimeAsDouble+.12;feet=position;var pawn=GetComponent<BattlePawn2D>();if(pawn!=null)pawn.SyncExploration(feet,Color.white,null,Time.unscaledTimeAsDouble,moving);}
+        internal void FinishAmbientWalk(Vector3 observer, double now)
+        {
+            if (!AutonomousMoving) return;
+            autonomousUntil = 0;
+            RefreshAttention(observer, now);
+        }
         public void RefreshAttention(Vector3 observer,double now)
         {
             AttentionSource=observer;

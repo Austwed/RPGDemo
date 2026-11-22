@@ -40,6 +40,7 @@ namespace BaseConquest.Base
         private void OpenHeroChoice()
         {
             if(heroChoiceLayer!=null){heroChoiceLayer.gameObject.SetActive(true);return;}
+            if (villageTitle != null) ResetScenePanel(null);
             modal.gameObject.SetActive(false);activeObject="";interactionObject="";Joystick.ResetInput();controls.gameObject.SetActive(false);mapLabels.gameObject.SetActive(false);summary.transform.parent.gameObject.SetActive(false);
             heroChoiceLayer=StretchLayer("HeroChoice",root);heroChoiceLayer.gameObject.GetOrAdd<UnityEngine.UI.Image>().color=new Color(0,0,0,0);
             heroChoiceHint=Label(heroChoiceLayer,"点击长椅旁的人物，选择你的主角",new Vector2(0,-100),new Vector2(800,55),23,TextAnchor.MiddleCenter,new Vector2(.5f,1));

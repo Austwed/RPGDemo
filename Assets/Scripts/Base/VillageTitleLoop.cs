@@ -47,7 +47,7 @@ namespace BaseConquest.Base
         private void Update()
         {
             clock = Mathf.Repeat(clock + Time.unscaledDeltaTime, 3600);
-            Sample(clock);
+            if (rabbit.gameObject.activeInHierarchy) Sample(clock);
             if (Keyboard.current?.escapeKey.wasPressedThisFrame == true) back?.Invoke();
         }
 

@@ -254,7 +254,7 @@ namespace BaseConquest.Base
                 (!BaseDemoIntro.Active(s) || !BaseDemoPrologue.Village(s) || s.Demo.Intro.Step != 0))
                 heroChoiceLayer.gameObject.SetActive(false);
             bool selectingHero = heroChoiceLayer != null && heroChoiceLayer.gameObject.activeSelf;
-            summary.transform.parent.gameObject.SetActive(!selectingHero &&
+            summary.transform.parent.gameObject.SetActive(!owner.VillageTitlePreview && !selectingHero &&
                 (!PanelOpen || panelViewKey != "npc-dialogue" && panelViewKey != DemoCompletionView));
             if (panelFeedback != null) panelFeedback.text = owner.Message;
             owner.InvalidateObjects();

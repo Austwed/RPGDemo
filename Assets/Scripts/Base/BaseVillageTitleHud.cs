@@ -19,6 +19,8 @@ namespace BaseConquest.Base
             {
                 villageTitle = CloneSceneUi("VillageTitle", modal);
                 titleActions = villageTitle.Find("Actions").gameObject;
+                if (owner.VillageTitlePreview)
+                    villageTitle.Find("Village").gameObject.SetActive(false);
                 villageTitle.GetComponent<VillageTitleLoop>().BindBack(() =>
                 {
                     if (BaseBattleGateway.MainMenu && !titleActions.activeSelf) OpenVillageTitle();
@@ -28,12 +30,13 @@ namespace BaseConquest.Base
                     .Where(e => e.Error == null && !e.GameOver && !e.InBattle)
                     .OrderByDescending(e => e.SavedUtc, StringComparer.Ordinal).FirstOrDefault()?.Id : null;
                 Bind("Continue", () => owner.LoadSlot(recentTitleSlot), recentTitleSlot != null);
-                Bind("New", () => owner.NewTemplate(BaseDemo.Profile));
+                Bind("New", owner.StartVillageTitleGame);
                 Bind("Load", () => OpenSlots(false));
                 Bind("Options", OpenOptions);
                 Bind("Quit", () => BaseBattleGateway.ExitDemoSession(true));
                 if (Application.isPlaying) VillageOpeningAudio.PlayTitle();
             }
+            if (owner.VillageTitlePreview) modal.GetComponent<Image>().color = Color.clear;
             titleActions.SetActive(true);
             var focus = titleActions.transform.Find(recentTitleSlot == null ? "New" : "Continue").gameObject;
             EventSystem.current?.SetSelectedGameObject(focus);
