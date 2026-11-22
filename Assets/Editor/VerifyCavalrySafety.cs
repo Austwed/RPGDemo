@@ -32,9 +32,44 @@ namespace BaseConquest.Editor
             VerifyUnseen(false);
             VerifyUnseen(true);
             VerifyBatu();
+            VerifyDisconnectedArchery();
             Need(CombatNumbers.RemainingHealth(0)==0 && CombatNumbers.RemainingHealth(.4)==1 &&
                 CombatNumbers.RemainingHealth(12.99)==12,"战后生命取整");
             Debug.Log("[P53Combat] PASS");
+        }
+
+        private static void VerifyDisconnectedArchery()
+        {
+            void Check(bool visible, bool wall, double range, bool shouldShoot)
+            {
+                const int width = 8, height = 8, divide = 4;
+                var opaque = new bool[width * height];
+                if (wall)
+                    for (int z = 0; z < height; z++) opaque[z * width + divide - 1] = true;
+                bool LeftOfDivide(int cell) => cell % (width * PrototypeArena.Subdivision) < divide * PrototypeArena.Subdivision;
+                var arena = new PrototypeArena(opaque, opaque,
+                    (from, to) => LeftOfDivide(from) == LeftOfDivide(to), width, height);
+                var model = new RealtimeBattlePrototype(arena)
+                {
+                    AutonomousOutcome = false
+                };
+                var bow = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Archer, new PrototypePoint(2.25, 4.25));
+                var rider = model.AddUnit(PrototypeSide.Enemy, PrototypeRole.Melee, new PrototypePoint(4.25, 4.25));
+                bow.AttackRange = range;
+                rider.Mounted = true;
+                model.CanTarget = (source, target) => visible && source == bow && target == rider;
+                model.CanMove = _ => false;
+                Need(double.IsPositiveInfinity(arena.Distances(rider.Cell)[bow.Cell]), "弓兵回归场地应无步行路径");
+                model.SetPaused(false);
+                for (int frame = 0; frame < 100; frame++) model.Tick(.025);
+                Need((model.Shots > 0) == shouldShoot, $"隔断弓兵索敌异常：可见 {visible}／遮挡 {wall}／射程 {range}");
+            }
+
+            Check(true, false, 3, true);
+            Check(true, true, 3, false);
+            Check(false, false, 3, false);
+            Check(true, false, 1, false);
+            Debug.Log("[DisconnectedArchery] PASS visible, range, clear line, disconnected navigation");
         }
 
         private static void VerifyUnseen(bool lan)

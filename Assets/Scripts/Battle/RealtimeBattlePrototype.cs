@@ -537,7 +537,8 @@ namespace BaseConquest.RealtimePrototype
             }
             bool Eligible(PrototypeUnit enemy)=>enemy.Alive&&enemy.Side!=unit.Side&&(CanTarget?.Invoke(unit,enemy)??true)&&
                 (unit.Order!=PrototypeOrder.Guard||(enemy.Position-unit.Anchor).Length<=GuardTargetRadius)&&
-                (unit.Order!=PrototypeOrder.Move||(enemy.Position-unit.Position).Length<=1.3)&&!double.IsPositiveInfinity(Arena.Distances(enemy.Cell)[unit.Cell]);
+                (unit.Order!=PrototypeOrder.Move||(enemy.Position-unit.Position).Length<=1.3)&&
+                (unit.Ranged&&ReadyTarget(unit,enemy)||!double.IsPositiveInfinity(Arena.Distances(enemy.Cell)[unit.Cell]));
             if(current!=null&&Eligible(current)&&Elapsed+1e-9<unit.NextThinkAt)return current;
             if(current==null&&Elapsed+1e-9<unit.NextThinkAt)return null;
             var nearest=PreferredTarget(unit,Units.Where(Eligible));
