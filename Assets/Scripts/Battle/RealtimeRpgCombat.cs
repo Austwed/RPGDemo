@@ -20,7 +20,7 @@ namespace BaseConquest.Battle
         public bool Hit,Critical,Settled,ImpactApplied;
         public RpgShotContext Context;
         public float DamageApplied, HealthAfter;
-        public bool MageSplashEligible, HasImpactPosition;
+        public bool MageSplashEligible, HasImpactPosition, PursuitCounterattack;
         public int SplashTargetsHit;
         public float SplashDamageApplied;
         public double Attack,CriticalMultiplier,LaunchedAt,ArriveAt;
@@ -111,7 +111,7 @@ namespace BaseConquest.Battle
         }
         private void LaunchRpgAttack(PrototypeUnit source,PrototypeUnit target,double multiplier,string skillType=null)
         {
-            if(source.Side==PrototypeSide.Enemy && DefensePursuitReady)return;
+            if (!Model.AttacksAllowed(source)) return;
             Model.NotifyAttack(source,target);int id=++rpgAttackSerial;var soldier=Battle.Soldier(source.Id-1);
             double charge=ConsumeCharge(source,out var chargeType);
             string damageType=Rpg.HasProfessionCatalog?(skillType??chargeType??Rpg.AttackDamageType(BaseRpg.Profession(soldier.ProfessionKind))):"legacy";
@@ -122,6 +122,7 @@ namespace BaseConquest.Battle
                 DamageType=damageType,LaunchedAt=Model.Elapsed,Attack=Model.DamageFor(source)*multiplier*charge,Level=soldier.Stats.Level,CriticalMultiplier=soldier.Stats.CritMultiplier,Origin=source.Position,Destination=target.BodyCenter,
                 ArriveAt=Model.Elapsed+(source.Ranged?(target.BodyCenter-source.Position).Length/(Rpg.ArrowSpeed/PrototypeArena.Subdivision):0)};
             packet.MageSplashEligible=MageSplashEnabled&&soldier.ProfessionKind==SoldierKind.Mage&&damageType=="magic"&&skillType==null&&chargeType==null;
+            packet.PursuitCounterattack = source.Side == PrototypeSide.Enemy && DefensePursuitReady;
             rpgAttacks.Add(packet);
             if(source.Ranged&&damageType!="magic")Model.AddVisualArrow(source,packet.Destination,Rpg.ArrowSpeed/PrototypeArena.Subdivision);
             SettleRpgAttacks();
@@ -141,7 +142,8 @@ namespace BaseConquest.Battle
                 if(Battle.Phase!=BattlePhase.Fighting)break;
                 packet.Settled=true;var target=Model.Units.First(u=>u.Id==packet.TargetId);
                 packet.HealthAfter=(float)target.Health;
-                if(VictoryExitOpen || RuinsExitOpen || !target.Alive || target.Side==PrototypeSide.Ally && DefensePursuitReady)continue;
+                if(VictoryExitOpen || RuinsExitOpen || !target.Alive ||
+                    target.Side==PrototypeSide.Ally && DefensePursuitReady && !packet.PursuitCounterattack)continue;
                 if(!packet.Hit){Battle.RecordRpgMiss(packet.SourceId-1,packet.TargetId-1,packet.Selected);continue;}
                 var source=Model.Units.First(u=>u.Id==packet.SourceId);var defender=Battle.Soldier(target.Id-1);
                 Battle.Soldier(source.Id-1).LastAttackCritical=packet.Critical;

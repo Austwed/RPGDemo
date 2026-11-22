@@ -9,6 +9,7 @@ namespace BaseConquest.RealtimePrototype
         internal bool SwordContactPinEnabled;
         internal Func<PrototypeUnit, bool> SwordForContactPin;
         internal Func<bool> SwordContactCombatOpen;
+        internal Func<PrototypeUnit, PrototypeUnit, bool> PursuitContactPin;
         private readonly HashSet<int> contactPins = new();
 #if UNITY_EDITOR
         private readonly HashSet<int> lastHeldContactPins = new();
@@ -35,14 +36,16 @@ namespace BaseConquest.RealtimePrototype
             if (!ContactsAllowed) return;
             foreach (var sword in Units)
             {
-                if (!sword.Alive || sword.Role != PrototypeRole.Melee || sword.Ranged || sword.Mounted ||
+                if (!sword.Alive || sword.Ranged || sword.Mounted ||
                     sword.ObjectOrder || sword.Order == PrototypeOrder.Retreat || sword.JumpDuration > 0 ||
-                    sword.TargetId < 0 || !(SwordForContactPin?.Invoke(sword) ?? true)) continue;
+                    sword.TargetId < 0) continue;
 
                 var target = Units.FirstOrDefault(unit => unit.Id == sword.TargetId);
-                if (target?.Alive == true && target.Side != sword.Side && target.Role != PrototypeRole.Leader &&
-                    target.JumpDuration <= 0 && !target.ObjectOrder && (CanTarget?.Invoke(sword, target) ?? true) &&
-                    ReadyTarget(sword, target))
+                if (target?.Alive != true || target.Side == sword.Side || target.JumpDuration > 0 || target.ObjectOrder) continue;
+                bool soldierPin = sword.Role == PrototypeRole.Melee && target.Role != PrototypeRole.Leader &&
+                    (SwordForContactPin?.Invoke(sword) ?? true);
+                if ((soldierPin || PursuitContactPin?.Invoke(sword, target) == true) &&
+                    (CanTarget?.Invoke(sword, target) ?? true) && ReadyTarget(sword, target))
                     contactPins.Add(target.Id);
             }
         }

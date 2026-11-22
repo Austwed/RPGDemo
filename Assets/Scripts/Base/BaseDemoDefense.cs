@@ -209,14 +209,27 @@ namespace BaseConquest.Base
                 if(BaseDemoCombat.Defeated(current))return current.DefensePursuitReady?BattleOutcome.SideAWin:BattleOutcome.SideBWin;
                 var enemies=current.Model.Units.Where(unit=>unit.Side==PrototypeSide.Enemy&&unit.Alive).ToArray();
                 if(enemies.Length==0)return BattleOutcome.SideAWin;
-                if(current.DefensePursuitReady)
-                {
-                    var exit=current.Battle.ExitCell(BattleSide.B);var point=new PrototypePoint(exit.X+.25,exit.Z+.25);
-                    foreach(var enemy in enemies.Where(unit=>unit.Order!=PrototypeOrder.Retreat))
-                    {enemy.Order=PrototypeOrder.Retreat;enemy.Anchor=enemy.Goal=point;enemy.TargetId=-1;enemy.NextThinkAt=0;}
-                }
+                if(current.DefensePursuitReady) OrderPursuitRetreat(current, enemies);
                 return BattleOutcome.None;
             };
+            if (run.DefensePursuitReady)
+                OrderPursuitRetreat(run, run.Model.Units.Where(unit => unit.Side == PrototypeSide.Enemy && unit.Alive));
+        }
+
+        private static void OrderPursuitRetreat(RealtimeCampaignBattle run, IEnumerable<PrototypeUnit> enemies)
+        {
+            var exit = run.Battle.ExitCell(BattleSide.B);
+            var point = new PrototypePoint(exit.X + .25, exit.Z + .25);
+            foreach (var enemy in enemies)
+            {
+                if (!run.Model.AttacksAllowed(enemy) && (enemy.HitAt >= 0 || enemy.SwingUntil > run.Model.Elapsed))
+                    run.Model.CancelWindup(enemy);
+                if (enemy.Order == PrototypeOrder.Retreat) continue;
+                enemy.Order = PrototypeOrder.Retreat;
+                enemy.Anchor = enemy.Goal = point;
+                enemy.TargetId = -1;
+                enemy.NextThinkAt = 0;
+            }
         }
         public static bool Complete(BaseState state,RealtimeCampaignBattle run)
         {

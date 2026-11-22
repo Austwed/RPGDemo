@@ -643,7 +643,7 @@ namespace BaseConquest.RealtimePrototype
             return false;
         }
         private void BeginAttack(PrototypeUnit actor)
-        {if(AttackTriggered!=null){StartWindup(actor);return;}actor.AttackFacing=actor.Facing;actor.HitAt=Elapsed+(actor.Ranged ? .24 : .22);actor.HitResolved=false;actor.SwingUntil=actor.HitAt+.16;actor.ReadyAt=Elapsed+(actor.AttackInterval>0 ? actor.AttackInterval : actor.Ranged ? 1.35 : .95);}
+        {if(AttackTriggered!=null){StartWindup(actor);return;}if(!AttacksAllowed(actor))return;actor.AttackFacing=actor.Facing;actor.HitAt=Elapsed+(actor.Ranged ? .24 : .22);actor.HitResolved=false;actor.SwingUntil=actor.HitAt+.16;actor.ReadyAt=Elapsed+(actor.AttackInterval>0 ? actor.AttackInterval : actor.Ranged ? 1.35 : .95);}
         private bool InSwing(PrototypeUnit actor,PrototypeUnit target)
         {var offset=target.BodyCenter-actor.Position;return BodyGap(actor,target)<=actor.Reach+(actor.FootprintLength==2||target.FootprintLength==2?0:target.Radius)&&PrototypePoint.Dot(offset.Normalized,actor.AttackFacing)>=.5&&double.IsPositiveInfinity(Arena.WallFraction(actor.Position,target.BodyCenter));}
         private void Hurt(PrototypeUnit source,PrototypeUnit target,double damage)

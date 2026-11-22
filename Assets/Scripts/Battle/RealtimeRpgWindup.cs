@@ -37,6 +37,8 @@ namespace BaseConquest.RealtimePrototype
         }
         public Action<PrototypeUnit> AttackTriggered;
         public Func<PrototypeUnit,double> WindupDuration;
+        internal Func<PrototypeUnit, bool> AttackAllowed;
+        internal bool AttacksAllowed(PrototypeUnit actor) => AttackAllowed?.Invoke(actor) != false;
         public bool TryJump(PrototypeUnit actor,int destination,double duration,Func<int,int,bool> heightAllowed)
         {
             if(actor?.Alive!=true||actor.Moving||!PrototypeArena.Finite(duration)||duration<=0||!Fits(actor,destination,actor.Facing))return false;
@@ -52,7 +54,7 @@ namespace BaseConquest.RealtimePrototype
         {actor.HitAt=-1;actor.HitResolved=true;actor.WindupTarget=-1;actor.SwingUntil=Elapsed;actor.ReadyAt=Elapsed;actor.ObjectWindupAt=-1;}
         private void StartWindup(PrototypeUnit actor)
         {
-            if(!actor.HitResolved&&actor.HitAt>=0)return;
+            if (!AttacksAllowed(actor) || !actor.HitResolved && actor.HitAt >= 0) return;
             actor.RpgWindup=true;actor.WindupTarget=actor.TargetId;actor.WindupCell=actor.Cell;actor.WindupStarted=Elapsed;
             actor.AttackFacing=actor.Facing;actor.HitAt=Elapsed+WindupDuration(actor);actor.SwingUntil=actor.HitAt;actor.HitResolved=false;actor.ReadyAt=actor.HitAt;
             FollowMeleeWindup(actor);
@@ -82,7 +84,7 @@ namespace BaseConquest.RealtimePrototype
         {
             var target=Units.FirstOrDefault(u=>u.Id==actor.WindupTarget);
             bool anchored = !actor.Moving && actor.Cell == actor.WindupCell;
-            return actor.Alive && (anchored || MayFollowMeleeWindup(actor)) && actor.TargetId==actor.WindupTarget&&target?.Alive==true&&
+            return actor.Alive && AttacksAllowed(actor) && (anchored || MayFollowMeleeWindup(actor)) && actor.TargetId==actor.WindupTarget&&target?.Alive==true&&
                 (CanTarget?.Invoke(actor,target)??true)&&InAttackRadius(actor,target)&&ClearAttack(actor.Position,target.BodyCenter);
         }
         private void StartMovingMeleeWindups()
