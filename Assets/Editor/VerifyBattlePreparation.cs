@@ -172,11 +172,17 @@ namespace BaseConquest.Editor
         {
             var cell = draft.Positions[draft.PlayerId];
             Need(draft.Problem(state, true) == "", draft.Problem(state, true));
+            var preview = draft.Power(state, true);
+            Need(preview.ally > 0 && preview.enemy > 0, "战斗备战缺少敌我参考战力：" + draft.Route);
             var session = draft.Begin(state);
             var battle = new RealtimeCampaignBattle(session);
             var expected = draft.Units.Where(u => u.SoldierNumber > 0 && draft.Positions.ContainsKey(u.Id))
                 .ToDictionary(u => u.SoldierNumber, u => u.TeamId);
             var opening = session.Opening;
+            var enemies = opening.Enemies.Where(e => !e.Dead && !e.KnockedDown && !e.IsControlled && e.Health > 0).ToArray();
+            Need(draft.KnownEnemyCount() == enemies.Length && BattleSimulation.TroopKinds.Prepend(SoldierKind.Hero)
+                .All(kind => draft.KnownEnemyCount(kind) == enemies.Count(e => e.Kind == kind)),
+                "敌军编成与备战情报不一致：" + draft.Route);
             Need(opening.Troops.Count == expected.Count && opening.Troops.Select((troop, i) =>
                 troop.SoldierNumbers.Count == 1 && expected.TryGetValue(troop.SoldierNumbers[0], out var team) &&
                 opening.Leaders[opening.TroopSlots[i]].Id == team).All(matches => matches), "实际出战士兵编号或分队与落位不一致");
@@ -211,7 +217,7 @@ namespace BaseConquest.Editor
             Need(BaseCampaign.Travel(state, "outpost"), "前往沉眠古窟");
             At(state, "demo_ruins_investigate");
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
-            Need(draft.KnownEnemyPower(state) == null, "首战泄露敌情");
+            Need(draft.KnownEnemyPower(state) > 0 && draft.KnownEnemyCount() == 1, "首战敌情应显示古窟队长，不计受控制村民");
             Need(draft.AutoPlace() > 0, "古窟没有可用部署区");
             var battle = Start(state, draft);
             BaseDemoRuins.Configure(battle);

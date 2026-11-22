@@ -115,6 +115,14 @@ namespace BaseConquest.Base
         }
         public static BattleScenarioDocument Document(BaseState state)
         {
+            var army = EnemyArmy(state);
+            var own=army.Clone();own.MeleeCount=2;own.RangedCount=own.CavalryCount=own.MageCount=0;own.HeroCount=1;own.CaptainSlot=0;own.CommanderStats.Clear();own.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};own.CommanderNames.Clear();
+            foreach(var kind in BattleSimulation.TroopKinds){var source=state.Workers.FirstOrDefault(worker=>BaseCampaign.ToBattle(worker.Kind)==kind&&worker.HasCombatProfile);if(source!=null){if(kind==SoldierKind.Melee)own.Melee=source.CombatStats.Clone();else if(kind==SoldierKind.Ranged)own.Ranged=source.CombatStats.Clone();else if(kind==SoldierKind.Mage)own.Mage=source.CombatStats.Clone();else own.Cavalry=source.CombatStats.Clone();}}
+            return new BattleScenarioDocument {Title="Demo"+BaseScriptNames.Ruins+"救助",Scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),A=own,B=army,MaxRounds=90,FogEnabled=false,Objective=new ObjectiveConfig {Title="击败控制来源，救助失踪者"}}};
+        }
+
+        internal static ArmyDefinition EnemyArmy(BaseState state)
+        {
             if(!Enabled(state))throw new InvalidOperationException("此旧Demo没有"+BaseScriptNames.Ruins+"属性快照，请新开Demo");
             var army=state.Demo.RuinsArmy.Clone();var controller=army.Hero.Clone();controller.Health*=1.5f;controller.Damage*=1.2f;
             if(state.Demo.Rpg?.HasProfessionCatalog==true)
@@ -136,9 +144,7 @@ namespace BaseConquest.Base
                 army.Commanders[0].Mage = 2;
             }
             BaseDemoEncounterConfig.ConfigureArmy(state,EventId,army);
-            var own=army.Clone();own.MeleeCount=2;own.RangedCount=own.CavalryCount=own.MageCount=0;own.HeroCount=1;own.CaptainSlot=0;own.CommanderStats.Clear();own.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};own.CommanderNames.Clear();
-            foreach(var kind in BattleSimulation.TroopKinds){var source=state.Workers.FirstOrDefault(worker=>BaseCampaign.ToBattle(worker.Kind)==kind&&worker.HasCombatProfile);if(source!=null){if(kind==SoldierKind.Melee)own.Melee=source.CombatStats.Clone();else if(kind==SoldierKind.Ranged)own.Ranged=source.CombatStats.Clone();else if(kind==SoldierKind.Mage)own.Mage=source.CombatStats.Clone();else own.Cavalry=source.CombatStats.Clone();}}
-            return new BattleScenarioDocument {Title="Demo"+BaseScriptNames.Ruins+"救助",Scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),A=own,B=army,MaxRounds=90,FogEnabled=false,Objective=new ObjectiveConfig {Title="击败控制来源，救助失踪者"}}};
+            return army;
         }
         public static BaseCampaignSession Begin(BaseState state,string mode="full")
             => Begin(state, mode, null, null);
@@ -151,17 +157,7 @@ namespace BaseConquest.Base
             if(state.Demo.RuinsRewards==null)BaseRuinsRewards.Enable(state);
             BaseRuinsRewards.Skip(state);
             var document=Document(state);plan??=BaseAdventure.Preview(state,"expedition",true);
-            var previous=mission.EnemyArmy;var rules=state.Demo.RuinsRewards;
-            if(previous.Any(e=>e.Kind==SoldierKind.Hero&&(e.Dead||e.KnockedDown)))rules.EnemyGeneration++;
-            var fresh=BaseDemoCombat.CreateEnemies(EventId,document.Scenario.B,BaseDemoEncounterConfig.Preset(state,EventId));
-            for(int i=0;i<fresh.Count;i++)
-            {
-                var old=previous.ElementAtOrDefault(i);
-                if(old!=null&&old.Kind==fresh[i].Kind&&!old.Dead&&!old.KnockedDown)fresh[i]=old.Copy();
-                else fresh[i].Id=EventId+":spawn:"+rules.EnemyGeneration+":unit:"+i;
-                fresh[i].Dead=fresh[i].KnockedDown=false;fresh[i].Health=fresh[i].Stats.Health;
-            }
-            mission.Status="pending";mission.EnemyRecoveryDay=0;mission.EnemyArmy=fresh;
+            RefreshEnemies(state, mission, document.Scenario.B);
             var active=BaseCampaign.Begin(state,EventId,document,mode,plan,true,roster);if(state.Demo.RuinsDay==0)active.Difficulty.DropRate=0;active.RuinsExposureFraction=state.Demo.RuinsRewards.ExposureFraction;
             active.RuinsFirstClear=state.Demo.RuinsDay==0;
             active.RuinsHalfHealthRetreatDisabled = state.Demo.RuinsHalfHealthRetreatUsed;
@@ -171,6 +167,27 @@ namespace BaseConquest.Base
                 throw new InvalidOperationException("所选编队无法完整入场");
             session.Bind();
             if(!session.Battle.Start(out string problem))throw new InvalidOperationException(problem);return session;
+        }
+
+        internal static void RefreshEnemies(BaseState state, BaseCampaignEvent mission, ArmyDefinition army)
+        {
+            var previous = mission.EnemyArmy;
+            var rewards = state.Demo.RuinsRewards;
+            if (previous.Any(e => e.Kind == SoldierKind.Hero && (e.Dead || e.KnockedDown)))
+                rewards.EnemyGeneration++;
+            var fresh = BaseDemoCombat.CreateEnemies(EventId, army, BaseDemoEncounterConfig.Preset(state, EventId));
+            for (int i = 0; i < fresh.Count; i++)
+            {
+                var old = previous.ElementAtOrDefault(i);
+                if (old != null && old.Kind == fresh[i].Kind && !old.Dead && !old.KnockedDown)
+                    fresh[i] = old.Copy();
+                else fresh[i].Id = EventId + ":spawn:" + rewards.EnemyGeneration + ":unit:" + i;
+                fresh[i].Dead = fresh[i].KnockedDown = false;
+                fresh[i].Health = fresh[i].Stats.Health;
+            }
+            mission.Status = "pending";
+            mission.EnemyRecoveryDay = 0;
+            mission.EnemyArmy = fresh;
         }
         public static IEnumerable<BattleSoldier> Civilians(BaseCampaignSession session)=>session.Opening.Enemies.Select((enemy,index)=>new {enemy,index}).Where(x=>x.enemy.IsControlled).Select(x=>session.UnitForEnemy(x.index));
         public static bool ControllerDefeated(RealtimeCampaignBattle run)

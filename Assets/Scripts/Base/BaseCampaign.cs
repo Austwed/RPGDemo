@@ -266,6 +266,24 @@ namespace BaseConquest.Base
             BaseAdventure.Arrive(s);
             return true;
         }
+        // Preparation uses a state copy so enemy equipment can be resolved without advancing the real campaign.
+        internal static List<BaseEnemyMember> SnapshotEnemies(BaseState state, BaseCampaignEvent mission, ArmyDefinition army, bool demoCombat)
+        {
+            if (mission.Kind == "defense" && !string.IsNullOrEmpty(mission.SourceSiteId) && mission.EnemyArmy.Count == 0)
+            {
+                mission.EnemyArmy = BaseThreats.EnemySnapshot(state, mission, army);
+                BaseItemRecovery.Normalize(state);
+            }
+            if (demoCombat)
+            {
+                if (string.IsNullOrEmpty(mission.SourceSiteId) && mission.EnemyArmy.Count == 0)
+                    mission.EnemyArmy = BaseDemoCombat.CreateEnemies(mission.Id, army, BaseDemoEncounterConfig.Preset(state, mission.Id));
+                BaseRpg.PrepareEnemies(state, mission.EnemyArmy, mission.Id);
+                BaseItemRecovery.Normalize(state);
+            }
+            return BaseThreats.EnemySnapshot(state, mission, army);
+        }
+
         public static BaseCampaignBattle Begin(BaseState s, string eventId, BattleScenarioDocument document, string mode = "full", BaseMusterPlan plan = null,bool realtime=false)
             => Begin(s, eventId, document, mode, plan, realtime, null);
 
@@ -281,16 +299,9 @@ namespace BaseConquest.Base
                 throw new InvalidOperationException(BaseBanditHideout.ApproachText);
             if(BaseSceneInstances.Active(s)&&e.Kind=="attack"&&!hideout&&e.Id!=BaseDemoRuins.EventId&&(s.Campaign.Location!="outpost"||e.SourceSiteId!=s.Campaign.CurrentMapId))throw new InvalidOperationException("请到对应敌营实例开战，不能遥控其他据点");
             if (BaseSceneCombat.Active(s) || s.Muster.Parties.Any(p => p.InCombat) || e.Status != "pending" || e.AvailableDay > s.Day) throw new InvalidOperationException("事件未到达、已处理或已有战斗");
-            if(e.Kind=="defense"&&!string.IsNullOrEmpty(e.SourceSiteId)&&e.EnemyArmy.Count==0)
-            {
-                e.EnemyArmy=BaseThreats.EnemySnapshot(s,e,document.Scenario.B);
-                BaseItemRecovery.Normalize(s);
-            }
             // Demo 里的防守战一律走即时规则：首防、第二波和主线后的随机入侵共用同一条即时战斗链。
             bool demoCombat=realtime && BaseDemo.Active(s) && (e.Kind=="defense" || hideout || new[]{BaseDemoRuins.EventId,BaseDemoDefense.EventId,BaseDemoDefense.SecondEventId,BaseThreats.Site(s,BaseDemoFinale.Camp)?.AttackEventId}.Contains(e.Id));
-            if(demoCombat && string.IsNullOrEmpty(e.SourceSiteId) && e.EnemyArmy.Count==0)e.EnemyArmy=BaseDemoCombat.CreateEnemies(e.Id,document.Scenario.B,BaseDemoEncounterConfig.Preset(s,e.Id));
-            if(demoCombat){BaseRpg.PrepareEnemies(s,e.EnemyArmy,e.Id);BaseItemRecovery.Normalize(s);}
-            var enemies=BaseThreats.EnemySnapshot(s,e,document.Scenario.B);
+            var enemies=SnapshotEnemies(s,e,document.Scenario.B,demoCombat);
             string purpose = e.Kind == "defense" ? "defense" : "expedition";
             var party = s.Muster.Parties.FirstOrDefault(p => p.Purpose == purpose);
             if (roster != null && party?.Id != roster.ArrivedPartyId)

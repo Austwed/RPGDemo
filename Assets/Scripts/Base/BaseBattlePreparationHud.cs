@@ -490,12 +490,18 @@ namespace BaseConquest.Base
             double maxPower = Math.Max(1, Math.Max(ally, enemy ?? 0));
             PrepMeter(panel, "Ally/Meter/Fill", ally / maxPower);
             Ui<RectTransform>(panel, "Enemy/Meter").gameObject.SetActive(enemy.HasValue && !travel);
-            Ui<Text>(panel, "Enemy/Value").text = travel ? PrepText("enemy_arrival", "敌方 · 抵达战场后查看") : enemy.HasValue
-                ? "敌方参考战力 " + Number(enemy.Value) + "\n" + (battleDraft.Route == BasePrepRoute.Hideout
+            if (travel)
+                Ui<Text>(panel, "Enemy/Value").text = PrepText("enemy_arrival", "敌方 · 抵达战场后查看");
+            else
+            {
+                string composition = battleDraft.Route == BasePrepRoute.Hideout
                     ? BaseBanditHideout.CountText(battleDraft.KnownEnemyCount() ?? 0, battleDraft.KnownEnemyCount(SoldierKind.Melee),
                         battleDraft.KnownEnemyCount(SoldierKind.Ranged), battleDraft.KnownEnemyCount(SoldierKind.Cavalry))
-                    : PrepCounts(battleDraft.KnownEnemyCount))
-                : PrepText("enemy_unknown", "敌方 · 暂无已知情报");
+                    : PrepCounts(battleDraft.KnownEnemyCount);
+                Ui<Text>(panel, "Enemy/Value").text = enemy.HasValue
+                    ? "敌方参考战力 " + Number(enemy.Value) + "\n" + composition
+                    : composition;
+            }
             if (enemy.HasValue) PrepMeter(panel, "Enemy/Meter/Fill", enemy.Value / maxPower);
             Ui<Button>(panel, "Continue").interactable = problem == "";
             Ui<Button>(panel, "Sweep").interactable = problem == "";

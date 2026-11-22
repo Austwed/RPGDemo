@@ -182,9 +182,18 @@ namespace BaseConquest.Base
             if(plan.Purpose!="defense"||!plan.Leaders.Contains(state.PlayerLeaderId))throw new InvalidOperationException("首次防守需主角在场，训练中请先取消训练或重新选队");
             bool second=SecondDue(state);string eventId=second?SecondEventId:EventId;
             if (expectedSecond.HasValue && expectedSecond.Value != second) throw new InvalidOperationException("迎战事件已变化，请重新备战");
-            var army=state.Demo.Defense.Army.Clone();if(!second){BaseDemoEncounterConfig.ConfigureArmy(state,eventId,army);army.CommanderNames=new List<string>{"巴图"};}
-            var document=DefenseDocument(state,army);
+            var document=DefenseDocument(state,EnemyArmy(state,second));
             return new BaseCampaignSession(BaseCampaign.Begin(state,eventId,document,mode,plan,true,roster));
+        }
+        internal static ArmyDefinition EnemyArmy(BaseState state, bool second)
+        {
+            var army = state.Demo.Defense.Army.Clone();
+            if (!second)
+            {
+                BaseDemoEncounterConfig.ConfigureArmy(state, EventId, army);
+                army.CommanderNames = new List<string> { "巴图" };
+            }
+            return army;
         }
         internal static BattleScenarioDocument DefenseDocument(BaseState state,ArmyDefinition army)
         {

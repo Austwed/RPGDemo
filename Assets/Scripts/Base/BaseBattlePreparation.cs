@@ -146,22 +146,50 @@ namespace BaseConquest.Base
             {
                 this.hideoutSeed = hideoutSeed ?? BaseCampaign.NextBattleSeed(state, BaseBanditHideout.EventId);
                 hideoutEnemies = BaseBanditHideout.DrawEnemies(state, this.hideoutSeed, hideoutEnemyCount);
-                enemyReference = hideoutEnemies.Select(e =>
-                {
-                    var stats = e.EffectiveStats(state.Demo.Rpg);
-                    return new BattleSoldier { Kind = e.Kind, Health = e.EffectiveHealth(stats),
-                        Stats = stats, Rpg = e.Rpg, OriginCommanderSlot = e.CommanderSlot };
-                }).ToArray();
             }
-            else if (route == BasePrepRoute.Ruins && BaseRuinsSweep.Problem(state) == "")
+            if (route != BasePrepRoute.Travel)
+                enemyReference = PreviewEnemies(state);
+        }
+
+        private BattleSoldier[] PreviewEnemies(BaseState state)
+        {
+            state = state.Copy();
+            var site = Route == BasePrepRoute.BlackCrow ? BaseThreats.Site(state, BaseDemoFinale.Camp) : null;
+            string eventId = Route switch
             {
-                try
-                {
-                    var reference = BaseDemoRuins.Begin(state.Copy(), "none");
-                    enemyReference = reference.Battle.Soldiers.Where(u => u.Side == BattleSide.B && u.IsAlive).ToArray();
-                }
-                catch (InvalidOperationException) { }
+                BasePrepRoute.Ruins => BaseDemoRuins.EventId,
+                BasePrepRoute.Hideout => BaseBanditHideout.EventId,
+                BasePrepRoute.BlackCrow => site.AttackEventId,
+                BasePrepRoute.Second => BaseDemoDefense.SecondEventId,
+                _ => BaseDemoDefense.EventId
+            };
+            var mission = state.Campaign.Events.Single(e => e.Id == eventId);
+            var army = Route switch
+            {
+                BasePrepRoute.Ruins => BaseDemoRuins.EnemyArmy(state),
+                BasePrepRoute.Hideout => new ArmyDefinition { HeroCount = 0, CaptainSlot = -1 },
+                BasePrepRoute.BlackCrow => site.Capacity.Clone(),
+                _ => BaseDemoDefense.EnemyArmy(state, Route == BasePrepRoute.Second)
+            };
+            if (Route == BasePrepRoute.Ruins)
+            {
+                if (state.Demo.RuinsRewards == null) BaseRuinsRewards.Enable(state);
+                BaseDemoRuins.RefreshEnemies(state, mission, army);
             }
+            if (Route == BasePrepRoute.Hideout)
+            {
+                mission.Status = "pending";
+                mission.EnemyArmy = hideoutEnemies.Select(e => e.Copy()).ToList();
+            }
+            var enemies = BaseCampaign.SnapshotEnemies(state, mission, army, true);
+            BaseRpg.PrepareEnemies(state, enemies, eventId);
+            BaseThreats.ConfigureEnemy(new BattleScenario { B = army, BanditHideout = Route == BasePrepRoute.Hideout }, enemies);
+            return enemies.Where(e => !e.Dead && !e.KnockedDown && !e.IsControlled && e.Health > 0).Select(e =>
+            {
+                var stats = e.EffectiveStats(state.Demo.Rpg);
+                return new BattleSoldier { Side = BattleSide.B, Kind = e.Kind, Health = e.EffectiveHealth(stats),
+                    Stats = stats, Rpg = e.Rpg, OriginCommanderSlot = e.CommanderSlot };
+            }).ToArray();
         }
 
         private BattleBoard Project(BaseState state)
