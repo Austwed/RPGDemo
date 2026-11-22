@@ -142,9 +142,8 @@ namespace BaseConquest.Base
                 string construction = BaseDemo.ExperimentalManagementHidden(state) ? "商队" : "办公设施和商队";
                 if (gift) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"营地守住了。再给你一道手令，回去建" + construction + "。"));
                 var replies = new List<NpcReply>();
-                if (gift) replies.Add(new NpcReply("领取建设许可", () => owner.OrderCampConstruction(true)));
+                if (gift) replies.Add(new NpcReply("领取建设许可", owner.GrantCampConstructionPermit));
                 if (deliver) replies.Add(new NpcReply("领赏，接下手令", owner.DeliverDemoRuins));
-                else if (!gift && BaseFacilityLayout.CanOrder(state)) replies.Add(new NpcReply("营地建设", () => owner.OrderCampConstruction()));
                 replies.Add(new NpcReply("告辞", ClosePanel));
                 if (questLines.Count==0) questLines.Add(new NpcLine(BaseScriptNames.Lord,BaseScriptNames.Portrait("lord"),"守好南边。"));
                 NpcDialogue(questLines.ToArray(), replies.ToArray(), guide:deliver&&BaseQuestLog.Cue(state).ObjectId=="town_quest"); return;

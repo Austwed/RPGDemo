@@ -8,10 +8,25 @@ namespace BaseConquest.Base
     public static class BaseLocalDuel
     {
         public const string Id="demo:duel:azhu";
+
+        internal static bool Completed(BaseState state) =>
+            state.Demo.Flow?.AzhuDuelCompleted == true || state.Demo.Flow?.AzhuDuelWon == true ||
+            state.Demo.MetCompanions.Contains("partner_craft") || state.Leaders.Any(l => l.Id == "partner_craft");
+
+        internal static bool RecordResult(BaseState state, BattleOutcome outcome)
+        {
+            if (outcome != BattleOutcome.SideAWin && outcome != BattleOutcome.SideBWin) return false;
+            state.Demo.Flow.AzhuDuelCompleted = true;
+            if (outcome == BattleOutcome.SideAWin) state.Demo.Flow.AzhuDuelWon = true;
+            // Reaching the opponent was validated before the duel began. Battle input cannot invalidate that meeting.
+            if (!state.Demo.MetCompanions.Contains("partner_craft")) state.Demo.MetCompanions.Add("partner_craft");
+            return true;
+        }
+
         public static BaseCampaignSession Create(BaseState state)
         {
             if(!BaseSceneRules.Active(state)||!BaseDemoNpcs.NearAzhu(state))throw new InvalidOperationException("请走近阿铸再开始切磋");
-            if(state.Demo.Flow?.AzhuDuelWon==true||state.Demo.MetCompanions.Contains("partner_craft")||state.Leaders.Any(l=>l.Id=="partner_craft"))
+            if (Completed(state))
                 throw new InvalidOperationException("阿铸的切磋已经完成");
             var target=state.Demo.Candidates.Single(l=>l.Id=="partner_craft");
             var marker=BaseSpatial.Objects(state).FirstOrDefault(o=>o.Id=="demo_azhu")??new BaseMapObject(target.Id,target.Name,target.MapX,target.MapY,.5,.5,false);

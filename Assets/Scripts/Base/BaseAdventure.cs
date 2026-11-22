@@ -49,6 +49,7 @@ namespace BaseConquest.Base
         {
             var post = CampPost(state, leader);
             leader.WaitingAtRecruitment = false;
+            leader.VillageResident = false;
             leader.CampPostSet = true;
             leader.HasHomePosition = leader.HasMapPosition = true;
             leader.HomeX = leader.MapX = post.X; leader.HomeY = leader.MapY = post.Y;

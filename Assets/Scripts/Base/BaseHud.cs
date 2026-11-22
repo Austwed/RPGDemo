@@ -533,13 +533,11 @@ namespace BaseConquest.Base
             if(BaseDemo.Active(owner.State)&&(id=="demo_rescuer"||id=="demo_chunshen"))
             {
                 if(owner.State.Demo.Stage==BaseDemoStage.Waking){OpenDemoStory();return;}
-                bool zhou = id == "demo_rescuer";
-                if (zhou && OpenZhouTraining()) return;
-                string campGreeting = zhou ? "留得青山在，总能寻回你那位同伴的。" :
-                    BaseConquest.Story.StoryText.Get("story.scene.camp.civilian_work", "田里缺人时，我们先去搭把手。田里忙得过来，再去工坊。你要调兵，照常安排就是。");
-                NpcDialogue(WithInjury(owner.State, zhou ? "INJ_CAMP_ZHOU" : "INJ_CAMP_CHUN",
-                    new NpcLine(zhou ? BaseScriptNames.LaoZhou : BaseScriptNames.ChunShen,
-                        BaseScriptNames.Portrait(zhou ? "laozhou" : "chunshen"), campGreeting)),
+                if (id == "demo_rescuer") { OpenZhouCamp(); return; }
+                string campGreeting = BaseConquest.Story.StoryText.Get("story.scene.camp.civilian_work",
+                    "田里缺人时，我们先去搭把手。田里忙得过来，再去工坊。你要调兵，照常安排就是。");
+                NpcDialogue(WithInjury(owner.State, "INJ_CAMP_CHUN",
+                    new NpcLine(BaseScriptNames.ChunShen, BaseScriptNames.Portrait("chunshen"), campGreeting)),
                     new[] { new NpcReply("回头见", ClosePanel) });
                 return;
             }

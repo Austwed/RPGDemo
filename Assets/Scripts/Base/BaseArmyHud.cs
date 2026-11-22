@@ -48,7 +48,8 @@ namespace BaseConquest.Base
             var s = owner.State; var preset = ArmyPreset(s);
             Line("默认带兵组成：兵营 · 队长编组。",58,18);
             foreach(var leader in BaseAdventure.Members(s))Line(BasePersonnel.LeaderName(leader)+" · "+TroopsText(leader.DefaultTroops),48,19);
-            Line("当前冒险小队 "+s.Adventure.Members.Count+"/3 · 暂离占位 "+s.Adventure.Pauses.Count,48,20);
+            string paused = s.Adventure.Pauses.Count == 0 ? "" : $" · 暂离占位 {s.Adventure.Pauses.Count}";
+            Line($"当前冒险小队 {s.Adventure.Members.Count}/{BaseAdventure.Capacity}{paused}", 48, 20);
             foreach (var leader in BaseAdventure.Members(s))
             {
                 Line(BasePersonnel.LeaderName(leader)+" · 生命 "+leader.Health.ToString("0")+"/"+leader.MaxHealth.ToString("0")+(leader.Away ? " · 外出" : " · 随行"),50,20);

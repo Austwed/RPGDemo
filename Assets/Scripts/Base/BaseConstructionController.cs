@@ -26,9 +26,6 @@ namespace BaseConquest.Base
         private bool campPressed, campDragged, paletteDragging;
         private BaseMapPlacement placementBeforeDrag;
         public bool CampPlacementMode => campLayout != null;
-        internal bool CampConstructionAvailable => State?.Demo?.Flow?.CampConstructionOrdered == true && !Busy && !ConstructionMode &&
-            BaseFacilityLayout.Editable(State) && BaseFacilityLayout.CanOrder(State);
-        internal bool CampConstructionReturnReminder => State?.Demo?.Flow?.CampConstructionOrdered == true && State.Campaign.Location == "town";
         internal SettlementLayoutDraft CampLayoutDraft => campLayout;
         internal string CampProject => campProject;
         internal string CampPlacementMessage => campPlacementMessage;
@@ -55,19 +52,20 @@ namespace BaseConquest.Base
             constructionOpen=false;constructionBrush.Cancel();constructionTouch=-1;mouseTap=null;touches.Clear();
             regionView?.SelectCell(null);regionView?.TintSelection(new Color(1,.89f,.28f));Hud?.RefreshConstructionPalette();
         }
-        internal void OrderCampConstruction(bool caravanPermit = false)
+        internal void GrantCampConstructionPermit()
         {
-            if (!BaseFacilityLayout.CanOrder(State) || !BaseInteraction.At(State, "town", "town_quest")) return;
-            if (Change(next =>
-            {
-                if (caravanPermit && BaseDemoDefense.Won(next)) next.Layout.OfficeGift = true;
-                next.Demo.Flow.CampConstructionOrdered = true;
-            }, "")) Hud.ClosePanel();
+            if (!BaseFacilityLayout.CanOrder(State) || !BaseDemoDefense.Won(State) ||
+                !BaseInteraction.At(State, "town", "town_quest")) return;
+            if (Change(next => next.Layout.OfficeGift = true, "")) Hud.ClosePanel();
         }
 
         internal void ArmCampPlacement()
         {
-            if (!CampConstructionAvailable || Hud.PanelOpen) return;
+            if (Busy || ConstructionMode || !BaseFacilityLayout.CanEnterCampConstruction(State) ||
+                !BaseInteraction.At(State, "base", "demo_rescuer")) return;
+            if (!State.Demo.Flow.CampConstructionOrdered &&
+                !Change(next => next.Demo.Flow.CampConstructionOrdered = true, "")) return;
+            Hud.ClosePanel();
             StartSettlementPlacement(false);
         }
 

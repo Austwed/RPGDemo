@@ -92,6 +92,31 @@ namespace BaseConquest.Base
         {
             if(PauseProblem(s,id,true)!="")return false;var paused=PauseFor(s,id);bool outside=paused.Region!="base";RestorePaused(s,paused);BaseDevelopment.Allocate(s);BaseAchievements.PartyChanged(s);if(outside)BaseAchievements.Unlock(s,BaseAchievements.Reunion);return true;
         }
+        internal static string LeaveHereProblem(BaseState s, string id) =>
+            PauseProblem(s, id, PauseFor(s, id) != null);
+
+        internal static bool LeaveHere(BaseState s, string id)
+        {
+            if (LeaveHereProblem(s, id) != "") return false;
+            var leader = s.Leaders.Single(person => person.Id == id);
+            var position = leader.HasMapPosition ? new BasePoint(leader.MapX, leader.MapY) :
+                new BasePoint(s.PlayerX, s.PlayerY);
+            var paused = PauseFor(s, id);
+            // An explicit expedition may have brought soldiers. Return its detached contingent by the existing path.
+            if (paused == null && s.Muster.Parties.Any(party => party.Id == leader.PartyId))
+            {
+                if (!Pause(s, id)) return false;
+                paused = PauseFor(s, id);
+            }
+            if (paused != null) RestorePaused(s, paused, true);
+            s.Adventure.Members.Remove(id);
+            leader.FacilityId = leader.DesiredFacility = "";
+            WaitAtRecruitment(s, leader, position);
+            BaseDevelopment.Allocate(s);
+            BaseAchievements.PartyChanged(s);
+            return true;
+        }
+
         public static bool SendToCamp(BaseState s, string id)
         {
             var leader = s.Leaders.FirstOrDefault(person => person.Id == id);

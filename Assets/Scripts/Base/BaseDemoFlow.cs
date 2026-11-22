@@ -7,10 +7,10 @@ namespace BaseConquest.Base
     [Serializable] public sealed class BaseDemoFlowState
     {
         public int HiredKinds;
-        public bool CampConstructionOrdered;
+        public bool CampConstructionOrdered, ZhouConstructionNoticeSeen;
         public bool HideoutRecruitClueSeen, HideoutRecruitCluePending;
         public bool RecruitmentNotice, RecruitOpened, HomeEnterSeen, RestLessonDone, FarmOfferPending, FarmOfferShown, NoviceShop;
-        public bool AzhuDuelWon, SmithGiftOffered, ControllerAccepted, ControllerPledged, BanditCleared;
+        public bool AzhuDuelWon, AzhuDuelCompleted, SmithGiftOffered, ControllerAccepted, ControllerPledged, BanditCleared;
         public BaseSideQuestStage SmithLesson, ZhouTraining;
         public string FirstControllerId="";
         public double FarmX,FarmY,FarmNpcX,FarmNpcY;public bool FarmWalking;
@@ -109,6 +109,16 @@ namespace BaseConquest.Base
     }
     public static class BaseDemoFlow
     {
+        internal static bool TryShowFarmOffer(BaseState state, bool recruited)
+        {
+            var flow = state.Demo.Flow;
+            if (!flow.FarmOfferPending || flow.FarmOfferShown ||
+                !recruited && !BaseDemoRuins.Meet(state, "partner_farm")) return false;
+            flow.FarmOfferShown = true;
+            flow.FarmOfferPending = false;
+            return true;
+        }
+
         public static bool Active(BaseState s)=>BaseDemo.Active(s)&&s.Demo.Flow!=null;
         public static bool Recruited(BaseState s)=>Active(s)&&s.Demo.Flow.HiredKinds==7;
         public static string RecruitProgress(BaseState s)=>string.Join("  ",new[]{BaseTroopKind.Melee,BaseTroopKind.Ranged,BaseTroopKind.Cavalry}.Select((k,n)=>((s.Demo.Flow.HiredKinds&(1<<n))!=0?"■ ":"□ ")+(n==0?"剑士":n==1?"弓兵":"骑兵")+"×1"));

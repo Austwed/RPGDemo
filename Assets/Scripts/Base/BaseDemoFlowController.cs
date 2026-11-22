@@ -46,9 +46,17 @@ namespace BaseConquest.Base
                     {var next=farmRoute[farmRouteIndex];double d=origin.Distance(next),step=Math.Min(d,Math.Min(seconds<0?Time.deltaTime:seconds,.05)*2.8);if(d>.001){double x=f.FarmNpcX,y=f.FarmNpcY;BaseSpatial.Move(State,ref x,ref y,(next.X-x)/d*step,(next.Y-y)/d*step);f.FarmNpcX=x;f.FarmNpcY=y;}if(d<=.08)farmRouteIndex++;}
                 }
                 InvalidateObjects();if(npcViews.TryGetValue("demo_ahe",out var npc))npc.MoveTo(WorldPoint(f.FarmNpcX,f.FarmNpcY));
-                if(new BasePoint(f.FarmNpcX,f.FarmNpcY).Distance(goal)>.8||new BasePoint(f.FarmNpcX,f.FarmNpcY).Distance(new BasePoint(State.PlayerX,State.PlayerY))>2)return;
+                if (new BasePoint(f.FarmNpcX, f.FarmNpcY).Distance(goal) > .8 ||
+                    !BaseDemoRuins.CanMeet(State, "partner_farm")) return;
             }
-            if(Change(s=>{s.Demo.Flow.FarmOfferShown=true;s.Demo.Flow.FarmOfferPending=false;if(!recruited&&!BaseDemoRuins.Meet(s,"partner_farm"))throw new InvalidOperationException("请靠近阿禾交谈");},"阿禾向你介绍种植特性"))Hud.OpenAheFarmOffer(recruited);
+
+            bool offerReady = false;
+            if (CommitChange(s =>
+            {
+                if (!BaseDemoFlow.TryShowFarmOffer(s, recruited)) return;
+                offerReady = true;
+            }, "", false) && offerReady)
+                Hud.OpenAheFarmOffer(recruited);
         }
         private System.Collections.Generic.List<BasePoint> farmRoute;private int farmRouteIndex;
     }

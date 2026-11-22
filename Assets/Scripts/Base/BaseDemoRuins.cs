@@ -44,9 +44,14 @@ namespace BaseConquest.Base
         }
         public static string Marker(string id)=>id=="partner_farm"?"demo_ahe":"demo_azhu";
         public static string Region(string id)=>id=="partner_farm"?"base":"town";
+        internal static bool CanMeet(BaseState state, string id) =>
+            Enabled(state) && !BaseDemoPrologue.Village(state) && state.Demo.Stage != BaseDemoStage.Waking &&
+            state.Demo.Candidates.Any(person => person.Id == id) &&
+            (id == "partner_craft" ? BaseDemoNpcs.NearAzhu(state) : BaseInteraction.At(state, Region(id), Marker(id)));
+
         public static bool Meet(BaseState state,string id)
         {
-            if(!Enabled(state)||BaseDemoPrologue.Village(state)||state.Demo.Stage==BaseDemoStage.Waking||!state.Demo.Candidates.Any(person=>person.Id==id)||!(id=="partner_craft"?BaseDemoNpcs.NearAzhu(state):BaseInteraction.At(state,Region(id),Marker(id))))return false;
+            if (!CanMeet(state, id)) return false;
             if(!state.Demo.MetCompanions.Contains(id))state.Demo.MetCompanions.Add(id);return true;
         }
         public static bool Join(BaseState state, string id, bool requestFollow = true)

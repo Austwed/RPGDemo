@@ -110,10 +110,12 @@ namespace BaseConquest.Base
         private bool FinishAzhuDuel(RealtimeCampaignBattle run,bool abandon,bool mainMenu)
         {
             if(beforeAzhuDuel==null)return false;var next=beforeAzhuDuel.Copy();
-            bool won=!abandon&&run?.Battle.Report?.Outcome==BattleOutcome.SideAWin;
-            if(won){next.Demo.Flow.AzhuDuelWon=true;if(!next.Demo.MetCompanions.Contains("partner_craft"))BaseDemoRuins.Meet(next,"partner_craft");}
-            if(!abandon&&run?.Battle.Phase==BattlePhase.Finished)BaseSceneRules.RememberStrategy(next,run.Session);BaseEconomy.Validate(next);SaveStore.Save(next);State=next;beforeAzhuDuel=null;
-            FinishLocalScene(mainMenu,()=>Hud.OpenAzhuAfterDuel(won));return true;
+            var outcome = abandon ? BattleOutcome.None : run?.Battle.Report?.Outcome ?? BattleOutcome.None;
+            bool completed = BaseLocalDuel.RecordResult(next, outcome);
+            if (completed) BaseSceneRules.RememberStrategy(next, run.Session);
+            BaseEconomy.Validate(next); SaveStore.Save(next); State = next; beforeAzhuDuel = null;
+            FinishLocalScene(mainMenu, completed ? () => Hud.OpenAzhuAfterDuel(outcome == BattleOutcome.SideAWin) : () => Hud.OpenDemoPartner("partner_craft"));
+            return true;
         }
         public bool SceneCellKnown(GridPosition p)=>(combatController?.Realtime?.Battle.Vision??explorationSight)?.TerrainVisible(BattleSide.A,p)??true;
         public bool SceneObjectVisible(BaseMapObject o)

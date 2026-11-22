@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BaseConquest.Story;
 
 namespace BaseConquest.Base
@@ -41,6 +42,43 @@ namespace BaseConquest.Base
                 BaseDemoSideQuests.Smith(owner.State) != BaseSideQuestStage.Ready) return false;
             OpenSmithLessonResult();
             return true;
+        }
+
+        internal const string ZhouConstructionNotice =
+            "领主的建设许可下来了，我们可以建一些新设施或者移动设施位置，不过不要把人家的路给挡了。";
+
+        internal static readonly string[] ZhouCampTips =
+        {
+            "你有时候会看到没士兵工作但还是会有一些产出，那是乡亲们自发来帮忙的，大家都是一家人",
+            "如果打不过敌人不妨试试更高级的军需",
+            "战斗时要是发现敌人不太好打可以回到出口撤离",
+            "士兵要是没饭吃会自己走人的，他们也有自己的小家要养",
+            "上了战场的士兵当天没力气继续工作，如果受了重伤不仅不能工作还不能外出战斗",
+            "军需要用原料造，原料目前需要找商人购买，或许以后会有路子自给自足",
+            "要是没钱没兵一穷二白，你可以带上伙伴去遗迹多探索几次，总会有收获的",
+            "可以找商人买小道消息，虽然有点贵，但是或许对战斗规划会有所帮助",
+            "不要囤积太多士兵，多出来的士兵没地方工作还会消耗粮草，而且镇上的募兵官会担心你势力太大，从而减少兵源并且提高价格",
+            "不听老人言，吃亏在眼前"
+        };
+
+        private void OpenZhouCamp()
+        {
+            var state = owner.State;
+            bool canBuild = BaseFacilityLayout.CanEnterCampConstruction(state);
+            if (!canBuild && OpenZhouTraining()) return;
+
+            bool firstPermitChat = BaseFacilityLayout.NeedsZhouConstructionNotice(state);
+            if (firstPermitChat && !owner.Change(next => next.Demo.Flow.ZhouConstructionNoticeSeen = true, "")) return;
+            var line = new NpcLine(BaseScriptNames.LaoZhou, BaseScriptNames.Portrait("laozhou"),
+                firstPermitChat ? ZhouConstructionNotice : ZhouCampTips[UnityEngine.Random.Range(0, ZhouCampTips.Length)]);
+            var replies = new List<NpcReply>();
+            if (canBuild) replies.Add(new NpcReply("营地建设", owner.ArmCampPlacement));
+            var training = BaseDemoSideQuests.Zhou(state);
+            if (canBuild && (training == BaseSideQuestStage.Accepted || training == BaseSideQuestStage.Ready ||
+                BaseDemoSideQuests.ZhouOffer(state)))
+                replies.Add(new NpcReply(BaseDemoSideQuests.ZhouTitle, () => OpenZhouTraining()));
+            replies.Add(new NpcReply("回头见", ClosePanel));
+            NpcDialogue(firstPermitChat ? new[] { line } : WithInjury(state, "INJ_CAMP_ZHOU", line), replies.ToArray());
         }
 
         private bool OpenZhouTraining()

@@ -431,17 +431,11 @@ namespace BaseConquest.Editor
                 : opponent.Health <= opponent.MaxHealth * .5 ? BattleOutcome.SideAWin : BattleOutcome.None;
             duel.Strategy(0, SquadStrategy.Attack);
             Tick(duel, 5400);
-            bool liveWin = duel.Battle.Report?.Outcome == BattleOutcome.SideAWin;
-            if (!liveWin)
-            {
-                duel = new RealtimeCampaignBattle(BaseLocalDuel.Create(state));
-                var sample = duel.Model.Units.Single(unit => unit.Side == PrototypeSide.Enemy);
-                duel.OutcomeResolver = _ => sample.Health <= sample.MaxHealth * .5 ? BattleOutcome.SideAWin : BattleOutcome.None;
-                sample.Health = sample.MaxHealth * .5;
-                Tick(duel, 4);
-            }
-            Need(duel.Battle.Report?.Outcome == BattleOutcome.SideAWin && BaseDemoRuins.Meet(state, "partner_craft"), "阿铸比武没有开放邀请");
-            state.Demo.Flow.AzhuDuelWon = true;
+            var outcome = duel.Battle.Report?.Outcome ?? BattleOutcome.None;
+            var recordOutcome = typeof(BaseLocalDuel).GetMethod("RecordResult", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            Need(recordOutcome?.Invoke(null, new object[] { state, outcome }) is true &&
+                state.Demo.Flow.AzhuDuelCompleted && state.Demo.Flow.AzhuDuelWon == (outcome == BattleOutcome.SideAWin),
+                "阿铸比武没有正常结束、记录胜负并开放邀请");
             try
             {
                 BaseLocalDuel.Create(state);
@@ -450,7 +444,7 @@ namespace BaseConquest.Editor
             catch (InvalidOperationException error) when (error.Message == "阿铸的切磋已经完成") { }
             Need(BaseDemoRuins.Join(state, "partner_craft") && BaseDemoStories.Gift(state), "阿铸加入或铁匠赠礼失败");
             ResolveLoot(state);
-            Note("回镇主动找阿铸比武，" + (liveWin ? "实战" : "受控半血样本") + "胜利后邀请同行，领取巴隆赠礼。");
+            Note("回镇主动找阿铸比武，实际结果「" + BattleSceneController.OutcomeName(outcome) + "」，结束后邀请同行并领取巴隆赠礼。");
         }
 
         private static void ApproachController(RealtimeCampaignBattle run, bool attack, int frames, Func<bool> stop = null,double frameSeconds=1d/60)

@@ -12,9 +12,9 @@ namespace BaseConquest.Base
         private UnityEngine.UI.Button demolishProject,trapProject,sandbagProject;
         private Text constructionResources,constructionStatus;
         private RectTransform campConstructionPalette;
-        private Button campConstructionResume, campStore, campConfirm, campExit;
+        private Button campStore, campConfirm, campExit;
         private Button[] campProjectButtons;
-        private Text campBuildStatus, campReturnReminder;
+        private Text campBuildStatus;
         private (SettlementLayoutDraft Draft, int Revision, string Project, string Status) campPaletteContent;
         private void BuildConstructionPalette()
         {
@@ -36,11 +36,6 @@ namespace BaseConquest.Base
         private void BuildCampConstructionPalette()
         {
             var theme = DemoUiTheme.Current;
-            campConstructionResume = MakeButton(controls, "营地建设", new Vector2(-156, 115), new Vector2(214, 48),
-                owner.ArmCampPlacement, new Vector2(1, 0));
-            campConstructionResume.name = "CampConstructionResume";
-            campReturnReminder = Label(controls, "从西口返回灰岩营地", new Vector2(-156, 115), new Vector2(245, 38),
-                20, TextAnchor.MiddleCenter, new Vector2(1, 0));
             var tint=theme.Panel;
             tint.a=.82f;
             campConstructionPalette = Solid("CampConstructionPalette",controls,new Vector2(.5f,0),new Vector2(0,43),
@@ -75,13 +70,9 @@ namespace BaseConquest.Base
             campStore=MakeButton(campConstructionPalette,"收存",Vector2.zero,new Vector2(72,42),owner.StoreCampProject);
             campStore.name="StoreProject";
             campConstructionPalette.gameObject.SetActive(false);
-            campConstructionResume.gameObject.SetActive(false);
-            campReturnReminder.gameObject.SetActive(false);
         }
         private void RefreshCampConstructionPalette(bool show)
         {
-            campConstructionResume.gameObject.SetActive(!PanelOpen && owner.CampConstructionAvailable);
-            campReturnReminder.gameObject.SetActive(!PanelOpen && owner.CampConstructionReturnReminder);
             campConstructionPalette.gameObject.SetActive(show);
             if (!show) return;
             var draft = owner.CampLayoutDraft;

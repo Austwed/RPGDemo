@@ -7,13 +7,16 @@ namespace BaseConquest.Base
     public sealed partial class BaseHud
     {
         private readonly BasePartnerDialogue dialogue=new BasePartnerDialogue();
-        public void OpenAzhuAfterDuel(bool won=true)
+        public void OpenAzhuAfterDuel(bool won)
         {
-            NpcDialogue(won?new[]{
-                new NpcLine("阿铸","azhu","［甩了甩手］痛快！你这一剑，我都来不及收枪。"),
-                new NpcLine("阿铸","azhu","老闷在铺里也没意思。你那儿缺人吗？算我一个。")
-            }:new[]{new NpcLine("阿铸","azhu","［收枪］到这儿吧。歇口气，想再练就来找我。")},
-                new[]{new NpcReply(won?"欢迎加入":"再切磋一次",()=>{if(won)owner.JoinDemoPartner("partner_craft");else owner.BeginAzhuDuel();}),new NpcReply("暂缓邀请",ClosePanel)});
+            string praise = won ? "［甩了甩手］痛快！你这一剑，我都来不及收枪。" :
+                "前些天伤得那么重，还没养好就能跟我打成这样。你的剑法，我服。";
+            NpcDialogue(new[]
+            {
+                new NpcLine("阿铸", "azhu", praise),
+                new NpcLine("阿铸", "azhu", "老闷在铺里也没意思。你那儿缺人吗？算我一个。")
+            }, new[] { new NpcReply("欢迎加入", () => owner.JoinDemoPartner("partner_craft")),
+                new NpcReply("暂缓邀请", ClosePanel) });
         }
         private void OpenPartner(string id)
         {
@@ -31,37 +34,50 @@ namespace BaseConquest.Base
             var replies=new List<NpcReply>{new NpcReply("聊天对话",()=>RenderPartner(id,dialogue.Chat(owner.State, leader)))};
             if(joined)
             {
-                replies.Add(new NpcReply(paused?"恢复随行":"在这里等候",()=>SetPartnerWaiting(id,paused),nearby&&problem==""));
-                if(s.Campaign.Location=="base"&&BaseAdventure.ChangeProblem(s,id,false)=="")
-                    replies.Add(new NpcReply("留在营地",()=>SetPartnerFollowing(id,false),nearby));
+                if (paused) replies.Add(new NpcReply("恢复随行", () => ResumePartner(id), nearby && problem == ""));
+                replies.Add(new NpcReply("留在此地", () => LeavePartnerHere(id),
+                    nearby && BaseAdventure.LeaveHereProblem(s, id) == ""));
             }
-            else replies.Add(new NpcReply("邀请随行",()=>SetPartnerFollowing(id,true),nearby&&(BaseAdventure.Full(s)||BaseAdventure.WaitingHere(s,leader)||problem=="")));
+            else replies.Add(new NpcReply("邀请随行", () => FollowPartner(id),
+                nearby && (BaseAdventure.Full(s) || BaseAdventure.WaitingHere(s, leader) || problem == "")));
             if (BaseAdventure.WaitingHere(s,leader) || joined && (s.Campaign.Location != "base" || s.Muster.Parties.Count != 0) && problem == "")
                 replies.Add(new NpcReply("回到营地",()=>SendPartnerHome(id),nearby));
             replies.Add(new NpcReply("退出对话",ClosePanel));
             NpcDialogue(new[]{new NpcLine(BasePersonnel.LeaderName(leader),BaseCommanderIdentity.Appearance(leader),BasePartnerDialogue.Resolve(leader,key),leader.Id==s.PlayerLeaderId)},replies.ToArray());
         }
-        private void SetPartnerWaiting(string id, bool resume)
+        private void ResumePartner(string id)
         {
             if (owner.Change(next =>
             {
                 if (!BaseInteraction.CanReach(next, owner.PresentedObject(id)))
                     throw new InvalidOperationException("请在伙伴旁交谈");
-                bool changed = resume ? BaseAdventure.Resume(next,id) : BaseAdventure.Pause(next,id);
-                if (!changed) throw new InvalidOperationException(BaseAdventure.PauseProblem(next,id,resume));
+                if (!BaseAdventure.Resume(next, id))
+                    throw new InvalidOperationException(BaseAdventure.PauseProblem(next, id, true));
             }, "")) ClosePanel();
         }
 
-        private void SetPartnerFollowing(string id, bool follow)
+        private void LeavePartnerHere(string id)
         {
-            if (follow && BaseAdventure.Full(owner.State)) { OpenFullPartyReply(id,ClosePanel); return; }
+            if (owner.Change(next =>
+            {
+                if (!BaseInteraction.CanReach(next, owner.PresentedObject(id)))
+                    throw new InvalidOperationException("请在伙伴旁交谈");
+                if (!BaseAdventure.LeaveHere(next, id))
+                    throw new InvalidOperationException(BaseAdventure.LeaveHereProblem(next, id));
+            }, "")) ClosePanel();
+        }
+
+        private void FollowPartner(string id)
+        {
+            if (BaseAdventure.Full(owner.State)) { OpenFullPartyReply(id, ClosePanel); return; }
             if (owner.Change(next =>
             {
                 if (!BaseInteraction.CanReach(next, owner.PresentedObject(id)))
                     throw new InvalidOperationException("请在伙伴旁交谈");
                 var person = next.Leaders.Single(l => l.Id == id);
-                if (!(follow && BaseAdventure.WaitingHere(next,person) ? BaseAdventure.InviteWaiting(next,person) : BaseAdventure.SetMember(next, id, follow)))
-                    throw new InvalidOperationException(BaseAdventure.ChangeProblem(next, id, follow));
+                if (!(BaseAdventure.WaitingHere(next, person) ? BaseAdventure.InviteWaiting(next, person) :
+                    BaseAdventure.SetMember(next, id, true)))
+                    throw new InvalidOperationException(BaseAdventure.ChangeProblem(next, id, true));
             }, "")) ClosePanel();
         }
 

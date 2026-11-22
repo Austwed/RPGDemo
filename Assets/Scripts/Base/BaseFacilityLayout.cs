@@ -81,6 +81,12 @@ namespace BaseConquest.Base
         public static bool Editable(BaseState s) => s != null && !s.Aftermath.GameOver && !s.Campaign.HasActiveBattle && !s.Muster.Parties.Any(p => p.InCombat) && !BaseSceneCombat.Active(s) && s.Campaign.Location == "base";
         internal static bool CanOrder(BaseState s) => BaseDemoFlow.Active(s) && BaseDemoDefense.Delivered(s) &&
             !BaseBattleLoot.Pending(s) && !BaseDemoPrologue.Village(s);
+        internal static bool CanEnterCampConstruction(BaseState s) =>
+            s?.Layout?.OfficeGift == true && CanOrder(s) && Editable(s);
+
+        internal static bool NeedsZhouConstructionNotice(BaseState s) =>
+            CanEnterCampConstruction(s) && !s.Demo.Flow.ZhouConstructionNoticeSeen;
+
         internal static IEnumerable<BaseFacilityDef> CampProjects(BaseState s) => Catalog.Where(def => !def.Required &&
             (def.Id != "workshop" || BaseDemoDefense.Repaired(s, def.Id)) &&
             (def.Id != "office" || !BaseDemo.Active(s)) &&
