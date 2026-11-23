@@ -98,7 +98,7 @@ namespace BaseConquest.Battle
                 (realtime.HasBattlefieldExits && !realtime.RuinsExitOpen && !realtime.VictoryExitOpen ||
                  !demoBattle && !IsAzhuDuel && !IsDemoPractice && !IsDemoPursuit && !IsSecondDefense && !IsStandaloneTest);
             bool demo = demoBattle;
-            float height = page == CampaignMenuPage.Audio ? 272 : page == CampaignMenuPage.Options ? 494 :
+            float height = page == CampaignMenuPage.Audio ? 272 : page == CampaignMenuPage.Options ? 556 :
                 page == CampaignMenuPage.Help ? (helpTopic < 0 ? 536 : 460) :
                 compact ? (confirmation ? 334 : canWithdraw ? 432 : 368) : 480;
             panel.sizeDelta = new Vector2(720, height);
@@ -178,6 +178,12 @@ namespace BaseConquest.Battle
                 Option("Ranges", "角色范围：" + (MapDisplayOptions.BattleRanges ? "开启" : "关闭"), y -= 62, () =>
                 {
                     MapDisplayOptions.BattleRanges = !MapDisplayOptions.BattleRanges;
+                    SyncViews();
+                    OpenCampaignOptions();
+                });
+                Option("AttackRange", "攻击射程：" + (MapDisplayOptions.AttackRange ? "开启" : "关闭"), y -= 62, () =>
+                {
+                    MapDisplayOptions.AttackRange = !MapDisplayOptions.AttackRange;
                     SyncViews();
                     OpenCampaignOptions();
                 });

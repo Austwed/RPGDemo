@@ -6,6 +6,7 @@ namespace BaseConquest.Battle
         private const string GridKey="BaseConquest.ShowMapGridOutlines";
         private const string BattleGridKey="BaseConquest.ShowBattleGridOutlines";
         private const string BattleRangesKey="BaseConquest.ShowBattleRanges";
+        private const string AttackRangeKey="BaseConquest.ShowAttackRange";
         private const string BattleLinesKey="BaseConquest.ShowBattleLines";
         public static bool BattleGridOutlines
         {
@@ -26,6 +27,11 @@ namespace BaseConquest.Battle
         {
             get=>PlayerPrefs.GetInt(BattleLinesKey,1)!=0;
             set {PlayerPrefs.SetInt(BattleLinesKey,value ? 1 : 0);PlayerPrefs.Save();}
+        }
+        public static bool AttackRange
+        {
+            get=>PlayerPrefs.GetInt(AttackRangeKey,1)!=0;
+            set {PlayerPrefs.SetInt(AttackRangeKey,value ? 1 : 0);PlayerPrefs.Save();}
         }
     }
 }
