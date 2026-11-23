@@ -124,7 +124,7 @@ namespace BaseConquest.Battle
                          unit.Escaped && unit.Order == PrototypeOrder.Retreat)) ||
                     !allies.Any(unit => unit.Alive && victoryMovers.Contains(unit.Id))
                     ? BattleOutcome.SideAWin : BattleOutcome.None;
-            if (proposed == BattleOutcome.SideAWin && !BaseDemoRuins.Encounter(Session))
+            if (proposed == BattleOutcome.SideAWin && !(BaseDemoRuins.Encounter(Session) && Session.Opening.RuinsFirstClear))
             {
                 if (SettleVictoryHere) return proposed;
                 LockBattlefieldVictory();

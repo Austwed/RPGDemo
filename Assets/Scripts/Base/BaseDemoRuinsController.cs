@@ -127,10 +127,10 @@ namespace BaseConquest.Base
             if(State.Demo.RuinsDay==0&&!confrontationConfirmed)
             {if(prepared!=null)ShowDeploymentBriefing();Hud.OpenRuinsConfrontation(()=>BeginDemoRuins(mode,true,true,prepared));return;}
             Companions.Capture(State);var before=State.Copy();BaseCampaignSession encounter=null;
-            if(!Change(next=>encounter=prepared==null?BaseDemoRuins.Begin(next,mode):prepared.Begin(next),"军需与真实人员已锁定；进入遗迹救助战"))
+            if(!Change(next=>encounter=prepared==null?BaseDemoRuins.Begin(next,mode):prepared.Begin(next),"军需与出战人员已确认"))
             {if(prepared!=null)Hud.RefreshPreparedFailure();return;}
             beforeDemoRuins=before;if(BaseSceneRules.Active(State)&&!DeploymentWorldActive)RefreshDemoRegion();
-            try{BeginSceneEncounter(encounter,BaseDemoRuins.Configure,null,FinishDemoRuinsEncounter,"遗迹救助 · 击败控制来源",prepared);}
+            try{BeginSceneEncounter(encounter,BaseDemoRuins.Configure,null,FinishDemoRuinsEncounter,BaseDemoRuins.CombatObjective(encounter.Opening.RuinsFirstClear),prepared);}
             catch(Exception error)
             {
                 MapSession.LeaveBattle();SaveStore.Save(before);State=before;beforeDemoRuins=null;

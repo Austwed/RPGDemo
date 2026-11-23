@@ -116,7 +116,7 @@ namespace BaseConquest.Base
                 soldier.InstantDead = loss.Dead;
                 soldier.DeathResolved = loss.Dead;
             }
-            if (run.Battle.Scenario.BanditHideout)
+            if (run.Battle.Scenario.BanditHideout || BaseDemoRuins.Rematch(run.Session))
             {
                 foreach (var unit in run.Battle.Soldiers.Where(u => u.Side == BattleSide.B))
                     run.Model.Units.Single(actor => actor.Id == unit.Id + 1).Health = 0;

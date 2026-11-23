@@ -264,17 +264,89 @@ namespace BaseConquest.Editor
             var legacyCaptain = checkpoint.Enemies.Single(unit => unit.Kind == SoldierKind.Hero);
             legacyCaptain.Name = "古窟术士";
             legacyCaptain.Appearance = "";
+            var legacyMissionCaptain = state.Campaign.Events.Single(e => e.Id == BaseDemoRuins.EventId).EnemyArmy
+                .Single(unit => unit.Kind == SoldierKind.Hero);
+            legacyMissionCaptain.Name = legacyCaptain.Name;
+            legacyMissionCaptain.Appearance = legacyCaptain.Appearance;
             checkpoint.Scenario.B.CommanderNames[0] = checkpoint.Checkpoint.Scenario.B.CommanderNames[0] = "古窟术士";
             checkpoint.Checkpoint.Units.Single(unit => unit.Side == BattleSide.B && unit.Kind == SoldierKind.Hero).AppearanceId = "";
             var restored = new BaseCampaignSession(JsonUtility.FromJson<BaseCampaignBattle>(JsonUtility.ToJson(checkpoint)));
             Need(restored.Battle.CommanderDisplayName(BattleSide.B, 0) == "异族队长1" &&
                 restored.Battle.Commander(BattleSide.B, 0).AppearanceId == "galan", "读回旧战中档没有恢复编号或外观");
+            VerifyRuinsRematch(state, new RealtimeCampaignBattle(restored));
             nextCaptainState.Demo.RuinsRewards.EnemyGeneration = state.Demo.RuinsRewards.EnemyGeneration;
             var nextDraft = new BaseBattlePreparation(nextCaptainState, BasePrepRoute.Ruins);
             nextDraft.AutoPlace();
             var nextBattle = Start(nextCaptainState, nextDraft);
             Need(nextBattle.Battle.CommanderDisplayName(BattleSide.B, 0) == "异族队长2", "替补队长未沿用下一编号");
+            BaseDemoRuins.Configure(nextBattle);
+            var nextCaptain = nextBattle.Battle.Commander(BattleSide.B, 0);
+            var nextActor = nextBattle.Model.Units.Single(unit => unit.Id == nextCaptain.Id + 1);
+            double deathChance = BaseDemoCombat.DeathChance(nextBattle.Session, nextCaptain);
+            nextBattle.Battle.Scenario.RandomSeed = Enumerable.Range(1, 10000)
+                .First(seed => BattleSimulation.StableRoll(seed, nextCaptain.Id, 11) < deathChance);
+            nextBattle.Model.SetPaused(false);
+            nextBattle.Model.ApplyResolvedHit(nextBattle.Model.Player, nextActor, nextActor.Health);
+            Need(nextCaptain.InstantDead && !nextCaptain.KnockedDown && !nextBattle.RuinsExitOpen,
+                "再战异族队长必须按普通即死率判定，不能固定存活");
             Debug.Log("[VerifyBattlePreparation] 古窟首通、重打、扫荡门槛 PASS");
+        }
+
+        private static void VerifyRuinsRematch(BaseState state, RealtimeCampaignBattle run)
+        {
+            run.EnableBattlefieldExits();
+            BaseDemoRuins.Configure(run);
+            var captain = run.Battle.Commander(BattleSide.B, 0);
+            var mages = run.Battle.Soldiers.Where(unit => unit.Side == BattleSide.B && unit.Kind == SoldierKind.Mage).ToArray();
+            double captainDeath = BaseDemoCombat.DeathChance(run.Session, captain);
+            double mageDeath = BaseDemoCombat.DeathChance(run.Session, mages[0]);
+            double captureRate = run.Session.Opening.Difficulty.DropRate;
+            int seed = Enumerable.Range(1, 10000).First(i => BattleSimulation.StableRoll(i, captain.Id, 11) >= captainDeath &&
+                BattleSimulation.StableRoll(i, mages[0].Id, 11) >= mageDeath &&
+                BattleSimulation.StableRoll(i, mages[0].Id, 23) < captureRate &&
+                BattleSimulation.StableRoll(i, mages[1].Id, 23) >= captureRate);
+            run.Battle.Scenario.RandomSeed = seed;
+            run.Session.Opening.Scenario.RandomSeed = seed;
+            run.Model.SetPaused(false);
+            Strike(captain);
+            run.Tick(.02);
+            Need(captain.KnockedDown && mages.All(unit => unit.IsActive && !unit.Rescued) &&
+                run.Model.LeaderlessEnemyAssault && run.Battle.Phase == BattlePhase.Fighting &&
+                !run.RuinsExitOpen && !run.VictoryExitOpen && !run.AwaitingRescueDialogue,
+                "队长倒地后法师应继续交战，不能触发救援或胜利");
+            Strike(mages[0]);
+            run.Tick(.02);
+            Need(mages[1].IsActive && !run.VictoryExitOpen && !BaseDemoRuins.Complete(state, run),
+                "尚有一名法师时不应判胜或结算");
+            Strike(mages[1]);
+            run.Tick(.02);
+            Need(!run.RuinsExitOpen && (run.VictoryExitOpen || run.Battle.Report?.Outcome == BattleOutcome.SideAWin),
+                "歼灭后没有进入普通胜利离场");
+            if (run.Battle.Phase == BattlePhase.Fighting)
+            {
+                Need(run.OrderBattlefieldExit(null), "歼灭后无法下令前往出口");
+                for (int tick = 0; tick < 3000 && run.Battle.Phase == BattlePhase.Fighting; tick++) run.Tick(.025);
+            }
+            string battleId = run.Session.Opening.Id;
+            string plotCaptain = state.Demo.Flow.FirstControllerId;
+            Need(run.Battle.Report?.Outcome == BattleOutcome.SideAWin && BaseDemoRuins.Complete(state, run), "古窟再战未提交胜利");
+            var prisoners = state.Aftermath.Prisoners.Where(unit => unit.BattleId == battleId && unit.Status == "held").ToArray();
+            var capturedCaptain = prisoners.Single(unit => unit.Kind == SoldierKind.Hero);
+            var capturedMage = prisoners.Single(unit => unit.Kind == SoldierKind.Mage);
+            Need(prisoners.Length == 2 && capturedCaptain.Name.Contains("异族队长1") && capturedCaptain.IsAlien &&
+                capturedCaptain.AppearanceId == "galan" && capturedMage.Id == battleId + ":" + mages[0].Id,
+                "普通俘虏概率或敌方队长身份未保留");
+            Need(BaseAftermath.Decide(state, capturedMage.Id, "recruit") && BaseAftermath.Decide(state, capturedCaptain.Id, "recruit") &&
+                state.Workers.Any(unit => unit.Kind == BaseTroopKind.Mage && unit.Recruited) &&
+                state.Leaders.Any(unit => unit.Id == "partner_recruit:" + capturedCaptain.Id && unit.IsAlien) &&
+                state.Demo.Flow.FirstControllerId == plotCaptain, "法师或异族队长无法按普通俘虏规则招降");
+            Debug.Log("[RuinsRematch] PASS 歼灭、出口、法师概率捕获和队长招降");
+
+            void Strike(BattleSoldier unit)
+            {
+                var actor = run.Model.Units.Single(candidate => candidate.Id == unit.Id + 1);
+                run.Model.ApplyResolvedHit(run.Model.Player, actor, actor.Health);
+            }
         }
 
         private static BaseEquipmentStock Stock(BaseState state, int grade) => state.Inventory.Equipment.Single(e => e.Product == "supply" && e.Level == grade);

@@ -60,12 +60,12 @@ namespace BaseConquest.Battle
 
         internal bool CheckRuinsExit()
         {
+            if (!Session.Opening.RuinsFirstClear) return false;
             var exit = Battle.ExitCell(BattleSide.A);
             if (!RuinsExitOpen)
             {
                 RuinsExitOpen = true;
-                AwaitingRescueDialogue = Session.Opening.RuinsFirstClear &&
-                    (!Session.Opening.HasRealtimeState || !Session.Opening.RealtimeState.RuinsRescueDialogueComplete);
+                AwaitingRescueDialogue = !Session.Opening.HasRealtimeState || !Session.Opening.RealtimeState.RuinsRescueDialogueComplete;
                 Model.CanTarget = (_, _) => false;
                 Model.OnlyExitMovement = true;
                 var canMove = Model.CanMove;
@@ -83,7 +83,7 @@ namespace BaseConquest.Battle
                     actor.TargetId = actor.AttackSlot = actor.MoveGoal = -1;
                     if (actor.Side == PrototypeSide.Ally && OccupiesRuinsExit(actor, exit)) waitingOnRuinsExit.Add(actor.Id);
                 }
-                if (Session.Opening.RuinsFirstClear) ReleaseRuinsCivilians(exit);
+                ReleaseRuinsCivilians(exit);
                 if (AwaitingRescueDialogue) Model.SetPaused(true);
             }
             var movable = Model.Units.Where(unit => unit.Side == PrototypeSide.Ally && unit.Alive &&
@@ -143,7 +143,7 @@ namespace BaseConquest.Battle
             }
             Model.AfterStep+=()=>
             {
-                if(Model.Paused||Battle.RuinsCivilianIds.Count>0&&BaseDemoRuins.ControllerDefeated(this))return;
+                if(Model.Paused||VictoryExitOpen||Battle.RuinsCivilianIds.Count>0&&BaseDemoRuins.ControllerDefeated(this))return;
                 int second=(int)Math.Floor(Model.Elapsed+1e-8);if(second<=last)return;int ticks=second-last;last=second;
                 foreach(var actor in Model.Units.Where(u=>u.Alive).ToArray())
                 {

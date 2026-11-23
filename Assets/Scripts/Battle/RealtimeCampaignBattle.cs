@@ -337,10 +337,14 @@ namespace BaseConquest.Battle
             Synchronize(true);return true;
         }
         public void RefreshDeveloperState()=>Synchronize(true);
+        internal bool HasActiveEnemy => Model.Units.Any(unit => unit.Side == PrototypeSide.Enemy && unit.Alive);
         public void Tick(double seconds)
         {
             if(Battle.Phase!=BattlePhase.Fighting||Model.Paused||AwaitingRescueDialogue)return;
             PrepareBattlefieldExitStep();
+            bool ruinsRematch = BaseDemoRuins.Rematch(Session);
+            if (ruinsRematch) Model.LeaderlessEnemyAssault = !Model.Units.Any(unit =>
+                unit.Side == PrototypeSide.Enemy && unit.Role == PrototypeRole.Leader && unit.Alive);
             Model.Tick(seconds);
             if (Battle.Phase != BattlePhase.Fighting) { Synchronize(); return; }
             if (!RuinsExitOpen && !VictoryExitOpen) Tactics.Tick(seconds);
@@ -352,11 +356,11 @@ namespace BaseConquest.Battle
                 FinishRealtimeOutcome(ResolveBattlefieldExit(OutcomeResolver(this)));
                 return;
             }
-            bool allies=Model.Units.Any(unit=>unit.Side==PrototypeSide.Ally&&unit.Alive),enemies=Model.Units.Any(unit=>unit.Side==PrototypeSide.Enemy&&unit.Alive);
+            bool allies=Model.Units.Any(unit=>unit.Side==PrototypeSide.Ally&&unit.Alive),enemies=HasActiveEnemy;
             BattleOutcome result=BattleOutcome.None;
             if(!allies)result=Model.Units.Any(unit=>unit.Side==PrototypeSide.Ally&&unit.Escaped) ? BattleOutcome.Retreat : enemies ? BattleOutcome.SideBWin : BattleOutcome.Draw;
             else if(!enemies||Battle.Scenario.Objective.Kind==ObjectiveKinds.Hold&&Model.Elapsed+1e-8>=Battle.Scenario.Objective.HoldRounds)result=BattleOutcome.SideAWin;
-            else if(Battle.RealtimeVictorySatisfied)result=BattleOutcome.SideAWin;
+            else if(!ruinsRematch&&Battle.RealtimeVictorySatisfied)result=BattleOutcome.SideAWin;
             else if(Model.Elapsed+1e-8>=Battle.Scenario.MaxRounds)result=BattleOutcome.RoundLimit;
             FinishRealtimeOutcome(ResolveBattlefieldExit(result));
         }

@@ -17,6 +17,8 @@ namespace BaseConquest.Base
         public static bool CanExplore(BaseState state)=>Enabled(state)&&!BaseDemoPrologue.Village(state)&&state.Demo.Stage!=BaseDemoStage.Waking;
         public static bool BattleActive(BaseState state)=>CanExplore(state)&&InRuins(state)&&state.Campaign.HasActiveBattle&&state.Campaign.ActiveBattle.EventId==EventId;
         public static bool Encounter(BaseCampaignSession session)=>session?.Opening.EventId==EventId;
+        internal static bool Rematch(BaseCampaignSession session) => Encounter(session) && !session.Opening.RuinsFirstClear;
+        internal static string CombatObjective(bool rescue) => rescue ? "击败控制来源，救助失踪者" : "歼灭敌军";
         public static string Objective(BaseState state)=>!Enabled(state)?"旧Demo不含"+BaseScriptNames.Ruins+"快照；继续原阶段，重新开始可体验新增内容":state.Demo.Stage==BaseDemoStage.RuinsCleared?"当前目标：带救助证据返回领主处交差":BaseDemoDefense.Delivered(state)?BaseDemoDefense.Objective(state):"当前目标：可邀请阿禾／阿铸，经"+BaseScriptNames.Town+"东侧进入"+BaseScriptNames.Ruins+"调查";
         public static void PrepareOpening(BaseState state)
         {
@@ -120,7 +122,7 @@ namespace BaseConquest.Base
             var own=army.Clone();own.MeleeCount=2;own.RangedCount=own.CavalryCount=own.MageCount=0;own.HeroCount=1;own.CaptainSlot=0;own.CommanderStats.Clear();own.Commanders=new List<CommanderLoadout>{new CommanderLoadout {Melee=2}};own.CommanderNames.Clear();
             own.CommanderAppearances.Clear();
             foreach(var kind in BattleSimulation.TroopKinds){var source=state.Workers.FirstOrDefault(worker=>BaseCampaign.ToBattle(worker.Kind)==kind&&worker.HasCombatProfile);if(source!=null){if(kind==SoldierKind.Melee)own.Melee=source.CombatStats.Clone();else if(kind==SoldierKind.Ranged)own.Ranged=source.CombatStats.Clone();else if(kind==SoldierKind.Mage)own.Mage=source.CombatStats.Clone();else own.Cavalry=source.CombatStats.Clone();}}
-            return new BattleScenarioDocument {Title="Demo"+BaseScriptNames.Ruins+"救助",Scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),A=own,B=army,MaxRounds=90,FogEnabled=false,Objective=new ObjectiveConfig {Title="击败控制来源，救助失踪者"}}};
+            return new BattleScenarioDocument {Title=BaseScriptNames.Ruins,Scenario=new BattleScenario {Board=BaseSceneCombat.Project(state),A=own,B=army,MaxRounds=90,FogEnabled=false,Objective=new ObjectiveConfig {Title=CombatObjective(state.Demo.RuinsDay==0)}}};
         }
 
         internal static ArmyDefinition EnemyArmy(BaseState state)
@@ -220,17 +222,25 @@ namespace BaseConquest.Base
             if (captain == null) return;
             SetCaptainDisplay(captain, opening.RuinsFirstClear);
             SetCaptainDisplay(opening.Scenario.B, captain.Name);
-            if (opening.HasCheckpoint) SetCaptainDisplay(opening.Checkpoint.Scenario.B, captain.Name);
+            opening.Scenario.Objective.Title = CombatObjective(opening.RuinsFirstClear);
+            if (opening.HasCheckpoint)
+            {
+                SetCaptainDisplay(opening.Checkpoint.Scenario.B, captain.Name);
+                opening.Checkpoint.Scenario.Objective.Title = opening.Scenario.Objective.Title;
+            }
         }
-        public static IEnumerable<BattleSoldier> Civilians(BaseCampaignSession session)=>session.Opening.Enemies.Select((enemy,index)=>new {enemy,index}).Where(x=>x.enemy.IsControlled).Select(x=>session.UnitForEnemy(x.index));
+        public static IEnumerable<BattleSoldier> Civilians(BaseCampaignSession session) => session.Opening.RuinsFirstClear
+            ? session.Opening.Enemies.Select((enemy,index)=>new {enemy,index}).Where(x=>x.enemy.IsControlled).Select(x=>session.UnitForEnemy(x.index))
+            : Enumerable.Empty<BattleSoldier>();
         public static bool ControllerDefeated(RealtimeCampaignBattle run)
         {var unit=run.Battle.Commander(BattleSide.B,0);return unit!=null&&!unit.Escaped&&(unit.KnockedDown||unit.InstantDead||unit.Health<=0);}
         public static void Configure(RealtimeCampaignBattle run)
         {
-            foreach(var leader in run.Battle.Soldiers.Where(unit=>unit.Side==BattleSide.B&&unit.Kind==SoldierKind.Hero))leader.ProtectFromInstantDeath=run.Session.Opening.RuinsFirstClear;
+            run.EnableRuinsExposure(run.Session.Opening.RuinsExposureFraction>0?run.Session.Opening.RuinsExposureFraction:.03);
+            if (!run.Session.Opening.RuinsFirstClear) return;
+            foreach(var leader in run.Battle.Soldiers.Where(unit=>unit.Side==BattleSide.B&&unit.Kind==SoldierKind.Hero))leader.ProtectFromInstantDeath=true;
             foreach(var victim in Civilians(run.Session))victim.ProtectFromInstantDeath=true;
             run.Battle.RuinsCivilianIds=new HashSet<int>(Civilians(run.Session).Select(v=>v.Id));
-            run.EnableRuinsExposure(run.Session.Opening.RuinsExposureFraction>0?run.Session.Opening.RuinsExposureFraction:.03);
             if (run.Session.Opening.AllowsRuinsHalfHealthRetreat)
                 run.DamageLimit = (_, target, damage) => target.Player && target.Health > target.MaxHealth * .5 && !ControllerDefeated(run)
                     ? Math.Min(damage, target.Health - target.MaxHealth * .5)
@@ -250,7 +260,8 @@ namespace BaseConquest.Base
         }
         public static bool Complete(BaseState state,RealtimeCampaignBattle run,bool allowMercyAchievement=true)
         {
-            if(!BattleActive(state)||!Encounter(run.Session)||state.Campaign.ActiveBattle.Id!=run.Session.Opening.Id||run.Battle.Phase!=BattlePhase.Finished||run.Battle.Report.Outcome!=BattleOutcome.SideAWin||!ControllerDefeated(run))return false;
+            if(!BattleActive(state)||!Encounter(run.Session)||state.Campaign.ActiveBattle.Id!=run.Session.Opening.Id||run.Battle.Phase!=BattlePhase.Finished||run.Battle.Report.Outcome!=BattleOutcome.SideAWin)return false;
+            if (Rematch(run.Session) ? run.HasActiveEnemy : !ControllerDefeated(run)) return false;
             foreach(var victim in Civilians(run.Session)){victim.Rescued=true;victim.ProtectFromInstantDeath=true;victim.InstantDead=false;}
             run.SaveCheckpoint(state);
             if(!BaseCampaign.Settle(state,run.Session))return false;

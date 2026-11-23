@@ -536,7 +536,7 @@ namespace BaseConquest.Battle
                 bool exitOpen = owner.Realtime is RealtimeCampaignBattle run && (run.RuinsExitOpen || run.VictoryExitOpen) &&
                     battle.Phase == BattlePhase.Fighting;
                 objectiveTitle.text = exitOpen ? "去出口" : owner.SceneEncounterObjective;
-                objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsSecondDefense?"击败全部来敌":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 击倒 "+owner.Realtime?.DefenseDown+"/"+owner.Realtime?.DefenseTarget:owner.IsDemoRuins?"击败控制来源 · 受控村民可制服":owner.SceneEncounterObjective;
+                objectiveProgress.text=battle.Phase==BattlePhase.Finished?owner.SceneEncounterResult:owner.IsDemoAttack?"击败驻军 · 战果处理后开放"+BaseConquest.Base.BaseScriptNames.Village+"道路":owner.IsSecondDefense?"击败全部来敌":owner.IsDemoDefense?"坚守 "+(owner.Realtime?.Model.Elapsed??0).ToString("0")+" / "+battle.Scenario.Objective.HoldRounds+"秒 · 击倒 "+owner.Realtime?.DefenseDown+"/"+owner.Realtime?.DefenseTarget:owner.IsRuinsRescue?"击败控制来源 · 受控村民可制服":owner.SceneEncounterObjective;
                 if (exitOpen) objectiveProgress.text = "我方出口";
                 status.text=owner.Feedback;
             }

@@ -104,7 +104,7 @@ namespace BaseConquest.Base
             {
                 var resumed=new BaseCampaignSession(State.Campaign.ActiveBattle);string eventId=resumed.Opening.EventId;BaseBattleGateway.RequestedId=null;
                 if (eventId == BaseBanditHideout.EventId) { BeginSceneEncounter(resumed, null, null, FinishBanditHideout, BaseBanditHideout.Objective); return; }
-                if(eventId==BaseDemoRuins.EventId){beforeDemoRuins=State.Copy();BeginSceneEncounter(resumed,BaseDemoRuins.Configure,null,FinishDemoRuinsEncounter,"遗迹救助 · 继续交战");return;}
+                if(eventId==BaseDemoRuins.EventId){beforeDemoRuins=State.Copy();BeginSceneEncounter(resumed,BaseDemoRuins.Configure,null,FinishDemoRuinsEncounter,BaseDemoRuins.CombatObjective(resumed.Opening.RuinsFirstClear));return;}
                 if(eventId==BaseDemoDefense.EventId||eventId==BaseDemoDefense.SecondEventId){beforeDemoDefense=State.Copy();BeginSceneEncounter(resumed,BaseDemoDefense.Configure,null,FinishDemoDefenseEncounter,"营地防守 · 继续交战");return;}
                 if(State.Campaign.EnemySites.Any(site=>site.Id==BaseDemoFinale.Camp&&site.AttackEventId==eventId)){beforeDemoAttack=State.Copy();BeginSceneEncounter(resumed,BaseDemoFinale.Configure,null,FinishDemoAttack,"攻占阻路营地 · 继续交战");return;}
             }

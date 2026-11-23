@@ -72,7 +72,7 @@ namespace BaseConquest.Base
         }
         private bool TickRuinsRescueDialogue()
         {
-            if(combatController?.IsDemoRuins!=true)return false;
+            if(combatController?.IsRuinsRescue!=true)return false;
             var run=combatController.Realtime;
             if(combatController.ExternalDialogue)
             {
