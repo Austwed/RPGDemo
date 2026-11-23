@@ -241,17 +241,22 @@ namespace BaseConquest.Battle
 
         private void CreateFormalTroops(RectTransform module, int slot)
         {
-            var row = Rect("DraftTroops", module, Vector2.zero, new Vector2(0, 134), new Vector2(92, 196));
+            const float cardHeight = 46;
+            const float cardSpacing = 50;
+            var kinds = BattleSimulation.TroopKinds;
+            float height = (kinds.Length - 1) * cardSpacing + cardHeight;
+            var row = Rect("DraftTroops", module, Vector2.zero, new Vector2(0, 134), new Vector2(92, height));
+            row.gameObject.GetOrAdd<UiDynamicContent>();
             formalTroopRows[slot] = row;
             formalTroopToggles[slot] = Button("TroopToggle", module, Vector2.zero, new Vector2(64, 91), new Vector2(28, 38), () =>
             {
                 formalTroopsFolded[slot] = !formalTroopsFolded[slot];
                 Refresh();
             });
-            for (int i = 0; i < BattleSimulation.TroopKinds.Length; i++)
+            for (int i = 0; i < kinds.Length; i++)
             {
-                var kind = BattleSimulation.TroopKinds[i];
-                var button = Button("Deploy_" + kind, row, Vector2.zero, new Vector2(0, (BattleSimulation.TroopKinds.Length - 1 - i) * 50), new Vector2(92, 46),
+                var kind = kinds[i];
+                var button = Button("Deploy_" + kind, row, Vector2.zero, new Vector2(0, (kinds.Length - 1 - i) * cardSpacing), new Vector2(92, cardHeight),
                     () => owner.SelectDraftTroop(slot, kind));
                 var count = button.GetComponentInChildren<Text>();
                 count.alignment = TextAnchor.MiddleCenter;

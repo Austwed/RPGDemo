@@ -1420,9 +1420,10 @@ namespace BaseConquest.Editor
                     var cards = firstTroopRow.GetComponentsInChildren<Button>().Select(b => (RectTransform)b.transform).ToArray();
                     float portraitWidth = ((RectTransform)draftArea.Find("CommanderSlot0/CommanderPortrait_0")).rect.width;
                     if (draftArea.Find("ControlledArmy").gameObject.activeInHierarchy ||
-                        cards.Length != 3 || cards.Any(card => card.rect.width < portraitWidth - .01f || card.rect.height < 44) ||
-                        cards[0].anchoredPosition.y <= cards[1].anchoredPosition.y + cards[1].rect.height ||
-                        cards[1].anchoredPosition.y <= cards[2].anchoredPosition.y + cards[2].rect.height)
+                        cards.Length != BattleSimulation.TroopKinds.Length ||
+                        cards.Any(card => card.rect.width < portraitWidth - .01f || card.rect.height < 44) ||
+                        cards.Zip(cards.Skip(1), (upper, lower) =>
+                            upper.anchoredPosition.y <= lower.anchoredPosition.y + lower.rect.height).Any(overlap => overlap))
                         throw new InvalidOperationException("兵种卡未按头像全宽竖向排列");
                     if (cards.Where((card, index) => card.GetComponentsInChildren<BattleAvatarGraphic>().Length > 0 ||
                         !card.GetComponentInChildren<Text>().text.StartsWith(BattleSimulation.KindName(BattleSimulation.TroopKinds[index]) + "  ")).Any())
@@ -1433,7 +1434,7 @@ namespace BaseConquest.Editor
                     Press(draftArea, "CommanderSlot0/TroopToggle");
                     if (!firstTroopRow.gameObject.activeInHierarchy)
                         throw new InvalidOperationException("兵种卡未重新展开");
-                    Log.Add("[PASS] 战况统一进横幅，三张全宽兵种卡竖排且可按队独立折叠");
+                    Log.Add("[PASS] 战况统一进横幅，四张全宽兵种卡竖排且可按队独立折叠");
                     VerifyContinuousDeployment(deploy);
                     Press(draftArea, "DraftPreparationControls/Clear");
                     if (deploy.PreviewSimulation.Soldiers.Any(s => s.Side == BattleSide.A))
