@@ -28,7 +28,7 @@ namespace BaseConquest.Battle
         }
         public void Refresh(BattleSimulation b, BattleSide observer, BattleSoldier commander)
         {
-            bool show = MapDisplayOptions.BattleRanges && commander?.Kind == SoldierKind.Hero && commander.IsActive && b.Vision.CanSee(observer, commander);
+            bool show = MapDisplayOptions.BattleAssist && commander?.Kind == SoldierKind.Hero && commander.IsActive && b.Vision.CanSee(observer, commander);
             Root.SetActive(show); if (!show) { HighlightedRange = -1; return; }
             foreach (var border in borders) border.enabled = true;
             var q = b.Squads[commander.SquadId]; var config = b.Scenario.Army(commander.Side).Commanders[commander.OriginCommanderSlot];
@@ -68,23 +68,20 @@ namespace BaseConquest.Battle
 
         public void RefreshRealtime(RealtimeCampaignBattle run,PrototypeUnit unit)
         {
-            bool visible = unit != null && unit.Alive && run.Battle.Phase == BattlePhase.Fighting &&
+            bool show = MapDisplayOptions.BattleAssist && unit != null && unit.Alive && run.Battle.Phase == BattlePhase.Fighting &&
                 run.Battle.Vision.CanSee(BattleSide.A, run.Battle.Soldier(unit.Id - 1));
-            bool guard = visible && MapDisplayOptions.BattleRanges && unit.Role == PrototypeRole.Leader && run.Model.CommanderDoctrine;
-            bool attack = visible && MapDisplayOptions.AttackRange;
-            bool show = guard || attack;
             Root.SetActive(show);Description="";if(!show){HighlightedRange=-1;return;}
+            bool guard = unit.Role == PrototypeRole.Leader && run.Model.CommanderDoctrine;
             HighlightedRange = guard ? 2 : 3;
-            Description="范围："+run.Battle.UnitName(run.Battle.Soldier(unit.Id-1));
-            if(attack)Description+="\n蓝：攻击距离 "+(unit.Reach*2).ToString("0")+"细格（高度／墙体遮挡处截断，高处最多＋6细格）";
+            Description="范围："+run.Battle.UnitName(run.Battle.Soldier(unit.Id-1))+"\n蓝：攻击距离 "+(unit.Reach*2).ToString("0")+"细格（高度／墙体遮挡处截断，高处最多＋6细格）";
             if(guard)Description+="\n绿：驻守 "+(unit.GuardRadius*2).ToString("0")+"；橙：威胁 "+(unit.ThreatRadius*2).ToString("0")+"；红：主动攻击 "+(unit.CommandRadius*2).ToString("0")+"细格\n士兵围绕队长，守护／驻守队长围绕驻守点。策略："+BattleSimulation.StrategyName((SquadStrategy)(int)unit.Strategy);
-            string key="rt|"+unit.Id+"|"+unit.Position.X+"|"+unit.Position.Z+"|"+unit.Anchor.X+"|"+unit.Anchor.Z+"|"+guard+"|"+attack+"|"+unit.Strategy+"|"+unit.Order+"|"+unit.Reach+"|"+unit.Cell+"|"+run.Battle.Vision.Revision+"|"+run.Battle.TerrainRevision+"|"+run.Tactics.Revision;
+            string key="rt|"+unit.Id+"|"+unit.Position.X+"|"+unit.Position.Z+"|"+unit.Anchor.X+"|"+unit.Anchor.Z+"|"+guard+"|"+unit.Strategy+"|"+unit.Order+"|"+unit.Reach+"|"+unit.Cell+"|"+run.Battle.Vision.Revision+"|"+run.Battle.TerrainRevision+"|"+run.Tactics.Revision;
             if(geometryKey==key)return;geometryKey=key;
             var arena=run.Model.Arena;var board=run.Battle.Board;
             var reachable=guard?arena.Distances(unit.Cell,true):null;
             for(int range=0;range<4;range++)
             {
-                bool showBorder = range == 3 ? attack : guard;
+                bool showBorder = range == 3 || guard;
                 borders[range].enabled = showBorder;
                 meshes[range].Clear();
                 if (!showBorder) continue;

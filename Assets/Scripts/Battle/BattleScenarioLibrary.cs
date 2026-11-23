@@ -89,7 +89,13 @@ namespace BaseConquest.Battle
             bool fog = GUILayout.Toggle(battle.Scenario.FogEnabled, "启用战争迷雾", centeredButton, GUILayout.Width(width)); bool reveal = GUILayout.Toggle(battle.Scenario.ShowEnemiesThroughFog, "玩家透雾显示（地形与单位）", centeredButton, GUILayout.Width(width));
             if (fog != battle.Scenario.FogEnabled || reveal != battle.Scenario.ShowEnemiesThroughFog) ToggleTestFog(fog, reveal);
             if (ActionButton("切换操作阵营·测试")) SwitchSide();
-            bool grid=GUILayout.Toggle(MapDisplayOptions.BattleGridOutlines,"战斗格子描边",centeredButton,GUILayout.Width(width));if(grid!=MapDisplayOptions.BattleGridOutlines)MapDisplayOptions.BattleGridOutlines=grid;
+            bool assist = GUILayout.Toggle(MapDisplayOptions.BattleAssist, "战斗辅助显示", centeredButton, GUILayout.Width(width));
+            if (assist != MapDisplayOptions.BattleAssist)
+            {
+                MapDisplayOptions.BattleAssist = assist;
+                boardView.SetGridOutlines(assist);
+                SyncViews();
+            }
             if (RuntimeDeveloperOptions.Available)
             {
                 bool developer = GUILayout.Toggle(RuntimeDeveloperOptions.Enabled, "开发者模式", centeredButton, GUILayout.Width(width));

@@ -38,10 +38,7 @@ namespace BaseConquest.Base
             }
             RowButton("声音设置",0,800,OpenAudioOptions);row+=64;
             RowButton("和平地图格子描边："+(BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines ? "开启" : "关闭"),0,800,()=>{BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines=!BaseConquest.Battle.MapDisplayOptions.ShowGridOutlines;OpenOptions();});row+=64;
-            RowButton("战斗格子描边："+(BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines ? "开启" : "关闭"),0,800,()=>{BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines=!BaseConquest.Battle.MapDisplayOptions.BattleGridOutlines;OpenOptions();});row+=64;
-            RowButton("角色范围："+(MapDisplayOptions.BattleRanges ? "开启" : "关闭"),0,800,()=>{MapDisplayOptions.BattleRanges=!MapDisplayOptions.BattleRanges;OpenOptions();});row+=64;
-            RowButton("攻击射程："+(MapDisplayOptions.AttackRange ? "开启" : "关闭"),0,800,()=>{MapDisplayOptions.AttackRange=!MapDisplayOptions.AttackRange;OpenOptions();});row+=64;
-            RowButton("战斗线条："+(MapDisplayOptions.BattleLines ? "开启" : "关闭"),0,800,()=>{MapDisplayOptions.BattleLines=!MapDisplayOptions.BattleLines;OpenOptions();});row+=64;
+            RowButton("战斗辅助显示："+(MapDisplayOptions.BattleAssist ? "开启" : "关闭"),0,800,()=>{MapDisplayOptions.BattleAssist=!MapDisplayOptions.BattleAssist;OpenOptions();});row+=64;
             if(RuntimeDeveloperOptions.Enabled&&BaseConquest.Presentation.HomeTerrainTrial.Eligible(owner.State))
             {RowButton("故乡地面试点："+(BaseConquest.Presentation.HomeTerrainTrial.Enabled?"新版候选":"原版"),0,800,()=>{owner.ToggleHomeTerrainTrial();OpenOptions();});row+=64;}
             EndPanel();

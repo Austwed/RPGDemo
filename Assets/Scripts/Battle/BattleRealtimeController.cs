@@ -407,7 +407,7 @@ namespace BaseConquest.Battle
             var inspected=InformationUnits.FirstOrDefault(unit=>unit.IsActive);
             var rangeUnit=inspected==null?routed.FirstOrDefault(unit=>unit.Role==PrototypeRole.Leader):realtime.Model.Units.FirstOrDefault(unit=>unit.Id==inspected.Id+1);
             rangeOverlay.RefreshRealtime(realtime,rangeUnit);
-            if (!MapDisplayOptions.BattleLines)
+            if (!MapDisplayOptions.BattleAssist)
             {
                 foreach (var line in realtimeArrows.Values)
                     BattleBoardView.DestroyObject(line.gameObject);

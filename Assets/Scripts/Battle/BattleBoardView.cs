@@ -174,7 +174,7 @@ namespace BaseConquest.Battle
             foreach(var facade in Root.GetComponentsInChildren<BaseConquest.Presentation.SpriteFacade>(true))facade.SetRaised(ObliqueExploration);
             foreach(var fog in fogTiles) fog.gameObject.SetActive(false);
             foreach(var tile in tiles) tile.enabled=true;
-            gridKnown=null;SetGridOutlines(combat ? MapDisplayOptions.BattleGridOutlines : MapDisplayOptions.ShowGridOutlines);
+            gridKnown=null;SetGridOutlines(combat ? MapDisplayOptions.BattleAssist : MapDisplayOptions.ShowGridOutlines);
             elevationView?.Rebuild();
             if (!combat) SetVisibleExits(null, null, null);
         }
@@ -275,7 +275,7 @@ namespace BaseConquest.Battle
             Root.transform, board, Camera, baseGrassMaterial, groundMaterial, FullViewSize * DefaultExplorationZoom, campScenery, surfaceRegion == "dungeon");
         public void UpdateCamera(float leftFraction, float bottomFraction)
         {
-            bool showGrid=CombatMode ? MapDisplayOptions.BattleGridOutlines : MapDisplayOptions.ShowGridOutlines;
+            bool showGrid=CombatMode ? MapDisplayOptions.BattleAssist : MapDisplayOptions.ShowGridOutlines;
             if(GridOutlinesVisible!=showGrid)SetGridOutlines(showGrid);
             background.SetActive(true);
             Camera.rect = FlatView ? new Rect(0, 0, 1, 1) : new Rect(leftFraction, bottomFraction, Mathf.Max(0.35f, 1 - leftFraction), 1 - bottomFraction);

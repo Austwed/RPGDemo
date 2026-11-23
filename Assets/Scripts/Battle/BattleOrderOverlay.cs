@@ -51,7 +51,7 @@ namespace BaseConquest.Battle
             Root.SetActive(true);Current=null;Invalidate();
             path.enabled=aim.enabled=target.enabled=obstacle.enabled=destination.enabled=false;
             if(unit==null||!unit.Alive||unit.Side!=PrototypeSide.Ally||run.Battle.Phase!=BattlePhase.Fighting||!run.Battle.Vision.CanSee(BattleSide.A,run.Battle.Soldier(unit.Id-1)))return;
-            bool showLines = MapDisplayOptions.BattleLines;
+            bool showLines = MapDisplayOptions.BattleAssist;
             if (showLines)
             {
                 run.Model.PreviewPath(unit,realtimePath);
@@ -109,7 +109,7 @@ namespace BaseConquest.Battle
             BattleSoldier soldier = battle.Soldier(id);
             if (Current == null || soldier == null || !soldier.IsActive || battle.Phase != BattlePhase.Fighting || !battle.Vision.CanSee(observer ?? soldier.Side, soldier)) return;
             var shownPath = presentation < 1 && soldier.LastAction == RoundAction.Move ? soldier.LastMovePath : Current.Path;
-            bool showLines = MapDisplayOptions.BattleLines;
+            bool showLines = MapDisplayOptions.BattleAssist;
             if (showLines && shownPath.Count > 1)
             {
                 int count = 1;
