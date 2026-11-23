@@ -177,10 +177,23 @@ namespace BaseConquest.Editor
             }
             else
             {
+                AdvanceUntil(() => !actor.Moving && !actor.ManualOrder, 240, "演练移动没有正常停步");
                 BaseDemoIntro.StartDummyDemo(practice, intro);
+                var start = actor.Position;
+                Need(practice.ChooseStrategy(selected, SquadStrategy.Attack), "搭档示范时无法选定进攻");
                 AdvanceUntil(() => intro.DummyPhase >= 2, 480, "搭档攻击木桩示范未完成");
-                Need(practice.Strategy(0, SquadStrategy.Attack), "演练无法切进攻");
+                Need((actor.Position - start).Length < 1e-8, "搭档示范时主角擅自巡逻");
+                AdvanceUntil(() => intro.DummyHits == 1, 480, "提前选择进攻后未自动命中木桩");
+                Need(actor.ObjectOrder && actor.ObjectTargetId == BaseDemoIntro.DummyId && !actor.Moving,
+                    "第一次命中时没有停在木桩旁");
+                var attackPosition = actor.Position;
+                AdvanceUntil(() => actor.ObjectWindupAt > practice.Model.Elapsed, 40, "第二次攻击未开始前摇");
+                double windup = actor.ObjectWindupAt;
+                Need(practice.ChooseStrategy(selected, SquadStrategy.Attack) && actor.ObjectWindupAt == windup,
+                    "再次选择进攻清掉了正在执行的木桩攻击");
                 AdvanceUntil(() => intro.DummyPhase >= 4, 900, "进攻策略未自动砍中木桩三次");
+                Need(intro.DummyHits == 3 && (actor.Position - attackPosition).Length < 1e-8,
+                    "连续攻击木桩时发生位移或未记满三次命中");
             }
             BaseDemoIntro.AdvanceTutorialDelay(intro, 1);
             Need(BaseDemoIntro.NextExercise(intro) == BaseDemoIntro.Attack, "木桩完成后未指向搭档");

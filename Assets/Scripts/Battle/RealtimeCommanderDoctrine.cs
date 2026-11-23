@@ -20,6 +20,7 @@ namespace BaseConquest.RealtimePrototype
     {
         public bool CommanderDoctrine;
         public bool BothSidesHuman;
+        internal bool PatrolEnabled = true;
         internal bool OnlyExitMovement;
         public bool LeaderlessEnemyAssault;
         internal bool LeaderlessAllyAssault;
@@ -121,7 +122,14 @@ namespace BaseConquest.RealtimePrototype
         private void ThinkDoctrine(PrototypeUnit u)
         {
             if(u.ObjectOrder)
-            {if(u.Order==PrototypeOrder.Move)u.MoveGoal=Arena.CellAt(u.Goal);return;}
+            {
+                if (u.Order == PrototypeOrder.Move)
+                {
+                    int goal = Arena.CellAt(u.Goal);
+                    if (goal != u.Cell) u.MoveGoal = goal;
+                }
+                return;
+            }
             if(u.Order==PrototypeOrder.Retreat)
             {
                 int exitX=(int)u.Goal.X,exitZ=(int)u.Goal.Z;
@@ -237,6 +245,7 @@ namespace BaseConquest.RealtimePrototype
         }
         private void Patrol(PrototypeUnit u,PrototypePoint center,double radius)
         {
+            if (!PatrolEnabled) return;
             if((u.Position-center).Length>radius){u.MoveGoal=NearestFree(u,center,radius);return;}
             if(u.PatrolGoal<0)
             {

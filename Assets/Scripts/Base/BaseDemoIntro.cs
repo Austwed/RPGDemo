@@ -405,17 +405,19 @@ namespace BaseConquest.Base
             int Next()=>NextExercise(intro);
             var player = run.Model.Player;
             var partner = run.Model.Units.Single(u => u.Side == PrototypeSide.Enemy);
+            void OrderPracticeDummy()
+            {
+                if (Next() != AutoAttack || player.Strategy != PrototypeStrategy.Attack ||
+                    player.ObjectOrder || player.ManualOrder) return;
+                run.Tactics.OrderObject(player, DummyId, false);
+                if (player.ObjectOrder) intro.DummyPhase = 3;
+            }
             run.TutorialAction = flag =>
             {
                 int next = Next();
                 if ((flag & next) == 0) return;
                 if (next == AutoAttack)
-                {
-                    if (intro.DummyPhase != 2) return;
-                    intro.DummyPhase = 3;
-                    run.Issue(new[] { player.Id - 1 }, PrototypeOrder.Auto, player.Position);
-                    run.Tactics.OrderObject(player,DummyId,false);
-                }
+                    OrderPracticeDummy();
                 else if (next == Move)
                 {
                     intro.MoveOrdered = true;
@@ -430,6 +432,7 @@ namespace BaseConquest.Base
             run.Model.SetStrategy(player, PrototypeStrategy.Obey);
             run.Model.SetStrategy(partner, PrototypeStrategy.Obey);
             run.Model.DefaultDestination = _ => -1;
+            run.Model.PatrolEnabled = false;
             run.Tactics.ObjectHit = (actor, obj, power) =>
             {
                 if (obj.Id != DummyId || power <= 0 || intro.DummyPhase >= 4) return;
@@ -455,6 +458,7 @@ namespace BaseConquest.Base
             run.Model.CanMove=actor=>actor.Side==PrototypeSide.Ally||intro.DummyPhase==1;
             run.OutcomeResolver=current=>{
                 if(intro.MoveOrdered&&current.Model.Player.DistanceTravelled-intro.DrillMoveOrigin>=.49){intro.DrillFlags|=Move;intro.MoveOrdered=false;intro.TutorialDelay=1;}
+                OrderPracticeDummy();
                 return (intro.DrillFlags & All) == All && current.Model.Hits > 0 ? BattleOutcome.SideAWin : BattleOutcome.None;};
         }
         public static bool FinishPractice(BaseState s,bool completed)

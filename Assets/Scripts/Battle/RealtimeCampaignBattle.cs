@@ -287,6 +287,12 @@ namespace BaseConquest.Battle
             bool changed = false;
             foreach (var actor in Model.Units.Where(u => u.Alive && u.Side == PrototypeSide.Ally && u.Role == PrototypeRole.Leader && ids.Contains(u.Id - 1)))
             {
+                if (strategy == SquadStrategy.Attack && actor.Strategy == PrototypeStrategy.Attack &&
+                    actor.ObjectOrder && !actor.ManualOrder)
+                {
+                    changed = true;
+                    continue;
+                }
                 // Clearing each order at its own cell makes defense anchor the current position.
                 var anchor = Model.Arena.Center(actor.Cell);
                 if (!Model.IssueOrder(-1, actor.Id, PrototypeOrder.Auto, anchor)) continue;
