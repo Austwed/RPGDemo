@@ -10,13 +10,13 @@ namespace BaseConquest.Base
         {
             var s=owner.State;
             bool demo = BaseDemo.Active(s);
-            BeginPanel(demo ? "营帐 · 等级训练" : "军营 · 等级训练","level-training");
+            BeginPanel(demo ? "营帐 · 升级" : "军营 · 升级","level-training");
             RowButton(demo ? "返回营帐" : "返回兵营",0,820,()=>
             {
                 if (demo) OpenHome();
                 else { activeObject="barracks"; OpenBarracks(); }
             });row+=62;
-            if (!demo) Line("升入3／6／9级需要高阶兵书。训练期间可任职。",60,19);
+            if (!demo) Line("升入3／6／9级需要高阶兵书。",60,19);
 
             {
                 var people=s.Leaders.Where(l=>BaseAdventure.Alive(l) && (!demo || l.Id==(tentLeaderId??s.PlayerLeaderId))).ToArray();int pages=Math.Max(1,(people.Length+7)/8);trainingPage=Math.Min(trainingPage,pages-1);
@@ -26,11 +26,10 @@ namespace BaseConquest.Base
                     string id=l.Id;
                     var record=BasePersonnel.Units(s).First(u=>u.LeaderId==id);
                     AddPersonnelRow(content,record,BasePersonalEquipment.ClassName(l)+" · Lv"+l.Training.Level,null);
-                    if(BaseTraining.Busy(l.Training)){Line("正在训练至Lv"+l.Training.Target+"，第"+l.Training.EndDay+"天完成",48);RowButton("取消训练（不退兵书）",0,820,()=>GearChange(next=>BaseTraining.CancelLeader(next,id),"训练已取消，兵书不退",OpenTraining));row+=58;continue;}
                     int target=l.Training.Level+1;if(target>9){Line("已达9级",44);continue;}string book=BaseTraining.Book(BasePersonalEquipment.Stats(l).ProfessionKind,target);int need=BaseTraining.Books(l,target),rev=s.Backpack.Revision;
-                    Line("下一级Lv"+target+" · "+s.Backpack.Catalog.Single(d=>d.Id==book).Name+" ×"+need+"（可用"+BasePartyInventory.AvailableMaterial(s,book)+"） · "+BaseTraining.Days(l,target)+"天",58,19);
+                    Line("下一级Lv"+target+" · "+s.Backpack.Catalog.Single(d=>d.Id==book).Name+" ×"+need+"（可用"+BasePartyInventory.AvailableMaterial(s,book)+"）",58,19);
                     string problem=BaseTraining.LeaderProblem(s,l);if(problem!="")Line(problem,42,18);
-                    RowButton("训练 "+l.Name+" 至Lv"+target,0,820,()=>GearChange(next=>BaseTraining.StartLeader(next,id,rev),"已开始等级训练",OpenTraining),problem==""&&BasePartyInventory.AvailableMaterial(s,book)>=need);row+=58;
+                    RowButton("使用兵书 · 升至Lv"+target,0,820,()=>GearChange(next=>BaseTraining.UpgradeLeader(next,id,rev),"已升至Lv"+target,OpenTraining),problem==""&&BasePartyInventory.AvailableMaterial(s,book)>=need);row+=58;
                 }
             }
             EndPanel();

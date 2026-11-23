@@ -141,18 +141,15 @@ namespace BaseConquest.Editor
             foreach(int targetLevel in new[]{2,3})
             {
                 string expectedBook=targetLevel==2?"training_mage_basic":"training_mage_advanced";
-                int quantity=BaseTraining.Books(student,targetLevel), days=BaseTraining.Days(student,targetLevel), start=state.Day;
+                int quantity=BaseTraining.Books(student,targetLevel), start=state.Day;
                 BaseBackpack.Receive(state,expectedBook,quantity,state.PlayerLeaderId);
                 int stock=BasePartyInventory.AvailableMaterial(state,expectedBook);
-                Need(BaseTraining.StartLeader(state,student.Id,state.Backpack.Revision),"开始训练："+BaseTraining.LeaderProblem(state,student));
-                Need(student.Training.Target==targetLevel&&student.Training.EndDay==start+days&&
-                    BasePartyInventory.AvailableMaterial(state,expectedBook)==stock-quantity,"开始时扣除对应法师兵书");
-                for(int n=0;n<days;n++)
-                {
-                    Need(student.Training.Level==targetLevel-1&&BaseEconomy.Rest(state,state.Day),"过日结算训练");
-                }
-                Need(!BaseTraining.Busy(student.Training)&&student.Training.Level==targetLevel&&state.Day==start+days&&
-                    student.MaxHealth==BaseRpg.Stats(student).Health,"到期升级和生命上限");
+                var revision=state.Backpack.Revision;
+                Need(BaseTraining.UpgradeLeader(state,student.Id,revision),"立即升级："+BaseTraining.LeaderProblem(state,student));
+                Need(!BaseTraining.UpgradeLeader(state,student.Id,revision)&&student.Training.Target==0&&student.Training.EndDay==0&&
+                    BasePartyInventory.AvailableMaterial(state,expectedBook)==stock-quantity,"法师兵书未一次性扣除");
+                Need(student.Training.Level==targetLevel&&state.Day==start&&
+                    student.MaxHealth==BaseRpg.Stats(student).Health,"同日升级和生命上限");
                 Debug.Log($"[P52 training] {targetLevel-1}→{targetLevel}: {expectedBook} ×{quantity}, day {start}→{state.Day}, maxHP {student.MaxHealth}");
             }
             Debug.Log("[P52 combat] PASS: 双通道伤害、估算、古窟施法、在途弹道存读档、招降装备和兵书、我方再次出战命中");

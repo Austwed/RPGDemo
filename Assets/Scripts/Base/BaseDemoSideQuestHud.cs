@@ -96,7 +96,6 @@ namespace BaseConquest.Base
             if (stage != BaseSideQuestStage.Accepted && !BaseDemoSideQuests.ZhouOffer(s)) return false;
 
             bool accepted = stage == BaseSideQuestStage.Accepted;
-            var player = BaseDemoSideQuests.Player(s);
             int target = BaseDemoSideQuests.ZhouTarget(s);
             string book = BaseDemoSideQuests.ZhouBookName(s, target);
             int count = BaseDemoSideQuests.ZhouBookCount(s, target);
@@ -117,10 +116,7 @@ namespace BaseConquest.Base
             }
             else
             {
-                var reminder = BaseTraining.Busy(player.Training)
-                    ? new NpcLine(BaseScriptNames.LaoZhou, BaseScriptNames.Portrait("laozhou"),
-                        string.Format(StoryText.Get("story.quest.zhou_training.wait", "慢慢练。等到第{0}天，你再来找我。"), player.Training.EndDay))
-                    : ZhouTrainingLine("reminder", "去营帐用兵书训练。练完再来找我。");
+                var reminder = ZhouTrainingLine("reminder", "去营帐用兵书训练。练完再来找我。");
                 NpcDialogue(WithInjury(s, "INJ_CAMP_ZHOU", reminder), new[] { new NpcReply("回头见", ClosePanel) });
             }
             return true;

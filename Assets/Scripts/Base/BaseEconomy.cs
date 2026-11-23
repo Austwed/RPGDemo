@@ -210,7 +210,7 @@ namespace BaseConquest.Base
             s.LastCompletedDay = s.Day; s.Day++;
             BaseTown.AdvanceDay(s);
             BaseRuinsRewards.AdvanceDay(s);
-            BaseTraining.AdvanceDay(s);
+            BaseWine.AdvanceDay(s);
             if(advanceThreats)BaseThreats.AdvanceDay(s);
             else if(s.Campaign.ThreatVersion==1)s.Campaign.ThreatDay=s.Day; // Projection freezes external armies, not the calendar invariant.
             // 主线走完后的周期流寇：与 BaseThreats 的据点派兵互不干扰，只在 Demo 且 Stage=Finished 时生效。

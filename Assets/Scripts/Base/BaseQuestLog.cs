@@ -111,8 +111,6 @@ namespace BaseConquest.Base
                             var player=BaseDemoSideQuests.Player(s);
                             if (BaseDemoSideQuests.ZhouNeedsBooks(s))
                                 return ToCamp(s, id, "找老周领取训练兵书", "demo_rescuer");
-                            if(BaseTraining.Busy(player.Training))
-                                return new BaseQuestCue(id,"等待第 "+player.Training.EndDay+" 天训练完成");
                             int target = BaseDemoSideQuests.ZhouTarget(s);
                             var book=BaseDemoSideQuests.ZhouBook(s,target);
                             var missing=BaseTraining.Books(player,target)-BasePartyInventory.AvailableMaterial(s,book);

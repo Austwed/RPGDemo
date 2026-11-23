@@ -201,7 +201,7 @@ namespace BaseConquest.Base
             parts.Add(BaseSettlements.AtVillage(s) + ":" + s.Development.VillagePolicy);
             parts.AddRange(s.Workers.Select(w => BaseSettlements.Station(w) + ":" + w.Relocating + ":" + w.DepartureFacility));
             parts.AddRange(s.Leaders.Select(l => l.VillageResident + ":" + l.Relocating + ":" + l.ArrivalFacility));
-            parts.AddRange(s.Leaders.Select(l=>l.Id+":training:"+BaseTraining.Key(l.Training)));
+            parts.AddRange(s.Leaders.Select(l=>l.Id+":level:"+(l.Training?.Level??1)));
             parts.AddRange(s.Inventory.Equipment.Select(e => e.Product + ":" + e.Level + ":" + e.Count));
             parts.AddRange(s.WorkshopProgress.Select(p => p.Product + ":" + N(p.Fraction)));
             parts.AddRange(s.Muster.Presets.Select(p => p.Purpose + ":" + p.LeaderCount + ":" + p.Melee + ":" + p.Ranged + ":" + p.Cavalry + ":" + p.Mage + ":" + string.Join(",", p.Candidates) + ":" + p.SwordPriority + p.BowPriority + p.ArmorPriority));

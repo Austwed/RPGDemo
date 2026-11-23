@@ -346,7 +346,7 @@ namespace BaseConquest.Editor
             Need(BaseDevelopment.Effective(s,w),"当天返营／招降的士兵应可立即排班（生产禁令已摘除）");
             w.UnavailableDay=0;
             // 队长豁免：不受任何血量阈值限制（夹具：临时清掉随行/外出状态再断言）。
-            var l=s.Leaders.First(x=>BaseAdventure.Alive(x)&&x.Health>0&&!BaseTraining.Busy(x.Training));
+            var l=s.Leaders.First(x=>BaseAdventure.Alive(x)&&x.Health>0);
             bool wasMember=s.Adventure.Members.Remove(l.Id),wasAway=l.Away;l.Away=false;
             Need(BaseDevelopment.CanManage(s,l),"夹具队长应满足管理条件");
             Need(BaseDevelopment.CanFight(l)&&BaseDevelopment.Effective(s,l),"满血队长应可战可工");

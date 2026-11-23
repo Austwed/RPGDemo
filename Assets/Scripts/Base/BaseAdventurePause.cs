@@ -35,7 +35,7 @@ namespace BaseConquest.Base
             var l=s.Leaders.FirstOrDefault(p=>p.Id==id);
             if(l==null||id==s.PlayerLeaderId||!Contains(s,id))return "只能调整随行伙伴，主角固定带队";
             if(!BasePartyInventory.Peaceful(s)||BaseBattleLoot.Pending(s)||BaseWorldJourney.OnWorld(s)||s.Muster.Parties.Any(p=>p.InCombat))return "请在非战斗地区场景中调整伙伴";
-            if(!Alive(l)||l.Health<1||BaseTraining.Busy(l.Training))return "伙伴当前无法行动";
+            if(!Alive(l)||l.Health<1)return "伙伴当前无法行动";
             var paused=PauseFor(s,id);
             if(resume)
             {

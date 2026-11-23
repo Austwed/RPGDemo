@@ -65,7 +65,7 @@ namespace BaseConquest.Base
             return $"{u.Facility} · {duty}";
         }
         public static string LeaderName(BaseLeader l)=>UnitDisplayNames.Mark(l.Name,l.Recruited);
-        public static string State(BaseState s,BaseLeader l)=>!BaseAdventure.Alive(l)||l.Health<=0 ? l.Fate=="dead" ? "已阵亡" : l.Fate=="missing" ? "失联／未救出" : "无法行动" : l.Relocating ? "调动中 · "+BaseSettlements.Name(!l.VillageResident) : BaseAdventure.WaitingHere(s, l) ? "暂留原地" : !BaseAdventure.Contains(s,l.Id) && l.VillageResident != BaseSettlements.AtVillage(s) ? "异地 · "+BaseSettlements.Name(l.VillageResident) :BaseAdventure.PauseFor(s,l.Id)!=null?"暂离 · 保留队伍名额":l.Away ? "外出" : BaseAdventure.Contains(s,l.Id) ? "冒险小队 · 随行" : l.FacilityId!="" ? BaseEconomy.FacilityName(l.FacilityId)+"管理员" : BaseTraining.Busy(l.Training) ? "训练中" : "闲置";
+        public static string State(BaseState s,BaseLeader l)=>!BaseAdventure.Alive(l)||l.Health<=0 ? l.Fate=="dead" ? "已阵亡" : l.Fate=="missing" ? "失联／未救出" : "无法行动" : l.Relocating ? "调动中 · "+BaseSettlements.Name(!l.VillageResident) : BaseAdventure.WaitingHere(s, l) ? "暂留原地" : !BaseAdventure.Contains(s,l.Id) && l.VillageResident != BaseSettlements.AtVillage(s) ? "异地 · "+BaseSettlements.Name(l.VillageResident) :BaseAdventure.PauseFor(s,l.Id)!=null?"暂离 · 保留队伍名额":l.Away ? "外出" : BaseAdventure.Contains(s,l.Id) ? "冒险小队 · 随行" : l.FacilityId!="" ? BaseEconomy.FacilityName(l.FacilityId)+"管理员" : "闲置";
         private static void Effects(BaseState s,BasePersonnelUnit unit,string party)
         {
             var q=s.Supply.Quotas.FirstOrDefault(q=>q.PartyId==party&&!string.IsNullOrEmpty(party));

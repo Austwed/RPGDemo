@@ -278,7 +278,7 @@ namespace BaseConquest.Base
         public static bool Eligible(BaseState s, string purpose, BaseWorkerBucket w) => BaseSettlements.Local(s,w) && Eligible(purpose,w);
         public static bool Eligible(string purpose, BaseWorkerBucket w) => purpose == "defense" ? CanDefend(w) : CanFight(w);
         public static bool LocalLeader(BaseState s,BaseLeader l) => !BaseDemo.Active(s) || BaseAdventure.Contains(s,l.Id) || l.VillageResident == (BaseSettlements.AtVillage(s) || s.Campaign?.CurrentMapId == BaseDemoFinale.HomeField);
-        public static bool CanFight(BaseLeader l) => !l.Relocating && !l.Away && BaseAdventure.Alive(l) && !BaseTraining.Busy(l.Training) && l.Health > 0;
+        public static bool CanFight(BaseLeader l) => !l.Relocating && !l.Away && BaseAdventure.Alive(l) && l.Health > 0;
         // 预警线：0 表示旧档未写该字段，回落到默认 50%；拖到 30% 即关闭（低无可低）。
         public static double WarningThreshold(BaseState s)
         {

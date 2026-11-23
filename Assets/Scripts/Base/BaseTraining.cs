@@ -12,13 +12,10 @@ namespace BaseConquest.Base
     }
     public static class BaseTraining
     {
-        public static bool Busy(BaseTrainingProgress p)=>p?.Target>0;
-        public static string Key(BaseTrainingProgress p)=>p==null?"1:0:0":p.Level+":"+p.Target+":"+p.EndDay;
         public static string Book(SoldierKind kind,int target)=>"training_"+(kind==SoldierKind.Mage?"mage":BaseRpg.Weapon(kind==SoldierKind.Hero?0:BaseRpg.Profession(kind)))+(target%3==0?"_advanced":"_basic");
         internal static SoldierKind[] SoldierKinds(BaseState s) => Enumerable.Range(0,s.Demo?.Rpg?.ProfessionCount??3).Select(BaseRpg.Kind).ToArray();
         public static int Days(bool leader,int target)=>(leader?2:1)+(target-2)/3;
         public static int Books(bool leader,int target)=>(leader?2:1)*Math.Max(1,(target+1)/2);
-        public static int Days(BaseLeader leader,int target)=>leader?.Rpg?.Version==1?leader.Rpg.Rules.TrainingCost(true,leader.Rpg.Profession,target):Days(true,target);
         public static int Books(BaseLeader leader,int target)=>leader?.Rpg?.Version==1?leader.Rpg.Rules.TrainingCost(false,leader.Rpg.Profession,target):Books(true,target);
         public static BaseTrainingProgress FromProfile(SoldierStats stats)
         {
@@ -28,20 +25,37 @@ namespace BaseConquest.Base
         }
         public static void Normalize(BaseState s)
         {
-            foreach(var l in s.Leaders){l.Training??=new BaseTrainingProgress();l.Wine??=new BaseWineStatus();}
+            foreach (var leader in s.Leaders)
+            {
+                leader.Training ??= new BaseTrainingProgress();
+                leader.Wine ??= new BaseWineStatus();
+                var progress = leader.Training;
+                if (progress.Target > 0 && progress.Target == progress.Level + 1 && progress.Target <= 9 &&
+                    progress.Level >= 1 && progress.EndDay is > 0 and <= 1000000 && !leader.Away && BaseAftermath.ValidStats(progress.Origin))
+                    Upgrade(leader, progress.Target);
+            }
             foreach(var kind in SoldierKinds(s))foreach(int target in new[]{2,3})
-            {string id=Book(kind,target);if(!s.Backpack.Catalog.Any(d=>d.Id==id))s.Backpack.Catalog.Add(new BaseBagDefinition {Id=id,Name=(target==3?"高阶":"基础")+BasePersonalEquipment.Profession(BaseRpg.Weapon(BaseRpg.Profession(kind)))+"兵书",Category="material",Description="角色等级训练使用；3／6／9级突破用高阶兵书，开始扣除，取消不退。",MaxStack=99});}
+            {
+                string id = Book(kind, target);
+                var book = s.Backpack.Catalog.FirstOrDefault(d => d.Id == id);
+                if (book == null)
+                {
+                    book = new BaseBagDefinition {Id=id,Name=(target==3?"高阶":"基础")+BasePersonalEquipment.Profession(BaseRpg.Weapon(BaseRpg.Profession(kind)))+"兵书",Category="material",MaxStack=99};
+                    s.Backpack.Catalog.Add(book);
+                }
+                book.Description = "在营帐使用兵书立即升级。3／6／9级使用高阶兵书。";
+            }
             BaseWine.Normalize(s);
             BaseProgressSupplies.Normalize(s);
             BaseItemRecovery.Normalize(s);
         }
-        private static void ValidateProgress(BaseTrainingProgress p,int day,bool away)
+        private static void ValidateProgress(BaseTrainingProgress p)
         {
-            if(p==null||p.Level<1||p.Level>9||p.Level>1&&p.Origin==null||p.Target!=0&&(p.Target!=p.Level+1||p.Target>9||p.EndDay<=day||p.EndDay>1000000||away||p.Origin==null)||p.Target==0&&p.EndDay!=0||p.Origin!=null&&!BaseAftermath.ValidStats(p.Origin))throw new ArgumentException("等级／训练进度非法");
+            if(p==null||p.Level<1||p.Level>9||p.Level>1&&p.Origin==null||p.Target!=0||p.EndDay!=0||p.Origin!=null&&!BaseAftermath.ValidStats(p.Origin))throw new ArgumentException("等级／训练进度非法");
         }
         public static void Validate(BaseState s)
         {
-            foreach(var l in s.Leaders)ValidateProgress(l.Training,s.Day,l.Away);
+            foreach(var l in s.Leaders)ValidateProgress(l.Training);
             BaseWine.Validate(s);
             BaseProgressSupplies.Validate(s);
             BaseItemRecovery.Validate(s);
@@ -60,28 +74,30 @@ namespace BaseConquest.Base
         public static string LeaderProblem(BaseState s,BaseLeader l)
         {
             if(!AtTrainingSite(s))return BaseDemo.Active(s)?"请在非战斗时接近营帐":"请在非战斗时接近基地兵营";
-            if(l==null||l.Away||!BaseAdventure.Alive(l)||l.Health<=0||Busy(l.Training))return "人物不可训练或正在训练";
+            if(l==null||l.Away||!BaseAdventure.Alive(l)||l.Health<=0)return "人物当前不可升级";
             if(l.Training.Level>=9)return "已达9级";
             if(!BaseAftermath.ValidStats(l.Rpg?.Version==1?l.Rpg.Rules.Bare(l.Rpg,l.Training.Level+1):Growth(l.Training.Level==1?l.PersonalEquipment.BaseStats:l.Training.Origin,l.Training.Level+1)))return "成长属性超过当前支持上限";
             return "";
         }
-        public static bool StartLeader(BaseState s,string id,int revision)
+        public static bool UpgradeLeader(BaseState s,string id,int revision)
         {
             var l=s.Leaders.SingleOrDefault(x=>x.Id==id);if(revision!=s.Backpack.Revision||LeaderProblem(s,l)!=""||s.Backpack.Revision>=int.MaxValue-1)return false;
             int target=l.Training.Level+1;string book=Book(BasePersonalEquipment.Stats(l).ProfessionKind,target);
-            if(s.Day+Days(l,target)>1000000||!BasePartyInventory.ConsumeMaterial(s,book,Books(l,target)))return false;
-            if(l.Training.Level==1)l.Training.Origin=l.PersonalEquipment.BaseStats.Clone();l.Training.Target=target;l.Training.EndDay=s.Day+Days(l,target);l.UnavailableDay=s.Day;BaseDevelopment.Allocate(s);return true;
+            if(!BasePartyInventory.ConsumeMaterial(s,book,Books(l,target)))return false;
+            if(l.Training.Level==1)l.Training.Origin=l.PersonalEquipment.BaseStats.Clone();
+            Upgrade(l, target);
+            return true;
         }
-        public static bool CancelLeader(BaseState s,string id)
-        {var l=s.Leaders.SingleOrDefault(x=>x.Id==id);if(!AtTrainingSite(s)||l==null||!Busy(l.Training))return false;l.Training.Target=l.Training.EndDay=0;l.UnavailableDay=s.Day;BaseDevelopment.Allocate(s);return true;}
-        public static void AdvanceDay(BaseState s)
+        private static void Upgrade(BaseLeader leader, int target)
         {
-            foreach(var l in s.Leaders.Where(l=>Busy(l.Training)&&l.Training.EndDay<=s.Day))
-            {
-                var p=l.Training;l.PersonalEquipment.BaseStats=l.Rpg?.Version==1?l.Rpg.Rules.Bare(l.Rpg,p.Target):Growth(p.Origin,p.Target);l.CombatStats=l.PersonalEquipment.BaseStats.Clone();l.HasCombatProfile=true;p.Level=p.Target;p.Target=p.EndDay=0;
-                l.MaxHealth=BasePersonalEquipment.Stats(l).Health;l.Health=Math.Min(l.Health,l.MaxHealth);
-            }
-            BaseWine.AdvanceDay(s);
+            var progress = leader.Training;
+            leader.PersonalEquipment.BaseStats = leader.Rpg?.Version == 1 ? leader.Rpg.Rules.Bare(leader.Rpg, target) : Growth(progress.Origin, target);
+            leader.CombatStats = leader.PersonalEquipment.BaseStats.Clone();
+            leader.HasCombatProfile = true;
+            progress.Level = target;
+            progress.Target = progress.EndDay = 0;
+            leader.MaxHealth = BasePersonalEquipment.Stats(leader).Health;
+            leader.Health = Math.Min(leader.Health, leader.MaxHealth);
         }
     }
 }

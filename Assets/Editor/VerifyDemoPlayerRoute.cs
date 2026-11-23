@@ -282,7 +282,8 @@ namespace BaseConquest.Editor
             for(int level=2;level<=3;level++)
             {
                 hero.Training.Target=level;hero.Training.EndDay=grown.Day;
-                BaseTraining.AdvanceDay(grown);
+                BaseTraining.Normalize(grown);
+                Need(hero.Training.Level==level&&hero.Training.Target==0&&hero.Training.EndDay==0,"旧档已付费训练未立即完成");
             }
             for(int day=0;day<10&&hero.Health<hero.MaxHealth;day++)BaseDevelopment.Recover(grown);
             var draft=new BaseBattlePreparation(grown,BasePrepRoute.Ruins);
