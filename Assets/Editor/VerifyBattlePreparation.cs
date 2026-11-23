@@ -225,6 +225,8 @@ namespace BaseConquest.Editor
             Need(draft.AutoPlace() > 0, "古窟没有可用部署区");
             var battle = Start(state, draft);
             Need(BaseRuinsRewards.Energy(state) == 0, "古窟剧情首战应免体力");
+            Need(battle.Battle.CommanderDisplayName(BattleSide.B, 0) == "迦兰" &&
+                battle.Battle.Commander(BattleSide.B, 0).AppearanceId == "galan", "首战迦兰名称或外观被替换");
             BaseDemoRuins.Configure(battle);
             var chief = battle.Model.Units.Single(u => u.Side == PrototypeSide.Enemy && u.Role == PrototypeRole.Leader);
             chief.Health = 1;
@@ -246,9 +248,32 @@ namespace BaseConquest.Editor
             var sweep = repeat.PreviewSweep(state);
             Need(sweep.EnemyPower > 0 && (sweep.Problem == "") == (sweep.AllyPower > sweep.EnemyPower * 1.5), "扫荡门槛与正式战力不一致");
             VerifyPreparedSweepSupply(state.Copy());
+            var nextCaptainState = state.Copy();
             repeat.AutoPlace();
-            Need(!Start(state, repeat).Session.Opening.RuinsFirstClear && BaseRuinsRewards.Energy(state) == 0,
+            var repeatBattle = Start(state, repeat);
+            Need(!repeatBattle.Session.Opening.RuinsFirstClear && BaseRuinsRewards.Energy(state) == 0,
                 "古窟重战误作首通或未扣除体力");
+            var enemyCaptain = repeatBattle.Session.Opening.Enemies.Single(unit => unit.Kind == SoldierKind.Hero);
+            Need(enemyCaptain.Name == "异族队长1" && enemyCaptain.Appearance == "galan" &&
+                repeatBattle.Battle.UnitName(repeatBattle.Battle.Commander(BattleSide.B, 0)) == "敌方异族队长1" &&
+                repeatBattle.Battle.Commander(BattleSide.B, 0).AppearanceId == "galan" &&
+                repeatBattle.Session.Opening.Enemies.Count(unit => unit.Kind == SoldierKind.Mage) == 2,
+                "古窟再战队长名称、外观或普通法师编制错误");
+            repeatBattle.SaveCheckpoint(state);
+            var checkpoint = state.Campaign.ActiveBattle;
+            var legacyCaptain = checkpoint.Enemies.Single(unit => unit.Kind == SoldierKind.Hero);
+            legacyCaptain.Name = "古窟术士";
+            legacyCaptain.Appearance = "";
+            checkpoint.Scenario.B.CommanderNames[0] = checkpoint.Checkpoint.Scenario.B.CommanderNames[0] = "古窟术士";
+            checkpoint.Checkpoint.Units.Single(unit => unit.Side == BattleSide.B && unit.Kind == SoldierKind.Hero).AppearanceId = "";
+            var restored = new BaseCampaignSession(JsonUtility.FromJson<BaseCampaignBattle>(JsonUtility.ToJson(checkpoint)));
+            Need(restored.Battle.CommanderDisplayName(BattleSide.B, 0) == "异族队长1" &&
+                restored.Battle.Commander(BattleSide.B, 0).AppearanceId == "galan", "读回旧战中档没有恢复编号或外观");
+            nextCaptainState.Demo.RuinsRewards.EnemyGeneration = state.Demo.RuinsRewards.EnemyGeneration;
+            var nextDraft = new BaseBattlePreparation(nextCaptainState, BasePrepRoute.Ruins);
+            nextDraft.AutoPlace();
+            var nextBattle = Start(nextCaptainState, nextDraft);
+            Need(nextBattle.Battle.CommanderDisplayName(BattleSide.B, 0) == "异族队长2", "替补队长未沿用下一编号");
             Debug.Log("[VerifyBattlePreparation] 古窟首通、重打、扫荡门槛 PASS");
         }
 

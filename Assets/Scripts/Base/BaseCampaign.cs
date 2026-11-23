@@ -586,6 +586,7 @@ namespace BaseConquest.Base
         public BaseCampaignSession(BaseCampaignBattle opening, BaseMapSession map = null)
         {
             Opening = opening.Copy();
+            if (Opening.EventId == BaseDemoRuins.EventId) BaseDemoRuins.RestoreCaptainDisplay(Opening);
             if(Opening.EventId==BaseDemoDefense.EventId||Opening.EventId==BaseDemoDefense.SecondEventId)
             {
                 BaseDemoDefense.ApplyHomeSight(Opening.Scenario);
@@ -687,7 +688,7 @@ namespace BaseConquest.Base
             {
                 // 决斗、序章、遗迹及匪寨使用对应角色形象；随机敌营已作废（2026-11-02）。
                 bool chiefLead=Opening.EventId==BaseDemoDefense.EventId||Opening.EventId==BaseDemoDefense.SecondEventId||Opening.MapId==BaseDemoFinale.Camp;
-                hero.AppearanceId=Opening.EventId==BaseLocalDuel.Id?"azhu":Opening.EventId==BaseDemoIntro.BattleId?(Opening.Leaders.First().AppearanceId=="female"?"player":"female"):Opening.EventId==BaseDemoRuins.EventId&&Opening.RuinsFirstClear?"galan":chiefLead?"chief":hero.AppearanceId;
+                hero.AppearanceId=Opening.EventId==BaseLocalDuel.Id?"azhu":Opening.EventId==BaseDemoIntro.BattleId?(Opening.Leaders.First().AppearanceId=="female"?"player":"female"):Opening.EventId==BaseDemoRuins.EventId?BaseDemoRuins.CaptainAppearance:chiefLead?"chief":hero.AppearanceId;
             }
             if(Opening.Enemies.Count==0)return;
             foreach(var unit in Battle.Soldiers.Where(u=>u.Side==BattleSide.B&&!u.DeveloperSpawned).OrderBy(u=>u.Id))
