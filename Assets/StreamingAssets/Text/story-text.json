@@ -1004,14 +1004,15 @@
     {
       "key": "story.ui.prep.dungeon_first_reward",
       "group": "界面／副本备战",
-      "text": "首通领奖免费",
-      "notes": "土匪窝点首次挑战时展示。"
+      "text": "首通奖励",
+      "notes": "土匪窝点首次挑战时展示。",
+      "revision": 1
     },
     {
-      "key": "story.ui.prep.dungeon_repeat_reward",
+      "key": "story.ui.prep.dungeon_entry_cost",
       "group": "界面／副本备战",
-      "text": "复打领奖消耗 {0}",
-      "notes": "本副本已有胜绩时展示，参数为领奖消耗。功能占位，待回稿。"
+      "text": "本次消耗体力 {0}",
+      "notes": "参数为确认开战或扫荡时扣除的体力。"
     },
     {
       "key": "story.ui.dungeon.reward_items",
@@ -1097,12 +1098,6 @@
       "text": "这{1}本{0}给你。去营帐练，练完来找我。",
       "notes": "{0}为所需兵书名，{1}为按配表计算的数量。旧档补发沿用此页。",
       "revision": 1
-    },
-    {
-      "key": "story.quest.zhou_training.wait",
-      "group": "支线／老周",
-      "text": "慢慢练。等到第{0}天，你再来找我。",
-      "notes": "训练期间提醒。{0}为训练结束的游戏日。"
     },
     {
       "key": "story.quest.zhou_training.finish.1",

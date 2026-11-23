@@ -205,6 +205,8 @@ namespace BaseConquest.Base
         internal static BaseCampaignSession Begin(BaseState state, BaseMusterPlan plan, BasePreparedRoster roster,
             IReadOnlyList<BaseEnemyMember> enemies, int seed)
         {
+            string energyProblem = BaseRuinsRewards.EntryProblem(state, BasePrepRoute.Hideout);
+            if (energyProblem != "") throw new InvalidOperationException(energyProblem);
             Enter(state);
             BaseRuinsRewards.Skip(state, BasePrepRoute.Hideout);
             var mission = state.Campaign.Events.Single(e => e.Id == EventId);
@@ -227,6 +229,7 @@ namespace BaseConquest.Base
                 throw new InvalidOperationException("无法部署全部参战单位");
             session.Bind();
             if (!session.Battle.Start(out string problem)) throw new InvalidOperationException(problem);
+            BaseRuinsRewards.ChargeEntry(state, BasePrepRoute.Hideout);
             return session;
         }
 

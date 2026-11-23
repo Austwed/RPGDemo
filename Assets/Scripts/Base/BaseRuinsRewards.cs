@@ -20,7 +20,18 @@ namespace BaseConquest.Base
         private const string LegacyHideoutClear = "legacy:bandit-hideout-victory";
         public static int Energy(BaseState s)=>s.Demo.RuinsRewards?.Energy??120;
         public static int Maximum(BaseState s)=>s.Demo.RuinsRewards?.MaximumEnergy??120;
-        public static int Cost(BaseState s)=>s.Demo.RuinsRewards?.RewardCost??20;
+        // RewardCost remains the serialized name in existing saves and balance snapshots.
+        public static int EntryCost(BaseState s, BasePrepRoute route) => route == BasePrepRoute.Hideout ||
+            route == BasePrepRoute.Ruins && Cleared(s, route) ? s.Demo.RuinsRewards?.RewardCost ?? 20 : 0;
+        internal static string EntryProblem(BaseState s, BasePrepRoute route) => Energy(s) < EntryCost(s, route)
+            ? "体力不足，需要 " + EntryCost(s, route) + " 点体力" : "";
+        internal static void ChargeEntry(BaseState s, BasePrepRoute route)
+        {
+            int cost = EntryCost(s, route);
+            if (cost == 0) return;
+            if (s.Demo.RuinsRewards == null) Enable(s);
+            s.Demo.RuinsRewards.Energy -= cost;
+        }
         public static double Exposure(BaseState s)=>s.Demo.RuinsRewards?.ExposureFraction??.03;
         internal static bool IsDungeon(BasePrepRoute route) => route is BasePrepRoute.Ruins or BasePrepRoute.Hideout;
         internal static string DungeonName(BasePrepRoute route) => route == BasePrepRoute.Hideout ? BaseBanditHideout.Title : BaseScriptNames.Ruins;
@@ -36,7 +47,6 @@ namespace BaseConquest.Base
             ? PendingBattle(s, route) != "" && s.Demo.RuinsRewards.HideoutFirstClearBattleId == PendingBattle(s, route)
             : s.Demo.RuinsRewards?.PendingFirstClear == true;
         internal static string HideoutVictoryReceipt(string battle) => battle + ":hideout-victory";
-        public static int PendingCost(BaseState s, BasePrepRoute route = BasePrepRoute.Ruins) => PendingFirstClear(s, route) ? 0 : Cost(s);
         public static bool FirstRewardPending(BaseState s)
         {var first=FirstVictory(s,BasePrepRoute.Ruins);return first!=null&&s.Aftermath.Loot.Any(m=>!m.Closed&&m.BattleId==first.BattleId);}
         public static bool Immune(BaseState s,BaseLeader leader)=>leader.IsAlien||leader.IsAwakened||leader.Id==s.PlayerLeaderId||leader.Id=="partner_craft";
@@ -102,7 +112,6 @@ namespace BaseConquest.Base
             if(r==null||battle=="")return "本次没有待领取的副本奖励";
             bool inside = route == BasePrepRoute.Hideout ? BaseBanditHideout.InHideout(s) : BaseDemoRuins.InRuins(s);
             if(!(inside||BaseSceneRules.Entrance(s))||!BasePartyInventory.Peaceful(s))return "请在本次副本战后领取";
-            if(r.Energy<PendingCost(s,route))return "体力不足；仍可挑战，但本次不能领取奖励";
             if(s.Campaign.SettledIds.Contains(battle+":ruins-reward"))return "本次奖励已经领取";
             bool first = PendingFirstClear(s, route);
             if(s.Inventory.Coins>100000000-r.Coins-(first?r.FirstCoins:0)||first&&(s.Inventory.Food>100000000-r.FirstFood||s.Inventory.Materials>100000000-r.FirstMaterials))return "资源库存已满";
@@ -132,7 +141,7 @@ namespace BaseConquest.Base
             int coins=r.Coins+(first?r.FirstCoins:0),food=first?r.FirstFood:0,materials=first?r.FirstMaterials:0;
             string title = route == BasePrepRoute.Hideout ? BaseBanditHideout.Title+" · 挑战奖励" : "遗迹挑战奖励";
             BaseBattleLoot.AppendRewards(s,battle,id,title,food,materials,coins,rewards);
-            s.Inventory.Coins+=coins;s.Inventory.Food+=food;s.Inventory.Materials+=materials;r.Energy-=PendingCost(s,route);
+            s.Inventory.Coins+=coins;s.Inventory.Food+=food;s.Inventory.Materials+=materials;
             Skip(s,route);
             return true;
         }

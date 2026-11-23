@@ -35,7 +35,7 @@ namespace BaseConquest.Base
             else if(!(BaseSceneRules.Entrance(s)||BaseDemoRuins.InRuins(s))||!BaseInteraction.CanReach(s,BaseSpatial.Objects(s).SingleOrDefault(o=>o.Id=="demo_ruins_investigate")))return "请靠近遗迹入口或调查点";
             if(BaseRuinsRewards.PendingBattle(s,route)!="")return "请先领取或放弃上次副本奖励";
             if(BaseBattleLoot.Pending(s))return "请先处理上次战果";
-            return "";
+            return BaseRuinsRewards.EntryProblem(s,route);
         }
         public static BaseSweepPreview Preview(BaseState s,string mode="full",BaseBattlePreparation preparation=null)
         {

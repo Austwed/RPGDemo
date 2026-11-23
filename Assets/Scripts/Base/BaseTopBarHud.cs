@@ -93,7 +93,7 @@ namespace BaseConquest.Base
             row += 58;
             if (!BaseDemoRuins.Enabled(s)) { Line("本局没有启用体力。", 24); EndPanel(); return; }
             Line("当前 " + BaseRuinsRewards.Energy(s) + " / 上限 " + BaseRuinsRewards.Maximum(s), 26, DemoUiMetrics.FontSubhead);
-            Line("次日预计恢复 +" + ExpectedEnergy(s) + " 点 · 扫荡与重战各需 " + BaseRuinsRewards.Cost(s) + " 点", 24, DemoUiMetrics.FontBody);
+            Line("次日预计恢复 +" + ExpectedEnergy(s) + " 点 · 窝点挑战、古窟再战和扫荡各需 " + BaseRuinsRewards.EntryCost(s, BasePrepRoute.Hideout) + " 点", 24, DemoUiMetrics.FontBody);
             EndPanel();
         }
     }

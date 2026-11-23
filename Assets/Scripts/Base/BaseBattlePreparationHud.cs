@@ -592,10 +592,10 @@ namespace BaseConquest.Base
         {
             string energy = string.Format(PrepText("dungeon_energy", "体力 {0} / {1}"),
                 BaseRuinsRewards.Energy(state), BaseRuinsRewards.Maximum(state));
-            string reward = BaseRuinsRewards.Cleared(state, route)
-                ? string.Format(PrepText("dungeon_repeat_reward", "复打领奖消耗 {0}"), BaseRuinsRewards.Cost(state))
-                : route==BasePrepRoute.Ruins ? "救出受困村民" : PrepText("dungeon_first_reward", "首通领奖免费");
-            return energy + " · " + reward;
+            int cost = BaseRuinsRewards.EntryCost(state, route);
+            if (cost == 0) return energy + " · 救出受困村民";
+            string entry = string.Format(PrepText("dungeon_entry_cost", "本次消耗体力 {0}"), cost);
+            return energy + " · " + entry + (BaseRuinsRewards.Cleared(state, route) ? "" : " · " + PrepText("dungeon_first_reward", "首通奖励"));
         }
 
         private void ContinueBattlePreparation()
@@ -665,7 +665,7 @@ namespace BaseConquest.Base
             BeginPanel(BaseRuinsRewards.DungeonName(battleDraft.Route) + " · 扫荡预览", SweepView);
             string ratio = preview.EnemyPower > 0 ? (preview.AllyPower / preview.EnemyPower).ToString("P0") : "—";
             Line($"我方战力 {preview.AllyPower:0} / 敌方 {preview.EnemyPower:0} · 战力比 {ratio} / 需超过 150%", 64, 21);
-            Line($"体力 {BaseRuinsRewards.Energy(state)} / {BaseRuinsRewards.Maximum(state)} · 领奖消耗 {BaseRuinsRewards.Cost(state)}", 52, 18);
+            Line(DungeonEnergy(state, battleDraft.Route), 52, 18);
             int required = battleDraft.RequiredSupply(false);
             string grade = battleDraft.SupplyGrade == 1 ? PrepText("grade_1", "一级") : PrepText("grade_2", "二级");
             Line(required == 0 ? PrepText("supply_none", "仅队长出战 · 所需军需 0") :

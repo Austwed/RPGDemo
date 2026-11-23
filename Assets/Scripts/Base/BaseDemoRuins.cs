@@ -151,6 +151,8 @@ namespace BaseConquest.Base
 
         internal static BaseCampaignSession Begin(BaseState state, string mode, BaseMusterPlan plan, BasePreparedRoster roster)
         {
+            string energyProblem = BaseRuinsRewards.EntryProblem(state, BasePrepRoute.Ruins);
+            if (energyProblem != "") throw new InvalidOperationException(energyProblem);
             if(BaseSceneRules.Entrance(state))BaseSceneRules.EnterDungeon(state);
             if(!CanExplore(state)||!InRuins(state)||!BaseInteraction.CanReach(state,BaseSpatial.Objects(state).SingleOrDefault(o=>o.Id=="demo_ruins_investigate")))throw new InvalidOperationException("请在"+BaseScriptNames.Ruins+"调查点旁确认交战，无需先接取委托");
             var mission=state.Campaign.Events.Single(e=>e.Id==EventId);
@@ -166,7 +168,9 @@ namespace BaseConquest.Base
             if (roster != null && session.Battle.Soldiers.Count(u => u.Side == BattleSide.A) != roster.Units.Length)
                 throw new InvalidOperationException("所选编队无法完整入场");
             session.Bind();
-            if(!session.Battle.Start(out string problem))throw new InvalidOperationException(problem);return session;
+            if(!session.Battle.Start(out string problem))throw new InvalidOperationException(problem);
+            BaseRuinsRewards.ChargeEntry(state, BasePrepRoute.Ruins);
+            return session;
         }
 
         internal static void RefreshEnemies(BaseState state, BaseCampaignEvent mission, ArmyDefinition army)

@@ -216,12 +216,15 @@ namespace BaseConquest.Editor
             At(state, "demo_ruins_exit");
             Need(BaseCampaign.Travel(state, "outpost"), "前往沉眠古窟");
             At(state, "demo_ruins_investigate");
+            if (state.Demo.RuinsRewards == null) BaseRuinsRewards.Enable(state);
+            state.Demo.RuinsRewards.Energy = 0;
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
             Need(draft.KnownEnemyPower(state) > 0 && draft.KnownEnemyCount(SoldierKind.Hero) == 1 &&
                 draft.KnownEnemyCount(SoldierKind.Melee) == 2 && draft.KnownEnemyCount() == 3,
                 "古窟首战应显示队长和两名受控制的剑士");
             Need(draft.AutoPlace() > 0, "古窟没有可用部署区");
             var battle = Start(state, draft);
+            Need(BaseRuinsRewards.Energy(state) == 0, "古窟剧情首战应免体力");
             BaseDemoRuins.Configure(battle);
             var chief = battle.Model.Units.Single(u => u.Side == PrototypeSide.Enemy && u.Role == PrototypeRole.Leader);
             chief.Health = 1;
@@ -236,11 +239,16 @@ namespace BaseConquest.Editor
             ClearLoot(state);
             At(state, "demo_ruins_investigate");
             var repeat = new BaseBattlePreparation(state, BasePrepRoute.Ruins);
+            state.Demo.RuinsRewards.Energy = 19;
+            Need(repeat.Problem(state, false).Contains("体力不足") && repeat.PreviewSweep(state).Problem.Contains("体力不足") &&
+                !state.Campaign.HasActiveBattle && BaseRuinsRewards.Energy(state) == 19, "古窟低体力校验或预览修改了存档");
+            state.Demo.RuinsRewards.Energy = 20;
             var sweep = repeat.PreviewSweep(state);
             Need(sweep.EnemyPower > 0 && (sweep.Problem == "") == (sweep.AllyPower > sweep.EnemyPower * 1.5), "扫荡门槛与正式战力不一致");
             VerifyPreparedSweepSupply(state.Copy());
             repeat.AutoPlace();
-            Need(!Start(state, repeat).Session.Opening.RuinsFirstClear, "古窟重战误作首通");
+            Need(!Start(state, repeat).Session.Opening.RuinsFirstClear && BaseRuinsRewards.Energy(state) == 0,
+                "古窟重战误作首通或未扣除体力");
             Debug.Log("[VerifyBattlePreparation] 古窟首通、重打、扫荡门槛 PASS");
         }
 
@@ -265,6 +273,8 @@ namespace BaseConquest.Editor
             draft.Sweep(state);
             Need(Stock(state, 2).Count == 0 && state.Campaign.Reports.Last().GearLost == 2 && state.Supply.Quotas.Count == 0,
                 "扫荡未按实际编队人数全额扣军需");
+            Need(BaseRuinsRewards.Energy(state) == 0 && BaseRuinsRewards.Claim(state) &&
+                BaseRuinsRewards.Energy(state) == 0 && !BaseRuinsRewards.Claim(state), "古窟扫荡或领奖体力结算错误");
         }
 
         public static void VerifyBattlefieldExits()

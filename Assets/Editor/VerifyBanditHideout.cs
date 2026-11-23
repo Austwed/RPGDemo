@@ -241,6 +241,10 @@ namespace BaseConquest.Editor
             var different = Enumerable.Range(31702, 12).Select(seed => new BaseBattlePreparation(state, BasePrepRoute.Hideout, seed)).Any(d =>
                 BattleSimulation.TroopKinds.Any(kind => d.KnownEnemyCount(kind) != first.KnownEnemyCount(kind)));
             Need(different, "显式指定不同种子未能抽出不同阵容");
+            var tooTired = state.Copy();
+            tooTired.Demo.RuinsRewards.Energy = 19;
+            Need(first.Problem(tooTired, false).Contains("体力不足") && !tooTired.Campaign.HasActiveBattle,
+                "窝点首战体力不足仍能开始");
             var run = Start(state, first);
             Need(run.Battle.Scenario.RandomSeed == expected, "实际开战未沿用预览种子");
             run.SaveCheckpoint(state);
@@ -252,9 +256,9 @@ namespace BaseConquest.Editor
             state = roundtrip;
             Need(restored.RetreatAll() && BaseBanditHideout.Complete(state, restored), "窝点退败无法结算");
             Need(BaseSceneRules.Entrance(state) && !state.Campaign.HasActiveBattle && state.Supply.Quotas.Count == 0 &&
-                state.Demo.Stage == fixture.Demo.Stage && BaseRuinsRewards.Energy(state) == BaseRuinsRewards.Energy(fixture) &&
+                state.Demo.Stage == fixture.Demo.Stage && BaseRuinsRewards.Energy(state) == BaseRuinsRewards.Energy(fixture) - 20 &&
                 state.Muster.Strategies.SequenceEqual(fixture.Muster.Strategies),
-                "窝点退败没有返回入口或改动古窟剧情与体力");
+                "窝点退败、载入或结算未保留一次开战体力消耗");
             Need(!BaseBanditHideout.Complete(state, restored), "窝点战果可以重复结算");
             Need(BaseCampaign.NextBattleSeed(state, BaseBanditHideout.EventId) != expected, "撤出窝点后下一场仍使用旧种子");
         }
@@ -363,7 +367,7 @@ namespace BaseConquest.Editor
                 var state = fixture.Copy();
                 var rules = state.Demo.RuinsRewards;
                 int coins = state.Inventory.Coins, food = state.Inventory.Food, materials = state.Inventory.Materials;
-                rules.Energy = 0;
+                rules.Energy = 20;
                 Need(!BaseRuinsRewards.Cleared(state, BasePrepRoute.Hideout) &&
                     BaseRuinsSweep.Problem(state, BasePrepRoute.Hideout) != "", "窝点未首通便可以扫荡");
                 var run = Start(state, Draft(state, seed));
@@ -417,6 +421,7 @@ namespace BaseConquest.Editor
             state.Campaign.Reports.Add(new BaseCampaignReport { BattleId = caveReward, EventId = BaseDemoRuins.EventId,
                 Outcome = "SideAWin", Day = state.Day });
             state.Demo.RuinsRewards.PendingBattleId = caveReward;
+            state.Demo.RuinsRewards.Energy = 20;
             BaseEconomy.Validate(state);
 
             var draft = new BaseBattlePreparation(state, BasePrepRoute.Hideout, 73101, 1) { SupplyGrade = 1 };
@@ -447,8 +452,6 @@ namespace BaseConquest.Editor
                 BaseSceneRules.Entrance(state) && !state.Campaign.HasActiveBattle && state.Supply.Quotas.Count == 0 &&
                 BaseRuinsRewards.PendingBattle(state) == caveReward && BaseRuinsRewards.Energy(state) == 0,
                 "扫荡未沿用备战阵容、落地结算或待领状态串到了古窟");
-            Need(!BaseRuinsRewards.Claim(state, BasePrepRoute.Hideout) && BaseRuinsRewards.PendingBattle(state, BasePrepRoute.Hideout) == id,
-                "体力不足时扫荡奖励可领取或丢失");
             var copy = JsonUtility.FromJson<BaseState>(JsonUtility.ToJson(state));
             copy.Campaign.Reports.RemoveAll(entry => entry.EventId == BaseBanditHideout.EventId);
             BaseEconomy.Validate(copy);
@@ -457,13 +460,13 @@ namespace BaseConquest.Editor
                 BaseRuinsRewards.Skip(copy, BasePrepRoute.Hideout) && BaseRuinsRewards.PendingBattle(copy) == caveReward &&
                 BaseRuinsRewards.Energy(copy) == 0, "读档后放弃窝点奖励扣了体力或清除了古窟奖励");
 
-            int coins = state.Inventory.Coins, cost = BaseRuinsRewards.Cost(state);
-            Need(BaseRuinsRewards.AddEnergy(state, cost) && BaseRuinsRewards.Claim(state, BasePrepRoute.Hideout) &&
+            int coins = state.Inventory.Coins;
+            Need(BaseRuinsRewards.Claim(state, BasePrepRoute.Hideout) &&
                 !BaseRuinsRewards.Claim(state, BasePrepRoute.Hideout) &&
                 state.Inventory.Coins == coins + state.Demo.RuinsRewards.Coins && BaseRuinsRewards.Energy(state) == 0 &&
                 BaseRuinsRewards.PendingBattle(state) == caveReward &&
                 state.Aftermath.Loot.Single(item => item.BattleId == id).Items.Any(line => line.Reward.ItemId == "forging_stone"),
-                "窝点重复领奖未按一次体力扣除并发放通用奖励");
+                "窝点扫荡应只在确认时扣体力，零体力仍可领取一次通用奖励");
             BaseEconomy.Validate(state);
         }
 

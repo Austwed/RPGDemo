@@ -91,11 +91,9 @@ namespace BaseConquest.Base
                 Line(BaseRuinsRewards.ClaimProblem(s,route),75,21);
                 RowButton("关闭",0,800,ClosePanel);row+=60;EndPanel();return;
             }
-            int pendingCost=BaseRuinsRewards.PendingCost(s,route);
-            Line("体力 "+BaseRuinsRewards.Energy(s)+" / "+BaseRuinsRewards.Maximum(s)+"。"+(pendingCost==0?"本次领奖免费。":"领奖消耗 "+pendingCost+"。"),65,23);
             Line(string.Format(StoryText.Get("story.ui.dungeon.reward_items", "副本奖励 · 钱币 {0}、个人装备 ×1、锻造石 ×{1}，有机会获得基础兵书。"),rules.Coins,rules.ItemCount),110,21);
             string problem=BaseRuinsRewards.ClaimProblem(s,route);Line(problem==""?"本场已胜利，可以领取一次。":problem,75,21);
-            RowButton(pendingCost==0?"免费领取本次奖励":"消耗体力 · 领取本次奖励",0,800,()=>owner.ClaimRuinsReward(route),problem=="");row+=60;
+            RowButton("领取本次奖励",0,800,()=>owner.ClaimRuinsReward(route),problem=="");row+=60;
             RowButton("放弃本次副本奖励",0,800,()=>owner.SkipRuinsReward(route));row+=60;
             if(HasDungeonAftermath(s, battle))
             {RowButton("查看战果与俘虏",0,800,()=>OpenLoot(battle));row+=60;}
@@ -143,7 +141,8 @@ namespace BaseConquest.Base
         {
             var s=owner.State;var p=BaseRuinsSweep.Preview(s,mode);BeginPanel(BaseScriptNames.Ruins+" · 扫荡确认","ruins-sweep");activeObject="ruins-sweep";interactionObject="";
             RowButton("尽量配足军需"+(mode=="full"?" · 已选":""),-205,390,()=>OpenRuinsSweep("full"));RowButton("不使用军需"+(mode=="none"?" · 已选":""),205,390,()=>OpenRuinsSweep("none"));row+=60;
-            Line("我方战力 "+p.AllyPower.ToString("0")+" / 敌方 "+p.EnemyPower.ToString("0")+" ≈ "+(p.EnemyPower>1e-9?(p.AllyPower/p.EnemyPower).ToString("P0"):"—")+"（需 >150%）；体力 "+BaseRuinsRewards.Energy(s)+" / "+BaseRuinsRewards.Maximum(s)+"，胜利后领奖消耗"+BaseRuinsRewards.Cost(s)+"。",50,21);
+            Line("我方战力 "+p.AllyPower.ToString("0")+" / 敌方 "+p.EnemyPower.ToString("0")+" ≈ "+(p.EnemyPower>1e-9?(p.AllyPower/p.EnemyPower).ToString("P0"):"—")+"（需 >150%）。",50,21);
+            Line(DungeonEnergy(s, BasePrepRoute.Ruins), 50, 20);
             if(p.Problem!="")Line(p.Problem,85,21);
             else Line("确认后结算战损和军需消耗，停留在当天。",50,20);
             RowButton("确认扫荡",-205,390,()=>owner.SweepDemoRuins(mode),p.Problem=="");RowButton("取消",205,390,OpenRuinsChallenge);row+=60;

@@ -233,6 +233,8 @@ namespace BaseConquest.Base
                 mapKey != (state.Campaign.CurrentMapId ?? state.Campaign.Location))
                 return StoryText.Get("story.ui.prep.validation.changed", "现场已变化，请重新备战");
             if (Route == BasePrepRoute.Hideout && !BaseBanditHideout.CanEnter(state)) return BaseBanditHideout.ApproachText;
+            if (BaseRuinsRewards.IsDungeon(Route) && BaseRuinsRewards.EntryProblem(state, Route) is { Length: > 0 } energyProblem)
+                return energyProblem;
             if (TravelingParty && units.Any(unit => !unit.Selected)) return "请为每名随队士兵选定队长";
             if (!units.Any(u => u.Id == PlayerId && u.Selected)) return "主角必须出战";
             var leaders = Taking(deployed).Where(u => u.Kind == SoldierKind.Hero).Select(u => u.Id).ToHashSet();
