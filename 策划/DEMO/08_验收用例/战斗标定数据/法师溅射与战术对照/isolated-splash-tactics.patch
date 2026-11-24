@@ -1,0 +1,1081 @@
+--- a/Assets/Scripts/Battle/RealtimeRpgCombat.cs
++++ b/Assets/Scripts/Battle/RealtimeRpgCombat.cs
+@@ -20,6 +20,9 @@
+         public bool Hit,Critical,Settled,ImpactApplied;
+         public RpgShotContext Context;
+         public float DamageApplied, HealthAfter;
++        public bool MageSplashEligible;
++        public int SplashTargetsHit;
++        public float SplashDamageApplied;
+         public double Attack,CriticalMultiplier,LaunchedAt,ArriveAt;
+         public PrototypePoint Origin,Destination;
+         public RpgAttackPacket Copy()=>(RpgAttackPacket)MemberwiseClone();
+@@ -28,6 +31,7 @@
+     {
+         private readonly List<RpgAttackPacket> rpgAttacks=new List<RpgAttackPacket>();
+         private int rpgAttackSerial;
++        public bool MageSplashEnabled { get; set; }
+         private RpgRules Rpg=>Session.Opening.Rpg;
+         private string CombatDifficulty => hideoutDifficulty ?? Session.Opening.Difficulty.Preset;
+         private double DifficultyIncoming(BattleSide side)=>!Session.Opening.DemoCombat||side!=BattleSide.A?1:CombatDifficulty=="easy"?.5:CombatDifficulty=="hard"?2:1;
+@@ -57,6 +61,9 @@
+                 if(a==null||a.Id<1||a.Id>rpgAttackSerial||!Model.Units.Any(u=>u.Id==a.SourceId)||!new[]{a.Attack,a.CriticalMultiplier,a.LaunchedAt,a.ArriveAt,a.DamageApplied,a.HealthAfter,a.Origin.X,a.Origin.Z,a.Destination.X,a.Destination.Z}.All(PrototypeArena.Finite)||a.Attack<0||a.CriticalMultiplier<1||a.CriticalMultiplier>10||a.LaunchedAt<0||a.ArriveAt<a.LaunchedAt||a.Level<1||a.Level>9)throw new ArgumentException("RPG攻击快照非法");
+                 if(a.DamageApplied<0||a.HealthAfter<0||(a.Context & ~(RpgShotContext.MovingCavalry|RpgShotContext.MeleePressure))!=0)throw new ArgumentException("攻击结算快照非法");
+                 if(a.ImpactApplied&&(!a.Settled||!a.Hit||!string.IsNullOrEmpty(a.ObjectId)))throw new ArgumentException("攻击包的命中表现与结算不符");
++                if(!PrototypeArena.Finite(a.SplashDamageApplied) || a.SplashDamageApplied<0 || a.SplashTargetsHit<0 || a.SplashTargetsHit>8 ||
++                    (a.SplashDamageApplied>0)!=(a.SplashTargetsHit>0) || a.SplashTargetsHit>0&&(!a.ImpactApplied||!a.MageSplashEligible))
++                    throw new ArgumentException("法师溅射结算快照非法");
+                 if(Rpg.HasProfessionCatalog&&a.DamageType!="physical"&&a.DamageType!="magic")throw new ArgumentException("攻击包伤害类型非法");
+                 if(!string.IsNullOrEmpty(a.ObjectId)){if(!a.Settled||!a.Hit||a.Critical||a.First!=0||a.Second!=0||!Session.Opening.TacticalObjects.Any(o=>o.Id==a.ObjectId))throw new ArgumentException("物件攻击记录非法");continue;}
+                 if(!Model.Units.Any(u=>u.Id==a.TargetId&&u.Side!=Model.Units.First(source=>source.Id==a.SourceId).Side)||Math.Abs(a.NetAdvantage)>1)throw new ArgumentException("原目标或优势记录非法");
+@@ -109,6 +116,7 @@
+             var packet=new RpgAttackPacket {Id=id,SourceId=source.Id,TargetId=target.Id,Context=context,First=roll.First,Second=roll.Second,Selected=roll.Selected,Hit=roll.Hit,Critical=roll.Critical,NetAdvantage=roll.NetAdvantage,HitPoints=(int)Rpg.Hit[BaseRpg.Profession(soldier.ProfessionKind)],EvasionPoints=(int)Rpg.Evasion[BaseRpg.Profession(Battle.Soldier(target.Id-1).ProfessionKind)],
+                 DamageType=damageType,LaunchedAt=Model.Elapsed,Attack=Model.DamageFor(source)*multiplier*charge,Level=soldier.Stats.Level,CriticalMultiplier=soldier.Stats.CritMultiplier,Origin=source.Position,Destination=target.BodyCenter,
+                 ArriveAt=Model.Elapsed+(source.Ranged?(target.BodyCenter-source.Position).Length/(Rpg.ArrowSpeed/PrototypeArena.Subdivision):0)};
++            packet.MageSplashEligible=MageSplashEnabled&&source.Ranged&&soldier.ProfessionKind==SoldierKind.Mage&&damageType=="magic"&&skillType==null&&chargeType==null;
+             rpgAttacks.Add(packet);
+             if(source.Ranged&&damageType!="magic")Model.AddVisualArrow(source,packet.Destination,Rpg.ArrowSpeed/PrototypeArena.Subdivision);
+             SettleRpgAttacks();
+@@ -133,12 +141,55 @@
+                 var source=Model.Units.First(u=>u.Id==packet.SourceId);var defender=Battle.Soldier(target.Id-1);
+                 Battle.Soldier(source.Id-1).LastAttackCritical=packet.Critical;
+                 double damage=defender.DeveloperInvulnerable?0:RpgDamage(packet.DamageType,packet.Attack,packet.Level,packet.Critical?packet.CriticalMultiplier:1,Battle.Soldier(source.Id-1),defender);
+-                double before = target.Health;
+-                Model.ApplyResolvedHit(source,target,DamageLimit?.Invoke(source,target,damage)??damage);
+-                packet.HealthAfter = (float)target.Health;
+-                packet.DamageApplied = (float)Math.Max(0,before - target.Health);
+-                packet.ImpactApplied=true;
+-            }
++                double primaryDamage=DamageLimit?.Invoke(source,target,damage)??damage;
++                bool splash=MageSplashEnabled&&packet.MageSplashEligible&&primaryDamage>0;
++                if(splash)damageBatch++;
++                try
++                {
++                    double before=target.Health;
++                    Model.ApplyResolvedHit(source,target,primaryDamage);
++                    packet.HealthAfter=(float)target.Health;
++                    packet.DamageApplied=(float)Math.Max(0,before-target.Health);
++                    packet.ImpactApplied=true;
++                    if(splash)ApplyMageSplash(packet,source,target,primaryDamage/8);
++                }
++                finally {if(splash)damageBatch--;}
++                if(splash)ResolveImmediateVictory();
++            }
++        }
++        private void ApplyMageSplash(RpgAttackPacket packet,PrototypeUnit source,PrototypeUnit target,double damagePerCell)
++        {
++            var impact=target.Position;
++            var impactTile=new GridPosition((int)impact.X,(int)impact.Z);
++            var arena=Model.Arena;
++            int center=arena.CellAt(impact);
++            if(center<0)return;
++            int centerX=center%arena.FineColumns,centerZ=center/arena.FineColumns;
++            var usedCells=new HashSet<int>();
++            var attacker=Battle.Soldier(source.Id-1);
++            attacker.LastAttackCritical=false;
++            try
++            {
++                foreach(var victim in Model.Units.OrderBy(u=>u.Id))
++                {
++                    if(!victim.Alive||victim.Side==source.Side||victim==target)continue;
++                    int cell=arena.CellAt(victim.Position);
++                    if(cell<0||cell==center||Math.Abs(cell%arena.FineColumns-centerX)>1||Math.Abs(cell/arena.FineColumns-centerZ)>1||usedCells.Contains(cell))continue;
++                    var victimTile=new GridPosition((int)victim.Position.X,(int)victim.Position.Z);
++                    if(!Battle.Board.HasLineOfSight(impactTile,victimTile)||!Model.ClearAttack(impact,victim.Position))continue;
++                    usedCells.Add(cell);
++                    if(Battle.Soldier(victim.Id-1).DeveloperInvulnerable)continue;
++                    double amount=Math.Min(damagePerCell,DamageLimit?.Invoke(source,victim,damagePerCell)??damagePerCell);
++                    if(amount<=0)continue;
++                    double before=victim.Health;
++                    Model.ApplyResolvedHit(source,victim,amount);
++                    float lost=(float)Math.Max(0,before-victim.Health);
++                    if(lost<=0)continue;
++                    packet.SplashTargetsHit++;
++                    packet.SplashDamageApplied+=lost;
++                }
++            }
++            finally {attacker.LastAttackCritical=packet.Critical;}
+         }
+         private void SaveRpgCombat(RealtimeBattleState state)
+         {state.RpgAttackSerial=rpgAttackSerial;state.RpgAttacks=rpgAttacks.Select(a=>a.Copy()).ToList();}
+--- /dev/null
++++ b/Assets/Scripts/Base/VerifyMageSplashRules.Isolated.cs
+@@ -0,0 +1,194 @@
++#if UNITY_EDITOR
++using System;
++using System.Linq;
++using BaseConquest.Battle;
++using BaseConquest.RealtimePrototype;
++using UnityEngine;
++
++namespace BaseConquest.Base
++{
++    public static partial class PowerCalibrationMatrix
++    {
++        private const double MageSplashTestHealth = 1000;
++
++        public static void VerifyMageSplashRules()
++        {
++            int hitSeed = MageSplashSeed(10);
++            int missSeed = MageSplashSeed(1);
++            VerifyMageSplashFullRing(hitSeed);
++            VerifyMageSplashEdge(hitSeed);
++            VerifyMageSplashObstacles(hitSeed, false);
++            VerifyMageSplashObstacles(hitSeed, true);
++            VerifyMageSplashInFlight(hitSeed, missSeed);
++            Debug.Log("[MageSplashRules] PASS");
++        }
++
++        private static int MageSplashSeed(int face) => Enumerable.Range(931500, 1000)
++            .First(seed => 1 + (int)(BattleSimulation.StableRoll(seed, 1, 401) * 10) == face);
++
++        private static (RealtimeCampaignBattle Run, PrototypeUnit Source, PrototypeUnit[] Enemies) MageSplashMatch(
++            int seed, int enemies, int allies = 1, int role = 3)
++        {
++            var run = TargetDiceMatch(role, new[] { enemies, 0, 0, 0 }, seed, allies);
++            var source = run.Model.Units.First(u => u.Side == PrototypeSide.Ally);
++            var opponents = run.Model.Units.Where(u => u.Side == PrototypeSide.Enemy).OrderBy(u => u.Id).ToArray();
++            return (run, source, opponents);
++        }
++
++        private static void SetMageSplashPosition(RealtimeCampaignBattle run, PrototypeUnit unit, double x, double z)
++        {
++            var point = new PrototypePoint(x, z);
++            int cell = run.Model.Arena.CellAt(point);
++            RequireMageSplash(run.Model.Arena.FineWalkable(cell), $"cannot stand at {x}, {z}");
++            unit.Cell = cell;
++            unit.Position = unit.Goal = unit.Anchor = point;
++            unit.NextCell = unit.PreviousCell = unit.MoveGoal = -1;
++            unit.Progress = 0;
++        }
++
++        private static void SettleMageSplashShot(RealtimeCampaignBattle run, RpgAttackPacket packet)
++        {
++            RequireMageSplash(!packet.Settled, "projectile has real flight time");
++            run.Model.CanTarget = (_, _) => false;
++            int frames = (int)Math.Ceiling((packet.ArriveAt - run.Model.Elapsed) / RealtimeBattlePrototype.FixedSeconds) + 2;
++            AdvanceTargetDice(run, frames);
++            RequireMageSplash(packet.Settled && run.RpgAttackHistory.Count == 1, "settled one original attack packet");
++        }
++
++        private static void VerifyMageSplashFullRing(int seed)
++        {
++            float baseDamage = 0;
++            foreach (int mode in Enumerable.Range(0, 3))
++            {
++                var (run, mage, enemies) = MageSplashMatch(seed, 10);
++                bool enabled = mode != 0;
++                RequireMageSplash(!run.MageSplashEnabled, "new runtime defaults to disabled");
++                run.MageSplashEnabled = enabled;
++                var target = enemies[0];
++                SetMageSplashPosition(run, mage, 4.25, 4.25);
++                SetMageSplashPosition(run, target, 6.25, 4.25);
++                int index = 1;
++                for (int z = -1; z <= 1; z++)
++                    for (int x = -1; x <= 1; x++)
++                    {
++                        if (x == 0 && z == 0) continue;
++                        if (x == -1 && z == -1)
++                            SetMageSplashPosition(run, enemies[index++], 5.51, 3.51);
++                        else SetMageSplashPosition(run, enemies[index++], 6.25 + x * .5, 4.25 + z * .5);
++                    }
++                // Exercise a transient overlap of live fine-cell anchors independently of navigation reservations.
++                SetMageSplashPosition(run, enemies[9], 5.99, 3.99);
++                enemies[9].Cell = run.Model.Arena.CellAt(new PrototypePoint(5.25, 3.75));
++                if (mode == 2)
++                {
++                    target.Health = 3;
++                    run.Battle.Soldier(target.Id - 1).Health = 3;
++                    run.ImmediateVictory = () => !target.Alive;
++                }
++                var packet = ReleaseTargetDiceAttack(run, mage, target);
++                SettleMageSplashShot(run, packet);
++                RequireMageSplash(packet.Hit && packet.Critical && packet.ImpactApplied && packet.DamageType == "magic" &&
++                    packet.MageSplashEligible == enabled, "primary packet preserves the magic roll and launch mode");
++                if (mode == 0) baseDamage = packet.DamageApplied;
++                RequireMageSplash(baseDamage > 3 && (mode == 2 ? packet.DamageApplied <= 3 : NearSplash(packet.DamageApplied, baseDamage)),
++                    "primary original damage and overkill cap");
++                RequireMageSplash(packet.SplashTargetsHit == (enabled ? 8 : 0) &&
++                    NearSplash(packet.SplashDamageApplied, enabled ? baseDamage : 0), "eight shares sum to one uncapped primary hit");
++                for (int i = 1; i <= 8; i++)
++                {
++                    var victim = enemies[i];
++                    RequireMageSplash(NearSplash(MageSplashTestHealth - victim.Health, enabled ? baseDamage / 8 : 0) &&
++                        (!enabled || run.Battle.Soldier(victim.Id - 1).LastHitSourceId == mage.Id - 1),
++                        $"ring cell {i} loses exactly one share and attributes damage to the caster");
++                }
++                RequireMageSplash(enemies[9].Health == MageSplashTestHealth, "same cell does not receive a second share");
++                if (mode == 2)
++                    RequireMageSplash(!target.Alive && run.Battle.Phase == BattlePhase.Finished,
++                        "primary lethal blow locks victory after splash from the same impact");
++                Debug.Log($"[MageSplashRules] full ring enabled={enabled} overkill={mode == 2} roll={packet.Selected} " +
++                    $"primary={packet.DamageApplied:0.###} splash={packet.SplashDamageApplied:0.###} hits={packet.SplashTargetsHit}");
++            }
++        }
++
++        private static void VerifyMageSplashEdge(int seed)
++        {
++            var (run, mage, enemies) = MageSplashMatch(seed, 4, 2);
++            run.MageSplashEnabled = true;
++            var friend = run.Model.Units.Last(u => u.Side == PrototypeSide.Ally);
++            SetMageSplashPosition(run, mage, 2.25, 4.25);
++            SetMageSplashPosition(run, friend, .75, 4.25);
++            SetMageSplashPosition(run, enemies[0], .25, 4.25);
++            SetMageSplashPosition(run, enemies[1], .25, 3.75);
++            SetMageSplashPosition(run, enemies[2], 13.75, 3.75);
++            SetMageSplashPosition(run, enemies[3], .25, 4.75);
++            enemies[3].Health = 1;
++            enemies[3].KnockedDown = true;
++            var packet = ReleaseTargetDiceAttack(run, mage, enemies[0]);
++            SettleMageSplashShot(run, packet);
++            RequireMageSplash(packet.SplashTargetsHit == 1 && NearSplash(packet.SplashDamageApplied, packet.DamageApplied / 8) &&
++                friend.Health == MageSplashTestHealth && enemies[2].Health == MageSplashTestHealth && enemies[3].Health == 1,
++                "board edges do not wrap, allies and knocked-down targets are skipped");
++            Debug.Log("[MageSplashRules] board edge, allied cell, knocked-down cell and no wrap PASS");
++        }
++
++        private static void VerifyMageSplashObstacles(int seed, bool cliff)
++        {
++            var (run, mage, enemies) = MageSplashMatch(seed, 3);
++            run.MageSplashEnabled = true;
++            SetMageSplashPosition(run, mage, 3.75, 4.75);
++            SetMageSplashPosition(run, enemies[0], 5.75, 4.75);
++            SetMageSplashPosition(run, enemies[1], 6.25, cliff ? 4.75 : 5.25);
++            SetMageSplashPosition(run, enemies[2], cliff ? 5.25 : 6.25, 4.75);
++            if (cliff) run.Battle.Board.Cell(new GridPosition(6, 4)).Elevation = 1;
++            else SetTargetDiceTerrain(run, TerrainKind.Wall, 5, 5);
++
++            var packet = ReleaseTargetDiceAttack(run, mage, enemies[0]);
++            SettleMageSplashShot(run, packet);
++            RequireMageSplash(packet.SplashTargetsHit == 1 && enemies[1].Health == MageSplashTestHealth &&
++                NearSplash(MageSplashTestHealth - enemies[2].Health, packet.DamageApplied / 8),
++                cliff ? "cliff blocks its share without suppressing its open neighbor" :
++                    "wall at the diagonal corner blocks its share without suppressing its open neighbor");
++            Debug.Log($"[MageSplashRules] {(cliff ? "orthogonal cliff" : "diagonal wall corner")} PASS");
++        }
++
++        private static void VerifyMageSplashInFlight(int hitSeed, int missSeed)
++        {
++            foreach (string variant in new[] { "moved", "miss", "down", "physical" })
++            {
++                var (run, source, enemies) = MageSplashMatch(variant == "miss" ? missSeed : hitSeed, 3,
++                    role: variant == "physical" ? 1 : 3);
++                run.MageSplashEnabled = true;
++                var target = enemies[0];
++                SetMageSplashPosition(run, source, 3.25, 4.25);
++                SetMageSplashPosition(run, target, 5.25, 4.25);
++                SetMageSplashPosition(run, enemies[1], 5.25, 4.75);
++                SetMageSplashPosition(run, enemies[2], 9.25, 4.75);
++                var packet = ReleaseTargetDiceAttack(run, source, target);
++                if (variant == "moved")
++                    SetMageSplashPosition(run, target, 9.25, 4.25);
++                if (variant == "down")
++                {
++                    target.Health = 1;
++                    target.KnockedDown = true;
++                }
++                SettleMageSplashShot(run, packet);
++
++                RequireMageSplash(packet.Hit == (variant != "miss") && packet.ImpactApplied == (variant == "moved" || variant == "physical") &&
++                    packet.MageSplashEligible == (variant != "physical") && enemies[1].Health == MageSplashTestHealth,
++                    $"{variant}: primary settlement and old impact neighbor");
++                RequireMageSplash(packet.SplashTargetsHit == (variant == "moved" ? 1 : 0) &&
++                    NearSplash(MageSplashTestHealth - enemies[2].Health, variant == "moved" ? packet.DamageApplied / 8 : 0),
++                    $"{variant}: only a successful live magic impact splashes at the target's current location");
++                Debug.Log($"[MageSplashRules] projectile {variant} hit={packet.Hit} impact={packet.ImpactApplied} splash={packet.SplashTargetsHit}");
++            }
++        }
++
++        private static bool NearSplash(double actual, double expected) => Math.Abs(actual - expected) < .001;
++
++        private static void RequireMageSplash(bool test, string message)
++        {
++            if (!test) throw new InvalidOperationException("[MageSplashRules] " + message);
++        }
++    }
++}
++#endif
+--- /dev/null
++++ b/Assets/Scripts/Base/VerifyMageSplashOutcome.Isolated.cs
+@@ -0,0 +1,275 @@
++#if UNITY_EDITOR
++using System;
++using System.Collections.Generic;
++using System.IO;
++using System.Linq;
++using System.Threading.Tasks;
++using UnityEngine;
++using BaseConquest.Battle;
++using BaseConquest.RealtimePrototype;
++
++namespace BaseConquest.Base
++{
++    public static partial class PowerCalibrationMatrix
++    {
++        private static readonly string[] MageSplashDefaultScenes = { "clustered", "spread", "captain-d4", "captain-d16", "hideout" };
++        private static readonly string[] MageSplashOptionalScenes = { "clustered-swords", "spread-swords", "second" };
++
++        private sealed class MageSplashResult
++        {
++            internal bool Splash, Won, Timeout;
++            internal string Scene, Outcome, Fixture;
++            internal int Grade, Index, Seed, EnemyCount, AllyDeaths, EnemyDeaths, AllyDown, EnemyDown;
++            internal int SplashCasts, SplashHits, InitialNeighborPairs;
++            internal int EnemyMages, EnemySplashHits;
++            internal double EnemySplashDamage;
++            internal double Seconds, FirstEnemyDown = double.NaN, SplashDamage, DirectMageDamage, CaptainHp, CaptainAttack, CaptainDefense;
++        }
++
++        public static void VerifyMageSplashOutcome()
++        {
++            try
++            {
++                RunMageSplashOutcome();
++                Debug.Log("[MageSplashOutcome] PASS");
++                if (Application.isBatchMode) UnityEditor.EditorApplication.Exit(0);
++            }
++            catch (Exception error)
++            {
++                Debug.LogError("[MageSplashOutcome] FAIL " + error);
++                if (Application.isBatchMode) UnityEditor.EditorApplication.Exit(1);
++                else throw;
++            }
++        }
++
++        private static void RunMageSplashOutcome()
++        {
++            var rules = JsonUtility.FromJson<DemoBalancePackage>(File.ReadAllText("Assets/Resources/DemoBalance/DemoBalance.json")).Rules;
++            var state = JsonUtility.FromJson<BaseState>(File.ReadAllText("Assets/Resources/DemoStages/defense-male.json"));
++            rules.Validate();
++            state.Demo.Rpg = rules;
++            state.Demo.Encounters = null;
++            BaseDemoIntro.Enable(state, true);
++            string[] scenes = Arg("mageSplashCases", string.Join(",", MageSplashDefaultScenes)).Split(',');
++            int[] grades = Arg("mageSplashGrades", "0,1").Split(',').Select(int.Parse).ToArray();
++            int samples = int.Parse(Arg("mageSplashSamples", "8"));
++            int workers = int.Parse(Arg("mageSplashWorkers", "4"));
++            int maxSeconds = int.Parse(Arg("mageSplashMaxSeconds", "120"));
++            bool pin = Arg("mageSplashPin", "0") == "1";
++            if (samples < 1 || workers < 1 || maxSeconds < 1 || scenes.Any(scene => !MageSplashDefaultScenes.Contains(scene) && !MageSplashOptionalScenes.Contains(scene)) ||
++                grades.Any(grade => grade != 0 && grade != 1))
++                throw new ArgumentException("invalid mage splash calibration arguments");
++
++            string output = Arg("mageSplashOut", "Logs/mage-splash-outcome");
++            Directory.CreateDirectory(output);
++            using var detail = new StreamWriter(Path.Combine(output, "matches.csv"));
++            using var summary = new StreamWriter(Path.Combine(output, "paired-summary.csv"));
++            detail.WriteLine("scene,grade,seed,formation,mage_count,pin,splash,outcome,won,timeout,combat_seconds,first_enemy_down_seconds,ally_permanent_deaths,enemy_permanent_deaths,ally_down_nonlethal,enemy_down_nonlethal,enemy_count,initial_neighbor_pairs,ally_mage_direct_damage,splash_casts,splash_secondary_hits,splash_hp_loss,enemy_captain_hp,enemy_captain_attack,enemy_captain_defense,enemy_initial_slots,enemy_mages,enemy_splash_secondary_hits,enemy_splash_hp_loss");
++            summary.WriteLine("scene,grade,formation,mage_count,pin,seed_pairs,wins_off,wins_on,win_delta,defeat_to_win,win_to_defeat,timeout_off,timeout_on,first_down_pairs,mean_first_down_delta,mean_first_down_off,mean_first_down_on,mean_end_delta,mean_end_off,mean_end_on,mean_ally_death_delta,mean_ally_deaths_off,mean_ally_deaths_on,mean_enemy_death_delta,splash_fights,splash_casts,splash_secondary_hits,splash_hp_loss,enemy_splash_secondary_hits,enemy_splash_hp_loss");
++            foreach (string scene in scenes)
++            {
++                bool anchored = MageSplashAnchored(scene);
++                var setup = MageRoleSetup(anchored ? "flat" : scene, state, rules);
++                foreach (int grade in grades)
++                {
++                    var results = new MageSplashResult[samples, MageRoleComposition.Length, 2];
++                    Parallel.For(0, samples, new ParallelOptions { MaxDegreeOfParallelism = workers }, trial =>
++                    {
++                        int seed = 381943 + trial * 991;
++                        string key = anchored ? "flat" : scene.StartsWith("captain", StringComparison.Ordinal) ? "armor" : scene;
++                        var reference = StartMatch(key, setup, state, rules, 0, grade, seed, false,
++                            enemyCounts: anchored ? MageSplashGuardCounts(scene) : null);
++                        for (int index = 0; index < MageRoleComposition.Length; index++)
++                        {
++                            var candidate = BuildMageRoleMatch(reference, rules, index * 2, grade, scene, seed);
++                            for (int toggle = 0; toggle < 2; toggle++)
++                                results[trial, index, toggle] = MeasureMageSplash(scene, grade, seed, index,
++                                    candidate, toggle == 1, pin, maxSeconds);
++                        }
++                    });
++                    foreach (var row in results)
++                        detail.WriteLine(MageCsv(row.Scene, row.Grade, row.Seed, MageRoleComposition[row.Index], row.Index * 2,
++                            pin ? 1 : 0, row.Splash ? 1 : 0, row.Outcome, row.Won ? 1 : 0, row.Timeout ? 1 : 0, row.Seconds,
++                            OptionalSplashNumber(row.FirstEnemyDown), row.AllyDeaths, row.EnemyDeaths, row.AllyDown,
++                            row.EnemyDown, row.EnemyCount, row.InitialNeighborPairs, row.DirectMageDamage, row.SplashCasts,
++                            row.SplashHits, row.SplashDamage, row.CaptainHp, row.CaptainAttack, row.CaptainDefense, row.Fixture,
++                            row.EnemyMages, row.EnemySplashHits, row.EnemySplashDamage));
++                    for (int index = 0; index < MageRoleComposition.Length; index++)
++                    {
++                        var baseline = Enumerable.Range(0, samples).Select(trial => results[trial, index, 0]).ToArray();
++                        var variant = Enumerable.Range(0, samples).Select(trial => results[trial, index, 1]).ToArray();
++                        WriteMageSplashSummary(summary, baseline, variant, pin);
++                    }
++                    detail.Flush();
++                    summary.Flush();
++                }
++            }
++        }
++
++        private static bool MageSplashAnchored(string scene) => MageSplashClustered(scene) || MageSplashSpread(scene);
++        private static bool MageSplashClustered(string scene) => scene is "clustered" or "clustered-swords";
++        private static bool MageSplashSpread(string scene) => scene is "spread" or "spread-swords";
++        private static int[] MageSplashGuardCounts(string scene) => scene.EndsWith("-swords", StringComparison.Ordinal) ?
++            new[] { 6, 0, 0, 0 } : new[] { 0, 6, 0, 0 };
++
++        private static void PlaceMageSplashTargets(RealtimeCampaignBattle run, string scene)
++        {
++            // Change all six starting tiles together. The standard restore validates static occupancy,
++            // path anchors and body separation, and rebuilds reservations for the test model.
++            var fixture = run.Model.Capture();
++            var enemies = fixture.Units.Where(unit => unit.Side == PrototypeSide.Enemy).OrderBy(unit => unit.Id).ToArray();
++            SoldierKind kind = scene.EndsWith("-swords", StringComparison.Ordinal) ? SoldierKind.Melee : SoldierKind.Ranged;
++            if (enemies.Length != 6 || enemies.Any(enemy => run.Battle.Soldier(enemy.Id - 1).Kind != kind))
++                throw new InvalidOperationException($"density fixture requires six matching {kind} soldiers");
++            bool clustered = MageSplashClustered(scene);
++            var arena = run.Model.Arena;
++            for (int i = 0; i < enemies.Length; i++)
++            {
++                var slot = clustered ? new PrototypePoint(8.25 + .5 * (i % 2), 3.75 + .5 * (i / 2)) :
++                    new PrototypePoint(6.75 + 3 * (i % 2), 1.25 + 3 * (i / 2));
++                int cell = arena.CellAt(slot);
++                if (!arena.FineWalkable(cell) || (arena.Center(cell) - slot).Length > 1e-8)
++                    throw new InvalidOperationException($"density fixture invalid tile ({slot.X},{slot.Z}), arena={arena.FineColumns}x{arena.FineRows}");
++                var enemy = enemies[i];
++                enemy.Cell = enemy.PreviousCell = cell;
++                enemy.Position = enemy.Goal = enemy.Anchor = slot;
++                enemy.NextCell = enemy.MoveGoal = enemy.AttackSlot = enemy.TargetId = -1;
++                enemy.Progress = 0;
++            }
++            run.Model.Restore(fixture, RealtimeBattlePrototype.RpgAttackDamageLimit);
++            var previous = run.Model.CanMove;
++            // Both formations can attack from their deployed tiles, while transit and shove cannot erase the density control.
++            run.Model.CanMove = unit => unit.Side != PrototypeSide.Enemy && (previous?.Invoke(unit) ?? true);
++            run.RefreshDeveloperState();
++        }
++
++        private static MageSplashResult MeasureMageSplash(string scene, int grade, int seed, int index,
++            BaseCampaignBattle opening, bool splash, bool pin, int maxSeconds)
++        {
++            var session = new BaseCampaignSession(opening);
++            session.Bind();
++            if (!session.Battle.Start(out string error))
++                throw new InvalidOperationException("cannot start mage splash test: " + error);
++            var run = new RealtimeCampaignBattle(session, "normal") { MageSplashEnabled = splash };
++            run.Model.SwordContactPinEnabled = pin;
++            run.EnableBattlefieldExits();
++            if (MageSplashAnchored(scene)) PlaceMageSplashTargets(run, scene);
++            if (scene == "second")
++            {
++                if (session.Opening.EventId != BaseDemoDefense.SecondEventId || run.HasBattlefieldExits ||
++                    session.Battle.Soldiers.Count(unit => unit.Kind == SoldierKind.Hero && unit.Side == BattleSide.B) != 3)
++                    throw new InvalidOperationException("second-wave fixture must use the full release encounter without exits");
++                BaseDemoDefense.Configure(run);
++            }
++
++            var allies = session.Battle.Soldiers.Where(unit => unit.Side == BattleSide.A).ToArray();
++            var enemies = session.Battle.Soldiers.Where(unit => unit.Side == BattleSide.B).ToArray();
++            var enemyActors = run.Model.Units.Where(unit => unit.Side == PrototypeSide.Enemy).OrderBy(unit => unit.Id).ToArray();
++            var captain = enemies.FirstOrDefault(unit => unit.Kind == SoldierKind.Hero);
++            var arena = run.Model.Arena;
++            int neighbors = 0;
++            for (int a = 0; a < enemyActors.Length; a++)
++            for (int b = a + 1; b < enemyActors.Length; b++)
++            {
++                int first = enemyActors[a].Cell, second = enemyActors[b].Cell;
++                if (Math.Abs(first % arena.FineColumns - second % arena.FineColumns) <= 1 &&
++                    Math.Abs(first / arena.FineColumns - second / arena.FineColumns) <= 1)
++                    neighbors++;
++            }
++            if (MageSplashClustered(scene) && neighbors != 11 || MageSplashSpread(scene) && neighbors != 0)
++                throw new InvalidOperationException("actual initial enemy density did not match the controlled fixture");
++
++            var row = new MageSplashResult
++            {
++                Splash = splash, Scene = scene, Grade = grade, Seed = seed, Index = index,
++                EnemyCount = enemies.Length, InitialNeighborPairs = neighbors,
++                EnemyMages = enemies.Count(unit => unit.ProfessionKind == SoldierKind.Mage),
++                CaptainHp = captain?.Stats.Health ?? 0, CaptainAttack = captain?.Stats.Damage ?? 0,
++                CaptainDefense = captain?.Stats.Defense ?? 0,
++                Fixture = string.Join("|", enemyActors.Select(actor =>
++                {
++                    var soldier = session.Battle.Soldier(actor.Id - 1);
++                    return string.Join(":", actor.Id, actor.Cell, soldier.Kind,
++                        soldier.Stats.Health.ToString("R", Invariant), soldier.Stats.Damage.ToString("R", Invariant),
++                        soldier.Stats.Defense.ToString("R", Invariant));
++                }))
++            };
++            var previous = run.Model.DamageApplied;
++            run.Model.DamageApplied = (source, target, actual) =>
++            {
++                previous?.Invoke(source, target, actual);
++                if (double.IsNaN(row.FirstEnemyDown) && target.Side == PrototypeSide.Enemy &&
++                    (target.KnockedDown || target.Health <= 0)) row.FirstEnemyDown = run.Model.Elapsed;
++            };
++            run.Model.SetPaused(false);
++            for (int tick = 0; tick < maxSeconds * 8 && !run.VictoryExitOpen && session.Battle.Phase == BattlePhase.Fighting; tick++)
++                run.Tick(.125);
++            row.Outcome = run.VictoryExitOpen ? "SideAWin" : session.Battle.Report?.Outcome.ToString() ?? "Timeout";
++            row.Won = row.Outcome == "SideAWin";
++            row.Timeout = row.Outcome is "Timeout" or "RoundLimit";
++            row.Seconds = run.Model.Elapsed;
++            row.AllyDeaths = allies.Count(unit => unit.InstantDead);
++            row.EnemyDeaths = enemies.Count(unit => unit.InstantDead);
++            row.AllyDown = allies.Count(unit => !unit.InstantDead && unit.KnockedDown);
++            row.EnemyDown = enemies.Count(unit => !unit.InstantDead && unit.KnockedDown);
++            foreach (var attack in run.RpgAttackHistory)
++            {
++                var source = session.Battle.Soldier(attack.SourceId - 1);
++                if (source?.ProfessionKind != SoldierKind.Mage) continue;
++                if (source.Side == BattleSide.B)
++                {
++                    row.EnemySplashHits += attack.SplashTargetsHit;
++                    row.EnemySplashDamage += attack.SplashDamageApplied;
++                    continue;
++                }
++                if (attack.ImpactApplied) row.DirectMageDamage += attack.DamageApplied;
++                if (attack.SplashTargetsHit > 0) row.SplashCasts++;
++                row.SplashHits += attack.SplashTargetsHit;
++                row.SplashDamage += attack.SplashDamageApplied;
++            }
++            return row;
++        }
++
++        private static void WriteMageSplashSummary(TextWriter output, MageSplashResult[] baseline,
++            MageSplashResult[] variant, bool pin)
++        {
++            var changed = variant[0];
++            var pairs = baseline.Zip(variant, (before, after) => (before, after)).ToArray();
++            bool noLegalSecondaryTargets = MageSplashSpread(changed.Scene) ||
++                changed.Scene.StartsWith("captain", StringComparison.Ordinal);
++            if (pairs.Any(pair => pair.before.Seed != pair.after.Seed || pair.before.Fixture != pair.after.Fixture ||
++                pair.before.SplashHits != 0 || pair.before.SplashDamage != 0 || pair.before.EnemySplashHits != 0 ||
++                (noLegalSecondaryTargets || changed.Index == 0 && pair.after.EnemyMages == 0) &&
++                    (pair.after.SplashHits != 0 || pair.after.SplashDamage != 0 || pair.after.EnemySplashHits != 0 ||
++                    pair.before.Outcome != pair.after.Outcome || pair.before.Seconds != pair.after.Seconds ||
++                    !pair.before.FirstEnemyDown.Equals(pair.after.FirstEnemyDown) ||
++                    pair.before.AllyDeaths != pair.after.AllyDeaths || pair.before.EnemyDeaths != pair.after.EnemyDeaths)))
++                throw new InvalidOperationException("mage splash comparison changed a controlled or ineligible fixture");
++            if (MageSplashClustered(changed.Scene) && changed.Index > 0 && variant.Sum(row => row.SplashHits) == 0)
++                throw new InvalidOperationException("the clustered formation never exercised a real splash impact");
++
++            var firstPairs = pairs.Where(pair => !double.IsNaN(pair.before.FirstEnemyDown) && !double.IsNaN(pair.after.FirstEnemyDown)).ToArray();
++            double first = firstPairs.Length == 0 ? double.NaN : firstPairs.Average(pair => pair.after.FirstEnemyDown - pair.before.FirstEnemyDown);
++            double end = pairs.Average(pair => pair.after.Seconds - pair.before.Seconds);
++            double deaths = pairs.Average(pair => pair.after.AllyDeaths - pair.before.AllyDeaths);
++            double Total(Func<MageSplashResult, double> select) => variant.Sum(select);
++            string FirstMean(MageSplashResult[] rows) => OptionalSplashNumber(rows.Where(row => !double.IsNaN(row.FirstEnemyDown))
++                .Select(row => row.FirstEnemyDown).DefaultIfEmpty(double.NaN).Average());
++
++            int winsBefore = baseline.Count(row => row.Won), winsAfter = variant.Count(row => row.Won);
++            output.WriteLine(MageCsv(changed.Scene, changed.Grade, MageRoleComposition[changed.Index], changed.Index * 2,
++                pin ? 1 : 0, pairs.Length, winsBefore, winsAfter, winsAfter - winsBefore,
++                pairs.Count(pair => !pair.before.Won && pair.after.Won), pairs.Count(pair => pair.before.Won && !pair.after.Won),
++                baseline.Count(row => row.Timeout), variant.Count(row => row.Timeout), firstPairs.Length, OptionalSplashNumber(first),
++                FirstMean(baseline), FirstMean(variant), end, baseline.Average(row => row.Seconds), variant.Average(row => row.Seconds),
++                deaths, baseline.Average(row => row.AllyDeaths), variant.Average(row => row.AllyDeaths),
++                pairs.Average(pair => pair.after.EnemyDeaths - pair.before.EnemyDeaths), variant.Count(row => row.SplashHits > 0),
++                Total(row => row.SplashCasts), Total(row => row.SplashHits), Total(row => row.SplashDamage),
++                Total(row => row.EnemySplashHits), Total(row => row.EnemySplashDamage)));
++            Debug.Log($"[MageSplashOutcome] {changed.Scene} grade={changed.Grade} mages={changed.Index * 2} wins={winsBefore}/{pairs.Length}->{winsAfter}/{pairs.Length} firstDownDelta={first:F2} endDelta={end:F2} allyDeathDelta={deaths:F2} splashHits={Total(row => row.SplashHits):F0} splashHp={Total(row => row.SplashDamage):F1}");
++        }
++
++        private static string OptionalSplashNumber(double number) => double.IsNaN(number) ? "" : number.ToString("R", Invariant);
++    }
++}
++#endif
+--- /dev/null
++++ b/Assets/Scripts/Base/VerifySplashTacticsSupport.Isolated.cs
+@@ -0,0 +1,99 @@
++#if UNITY_EDITOR
++using System;
++using System.IO;
++using System.Linq;
++using BaseConquest.Battle;
++using BaseConquest.RealtimePrototype;
++using UnityEngine;
++
++namespace BaseConquest.Base
++{
++    public static partial class PowerCalibrationMatrix
++    {
++        public static void VerifySplashTacticsSupport()
++        {
++            VerifyTerrainCombat();
++            VerifyTargetAndDice();
++            double sword = ScoutDiscoveryTime(0), rider = ScoutDiscoveryTime(2);
++            RequireTargetDice(rider + .1 < sword, "rider opens the same sight line earlier");
++            Debug.Log($"[TacticsSight] same sight radius and route, sword={sword:F2}s rider={rider:F2}s");
++            VerifyActiveSplashHeight();
++            VerifySplashAgainstArchers();
++            Debug.Log("[SplashTacticsSupport] PASS");
++        }
++
++        private static void VerifyActiveSplashHeight()
++        {
++            var run = TerrainMatch(TerrainFixture.RampEastWest, new PrototypePoint(10.25, 4.25),
++                new PrototypePoint(6.75, 4.25), mage: true);
++            var caster = Archer(run);
++            var target = Cavalry(run);
++            run.MageSplashEnabled = true;
++            run.Model.CanMove = _ => false;
++            RequireTargetDice(BattleRangeOverlay.IncludesAttackCell(run, caster, target.Position),
++                "splash-enabled mage still previews the seventh fine grid from higher ground");
++            run.Model.SetPaused(false);
++            for (int i = 0; i < 200; i++) run.Tick(.025);
++            RequireTargetDice(run.RpgAttackHistory.Any(p => p.SourceId == caster.Id && p.MageSplashEligible &&
++                p.NetAdvantage == 1 && p.ImpactApplied && p.DamageApplied > 0), "active splash retains legal high shot");
++            Debug.Log("[SplashTacticsSupport] enabled mage above target: range preview, advantage and hit PASS");
++        }
++
++        private static double ScoutDiscoveryTime(int scoutRole)
++        {
++            var run = TargetDiceMatch(scoutRole, new[] { 1, 0, 0, 0 });
++            var scout = run.Model.Units.Single(u => u.Side == PrototypeSide.Ally);
++            var hiddenEnemy = run.Model.Units.Single(u => u.Side == PrototypeSide.Enemy);
++            var battle = run.Battle;
++            BaseSceneRules.ApplyBanditSight(battle.Scenario);
++            var observed = battle.Soldier(hiddenEnemy.Id - 1);
++            battle.Soldier(scout.Id - 1).Stats.SightRadius = 3;
++            PlaceTargetDiceActor(run, scout, 2.25, 4.25);
++            PlaceTargetDiceActor(run, hiddenEnemy, 10.25, 4.25);
++            run.Model.CanTarget = (a, b) => a.Side != b.Side &&
++                battle.Vision.CanSee(a.Side == PrototypeSide.Ally ? BattleSide.A : BattleSide.B, battle.Soldier(b.Id - 1));
++            run.Model.CanMove = unit => unit == scout;
++            // Leaderless scripted approach is the formal advance rule before a unit finds a target.
++            run.Model.DefaultDestination = _ => run.Model.Arena.CellAt(new PrototypePoint(7.25, 4.25));
++            AdvanceTargetDice(run, 1);
++            RequireTargetDice(!battle.Vision.CanSee(BattleSide.A, observed), "scout starts out of sight");
++            for (int i = 0; i < 480; i++)
++            {
++                AdvanceTargetDice(run, 1);
++                if (battle.Vision.CanSee(BattleSide.A, observed)) return run.Model.Elapsed;
++            }
++            throw new InvalidOperationException("Scout failed to discover the stationary opponent");
++        }
++
++        private static void VerifySplashAgainstArchers()
++        {
++            var state = JsonUtility.FromJson<BaseState>(File.ReadAllText("Assets/Resources/DemoStages/defense-male.json"));
++            var rules = JsonUtility.FromJson<DemoBalancePackage>(File.ReadAllText("Assets/Resources/DemoBalance/DemoBalance.json")).Rules;
++            state.Demo.Rpg = rules;
++            using var rows = new StreamWriter("Logs/tactics-archers-mages.csv");
++            rows.WriteLine("seed,mirror,splash,result,seconds,archer_remaining_hp,mage_remaining_hp,side_hits,splash_hp_loss");
++            for (int seedIndex = 0; seedIndex < 8; seedIndex++)
++            for (int mirror = 0; mirror < 2; mirror++)
++            for (int enabled = 0; enabled < 2; enabled++)
++            {
++                int seed = 309271 + seedIndex * 997;
++                var setup = ScenarioFor("flat", state);
++                var session = StartMatch("flat", setup, state, rules, 0, 0, seed, mirror != 0,
++                    new[] { 0, 8, 0, 0 }, new[] { 0, 0, 0, 8 });
++                var run = new RealtimeCampaignBattle(session, "normal") { MageSplashEnabled = enabled != 0 };
++                run.Model.SetPaused(false);
++                for (int frame = 0; frame < 360 && session.Battle.Phase == BattlePhase.Fighting; frame++) run.Tick(.25);
++                var army = session.Battle.Soldiers.ToArray();
++                var bowSide = mirror == 0 ? BattleSide.A : BattleSide.B;
++                var result = session.Battle.Report?.Outcome;
++                string outcome = result is BattleOutcome.SideAWin or BattleOutcome.SideBWin
++                    ? ((result == BattleOutcome.SideAWin) == (bowSide == BattleSide.A) ? "archer" : "mage")
++                    : result?.ToString() ?? "timeout";
++                var attacks = run.RpgAttackHistory;
++                rows.WriteLine(FormattableString.Invariant(
++                    $"{seed},{mirror},{enabled},{outcome},{run.Model.Elapsed:F2},{army.Where(u => u.Side == bowSide).Sum(u => u.Health):F2},{army.Where(u => u.Side != bowSide).Sum(u => u.Health):F2},{attacks.Sum(a => a.SplashTargetsHit)},{attacks.Sum(a => a.SplashDamageApplied):F2}"));
++            }
++        }
++    }
++}
++#endif
+--- /dev/null
++++ b/Assets/Scripts/Base/VerifyTacticsDeployment.Isolated.cs
+@@ -0,0 +1,401 @@
++#if UNITY_EDITOR
++using System;
++using System.Collections.Generic;
++using System.IO;
++using System.Linq;
++using System.Threading.Tasks;
++using BaseConquest.Battle;
++using BaseConquest.RealtimePrototype;
++using UnityEngine;
++
++namespace BaseConquest.Base
++{
++    public static partial class PowerCalibrationMatrix
++    {
++        private const int TacticsWidth = 18, TacticsHeight = 11;
++
++        private sealed class TacticsPlacement
++        {
++            public SoldierKind Kind;
++            public int Profession, Slot, X, Z;
++            public SquadStrategy Strategy;
++        }
++
++        private sealed class TacticsTrial
++        {
++            public string Case, Position, Command, Map;
++            public bool Pin, Mirror;
++            public int Seed;
++        }
++
++        private sealed class TacticsObservation
++        {
++            public string Row, Roster;
++            public int FocusOrders, MoveOrders;
++        }
++
++        public static void VerifyTacticsDeployment()
++        {
++            try
++            {
++                WriteTacticsDeployment();
++                Debug.Log("[TacticsDeployment] PASS");
++                UnityEditor.EditorApplication.Exit(0);
++            }
++            catch (Exception error)
++            {
++                Debug.LogException(error);
++                UnityEditor.EditorApplication.Exit(1);
++            }
++        }
++
++        private static void WriteTacticsDeployment()
++        {
++            string file = Arg("tactics-rules", "Assets/Resources/DemoBalance/DemoBalance.json");
++            var rules = JsonUtility.FromJson<DemoBalancePackage>(File.ReadAllText(file)).Rules;
++            rules.Validate();
++            if (Arg("tactics-attack", "") is string attack && attack.Length > 0)
++            {
++                var values = attack.Split(',').Select(value => int.Parse(value, Invariant)).ToArray();
++                if (values.Length != 2) throw new ArgumentException("expected sword,bow attacks");
++                rules.Templates.Single(t => t.Id == "soldier_warrior").Attack = values[0];
++                rules.Templates.Single(t => t.Id == "soldier_archer").Attack = values[1];
++                rules.Validate();
++            }
++
++            int seed = int.Parse(Arg("tactics-seed", "410269"), Invariant);
++            int count = int.Parse(Arg("tactics-count", "8"), Invariant);
++            int workers = int.Parse(Arg("tactics-workers", "4"), Invariant);
++            int grade = int.Parse(Arg("tactics-grade", "0"), Invariant);
++            if (count < 1 || workers < 1 || grade is < 0 or > 2) throw new ArgumentOutOfRangeException("tactics arguments");
++
++            var cases = Arg("tactics-cases", "cavalry,bow,duel").Split(',');
++            string map = Arg("tactics-map", "open");
++            if (map != "open" && map != "guarded") throw new ArgumentException("expected map open or guarded");
++            var pins = Arg("tactics-pin", "off,on").Split(',').Select(value => value switch
++            {
++                "on" => true, "off" => false, _ => throw new ArgumentException("expected pin off or on")
++            });
++            string output = Arg("tactics-out", "Logs/tactics-deployment.csv");
++            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)));
++            using var writer = new StreamWriter(output);
++            writer.WriteLine("case_id,position,command,pin,seed,mirror,grade,outcome,seconds,own_count,opp_count,own_hp_loss_pct,opp_hp_loss_pct,own_down,opp_down,first_launch_side,first_launch_kind,first_launch_s,first_hit_side,first_hit_kind,first_hit_s,own_contact_s,opp_contact_s,rider_rear_contact_s,rider_rear_first_hit_s,rider_rear_hits,rider_rear_damage,bow_pressure_attempts,own_archer_down,opp_archer_down,own_pin_s,opp_pin_s,own_cavalry_pin_s,opp_cavalry_pin_s,own_cavalry_distance,opp_cavalry_distance,shoves,focus_orders,move_orders,stage_reached,staged_order_s,focus_target_hit_s,own_spawns,opp_spawns,map,guard_orders");
++            foreach (string test in cases)
++            {
++                string[] positions = test switch
++                {
++                    "cavalry" => new[] { "frontal", "flank" },
++                    "bow" => new[] { "protected", "exposed" },
++                    "duel" => new[] { "far", "close" },
++                    _ => throw new ArgumentException("unknown tactics case: " + test)
++                };
++                string[] commands = test == "cavalry" ? new[] { "direct", "staged" } :
++                    test == "bow" ? new[] { "auto", "focus" } : new[] { "auto" };
++                var trials = (from pin in pins from index in Enumerable.Range(0, count)
++                    from mirror in new[] { false, true } from position in positions from command in commands
++                    select new TacticsTrial { Case = test, Pin = pin, Seed = seed + 1009 * index,
++                        Mirror = mirror, Position = position, Command = command, Map = test == "duel" ? "flat" : map }).ToArray();
++                var observations = new TacticsObservation[trials.Length];
++                Parallel.For(0, trials.Length, new ParallelOptions { MaxDegreeOfParallelism = workers },
++                    index => observations[index] = ObserveTactics(trials[index], rules, grade));
++                if (observations.Select(x => x.Roster).Distinct().Count() != 1)
++                    throw new InvalidOperationException("Roster or effective stats changed across paired trials: " + test);
++                if (test != "duel" && !observations.Any(x => x.FocusOrders > 0) ||
++                    test == "cavalry" && !observations.Any(x => x.MoveOrders > 0))
++                    throw new InvalidOperationException("Missing real tactic commands: " + test);
++                foreach (var observation in observations) writer.WriteLine(observation.Row);
++                writer.Flush();
++                Debug.Log($"[TacticsDeployment] {test} {trials[0].Map} {trials.Length} trials, starting seed {seed}");
++            }
++        }
++
++        private static List<TacticsPlacement> TacticsRoster(TacticsTrial trial, bool subject)
++        {
++            var placements = new List<TacticsPlacement>();
++            void Captain(int slot, int profession, int x, int z, SquadStrategy strategy) =>
++                placements.Add(new TacticsPlacement { Kind = SoldierKind.Hero, Slot = slot, Profession = profession,
++                    X = x, Z = z, Strategy = strategy });
++            void Troop(int slot, int profession, int x, int z) =>
++                placements.Add(new TacticsPlacement { Kind = BaseRpg.Kind(profession), Slot = slot,
++                    Profession = profession, X = x, Z = z });
++            if (trial.Case == "duel")
++            {
++                Troop(-1, subject ? 0 : 2, trial.Position == "close" ? 8 : 3, 5);
++                return placements;
++            }
++
++            bool mounted = trial.Case == "cavalry" ? subject : !subject;
++            var screenStrategy = mounted ? SquadStrategy.Attack : SquadStrategy.Protect;
++            Captain(0, 0, 5, 5, screenStrategy);
++            foreach (int z in new[] { 4, 5, 6 }) Troop(0, 0, 6, z);
++            if (mounted)
++            {
++                int lane = trial.Case == "bow" || trial.Position == "flank" ? 8 : 5;
++                Captain(1, 2, 4, lane, SquadStrategy.Attack);
++                Troop(1, 2, 3, lane);
++                Troop(1, 2, 4, lane + 1);
++                Troop(1, 2, 3, lane + 1);
++            }
++            else
++            {
++                int lane = trial.Case == "bow" && trial.Position == "exposed" ? 8 : 5;
++                Captain(1, 1, 3, lane, SquadStrategy.Protect);
++                foreach (int z in new[] { lane - 1, lane, lane + 1 }) Troop(1, 1, 2, z);
++            }
++            return placements;
++        }
++
++        private static GridPosition TacticsCell(BattleSide side, int x, int z) =>
++            new GridPosition(side == BattleSide.A ? x : TacticsWidth - 1 - x, z);
++
++        private static void InstallTacticsRoster(BaseCampaignBattle opening, RpgRules rules, BattleSide side,
++            List<TacticsPlacement> placements, int grade)
++        {
++            var army = opening.Scenario.Army(side);
++            var counts = Enumerable.Range(0, 4).Select(p => placements.Count(c => c.Kind == BaseRpg.Kind(p))).ToArray();
++            var normals = Normals(rules, counts, grade).GroupBy(m => m.Kind)
++                .ToDictionary(group => group.Key, group => new Queue<BaseEnemyMember>(group));
++            var captains = placements.Where(x => x.Kind == SoldierKind.Hero).ToArray();
++            army.HeroCount = captains.Length;
++            army.CaptainSlot = captains.Length == 0 ? -1 : 0;
++            army.Capacity = 90;
++            foreach (SoldierKind kind in BattleSimulation.TroopKinds)
++                army.SetCount(kind, placements.Count(x => x.Kind == kind));
++
++            foreach (var place in captains)
++            {
++                var command = new CommanderLoadout { Strategy = place.Strategy };
++                foreach (SoldierKind kind in BattleSimulation.TroopKinds)
++                    command.Set(kind, placements.Count(x => x.Slot == place.Slot && x.Kind == kind));
++                army.Commanders.Add(command);
++                string id = "tactics:" + side + ":captain:" + place.Slot;
++                var profile = BaseRpg.Character(id, place.Profession, false, false, rules);
++                var stats = rules.Bare(profile, 1);
++                var gear = new BasePersonalLoadout { Version = 1, InitialWeapon = BaseRpg.Weapon(place.Profession),
++                    Weapon = BaseRpg.Weapon(place.Profession), BaseStats = stats.Clone() };
++                army.CommanderNames.Add(id);
++                army.CommanderStats.Add(stats.Clone());
++                if (side == BattleSide.A)
++                    opening.Leaders.Add(new BaseLeader { Id = id, Name = id, Rpg = profile, PersonalEquipment = gear,
++                        Health = stats.Health, MaxHealth = stats.Health, HasCombatProfile = true,
++                        CombatStats = stats.Clone(), Training = BaseTraining.FromProfile(stats) });
++                else
++                    opening.Enemies.Add(new BaseEnemyMember { Id = id, Name = id, Rpg = profile,
++                        Kind = SoldierKind.Hero, CommanderSlot = place.Slot, Stats = stats.Clone(),
++                        Health = stats.Health, Equipment = gear });
++            }
++
++            foreach (var place in placements)
++            {
++                GridPosition cell = TacticsCell(side, place.X, place.Z);
++                if (!opening.Scenario.Board.Walkable(cell) || opening.Scenario.Board.Cell(cell).Zone !=
++                    (side == BattleSide.A ? DeploymentZone.A : DeploymentZone.B))
++                    throw new InvalidOperationException($"Invalid deployment side={side} cell={cell}");
++                opening.Scenario.Placements.Add(new UnitPlacement { Cell = cell, Side = side, Kind = place.Kind,
++                    CommanderSlot = place.Slot });
++                if (place.Kind == SoldierKind.Hero) continue;
++                var troop = normals[place.Kind].Dequeue();
++                troop.CommanderSlot = place.Slot;
++                if (side == BattleSide.B) opening.Enemies.Add(troop);
++                else
++                {
++                    opening.Troops.Add(new BaseWorkerBucket { Kind = BaseCampaign.ToBase(place.Kind), Count = 1,
++                        TemplateId = troop.Rpg.TemplateId, HasCombatProfile = true,
++                        CombatStats = troop.EffectiveStats(rules), Health = troop.Health, MaxHealth = troop.Stats.Health,
++                        SoldierNumbers = new List<int> { opening.Troops.Count + 1 } });
++                    opening.TroopSlots.Add(place.Slot);
++                }
++            }
++        }
++
++        private static RealtimeCampaignBattle StartTactics(TacticsTrial trial, RpgRules rules, int grade)
++        {
++            bool duel = trial.Case == "duel";
++            var board = BattleBoard.CreateDefault(TacticsWidth, TacticsHeight);
++            int deployThrough = duel ? 8 : 6;
++            foreach (var point in board.Positions())
++            {
++                var cell = board.Cell(point);
++                cell.Zone = point.Z > 0 && point.Z < TacticsHeight - 1
++                    ? point.X > 0 && point.X <= deployThrough ? DeploymentZone.A :
++                        point.X >= TacticsWidth - 1 - deployThrough && point.X < TacticsWidth - 1 ? DeploymentZone.B :
++                        DeploymentZone.None : DeploymentZone.None;
++                if (!duel && point.X >= 7 && point.X <= 10)
++                {
++                    if (trial.Map == "guarded" && point.Z <= 7)
++                        // A one-tile muddy center crossing and an open flank at Z >= 8 are available to either army.
++                        cell.Terrain = point.Z == 5 ? TerrainKind.Swamp : TerrainKind.Wall;
++                    else if (point.Z == 7) cell.Terrain = TerrainKind.Wall;
++                }
++            }
++            var scenario = new BattleScenario { Board = board, MaxRounds = 90, StalemateRounds = 90,
++                CommanderControl = true, MobileBattleRules = true, IndependentArmyA = duel, IndependentArmyB = duel,
++                FogEnabled = false, PlayerLeaderSlot = -1, CustomExits = true, CampaignRules = true,
++                TestAutoDeployment = false, RandomSeed = trial.Seed,
++                ExitA = new GridPosition(0, 5), ExitB = new GridPosition(TacticsWidth - 1, 5) };
++            var opening = new BaseCampaignBattle { Id = "tactics:" + trial.Seed, EventId = "tactics:" + trial.Case,
++                Rpg = rules, Scenario = scenario, RealtimeRules = true, RealtimeRulesVersion = 1, StartedDay = 1,
++                TroopSlots = new List<int>() };
++            var subject = trial.Mirror ? BattleSide.B : BattleSide.A;
++            InstallTacticsRoster(opening, rules, BattleSide.A, TacticsRoster(trial, subject == BattleSide.A), grade);
++            InstallTacticsRoster(opening, rules, BattleSide.B, TacticsRoster(trial, subject == BattleSide.B), grade);
++
++            var session = new BaseCampaignSession(opening);
++            var actual = session.Battle.Soldiers;
++            if (actual.Count != scenario.Placements.Count || scenario.Placements.Any(p =>
++                !actual.Any(u => u.Side == p.Side && u.Kind == p.Kind && u.Cell == p.Cell &&
++                    u.OriginCommanderSlot == p.CommanderSlot)))
++                throw new InvalidOperationException("A fixture placement was rejected or repositioned: " + trial.Case);
++            session.Bind();
++            if (!session.Battle.Start(out string problem)) throw new InvalidOperationException(problem);
++
++            var run = new RealtimeCampaignBattle(session, "normal");
++            run.Model.SwordContactPinEnabled = trial.Pin;
++            run.Model.BothSidesHuman = true;
++            run.OutcomeResolver = battle =>
++            {
++                bool ally = battle.Model.Units.Any(u => u.Alive && u.Side == PrototypeSide.Ally);
++                bool enemy = battle.Model.Units.Any(u => u.Alive && u.Side == PrototypeSide.Enemy);
++                if (!ally || !enemy) return ally ? BattleOutcome.SideAWin : enemy ? BattleOutcome.SideBWin : BattleOutcome.Draw;
++                return battle.Model.Elapsed + 1e-8 >= scenario.MaxRounds ? BattleOutcome.RoundLimit : BattleOutcome.None;
++            };
++            foreach (var captain in run.Model.Units.Where(u => u.Role == PrototypeRole.Leader))
++                run.SetDuelManualSkills((BattleSide)(int)captain.Side, captain.Squad);
++            run.Model.SetPaused(false);
++            return run;
++        }
++
++        private static bool IssueTactics(RealtimeCampaignBattle run, PrototypeUnit captain, PrototypeOrder order,
++            PrototypePoint point, PrototypeUnit target = null)
++        {
++            if (captain?.Alive != true || order == PrototypeOrder.Focus && target?.Alive != true) return false;
++            if (captain.Side == PrototypeSide.Ally)
++                return run.Issue(new[] { captain.Id - 1 }, order, point, target == null ? -1 : target.Id - 1,
++                    squadFocus: order == PrototypeOrder.Focus);
++            // Opposite-start trials go through the same orders used by a live guest captain.
++            int targetId = target?.Id ?? -1;
++            if (target != null && !run.Battle.PlayerCanSee(BattleSide.B, run.Battle.Soldier(target.Id - 1))) return false;
++            if (!run.Model.IssueOrder(-1, captain.Id, order, point, targetId, side: captain.Side)) return false;
++            run.Model.MarkDirectOrder(new[] { captain.Squad }, order, targetId, order == PrototypeOrder.Focus, captain.Side);
++            return true;
++        }
++
++        private static TacticsObservation ObserveTactics(TacticsTrial trial, RpgRules rules, int grade)
++        {
++            var run = StartTactics(trial, rules, grade);
++            var ownSide = trial.Mirror ? PrototypeSide.Enemy : PrototypeSide.Ally;
++            var own = run.Model.Units.Where(u => u.Side == ownSide).ToArray();
++            var opponent = run.Model.Units.Where(u => u.Side != ownSide).ToArray();
++            var byId = run.Model.Units.ToDictionary(u => u.Id);
++            BattleSoldier Soldier(PrototypeUnit unit) => run.Battle.Soldier(unit.Id - 1);
++            SoldierKind Role(PrototypeUnit unit) => Soldier(unit).ProfessionKind;
++            string PointList(IEnumerable<PrototypeUnit> units) => string.Join("|",
++                units.Select(u => FormattableString.Invariant($"{Role(u)}@{u.Position.X:F2}:{u.Position.Z:F2}")));
++            string StatsList(IEnumerable<PrototypeUnit> units) => string.Join("|", units.Select(u =>
++            {
++                var s = Soldier(u);
++                return FormattableString.Invariant($"{s.Kind}:{s.ProfessionKind}:{s.OriginCommanderSlot}:{s.Stats.Health:R}:{s.Stats.Damage:R}:{s.Stats.Defense:R}:{s.Stats.Level}:{u.Reach:R}:{u.Speed:R}:{u.AttackInterval:R}:{(int)u.Strategy}");
++            }).OrderBy(item => item, StringComparer.Ordinal));
++            string roster = StatsList(own) + "/" + StatsList(opponent);
++            string spawns = PointList(own) + "," + PointList(opponent);
++            // Command the assigned riders against the same rear archer, or assign the same enemy rider to the bow squad.
++            var captain = own.FirstOrDefault(u => u.Squad == 1 && u.Role == PrototypeRole.Leader);
++            var target = opponent.FirstOrDefault(u => u.Role != PrototypeRole.Leader &&
++                Role(u) == (trial.Case == "cavalry" ? SoldierKind.Ranged : SoldierKind.Cavalry));
++            int focusOrders = 0, moveOrders = 0;
++            int guardOrders = 0;
++            double stagedOrderTime = -1;
++            bool stageReached = false;
++            var stageCell = TacticsCell((BattleSide)(int)ownSide, 8, 8);
++            var stage = new PrototypePoint(stageCell.X + .25, stageCell.Z + .25);
++            if (trial.Map == "guarded")
++            {
++                // The same sword screen guards in both layouts and both command arms.
++                var screen = (trial.Case == "bow" ? own : opponent)
++                    .Single(u => u.Squad == 0 && u.Role == PrototypeRole.Leader);
++                if (!IssueTactics(run, screen, PrototypeOrder.Guard, screen.Position))
++                    throw new InvalidOperationException("Sword screen guard order rejected");
++                guardOrders++;
++            }
++            if (trial.Command == "staged")
++            {
++                if (!IssueTactics(run, captain, PrototypeOrder.Move, stage))
++                    throw new InvalidOperationException("Staged cavalry move rejected");
++                moveOrders++;
++            }
++            else if (trial.Command == "direct" || trial.Command == "focus")
++            {
++                if (!IssueTactics(run, captain, PrototypeOrder.Focus, target.Position, target))
++                    throw new InvalidOperationException("Captain squad focus rejected");
++                focusOrders++;
++            }
++
++            double ownContact = -1, oppContact = -1, rearContact = -1;
++            bool Engaged(PrototypeUnit source, Func<PrototypeUnit, bool> filter)
++            {
++                if (!source.Alive || source.Ranged || !byId.TryGetValue(source.TargetId, out var victim) ||
++                    !victim.Alive || victim.Side == source.Side || !filter(victim)) return false;
++                return (run.Model.CanTarget?.Invoke(source, victim) ?? true) &&
++                    run.Model.InAttackRadius(source, victim) && run.Model.ClearAttack(source.Position, victim.BodyCenter);
++            }
++            bool OrdinaryBow(PrototypeUnit unit) => Soldier(unit).Kind == SoldierKind.Ranged;
++            bool OrdinaryRider(PrototypeUnit unit) => Soldier(unit).Kind == SoldierKind.Cavalry;
++            var attackingRiders = (trial.Case == "bow" ? opponent : own).Where(OrdinaryRider).ToArray();
++            for (int frame = 0; frame < 90 * 8 && run.Battle.Phase == BattlePhase.Fighting; frame++)
++            {
++                run.Tick(.125);
++                double elapsed = run.Model.Elapsed;
++                if (ownContact < 0 && own.Any(u => Engaged(u, _ => true))) ownContact = elapsed;
++                if (oppContact < 0 && opponent.Any(u => Engaged(u, _ => true))) oppContact = elapsed;
++                if (rearContact < 0 && attackingRiders.Any(u => Engaged(u, OrdinaryBow))) rearContact = elapsed;
++                if (trial.Command == "staged" && focusOrders == 0 && captain.Alive && target.Alive)
++                {
++                    stageReached |= (captain.Position - stage).Length <= 1;
++                    if ((stageReached || elapsed >= 7) && IssueTactics(run, captain, PrototypeOrder.Focus, target.Position, target))
++                    {
++                        focusOrders++;
++                        stagedOrderTime = elapsed;
++                    }
++                }
++            }
++
++            var outcome = run.Battle.Report?.Outcome;
++            string result = outcome is BattleOutcome.SideAWin or BattleOutcome.SideBWin
++                ? ((outcome == BattleOutcome.SideAWin) == !trial.Mirror ? "own" : "opp")
++                : outcome?.ToString() ?? "timeout";
++            var attacks = run.RpgAttackHistory.Where(p => p.TargetId > 0 && byId.ContainsKey(p.SourceId) &&
++                byId.ContainsKey(p.TargetId)).ToArray();
++            var damage = attacks.Where(p => p.ImpactApplied && p.DamageApplied > 0)
++                .OrderBy(p => p.ArriveAt).ThenBy(p => p.Id).ToArray();
++            var firstLaunch = attacks.FirstOrDefault();
++            var firstHit = damage.FirstOrDefault();
++            var rearHits = damage.Where(p => attackingRiders.Contains(byId[p.SourceId]) &&
++                OrdinaryBow(byId[p.TargetId])).ToArray();
++            var focusHit = damage.FirstOrDefault(p => target != null && p.TargetId == target.Id &&
++                byId[p.SourceId].Side == ownSide && byId[p.SourceId].Squad == 1);
++            var pressureShots = attacks.Count(p => OrdinaryBow(byId[p.SourceId]) &&
++                (p.Context & RpgShotContext.MeleePressure) != 0);
++            string SourceSide(RpgAttackPacket packet) => packet == null ? "none" :
++                byId[packet.SourceId].Side == ownSide ? "own" : "opp";
++            string SourceKind(RpgAttackPacket packet) => packet == null ? "none" : Role(byId[packet.SourceId]).ToString();
++            double Loss(IEnumerable<PrototypeUnit> units) => 100 * units.Sum(u => u.MaxHealth - Math.Max(0, u.Health)) /
++                units.Sum(u => u.MaxHealth);
++            double Pin(IEnumerable<PrototypeUnit> units) => units.Sum(run.Model.SwordContactPinnedSeconds);
++            int BowDown(IEnumerable<PrototypeUnit> units) => units.Count(u => OrdinaryBow(u) && !u.Alive);
++            var values = new object[] { trial.Case, trial.Position, trial.Command, trial.Pin ? 1 : 0, trial.Seed,
++                trial.Mirror ? 1 : 0, grade, result, run.Model.Elapsed, own.Length, opponent.Length, Loss(own),
++                Loss(opponent), own.Count(u => !u.Alive), opponent.Count(u => !u.Alive), SourceSide(firstLaunch),
++                SourceKind(firstLaunch), firstLaunch?.LaunchedAt ?? -1, SourceSide(firstHit), SourceKind(firstHit),
++                firstHit?.ArriveAt ?? -1, ownContact, oppContact, rearContact, rearHits.FirstOrDefault()?.ArriveAt ?? -1,
++                rearHits.Length, rearHits.Sum(p => p.DamageApplied), pressureShots, BowDown(own), BowDown(opponent),
++                Pin(own), Pin(opponent), Pin(own.Where(OrdinaryRider)), Pin(opponent.Where(OrdinaryRider)),
++                own.Where(OrdinaryRider).Sum(u => u.DistanceTravelled), opponent.Where(OrdinaryRider).Sum(u => u.DistanceTravelled),
++                run.Model.ShoveMoves, focusOrders, moveOrders, stageReached ? 1 : 0, stagedOrderTime, focusHit?.ArriveAt ?? -1,
++                spawns, trial.Map, guardOrders };
++            return new TacticsObservation { Row = string.Join(",", values.Select(v => Convert.ToString(v, Invariant))),
++                Roster = roster, FocusOrders = focusOrders, MoveOrders = moveOrders };
++        }
++    }
++}
++#endif
++

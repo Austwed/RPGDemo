@@ -1,0 +1,1108 @@
+diff --git a/Assets/Editor/VerifyMainBattleRosterProgression.cs b/Assets/Editor/VerifyMainBattleRosterProgression.cs
+new file mode 100644
+--- /dev/null
++++ b/Assets/Editor/VerifyMainBattleRosterProgression.cs
+@@ -0,0 +1,425 @@
++using System;
++using System.Collections.Generic;
++using System.Globalization;
++using System.IO;
++using System.Linq;
++using BaseConquest.Base;
++using BaseConquest.Battle;
++using BaseConquest.RealtimePrototype;
++using UnityEditor;
++using UnityEngine;
++
++namespace BaseConquest.Editor
++{
++    public static partial class VerifyDemoPlayerRoute
++    {
++        private const string RosterFixtureFolder = "Logs/main-battle-rosters";
++        private static readonly string[] RosterFixtureIds =
++        {
++            "cave-solo", "cave-two", "cave-three", "hideout", "defense", "blackcrow-early",
++            "blackcrow-restocked", "second-early-escaped", "second-restocked-escaped",
++            "second-early-dead", "second-restocked-dead"
++        };
++
++        private static readonly SoldierKind[] RosterKinds =
++        {
++            SoldierKind.Melee, SoldierKind.Ranged, SoldierKind.Cavalry, SoldierKind.Mage
++        };
++
++        public static void VerifyMainBattleRosterProgression()
++        {
++            const string difficulty = "BaseConquest.GlobalDifficulty";
++            bool hadDifficulty = PlayerPrefs.HasKey(difficulty);
++            string previousDifficulty = PlayerPrefs.GetString(difficulty);
++            var previousFacing = BaseInteraction.Facing;
++            var index = new Dictionary<string, string>();
++            var gaps = new Dictionary<string, string>();
++            int exitCode = 0;
++            Report.Clear();
++            Directory.CreateDirectory(RosterFixtureFolder);
++            foreach (string id in RosterFixtureIds)
++                File.Delete(Path.Combine(RosterFixtureFolder, id + ".json"));
++
++            try
++            {
++                PlayerPrefs.SetString(difficulty, "normal");
++                var config = DemoBalanceRuntime.Load();
++                string raw = File.ReadAllText(Path.Combine(Application.streamingAssetsPath,
++                    "BaseScenarios", BaseDemo.BalanceTemplate));
++                var state = OpenRoute(raw, config.Rules, config.WorkbookSha256, saveFixture: false);
++                Note($"普通难度，正式开局到醒来，配表 {state.Demo.ConfigHash}，战役种子 {state.Demo.Rpg.GenerationSeed}。");
++                BuildCaveRosterFixtures(state, index);
++                CreateDefenseRosterFixtures(state, index, gaps);
++                BuildPostDefenseRosterFixtures(state, index, gaps);
++                var required = RosterFixtureIds.Where(id => !id.StartsWith("second-", StringComparison.Ordinal));
++                Need(required.All(index.ContainsKey), "没有形成全部必需的备战样本");
++                Need(new[] { "dead", "escaped" }.Any(fate =>
++                    index.ContainsKey("second-early-" + fate) && index.ContainsKey("second-restocked-" + fate)),
++                    "没有形成同一巴图结局的两份第二波样本");
++                Note($"PASS：正式流程生成 {index.Count} 份可读备战样本。");
++            }
++            catch (Exception error)
++            {
++                exitCode = 2;
++                Note("FAIL：" + error.Message);
++                Debug.LogException(error);
++            }
++            finally
++            {
++                if (hadDifficulty) PlayerPrefs.SetString(difficulty, previousDifficulty);
++                else PlayerPrefs.DeleteKey(difficulty);
++                BaseInteraction.Facing = previousFacing;
++                File.WriteAllLines(Path.Combine(RosterFixtureFolder, "audit.txt"), Report);
++                var rows = new List<string>
++                {
++                    "id,file,route,day,batu,leaders,sword,bow,cavalry,mage,eligible_soldiers,l1,l2,food,materials,coins,notes"
++                };
++                rows.AddRange(RosterFixtureIds.Select(id => index.TryGetValue(id, out string row) ? row
++                    : id + new string(',', 16) + RosterCsv(gaps.TryGetValue(id, out string gap) ? gap : "样本未生成")));
++                File.WriteAllLines(Path.Combine(RosterFixtureFolder, "index.csv"), rows);
++            }
++            EditorApplication.Exit(exitCode);
++        }
++
++        private static void BuildCaveRosterFixtures(BaseState state, Dictionary<string, string> index)
++        {
++            Travel(state, "exit_east", "town");
++            At(state, "town_quest");
++            Need(BaseDemo.AcceptLordQuest(state), "无法领取古窟委托");
++            At(state, "demo_azhu");
++            Need(BaseDemoNpcs.InviteAzhu(state), "无法触发阿铸来访");
++
++            var solo = state.Copy();
++            EnterRosterCave(solo);
++            SaveRosterFixture(solo, "cave-solo", BasePrepRoute.Ruins, index);
++
++            BuyStones(state);
++            Travel(state, "travel_base", "base");
++            At(state, "home");
++            Need(BaseRpg.UpgradeCamp(state), "营帐升级未成功");
++            Travel(state, "exit_east", "town");
++            RecruitAzhu(state);
++            ReforgeGift(state);
++            var two = state.Copy();
++            EnterRosterCave(two);
++            SaveRosterFixture(two, "cave-two", BasePrepRoute.Ruins, index);
++
++            Travel(state, "travel_base", "base");
++            At(state, "demo_ahe");
++            Need(BaseDemoRuins.Meet(state, "partner_farm") && BaseDemoRuins.Join(state, "partner_farm"),
++                "无法招募阿禾");
++            Travel(state, "exit_east", "town");
++            EnterRosterCave(state);
++            SaveRosterFixture(state, "cave-three", BasePrepRoute.Ruins, index);
++
++            var run = OpenProgressionBattle(state, BasePrepRoute.Ruins, 0);
++            ApproachController(run, true, 5400);
++            Need(BaseDemoRuins.Complete(state, run), "古窟三队长路线未胜利并完成离场");
++            Need(BaseDemoStories.AcceptController(state, state.Demo.Flow.FirstControllerId), "无法接纳迦兰");
++            ResolveLoot(state);
++            At(state, "demo_rescued_1");
++            Need(BaseSceneRules.TalkRescued(state), "找不到获救村民");
++            for (int frame = 0; frame < 900 && state.Demo.Rescue.Stage == 2; frame++)
++                BaseSceneRules.TickRescued(state, .05);
++            Need(state.Demo.Rescue.Stage == 3, "获救村民未返镇");
++            Travel(state, "demo_ruins_return", "town");
++            At(state, "town_quest");
++            Need(BaseDemoRuins.Deliver(state), "未取得募兵及设施修复许可");
++            Note($"古窟首通完成，已领募兵许可，耗时 {run.Model.Elapsed:F1} 秒；未招降俘虏。");
++        }
++
++        private static void EnterRosterCave(BaseState state)
++        {
++            Travel(state, "demo_ruins_exit", "outpost");
++            At(state, "demo_ruins_investigate");
++            Need(state.Demo.RuinsDay == 0 && !state.Campaign.HasActiveBattle && state.Workers.Count == 0,
++                "古窟样本不是首通或已持有士兵");
++        }
++
++        private static void CreateDefenseRosterFixtures(BaseState state, Dictionary<string, string> index,
++            Dictionary<string, string> gaps)
++        {
++            while (!BaseDemoDefense.Due(state))
++            {
++                BuyRosterTroops(state, 11, 0);
++                Travel(state, "travel_base", "base");
++                RepairAndAssign(state);
++                if (!index.ContainsKey("hideout") && EligibleRosterTroops(state) >= 10 &&
++                    BaseSupply.Available(state, "supply", 1) >= 10)
++                    TryRosterBranch("土匪窝点", () => CaptureHideoutRoster(state.Copy(), index),
++                        problem => gaps["hideout"] = problem);
++                Rest(state);
++                if (!BaseDemoDefense.Due(state)) Travel(state, "exit_east", "town");
++            }
++
++            if (!index.ContainsKey("hideout"))
++            {
++                var hideout = state.Copy();
++                TryRosterBranch("土匪窝点", () => CaptureHideoutRoster(hideout, index),
++                    problem => gaps["hideout"] = problem);
++            }
++            EnterDefenseField(state);
++            SaveRosterFixture(state, "defense", BasePrepRoute.Defense, index);
++        }
++
++        private static void CaptureHideoutRoster(BaseState state, Dictionary<string, string> index)
++        {
++            Travel(state, "exit_east", "town");
++            BuyRosterGood(state, "supply1", Math.Max(0, Math.Min(10, EligibleRosterTroops(state)) -
++                BaseSupply.Available(state, "supply", 1)), 0);
++            Travel(state, "demo_ruins_exit", "outpost");
++            At(state, BaseBanditHideout.EntryId);
++            SaveRosterFixture(state, "hideout", BasePrepRoute.Hideout, index);
++        }
++
++        private static void BuildPostDefenseRosterFixtures(BaseState defense, Dictionary<string, string> index,
++            Dictionary<string, string> gaps)
++        {
++            var branches = new Dictionary<string, BaseState>();
++            TryRosterBranch("首防及时结束追击", () => RecordDefenseBranch(defense.Copy(), false, branches));
++            TryRosterBranch("首防主动追击巴图", () => RecordDefenseBranch(defense.Copy(), true, branches));
++            Need(branches.Count > 0, "正式首防未胜利，不能生成后续战役样本");
++
++            var baseline = branches.Values.First();
++            var early = baseline.Copy();
++            MarchRosterToBlackCrow(early, 10);
++            SaveRosterFixture(early, "blackcrow-early", BasePrepRoute.BlackCrow, index);
++
++            var restocked = baseline.Copy();
++            Rest(restocked);
++            RestockCampaignRoster(restocked, 14, false);
++            MarchRosterToBlackCrow(restocked, 14);
++            SaveRosterFixture(restocked, "blackcrow-restocked", BasePrepRoute.BlackCrow, index);
++
++            foreach (string fate in new[] { "escaped", "dead" })
++            {
++                if (!branches.TryGetValue(fate, out var afterDefense))
++                {
++                    string reason = "正常首防策略没有实际得到此巴图结局";
++                    gaps["second-early-" + fate] = gaps["second-restocked-" + fate] = reason;
++                    Note($"第二波 {fate} 缺项：{reason}。");
++                    continue;
++                }
++                foreach (bool restock in new[] { false, true })
++                {
++                    string id = "second-" + (restock ? "restocked-" : "early-") + fate;
++                    TryRosterBranch(id, () =>
++                    {
++                        var second = afterDefense.Copy();
++                        while (!BaseDemoDefense.SecondDue(second))
++                        {
++                            if (restock) RestockCampaignRoster(second, 20, true);
++                            Rest(second);
++                        }
++                        EnterDefenseField(second);
++                        SaveRosterFixture(second, id, BasePrepRoute.Second, index);
++                    }, problem => gaps[id] = problem);
++                }
++            }
++        }
++
++        private static void RecordDefenseBranch(BaseState state, bool pursue, Dictionary<string, BaseState> branches)
++        {
++            var run = OpenProgressionBattle(state, BasePrepRoute.Defense, 11);
++            var batu = run.Battle.Commander(BattleSide.B, 0);
++            Need(batu != null, "首防缺少巴图");
++            var target = run.Model.Units.Single(unit => unit.Id == batu.Id + 1);
++            run.Model.SetPaused(false);
++            for (int frame = 0; frame < 60 * 85 && run.Battle.Phase == BattlePhase.Fighting; frame++)
++            {
++                if (run.VictoryExitOpen)
++                {
++                    run.OrderBattlefieldExit(null);
++                    Tick(run, 3600);
++                    break;
++                }
++                if (run.DefensePursuitReady && (!pursue || !target.Alive || frame >= 60 * 75))
++                    Need(run.FinishDefensePursuit(), "无法结束首防追击");
++                if (pursue && target.Alive && frame % 120 == 0 && run.Battle.PlayerCanSee(BattleSide.A, batu))
++                {
++                    var captains = run.Model.Units.Where(unit => unit.Side == PrototypeSide.Ally && unit.Alive &&
++                        unit.Role == PrototypeRole.Leader && unit.TargetId != target.Id).Select(unit => unit.Id - 1).ToArray();
++                    if (captains.Length > 0)
++                        run.Issue(captains, PrototypeOrder.Focus, target.Position, batu.Id, squadFocus: true);
++                }
++                run.Tick(1d / 60);
++            }
++            Need(BaseDemoDefense.Complete(state, run), $"首防未完成结算：{run.Battle.Report?.Outcome}");
++            BaseDemoDefense.AcknowledgeBatu(state);
++            ResolveLoot(state);
++            string fate = state.Demo.Defense.BatuFate;
++            Note($"第 {state.Day} 天首防实战 {run.Model.Elapsed:F1} 秒，{(pursue ? "追击巴图" : "及时结束追击")}，" +
++                 $"巴图 {fate}，第二波到达日 {BaseDemoDefense.SecondArrival(state)}，可用士兵 {EligibleRosterTroops(state)}。");
++            if (!branches.ContainsKey(fate)) branches.Add(fate, state);
++        }
++
++        private static RealtimeCampaignBattle OpenProgressionBattle(BaseState state, BasePrepRoute route, int target)
++        {
++            var draft = BuildProgressionDraft(state, route, target);
++            Need(draft.AutoPlace() > 0 && draft.Positions.ContainsKey(draft.PlayerId), route + "自动布置失败");
++            Need(draft.Problem(state, true) == "", route + "布置校验失败：" + draft.Problem(state, true));
++            var run = new RealtimeCampaignBattle(draft.Begin(state));
++            run.EnableBattlefieldExits();
++            if (route == BasePrepRoute.Ruins) BaseDemoRuins.Configure(run);
++            else BaseDemoDefense.Configure(run);
++            foreach (var captain in run.Battle.Soldiers.Where(unit => unit.Side == BattleSide.A && unit.Kind == SoldierKind.Hero))
++                run.Strategy(captain.OriginCommanderSlot, route == BasePrepRoute.Defense ? SquadStrategy.Protect : SquadStrategy.Attack);
++            return run;
++        }
++
++        private static BaseBattlePreparation BuildProgressionDraft(BaseState state, BasePrepRoute route, int target)
++        {
++            var draft = new BaseBattlePreparation(state, route) { SupplyGrade = 1 };
++            var captains = draft.Units.Where(unit => unit.Kind == SoldierKind.Hero).Take(BaseAdventure.Capacity).ToArray();
++            Need(captains.Any(unit => unit.Id == draft.PlayerId), "备战名册缺少主角");
++            foreach (var unit in draft.Units) unit.Selected = captains.Contains(unit);
++            var soldiers = draft.Units.Where(unit => unit.Kind != SoldierKind.Hero)
++                .OrderByDescending(unit => unit.Health / unit.MaxHealth).ThenBy(unit => unit.SoldierNumber).ToArray();
++            int limit = Math.Min(target, Math.Min(draft.AvailableSupply(state, 1), BaseMuster.BattleSoldierLimit));
++            if (route == BasePrepRoute.Travel)
++                limit = Math.Min(limit, state.Inventory.Food / Math.Max(1, state.Rules.SoldierFood));
++            var formation = RosterKinds.Select(kind => soldiers.FirstOrDefault(unit => unit.Kind == kind))
++                .Where(unit => unit != null).Concat(soldiers).Distinct().Take(limit).ToArray();
++            for (int soldier = 0; soldier < formation.Length; soldier++)
++            {
++                formation[soldier].Selected = true;
++                formation[soldier].TeamId = captains[soldier % captains.Length].Id;
++            }
++            Need(draft.Problem(state, false) == "", route + "编队校验失败：" + draft.Problem(state, false));
++            return draft;
++        }
++
++        private static void MarchRosterToBlackCrow(BaseState state, int target)
++        {
++            BuyMarchSupply(state);
++            At(state, "demo_march_exit");
++            BaseDemoFinale.OpenWorld(state);
++            BaseAdventure.RecallPaused(state);
++            var draft = BuildProgressionDraft(state, BasePrepRoute.Travel, target);
++            var journey = BaseWorldJourney.Plan(state, null, "bandit", "camp_entry");
++            Need(journey.Reachable && journey.Days == 1, "黑鸦寨没有一日可达的正式路线");
++            int day = state.Day;
++            int food = state.Inventory.Food;
++            BaseWorldJourney.Depart(state, "camp_entry", journey.Path, draft, false);
++            int prepaid = food - state.Inventory.Food;
++            Need(BaseWorldJourney.Step(state, _ => null) && state.Day == day + 1, "行军未结算");
++            BaseWorldJourney.EnterScene(state, "bandit_entry");
++            At(state, "demo_camp_attack");
++            var arrived = new BaseBattlePreparation(state, BasePrepRoute.BlackCrow);
++            var expected = draft.Units.Where(unit => unit.Selected && unit.Kind != SoldierKind.Hero)
++                .Select(unit => unit.SoldierNumber).OrderBy(number => number).ToArray();
++            Need(arrived.Units.Where(unit => unit.Kind != SoldierKind.Hero).Select(unit => unit.SoldierNumber)
++                .OrderBy(number => number).SequenceEqual(expected), "到达名册和实际出征士兵不同");
++            Note($"灰岩营地第 {day} 天出发，第 {state.Day} 天抵达寨外；预扣路粮 {prepaid}，随行士兵 {expected.Length}。");
++        }
++
++        private static int EligibleRosterTroops(BaseState state) => state.Workers
++            .Where(worker => BaseDevelopment.Eligible(state, "expedition", worker)).Sum(worker => worker.Count);
++
++        private static void RestockCampaignRoster(BaseState state, int target, bool industrial)
++        {
++            Travel(state, "exit_east", "town");
++            BuyRosterTroops(state, target, industrial ? 55 : 25);
++            if (state.Inventory.Food < 70)
++                BuyRosterGood(state, "food", 110 - state.Inventory.Food, 0);
++            int stock = BaseSupply.Available(state, "supply", 1);
++            if (stock < target && industrial && state.Inventory.Materials < 12)
++                BuyRosterGood(state, "materials", 18 - state.Inventory.Materials, 25);
++            if (stock < target)
++                BuyRosterGood(state, "supply1", target - stock, 0);
++            Travel(state, "travel_base", "base");
++            RepairAndAssign(state);
++        }
++
++        private static void BuyRosterTroops(BaseState state, int target, int reserveCoins)
++        {
++            var types = new[] { BaseTroopKind.Melee, BaseTroopKind.Ranged, BaseTroopKind.Cavalry };
++            int Count(BaseTroopKind kind) => state.Workers.Where(worker => worker.Kind == kind && worker.Health > 0)
++                .Sum(worker => worker.Count);
++            int Preference(BaseTroopKind kind) => kind == BaseTroopKind.Cavalry ? 1 : 0;
++            At(state, "town_recruit");
++            var hired = new List<BaseTroopKind>();
++            int before = state.Inventory.Coins;
++            while (types.Sum(Count) < target)
++            {
++                var order = types.OrderBy(kind => Count(kind) + Preference(kind)).ToArray();
++                bool bought = false;
++                foreach (var kind in order.Where(kind => BaseTown.MaxHire(state, kind) > 0))
++                {
++                    var quote = BaseTown.QuoteHire(state, kind, 1);
++                    if (quote == null || state.Inventory.Coins - quote.Total < reserveCoins) continue;
++                    Need(BaseTown.Confirm(state, quote), "募兵交易未生效：" + kind);
++                    hired.Add(kind);
++                    bought = true;
++                    break;
++                }
++                if (!bought) break;
++            }
++            Note($"第 {state.Day} 天募兵 {string.Join("/", types.Select(kind => hired.Count(item => item == kind)))}，" +
++                 $"实付 {before - state.Inventory.Coins} 币，在册 {string.Join("/", types.Select(Count))}。");
++        }
++
++        private static void BuyRosterGood(BaseState state, string id, int wanted, int reserveCoins)
++        {
++            if (wanted <= 0) return;
++            At(state, "town_market");
++            int max = Math.Min(wanted, BaseTown.MaxTrade(state, id, true));
++            for (int quantity = max; quantity > 0; quantity--)
++            {
++                var quote = BaseTown.QuoteTrade(state, id, true, quantity);
++                if (quote == null || state.Inventory.Coins - quote.Total < reserveCoins) continue;
++                int before = state.Inventory.Coins;
++                Need(BaseTown.Confirm(state, quote), "市场交易未生效：" + id);
++                Note($"第 {state.Day} 天市场购入 {id} {quantity}，实付 {before - state.Inventory.Coins} 币。");
++                return;
++            }
++        }
++
++        private static void SaveRosterFixture(BaseState state, string id, BasePrepRoute route, Dictionary<string, string> index)
++        {
++            BaseEconomy.Validate(state);
++            var actual = new BaseBattlePreparation(state, route);
++            int capacity = Math.Min(BaseMuster.BattleSoldierLimit, actual.Units.Count(unit => unit.Kind != SoldierKind.Hero));
++            var draft = BuildProgressionDraft(state, route, capacity);
++            Need(draft.AutoPlace() > 0 && draft.Problem(state, true) == "", "样本不能用于正式部署：" + id);
++            var picks = draft.Units.Where(unit => draft.Positions.ContainsKey(unit.Id)).ToArray();
++            var captains = picks.Where(unit => unit.Kind == SoldierKind.Hero).ToArray();
++            int[] mix = RosterKinds.Select(kind => picks.Count(unit => unit.Kind == kind)).ToArray();
++            string notes = "队长：" + string.Join("、", captains.Select(unit =>
++                unit.Name + " " + unit.Health.ToString("0", CultureInfo.InvariantCulture) + "/" + unit.MaxHealth.ToString("0", CultureInfo.InvariantCulture)));
++            foreach (var unit in captains)
++            {
++                var leader = state.Leaders.Single(person => person.Id == unit.Id);
++                var stats = BasePersonalEquipment.Stats(leader);
++                string gear = string.Join("、", leader.PersonalEquipment.Items.Select(item => $"{item.Slot}/{item.Template}/{item.Quality}"));
++                Note($"{id} {unit.Name} · 攻 {stats.Damage:g} 防 {stats.Defense:g} · 装备 {(gear.Length == 0 ? "空" : gear)}。");
++            }
++            string file = id + ".json";
++            string json = JsonUtility.ToJson(state);
++            var readback = JsonUtility.FromJson<BaseState>(json);
++            BaseEconomy.Validate(readback);
++            Need(readback.Day == state.Day && readback.PlayerLeaderId == state.PlayerLeaderId &&
++                 readback.Inventory.Coins == state.Inventory.Coins, "备战样本 JSON 回读不一致：" + id);
++            File.WriteAllText(Path.Combine(RosterFixtureFolder, file), json);
++            int one = draft.AvailableSupply(state, 1), two = draft.AvailableSupply(state, 2);
++            string fate = state.Demo.Defense.BatuFate ?? "";
++            index.Add(id, $"{id},{file},{route},{state.Day},{fate},{captains.Length},{string.Join(",", mix)}," +
++                $"{capacity},{one},{two},{state.Inventory.Food},{state.Inventory.Materials},{state.Inventory.Coins},{RosterCsv(notes)}");
++            Note($"{id} 第 {state.Day} 天 {captains.Length}+{mix.Sum()}（剑弓骑法 {string.Join("/", mix)}），" +
++                 $"合规可选士兵 {capacity}，一级/二级军需 {one}/{two}，粮 {state.Inventory.Food}，" +
++                 $"原料 {state.Inventory.Materials}，钱 {state.Inventory.Coins}，巴图 {fate}。{notes}");
++        }
++
++        private static void TryRosterBranch(string label, Action action, Action<string> failure = null)
++        {
++            try { action(); }
++            catch (InvalidOperationException error)
++            {
++                Note(label + "未生成：" + error.Message);
++                failure?.Invoke(error.Message);
++            }
++        }
++
++        private static string RosterCsv(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
++    }
++}
+diff --git a/Assets/Editor/VerifyMainBattleRosterMatrix.cs b/Assets/Editor/VerifyMainBattleRosterMatrix.cs
+new file mode 100644
+--- /dev/null
++++ b/Assets/Editor/VerifyMainBattleRosterMatrix.cs
+@@ -0,0 +1,453 @@
++using System;
++using System.Collections.Generic;
++using System.Globalization;
++using System.IO;
++using System.Linq;
++using System.Reflection;
++using System.Threading.Tasks;
++using BaseConquest.Base;
++using BaseConquest.Battle;
++using BaseConquest.RealtimePrototype;
++using UnityEditor;
++using UnityEngine;
++
++namespace BaseConquest.Editor
++{
++    public static partial class VerifyDemoPlayerRoute
++    {
++        private const string RosterRoot = "Logs/main-battle-rosters";
++        private static readonly CultureInfo RosterCulture = CultureInfo.InvariantCulture;
++
++        private static readonly ConstructorInfo RosterCombat = typeof(RealtimeCampaignBattle).GetConstructor(
++            BindingFlags.NonPublic | BindingFlags.Instance, null, new[] { typeof(BaseCampaignSession), typeof(string) }, null);
++
++        private sealed class RosterCase
++        {
++            public string Id;
++            public BasePrepRoute Route;
++            public BaseState Source;
++            public int Leaders, Grade;
++            public int[] Counts;
++            public bool Guided, ExitAtHalf;
++        }
++
++        private sealed class RosterFight
++        {
++            public RosterCase Case;
++            public int Seed;
++            public BaseState State;
++            public RealtimeCampaignBattle Run;
++            public string Leaders, LeaderStats, Soldiers, StartBatuFate, Issue = "";
++            public int Day, SupplyStock, Food, Coin, EnemyCount, EnemyLeaders, Orders;
++            public string Outcome = "";
++            public int Deaths, Down, SupplyUsed;
++            public double Seconds;
++            public bool Settled;
++        }
++
++        public static void VerifyMainBattleRosterMatrix()
++        {
++            try
++            {
++                WriteMainBattleRosterMatrix();
++                Debug.Log("[MainBattleRosterMatrix] PASS");
++                EditorApplication.Exit(0);
++            }
++            catch (Exception error)
++            {
++                Debug.LogException(error);
++                EditorApplication.Exit(2);
++            }
++        }
++
++        private static string RosterArg(string name, string fallback) =>
++            Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--" + name + "=", StringComparison.Ordinal))
++                ?.Substring(name.Length + 3) ?? fallback;
++
++        private static int RosterNumber(string name, int fallback) =>
++            int.Parse(RosterArg(name, fallback.ToString(RosterCulture)), RosterCulture);
++
++        private static void WriteMainBattleRosterMatrix()
++        {
++            string directory = RosterArg("roster-dir", RosterRoot);
++            string filter = RosterArg("roster-cases", "");
++            var ids = Directory.EnumerateFiles(directory, "*.json").Select(Path.GetFileNameWithoutExtension)
++                .Where(id => filter.Length == 0 || filter.Split(',').Any(prefix => id.StartsWith(prefix, StringComparison.Ordinal)))
++                .OrderBy(id => id, StringComparer.Ordinal).ToArray();
++            int samples = RosterNumber("roster-screen", 8);
++            string confirm = RosterArg("roster-confirm-sizes", "");
++            int holdout = RosterNumber("roster-holdout", 12);
++            int workers = RosterNumber("roster-workers", 8);
++            if (ids.Length == 0 || samples < 1 || holdout < 0 || workers < 1)
++                throw new ArgumentException("no roster snapshots or invalid sample arguments");
++
++            using var raw = new StreamWriter(Path.Combine(directory, RosterArg("roster-matches", "matches.csv")));
++            using var summary = new StreamWriter(Path.Combine(directory, RosterArg("roster-summary", "summary.csv")));
++            raw.WriteLine("phase,snapshot,route,day,batu_before,batu_after,leaders,leader_stats,swords,bows,riders,mages,soldier_numbers_hp,grade,stock,food,coin,tactics,seed,actual_seed,enemy_count,enemy_leaders,orders,outcome,settled,seconds,permanent_deaths,down,spent_supply,error");
++            summary.WriteLine("phase,snapshot,route,day,batu,leaders,swords,bows,riders,mages,grade,tactics,win,total,retreat,loss,timeout,ineligible,mean_seconds,mean_permanent_deaths,mean_down,mean_spent_supply");
++            var groups = new List<(RosterCase Sample, RosterFight[] Fights)>();
++            foreach (var id in ids)
++            {
++                var route = RosterRoute(id);
++                var file = Path.Combine(directory, id + ".json");
++                string text = File.ReadAllText(file);
++                var state = JsonUtility.FromJson<BaseState>(text);
++                BaseEconomy.Validate(state);
++                foreach (var sample in RosterCases(state, id, route))
++                {
++                    if (confirm.Length > 0)
++                    {
++                        if (!sample.Guided && !sample.ExitAtHalf && sample.Counts[3] == 0 &&
++                            confirm.Split(',').Contains(sample.Counts.Sum().ToString(RosterCulture)))
++                            WriteRosterResults("holdout", sample, RosterTrials(sample, holdout, 847921, workers), raw, summary);
++                        continue;
++                    }
++                    var trials = RosterTrials(sample, samples, 528491, workers);
++                    groups.Add((sample, trials));
++                    WriteRosterResults("screen", sample, trials, raw, summary);
++                }
++            }
++
++            var best = groups.Where(g => !g.Sample.ExitAtHalf && g.Fights.Count(f => f.Settled && f.Outcome == "SideAWin") >= Math.Min(samples, 7))
++                .GroupBy(g => g.Sample.Route == BasePrepRoute.Second
++                    ? g.Sample.Route + ":" + g.Sample.Source.Demo.Defense.BatuFate : g.Sample.Route.ToString())
++                .Select(g => g.OrderBy(x => x.Sample.Counts.Sum()).ThenBy(x => x.Sample.Leaders)
++                    .ThenByDescending(x => x.Fights.Count(f => f.Settled && f.Outcome == "SideAWin"))
++                    .ThenBy(x => x.Fights.Average(f => f.Deaths)).ThenBy(x => x.Sample.Grade)
++                    .ThenBy(x => x.Sample.Source.Day).ThenBy(x => x.Sample.Guided).First().Sample);
++            if (holdout != 0)
++            {
++                foreach (var winner in best)
++                    WriteRosterResults("holdout", winner, RosterTrials(winner, holdout, 847921, workers), raw, summary);
++            }
++        }
++
++        private static BasePrepRoute RosterRoute(string id)
++        {
++            if (id.StartsWith("cave-", StringComparison.Ordinal)) return BasePrepRoute.Ruins;
++            if (id.StartsWith("hideout", StringComparison.Ordinal)) return BasePrepRoute.Hideout;
++            if (id.StartsWith("defense", StringComparison.Ordinal)) return BasePrepRoute.Defense;
++            if (id.StartsWith("blackcrow-", StringComparison.Ordinal)) return BasePrepRoute.BlackCrow;
++            if (id.StartsWith("second-", StringComparison.Ordinal)) return BasePrepRoute.Second;
++            throw new ArgumentException("unknown roster snapshot " + id);
++        }
++
++        private static IEnumerable<RosterCase> RosterCases(BaseState state, string id, BasePrepRoute route)
++        {
++            var draft = new BaseBattlePreparation(state, route);
++            int captains = draft.Units.Count(u => u.Kind == SoldierKind.Hero);
++            var ready = RosterKinds.Select(k => draft.Units.Count(u => u.Kind == k)).ToArray();
++            var sizes = route switch
++            {
++                BasePrepRoute.Ruins => new[] { 0 },
++                BasePrepRoute.Hideout => new[] { 6, 9, 10 },
++                BasePrepRoute.Defense => new[] { 6, 9, 11 },
++                BasePrepRoute.BlackCrow => new[] { ready.Sum() },
++                BasePrepRoute.Second when id.Contains("early") => new[] { 10, 11 },
++                _ => new[] { 14, 16, 18, 20 }
++            };
++            // Include the strongest legal size on this branch when the exact planned tier is unavailable.
++            int available = route == BasePrepRoute.BlackCrow ? ready.Sum() : ready.Take(3).Sum();
++            int stock = Math.Max(draft.AvailableSupply(state, 1), draft.AvailableSupply(state, 2));
++            int max = Math.Min(sizes.Max(), Math.Min(available, stock));
++            if (route != BasePrepRoute.BlackCrow && max > 0 && !sizes.Contains(max)) sizes = sizes.Append(max).OrderBy(n => n).ToArray();
++            foreach (int size in sizes)
++            {
++                int team = route == BasePrepRoute.Ruins ? captains : route == BasePrepRoute.Defense && size <= 6
++                    ? Math.Min(2, captains) : Math.Min(3, captains);
++                var counts = route == BasePrepRoute.BlackCrow ? ready : ChooseRosterCounts(size, ready);
++                if (counts == null || team < 1)
++                {
++                    Debug.Log($"[RosterUnreachable] {id} {team}+{size}, available={string.Join("/", ready)}");
++                    continue;
++                }
++                if (id == "cave-solo")
++                    yield return new RosterCase { Id = id, Source = state, Route = route, Leaders = team,
++                        Counts = counts, Grade = 0, ExitAtHalf = true };
++                bool offered = false;
++                foreach (int grade in size == 0 ? new[] { 0 } : new[] { 1, 2 })
++                {
++                    if (size > draft.AvailableSupply(state, grade)) continue;
++                    offered = true;
++                    foreach (bool guided in new[] { false, true })
++                    {
++                        yield return new RosterCase { Id = id, Source = state, Route = route, Leaders = team,
++                            Counts = counts, Grade = grade, Guided = guided };
++                        if (route != BasePrepRoute.BlackCrow && ready[3] > 0 && counts[1] > 0 && size >= 6)
++                        {
++                            var mix = (int[])counts.Clone();
++                            mix[3] = Math.Min(2, Math.Min(ready[3], mix[1]));
++                            mix[1] -= mix[3];
++                            yield return new RosterCase { Id = id, Source = state, Route = route, Leaders = team,
++                                Counts = mix, Grade = grade, Guided = guided };
++                        }
++                    }
++                }
++                if (!offered)
++                    Debug.Log($"[RosterUnreachable] {id} {team}+{size}, supplies={draft.AvailableSupply(state, 1)}/{draft.AvailableSupply(state, 2)}");
++            }
++        }
++
++        private static int[] ChooseRosterCounts(int size, int[] ready)
++        {
++            if (size > ready.Take(3).Sum()) return null;
++            var original = size switch
++            {
++                6 => new[] { 2, 2, 2, 0 },
++                9 => new[] { 4, 3, 2, 0 },
++                10 => new[] { 4, 4, 2, 0 },
++                11 => new[] { 4, 4, 3, 0 },
++                14 => new[] { 5, 5, 4, 0 },
++                _ => new[] { 0, 0, 0, 0 }
++            };
++            var counts = original.Select((n, i) => Math.Min(n, ready[i])).ToArray();
++            while (counts.Sum() < size)
++            {
++                int best = Enumerable.Range(0, 3).Where(i => counts[i] < ready[i])
++                    .OrderBy(i => (counts[i] + 1d) / (i == 2 ? .28 : .36)).ThenBy(i => i).First();
++                counts[best]++;
++            }
++            return counts;
++        }
++
++        private static RosterFight[] RosterTrials(RosterCase sample, int count, int seed, int workers)
++        {
++            var trials = Enumerable.Range(0, count).Select(i => PrepareRosterFight(sample, seed + 1009 * i)).ToArray();
++            // Setup and final settlement use the real preparation and campaign APIs on the editor thread.
++            Parallel.ForEach(trials.Where(t => t.Run != null),
++                new ParallelOptions { MaxDegreeOfParallelism = workers }, SimulateRosterFight);
++            foreach (var trial in trials.Where(t => t.Run != null)) SettleRosterFight(trial);
++            return trials;
++        }
++
++        private static RosterFight PrepareRosterFight(RosterCase sample, int seed)
++        {
++            var state = sample.Source.Copy();
++            state.Demo.Rpg.GenerationSeed = seed;
++            var draft = new BaseBattlePreparation(state, sample.Route) { SupplyGrade = Math.Max(1, sample.Grade) };
++            var trial = new RosterFight { Case = sample, Seed = seed, State = state, Day = state.Day,
++                StartBatuFate = state.Demo.Defense.BatuFate, SupplyStock = draft.AvailableSupply(state, sample.Grade),
++                Food = state.Inventory.Food, Coin = state.Inventory.Coins };
++            var leads = draft.Units.Where(u => u.Kind == SoldierKind.Hero)
++                .OrderByDescending(u => u.Id == draft.PlayerId).ThenBy(u => u.Id == "partner_craft" ? 0 : 1)
++                .ThenByDescending(u => u.Health).Take(sample.Leaders).ToArray();
++            foreach (var u in draft.Units) u.Selected = leads.Contains(u);
++            BasePrepUnit riderLead = leads.FirstOrDefault(u => u.Id == "partner_craft") ?? leads.Last();
++            BasePrepUnit bowLead = leads.FirstOrDefault(u => u != riderLead && u.Id != draft.PlayerId) ?? leads[0];
++            for (int i = 0; i < RosterKinds.Length; i++)
++            {
++                var soldiers = draft.Units.Where(u => u.Kind == RosterKinds[i])
++                    .OrderByDescending(u => u.Health / u.MaxHealth).ThenBy(u => u.SoldierNumber).Take(sample.Counts[i]).ToArray();
++                foreach (var u in soldiers)
++                {
++                    u.Selected = true;
++                    u.TeamId = sample.Guided ? (i == 2 ? riderLead : i == 1 || i == 3 ? bowLead : leads[0]).Id
++                        : leads[Array.IndexOf(soldiers, u) % leads.Length].Id;
++                }
++            }
++            if (sample.Guided && sample.Route is BasePrepRoute.Defense or BasePrepRoute.Second or BasePrepRoute.BlackCrow)
++                PlaceRosterTactics(draft, leads, riderLead, bowLead, sample.Route);
++            else
++                draft.AutoPlace();
++            var deployed = draft.Units.Where(u => u.Selected && draft.Positions.ContainsKey(u.Id)).ToArray();
++            var selectedSoldiers = deployed.Where(u => u.Kind != SoldierKind.Hero).ToArray();
++            trial.Leaders = string.Join("|", leads.Select(u => u.Name));
++            trial.LeaderStats = string.Join("|", leads.Select(u =>
++            {
++                var hero = state.Leaders.First(l => l.Id == u.Id);
++                var stats = BaseCommanderIdentity.Stats(hero, new ArmyDefinition().Hero);
++                return FormattableString.Invariant($"{u.Name}:{stats.Level}:{u.Health:F1}/{u.MaxHealth:F1}:{stats.Damage:F1}:{stats.Defense:F1}");
++            }));
++            trial.Soldiers = string.Join("|", selectedSoldiers.OrderBy(u => u.SoldierNumber).Select(u =>
++                FormattableString.Invariant($"{u.Kind}:{u.SoldierNumber}:{u.Health:F1}/{u.MaxHealth:F1}")));
++            trial.Issue = draft.Problem(state, true);
++            if (trial.Issue == "" && (deployed.Length != leads.Length + sample.Counts.Sum() ||
++                !RosterKinds.Select(k => selectedSoldiers.Count(u => u.Kind == k)).SequenceEqual(sample.Counts)))
++                trial.Issue = "阵容未能按计划全部落位";
++            if (trial.Issue != "")
++            {
++                trial.Outcome = "ineligible";
++                return trial;
++            }
++            var run = (RealtimeCampaignBattle)RosterCombat.Invoke(new object[] { draft.Begin(state), "normal" });
++            run.EnableBattlefieldExits();
++            switch (sample.Route)
++            {
++                case BasePrepRoute.Ruins: BaseDemoRuins.Configure(run); break;
++                case BasePrepRoute.Defense:
++                case BasePrepRoute.Second: BaseDemoDefense.Configure(run); break;
++                case BasePrepRoute.BlackCrow: BaseDemoFinale.Configure(run); break;
++            }
++            trial.Run = run;
++            trial.EnemyCount = run.Battle.Soldiers.Count(u => u.Side == BattleSide.B && u.Kind != SoldierKind.Hero);
++            trial.EnemyLeaders = run.Battle.Soldiers.Count(u => u.Side == BattleSide.B && u.Kind == SoldierKind.Hero);
++            return trial;
++        }
++
++        private static void PlaceRosterTactics(BaseBattlePreparation draft, BasePrepUnit[] leaders, BasePrepUnit rider,
++            BasePrepUnit bowLead, BasePrepRoute route)
++        {
++            var zone = draft.Board.Positions().Where(c => draft.Board.Walkable(c) && draft.Board.Cell(c).Zone == DeploymentZone.A).ToArray();
++            if (zone.Length == 0) return;
++            // Use actual deployment tiles and the incoming side, so maps work in either orientation.
++            var hostile = draft.Board.Positions().Where(c => draft.Board.Cell(c).Zone == DeploymentZone.B).ToArray();
++            var fallback = (route == BasePrepRoute.BlackCrow) ? draft.Board.Width - 1 : 0;
++            double attackX = hostile.Length == 0 ? fallback : hostile.Average(c => c.X);
++            double attackZ = hostile.Length == 0 ? zone.Average(c => c.Z) : hostile.Average(c => c.Z);
++            double middleZ = zone.Average(c => c.Z);
++            double Depth(GridPosition p) => Math.Abs(p.X - attackX) + .25 * Math.Abs(p.Z - attackZ);
++            var front = zone.OrderBy(Depth).ThenBy(p => Math.Abs(p.Z - middleZ)).ToArray();
++            var rear = zone.OrderByDescending(Depth).ThenBy(p => Math.Abs(p.Z - middleZ)).ToArray();
++            var flank = zone.OrderByDescending(p => Math.Abs(p.Z - middleZ)).ThenBy(Depth).ToArray();
++            void Place(BasePrepUnit unit, IEnumerable<GridPosition> cells)
++            {
++                foreach (var cell in cells) if (draft.Place(unit.Id, cell)) return;
++            }
++            foreach (var leader in leaders)
++                Place(leader, leader == rider && route == BasePrepRoute.BlackCrow ? flank :
++                    leader == bowLead && leader != leaders[0] ? rear : front);
++            foreach (var unit in draft.Units.Where(u => u.Selected && u.Kind == SoldierKind.Melee))
++                Place(unit, front);
++            foreach (var unit in draft.Units.Where(u => u.Selected && u.Kind != SoldierKind.Hero && u.Kind != SoldierKind.Melee))
++                Place(unit, unit.Kind == SoldierKind.Cavalry && route == BasePrepRoute.BlackCrow ? flank :
++                    unit.Kind == SoldierKind.Cavalry ? front : rear);
++            draft.AutoPlace();
++        }
++
++        private static void SimulateRosterFight(RosterFight trial)
++        {
++            var run = trial.Run;
++            var route = trial.Case.Route;
++            bool defend = route is BasePrepRoute.Defense or BasePrepRoute.Second;
++            foreach (var captain in run.Model.Units.Where(RosterAlliedLeader))
++                run.Strategy(captain.Squad, trial.Case.Guided && defend ? SquadStrategy.Protect : SquadStrategy.Attack);
++            run.Model.SetPaused(false);
++            bool exitRequested = false;
++            int max = route == BasePrepRoute.Ruins ? 90 * 8 : 120 * 8;
++            for (int step = 0; step < max && run.Battle.Phase == BattlePhase.Fighting; step++)
++            {
++                if (run.RuinsExitOpen)
++                {
++                    VerifyChenanAndRuins.WalkOutOfRuins(run);
++                    break;
++                }
++                if (trial.Case.ExitAtHalf && !exitRequested && run.Model.Player.Alive &&
++                    run.Model.Player.Health <= run.Model.Player.MaxHealth * .5 &&
++                    run.OrderBattlefieldExit(null))
++                {
++                    exitRequested = true;
++                    trial.Orders++;
++                }
++                if (run.DefensePursuitReady) run.FinishDefensePursuit();
++                if (trial.Case.Guided && route == BasePrepRoute.Second && step == 35 * 8 && !run.VictoryExitOpen)
++                {
++                    foreach (var captain in run.Model.Units.Where(RosterAlliedLeader))
++                        run.Strategy(captain.Squad, SquadStrategy.Attack);
++                    trial.Orders++;
++                }
++                if (run.VictoryExitOpen)
++                {
++                    if (step % 8 == 0) run.OrderBattlefieldExit(null);
++                }
++                else if (trial.Case.Guided && !defend && step % 12 == 0)
++                    RunRosterGuidance(trial, step);
++                if (run.Battle.Phase == BattlePhase.Fighting) run.Tick(.125);
++            }
++            trial.Outcome = run.Battle.Report?.Outcome.ToString() ?? "timeout";
++            if (trial.Outcome is "RoundLimit" or "Stalemate") trial.Outcome = "timeout";
++            trial.Seconds = run.Model.Elapsed;
++            var own = run.Battle.Soldiers.Where(u => u.Side == BattleSide.A && u.Kind != SoldierKind.Hero).ToArray();
++            trial.Deaths = own.Count(u => u.InstantDead);
++            trial.Down = own.Count(u => !u.InstantDead && u.KnockedDown);
++        }
++
++        private static bool RosterAlliedLeader(PrototypeUnit unit) => unit.Side == PrototypeSide.Ally &&
++            unit.Role == PrototypeRole.Leader && unit.Alive;
++
++        private static void RunRosterGuidance(RosterFight trial, int step)
++        {
++            var run = trial.Run;
++            var route = trial.Case.Route;
++            var leaders = run.Model.Units.Where(RosterAlliedLeader).ToArray();
++            if (leaders.Length == 0) return;
++            var enemy = run.Battle.Soldiers.Where(u => u.Side == BattleSide.B && u.IsActive &&
++                    run.Battle.PlayerCanSee(BattleSide.A, u) &&
++                    (route != BasePrepRoute.Ruins || u.Kind == SoldierKind.Hero))
++                .OrderByDescending(u => u.Kind == SoldierKind.Hero).ThenBy(u => u.Health).ThenBy(u => u.Id).FirstOrDefault();
++            if (enemy != null)
++            {
++                var actor = run.Model.Units.Single(u => u.Id == enemy.Id + 1);
++                int[] needed = leaders.Where(u => !u.ManualOrder || u.TargetId != actor.Id).Select(u => u.Id - 1).ToArray();
++                if (needed.Length != 0 && run.Issue(needed, PrototypeOrder.Focus, actor.Position, enemy.Id,
++                    commanderOnly: route == BasePrepRoute.Ruins, squadFocus: route != BasePrepRoute.Ruins))
++                    trial.Orders++;
++                return;
++            }
++            if (step % 72 != 0 || route == BasePrepRoute.Hideout) return;
++            var board = run.Battle.Board;
++            PrototypePoint position;
++            int[] going;
++            if (route == BasePrepRoute.Ruins)
++            {
++                var boss = run.Battle.Commander(BattleSide.B, 0);
++                position = run.Model.Units.Single(u => u.Id == boss.Id + 1).Position;
++                going = leaders.Select(u => u.Id - 1).ToArray();
++            }
++            else
++            {
++                int row = step % 144 == 0 ? 2 * board.Height / 3 : board.Height / 3;
++                var scout = board.Positions().Where(board.Walkable)
++                    .OrderBy(c => Math.Abs(c.X - 3 * board.Width / 4) + Math.Abs(c.Z - row)).First();
++                position = new PrototypePoint(scout.X + .25, scout.Z + .25);
++                var lead = leaders.FirstOrDefault(u => run.Battle.Soldier(u.Id - 1).ProfessionKind == SoldierKind.Cavalry);
++                going = step == 0 && lead != null ? new[] { lead.Id - 1 } : leaders.Select(u => u.Id - 1).ToArray();
++            }
++            if (run.Issue(going, PrototypeOrder.Move, position, commanderOnly: route == BasePrepRoute.Ruins)) trial.Orders++;
++        }
++
++        private static void SettleRosterFight(RosterFight trial)
++        {
++            var run = trial.Run;
++            if (trial.Outcome == "SideAWin")
++            {
++                trial.Settled = trial.Case.Route switch
++                {
++                    BasePrepRoute.Ruins => BaseDemoRuins.Complete(trial.State, run),
++                    BasePrepRoute.Hideout => BaseBanditHideout.Complete(trial.State, run),
++                    BasePrepRoute.BlackCrow => BaseDemoFinale.Complete(trial.State, run),
++                    _ => BaseDemoDefense.Complete(trial.State, run)
++                };
++                if (!trial.Settled) throw new InvalidOperationException("victory settlement failed for " + trial.Case.Id);
++            }
++            else if (trial.Case.Route == BasePrepRoute.Second && trial.Outcome == "SideBWin" &&
++                (!BaseDemoCombat.Fail(trial.State, run) || !trial.State.Aftermath.GameOver))
++                throw new InvalidOperationException("second-wave failure did not end the campaign");
++            if (trial.Settled) trial.SupplyUsed = trial.State.Campaign.Reports.LastOrDefault()?.GearLost ?? 0;
++        }
++
++        private static string RosterCsv(params object[] fields) => string.Join(",", fields.Select(value =>
++        {
++            string field = Convert.ToString(value, RosterCulture) ?? "";
++            return field.IndexOfAny(new[] { ',', '"', '\n', '\r' }) < 0 ? field : "\"" + field.Replace("\"", "\"\"") + "\"";
++        }));
++
++        private static void WriteRosterResults(string phase, RosterCase sample, RosterFight[] trials, TextWriter raw, TextWriter summary)
++        {
++            string tactics = sample.ExitAtHalf ? "half-exit" : sample.Guided ? "guided" : "auto";
++            foreach (var f in trials)
++                raw.WriteLine(RosterCsv(phase, sample.Id, sample.Route, f.Day, f.StartBatuFate, f.State.Demo.Defense.BatuFate,
++                    f.Leaders, f.LeaderStats, sample.Counts[0], sample.Counts[1], sample.Counts[2], sample.Counts[3], f.Soldiers,
++                    sample.Grade, f.SupplyStock, f.Food, f.Coin, tactics, f.Seed, f.Run?.Battle.Scenario.RandomSeed,
++                    f.EnemyCount, f.EnemyLeaders, f.Orders, f.Outcome, f.Settled ? 1 : 0, f.Seconds, f.Deaths, f.Down, f.SupplyUsed, f.Issue));
++            int wins = trials.Count(t => t.Settled && t.Outcome == "SideAWin");
++            summary.WriteLine(RosterCsv(phase, sample.Id, sample.Route, trials[0].Day, trials[0].StartBatuFate, trials[0].Leaders,
++                sample.Counts[0], sample.Counts[1], sample.Counts[2], sample.Counts[3], sample.Grade, tactics,
++                wins, trials.Length, trials.Count(f => f.Outcome == "Retreat"), trials.Count(f => f.Outcome == "SideBWin"),
++                trials.Count(f => f.Outcome == "timeout"), trials.Count(f => f.Outcome == "ineligible"),
++                trials.Average(f => f.Seconds), trials.Average(f => f.Deaths), trials.Average(f => f.Down), trials.Average(f => f.SupplyUsed)));
++            raw.Flush();
++            summary.Flush();
++            Debug.Log($"[RosterResult] {phase} {sample.Id} {sample.Leaders}+{string.Join("/", sample.Counts)} L{sample.Grade} {tactics}: {wins}/{trials.Length}");
++        }
++    }
++}
+diff --git a/Assets/Editor/VerifyMainBattleRosterSupplements.cs b/Assets/Editor/VerifyMainBattleRosterSupplements.cs
+new file mode 100644
+--- /dev/null
++++ b/Assets/Editor/VerifyMainBattleRosterSupplements.cs
+@@ -0,0 +1,215 @@
++using System;
++using System.Collections.Generic;
++using System.IO;
++using System.Linq;
++using BaseConquest.Base;
++using BaseConquest.Battle;
++using UnityEditor;
++using UnityEngine;
++
++namespace BaseConquest.Editor
++{
++    public static partial class VerifyDemoPlayerRoute
++    {
++        private const string RosterSupplementHeader = "id,file,route,day,batu,leaders,sword,bow,cavalry,mage,eligible_soldiers,l1,l2,food,materials,coins,notes";
++
++        public static void VerifyMainBattleRosterOrdinaryMage() => RunRosterSupplement("mage-side",
++            new[] { "blackcrow-mage", "second-restocked-mage-escaped", "second-restocked-mage-dead" },
++            RecordRosterMageSide);
++
++        public static void VerifyMainBattleRosterMarchSizes() => RunRosterSupplement("march-sizes",
++            new[] { "blackcrow-restocked-12", "blackcrow-restocked-13" }, RecordExactMarchSizes);
++
++        private static void RunRosterSupplement(string label, IEnumerable<string> ids, Action<Dictionary<string, string>> record)
++        {
++            const string difficulty = "BaseConquest.GlobalDifficulty";
++            bool hadDifficulty = PlayerPrefs.HasKey(difficulty);
++            string previousDifficulty = PlayerPrefs.GetString(difficulty);
++            var previousFacing = BaseInteraction.Facing;
++            int exitCode = 0;
++            Report.Clear();
++            Directory.CreateDirectory(RosterFixtureFolder);
++            foreach (string key in ids)
++                File.Delete(Path.Combine(RosterFixtureFolder, key + ".json"));
++            string indexPath = Path.Combine(RosterFixtureFolder, "index-" + label + ".csv");
++            File.Delete(indexPath);
++            try
++            {
++                PlayerPrefs.SetString(difficulty, "normal");
++                var index = new Dictionary<string, string>();
++                record(index);
++                File.WriteAllLines(indexPath, new[] { RosterSupplementHeader }.Concat(index.Values));
++            }
++            catch (Exception error)
++            {
++                exitCode = 2;
++                Note("FAIL：" + error.Message);
++                Debug.LogException(error);
++            }
++            finally
++            {
++                if (hadDifficulty) PlayerPrefs.SetString(difficulty, previousDifficulty);
++                else PlayerPrefs.DeleteKey(difficulty);
++                BaseInteraction.Facing = previousFacing;
++                File.WriteAllLines(Path.Combine(RosterFixtureFolder, "audit-" + label + ".txt"), Report);
++            }
++            EditorApplication.Exit(exitCode);
++        }
++
++        private static BaseState ReadRosterSupplementSource(string id)
++        {
++            string path = Path.Combine(RosterFixtureFolder, id + ".json");
++            var state = JsonUtility.FromJson<BaseState>(File.ReadAllText(path));
++            BaseEconomy.Validate(state);
++            return state;
++        }
++
++        private static void RecordRosterMageSide(Dictionary<string, string> index)
++        {
++            var state = ReadRosterSupplementSource("hideout");
++            Need(state.Demo.RuinsDay > 0 && state.Demo.DeliveredDay > 0 && !BaseDemoDefense.Due(state) &&
++                !state.Workers.Any(worker => worker.Kind == BaseTroopKind.Mage), "原样本不在古窟首通后的无普通法师备战期");
++            Note($"从第 {state.Day} 天原始窝点备战样本分支，前往沉眠古窟重打。配表 {state.Demo.ConfigHash}。");
++            RecruitOrdinaryMageFromRepeatCave(state);
++            Travel(state, "demo_ruins_return", "town");
++            Travel(state, "travel_base", "base");
++            RepairAndAssign(state);
++            while (!BaseDemoDefense.Due(state)) Rest(state);
++            Need(BattleReadyRecruitedMages(state) > 0, "至首防仍没有恢复到可出征阈值的普通法师");
++            EnterDefenseField(state);
++
++            var branches = new Dictionary<string, BaseState>();
++            TryRosterBranch("加入普通法师后首防结束追击", () => RecordDefenseBranch(state.Copy(), false, branches));
++            if (branches.Count == 0)
++                TryRosterBranch("加入普通法师后首防追击巴图", () => RecordDefenseBranch(state.Copy(), true, branches));
++            Need(branches.Count > 0, "招降普通法师的分支无法完成首防");
++            var after = branches.Values.First();
++            TryRosterBranch("普通法师攻寨", () =>
++            {
++                var blackcrow = after.Copy();
++                Rest(blackcrow);
++                RestockCampaignRoster(blackcrow, 13, false);
++                MarchRosterToBlackCrow(blackcrow, 14);
++                RequireRosterMage(blackcrow, BasePrepRoute.BlackCrow);
++                SaveRosterFixture(blackcrow, "blackcrow-mage", BasePrepRoute.BlackCrow, index);
++            });
++            TryRosterBranch("普通法师迎击第二波", () =>
++            {
++                var second = after.Copy();
++                while (!BaseDemoDefense.SecondDue(second))
++                {
++                    RestockCampaignRoster(second, 19, true);
++                    Rest(second);
++                }
++                EnterDefenseField(second);
++                RequireRosterMage(second, BasePrepRoute.Second);
++                SaveRosterFixture(second, "second-restocked-mage-" + second.Demo.Defense.BatuFate, BasePrepRoute.Second, index);
++            });
++            Need(index.Count > 0, "普通法师没有进入任何正式战斗备战样本");
++            Note("PASS：实战俘获的普通法师进入正式备战名册，原有 11 份样本无需重建。");
++        }
++
++        private static void RecordExactMarchSizes(Dictionary<string, string> index)
++        {
++            var defense = ReadRosterSupplementSource("defense");
++            var branches = new Dictionary<string, BaseState>();
++            RecordDefenseBranch(defense.Copy(), false, branches);
++            var replenished = branches.Values.Single();
++            Rest(replenished);
++            RestockCampaignRoster(replenished, 14, false);
++            BuyMarchSupply(replenished);
++            At(replenished, "demo_march_exit");
++            BaseDemoFinale.OpenWorld(replenished);
++            BaseAdventure.RecallPaused(replenished);
++            foreach (int bow in new[] { 4, 5 })
++            {
++                var march = replenished.Copy();
++                int[] desired = { 5, bow, 3, 0 };
++                int size = desired.Sum();
++                var draft = ExactMarchDraft(march, desired);
++                var journey = BaseWorldJourney.Plan(march, null, "bandit", "camp_entry");
++                Need(journey.Reachable && journey.Days == 1, "黑鸦寨没有一日可达的正式路线");
++                int day = march.Day;
++                int food = march.Inventory.Food;
++                BaseWorldJourney.Depart(march, "camp_entry", journey.Path, draft, false);
++                int prepaid = food - march.Inventory.Food;
++                Need(BaseWorldJourney.Step(march, _ => null) && march.Day == day + 1, "行军未结算");
++                BaseWorldJourney.EnterScene(march, "bandit_entry");
++                At(march, "demo_camp_attack");
++                var arrived = new BaseBattlePreparation(march, BasePrepRoute.BlackCrow);
++                var ids = draft.Units.Where(unit => unit.Selected && unit.Kind != SoldierKind.Hero)
++                    .Select(unit => unit.SoldierNumber).OrderBy(number => number).ToArray();
++                Need(arrived.Units.Where(unit => unit.Kind != SoldierKind.Hero).Select(unit => unit.SoldierNumber)
++                    .OrderBy(number => number).SequenceEqual(ids), "到达后的实际士兵编号与出征不一致");
++                Need(arrived.AvailableSupply(march, 1) >= size, "抵达后一级军需不足");
++                Note($"第 {day} 天以剑/弓/骑 {desired[0]}/{desired[1]}/{desired[2]} 出征，预扣路粮 {prepaid}，" +
++                    $"第 {march.Day} 天抵达，士兵编号 {string.Join("/", ids)}。");
++                SaveRosterFixture(march, "blackcrow-restocked-" + size, BasePrepRoute.BlackCrow, index);
++            }
++            Need(index.Count == 2, "12人与13人出征样本未齐全");
++            Note("PASS：两种精确兵力均从同一补员后状态正式行军抵达黑鸦寨。");
++        }
++
++        private static BaseBattlePreparation ExactMarchDraft(BaseState state, int[] desired)
++        {
++            var draft = new BaseBattlePreparation(state, BasePrepRoute.Travel);
++            var captains = draft.Units.Where(unit => unit.Kind == SoldierKind.Hero).Take(BaseAdventure.Capacity).ToArray();
++            Need(captains.Length == 3 && captains.Any(unit => unit.Id == draft.PlayerId), "补员分支缺少三名队长");
++            foreach (var unit in draft.Units) unit.Selected = captains.Contains(unit);
++            int pickIndex = 0;
++            for (int kind = 0; kind < RosterKinds.Length; kind++)
++            {
++                var soldiers = draft.Units.Where(unit => unit.Kind == RosterKinds[kind])
++                    .OrderByDescending(unit => unit.Health / unit.MaxHealth).ThenBy(unit => unit.SoldierNumber)
++                    .Take(desired[kind]).ToArray();
++                Need(soldiers.Length == desired[kind], "抵达前未能凑齐目标兵种：" + RosterKinds[kind]);
++                foreach (var soldier in soldiers)
++                {
++                    soldier.Selected = true;
++                    soldier.TeamId = captains[pickIndex++ % captains.Length].Id;
++                }
++            }
++            Need(draft.Problem(state, false) == "", "出征阵容未通过验证：" + draft.Problem(state, false));
++            return draft;
++        }
++
++        private static void RecruitOrdinaryMageFromRepeatCave(BaseState state)
++        {
++            for (int attempt = 1; attempt <= 3; attempt++)
++            {
++                At(state, "demo_ruins_investigate");
++                var run = OpenProgressionBattle(state, BasePrepRoute.Ruins, 4);
++                Need(!run.Session.Opening.RuinsFirstClear && run.Battle.Soldiers.Count(unit =>
++                    unit.Side == BattleSide.B && unit.Kind == SoldierKind.Mage) == 2, "古窟重打缺少两名普通法师");
++                ApproachController(run, true, 5400);
++                Need(BaseDemoRuins.Complete(state, run), $"第 {attempt} 次古窟重打未完成胜利离场：{run.Battle.Report?.Outcome}");
++                var captives = state.Aftermath.Prisoners.Where(person => person.BattleId == run.Session.Opening.Id &&
++                    person.Kind == SoldierKind.Mage && person.Status == "held").ToArray();
++                Note($"第 {state.Day} 天第 {attempt} 次古窟重打，实战种子 {run.Battle.Scenario.RandomSeed}，" +
++                    $"耗时 {run.Model.Elapsed:F1} 秒，俘获普通法师 {captives.Length} 名。");
++                foreach (var captive in captives)
++                {
++                    Need(BaseAftermath.Decide(state, captive.Id, "recruit"), "无法通过战后名册招降普通法师");
++                    Note($"招降 {captive.Id}，模板 {captive.Rpg?.TemplateId}，入伍生命 {captive.Health:F0}/{captive.Stats.Health:F0}。");
++                }
++                ResolveLoot(state);
++                if (BaseRuinsRewards.PendingBattle(state) != "")
++                    Need(BaseRuinsRewards.Skip(state), "无法放弃古窟重打的待领额外奖励");
++                Need(state.Demo.DeliveredDay > 0, "重打古窟改变了领主许可");
++                if (captives.Length > 0) return;
++            }
++            throw new InvalidOperationException("三次古窟重打均未取得存活的普通法师俘虏");
++        }
++
++        private static int BattleReadyRecruitedMages(BaseState state) => state.Workers
++            .Where(worker => worker.Kind == BaseTroopKind.Mage && worker.Recruited &&
++                BaseDevelopment.Eligible(state, "expedition", worker)).Sum(worker => worker.Count);
++
++        private static void RequireRosterMage(BaseState state, BasePrepRoute route)
++        {
++            var draft = BuildProgressionDraft(state, route, BaseMuster.BattleSoldierLimit);
++            Need(draft.AutoPlace() > 0 && draft.Units.Any(unit => unit.Kind == SoldierKind.Mage &&
++                draft.Positions.ContainsKey(unit.Id)), "实际备战与部署未包含招降的普通法师");
++        }
++    }
++}

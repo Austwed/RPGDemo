@@ -1,0 +1,1306 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "key": "story.partner_farm.greeting",
+      "group": "伙伴／阿禾",
+      "text": "来啦！找我有事？",
+      "notes": "可编辑测试台词；不新增身世或剧情事实。未知新角色使用通用伙伴。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_farm.chat.1",
+      "group": "伙伴／阿禾",
+      "text": "弓弦要稳，出手也要稳。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_farm.chat.2",
+      "group": "伙伴／阿禾",
+      "text": "弓弦受了潮就发软。歇脚时我得先擦一遍。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_farm.chat.3",
+      "group": "伙伴／阿禾",
+      "text": "你去忙吧。我把弓收拾好，等你来喊。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_craft.greeting",
+      "group": "伙伴／阿铸",
+      "text": "来了。接下来怎么安排？",
+      "notes": "可编辑测试台词；不新增身世或剧情事实。未知新角色使用通用伙伴。"
+    },
+    {
+      "key": "story.partner_craft.chat.1",
+      "group": "伙伴／阿铸",
+      "text": "长枪握稳了，脚下也不能乱。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_craft.chat.2",
+      "group": "伙伴／阿铸",
+      "text": "等我紧一下马肚带。跑起来可就顾不上了。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_craft.chat.3",
+      "group": "伙伴／阿铸",
+      "text": "炉子边待久了，闻着自己都像捆湿柴。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_galan.greeting",
+      "group": "伙伴／迦兰",
+      "text": "有话直说。",
+      "notes": "仅沉眠古窟首通接纳的迦兰本人。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_galan.camp_chat",
+      "group": "伙伴／迦兰",
+      "text": "村民们都怕我，我躲远点。",
+      "notes": "驻营未任职，在兵营东侧台阶后闲聊。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_galan.chat.1",
+      "group": "伙伴／迦兰",
+      "text": "我答应跟你说古窟的事。你想问什么？",
+      "notes": "仅沉眠古窟首通接纳的迦兰本人。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_galan.chat.2",
+      "group": "伙伴／迦兰",
+      "text": "那两个采石的已经回镇上了吧？",
+      "notes": "仅沉眠古窟首通接纳的迦兰本人。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_galan.chat.3",
+      "group": "伙伴／迦兰",
+      "text": "失散的族人还没找到。别的事，我眼下没心思说。",
+      "notes": "仅沉眠古窟首通接纳的迦兰本人。",
+      "revision": 1
+    },
+    {
+      "key": "story.partner_test.greeting",
+      "group": "伙伴／陈安",
+      "text": "我在听，你说。",
+      "notes": "可编辑测试台词；不新增身世或剧情事实。未知新角色使用通用伙伴。"
+    },
+    {
+      "key": "story.partner_test.chat.1",
+      "group": "伙伴／陈安",
+      "text": "近身时，站稳比着急出剑更要紧。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_test.chat.2",
+      "group": "伙伴／陈安",
+      "text": "这会儿安静，正好检查一下装备。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_test.chat.3",
+      "group": "伙伴／陈安",
+      "text": "路上多留一点余地，转身才方便。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_default.greeting",
+      "group": "伙伴／通用伙伴",
+      "text": "你好，有什么安排？",
+      "notes": "可编辑测试台词；不新增身世或剧情事实。未知新角色使用通用伙伴。"
+    },
+    {
+      "key": "story.partner_default.chat.1",
+      "group": "伙伴／通用伙伴",
+      "text": "先看看周围，再决定往哪儿走。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_default.chat.2",
+      "group": "伙伴／通用伙伴",
+      "text": "稍作休整也不错。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner_default.chat.3",
+      "group": "伙伴／通用伙伴",
+      "text": "需要同行时告诉我。",
+      "notes": "按键名顺序轮换；纯表现，不改变游戏状态。"
+    },
+    {
+      "key": "story.partner.invite_nearby",
+      "group": "伙伴／通用提示",
+      "text": "请走到伙伴旁对话，才能邀请或移出队伍。",
+      "notes": "既有对话提示；编辑文案不会改变交互距离。"
+    },
+    {
+      "key": "story.quest.town_defence.title",
+      "group": "任务／城镇防务",
+      "text": "营造入门 · 城镇防务委托",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.description",
+      "group": "任务／城镇防务",
+      "text": "“附近的军队威胁着往来商旅。协助我们恢复安全，城镇会提供营造图册，帮助你建设据点。”",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.objective",
+      "group": "任务／城镇防务",
+      "text": "目标：亲自赢得1场迎战／进攻，或让荒野据点归属己方。",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.reward",
+      "group": "任务／城镇防务",
+      "text": "奖励：营造图册 ×1 ＋ 营造入门剧情条件",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.accepted",
+      "group": "任务／城镇防务",
+      "text": "已接取城镇防务委托",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.delivered",
+      "group": "任务／城镇防务",
+      "text": "获得营造图册1本，已开放营造入门剧情条件",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.ready",
+      "group": "任务／城镇防务",
+      "text": "可以交付，确认后发放一次奖励。",
+      "notes": "原有委托文案；不修改目标、奖励或事务。"
+    },
+    {
+      "key": "story.quest.town_defence.claimed",
+      "group": "任务／城镇防务",
+      "text": "第{day}天已领取。图册使用后不会自动补发。",
+      "notes": "原有委托文案；不修改目标、奖励或事务。保留{day}占位符。"
+    },
+    {
+      "key": "story.ui.dialogue.advance",
+      "group": "界面／对白",
+      "text": "点击正文或按 E／空格继续",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.trade.market_entry",
+      "group": "界面／交易",
+      "text": "买卖东西",
+      "notes": "行商的普通商品入口。",
+      "revision": 2
+    },
+    {
+      "key": "story.ui.trade.intel_entry",
+      "group": "界面／交易",
+      "text": "小道消息",
+      "notes": "行商的付费消息入口。",
+      "revision": 2
+    },
+    {
+      "key": "story.ui.trade.smith_goods_entry",
+      "group": "界面／交易",
+      "text": "看看商品",
+      "notes": "铁匠的商品入口，同一货架展示装备和锻造石。"
+    },
+    {
+      "key": "story.ui.trade.market_greeting",
+      "group": "界面／交易",
+      "text": "粮草在这边。要卖战利品，拿来我瞧瞧。",
+      "notes": "老莫在商店的普通问候。",
+      "revision": 3
+    },
+    {
+      "key": "story.ui.trade.recipient",
+      "group": "界面／交易",
+      "text": "收货人：{name}",
+      "notes": "暖木界面功能占位，待改写。保留{name}。"
+    },
+    {
+      "key": "story.ui.trade.recipient_full",
+      "group": "界面／交易",
+      "text": "所选角色背包已满，请切换角色",
+      "notes": "暖木界面功能占位，待写。"
+    },
+    {
+      "key": "story.ui.trade.recipient_missing",
+      "group": "界面／交易",
+      "text": "当前没有可收货的随行角色",
+      "notes": "暖木界面功能占位，待写。"
+    },
+    {
+      "key": "story.ui.trade.changed",
+      "group": "界面／交易",
+      "text": "交易条件已变化，请重新确认",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.trade.reforge_entry",
+      "group": "界面／交易",
+      "text": "重铸",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.trade.reforge_location",
+      "group": "界面／交易",
+      "text": "请靠近灰岩镇铁匠",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.trade.reforge_target",
+      "group": "界面／交易",
+      "text": "请选择随行角色的武器或护具",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.trade.reforge_no_stat_change",
+      "group": "界面／交易",
+      "text": "这件装备的属性不随品质变化。新手短剑可从巴隆赠礼或古窟战利品获得。",
+      "notes": "选择所有品质属性相同的装备，确认禁用。建议两行。"
+    },
+    {
+      "key": "story.ui.trade.reforge_preview",
+      "group": "界面／交易",
+      "text": "{0} · {1} {2}",
+      "notes": "确认前展示有概率发生的升档或降档。{0} 是角色属性或装备属性，{1} 是升档后或降档后，{2} 是实际属性差值。"
+    },
+    {
+      "key": "story.ui.trade.reforge_stats_unchanged",
+      "group": "界面／交易",
+      "text": "属性未变",
+      "notes": "预览或实际结果的战斗属性保持原值。建议八字以内。"
+    },
+    {
+      "key": "story.ui.trade.reforge_result",
+      "group": "界面／交易",
+      "text": "重铸结果：{0} → {1} · 消耗 {2} 颗",
+      "notes": "确认重铸后显示在按钮下。{0} 和 {1} 是前后品质，{2} 是实际消耗的锻造石数量。"
+    },
+    {
+      "key": "story.ui.trade.stone_description",
+      "group": "界面／交易",
+      "text": "在灰岩镇铁匠处重铸武器或护具。每次使用 1～10 颗。",
+      "notes": "暖木界面功能占位，待改写。"
+    },
+    {
+      "key": "story.ui.prep.first_defense",
+      "group": "界面／战前准备",
+      "text": "首次防守",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.second_defense",
+      "group": "界面／战前准备",
+      "text": "第二波防守",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.travel",
+      "group": "界面／战前准备",
+      "text": "出征编队",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.preparation",
+      "group": "界面／战前准备",
+      "text": "战前准备",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.enemy_arrival",
+      "group": "界面／战前准备",
+      "text": "敌方 · 抵达战场后查看",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.enemy_roster_unknown",
+      "group": "界面／战前准备",
+      "text": "敌军编队待侦察",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.enemy_unknown",
+      "group": "界面／战前准备",
+      "text": "敌方 · 暂无已知情报",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.travel_confirm",
+      "group": "界面／战前准备",
+      "text": "确认出征编队",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.roster",
+      "group": "界面／战前准备",
+      "text": "士兵名册",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.unselected",
+      "group": "界面／战前准备",
+      "text": "待选",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.limit",
+      "group": "界面／战前准备",
+      "text": "出战士兵最多 24 人",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.travel_context",
+      "group": "界面／战前准备",
+      "text": "抵达黑鸦寨后，可在随行人员中重新编队及部署。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.production",
+      "group": "界面／战前准备",
+      "text": "当前编队无法保障生产",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.first_objective",
+      "group": "界面／战前准备",
+      "text": "坚守到敌军撤离，或击败全部来敌。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.second_objective",
+      "group": "界面／战前准备",
+      "text": "击败全部来敌。开战后无法撤退。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.attack_objective",
+      "group": "界面／战前准备",
+      "text": "使用已抵达的队伍攻占黑鸦寨。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.deployment",
+      "group": "界面／战前准备",
+      "text": "部署",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.back",
+      "group": "界面／战前准备",
+      "text": "返回",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.help_title",
+      "group": "界面／战前准备",
+      "text": "备战说明",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.help_close",
+      "group": "界面／战前准备",
+      "text": "返回备战",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.selected_count",
+      "group": "界面／战前准备",
+      "text": "已选",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.help_roster",
+      "group": "界面／战前准备",
+      "text": "选定队长后，可以修改各兵种人数，或在士兵名册中点选具体士兵。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.help_supply",
+      "group": "界面／战前准备",
+      "text": "每名士兵需要一份军需，所有士兵使用同一等级。仅队长出战时无需军需。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.help_place",
+      "group": "界面／战前准备",
+      "text": "敌方只显示已知情报。进入战场后先放置队长，再点按或拖划部署所属士兵。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.sort_role",
+      "group": "界面／战前准备",
+      "text": "兵种",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.sort_health",
+      "group": "界面／战前准备",
+      "text": "生命",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.sort_status",
+      "group": "界面／战前准备",
+      "text": "状态",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.supply_none",
+      "group": "界面／战前准备",
+      "text": "仅队长出战 · 所需军需 0",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.supply_required",
+      "group": "界面／战前准备",
+      "text": "本次所需军需",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.grade_1",
+      "group": "界面／战前准备",
+      "text": "一级",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.grade_2",
+      "group": "界面／战前准备",
+      "text": "二级",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.stock",
+      "group": "界面／战前准备",
+      "text": "库存",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.supply_use_1",
+      "group": "界面／战前准备",
+      "text": "使用一级军需",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.supply_use_2",
+      "group": "界面／战前准备",
+      "text": "使用二级军需",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.deployment_enter",
+      "group": "界面／战前准备",
+      "text": "进入战场",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.deployment_back",
+      "group": "界面／战前准备",
+      "text": "返回备战",
+      "notes": "部署底部按钮，建议 8 字以内。"
+    },
+    {
+      "key": "story.ui.prep.deployment_auto",
+      "group": "界面／战前准备",
+      "text": "一键布置",
+      "notes": "部署底部按钮，建议 8 字以内。"
+    },
+    {
+      "key": "story.ui.prep.deployment_confirm",
+      "group": "界面／战前准备",
+      "text": "开战",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.deployment_clear",
+      "group": "界面／战前准备",
+      "text": "一键撤销",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.supply_grade",
+      "group": "界面／战前准备",
+      "text": "请选择一级或二级军需",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.deployment_help",
+      "group": "界面／战前准备",
+      "text": "选择队长或兵种，点选或拖划己方部署格。可拖动调整位置，右键或长按撤回。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.placing",
+      "group": "界面／战前准备",
+      "text": "放置中",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.recall_captain",
+      "group": "界面／战前准备",
+      "text": "撤回分队",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.captain",
+      "group": "界面／战前准备",
+      "text": "部署队长",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.illegal_cell",
+      "group": "界面／战前准备",
+      "text": "这里无法放置该单位，请选择己方部署区内的可用格。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.roster_changed",
+      "group": "界面／战前准备",
+      "text": "人员或落点已变化，请检查编队。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.resource.coins.details",
+      "group": "界面／资源栏",
+      "text": "当前 {coins} 币\n预计净变化 {delta} / 日\n交易等即时变化不计入日结预计。",
+      "notes": "功能占位，待回稿。保留 {coins}、{delta} 与换行。"
+    },
+    {
+      "key": "story.ui.resource.energy.details",
+      "group": "界面／资源栏",
+      "text": "当前 / 上限 {current} / {max}\n每日自然恢复最多 {recovery}，下次预计恢复 +{next}\n重战和扫荡各消耗 {cost} 点。",
+      "notes": "功能占位，待回稿。保留 {current}、{max}、{recovery}、{next}、{cost} 与换行。"
+    },
+    {
+      "key": "story.ui.resource.energy.disabled",
+      "group": "界面／资源栏",
+      "text": "本局没有启用体力。",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.resource.calendar.title",
+      "group": "界面／资源栏",
+      "text": "日历 · 第 {quarter} 季度",
+      "notes": "功能占位，待回稿。保留 {quarter}。"
+    },
+    {
+      "key": "story.ui.resource.calendar.today",
+      "group": "界面／资源栏",
+      "text": "今日",
+      "notes": "功能占位，待回稿。格内标记 3 字以内。"
+    },
+    {
+      "key": "story.ui.resource.calendar.raid",
+      "group": "界面／资源栏",
+      "text": "军情",
+      "notes": "功能占位，待回稿。格内标记 3 字以内。"
+    },
+    {
+      "key": "story.ui.resource.calendar.event",
+      "group": "界面／资源栏",
+      "text": "第 {day} 天 · {events}",
+      "notes": "功能占位，待回稿。保留 {day}、{events}。"
+    },
+    {
+      "key": "story.ui.intel.first_offer",
+      "group": "剧情／免费首防消息",
+      "text": "东家，回营前听我一句。黑鸦寨有点动静，这条消息算我送你的。",
+      "notes": "老莫在首防前首次主动提供消息。",
+      "revision": 2
+    },
+    {
+      "key": "story.ui.intel.first_claimed",
+      "group": "剧情／免费首防消息",
+      "text": "黑鸦寨第{day}天就到。这几天赶紧备些粮和军需。",
+      "notes": "{day} 是本档实际来袭日期。",
+      "revision": 3
+    },
+    {
+      "key": "story.ui.rest.workshop_shortage",
+      "group": "界面／营帐与旅店",
+      "text": "工坊无人值守，今日不生产军需。",
+      "notes": "首次休息预估中工坊无人时提示零产出。"
+    },
+    {
+      "key": "story.ui.rest.food_shortage",
+      "group": "界面／营帐与旅店",
+      "text": "明日缺粮 {missing} 份。请增派粮田工人，或到灰岩镇买粮。",
+      "notes": "开局首次休息、次日口粮不足时的功能占位。保留 {missing}。"
+    },
+    {
+      "key": "story.ui.intel.first_reopen",
+      "group": "界面／行商老莫对白",
+      "text": "免费首防消息",
+      "notes": "已提示未领且首防待处理时重开领取对白。单行 8 字以内。"
+    },
+    {
+      "key": "story.scene.defense.merchant_bandit_lead",
+      "group": "剧情／首防后行商上门",
+      "text": "巴图没能拿下营地。黑鸦寨吃了亏，多半还会派人过来。",
+      "notes": "首防后老莫上门，第1页提到巴图和寨里可能报复。",
+      "revision": 3
+    },
+    {
+      "key": "story.scene.defense.second_victory_report.1",
+      "group": "剧情／第二波胜利",
+      "text": "大人，守寨的匪兵都跑散了，往白桦村的路通了。",
+      "notes": "陈安在第二波守胜后报告，第1页。",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.defense.second_victory_report.2",
+      "group": "剧情／第二波胜利",
+      "text": "咱们也能先去寨里看看，还有没有物资留下。",
+      "notes": "陈安在第二波守胜后报告，第2页。",
+      "revision": 1
+    },
+    {
+      "key": "story.ui.defense.second_report_continue",
+      "group": "界面／第二波胜利",
+      "text": "知道了",
+      "notes": "确认听完陈安的报告，8 字以内。"
+    },
+    {
+      "key": "story.ui.finale.camp_supplies_marker",
+      "group": "界面／黑鸦寨",
+      "text": "搜查剩余物资",
+      "notes": "第二波守胜后黑鸦寨的可交互标记，10 字以内。"
+    },
+    {
+      "key": "story.ui.finale.camp_supplies_collected",
+      "group": "界面／黑鸦寨",
+      "text": "他们走得急，这些东西都没带走。",
+      "notes": "在黑鸦寨搜查成功后显示，20 字以内。",
+      "revision": 1
+    },
+    {
+      "key": "story.ui.finale.camp_supplies_unavailable",
+      "group": "界面／黑鸦寨",
+      "text": "此处已没有可搜查的物资。",
+      "notes": "旧交互已失效、无法重复搜查时显示，20 字以内。"
+    },
+    {
+      "key": "story.ui.menu.tasks",
+      "group": "界面／菜单",
+      "text": "任务 · N",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.battle.menu.return_deployment",
+      "group": "界面／战场系统菜单",
+      "text": "返回部署",
+      "notes": "保留本次草案，建议 8 字以内。"
+    },
+    {
+      "key": "story.ui.battle.menu.quit",
+      "group": "界面／战场系统菜单",
+      "text": "退出游戏",
+      "notes": "打开退出确认，建议 8 字以内。"
+    },
+    {
+      "key": "story.ui.battle.menu.confirm_title",
+      "group": "界面／战场系统菜单",
+      "text": "确认回主菜单",
+      "notes": "回主菜单的确认按钮，建议 12 字以内。"
+    },
+    {
+      "key": "story.ui.battle.menu.confirm_quit",
+      "group": "界面／战场系统菜单",
+      "text": "确认退出游戏",
+      "notes": "退出游戏的确认按钮，建议 12 字以内。"
+    },
+    {
+      "key": "story.ui.battle.menu.exit_draft",
+      "group": "界面／战场系统菜单",
+      "text": "当前部署将被放弃。",
+      "notes": "未提交部署时的确认正文，建议 30 字以内。"
+    },
+    {
+      "key": "story.ui.battle.menu.exit_battle",
+      "group": "界面／战场系统菜单",
+      "text": "按当前战斗规则结算后离开。",
+      "notes": "正式开战后的确认正文，建议 30 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.title",
+      "group": "界面／土匪窝点",
+      "text": "土匪窝点",
+      "notes": "入口、地图、备战和战果通用名称，建议 8 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.objective",
+      "group": "界面／土匪窝点",
+      "text": "击败全部土匪",
+      "notes": "备战与战场目标，建议 20 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.approach",
+      "group": "界面／土匪窝点",
+      "text": "请到土匪窝点入口备战",
+      "notes": "入口交互条件不满足时的提示，建议 20 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.enemy_counts",
+      "group": "界面／土匪窝点",
+      "text": "士兵 {0} 人 · 剑 {1} · 弓 {2} · 骑 {3}",
+      "notes": "{0} 为人数合计，{1}、{2}、{3} 为剑士、弓兵、骑兵数。保留全部变量，显示一行。"
+    },
+    {
+      "key": "story.ui.hideout.victory",
+      "group": "界面／土匪窝点",
+      "text": "土匪已被击退",
+      "notes": "胜利战果标题，建议 12 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.defeat",
+      "group": "界面／土匪窝点",
+      "text": "未能击退土匪",
+      "notes": "败退或到达时限的战果标题，建议 12 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.report",
+      "group": "界面／土匪窝点",
+      "text": "战果按实际参战结算，副本奖励另行领取。",
+      "notes": "旧战场说明，保留作回稿参考，建议 40 字以内。"
+    },
+    {
+      "key": "story.ui.hideout.return",
+      "group": "界面／土匪窝点",
+      "text": "结算并返回入口",
+      "notes": "战果离场按钮，建议 10 字以内。"
+    },
+    {
+      "key": "story.ui.prep.validation.supply",
+      "group": "界面／备战",
+      "text": "所选等级的军需库存不足",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.changed",
+      "group": "界面／备战",
+      "text": "现场已变化，请重新备战",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.player",
+      "group": "界面／备战",
+      "text": "请先部署主角",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.captain",
+      "group": "界面／备战",
+      "text": "请为出战士兵指定在场队长",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.validation.cells",
+      "group": "界面／备战",
+      "text": "请修正无效落点",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.roster.open",
+      "group": "界面／人员名册",
+      "text": "点名调配",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.roster.assign",
+      "group": "界面／人员名册",
+      "text": "点击安排上岗",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.roster.unassign",
+      "group": "界面／人员名册",
+      "text": "点击调回闲置",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.roster.full",
+      "group": "界面／人员名册",
+      "text": "岗位已满",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.roster.assign_manager",
+      "group": "界面／人员名册",
+      "text": "点击任命为管理员",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.roster.unassign_manager",
+      "group": "界面／人员名册",
+      "text": "点击解除任职",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.roster.current_deputy",
+      "group": "界面／人员名册",
+      "text": "现任副手",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.roster.assign_deputy",
+      "group": "界面／人员名册",
+      "text": "点击任命副手",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.roster.dismiss",
+      "group": "界面／人员名册",
+      "text": "点击办理请离",
+      "notes": "功能占位，待回稿。"
+    },
+    {
+      "key": "story.scene.prologue.practice_won",
+      "group": "剧情／白桦村序章",
+      "text": "这剑没生疏。等等，村头那人怎么跑得这样急？",
+      "notes": "演练成功后返回村庄，搭档对白。",
+      "revision": 2
+    },
+    {
+      "key": "story.scene.prologue.practice_retry",
+      "group": "剧情／白桦村序章",
+      "text": "先把剑收了。你想再练，就过来叫我。",
+      "notes": "演练未完成并返回村庄，搭档对白。",
+      "revision": 2
+    },
+    {
+      "key": "story.scene.prologue.drill_select",
+      "group": "剧情／序章演练",
+      "text": "先点左下角的头像，也可以点你自己。",
+      "notes": "演练第 1 步，实际头像位置。"
+    },
+    {
+      "key": "story.scene.prologue.drill_pause",
+      "group": "剧情／序章演练",
+      "text": "点右下角的暂停／继续，或按空格。",
+      "notes": "演练第 2 步，箭头指向战斗操作区的暂停或继续按钮。"
+    },
+    {
+      "key": "story.scene.prologue.drill_move",
+      "group": "剧情／序章演练",
+      "text": "【手动】时，你得自己下令。单击前方空地，暂停时按空格就会迈步。",
+      "notes": "演练第 3 步，使用正式策略名称。"
+    },
+    {
+      "key": "story.scene.prologue.drill_dummy",
+      "group": "剧情／序章演练",
+      "text": "看好了，每次挥砍都有起手空当，算准距离才能刀刀见肉！",
+      "notes": "演练第 4 步，搭档示范。"
+    },
+    {
+      "key": "story.scene.prologue.drill_auto_attack",
+      "group": "剧情／序章演练",
+      "text": "点右下角的【进攻】，让队伍连续攻击木桩。战斗暂停时先继续。",
+      "notes": "演练第 5 步，说明进攻策略入口和恢复战斗方式。"
+    },
+    {
+      "key": "story.scene.prologue.drill_attack",
+      "group": "剧情／序章演练",
+      "text": "最后一式，单击我发起进攻。暂停时记得按空格继续！",
+      "notes": "演练第 6 步，实战命中搭档。"
+    },
+    {
+      "key": "story.scene.prologue.pursuit_royal_sword",
+      "group": "剧情／序章追兵",
+      "text": "王室的剑怎么会在你们手里？",
+      "notes": "主角在开战前看清追兵持剑；无变量。"
+    },
+    {
+      "key": "story.scene.prologue.pursuit_stab",
+      "group": "剧情／序章追兵",
+      "text": "［古裔追兵用王室的剑刺穿你的胸口，随即力竭倒下。］",
+      "notes": "自然胜负共用的重伤对白第一句；无变量。",
+      "revision": 2
+    },
+    {
+      "key": "story.scene.prologue.pursuit_blackout",
+      "group": "剧情／序章追兵",
+      "text": "王室……怎么会……搭档……［失去意识］",
+      "notes": "主角被剑刺穿，昏迷前的独白。无变量。",
+      "revision": 2
+    },
+    {
+      "key": "story.scene.prologue.pursuit_goon",
+      "group": "剧情／序章追兵",
+      "text": "都倒了？别管了，去粮仓搬吃的。",
+      "notes": "重伤对白最后一句，继续进入灰岩营地苏醒；无变量。",
+      "revision": 2
+    },
+    {
+      "key": "story.scene.prologue.pursuit_retry",
+      "group": "剧情／白桦村序章",
+      "text": "还不能倒在这儿。先带乡亲们往东走。",
+      "notes": "回到撤离检查点后独白。功能占位，待回稿。"
+    },
+    {
+      "key": "story.scene.ruins.solo_retreat",
+      "group": "剧情／沉眠古窟",
+      "text": "对方人多势众，优势不在我，或许镇上那位年轻铁匠可以帮忙。",
+      "notes": "首通前独战半血自动撤回入口后独白。用户原句。",
+      "revision": 2
+    },
+    {
+      "key": "story.ui.hideout.recruiter_clue_1",
+      "group": "剧情／灰岩镇募兵处",
+      "text": "镇外那截破墙背后有个匪窝。过路人常在那里遭劫。",
+      "notes": "第一次成功购买任一兵种后的线索。用户给出内容，待回稿。",
+      "revision": 1
+    },
+    {
+      "key": "story.ui.hideout.recruiter_clue_2",
+      "group": "剧情／灰岩镇募兵处",
+      "text": "你要是肯去清剿，他们抢来的东西就归你。",
+      "notes": "承接土匪窝点线索，用户给出内容，待回稿。",
+      "revision": 1
+    },
+    {
+      "key": "story.ui.hideout.recruiter_clue_3",
+      "group": "剧情／灰岩镇募兵处",
+      "text": "把他们打服了，肯归顺的也能招来替营地做事。",
+      "notes": "承接土匪窝点线索，用户给出内容，待回稿。",
+      "revision": 1
+    },
+    {
+      "key": "story.ui.battle.group_no_space",
+      "group": "界面／战场",
+      "text": "队长落点不足，原指令保留。",
+      "notes": "同时选中多队长后点选空地，落点不足时回写。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.battle.strategy_help",
+      "group": "界面／战场",
+      "text": "队长的直接命令优先。手动时队长原地攻击、士兵护卫。也可改为进攻或驻守。单击敌方队长攻击，双击队伍集火。\n可暂停下令，退出菜单后按空格继续。",
+      "notes": "长按头像详情的操作说明，固定字号换行。"
+    },
+    {
+      "key": "story.ui.facility.production",
+      "group": "界面／营地设施",
+      "text": "生产与岗位",
+      "notes": "粮田、工坊左栏。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.managers",
+      "group": "界面／营地设施",
+      "text": "负责人名册",
+      "notes": "粮田、工坊负责人页。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.workers",
+      "group": "界面／营地设施",
+      "text": "士兵名册",
+      "notes": "粮田与工坊共用。"
+    },
+    {
+      "key": "story.ui.facility.draft",
+      "group": "界面／营地设施",
+      "text": "岗位调配待确认",
+      "notes": "有未确认岗位调整。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.barracks",
+      "group": "界面／营地设施",
+      "text": "军队与编队",
+      "notes": "兵营左栏。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.details",
+      "group": "界面／营地设施",
+      "text": "单位详情",
+      "notes": "兵营选中个人。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.facility.forecast",
+      "group": "界面／营地设施",
+      "text": "日结预览",
+      "notes": "营帐右栏。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.prep.dungeon_energy",
+      "group": "界面／副本备战",
+      "text": "体力 {0} / {1}",
+      "notes": "当前体力、体力上限。古窟与土匪窝点共享。"
+    },
+    {
+      "key": "story.ui.prep.dungeon_first_reward",
+      "group": "界面／副本备战",
+      "text": "首通奖励",
+      "notes": "土匪窝点首次挑战时展示。",
+      "revision": 1
+    },
+    {
+      "key": "story.ui.prep.dungeon_entry_cost",
+      "group": "界面／副本备战",
+      "text": "本次消耗体力 {0}",
+      "notes": "参数为确认开战或扫荡时扣除的体力。"
+    },
+    {
+      "key": "story.ui.dungeon.reward_items",
+      "group": "界面／副本奖励",
+      "text": "副本奖励 · 钱币 {0}、个人装备 ×1、锻造石 ×{1}，有机会获得基础兵书。",
+      "notes": "参数为钱币、锻造石数量。功能占位，待回稿。"
+    },
+    {
+      "key": "story.ui.hideout.sweep_result",
+      "group": "界面／土匪窝点",
+      "text": "战损已结算 · 基础伤损 {0:P1} · 阵亡士兵 {1} 人",
+      "notes": "扫荡结束时展示，参数为基础伤损率、阵亡士兵数。功能占位，待回稿。"
+    },
+    {
+      "key": "story.scene.camp.civilian_work",
+      "group": "剧情／灰岩营地",
+      "text": "田里缺人时，我们先去搭把手。田里忙得过来，再去工坊。你要调兵，照常安排就是。",
+      "notes": "苏醒后与营地春婶交谈。单页，只交代补位顺序与士兵调配。",
+      "revision": 1
+    },
+    {
+      "key": "story.item.royal_sword.description",
+      "group": "剧情／物品",
+      "text": "刺穿你胸口的秘银剑，剑脊刻着禁卫军的暗金云纹。任务物品，不可装备。",
+      "notes": "苏醒时交还的任务物品。",
+      "revision": 2
+    },
+    {
+      "key": "story.item.practice_sword.description",
+      "group": "剧情／物品",
+      "text": "搭档重新缠过青绳。剑刃虽旧，握着仍顺手。",
+      "notes": "仅用于白桦村领到的旧制短剑实例。",
+      "revision": 2
+    },
+    {
+      "key": "story.quest.smith_lesson.title",
+      "group": "支线／巴隆",
+      "text": "炉前试手",
+      "notes": "阿铸入队后，向巴隆接取的隐藏支线标题。"
+    },
+    {
+      "key": "story.quest.smith_lesson.offer.1",
+      "group": "支线／巴隆",
+      "text": "阿铸会给枪换杆，可一碰上炉火就心急。你来，我教你看一回火候。",
+      "notes": "接取前，巴隆第1页。"
+    },
+    {
+      "key": "story.quest.smith_lesson.offer.2",
+      "group": "支线／巴隆",
+      "text": "这几颗锻造石给你。挑件武器或护具，先试着重铸一回。",
+      "notes": "接取前，巴隆第2页，确认后发试用锻造石。",
+      "revision": 1
+    },
+    {
+      "key": "story.quest.smith_lesson.finish.1",
+      "group": "支线／巴隆",
+      "text": "石头用得多，炼出好货的把握就大些。出炉前，谁也不敢打包票。",
+      "notes": "接取后完成一次重铸并退出界面，巴隆第1页。升档、留级和降档均使用。",
+      "revision": 1
+    },
+    {
+      "key": "story.quest.smith_lesson.finish.2",
+      "group": "支线／巴隆",
+      "text": "趁手的家伙只有一件，就先留着。等手里有备用的，再拿这颗石头试。",
+      "notes": "结果对话第2页，确认后发完成奖励。",
+      "revision": 1
+    },
+    {
+      "key": "story.quest.zhou_training.title",
+      "group": "支线／老周",
+      "text": "阵后读兵书",
+      "notes": "首防胜利后，向老周接取的隐藏支线标题。"
+    },
+    {
+      "key": "story.quest.zhou_training.offer.1",
+      "group": "支线／老周",
+      "text": "这一仗是守住了。下回呢？学几招总比多挨几刀强。",
+      "notes": "接取前，老周第1页。"
+    },
+    {
+      "key": "story.quest.zhou_training.offer.books",
+      "group": "支线／老周",
+      "text": "这{1}本{0}给你。去营帐练，练完来找我。",
+      "notes": "{0}为所需兵书名，{1}为按配表计算的数量。旧档补发沿用此页。",
+      "revision": 1
+    },
+    {
+      "key": "story.quest.zhou_training.finish.1",
+      "group": "支线／老周",
+      "text": "这架势稳了。书上的招肯下功夫练，到了阵前才使得出来。",
+      "notes": "主角达到任务训练等级后回报第1页。"
+    },
+    {
+      "key": "story.quest.zhou_training.finish.books",
+      "group": "支线／老周",
+      "text": "这{1}本{0}也拿去，够你接着练一级。",
+      "notes": "回报时发下一等级所需的本职业兵书。{0}为兵书名，{1}为按配表计算的数量。",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.opening",
+      "group": "沉眠古窟／洞外问话",
+      "text": "那两个家伙误闯遗迹能活到现在，都是因为我的法术在生效。\n我可没伤他们一丝一毫。",
+      "notes": "按换行分页。",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.ruins",
+      "group": "沉眠古窟／洞外问话",
+      "text": "遗迹地下有一条燃烧的地脉，普通人进去会气血翻腾，足以致死。\n但是看你在里面活蹦乱跳的，想必是异能者吧？\n我们自古以来就靠这东西抵御外敌，就怕你们这些不被地脉影响的怪胎……呃，异能强者。",
+      "notes": "按换行分页。",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.village",
+      "group": "沉眠古窟／洞外问话",
+      "text": "哎呀，你们人类看异族不都是一个样子嘛。\n村子什么的我真不知道，我就一善良但迷路的古裔罢了。",
+      "notes": "按换行分页。",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.admission",
+      "group": "沉眠古窟／洞外问话",
+      "text": "控制他们我认，我就是想着让他们服侍我一段时间。\n毕竟法术施展耗了我不少精力。\n我真打算玩……呃，这两天就放回去的。",
+      "notes": "按换行分页。",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.pledge",
+      "group": "沉眠古窟／洞外问话",
+      "text": "诶诶，消消气！你看我的眼神，想必还跟其他古裔结下了不小梁子吧？\n我可以向你介绍我族相关的知识，知己知彼，百战不殆嘛。\n除此之外，我力气也不小。你放了我，我以古裔之名起誓，日后为你出力，\n绝不动操控别人或其他歪心思。请给我一次改过自新的机会！求求了！",
+      "notes": "按换行分页。",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.later",
+      "group": "沉眠古窟／洞外问话",
+      "text": "拜托您再仔细考虑一下吧。",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.recruited",
+      "group": "沉眠古窟／洞外问话",
+      "text": "只要不玩命……啊不对，万死不辞啊主人！",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.executed",
+      "group": "沉眠古窟／洞外问话",
+      "text": "啊呀！",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.choice.control",
+      "group": "沉眠古窟／玩家答复",
+      "text": "你确实控制了他们",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.choice.ruins",
+      "group": "沉眠古窟／玩家答复",
+      "text": "遗迹里有什么？",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.choice.village",
+      "group": "沉眠古窟／玩家答复",
+      "text": "关于村子，你长得有点像……",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.choice.wait",
+      "group": "沉眠古窟／玩家答复",
+      "text": "你先待在这",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.choice.attack",
+      "group": "沉眠古窟／玩家答复",
+      "text": "我看你刚才倒挺想杀我的",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.choice.trust",
+      "group": "沉眠古窟／玩家答复",
+      "text": "我怎么相信你？",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.choice.more",
+      "group": "沉眠古窟／玩家答复",
+      "text": "我还想了解一些事",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.choice.recruit",
+      "group": "沉眠古窟／玩家答复",
+      "text": "我会盯紧你的",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.choice.later",
+      "group": "沉眠古窟／玩家答复",
+      "text": "我要再想想",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.galan.choice.execute",
+      "group": "沉眠古窟／玩家答复",
+      "text": "不论如何，操控百姓当斩",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.chenan.road.opening",
+      "group": "灰岩营地／陈安",
+      "text": "村子不好回去咯。",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.chenan.road.bandits",
+      "group": "灰岩营地／陈安",
+      "text": "路上有个土匪寨子。上次运气好，他们在办宴会，我们从小路偷摸过来的。",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.chenan.road.lookouts",
+      "group": "灰岩营地／陈安",
+      "text": "现在远远就能看到那边不少放哨的，就等着镇上的人路过打劫呢。",
+      "notes": "",
+      "revision": 1
+    },
+    {
+      "key": "story.scene.chenan.road.why",
+      "group": "灰岩营地／玩家答复",
+      "text": "为什么？",
+      "notes": "",
+      "revision": 1
+    }
+  ]
+}

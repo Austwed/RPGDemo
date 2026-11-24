@@ -1,0 +1,9 @@
+﻿peer,case,Id,SourceId,TargetId,DamageType,Context,NetAdvantage,First,Second,Selected,Hit,DamageApplied,HealthAfter
+LanHost,弓射移动骑兵,65,3,7,physical,1,-1,7,8,7,True,11.0,134.3181915283203
+LanHost,弓射停步目标,48,3,7,physical,0,0,8,0,8,True,11.0,176.8909149169922
+LanHost,弓被近身,121,3,7,physical,2,-1,7,7,7,True,11.0,21.654560089111328
+LanHost,法师同情境,28,10,2,magic,1,0,9,0,9,True,13.290908813476562,167.91818237304688
+LanGuest,弓射移动骑兵,65,3,7,physical,1,-1,7,8,7,True,11.0,134.3181915283203
+LanGuest,弓射停步目标,48,3,7,physical,0,0,8,0,8,True,11.0,176.8909149169922
+LanGuest,弓被近身,121,3,7,physical,2,-1,7,7,7,True,11.0,21.654560089111328
+LanGuest,法师同情境,28,10,2,magic,1,0,9,0,9,True,13.290908813476562,167.91818237304688

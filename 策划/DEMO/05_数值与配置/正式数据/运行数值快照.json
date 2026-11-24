@@ -1,0 +1,1061 @@
+{
+  "Version": 1,
+  "WorkbookSha256": "acd7267606501da3d679a306721835e87166052e5052fb0dabcb949e8e0b1af2",
+  "Rules": {
+    "GenerationSeed": 0,
+    "SceneRulesVersion": 0,
+    "IntelPricingConfigured": true,
+    "ThreeDayIntelPrice": 30,
+    "FiveDayIntelPrice": 50,
+    "Version": 1,
+    "CampLevel": 1,
+    "InnDailyFee": 2,
+    "LeaderFood": 0,
+    "ArcherFood": 1,
+    "SupplyMaterial": 2,
+    "SupplyWorkValue": 5,
+    "FacilityRepairMaterials": 10,
+    "FacilityRepairCoins": 20,
+    "AwakenedChance": 0.2,
+    "EnemyLeaderDeath": 0.5,
+    "SoldierDeathBase": 0.5,
+    "SoldierDeathSensitivity": 1.0,
+    "HideoutEnemyCount": 12,
+    "RuinsFirstControllerTemplate": "captain_awakened_mage",
+    "RecruitSupplyFactor": 0.35,
+    "RecruitPriceSensitivity": 2.0,
+    "SweepLossAtParity": 0.25,
+    "SweepSecondsAtParity": 10.0,
+    "SweepMinimumSeconds": 2.0,
+    "FoodValue": 1,
+    "MaterialValue": 3,
+    "BookValue": 15,
+    "AdvancedBookValue": 45,
+    "StoneValue": 6,
+    "WineValue": 10,
+    "OtherValue": 10,
+    "WeaponValues": [
+      20,
+      60,
+      180,
+      540,
+      1620
+    ],
+    "HelmetValues": [
+      12,
+      36,
+      108,
+      324,
+      972
+    ],
+    "ArmorValues": [
+      18,
+      54,
+      162,
+      486,
+      1458
+    ],
+    "AccessoryValues": [
+      40,
+      120,
+      360,
+      1080,
+      3240
+    ],
+    "DropQuality": [
+      0.05,
+      0.1,
+      0.5,
+      0.2,
+      0.1,
+      0.05
+    ],
+    "EquipmentQuality": [
+      0.5,
+      0.75,
+      1.0,
+      1.25,
+      1.5,
+      2.0
+    ],
+    "BowQualityRange": [
+      0,
+      0,
+      0,
+      0,
+      1,
+      2
+    ],
+    "SupplyAttackLow": 6.0,
+    "SupplyAttackHigh": 10.0,
+    "SupplyDefenseLow": 2.0,
+    "SupplyDefenseHigh": 4.0,
+    "ArmorK": 8.0,
+    "ArmorCap": 0.8,
+    "CriticalMultiplier": 1.5,
+    "BaseInterval": 1.0,
+    "MinimumInterval": 0.2,
+    "ArrowSpeed": 14.0,
+    "HeightAdvantage": 2.0,
+    "HealThreshold": 0.7,
+    "AttackEquipmentScale": 1.0,
+    "HealthEquipmentScale": 1.0,
+    "DefenseEquipmentScale": 1.0,
+    "BuyFactor": 1.3,
+    "SellFactor": 0.7,
+    "WeaponAttackScale": 1.0,
+    "Hit": [
+      9.0,
+      7.0,
+      8.0,
+      7.0
+    ],
+    "Evasion": [
+      1.0,
+      0.0,
+      3.0,
+      0.0
+    ],
+    "Capacity": [
+      6,
+      10,
+      10
+    ],
+    "CampMaterials": [
+      20,
+      40
+    ],
+    "CampCoins": [
+      60,
+      150
+    ],
+    "TroopBaseline": [
+      4,
+      4,
+      4,
+      4
+    ],
+    "RecruitBasePrices": [
+      30,
+      40,
+      60,
+      40
+    ],
+    "TrainingDays": [
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4
+    ],
+    "TrainingBooks": [
+      2,
+      4,
+      4,
+      6,
+      6,
+      8,
+      8,
+      10,
+      2,
+      4,
+      4,
+      6,
+      6,
+      8,
+      8,
+      10,
+      2,
+      4,
+      4,
+      6,
+      6,
+      8,
+      8,
+      10,
+      2,
+      4,
+      4,
+      6,
+      6,
+      8,
+      8,
+      10
+    ],
+    "Range": [
+      1.0,
+      12.0,
+      2.0,
+      6.0
+    ],
+    "Speed": [
+      4.0,
+      3.0,
+      6.0,
+      3.0
+    ],
+    "Growth": [
+      1.0,
+      1.18,
+      1.5,
+      1.85,
+      2.25,
+      3.0,
+      3.7,
+      4.5,
+      6.0
+    ],
+    "QualityValue": [
+      0.5,
+      0.75,
+      1.0,
+      1.3,
+      1.8,
+      2.5
+    ],
+    "AttributeGrowthVersion": 1,
+    "AttackGrowth": [
+      1.0,
+      1.18,
+      1.5,
+      1.85,
+      2.25,
+      3.0,
+      3.7,
+      4.5,
+      6.0
+    ],
+    "DefenseGrowth": [
+      1.0,
+      1.18,
+      1.5,
+      1.85,
+      2.25,
+      3.0,
+      3.7,
+      4.5,
+      6.0
+    ],
+    "Templates": [
+      {
+        "Id": "soldier_warrior",
+        "Name": "剑士",
+        "ProfessionId": "warrior",
+        "Identity": "soldier",
+        "IsDefault": true,
+        "Health": 100.0,
+        "Attack": 12.0,
+        "Defense": 4.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "soldier_archer",
+        "Name": "弓兵",
+        "ProfessionId": "archer",
+        "Identity": "soldier",
+        "IsDefault": true,
+        "Health": 75.0,
+        "Attack": 14.0,
+        "Defense": 2.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "soldier_knight",
+        "Name": "骑兵",
+        "ProfessionId": "knight",
+        "Identity": "soldier",
+        "IsDefault": true,
+        "Health": 100.0,
+        "Attack": 10.0,
+        "Defense": 3.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "soldier_mage",
+        "Name": "法师",
+        "ProfessionId": "mage",
+        "Identity": "soldier",
+        "IsDefault": true,
+        "Health": 60.0,
+        "Attack": 9.0,
+        "Defense": 1.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "captain_normal_warrior",
+        "Name": "剑士队长",
+        "ProfessionId": "warrior",
+        "Identity": "captain_normal",
+        "IsDefault": true,
+        "Health": 175.0,
+        "Attack": 13.0,
+        "Defense": 4.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "captain_normal_archer",
+        "Name": "弓兵队长",
+        "ProfessionId": "archer",
+        "Identity": "captain_normal",
+        "IsDefault": true,
+        "Health": 150.0,
+        "Attack": 22.0,
+        "Defense": 2.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "captain_normal_knight",
+        "Name": "骑兵队长",
+        "ProfessionId": "knight",
+        "Identity": "captain_normal",
+        "IsDefault": true,
+        "Health": 165.0,
+        "Attack": 14.0,
+        "Defense": 3.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "captain_normal_mage",
+        "Name": "法师队长",
+        "ProfessionId": "mage",
+        "Identity": "captain_normal",
+        "IsDefault": true,
+        "Health": 132.0,
+        "Attack": 14.0,
+        "Defense": 2.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "captain_awakened_warrior",
+        "Name": "剑士异能者队长",
+        "ProfessionId": "warrior",
+        "Identity": "captain_awakened",
+        "IsDefault": true,
+        "Health": 235.0,
+        "Attack": 14.0,
+        "Defense": 4.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "captain_awakened_archer",
+        "Name": "弓兵异能者队长",
+        "ProfessionId": "archer",
+        "Identity": "captain_awakened",
+        "IsDefault": true,
+        "Health": 226.0,
+        "Attack": 24.0,
+        "Defense": 3.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "captain_awakened_knight",
+        "Name": "骑兵异能者队长",
+        "ProfessionId": "knight",
+        "Identity": "captain_awakened",
+        "IsDefault": true,
+        "Health": 223.0,
+        "Attack": 16.0,
+        "Defense": 3.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "captain_awakened_mage",
+        "Name": "法师异能者队长",
+        "ProfessionId": "mage",
+        "Identity": "captain_awakened",
+        "IsDefault": true,
+        "Health": 216.0,
+        "Attack": 18.0,
+        "Defense": 3.0,
+        "SightRadius": 0
+      },
+      {
+        "Id": "blackcrow_watch_mage",
+        "Name": "黑鸦寨法师",
+        "ProfessionId": "mage",
+        "Identity": "soldier",
+        "IsDefault": false,
+        "Health": 82.0,
+        "Attack": 17.0,
+        "Defense": 3.0,
+        "SightRadius": 4
+      },
+      {
+        "Id": "blackcrow_armored_elite",
+        "Name": "黑鸦寨重甲精锐",
+        "ProfessionId": "warrior",
+        "Identity": "soldier",
+        "IsDefault": false,
+        "Health": 175.0,
+        "Attack": 12.0,
+        "Defense": 8.0,
+        "SightRadius": 0
+      }
+    ],
+    "Skills": [
+      {
+        "Id": "inspire",
+        "Name": "鼓舞",
+        "DamageType": "none",
+        "Profession": -1,
+        "Amount": 0.3,
+        "Duration": 4.0,
+        "Cooldown": 15.0,
+        "Radius": 0.0,
+        "SpeedBonus": 0.0,
+        "Opening": 3.0
+      },
+      {
+        "Id": "march",
+        "Name": "行军",
+        "DamageType": "none",
+        "Profession": -1,
+        "Amount": 2.0,
+        "Duration": 3.0,
+        "Cooldown": 15.0,
+        "Radius": 0.0,
+        "SpeedBonus": 0.0,
+        "Opening": 3.0
+      },
+      {
+        "Id": "heal",
+        "Name": "治愈",
+        "DamageType": "none",
+        "Profession": -1,
+        "Amount": 30.0,
+        "Duration": 3.0,
+        "Cooldown": 15.0,
+        "Radius": 0.0,
+        "SpeedBonus": 0.0,
+        "Opening": 3.0
+      },
+      {
+        "Id": "sweep",
+        "Name": "横扫",
+        "DamageType": "physical",
+        "Profession": 0,
+        "Amount": 1.2,
+        "Duration": 0.0,
+        "Cooldown": 10.0,
+        "Radius": 4.0,
+        "SpeedBonus": 0.0,
+        "Opening": 3.0
+      },
+      {
+        "Id": "charge",
+        "Name": "突进",
+        "DamageType": "physical",
+        "Profession": 2,
+        "Amount": 1.5,
+        "Duration": 5.0,
+        "Cooldown": 15.0,
+        "Radius": 0.0,
+        "SpeedBonus": 0.5,
+        "Opening": 3.0
+      },
+      {
+        "Id": "rapid_fire",
+        "Name": "连射",
+        "DamageType": "none",
+        "Profession": 1,
+        "Amount": 0.5,
+        "Duration": 5.0,
+        "Cooldown": 15.0,
+        "Radius": 0.0,
+        "SpeedBonus": 0.0,
+        "Opening": 3.0
+      }
+    ],
+    "Traits": [
+      {
+        "Id": "diligent",
+        "Name": "勤劳",
+        "Conflict": "work",
+        "Min": 1.0,
+        "Max": 10.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "workaholic",
+        "Name": "卷王",
+        "Conflict": "work",
+        "Min": 11.0,
+        "Max": 20.0,
+        "Step": 1.0,
+        "Weight": 0.25
+      },
+      {
+        "Id": "farming",
+        "Name": "种植专精",
+        "Conflict": "farm",
+        "Min": 1.0,
+        "Max": 15.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "farming_master",
+        "Name": "神农",
+        "Conflict": "farm",
+        "Min": 16.0,
+        "Max": 25.0,
+        "Step": 1.0,
+        "Weight": 0.25
+      },
+      {
+        "Id": "forging",
+        "Name": "锻造专精",
+        "Conflict": "forge",
+        "Min": 1.0,
+        "Max": 15.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "forging_master",
+        "Name": "神匠",
+        "Conflict": "forge",
+        "Min": 16.0,
+        "Max": 25.0,
+        "Step": 1.0,
+        "Weight": 0.25
+      },
+      {
+        "Id": "frenzy",
+        "Name": "乱武",
+        "Conflict": "frenzy",
+        "Min": 1.0,
+        "Max": 25.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "tough",
+        "Name": "坚韧",
+        "Conflict": "damage",
+        "Min": 1.0,
+        "Max": 25.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "advantage",
+        "Name": "优势在我",
+        "Conflict": "dice",
+        "Min": 1.0,
+        "Max": 1.0,
+        "Step": 1.0,
+        "Weight": 0.1
+      },
+      {
+        "Id": "taunt",
+        "Name": "嘲讽",
+        "Conflict": "taunt",
+        "Min": 2.0,
+        "Max": 2.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "merchant",
+        "Name": "商人",
+        "Conflict": "trade",
+        "Min": 1.0,
+        "Max": 10.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "hasty",
+        "Name": "急性子",
+        "Conflict": "speed",
+        "Min": 1.0,
+        "Max": 15.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "appraiser",
+        "Name": "鉴宝",
+        "Conflict": "loot",
+        "Min": 1.0,
+        "Max": 5.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "bad_temper",
+        "Name": "坏脾气",
+        "Conflict": "trade",
+        "Min": 1.0,
+        "Max": 10.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "disadvantage",
+        "Name": "我不行了",
+        "Conflict": "dice",
+        "Min": 1.0,
+        "Max": 1.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "fragile",
+        "Name": "脆骨",
+        "Conflict": "damage",
+        "Min": 1.0,
+        "Max": 25.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "slow",
+        "Name": "慢性子",
+        "Conflict": "speed",
+        "Min": 1.0,
+        "Max": 15.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "drunkard",
+        "Name": "酒鬼",
+        "Conflict": "wine",
+        "Min": 2.0,
+        "Max": 2.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "merciful",
+        "Name": "仁慈",
+        "Conflict": "death",
+        "Min": 1.0,
+        "Max": 10.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "cruel",
+        "Name": "凶残",
+        "Conflict": "death",
+        "Min": 1.0,
+        "Max": 10.0,
+        "Step": 1.0,
+        "Weight": 1.0
+      },
+      {
+        "Id": "inconspicuous",
+        "Name": "小透明",
+        "Conflict": "taunt",
+        "Min": 0.5,
+        "Max": 0.5,
+        "Step": 1.0,
+        "Weight": 1.0
+      }
+    ],
+    "Equipment": [
+      {
+        "Id": "basic_sword",
+        "Damage": 0.0,
+        "Defense": 0.0,
+        "Health": 0.0,
+        "CritMultiplier": 0.0,
+        "Movement": 0.0,
+        "Stage": 0
+      },
+      {
+        "Id": "basic_bow",
+        "Damage": 0.0,
+        "Defense": 0.0,
+        "Health": 0.0,
+        "CritMultiplier": 0.0,
+        "Movement": 0.0,
+        "Stage": 0
+      },
+      {
+        "Id": "basic_spear",
+        "Damage": 0.0,
+        "Defense": 0.0,
+        "Health": 0.0,
+        "CritMultiplier": 0.0,
+        "Movement": 0.0,
+        "Stage": 0
+      },
+      {
+        "Id": "basic_helmet",
+        "Damage": 0.0,
+        "Defense": 0.0,
+        "Health": 0.0,
+        "CritMultiplier": 0.0,
+        "Movement": 0.0,
+        "Stage": 0
+      },
+      {
+        "Id": "basic_armor",
+        "Damage": 0.0,
+        "Defense": 0.0,
+        "Health": 0.0,
+        "CritMultiplier": 0.0,
+        "Movement": 0.0,
+        "Stage": 0
+      },
+      {
+        "Id": "novice_sword",
+        "Damage": 6.0,
+        "Defense": 0.0,
+        "Health": 0.0,
+        "CritMultiplier": 0.10000000149011612,
+        "Movement": 0.0,
+        "Stage": 0
+      },
+      {
+        "Id": "novice_bow",
+        "Damage": 5.0,
+        "Defense": 0.0,
+        "Health": 0.0,
+        "CritMultiplier": 0.10000000149011612,
+        "Movement": 0.0,
+        "Stage": 0
+      },
+      {
+        "Id": "novice_spear",
+        "Damage": 7.0,
+        "Defense": 0.0,
+        "Health": 0.0,
+        "CritMultiplier": 0.10000000149011612,
+        "Movement": 0.0,
+        "Stage": 0
+      },
+      {
+        "Id": "novice_light_helmet",
+        "Damage": 1.0,
+        "Defense": 1.0,
+        "Health": 5.0,
+        "CritMultiplier": 0.0,
+        "Movement": 0.10000000149011612,
+        "Stage": 0
+      },
+      {
+        "Id": "novice_light_armor",
+        "Damage": 2.0,
+        "Defense": 2.0,
+        "Health": 10.0,
+        "CritMultiplier": 0.0,
+        "Movement": 0.20000000298023224,
+        "Stage": 0
+      },
+      {
+        "Id": "novice_heavy_helmet",
+        "Damage": -1.0,
+        "Defense": 2.0,
+        "Health": 10.0,
+        "CritMultiplier": 0.0,
+        "Movement": -0.10000000149011612,
+        "Stage": 0
+      },
+      {
+        "Id": "novice_heavy_armor",
+        "Damage": -3.0,
+        "Defense": 4.0,
+        "Health": 20.0,
+        "CritMultiplier": 0.0,
+        "Movement": -0.30000001192092896,
+        "Stage": 0
+      },
+      {
+        "Id": "captains_ring",
+        "Damage": 0.0,
+        "Defense": 1.0,
+        "Health": 5.0,
+        "CritMultiplier": 0.0,
+        "Movement": 0.0,
+        "Stage": 0
+      },
+      {
+        "Id": "basic_staff",
+        "Damage": 2.0,
+        "Defense": 0.0,
+        "Health": 0.0,
+        "CritMultiplier": 0.0,
+        "Movement": 0.0,
+        "Stage": 0
+      }
+    ],
+    "StoryPresets": [
+      {
+        "Id": "player",
+        "SkillId": "inspire",
+        "TraitId": "",
+        "TraitValue": 0.0,
+        "ExtraTraits": []
+      },
+      {
+        "Id": "partner_farm",
+        "SkillId": "rapid_fire",
+        "TraitId": "farming",
+        "TraitValue": 10.0,
+        "ExtraTraits": []
+      },
+      {
+        "Id": "partner_craft",
+        "SkillId": "charge",
+        "TraitId": "forging",
+        "TraitValue": 10.0,
+        "ExtraTraits": []
+      }
+    ],
+    "OpeningEconomy": {
+      "SoldierFood": 1,
+      "CavalryFood": 2,
+      "LeaderFood": 0,
+      "FarmPerWorker": 4.0,
+      "WorkshopPerWorker": 1.0,
+      "HungerProductionPenalty": 0.5,
+      "HungerAttackPenalty": 0.2,
+      "SwordMaterial": 2,
+      "BowMaterial": 2,
+      "ArmorMaterial": 3
+    },
+    "OpeningEconomyVersion": 1,
+    "OpeningRecoveryPerDay": 0.3,
+    "OpeningAuxVersion": 1,
+    "OpeningTactical": {
+      "Version": 1,
+      "TreeLength": 3,
+      "RockDistance": 4,
+      "TreeHits": 2.0,
+      "RockSpeed": 4.0,
+      "RockDamage": 1.5
+    },
+    "OpeningRewards": {
+      "Version": 1,
+      "MaximumEnergy": 120,
+      "RewardCost": 20,
+      "Energy": 120,
+      "EnergyDay": 1,
+      "Coins": 15,
+      "ItemCount": 1,
+      "ExposureFraction": 0.03,
+      "PendingBattleId": "",
+      "PendingFirstClear": false,
+      "FirstCoins": 60,
+      "FirstFood": 20,
+      "FirstMaterials": 10,
+      "EnemyGeneration": 0
+    },
+    "OpeningSupplyWearVersion": 1,
+    "OpeningReturnedWear": 0.1,
+    "OpeningLostWear": 0.7,
+    "OpeningLordReward": {
+      "Food": 18,
+      "Materials": 12,
+      "Coins": 25,
+      "Equipment": []
+    },
+    "OpeningBattleRewardVersion": 1,
+    "OpeningDefenseReward": {
+      "Food": 12,
+      "Materials": 8,
+      "Coins": 15,
+      "Equipment": []
+    },
+    "OpeningCampReward": {
+      "Food": 18,
+      "Materials": 12,
+      "Coins": 25,
+      "Equipment": []
+    },
+    "OpeningDefenseLoss": {
+      "Food": 3,
+      "Materials": 1,
+      "Coins": 6,
+      "Equipment": []
+    },
+    "OpeningInventory": {
+      "Food": 240,
+      "Materials": 80,
+      "Coins": 1000,
+      "Equipment": [
+        {
+          "Product": "supply",
+          "Level": 1,
+          "Count": 6
+        },
+        {
+          "Product": "supply",
+          "Level": 2,
+          "Count": 2
+        }
+      ]
+    },
+    "SecondRaidDays": 5,
+    "OpeningFacilityCapacity": [
+      6,
+      6
+    ],
+    "OpeningFacilityMinimum": [
+      2,
+      2
+    ],
+    "OpeningTownStock": [
+      80,
+      40,
+      6,
+      2
+    ],
+    "ReforgeUp": [
+      2000,
+      3500,
+      5000,
+      7000
+    ],
+    "ReforgeDown": [
+      2500,
+      1500,
+      1000,
+      500
+    ],
+    "ForgeDailyStock": 10,
+    "Professions": [
+      {
+        "Id": "warrior",
+        "Name": "剑士",
+        "AttackMode": "melee",
+        "DamageType": "physical",
+        "Weapon": "sword",
+        "TrainingBasic": "training_sword_basic",
+        "TrainingAdvanced": "training_sword_advanced"
+      },
+      {
+        "Id": "archer",
+        "Name": "弓兵",
+        "AttackMode": "ranged",
+        "DamageType": "physical",
+        "Weapon": "bow",
+        "TrainingBasic": "training_bow_basic",
+        "TrainingAdvanced": "training_bow_advanced"
+      },
+      {
+        "Id": "knight",
+        "Name": "骑兵",
+        "AttackMode": "melee",
+        "DamageType": "physical",
+        "Weapon": "spear",
+        "TrainingBasic": "training_spear_basic",
+        "TrainingAdvanced": "training_spear_advanced"
+      },
+      {
+        "Id": "mage",
+        "Name": "法师",
+        "AttackMode": "ranged",
+        "DamageType": "magic",
+        "Weapon": "staff",
+        "TrainingBasic": "training_mage_basic",
+        "TrainingAdvanced": "training_mage_advanced"
+      }
+    ],
+    "EncounterUnits": [
+      {
+        "Scene": "bandit",
+        "Slot": "ranged-3",
+        "TemplateId": "blackcrow_watch_mage"
+      },
+      {
+        "Scene": "second",
+        "Slot": "melee-1",
+        "TemplateId": "blackcrow_armored_elite"
+      },
+      {
+        "Scene": "second",
+        "Slot": "melee-2",
+        "TemplateId": "blackcrow_armored_elite"
+      },
+      {
+        "Scene": "second",
+        "Slot": "melee-3",
+        "TemplateId": "blackcrow_armored_elite"
+      }
+    ],
+    "TemplateDefenseCaps": [
+      8.0,
+      16.0,
+      24.0
+    ],
+    "MageFood": 1,
+    "EnemySupplies": [
+      {
+        "Scene": "hideout",
+        "Slot": "",
+        "Profession": "warrior",
+        "Count": 1,
+        "Tier": 1
+      },
+      {
+        "Scene": "defense",
+        "Slot": "",
+        "Profession": "warrior",
+        "Count": 2,
+        "Tier": 1
+      },
+      {
+        "Scene": "bandit",
+        "Slot": "ranged-3",
+        "Profession": "",
+        "Count": 1,
+        "Tier": 1
+      },
+      {
+        "Scene": "bandit",
+        "Slot": "",
+        "Profession": "warrior",
+        "Count": 2,
+        "Tier": 1
+      },
+      {
+        "Scene": "bandit",
+        "Slot": "",
+        "Profession": "archer",
+        "Count": 1,
+        "Tier": 1
+      },
+      {
+        "Scene": "second",
+        "Slot": "",
+        "Profession": "",
+        "Count": 8,
+        "Tier": 2
+      }
+    ]
+  }
+}

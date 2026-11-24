@@ -1,0 +1,1858 @@
+[
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenFirstRaidBriefing",
+    "line": 117,
+    "speaker": "BaseScriptNames.Batu",
+    "text": "新打的军械都留下！这座营地，黑鸦寨也要了！",
+    "expression": "\"新打的军械都留下！这座营地，黑鸦寨也要了！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenDefenseIntel",
+    "line": 126,
+    "speaker": "BaseScriptNames.Bandit+\"匪兵\"",
+    "text": "别杀我！是巴图带我们来的，我知道寨子在哪儿。",
+    "expression": "\"别杀我！是巴图带我们来的，我知道寨子在哪儿。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenDefenseIntel",
+    "line": 126,
+    "speaker": "你",
+    "text": "你们的寨子在哪儿？",
+    "expression": "\"你们的寨子在哪儿？\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenDefenseIntel",
+    "line": 128,
+    "speaker": "BaseScriptNames.Bandit+\"匪兵\"",
+    "text": "南边官道拐口的山坳里。山道两边都是枯树和大石。",
+    "expression": "\"南边官道拐口的山坳里。山道两边都是枯树和大石。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenSecondRaidBriefing",
+    "line": 133,
+    "speaker": "BaseScriptNames.Chief",
+    "text": "上回没拿下你们的营地。今天我亲自来。",
+    "expression": "\"上回没拿下你们的营地。今天我亲自来。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenSecondRaidBriefing",
+    "line": 134,
+    "speaker": "BaseScriptNames.Batu",
+    "text": "寨主，就是这伙人。上回是我没拿下，今儿让我打头阵。",
+    "expression": "\"寨主，就是这伙人。上回是我没拿下，今儿让我打头阵。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenSecondRaidBriefing",
+    "line": 135,
+    "speaker": "BaseScriptNames.Chief",
+    "text": "巴图的账，今天一起算！",
+    "expression": "\"巴图的账，今天一起算！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenSecondRaidBriefing",
+    "line": 136,
+    "speaker": "BaseScriptNames.Huoya",
+    "text": "弟兄们，跟紧我！别让他们冲散了！",
+    "expression": "\"弟兄们，跟紧我！别让他们冲散了！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenDemoDefenseAftermath",
+    "line": 143,
+    "speaker": "BaseScriptNames.Batu",
+    "text": null,
+    "expression": "dead?\"这回算你们守住了……大当家会亲自来，替我报仇。\":\"这回算你们守住了。大当家不会就这么算了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenSecondRaidVictoryReport",
+    "line": 153,
+    "speaker": "BaseScriptNames.Scout",
+    "text": "大人，守寨的匪兵都跑散了，往白桦村的路通了。",
+    "expression": "StoryText.Get(\"story.scene.defense.second_victory_report.1\",\"大人，守寨的匪兵都跑散了，往白桦村的路通了。\")",
+    "key": "story.scene.defense.second_victory_report.1"
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenSecondRaidVictoryReport",
+    "line": 155,
+    "speaker": "BaseScriptNames.Scout",
+    "text": "咱们也能先去寨里看看，还有没有物资留下。",
+    "expression": "StoryText.Get(\"story.scene.defense.second_victory_report.2\",\"咱们也能先去寨里看看，还有没有物资留下。\")",
+    "key": "story.scene.defense.second_victory_report.2"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenBanditVictory",
+    "line": 121,
+    "speaker": "旁白",
+    "text": "黑鸦寨已拿下，通往白桦村的南路开了。",
+    "expression": "\"黑鸦寨已拿下，通往白桦村的南路开了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenBanditCampBriefing",
+    "line": 257,
+    "speaker": "BaseScriptNames.Chief",
+    "text": null,
+    "expression": "batuEscaped ? \"镇外营地的人还敢上山？弓手，给我看住山道！\" : \"巴图就折在你们手里？弓手，守住山道！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenBanditCampBriefing",
+    "line": 129,
+    "speaker": "BaseScriptNames.Batu",
+    "text": "寨主，上回丢的脸，今天我自己挣回来！",
+    "expression": "\"寨主，上回丢的脸，今天我自己挣回来！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenBanditCampBriefing",
+    "line": 130,
+    "speaker": "BaseScriptNames.Huoya",
+    "text": "山道窄，他们铺不开。弟兄们，顶住！",
+    "expression": "\"山道窄，他们铺不开。弟兄们，顶住！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoCampSuppliesFound",
+    "line": 135,
+    "speaker": "旁白",
+    "text": "他们走得急，这些东西都没带走。",
+    "expression": "StoryText.Get(\"story.ui.finale.camp_supplies_collected\",\"他们走得急，这些东西都没带走。\")",
+    "key": "story.ui.finale.camp_supplies_collected"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "TryOpenHomeArrival",
+    "line": 149,
+    "speaker": "旁白",
+    "text": "门板歪了，粮仓也被搬空。巷子里听不见人声。",
+    "expression": "\"门板歪了，粮仓也被搬空。巷子里听不见人声。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "TryOpenHomeArrival",
+    "line": 152,
+    "speaker": "阿禾",
+    "text": "院子翻成这样……人还在，咱们慢慢收拾。",
+    "expression": "\"院子翻成这样……人还在，咱们慢慢收拾。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "TryOpenHomeArrival",
+    "line": 154,
+    "speaker": "阿铸",
+    "text": "门口的石台都磕掉了一角。走，去西桥头看看。",
+    "expression": "\"门口的石台都磕掉了一角。走，去西桥头看看。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "TryOpenHomeArrival",
+    "line": 157,
+    "speaker": "迦兰",
+    "text": "看这几列脚印。散开的时候，间距还是一样。来的人练过。",
+    "expression": "\"看这几列脚印。散开的时候，间距还是一样。来的人练过。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 180,
+    "speaker": "陈安",
+    "text": "寨子那头的路通了。出了南口，沿官道就能回白桦村。",
+    "expression": "\"寨子那头的路通了。出了南口，沿官道就能回白桦村。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 181,
+    "speaker": "陈安",
+    "text": "大人，趁他们还没再打过来，咱们先去黑鸦寨。走营地南口上官道，我把路给你标好了。",
+    "expression": "\"大人，趁他们还没再打过来，咱们先去黑鸦寨。走营地南口上官道，我把路给你标好了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 204,
+    "speaker": "断剑",
+    "text": "一把断裂的剑躺在地上。剑柄上沾着泥的青绳结，看起来很熟悉。",
+    "expression": "\"一把断裂的剑躺在地上。剑柄上沾着泥的青绳结，看起来很熟悉。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 221,
+    "speaker": "村民",
+    "text": "走到这一步真不容易，多亏了您。村子往后还要修，我们也能出把力。您吩咐吧。",
+    "expression": "\"走到这一步真不容易，多亏了您。村子往后还要修，我们也能出把力。您吩咐吧。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 221,
+    "speaker": "村民",
+    "text": "还要在哪儿盖房？您指给我看。",
+    "expression": "\"还要在哪儿盖房？您指给我看。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 228,
+    "speaker": "旁白",
+    "text": "田埂上全是马蹄印。那天清早，阿禾还蹲在这里清点麦种。",
+    "expression": "\"田埂上全是马蹄印。那天清早，阿禾还蹲在这里清点麦种。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 229,
+    "speaker": "旁白",
+    "text": "风箱倒在墙根，钳子和铁料被翻了一地。",
+    "expression": "\"风箱倒在墙根，钳子和铁料被翻了一地。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 229,
+    "speaker": "旁白",
+    "text": "自家的门板歪在门框上。",
+    "expression": "\"自家的门板歪在门框上。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "GalanAside",
+    "line": 247,
+    "speaker": "迦兰",
+    "text": "少蛊惑人心，我已经是这位大人的忠仆了。",
+    "expression": "\"少蛊惑人心，我已经是这位大人的忠仆了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenVillageHouse",
+    "line": 254,
+    "speaker": "古裔喽啰",
+    "text": "外边什么动静？人类？！",
+    "expression": "\"外边什么动静？人类？！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenVillageHouse",
+    "line": 255,
+    "speaker": "旁白",
+    "text": "你一剑砍服了他们。",
+    "expression": "\"你一剑砍服了他们。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenVillageHouse",
+    "line": 257,
+    "speaker": "古裔喽啰",
+    "text": "小的没眼力见，请问有什么吩咐？",
+    "expression": "\"小的没眼力见，请问有什么吩咐？\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseConfession",
+    "line": 264,
+    "speaker": "古裔喽啰",
+    "text": "你是……你不是死了吗？！哎哟，瞧我这乌鸦嘴！",
+    "expression": "\"你是……你不是死了吗？！哎哟，瞧我这乌鸦嘴！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseConfession",
+    "line": 265,
+    "speaker": "古裔喽啰",
+    "text": "我们是跟着来的。动手的是首领和精锐大人，哪轮得着我们？我们几个平日就干些端茶递水的活。",
+    "expression": "\"我们是跟着来的。动手的是首领和精锐大人，哪轮得着我们？我们几个平日就干些端茶递水的活。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseConfession",
+    "line": 266,
+    "speaker": "古裔喽啰",
+    "text": "那天闻见这屋里有股香味，就钻进来翻点吃的。等我们出来，首领早带人走了，像是有急事，连叫都没叫我们一声。",
+    "expression": "\"那天闻见这屋里有股香味，就钻进来翻点吃的。等我们出来，首领早带人走了，像是有急事，连叫都没叫我们一声。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseDecision",
+    "line": 271,
+    "speaker": "古裔喽啰",
+    "text": "大人，还有什么吩咐？",
+    "expression": "\"大人，还有什么吩咐？\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseDecision",
+    "line": 273,
+    "speaker": "古裔喽啰",
+    "text": "大人慈悲！小的这就告辞，再不踏进村子半步。",
+    "expression": "\"大人慈悲！小的这就告辞，再不踏进村子半步。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseDecision",
+    "line": 274,
+    "speaker": "古裔喽啰",
+    "text": "不过，屋外那位可是跟我们一起出的门，半道上就没影了。如今跟了您，您可得留个心眼。",
+    "expression": "\"不过，屋外那位可是跟我们一起出的门，半道上就没影了。如今跟了您，您可得留个心眼。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseDecision",
+    "line": 277,
+    "speaker": "古裔喽啰",
+    "text": "伽兰？当然认识。跟我们一起出发的，半路上就不见了。",
+    "expression": "\"伽兰？当然认识。跟我们一起出发的，半路上就不见了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseDecision",
+    "line": 278,
+    "speaker": "古裔喽啰",
+    "text": "哎哟，这不就是伽兰队长吗？别来无恙啊！",
+    "expression": "\"哎哟，这不就是伽兰队长吗？别来无恙啊！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseDecision",
+    "line": 280,
+    "speaker": "古裔喽啰",
+    "text": "呃啊！",
+    "expression": "\"呃啊！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenFirstRaidIntel",
+    "line": 72,
+    "speaker": "BaseScriptNames.Merchant",
+    "text": "东家，回营前听我一句。黑鸦寨有点动静，这条消息算我送你的。",
+    "expression": "offer",
+    "key": "story.ui.intel.first_offer"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenFirstRaidIntel",
+    "line": 77,
+    "speaker": "BaseScriptNames.Merchant",
+    "text": "黑鸦寨第{day}天就到。这几天赶紧备些粮和军需。",
+    "expression": "text",
+    "key": "story.ui.intel.first_claimed"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenDemoMerchant",
+    "line": 140,
+    "speaker": "BaseScriptNames.Merchant",
+    "text": "巴图没能拿下营地。黑鸦寨吃了亏，多半还会派人过来。",
+    "expression": "warning",
+    "key": "story.scene.defense.merchant_bandit_lead"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenDemoMerchant",
+    "line": 141,
+    "speaker": "BaseScriptNames.Merchant",
+    "text": "从南口上官道，一天就到寨子。那边可不归霍恩管。",
+    "expression": "\"从南口上官道，一天就到寨子。那边可不归霍恩管。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenRecruitmentComplete",
+    "line": 137,
+    "speaker": "BaseScriptNames.Recruiter",
+    "text": "人齐了。新募的弟兄今儿就能下田，也能进工坊。",
+    "expression": "\"人齐了。新募的弟兄今儿就能下田，也能进工坊。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenRecruitmentComplete",
+    "line": 138,
+    "speaker": "BaseScriptNames.Recruiter",
+    "text": "古窟底下还有余财。再打赢，领那份赏要费些体力。",
+    "expression": "\"古窟底下还有余财。再打赢，领那份赏要费些体力。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenRecruitmentComplete",
+    "line": 139,
+    "speaker": "BaseScriptNames.Recruiter",
+    "text": "记着，那股黑风伤人，普通弟兄进去得当心。",
+    "expression": "\"记着，那股黑风伤人，普通弟兄进去得当心。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenSmithGoods",
+    "line": 141,
+    "speaker": "BaseScriptNames.Blacksmith",
+    "text": "听说古窟的事办成了？我新打了些甲和兵刃，过来看看。",
+    "expression": "\"听说古窟的事办成了？我新打了些甲和兵刃，过来看看。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenAheFarmOffer",
+    "line": 153,
+    "speaker": "阿禾",
+    "text": "我在田埂上长大的。这块地让我管吧，什么时候浇水我心里有数。",
+    "expression": "\"我在田埂上长大的。这块地让我管吧，什么时候浇水我心里有数。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoScoutWarning",
+    "line": 25,
+    "speaker": "BaseScriptNames.Scout",
+    "text": "大人，匪兵到了！快从西口过去！",
+    "expression": "\"大人，匪兵到了！快从西口过去！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 40,
+    "speaker": "BaseScriptNames.ChunShen",
+    "text": "醒了！老头子快来看，人可算睁眼了！",
+    "expression": "\"醒了！老头子快来看，人可算睁眼了！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 41,
+    "speaker": "你",
+    "text": "嘶……这是哪儿？我睡了多久？",
+    "expression": "\"嘶……这是哪儿？我睡了多久？\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 42,
+    "speaker": "BaseScriptNames.LaoZhou",
+    "text": "灰岩镇西边的营地。你昏过去好些天了。",
+    "expression": "\"灰岩镇西边的营地。你昏过去好些天了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 43,
+    "speaker": "BaseScriptNames.LaoZhou",
+    "text": "水都喂不进去，还能醒，你是真命大。",
+    "expression": "\"水都喂不进去，还能醒，你是真命大。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 44,
+    "speaker": "你",
+    "text": "搭档呢？你回村时，见着西桥头的人了吗？",
+    "expression": "\"搭档呢？你回村时，见着西桥头的人了吗？\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 45,
+    "speaker": "BaseScriptNames.LaoZhou",
+    "text": "西桥断了，满地乱箭。我没见着你搭档，兴许是突围了。",
+    "expression": "\"西桥断了，满地乱箭。我没见着你搭档，兴许是突围了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 46,
+    "speaker": "BaseScriptNames.LaoZhou",
+    "text": "粮仓还有人翻吃的。我牵马绕过去，从东头把你驮了回来。",
+    "expression": "\"粮仓还有人翻吃的。我牵马绕过去，从东头把你驮了回来。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 47,
+    "speaker": "BaseScriptNames.LaoZhou",
+    "text": "这剑是从你胸口拔出来的。我替你收着，拿好。",
+    "expression": "\"这剑是从你胸口拔出来的。我替你收着，拿好。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 48,
+    "speaker": "你",
+    "text": "禁卫军的秘银剑……得查查它怎么到了古裔手里。",
+    "expression": "\"禁卫军的秘银剑……得查查它怎么到了古裔手里。\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 49,
+    "speaker": "BaseScriptNames.ChunShen",
+    "text": "你伤刚好，别急着动气。阿禾就在外头麦田里忙活呢。",
+    "expression": "\"你伤刚好，别急着动气。阿禾就在外头麦田里忙活呢。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 50,
+    "speaker": "BaseScriptNames.LaoZhou",
+    "text": "霍恩爵士接济过乡亲。你去灰岩镇问问，他兴许知道那队古裔。",
+    "expression": "\"霍恩爵士接济过乡亲。你去灰岩镇问问，他兴许知道那队古裔。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 54,
+    "speaker": "旁白",
+    "text": "傍晚，自家的屋顶又飘起炊烟。粮田翻了土，工坊里也点起了灯。",
+    "expression": "\"傍晚，自家的屋顶又飘起炊烟。粮田翻了土，工坊里也点起了灯。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 56,
+    "speaker": "旁白",
+    "text": "你隔着衣襟摸到那截断剑，青绳结上还沾着泥。",
+    "expression": "\"你隔着衣襟摸到那截断剑，青绳结上还沾着泥。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 57,
+    "speaker": "旁白",
+    "text": "西桥旁，两道车辙穿过枯草，一直向西山去。",
+    "expression": "\"西桥旁，两道车辙穿过枯草，一直向西山去。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenPrologueStory",
+    "line": 66,
+    "speaker": "报信村民",
+    "text": "西边来了十几个异族，全穿着重甲！",
+    "expression": "\"西边来了十几个异族，全穿着重甲！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenPrologueStory",
+    "line": 67,
+    "speaker": "搭档",
+    "text": "西桥那边交给我。带乡亲们往东走，别回头。",
+    "expression": "\"西桥那边交给我。带乡亲们往东走，别回头。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenPrologueStory",
+    "line": 74,
+    "speaker": "旁白",
+    "text": "［古裔追兵用王室的剑刺穿你的胸口，随即力竭倒下。］",
+    "expression": "StoryText.Get(\"story.scene.prologue.pursuit_stab\",\"［古裔追兵用王室的剑刺穿你的胸口，随即力竭倒下。］\")",
+    "key": "story.scene.prologue.pursuit_stab"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenPrologueStory",
+    "line": 76,
+    "speaker": "你",
+    "text": "王室……怎么会……搭档……［失去意识］",
+    "expression": "StoryText.Get(\"story.scene.prologue.pursuit_blackout\",\"王室……怎么会……搭档……［失去意识］\")",
+    "key": "story.scene.prologue.pursuit_blackout",
+    "playback": "选意图后播放主角页",
+    "choice_text": "唤一声搭档"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenPrologueStory",
+    "line": 76,
+    "speaker": "古裔喽啰",
+    "text": "都倒了？别管了，去粮仓搬吃的。",
+    "expression": "StoryText.Get(\"story.scene.prologue.pursuit_goon\",\"都倒了？别管了，去粮仓搬吃的。\")",
+    "key": "story.scene.prologue.pursuit_goon"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenTownChat",
+    "line": 105,
+    "speaker": "who",
+    "text": null,
+    "expression": "text",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 116,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "我正要派人查古窟。你也是为这事来的？",
+    "expression": "\"我正要派人查古窟。你也是为这事来的？\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 116,
+    "speaker": "你",
+    "text": "两个采石的镇民已经脱险，困住他们的古裔也制住了。",
+    "expression": "\"两个采石的镇民已经脱险，困住他们的古裔也制住了。\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 118,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "这份赏金和建设许可，你拿去。",
+    "expression": "\"这份赏金和建设许可，你拿去。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 119,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "募兵处我会打招呼。回去把工坊和兵营修起来。",
+    "expression": "\"募兵处我会打招呼。回去把工坊和兵营修起来。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 122,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "古窟那两个人，有消息了？",
+    "expression": "\"古窟那两个人，有消息了？\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 123,
+    "speaker": "你",
+    "text": "爵士，两个镇民都救出来了，控制他们的古裔也已制住。",
+    "expression": "\"爵士，两个镇民都救出来了，控制他们的古裔也已制住。\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 124,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "原来窟里有古裔。往后得让哨探多留意。",
+    "expression": "\"原来窟里有古裔。往后得让哨探多留意。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 125,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "这是答应你的赏金和许可。工坊、兵营都准修。",
+    "expression": "\"这是答应你的赏金和许可。工坊、兵营都准修。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 126,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "去募兵处。剑士、弓兵、骑兵各募一名，守好南边。",
+    "expression": "\"去募兵处。剑士、弓兵、骑兵各募一名，守好南边。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 132,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "先把工坊和兵营修好。",
+    "expression": "\"先把工坊和兵营修好。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 134,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "带手令去募兵处找雷恩。",
+    "expression": "\"带手令去募兵处找雷恩。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 136,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "回营先分好人手。修起来以后，总得有人做事。",
+    "expression": "\"回营先分好人手。修起来以后，总得有人做事。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 135,
+    "speaker": "BaseScriptNames.Lord",
+    "text": null,
+    "expression": "\"营地守住了。再给你一道手令，回去建\" + construction + \"。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 151,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "听乡亲说，是你拖住了追兵。伤好些了？",
+    "expression": "\"听乡亲说，是你拖住了追兵。伤好些了？\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 152,
+    "speaker": "你",
+    "text": "多谢爵士接济。您可知道袭村的古裔从哪儿来？",
+    "expression": "\"多谢爵士接济。您可知道袭村的古裔从哪儿来？\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 154,
+    "speaker": "你",
+    "text": "我想在营地修工坊、招些人手。请您给道许可。",
+    "expression": "\"我想在营地修工坊、招些人手。请您给道许可。\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 154,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "哨探也没摸清他们的底细。",
+    "expression": "\"哨探也没摸清他们的底细。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 155,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "你想修工坊、招兵？先帮我办件事。",
+    "expression": "\"你想修工坊、招兵？先帮我办件事。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 156,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "镇东的沉眠古窟近日在冒黑雾，两个采石的镇民还没回来。",
+    "expression": "\"镇东的沉眠古窟近日在冒黑雾，两个采石的镇民还没回来。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 157,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "听说你扛得住瘴气。进窟查查，他们要是还活着，就带回来。",
+    "expression": "\"听说你扛得住瘴气。进窟查查，他们要是还活着，就带回来。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 158,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "事办妥，赏金和建设许可归你，募兵处也会放行。",
+    "expression": "\"事办妥，赏金和建设许可归你，募兵处也会放行。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 160,
+    "speaker": "BaseScriptNames.Lord",
+    "text": "古窟走东口。若嫌人手少，可以去铁匠铺问问。",
+    "expression": "\"古窟走东口。若嫌人手少，可以去铁匠铺问问。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAzhuInvitation",
+    "line": 164,
+    "speaker": "阿铸",
+    "text": "等一下。你下盘稳，虎口一层老茧。练过吧？",
+    "expression": "\"等一下。你下盘稳，虎口一层老茧。练过吧？\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAzhuInvitation",
+    "line": 165,
+    "speaker": "阿铸",
+    "text": "我叫阿铸，巴隆是我爹。过两招？点到为止。",
+    "expression": "\"我叫阿铸，巴隆是我爹。过两招？点到为止。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAzhuInvitation",
+    "line": 169,
+    "speaker": "阿铸",
+    "text": "成。我就在铺里拉风箱，想比了来叫我。",
+    "expression": "\"成。我就在铺里拉风箱，想比了来叫我。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenRuinsRetreatMonologue",
+    "line": 179,
+    "speaker": "旁白",
+    "text": "退到洞口，胸口的旧伤还在作痛。",
+    "expression": "\"退到洞口，胸口的旧伤还在作痛。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenRuinsRetreatMonologue",
+    "line": 179,
+    "speaker": "你",
+    "text": "对方人多势众，优势不在我，或许镇上那位年轻铁匠可以帮忙。",
+    "expression": "StoryText.Get(\"story.scene.ruins.solo_retreat\", \"对方人多势众，优势不在我，或许镇上那位年轻铁匠可以帮忙。\")",
+    "key": "story.scene.ruins.solo_retreat",
+    "playback": "选意图后播放主角页",
+    "choice_text": "想想还能找谁帮忙"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoPartner",
+    "line": 182,
+    "speaker": "阿铸",
+    "text": "我在这儿帮我爹拉风箱。要出征，过来喊一声。",
+    "expression": "\"我在这儿帮我爹拉风箱。要出征，过来喊一声。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoPartner",
+    "line": 183,
+    "speaker": "阿铸",
+    "text": "出阵我能骑马护住后排，留营就帮你看工坊。",
+    "expression": "\"出阵我能骑马护住后排，留营就帮你看工坊。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoPartner",
+    "line": 188,
+    "speaker": "旁白",
+    "text": "铁匠铺门边斜靠着一杆长枪。",
+    "expression": "\"铁匠铺门边斜靠着一杆长枪。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoPartner",
+    "line": 189,
+    "speaker": "你",
+    "text": "门边那杆长枪是你的？",
+    "expression": "\"门边那杆长枪是你的？\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoPartner",
+    "line": 185,
+    "speaker": "阿铸",
+    "text": "是我的。我叫阿铸，巴隆是我爹。来过两招？",
+    "expression": "\"是我的。我叫阿铸，巴隆是我爹。来过两招？\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAheInvitation",
+    "line": 193,
+    "speaker": "阿禾",
+    "text": "我能在后头放箭，也能替你看田。进古窟得留神那股瘴气。",
+    "expression": "\"我能在后头放箭，也能替你看田。进古窟得留神那股瘴气。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAheInvitation",
+    "line": 194,
+    "speaker": "阿禾",
+    "text": "你能下地啦？我爹把你驮回来时，吓得我半天没说出话。",
+    "expression": "\"你能下地啦？我爹把你驮回来时，吓得我半天没说出话。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAheInvitation",
+    "line": 203,
+    "speaker": "你",
+    "text": "你把乡亲们都带到了？",
+    "expression": "\"你把乡亲们都带到了？\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAheInvitation",
+    "line": 196,
+    "speaker": "阿禾",
+    "text": "都安顿好啦。我那张猎弓还算准，出去探路带上我呗？",
+    "expression": "\"都安顿好啦。我那张猎弓还算准，出去探路带上我呗？\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAheResponse",
+    "line": 204,
+    "speaker": "阿禾",
+    "text": null,
+    "expression": "text",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenPracticeResult",
+    "line": 20,
+    "speaker": "搭档",
+    "text": null,
+    "expression": "text",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenPursuitRetry",
+    "line": 23,
+    "speaker": "旁白",
+    "text": "乡亲们还在往东山口赶。",
+    "expression": "\"乡亲们还在往东山口赶。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenPursuitRetry",
+    "line": 23,
+    "speaker": "你",
+    "text": "还不能倒在这儿。先带乡亲们往东走。",
+    "expression": "StoryText.Get(\"story.scene.prologue.pursuit_retry\",\n                \"还不能倒在这儿。先带乡亲们往东走。\")",
+    "key": "story.scene.prologue.pursuit_retry",
+    "playback": "选意图后播放主角页",
+    "choice_text": "再看看东山口"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenPursuitArrival",
+    "line": 29,
+    "speaker": "旁白",
+    "text": "村西的兵刃声忽然停了。",
+    "expression": "\"村西的兵刃声忽然停了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenPursuitArrival",
+    "line": 29,
+    "speaker": "旁白",
+    "text": "西桥那头没见搭档的身影。",
+    "expression": "\"西桥那头没见搭档的身影。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenPursuitArrival",
+    "line": 31,
+    "speaker": "古裔追兵",
+    "text": "截住东口！别让他们过去！",
+    "expression": "\"截住东口！别让他们过去！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenPursuitArrival",
+    "line": 31,
+    "speaker": "你",
+    "text": "王室的剑怎么会在你们手里？",
+    "expression": "StoryText.Get(\"story.scene.prologue.pursuit_royal_sword\",\"王室的剑怎么会在你们手里？\")",
+    "key": "story.scene.prologue.pursuit_royal_sword",
+    "playback": "选意图后播放主角页",
+    "choice_text": "追问王室的剑"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenPursuitArrival",
+    "line": 32,
+    "speaker": "旁白",
+    "text": "两名追兵身上都带着伤。那是搭档的剑路。",
+    "expression": "\"两名追兵身上都带着伤。那是搭档的剑路。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 118,
+    "speaker": "练习木桩",
+    "text": "村里的练习木桩，搭档常在这里练剑。",
+    "expression": "\"村里的练习木桩，搭档常在这里练剑。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 127,
+    "speaker": "阿禾",
+    "text": "可算等到你们了！这茬晚麦得赶在晌午前下种。",
+    "expression": "\"可算等到你们了！这茬晚麦得赶在晌午前下种。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 126,
+    "speaker": "你",
+    "text": "田里就两个人。铺里的人还忙着吗？",
+    "expression": "\"田里就两个人。铺里的人还忙着吗？\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 129,
+    "speaker": "阿禾",
+    "text": "农具昨晚就修好了，铺里那两位正好有空。",
+    "expression": "\"农具昨晚就修好了，铺里那两位正好有空。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 130,
+    "speaker": "搭档",
+    "text": "把铺里那两位也叫来，四个人够了。",
+    "expression": "\"把铺里那两位也叫来，四个人够了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 138,
+    "speaker": "搭档",
+    "text": "昨夜山风刮得紧。我听你翻了半宿，没睡踏实吧？",
+    "expression": "\"昨夜山风刮得紧。我听你翻了半宿，没睡踏实吧？\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 138,
+    "speaker": "你",
+    "text": "习惯了。以前在王都值夜，风声比这紧得多。",
+    "expression": "\"习惯了。以前在王都值夜，风声比这紧得多。\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 140,
+    "speaker": "搭档",
+    "text": "［轻笑］卸了那身官袍整一年，你摸剑柄的毛病还没改。",
+    "expression": "\"［轻笑］卸了那身官袍整一年，你摸剑柄的毛病还没改。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 141,
+    "speaker": "搭档",
+    "text": "那年我把官印一放，就跟你进了山。是我自己选的。",
+    "expression": "\"那年我把官印一放，就跟你进了山。是我自己选的。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 141,
+    "speaker": "你",
+    "text": "辞了也好。在王都，背后的冷箭比明刀难防。",
+    "expression": "\"辞了也好。在王都，背后的冷箭比明刀难防。\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 143,
+    "speaker": "搭档",
+    "text": "走吧，阿禾天刚亮就在麦田张望，八成是秋播缺人手了。",
+    "expression": "\"走吧，阿禾天刚亮就在麦田张望，八成是秋播缺人手了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 144,
+    "speaker": "搭档",
+    "text": "记得那年在宫门外站了一夜吗？冻得连剑都拔不出鞘。那时候哪想过还能睡到天亮。走吧，别让阿禾等急了。",
+    "expression": "\"记得那年在宫门外站了一夜吗？冻得连剑都拔不出鞘。那时候哪想过还能睡到天亮。走吧，别让阿禾等急了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 152,
+    "speaker": "搭档",
+    "text": "给。昨晚我趁灯还亮着，把剑柄上的青绳重新系紧了。",
+    "expression": "\"给。昨晚我趁灯还亮着，把剑柄上的青绳重新系紧了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 150,
+    "speaker": "你",
+    "text": "还是禁卫营的打法……剑刃倒是卷了几处。",
+    "expression": "\"还是禁卫营的打法……剑刃倒是卷了几处。\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 151,
+    "speaker": "搭档",
+    "text": "等秋麦入仓，咱们去灰岩镇，请老铁匠把剑重淬一遍。",
+    "expression": "\"等秋麦入仓，咱们去灰岩镇，请老铁匠把剑重淬一遍。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 155,
+    "speaker": "搭档",
+    "text": "佩上剑，我看看你还记得几招。",
+    "expression": "\"佩上剑，我看看你还记得几招。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 155,
+    "speaker": "搭档",
+    "text": "先拿木桩找找手感。等我说好了，你再朝我出剑。",
+    "expression": "\"先拿木桩找找手感。等我说好了，你再朝我出剑。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 157,
+    "speaker": "搭档",
+    "text": "嗯？什么事",
+    "expression": "\"嗯？什么事\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 169,
+    "speaker": "who",
+    "text": null,
+    "expression": "text",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 174,
+    "speaker": "护村剑士",
+    "text": "刀枪都擦亮了，只要二位一声令下，随时能上阵！",
+    "expression": "\"刀枪都擦亮了，只要二位一声令下，随时能上阵！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroProduction",
+    "line": 203,
+    "speaker": "阿禾",
+    "text": "人齐了！趁地还润着，这就把晚麦种下。",
+    "expression": "\"人齐了！趁地还润着，这就把晚麦种下。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroProduction",
+    "line": 204,
+    "speaker": "搭档",
+    "text": "田里的事妥了。来找我拿剑，咱们过两招。",
+    "expression": "\"田里的事妥了。来找我拿剑，咱们过两招。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "IntroReminder",
+    "line": 222,
+    "speaker": "搭档",
+    "text": null,
+    "expression": "text",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 284,
+    "speaker": "报信村民",
+    "text": "西边来了十几个异族，全穿着重甲！",
+    "expression": "\"西边来了十几个异族，全穿着重甲！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 317,
+    "speaker": "你",
+    "text": "离村口还有多远？",
+    "expression": "\"离村口还有多远？\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 286,
+    "speaker": "报信村民",
+    "text": "刚过林子，瞧都没瞧我一眼，直奔村里去了。",
+    "expression": "\"刚过林子，瞧都没瞧我一眼，直奔村里去了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 287,
+    "speaker": "报信村民",
+    "text": "我去东头喊采药的乡亲！",
+    "expression": "\"我去东头喊采药的乡亲！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 288,
+    "speaker": "搭档",
+    "text": "西桥窄。我带四个弟兄守桥，你护大家走东山口。",
+    "expression": "\"西桥窄。我带四个弟兄守桥，你护大家走东山口。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 321,
+    "speaker": "你",
+    "text": "就你们五个？我去守桥，你和阿禾带大家走。",
+    "expression": "\"就你们五个？我去守桥，你和阿禾带大家走。\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 290,
+    "speaker": "搭档",
+    "text": "东山口也得有人护着。阿禾他们就托给你了。",
+    "expression": "\"东山口也得有人护着。阿禾他们就托给你了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 291,
+    "speaker": "搭档",
+    "text": "还约了去灰岩镇淬剑呢。我拆了木桥就赶上来！",
+    "expression": "\"还约了去灰岩镇淬剑呢。我拆了木桥就赶上来！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 324,
+    "speaker": "你",
+    "text": "好。你一定要跟上。",
+    "expression": "\"好。你一定要跟上。\"",
+    "key": "",
+    "playback": "整句仅作可点答复"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 293,
+    "speaker": "阿禾",
+    "text": "乡亲们，往东走！走不动的扶一把！",
+    "expression": "\"乡亲们，往东走！走不动的扶一把！\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoSideQuestHud.cs",
+    "method": "OpenSmithLessonResult",
+    "line": 33,
+    "speaker": "BaseScriptNames.Blacksmith",
+    "text": "石头用得多，炼出好货的把握就大些。出炉前，谁也不敢打包票。",
+    "expression": "SmithLessonLine(\"finish.1\", \"石头用得多，炼出好货的把握就大些。出炉前，谁也不敢打包票。\")",
+    "key": "story.quest.smith_lesson.finish.1"
+  },
+  {
+    "file": "BaseDemoSideQuestHud.cs",
+    "method": "OpenSmithLessonResult",
+    "line": 34,
+    "speaker": "BaseScriptNames.Blacksmith",
+    "text": "趁手的家伙只有一件，就先留着。等手里有备用的，再拿这颗石头试。",
+    "expression": "SmithLessonLine(\"finish.2\", \"趁手的家伙只有一件，就先留着。等手里有备用的，再拿这颗石头试。\")",
+    "key": "story.quest.smith_lesson.finish.2"
+  },
+  {
+    "file": "BaseDemoSideQuestHud.cs",
+    "method": "OpenZhouTraining",
+    "line": 105,
+    "speaker": "BaseScriptNames.LaoZhou",
+    "text": "这{1}本{0}给你。去营帐练，练完来找我。",
+    "expression": "ZhouTrainingLine(\"offer.books\", \"这{1}本{0}给你。去营帐练，练完来找我。\", book, count)",
+    "key": "story.quest.zhou_training.offer.books"
+  },
+  {
+    "file": "BaseDemoSideQuestHud.cs",
+    "method": "ShowZhouTrainingResult",
+    "line": 142,
+    "speaker": "BaseScriptNames.LaoZhou",
+    "text": "这{1}本{0}也拿去，够你接着练一级。",
+    "expression": "ZhouTrainingLine(\"finish.books\", \"这{1}本{0}也拿去，够你接着练一级。\", BaseDemoSideQuests.ZhouBookName(state, next), BaseDemoSideQuests.ZhouBookCount(state, next))",
+    "key": "story.quest.zhou_training.finish.books"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "OpenSmithFather",
+    "line": 16,
+    "speaker": "smith",
+    "text": "这小子闲不住。在营里有活干，总比整天守着炉子强。",
+    "expression": "\"这小子闲不住。在营里有活干，总比整天守着炉子强。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "OpenSmithFather",
+    "line": 17,
+    "speaker": "阿铸",
+    "text": "爹，我去营里搭把手。您放心。",
+    "expression": "\"爹，我去营里搭把手。您放心。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "OpenSmithFather",
+    "line": 17,
+    "speaker": "smith",
+    "text": "这把新手短剑和一块锻造石给你。阿铸性子急，多担待。",
+    "expression": "\"这把新手短剑和一块锻造石给你。阿铸性子急，多担待。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "OpenSmithFather",
+    "line": 24,
+    "speaker": "smith",
+    "text": "兵刃护具在这儿挑。营里的军需，得你们自己打。",
+    "expression": "\"兵刃护具在这儿挑。营里的军需，得你们自己打。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "OpenWaitingGalan",
+    "line": 55,
+    "speaker": "迦兰",
+    "text": "那两个家伙误闯遗迹能活到现在，都是因为我的法术在生效。",
+    "expression": "\"那两个家伙误闯遗迹能活到现在，都是因为我的法术在生效。\"",
+    "key": "story.scene.galan.opening"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "OpenWaitingGalan",
+    "line": 55,
+    "speaker": "迦兰",
+    "text": "我可没伤他们一丝一毫。",
+    "expression": "\"我可没伤他们一丝一毫。\"",
+    "key": "story.scene.galan.opening"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanQuestions",
+    "line": 73,
+    "speaker": "迦兰",
+    "text": "遗迹地下有一条燃烧的地脉，普通人进去会气血翻腾，足以致死。",
+    "expression": "\"遗迹地下有一条燃烧的地脉，普通人进去会气血翻腾，足以致死。\"",
+    "key": "story.scene.galan.ruins"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanQuestions",
+    "line": 73,
+    "speaker": "迦兰",
+    "text": "但是看你在里面活蹦乱跳的，想必是异能者吧？",
+    "expression": "\"但是看你在里面活蹦乱跳的，想必是异能者吧？\"",
+    "key": "story.scene.galan.ruins"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanQuestions",
+    "line": 73,
+    "speaker": "迦兰",
+    "text": "我们自古以来就靠这东西抵御外敌，就怕你们这些不被地脉影响的怪胎……呃，异能强者。",
+    "expression": "\"我们自古以来就靠这东西抵御外敌，就怕你们这些不被地脉影响的怪胎……呃，异能强者。\"",
+    "key": "story.scene.galan.ruins"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanQuestions",
+    "line": 74,
+    "speaker": "迦兰",
+    "text": "哎呀，你们人类看异族不都是一个样子嘛。",
+    "expression": "\"哎呀，你们人类看异族不都是一个样子嘛。\"",
+    "key": "story.scene.galan.village"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanQuestions",
+    "line": 74,
+    "speaker": "迦兰",
+    "text": "村子什么的我真不知道，我就一善良但迷路的古裔罢了。",
+    "expression": "\"村子什么的我真不知道，我就一善良但迷路的古裔罢了。\"",
+    "key": "story.scene.galan.village"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanAdmission",
+    "line": 81,
+    "speaker": "迦兰",
+    "text": "控制他们我认，我就是想着让他们服侍我一段时间。",
+    "expression": "\"控制他们我认，我就是想着让他们服侍我一段时间。\"",
+    "key": "story.scene.galan.admission"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanAdmission",
+    "line": 81,
+    "speaker": "迦兰",
+    "text": "毕竟法术施展耗了我不少精力。",
+    "expression": "\"毕竟法术施展耗了我不少精力。\"",
+    "key": "story.scene.galan.admission"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanAdmission",
+    "line": 81,
+    "speaker": "迦兰",
+    "text": "我真打算玩……呃，这两天就放回去的。",
+    "expression": "\"我真打算玩……呃，这两天就放回去的。\"",
+    "key": "story.scene.galan.admission"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanPledge",
+    "line": 90,
+    "speaker": "迦兰",
+    "text": "诶诶，消消气！你看我的眼神，想必还跟其他古裔结下了不小梁子吧？",
+    "expression": "\"诶诶，消消气！你看我的眼神，想必还跟其他古裔结下了不小梁子吧？\"",
+    "key": "story.scene.galan.pledge"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanPledge",
+    "line": 90,
+    "speaker": "迦兰",
+    "text": "我可以向你介绍我族相关的知识，知己知彼，百战不殆嘛。",
+    "expression": "\"我可以向你介绍我族相关的知识，知己知彼，百战不殆嘛。\"",
+    "key": "story.scene.galan.pledge"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanPledge",
+    "line": 90,
+    "speaker": "迦兰",
+    "text": "除此之外，我力气也不小。你放了我，我以古裔之名起誓，日后为你出力，",
+    "expression": "\"除此之外，我力气也不小。你放了我，我以古裔之名起誓，日后为你出力，\"",
+    "key": "story.scene.galan.pledge"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanPledge",
+    "line": 90,
+    "speaker": "迦兰",
+    "text": "绝不动操控别人或其他歪心思。请给我一次改过自新的机会！求求了！",
+    "expression": "\"绝不动操控别人或其他歪心思。请给我一次改过自新的机会！求求了！\"",
+    "key": "story.scene.galan.pledge"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanPledge",
+    "line": 92,
+    "speaker": "迦兰",
+    "text": "拜托您再仔细考虑一下吧。",
+    "expression": "\"拜托您再仔细考虑一下吧。\"",
+    "key": "story.scene.galan.later"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "RecruitWaitingGalan",
+    "line": 109,
+    "speaker": "迦兰",
+    "text": "只要不玩命……啊不对，万死不辞啊主人！",
+    "expression": "\"只要不玩命……啊不对，万死不辞啊主人！\"",
+    "key": "story.scene.galan.recruited"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanExecutionChoice",
+    "line": 113,
+    "speaker": "迦兰",
+    "text": "啊呀！",
+    "expression": "\"啊呀！\"",
+    "key": "story.scene.galan.executed"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenChenanRoadChat",
+    "line": 312,
+    "speaker": "陈安",
+    "text": "村子不好回去咯。",
+    "expression": "\"村子不好回去咯。\"",
+    "key": "story.scene.chenan.road.opening"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenChenanRoadChat",
+    "line": 315,
+    "speaker": "陈安",
+    "text": "路上有个土匪寨子。上次运气好，他们在办宴会，我们从小路偷摸过来的。",
+    "expression": "\"路上有个土匪寨子。上次运气好，他们在办宴会，我们从小路偷摸过来的。\"",
+    "key": "story.scene.chenan.road.bandits"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenChenanRoadChat",
+    "line": 316,
+    "speaker": "陈安",
+    "text": "现在远远就能看到那边不少放哨的，就等着镇上的人路过打劫呢。",
+    "expression": "\"现在远远就能看到那边不少放哨的，就等着镇上的人路过打劫呢。\"",
+    "key": "story.scene.chenan.road.lookouts"
+  },
+  {
+    "file": "BaseHud.cs",
+    "method": "OpenObject",
+    "line": 463,
+    "speaker": "zhou?BaseScriptNames.LaoZhou:BaseScriptNames.ChunShen",
+    "text": null,
+    "expression": "campGreeting",
+    "key": "story.scene.camp.civilian_work"
+  },
+  {
+    "file": "BaseHud.cs",
+    "method": "ConfirmManager",
+    "line": 813,
+    "speaker": "岗位安排",
+    "text": null,
+    "expression": "leader.Name+\" → \"+BaseEconomy.FacilityName(facility)+extra",
+    "key": ""
+  },
+  {
+    "file": "BaseInjuredLines.cs",
+    "method": "WithInjury",
+    "line": 65,
+    "speaker": "line.Speaker",
+    "text": null,
+    "expression": "line.Text",
+    "key": ""
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "OpenAzhuAfterDuel",
+    "line": 13,
+    "speaker": "阿铸",
+    "text": "［甩了甩手］痛快！你这一剑，我都来不及收枪。",
+    "expression": "\"［甩了甩手］痛快！你这一剑，我都来不及收枪。\"",
+    "key": ""
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "OpenAzhuAfterDuel",
+    "line": 14,
+    "speaker": "阿铸",
+    "text": "老闷在铺里也没意思。你那儿缺人吗？算我一个。",
+    "expression": "\"老闷在铺里也没意思。你那儿缺人吗？算我一个。\"",
+    "key": ""
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "OpenAzhuAfterDuel",
+    "line": 15,
+    "speaker": "阿铸",
+    "text": "［收枪］到这儿吧。歇口气，想再练就来找我。",
+    "expression": "\"［收枪］到这儿吧。歇口气，想再练就来找我。\"",
+    "key": ""
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "RenderPartner",
+    "line": 42,
+    "speaker": "BasePersonnel.LeaderName(leader)",
+    "text": null,
+    "expression": "BasePartnerDialogue.Resolve(leader,key)",
+    "key": ""
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "OpenFullPartyReply",
+    "line": 71,
+    "speaker": "BasePersonnel.LeaderName(person)",
+    "text": "队伍人满了，先腾个位置吧。",
+    "expression": "BaseAdventure.FullPartyReply",
+    "key": ""
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "OpenRecruitDestination",
+    "line": 80,
+    "speaker": "BasePersonnel.LeaderName(person)",
+    "text": "队伍人满了，我在这儿等，还是先回营地？",
+    "expression": "\"队伍人满了，我在这儿等，还是先回营地？\"",
+    "key": ""
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsWarning",
+    "line": 13,
+    "speaker": "阿禾",
+    "text": "［咳了两声］这风一吸进去，胸口烧得慌。",
+    "expression": "\"［咳了两声］这风一吸进去，胸口烧得慌。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsWarning",
+    "line": 14,
+    "speaker": "阿铸",
+    "text": "这股黑风我扛得住。寻常人进去，可得当心。",
+    "expression": "\"这股黑风我扛得住。寻常人进去，可得当心。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsWarning",
+    "line": 15,
+    "speaker": "BaseScriptNames.Ruins+\"警告\"",
+    "text": null,
+    "expression": "\"严重警告：当前出战队伍有普通人。仅副本内，非异族、非异能者每秒损失最大生命的\"+(BaseRuinsRewards.Exposure(s)*100).ToString(\"0.##\")+\"%；异族和异能者免受侵蚀伤害；\"+BaseScriptNames.Ruins+\"中受迦兰魂丝保护的村民暂免侵蚀。入口野外没有侵蚀，暂离成员不会进入副本。战斗中存在真实战损，请谨慎决定。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsConfrontation",
+    "line": 25,
+    "speaker": "？？？",
+    "text": "何人聒噪，吾乃古裔精锐伽兰是也，外来者速速退去，此地不是尔等所能沾染的。",
+    "expression": "\"何人聒噪，吾乃古裔精锐伽兰是也，外来者速速退去，此地不是尔等所能沾染的。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsConfrontation",
+    "line": 27,
+    "speaker": "？？？",
+    "text": "敬酒不吃吃罚酒，哼，可惜不能继续增加人数了，你们两个跟我上。",
+    "expression": "\"敬酒不吃吃罚酒，哼，可惜不能继续增加人数了，你们两个跟我上。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsRescue",
+    "line": 43,
+    "speaker": "获救百姓甲",
+    "text": "脑子里像蒙了层雾，手脚全不听使唤……多谢你。",
+    "expression": "\"脑子里像蒙了层雾，手脚全不听使唤……多谢你。\"",
+    "key": "",
+    "trigger": "首胜后仍在洞内，回应后步行撤离"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsRescue",
+    "line": 44,
+    "speaker": "获救百姓乙",
+    "text": "现在腿能动了。先扶我一把，出去再说。",
+    "expression": "\"现在腿能动了。先扶我一把，出去再说。\"",
+    "key": "",
+    "trigger": "首胜后仍在洞内，回应后步行撤离"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRescuedCivilian",
+    "line": 54,
+    "speaker": "获救百姓乙",
+    "text": "总算能喘口气了。多亏你手下留情，我们才出得来。",
+    "expression": "\"总算能喘口气了。多亏你手下留情，我们才出得来。\"",
+    "key": "",
+    "trigger": "首胜撤离到入口时或稍后来访，村民尚未动身"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRescuedCivilian",
+    "line": 55,
+    "speaker": "获救百姓甲",
+    "text": "我们这就回灰岩镇。见了霍恩爵士，会把经过说清楚。",
+    "expression": "\"我们这就回灰岩镇。见了霍恩爵士，会把经过说清楚。\"",
+    "key": "",
+    "trigger": "首胜撤离到入口时或稍后来访，村民尚未动身"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRescuedCivilian",
+    "line": 67,
+    "speaker": "first?\"获救百姓甲\":\"获救百姓乙\"",
+    "text": null,
+    "expression": "speech",
+    "key": ""
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "OpenRecruiterHideoutClue",
+    "line": 135,
+    "speaker": "name",
+    "text": "野外那截破旧城墙背后，藏着个小土匪营地。那帮人隔三岔五就袭扰路过的百姓。",
+    "expression": "StoryText.Get(\"story.ui.hideout.recruiter_clue_1\",\n                    \"野外那截破旧城墙背后，藏着个小土匪营地。那帮人隔三岔五就袭扰路过的百姓。\")",
+    "key": "story.ui.hideout.recruiter_clue_1"
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "OpenRecruiterHideoutClue",
+    "line": 137,
+    "speaker": "name",
+    "text": "你要是有心，就去跟他们碰一碰。营地里都是他们搜刮来的不义之财，你能帮我们处理掉他们，那些东西就算你的辛苦酬劳。",
+    "expression": "StoryText.Get(\"story.ui.hideout.recruiter_clue_2\",\n                    \"你要是有心，就去跟他们碰一碰。营地里都是他们搜刮来的不义之财，你能帮我们处理掉他们，那些东西就算你的辛苦酬劳。\")",
+    "key": "story.ui.hideout.recruiter_clue_2"
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "OpenRecruiterHideoutClue",
+    "line": 139,
+    "speaker": "name",
+    "text": "要是能打服他们，也能把肯归顺的人招来做事。坏是坏了点，可有了正经差事，或许能帮你的营地早点站稳。",
+    "expression": "StoryText.Get(\"story.ui.hideout.recruiter_clue_3\",\n                    \"要是能打服他们，也能把肯归顺的人招来做事。坏是坏了点，可有了正经差事，或许能帮你的营地早点站稳。\")",
+    "key": "story.ui.hideout.recruiter_clue_3"
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "ReturnToTradeDialogue",
+    "line": 217,
+    "speaker": "BaseScriptNames.Recruiter",
+    "text": "还缺哪一队的人？接着挑，我把名册拿给你。",
+    "expression": "\"还缺哪一队的人？接着挑，我把名册拿给你。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "OpenTownRecruit",
+    "line": 300,
+    "speaker": "BaseScriptNames.Recruiter",
+    "text": "外乡人？没爵士的手令，我一个兵也不能给你。",
+    "expression": "\"外乡人？没爵士的手令，我一个兵也不能给你。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "OpenTownRecruit",
+    "line": 309,
+    "speaker": "BaseScriptNames.Recruiter",
+    "text": "手令给我看看。好，你们营地可以来招剑士、弓兵和骑兵了。",
+    "expression": "\"手令给我看看。好，你们营地可以来招剑士、弓兵和骑兵了。\"",
+    "key": ""
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "OpenTownRecruit",
+    "line": 311,
+    "speaker": "BaseScriptNames.Recruiter",
+    "text": "三种兵各募一个吧。营里缺人，他们也能下地干活。",
+    "expression": "\"三种兵各募一个吧。营里缺人，他们也能下地干活。\"",
+    "key": ""
+  }
+]

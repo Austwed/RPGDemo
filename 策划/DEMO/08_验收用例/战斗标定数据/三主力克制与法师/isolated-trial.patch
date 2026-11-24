@@ -1,0 +1,774 @@
+--- a/Assets/Scripts/Battle/RealtimeBattlePrototype.cs
++++ b/Assets/Scripts/Battle/RealtimeBattlePrototype.cs
+@@ -474,13 +474,26 @@
+             ValidateWindups();
+             StartMovingMeleeWindups();
+             RebuildReservations();
++#if UNITY_EDITOR
++            if (SwordContactPinEnabled) RefreshSwordContactPins();
++#endif
+             foreach(var unit in Units.Where(actor=>actor.Alive&&!actor.Moving))Think(unit);
++#if UNITY_EDITOR
++            if (SwordContactPinEnabled)
++            {
++                RefreshSwordContactPins();
++                SampleSwordContactHolds();
++            }
++#endif
+             // 起步顺序：骑兵先挑格子。给冲锋中的骑兵优先选择通路，
+             // 让它先手等价于给它的寻路优先级，其余单位只会从剩下的格子里挑，不会因此卡死。
+             foreach(var unit in Units.Where(actor=>actor.Alive&&!actor.Moving&&actor.MoveGoal>=0)
+                 .OrderBy(actor=>CavalryPathPriority&&IsCavalry(actor)?0:1).ThenByDescending(actor=>actor.BlockedFor).ThenBy(actor=>actor.Id).ToArray())
+             {
+                 if(unit.Moving)continue;
++#if UNITY_EDITOR
++                if (ContactPinActive(unit)) { unit.BlockedFor = 0; continue; }
++#endif
+                 var distances=Arena.Distances(unit.MoveGoal);
+                 var heading=(Arena.Center(unit.MoveGoal)-unit.Position).Normalized;
+                 var groupRoute=GroupRoute(unit);
+@@ -552,6 +565,9 @@
+         {
+             unit.MoveGoal = -1;
+             if (unit.HitAt >= 0 && !unit.HitResolved) { FollowMeleeWindup(unit); return; }
++#if UNITY_EDITOR
++            if (DefendWhileContactPinned(unit)) return;
++#endif
+             if(CommanderDoctrine){ThinkDoctrine(unit);return;}
+             if(unit.Order==PrototypeOrder.Retreat)
+             {if(unit.Cell==Arena.CellAt(unit.Goal)){unit.Escaped=true;return;}unit.MoveGoal=Arena.CellAt(unit.Goal);return;}
+@@ -594,6 +610,9 @@
+         private bool SlotClaimed(int cell,PrototypeUnit actor)=>Units.Any(other=>other.Alive&&other.Id!=actor.Id&&other.Side==actor.Side&&other.AttackSlot==cell);
+         private bool TryBeginStep(PrototypeUnit unit,int destination)
+         {
++#if UNITY_EDITOR
++            if (ContactPinActive(unit)) return false;
++#endif
+             if(!(CanMove?.Invoke(unit)??true)||!Arena.CanStep(unit.Cell,destination)||reservations.TryGetValue(destination,out int owner)&&owner!=unit.Id)return false;
+             int deltaX=destination%Arena.FineColumns-unit.Cell%Arena.FineColumns,deltaZ=destination/Arena.FineColumns-unit.Cell/Arena.FineColumns;
+             if(deltaX!=0&&deltaZ!=0&&(reservations.TryGetValue(unit.Cell+deltaX,out int horizontal)&&horizontal!=unit.Id||reservations.TryGetValue(unit.Cell+deltaZ*Arena.FineColumns,out int vertical)&&vertical!=unit.Id))return false;
+--- a/Assets/Scripts/Battle/RealtimeCampaignBattle.cs
++++ b/Assets/Scripts/Battle/RealtimeCampaignBattle.cs
+@@ -146,6 +146,12 @@
+             Model.DamageApplied=(source,target,actual)=>{Battle.RecordRealtimeHit(source.Id-1,target.Id-1,(float)actual,(float)target.Health);var soldier=Battle.Soldier(target.Id-1);target.Health=soldier.Health;target.KnockedDown=soldier.KnockedDown;ResolveImmediateVictory();};
+             Model.CanTarget=(source,target)=>Battle.Vision.CanSee(source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B,Battle.Soldier(target.Id-1));
+             Model.CanMove=actor=>!Battle.Soldier(actor.Id-1).DeveloperImmobile;
++#if UNITY_EDITOR
++            Model.SwordForContactPin = actor => Battle.Soldier(actor.Id - 1)?.Kind == SoldierKind.Melee;
++            Model.SwordContactCombatOpen = () => Battle.Phase == BattlePhase.Fighting &&
++                session.Opening.EventId != BaseLocalDuel.Id && session.Opening.Id != BaseDemoIntro.BattleId &&
++                session.Opening.EventId != BaseDemoPrologue.BattleId;
++#endif
+             Model.DefaultDestination=source=>
+             {
+                 var side=source.Side==PrototypeSide.Ally?BattleSide.A:BattleSide.B;
+--- a/Assets/Scripts/Battle/RealtimeCavalryShove.cs
++++ b/Assets/Scripts/Battle/RealtimeCavalryShove.cs
+@@ -27,6 +27,9 @@
+         // wanted 是骑兵下一步想踏进去的格。挡路有三种：占着格子、挡住扫掠体、挡住转向后的身体。
+         private bool TryShoveThrough(PrototypeUnit rider,int wanted)
+         {
++#if UNITY_EDITOR
++            if (ContactPinActive(rider)) return false;
++#endif
+             if(!CavalryShove||!IsCavalry(rider))return false;
+             Tally("enter");
+             if(wanted<0||!Arena.FineWalkable(wanted)){Tally("badcell");return false;}
+--- /dev/null
++++ b/Assets/Scripts/Battle/RealtimeSwordContactPin.Isolated.cs
+@@ -0,0 +1,84 @@
++#if UNITY_EDITOR
++using System;
++using System.Collections.Generic;
++using System.Linq;
++
++namespace BaseConquest.RealtimePrototype
++{
++    public sealed partial class RealtimeBattlePrototype
++    {
++        public bool SwordContactPinEnabled;
++        public Func<PrototypeUnit, bool> SwordForContactPin;
++        internal Func<bool> SwordContactCombatOpen;
++        private readonly HashSet<int> contactPins = new();
++        private readonly HashSet<int> lastHeldContactPins = new();
++        private readonly Dictionary<int, int> contactPinSteps = new();
++        private readonly Dictionary<int, int> contactPinStarts = new();
++
++        private bool ContactsAllowed => SwordContactPinEnabled && !OnlyExitMovement &&
++            Outcome == PrototypeOutcome.Fighting && (SwordContactCombatOpen?.Invoke() ?? true);
++
++        public bool ContactPinActive(PrototypeUnit unit) =>
++            unit?.Alive == true && ContactsAllowed && contactPins.Contains(unit.Id);
++
++        public double SwordContactPinnedSeconds(PrototypeUnit unit) =>
++            contactPinSteps.GetValueOrDefault(unit.Id) * FixedSeconds;
++
++        public int SwordContactPinStarts(PrototypeUnit unit) => contactPinStarts.GetValueOrDefault(unit.Id);
++
++        private void RefreshSwordContactPins()
++        {
++            contactPins.Clear();
++            if (!ContactsAllowed) return;
++            foreach (var sword in Units)
++            {
++                if (!sword.Alive || sword.Role != PrototypeRole.Melee || sword.Ranged || sword.Mounted ||
++                    sword.ObjectOrder || sword.Order == PrototypeOrder.Retreat || sword.JumpDuration > 0 ||
++                    sword.TargetId < 0 || !(SwordForContactPin?.Invoke(sword) ?? true)) continue;
++
++                var target = Units.FirstOrDefault(unit => unit.Id == sword.TargetId);
++                if (target?.Alive == true && target.Side != sword.Side && target.Role != PrototypeRole.Leader &&
++                    target.JumpDuration <= 0 && !target.ObjectOrder && (CanTarget?.Invoke(sword, target) ?? true) &&
++                    ReadyTarget(sword, target))
++                    contactPins.Add(target.Id);
++            }
++        }
++
++        private void SampleSwordContactHolds()
++        {
++            if (!ContactsAllowed)
++            {
++                lastHeldContactPins.Clear();
++                return;
++            }
++            foreach (var target in Units)
++            {
++                if (!target.Alive || target.Moving || !contactPins.Contains(target.Id)) continue;
++                contactPinSteps[target.Id] = contactPinSteps.GetValueOrDefault(target.Id) + 1;
++                if (!lastHeldContactPins.Contains(target.Id))
++                    contactPinStarts[target.Id] = contactPinStarts.GetValueOrDefault(target.Id) + 1;
++            }
++            lastHeldContactPins.Clear();
++            foreach (var target in Units)
++                if (target.Alive && !target.Moving && contactPins.Contains(target.Id))
++                    lastHeldContactPins.Add(target.Id);
++        }
++
++        private bool DefendWhileContactPinned(PrototypeUnit unit)
++        {
++            if (!ContactPinActive(unit) || unit.Order is not (PrototypeOrder.Retreat or PrototypeOrder.Move))
++                return false;
++
++            // Keep the pending order, while still permitting a normal attack from the held position.
++            var target = PreferredTarget(unit, Units.Where(enemy => enemy.Side != unit.Side &&
++                (CanTarget?.Invoke(unit, enemy) ?? true) && ReadyTarget(unit, enemy)));
++            unit.TargetId = target?.Id ?? -1;
++            unit.AttackSlot = target == null ? -1 : unit.Cell;
++            if (target != null && Face(unit, (target.BodyCenter - unit.BodyCenter).Normalized) &&
++                Elapsed + 1e-9 >= unit.ReadyAt)
++                BeginAttack(unit);
++            return true;
++        }
++    }
++}
++#endif
+--- /dev/null
++++ b/Assets/Scripts/Base/VerifyMainTrio.Isolated.cs
+@@ -0,0 +1,129 @@
++#if UNITY_EDITOR
++using System;
++using System.IO;
++using System.Linq;
++using System.Threading.Tasks;
++using BaseConquest.Battle;
++using UnityEngine;
++
++namespace BaseConquest.Base
++{
++    public static partial class PowerCalibrationMatrix
++    {
++        public static void VerifyMainTrio()
++        {
++            try
++            {
++                WriteMainTrio();
++                Debug.Log("[MainTrio] PASS");
++                UnityEditor.EditorApplication.Exit(0);
++            }
++            catch (Exception error)
++            {
++                Debug.LogException(error);
++                UnityEditor.EditorApplication.Exit(1);
++            }
++        }
++
++        private static void WriteMainTrio()
++        {
++            string variants = Arg("trio-variants", "baseline,s12a14");
++            int startSeed = int.Parse(Arg("trio-seed", "193703"), Invariant);
++            int seedCount = int.Parse(Arg("trio-count", "8"), Invariant);
++            int workers = int.Parse(Arg("trio-workers", "8"), Invariant);
++            string output = Arg("trio-out", "Logs/trio.csv");
++            string map = Arg("trio-map", "flat");
++            const string rulesFile = "Assets/Resources/DemoBalance/DemoBalance.json";
++            string rulesJson = File.ReadAllText(rulesFile);
++            using var writer = new StreamWriter(output);
++            writer.WriteLine("variant,map,wanted,counter,size,grade,seed,mirror,outcome,seconds,first_strike,first_hit,first_hit_s,contact_wanted_s,contact_counter_s,pin_wanted_s,pin_counter_s,hp_wanted,hp_counter,max_hp_wanted,max_hp_counter,down_wanted,down_counter,dead_wanted,dead_counter,shoves");
++            foreach (string variant in variants.Split(','))
++            {
++                bool pin = variant != "baseline";
++                var state = JsonUtility.FromJson<BaseState>(File.ReadAllText("Assets/Resources/DemoStages/defense-male.json"));
++                var rules = JsonUtility.FromJson<DemoBalancePackage>(rulesJson).Rules;
++                state.Demo.Rpg = rules;
++                if (pin)
++                {
++                    string[] attack = variant.Substring(1).Split('a');
++                    rules.Templates.Single(t => t.Id == "soldier_warrior").Attack = int.Parse(attack[0], Invariant);
++                    rules.Templates.Single(t => t.Id == "soldier_archer").Attack = int.Parse(attack[1], Invariant);
++                }
++                rules.Validate();
++                var jobs = (from pair in new[] { (1, 0), (0, 2), (2, 1) }
++                            from size in new[] { 8, 16 }
++                            from grade in Enumerable.Range(0, 3)
++                            from index in Enumerable.Range(0, seedCount)
++                            from mirror in new[] { false, true }
++                            select (pair, size, grade, index, mirror)).ToArray();
++                var rows = new string[jobs.Length];
++                Parallel.For(0, jobs.Length, new ParallelOptions { MaxDegreeOfParallelism = workers }, i =>
++                {
++                    var job = jobs[i];
++                    int seed = startSeed + job.index * 1009;
++                    rows[i] = MainTrioMatch(state, rules, variant, map, pin,
++                        job.pair.Item1, job.pair.Item2, job.size, job.grade, seed, job.mirror);
++                });
++                foreach (string row in rows) writer.WriteLine(row);
++                writer.Flush();
++                Debug.Log($"[MainTrio] {variant} {map} {rows.Length} matches, seed={startSeed}");
++            }
++        }
++
++        private static string MainTrioMatch(BaseState state, RpgRules rules, string variant, string map, bool pin,
++            int wanted, int counter, int size, int grade, int seed, bool mirror)
++        {
++            var setup = ScenarioFor("flat", state);
++            if (map == "choke")
++                for (int z = 2; z <= 7; z++)
++                    for (int x = 6; x <= 7; x++)
++                        setup.Scenario.Board.Cell(new GridPosition(x, z)).Terrain = TerrainKind.Wall;
++            int[] left = new int[4], right = new int[4];
++            left[wanted] = size;
++            right[counter] = size;
++            var session = StartMatch("flat", setup, state, rules, 0, grade, seed, mirror, left, right);
++            var run = new RealtimeCampaignBattle(session, "normal");
++            run.Model.SwordContactPinEnabled = pin;
++            var side = mirror ? BattleSide.B : BattleSide.A;
++            var leftUnits = run.Model.Units.Where(u => session.Battle.Soldier(u.Id - 1).Side == side).ToArray();
++            var rightUnits = run.Model.Units.Where(u => session.Battle.Soldier(u.Id - 1).Side != side).ToArray();
++            var a = session.Battle.Soldiers.Where(u => u.Side == side).ToArray();
++            var b = session.Battle.Soldiers.Where(u => u.Side != side).ToArray();
++            if (a.Length != size || b.Length != size || a.Any(u => BaseRpg.Profession(u.ProfessionKind) != wanted) ||
++                b.Any(u => BaseRpg.Profession(u.ProfessionKind) != counter)) throw new InvalidOperationException("Invalid team or mirror");
++            double contactA = 0, contactB = 0;
++            var unitsById = run.Model.Units.ToDictionary(u => u.Id);
++            int InContact(BaseConquest.RealtimePrototype.PrototypeUnit[] actors)
++            {
++                int engaged = 0;
++                foreach (var unit in actors)
++                {
++                    if (unit.Alive && !unit.Ranged && unitsById.TryGetValue(unit.TargetId, out var target) &&
++                        target.Alive && target.Side != unit.Side && run.Model.InAttackRadius(unit, target) &&
++                        (run.Model.CanTarget?.Invoke(unit, target) ?? true) && run.Model.ClearAttack(unit.Position, target.BodyCenter))
++                        engaged++;
++                }
++                return engaged;
++            }
++            run.Model.SetPaused(false);
++            for (int frame = 0; frame < 360 && session.Battle.Phase != BattlePhase.Finished; frame++)
++            {
++                run.Tick(.25);
++                contactA += .25 * InContact(leftUnits);
++                contactB += .25 * InContact(rightUnits);
++            }
++            var result = session.Battle.Report?.Outcome ?? BattleOutcome.RoundLimit;
++            string outcome = result is BattleOutcome.SideAWin or BattleOutcome.SideBWin
++                ? ((result == BattleOutcome.SideAWin) == !mirror ? "wanted" : "counter")
++                : result == BattleOutcome.RoundLimit ? "timeout" : "draw";
++            string Team(RpgAttackPacket attack) => attack == null ? "none" :
++                session.Battle.Soldier(attack.SourceId - 1).Side == side ? "wanted" : "counter";
++            var strike = run.RpgAttackHistory.FirstOrDefault();
++            var hit = run.RpgAttackHistory.Where(packet => packet.ImpactApplied && packet.DamageApplied > 0)
++                .OrderBy(packet => packet.ArriveAt).ThenBy(packet => packet.Id).FirstOrDefault();
++            double PinTime(BaseConquest.RealtimePrototype.PrototypeUnit[] actors) => actors.Sum(run.Model.SwordContactPinnedSeconds);
++            return FormattableString.Invariant($"{variant},{map},{wanted},{counter},{size},{grade},{seed},{(mirror ? 1 : 0)},{outcome},{run.Model.Elapsed:F2},{Team(strike)},{Team(hit)},{hit?.ArriveAt ?? -1:F2},{contactA:F2},{contactB:F2},{PinTime(leftUnits):F2},{PinTime(rightUnits):F2},{a.Sum(u => u.Health):F2},{b.Sum(u => u.Health):F2},{a.Sum(u => u.Stats.Health):F2},{b.Sum(u => u.Stats.Health):F2},{a.Count(u => !u.IsActive)},{b.Count(u => !u.IsActive)},{a.Count(u => u.InstantDead)},{b.Count(u => u.InstantDead)},{run.Model.ShoveMoves}");
++        }
++    }
++}
++#endif
+--- /dev/null
++++ b/Assets/Scripts/Base/VerifyMageRole.Isolated.cs
+@@ -0,0 +1,247 @@
++#if UNITY_EDITOR
++using System;
++using System.Collections.Generic;
++using System.IO;
++using System.Linq;
++using System.Threading.Tasks;
++using UnityEngine;
++using BaseConquest.Battle;
++using BaseConquest.RealtimePrototype;
++
++namespace BaseConquest.Base
++{
++    public static partial class PowerCalibrationMatrix
++    {
++        private static readonly string[] MageRoleScenes = { "hideout", "captain-d4", "captain-d16", "second" };
++        private static readonly string[] MageRoleComposition = { "6-5-5-0", "6-3-5-2", "6-1-5-4" };
++
++        private sealed class MageRoleResult
++        {
++            internal bool Pin, Won, Timeout;
++            internal string Scene, Outcome;
++            internal int Grade, Index, Seed, AllyDeaths, EnemyDeaths, AllyDown, EnemyDown, EnemyCount;
++            internal double Seconds, BowDamage, MageDamage, SwordDamage, CavalryDamage, CaptainHp, CaptainAttack, CaptainDefense;
++        }
++
++        public static void VerifyMageRole()
++        {
++            try
++            {
++                RunMageRole();
++                Debug.Log("[MageRole] PASS");
++                if (Application.isBatchMode) UnityEditor.EditorApplication.Exit(0);
++            }
++            catch (Exception error)
++            {
++                Debug.LogError("[MageRole] FAIL " + error);
++                if (Application.isBatchMode) UnityEditor.EditorApplication.Exit(1);
++                else throw;
++            }
++        }
++
++        private static void RunMageRole()
++        {
++            var rules = JsonUtility.FromJson<DemoBalancePackage>(File.ReadAllText("Assets/Resources/DemoBalance/DemoBalance.json")).Rules;
++            var state = JsonUtility.FromJson<BaseState>(File.ReadAllText("Assets/Resources/DemoStages/defense-male.json"));
++            rules.Validate();
++            state.Demo.Rpg = rules;
++            state.Demo.Encounters = null;
++            BaseDemoIntro.Enable(state, true);
++            string[] scenes = Arg("mageRoleCases", string.Join(",", MageRoleScenes)).Split(',');
++            int[] grades = Arg("mageRoleGrades", "0,1").Split(',').Select(int.Parse).ToArray();
++            int samples = int.Parse(Arg("mageRoleSamples", "8"));
++            int workers = int.Parse(Arg("mageRoleWorkers", "4"));
++            int maxSeconds = int.Parse(Arg("mageRoleMaxSeconds", "120"));
++            var pinMode = Arg("mageRolePin", "both");
++            bool[] modes = pinMode switch
++            {
++                "both" => new[] { false, true },
++                "baseline" => new[] { false },
++                "pin" => new[] { true },
++                _ => throw new ArgumentException("mageRolePin must be baseline, pin, or both")
++            };
++            if (samples < 1 || workers < 1 || maxSeconds < 1 || scenes.Any(scene => !MageRoleScenes.Contains(scene)) ||
++                grades.Any(grade => grade != 0 && grade != 1))
++                throw new ArgumentException("invalid mage role calibration arguments");
++
++            string output = Arg("mageRoleOut", "Logs/mage-role-calibration");
++            Directory.CreateDirectory(output);
++            using var detail = new StreamWriter(Path.Combine(output, "matches.csv"));
++            using var summary = new StreamWriter(Path.Combine(output, "paired-summary.csv"));
++            detail.WriteLine("pin,scene,grade,seed,formation,outcome,won,timeout,combat_seconds,ally_permanent_deaths,enemy_permanent_deaths,ally_down_nonlethal,enemy_down_nonlethal,enemy_count,ally_sword_damage,ally_bow_damage,ally_cavalry_damage,ally_mage_damage,enemy_captain_hp,enemy_captain_attack,enemy_captain_defense");
++            summary.WriteLine("pin,scene,grade,formation,seed_pairs,wins_baseline,wins_variant,win_delta,defeat_to_win,win_to_defeat,timeout_baseline,timeout_variant,combat_seconds_baseline,combat_seconds_variant,mean_seconds_delta,both_won_pairs,mean_both_won_seconds_delta,ally_deaths_baseline,ally_deaths_variant,mean_ally_deaths_delta,mean_enemy_deaths_delta");
++            foreach (string scene in scenes)
++            {
++                var setup = MageRoleSetup(scene, state, rules);
++                foreach (int grade in grades)
++                {
++                    var results = new MageRoleResult[samples, modes.Length, MageRoleComposition.Length];
++                    Parallel.For(0, samples, new ParallelOptions { MaxDegreeOfParallelism = workers }, trial =>
++                    {
++                        int seed = 120241 + trial * 997;
++                        var reference = StartMatch(scene.StartsWith("captain", StringComparison.Ordinal) ? "armor" : scene,
++                            setup, state, rules, 0, grade, seed, false);
++                        for (int index = 0; index < MageRoleComposition.Length; index++)
++                        {
++                            var candidate = BuildMageRoleMatch(reference, rules, index * 2, grade, scene, seed);
++                            for (int mode = 0; mode < modes.Length; mode++)
++                                results[trial, mode, index] = MeasureMageRole(scene, grade, seed, index,
++                                    candidate, modes[mode], maxSeconds);
++                        }
++                    });
++                    foreach (var row in results)
++                        detail.WriteLine(MageCsv(row.Pin ? 1 : 0, row.Scene, row.Grade, row.Seed,
++                            MageRoleComposition[row.Index], row.Outcome, row.Won ? 1 : 0, row.Timeout ? 1 : 0, row.Seconds,
++                            row.AllyDeaths, row.EnemyDeaths, row.AllyDown, row.EnemyDown, row.EnemyCount,
++                            row.SwordDamage, row.BowDamage, row.CavalryDamage, row.MageDamage,
++                            row.CaptainHp, row.CaptainAttack, row.CaptainDefense));
++                    for (int mode = 0; mode < modes.Length; mode++)
++                    for (int index = 1; index < MageRoleComposition.Length; index++)
++                    {
++                        var baseline = Enumerable.Range(0, samples).Select(trial => results[trial, mode, 0]).ToArray();
++                        var variant = Enumerable.Range(0, samples).Select(trial => results[trial, mode, index]).ToArray();
++                        WriteMagePairedSummary(summary, baseline, variant);
++                    }
++                    detail.Flush();
++                    summary.Flush();
++                }
++            }
++        }
++
++        private static BaseCampaignBattle MageRoleSetup(string scene, BaseState state, RpgRules rules)
++        {
++            if (!scene.StartsWith("captain", StringComparison.Ordinal)) return ScenarioFor(scene, state);
++            var setup = ScenarioFor("flat", state);
++            setup.Scenario.IndependentArmyB = false;
++            setup.EventId = "calibration:mage-role-captain";
++            var profile = BaseRpg.Character("calibration-mage-role-captain", 0, false, false, rules, 3);
++            var stats = rules.Bare(profile, 3);
++            stats.Defense = scene == "captain-d4" ? 4 : 16;
++            setup.Enemies = new List<BaseEnemyMember>
++            {
++                new BaseEnemyMember { Id = profile.Id, Name = "Calibration captain", Rpg = profile,
++                    Kind = SoldierKind.Hero, Health = stats.Health, Stats = stats }
++            };
++            BaseThreats.ConfigureEnemy(setup.Scenario, setup.Enemies);
++            return setup;
++        }
++
++        private static BaseCampaignBattle BuildMageRoleMatch(BaseCampaignSession reference, RpgRules rules,
++            int mageCount, int grade, string scene, int seed)
++        {
++            var opening = reference.Opening.Copy();
++            var initial = reference.Battle.Soldiers.OrderBy(unit => unit.Id).ToArray();
++            var allies = initial.Where(unit => unit.Side == BattleSide.A).ToArray();
++            var convert = allies.Where(unit => unit.Kind == SoldierKind.Ranged).Reverse().Take(mageCount)
++                .Select(unit => unit.Id).ToHashSet();
++            SoldierKind Kind(BattleSoldier unit) => convert.Contains(unit.Id) ? SoldierKind.Mage : unit.Kind;
++            int[] counts = { 6, 5 - mageCount, 5, mageCount };
++            var roster = Normals(rules, counts, grade);
++            var boards = reference.Battle.Board;
++            opening.Scenario.Board = boards.Clone();
++            opening.Scenario.A = Independent(roster);
++            opening.PlayerTroopCounts = counts;
++            opening.Scenario.Placements = initial.Select(unit => new UnitPlacement
++            {
++                Side = unit.Side, Cell = unit.Cell, Kind = Kind(unit), CommanderSlot = unit.OriginCommanderSlot
++            }).ToList();
++
++            var byKind = roster.GroupBy(member => member.Kind).ToDictionary(group => group.Key,
++                group => new Queue<BaseEnemyMember>(group));
++            opening.Troops = allies.Select((unit, slot) =>
++            {
++                var member = byKind[Kind(unit)].Dequeue();
++                return new BaseWorkerBucket { Kind = BaseCampaign.ToBase(member.Kind), HasCombatProfile = true,
++                    CombatStats = member.EffectiveStats(rules), Health = member.Health, MaxHealth = member.Stats.Health,
++                    SoldierNumbers = new List<int> { slot + 1 } };
++            }).ToList();
++
++            var check = new BaseCampaignSession(opening);
++            check.Bind();
++            var deployed = check.Battle.Soldiers.OrderBy(unit => unit.Id).ToArray();
++            if (deployed.Length != initial.Length ||
++                !initial.Zip(deployed, (before, after) => before.Id == after.Id && before.Side == after.Side &&
++                    before.Cell == after.Cell && before.OriginCommanderSlot == after.OriginCommanderSlot &&
++                    Kind(before) == after.Kind).All(same => same))
++                throw new InvalidOperationException($"role or spatial deployment changed across replacements: {scene} {seed} {mageCount}");
++            foreach (var before in initial.Where(unit => !convert.Contains(unit.Id)))
++            {
++                var after = check.Battle.Soldier(before.Id);
++                if (before.Health != after.Health || before.Stats.Damage != after.Stats.Damage ||
++                    before.Stats.Defense != after.Stats.Defense)
++                    throw new InvalidOperationException($"unchanged unit stats moved: {scene} {seed} {mageCount} {before.Id}");
++            }
++            return opening;
++        }
++
++        private static MageRoleResult MeasureMageRole(string scene, int grade, int seed, int index,
++            BaseCampaignBattle opening, bool pin, int maxSeconds)
++        {
++            var session = new BaseCampaignSession(opening);
++            session.Bind();
++            if (!session.Battle.Start(out string error))
++                throw new InvalidOperationException("cannot start explicit mage role placement: " + error);
++            var run = new RealtimeCampaignBattle(session, "normal");
++            run.Model.SwordContactPinEnabled = pin;
++            run.EnableBattlefieldExits();
++            if (scene == "second") BaseDemoDefense.Configure(run);
++            var allies = session.Battle.Soldiers.Where(unit => unit.Side == BattleSide.A).ToArray();
++            var enemies = session.Battle.Soldiers.Where(unit => unit.Side == BattleSide.B).ToArray();
++            var captain = enemies.FirstOrDefault(unit => unit.Kind == SoldierKind.Hero);
++            var row = new MageRoleResult
++            {
++                Pin = pin, Scene = scene, Grade = grade, Seed = seed, Index = index, EnemyCount = enemies.Length,
++                CaptainHp = captain?.Stats.Health ?? 0, CaptainAttack = captain?.Stats.Damage ?? 0,
++                CaptainDefense = captain?.Stats.Defense ?? 0
++            };
++            run.Model.SetPaused(false);
++            for (int tick = 0; tick < maxSeconds * 8 && !run.VictoryExitOpen && session.Battle.Phase == BattlePhase.Fighting; tick++)
++                run.Tick(.125);
++            row.Outcome = run.VictoryExitOpen ? "SideAWin" : session.Battle.Report?.Outcome.ToString() ?? "Timeout";
++            row.Won = row.Outcome == "SideAWin";
++            row.Timeout = row.Outcome is "Timeout" or "RoundLimit";
++            row.Seconds = run.Model.Elapsed;
++            row.AllyDeaths = allies.Count(unit => unit.InstantDead);
++            row.EnemyDeaths = enemies.Count(unit => unit.InstantDead);
++            row.AllyDown = allies.Count(unit => !unit.InstantDead && unit.KnockedDown);
++            row.EnemyDown = enemies.Count(unit => !unit.InstantDead && unit.KnockedDown);
++            foreach (var packet in run.RpgAttackHistory.Where(packet => packet.ImpactApplied &&
++                session.Battle.Soldier(packet.SourceId - 1)?.Side == BattleSide.A))
++            {
++                switch (session.Battle.Soldier(packet.SourceId - 1).Kind)
++                {
++                    case SoldierKind.Melee: row.SwordDamage += packet.DamageApplied; break;
++                    case SoldierKind.Ranged: row.BowDamage += packet.DamageApplied; break;
++                    case SoldierKind.Cavalry: row.CavalryDamage += packet.DamageApplied; break;
++                    case SoldierKind.Mage: row.MageDamage += packet.DamageApplied; break;
++                }
++            }
++            return row;
++        }
++
++        private static void WriteMagePairedSummary(TextWriter output, MageRoleResult[] baseline, MageRoleResult[] variant)
++        {
++            var changed = variant[0];
++            var pairs = baseline.Zip(variant, (before, after) => (before, after)).ToArray();
++            if (pairs.Any(pair => pair.before.Seed != pair.after.Seed))
++                throw new InvalidOperationException("paired mage role seeds differ");
++            var bothWon = pairs.Where(pair => pair.before.Won && pair.after.Won).ToArray();
++            int winsBefore = baseline.Count(row => row.Won), winsAfter = variant.Count(row => row.Won);
++            double seconds = pairs.Average(pair => pair.after.Seconds - pair.before.Seconds);
++            double deaths = pairs.Average(pair => pair.after.AllyDeaths - pair.before.AllyDeaths);
++            output.WriteLine(MageCsv(changed.Pin ? 1 : 0, changed.Scene, changed.Grade, MageRoleComposition[changed.Index],
++                pairs.Length, winsBefore, winsAfter, winsAfter - winsBefore,
++                pairs.Count(pair => !pair.before.Won && pair.after.Won),
++                pairs.Count(pair => pair.before.Won && !pair.after.Won),
++                baseline.Count(row => row.Timeout), variant.Count(row => row.Timeout), baseline.Average(row => row.Seconds),
++                variant.Average(row => row.Seconds), seconds, bothWon.Length,
++                bothWon.Length == 0 ? "" : bothWon.Average(pair => pair.after.Seconds - pair.before.Seconds).ToString("R", Invariant),
++                baseline.Average(row => row.AllyDeaths), variant.Average(row => row.AllyDeaths), deaths,
++                pairs.Average(pair => pair.after.EnemyDeaths - pair.before.EnemyDeaths)));
++            Debug.Log($"[MageRole] pin={changed.Pin} {changed.Scene} grade={changed.Grade} formation={MageRoleComposition[changed.Index]} wins={winsBefore}/{pairs.Length}->{winsAfter}/{pairs.Length} meanSecondsDelta={seconds:F2} meanAllyDeathsDelta={deaths:F2} bothWon={bothWon.Length}");
++        }
++
++        private static string MageCsv(params object[] values) => string.Join(",", values.Select(value => Convert.ToString(value, Invariant)));
++    }
++}
++#endif
+--- /dev/null
++++ b/Assets/Scripts/Base/VerifySwordContactPin.Isolated.cs
+@@ -0,0 +1,187 @@
++#if UNITY_EDITOR
++using System;
++using System.Linq;
++using System.Reflection;
++using BaseConquest.Battle;
++using BaseConquest.RealtimePrototype;
++using UnityEngine;
++
++namespace BaseConquest.Base
++{
++    public static partial class PowerCalibrationMatrix
++    {
++        public static void VerifySwordContactPin()
++        {
++            VerifyContactPinFourProfessions();
++            VerifyContactPinSwitchAndRelease();
++            VerifyContactPinFinishesStep();
++            VerifyContactPinForcedDisplacement();
++            Debug.Log("[SwordContactPin] PASS");
++        }
++
++        private static (RealtimeCampaignBattle run, PrototypeUnit sword, PrototypeUnit[] targets)
++            SwordPinMatch(int[] enemies, bool enabled = true, bool keepCombatAlive = false)
++        {
++            var run = TargetDiceMatch(0, enemies, allyCount: keepCombatAlive ? 2 : 1);
++            var model = run.Model;
++            var allies = model.Units.Where(unit => unit.Side == PrototypeSide.Ally).OrderBy(unit => unit.Id).ToArray();
++            var sword = allies[0];
++            var reserve = allies.Skip(1).FirstOrDefault();
++            var targets = model.Units.Where(unit => unit.Side == PrototypeSide.Enemy).OrderBy(unit => unit.Id).ToArray();
++            model.SwordContactPinEnabled = enabled;
++            model.CanMove = unit => unit.Side == PrototypeSide.Enemy;
++            model.CanTarget = (a, b) => a.Side != b.Side && a != reserve && b != reserve;
++            if (reserve != null) PlaceTargetDiceActor(run, reserve, 1.25, 8.25);
++            PlaceTargetDiceActor(run, sword, 4.25, 4.25);
++            PlaceTargetDiceActor(run, targets[0], 4.75, 4.25);
++            if (targets.Length > 1) PlaceTargetDiceActor(run, targets[1], 4.25, 4.75);
++            return (run, sword, targets);
++        }
++
++        private static void VerifyContactPinFourProfessions()
++        {
++            for (int role = 0; role < 4; role++)
++            {
++                var enemies = new int[4];
++                enemies[role] = 1;
++                var (run, sword, targets) = SwordPinMatch(enemies, keepCombatAlive: true);
++                var target = targets[0];
++                var model = run.Model;
++                var exit = new PrototypePoint(8.25, 4.25);
++                var start = target.Position;
++                FocusContactPin(run, sword, target);
++                RequireTargetDice(model.IssueOrder(-1, -1, PrototypeOrder.Retreat, exit, side: PrototypeSide.Enemy),
++                    "contact pin accepts and preserves a queued retreat");
++                AdvanceTargetDice(run, 76);
++                RequireTargetDice(model.ContactPinActive(target) && target.Order == PrototypeOrder.Retreat &&
++                    (target.Position - start).Length < 1e-8 && !target.Moving && model.SwordContactPinStarts(target) == 1 &&
++                    model.SwordContactPinnedSeconds(target) > 1 &&
++                    run.RpgAttackHistory.Any(attack => attack.SourceId == target.Id && attack.TargetId == sword.Id),
++                    "ordinary role " + role + " must remain held while retreat stays pending and it can attack");
++                if (target.Mounted)
++                    RequireTargetDice(!InvokeContactPinShove(model, target, sword.Cell),
++                        "held cavalry may not initiate a shove");
++                sword.Health = 1;
++                sword.KnockedDown = true;
++                AdvanceTargetDice(run, 25);
++                RequireTargetDice(!model.ContactPinActive(target) && target.Order == PrototypeOrder.Retreat &&
++                    target.DistanceTravelled > 0, "queued retreat should resume on sword down");
++                Debug.Log($"[SwordContactPin] victim role={role} held={model.SwordContactPinnedSeconds(target):F2}s starts={model.SwordContactPinStarts(target)} counterattacks={run.RpgAttackHistory.Count(attack => attack.SourceId == target.Id)} retreatResumed={target.DistanceTravelled:F2}");
++            }
++
++            var (control, controlSword, controlTargets) = SwordPinMatch(new[] { 0, 0, 1, 0 }, enabled:false);
++            var rider = controlTargets[0];
++            FocusContactPin(control, controlSword, rider);
++            RequireTargetDice(control.Model.IssueOrder(-1, -1, PrototypeOrder.Retreat, new PrototypePoint(8.25, 4.25),
++                side: PrototypeSide.Enemy), "baseline retreat fixture");
++            AdvanceTargetDice(control, 25);
++            RequireTargetDice(!control.Model.ContactPinActive(rider) && rider.DistanceTravelled > 0,
++                "baseline remains free to move out of the same close position");
++        }
++
++        private static void VerifyContactPinSwitchAndRelease()
++        {
++            var (run, sword, targets) = SwordPinMatch(new[] { 2, 0, 0, 0 });
++            var model = run.Model;
++            model.CanMove = _ => false;
++            var first = targets[0];
++            var second = targets[1];
++            FocusContactPin(run, sword, first);
++            RequireTargetDice(model.IssueOrder(0, -1, PrototypeOrder.Focus, sword.Position, sword.Id, side: PrototypeSide.Enemy), "mutual focus");
++            AdvanceTargetDice(run, 4);
++            RequireTargetDice(model.ContactPinActive(first) && !model.ContactPinActive(second) &&
++                model.ContactPinActive(sword), "one assigned target and simultaneous mutual pins");
++            FocusContactPin(run, sword, second);
++            AdvanceTargetDice(run, 4);
++            RequireTargetDice(!model.ContactPinActive(first) && model.ContactPinActive(second), "switch releases old target");
++
++            model.HeightShotClear = (_, _) => false;
++            AdvanceTargetDice(run, 4);
++            RequireTargetDice(!model.ContactPinActive(second), "shot obstruction releases pin");
++            model.HeightShotClear = null;
++            model.CanTarget = (a, b) => a.Side != b.Side && b != second;
++            AdvanceTargetDice(run, 4);
++            RequireTargetDice(!model.ContactPinActive(second), "a hidden target cannot be pinned");
++            model.CanTarget = (a, b) => a.Side != b.Side;
++            FocusContactPin(run, sword, second);
++            second.Role = PrototypeRole.Leader;
++            second.ReadyAt = 100;
++            AdvanceTargetDice(run, 4);
++            RequireTargetDice(!model.ContactPinActive(second), "captains are outside the pin rule");
++            second.Role = PrototypeRole.Melee;
++            PlaceTargetDiceActor(run, second, 4.25, 6.25);
++            FocusContactPin(run, sword, second);
++            AdvanceTargetDice(run, 4);
++            RequireTargetDice(!model.ContactPinActive(second), "out-of-radius assignment cannot pin");
++            PlaceTargetDiceActor(run, second, 4.25, 4.75);
++            FocusContactPin(run, sword, second);
++            AdvanceTargetDice(run, 4);
++            RequireTargetDice(model.ContactPinActive(second), "back in contact");
++            model.OnlyExitMovement = true;
++            RequireTargetDice(!model.ContactPinActive(second), "victory exit is not held");
++            model.OnlyExitMovement = false;
++            run.Battle.FinishRealtime(BattleOutcome.SideAWin);
++            RequireTargetDice(!model.ContactPinActive(second), "finished battle clears all live pins");
++        }
++
++        private static void VerifyContactPinFinishesStep()
++        {
++            var (run, sword, targets) = SwordPinMatch(new[] { 0, 0, 1, 0 });
++            var rider = targets[0];
++            var model = run.Model;
++            PlaceTargetDiceActor(run, sword, 4.25, 4.75);
++            RequireTargetDice(!model.InAttackRadius(sword, rider), "step fixture starts just outside melee radius");
++            FocusContactPin(run, sword, rider);
++            RequireTargetDice(model.IssueOrder(-1, -1, PrototypeOrder.Retreat, new PrototypePoint(4.75, 8.25),
++                side: PrototypeSide.Enemy), "step retreat fixture");
++            bool pinDuringStep = false;
++            for (int i = 0; i < 45; i++)
++            {
++                AdvanceTargetDice(run, 1);
++                pinDuringStep |= model.ContactPinActive(rider) && rider.Moving;
++            }
++            RequireTargetDice(pinDuringStep && model.ContactPinActive(rider) && !rider.Moving &&
++                Math.Abs(rider.Position.Z - 4.75) < 1e-8 && Math.Abs(rider.DistanceTravelled - .5) < 1e-8,
++                "pin should let an already reserved step finish and block the next one");
++        }
++
++        private static void VerifyContactPinForcedDisplacement()
++        {
++            var model = new RealtimeBattlePrototype(new PrototypeArena(PrototypeLayout.Open))
++            {
++                SwordContactPinEnabled = true,
++                AutonomousOutcome = false
++            };
++            var sword = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Melee, new PrototypePoint(4.25, 4.25));
++            var bow = model.AddUnit(PrototypeSide.Enemy, PrototypeRole.Archer, new PrototypePoint(4.75, 4.25));
++            var rider = model.AddUnit(PrototypeSide.Ally, PrototypeRole.Melee, new PrototypePoint(4.75, 3.75));
++            sword.AttackRange = .5;
++            rider.Mounted = true;
++            model.CanTarget = (a, b) => a == sword && b == bow;
++            // The pure prototype uses commander IDs only for leaders. Set the ordinary attacker explicitly.
++            sword.Order = PrototypeOrder.Focus;
++            sword.TargetId = bow.Id;
++            model.SetPaused(false);
++            model.Tick(RealtimeBattlePrototype.FixedSeconds);
++            RequireTargetDice(model.ContactPinActive(bow), "forced displacement victim starts pinned");
++            var from = bow.Position;
++            RequireTargetDice(InvokeContactPinShove(model, rider, bow.Cell) && (bow.Position - from).Length > .4,
++                "a legal unpinned rider may forcibly displace a pinned non-cavalry soldier");
++            model.Tick(RealtimeBattlePrototype.FixedSeconds);
++            RequireTargetDice(!model.ContactPinActive(bow), "shove outside radius releases pin on next sample");
++        }
++
++        private static void FocusContactPin(RealtimeCampaignBattle run, PrototypeUnit sword, PrototypeUnit target)
++        {
++            RequireTargetDice(run.Model.IssueOrder(-1, -1, PrototypeOrder.Focus, target.Position, target.Id,
++                side: sword.Side), "sword focus fixture");
++        }
++
++        private static bool InvokeContactPinShove(RealtimeBattlePrototype model, PrototypeUnit rider, int cell)
++        {
++            var method = typeof(RealtimeBattlePrototype).GetMethod("TryShoveThrough", BindingFlags.Instance | BindingFlags.NonPublic);
++            return (bool)method.Invoke(model, new object[] { rider, cell });
++        }
++    }
++}
++#endif
+--- a/Assets/Scripts/Base/VerifyTerrainCombat.Isolated.cs
++++ b/Assets/Scripts/Base/VerifyTerrainCombat.Isolated.cs
+@@ -65,6 +65,7 @@
+                 soldier.Stats.Health = soldier.Health = 10000;
+             }
+             var run = new RealtimeCampaignBattle(session, "normal");
++            run.Model.SwordContactPinEnabled = true;
+             var bow = Archer(run);
+             var horse = Cavalry(run);
+             Need(run.Model.PlaceNearest(bow, archer), "setup archer");
+--- a/Assets/Scripts/Base/VerifyCombatPath.Isolated.cs
++++ b/Assets/Scripts/Base/VerifyCombatPath.Isolated.cs
+@@ -35,6 +35,7 @@
+             map(setup.Scenario.Board);
+             var session = StartMatch("flat", setup, state, rules, 0, 0, 97031, false, allies, enemies);
+             var run = new RealtimeCampaignBattle(session, "normal");
++            run.Model.SwordContactPinEnabled = true;
+             run.Model.CanTarget = (_, _) => false;
+             run.Model.DefaultDestination = _ => -1;
+             PathNeed(run.Model.Units.All(unit => unit.FootprintLength == 1), "formal units must occupy one fine cell");
+--- /dev/null
++++ b/Assets/Editor/FourRoleBoundaryAudit.cs
+@@ -0,0 +1,16 @@
++using BaseConquest.Base;
++using UnityEngine;
++
++namespace BaseConquest.Editor
++{
++    public static class FourRoleBoundaryAudit
++    {
++        public static void Run()
++        {
++            CombatRuleAudit.Run();
++            VerifyBattlePreparation.VerifyBattlefieldExits();
++            PowerCalibrationMatrix.VerifySwordContactPin();
++            Debug.Log("[FourRoleBoundaryAudit] PASS");
++        }
++    }
++}

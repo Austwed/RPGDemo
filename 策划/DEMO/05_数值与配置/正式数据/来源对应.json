@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-14",
+  "runtime_revision": "8491ea6",
+  "sources": {
+    "RPGDemo\\Assets\\Resources\\DemoBalance\\DemoBalance.json": "c7a3e804e817d10c61f5f68831381920a8129534f6dc1f9850c373d1a7d7f275",
+    "RPGDemo\\Assets\\StreamingAssets\\Text\\story-text.json": "c03ce6aabb202ab96840c96ead27911f7d4d856b9fd1362874711b7decd211c6",
+    "独立编辑器\\基线\\demo-story-map-seed.json": "d0c2f03e5e8f3193c9c497f729a6703cfa8bf2f2132fb4148449fbdd4baeda04",
+    "策划\\DEMO\\DEMO数值配置表.xlsx": "768b087d033ef5654cc78f012e673fee4dd9b7c005002a67e45d5222c38760c2",
+    "RPGDemo\\Assets\\StreamingAssets\\BaseScenarios\\35_配表驱动验证.json": "75e4f75404b1c09e958998337f19a396cf336bf82b9527c2716a4fb3b28c566f",
+    "RPGDemo\\Assets\\Resources\\DemoBalance\\DemoBalance.core-source.json": "45e7563be38f632a3e923ac0b6d554ebb776d6ce3eada6e47ea311656aff05af",
+    "策划\\DEMO\\DEMO核心数值表.xlsx": "57db415a675398691fb146f9eb9ba4bba6e7bb463699306fab12efccc9465f04"
+  },
+  "workbook_import_matches": false,
+  "text_keys": 187,
+  "dialogue_constructors": 179,
+  "authoring_maps": 7,
+  "layout_nodes": 691,
+  "pixel_png_assets": 172,
+  "dialogue_replies": 88,
+  "runtime_balance_source": {
+    "date": "2026-11-20",
+    "kind": "ProfessionWorkbook",
+    "baseline_revision": "299f5ce",
+    "effective_configuration_hash": "acd7267606501da3d679a306721835e87166052e5052fb0dabcb949e8e0b1af2",
+    "runtime_sha256": "476960176ce9deb7b453794f5e3e728a3f503d4d96936908ef2fd2ff5645e2a0",
+    "workbooks_sha256": {
+      "DEMO数值配置表.xlsx": "eb032b1023c37e4060beba715c3a222ccddc7ade23aaeebed09ca4308eaae44b",
+      "DEMO核心数值表.xlsx": "77fd46346a5b5d5f82634204aa4f88f519b9ce7472734021e7dd107265215aab",
+      "DEMO职业扩展表.xlsx": "14bcbfa6030632cb867ca3ad46ac81723486fd0eb7e774f0a7b53b4456e3ab18"
+    },
+    "runtime_revision": "ccbb66e"
+  }
+}

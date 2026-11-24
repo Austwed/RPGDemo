@@ -1,0 +1,1059 @@
+[
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenFirstRaidBriefing",
+    "line": 119,
+    "text": "拔剑迎战",
+    "text_expression": "\"拔剑迎战\"",
+    "action": "proceed",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenFirstRaidBriefing",
+    "line": 119,
+    "text": "先看布防",
+    "text_expression": "\"先看布防\"",
+    "action": "back ?? OpenDemoDefenseSupply",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenDefenseIntel",
+    "line": 129,
+    "text": "继续战斗",
+    "text_expression": "\"继续战斗\"",
+    "action": "proceed",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenSecondRaidBriefing",
+    "line": 137,
+    "text": "准备迎战",
+    "text_expression": "\"准备迎战\"",
+    "action": "proceed",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenSecondRaidBriefing",
+    "line": 137,
+    "text": "暂缓迎战",
+    "text_expression": "\"暂缓迎战\"",
+    "action": "back ?? OpenDemoDefenseSupply",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenDemoDefenseAftermath",
+    "line": 145,
+    "text": "处理战果",
+    "text_expression": "\"处理战果\"",
+    "action": "()=>{if(owner.Change(next=>{BaseDemoDefense.AcknowledgeBatu(next);},\"已记录敌军威胁\")){ClosePanel();owner.RefreshDemoRegion();if(BaseBattleLoot.Pending(owner.State))owner.Hud.OpenLoot();else owner.Hud.OpenDemoStory();}}",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoDefenseController.cs",
+    "method": "OpenSecondRaidVictoryReport",
+    "line": 154,
+    "text": null,
+    "text_expression": "StoryText.Get(\"story.ui.defense.second_report_continue\",\"知道了\")",
+    "action": "FinishReport",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenBanditVictory",
+    "line": 251,
+    "text": "处理战果",
+    "text_expression": "\"处理战果\"",
+    "action": "()=>{ClosePanel();if(BaseBattleLoot.Pending(owner.State))OpenLoot();else OpenDemoStory();}",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenBanditCampBriefing",
+    "line": 260,
+    "text": "准备攻营",
+    "text_expression": "\"准备攻营\"",
+    "action": "proceed",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenBanditCampBriefing",
+    "line": 260,
+    "text": "暂不进攻",
+    "text_expression": "\"暂不进攻\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 205,
+    "text": "这是搭档的剑……收起来吧。",
+    "text_expression": "\"这是搭档的剑……收起来吧。\"",
+    "action": "owner.InvestigateDemoSword",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 206,
+    "text": "先去村庄看看吧，或许呢？",
+    "text_expression": "\"先去村庄看看吧，或许呢？\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 222,
+    "text": "村庄还需要建一些设施……",
+    "text_expression": "\"村庄还需要建一些设施……\"",
+    "action": "LeaveVillageTalk(true)",
+    "enabled": "true",
+    "unlocked": "HomeVolunteers"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 222,
+    "text": "没什么事了。",
+    "text_expression": "\"没什么事了。\"",
+    "action": "LeaveVillageTalk(false)",
+    "enabled": "true",
+    "unlocked": "HomeVolunteers"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 230,
+    "text": "修理 · 原料 {materials}　钱币 {coins}",
+    "text_expression": "cost",
+    "action": "BeginHouseTalk / RepairHome",
+    "enabled": "true",
+    "unlocked": "!HomeRepaired"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenDemoFinaleInteraction",
+    "line": 238,
+    "text": "稍后再来",
+    "text_expression": "\"稍后再来\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "!HomeRepaired"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenVillageHouse",
+    "line": 258,
+    "text": "你们是上次进攻村子的异族？",
+    "text_expression": "\"你们是上次进攻村子的异族？\"",
+    "action": "HouseConfession",
+    "enabled": "true",
+    "unlocked": "HouseDialogueStep == 1"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenVillageHouse",
+    "line": 259,
+    "text": "你们在里面做什么？",
+    "text_expression": "\"你们在里面做什么？\"",
+    "action": "HouseConfession",
+    "enabled": "true",
+    "unlocked": "HouseDialogueStep == 1"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseDecision",
+    "line": 272,
+    "text": "滚吧，别让我再见到你们。",
+    "text_expression": "\"滚吧，别让我再见到你们。\"",
+    "action": "ResolveHouse(goodbye)",
+    "enabled": "true",
+    "unlocked": "HouseDialogueStep == 2"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseDecision",
+    "line": 276,
+    "text": "你们认识他吗？（指向屋外的伽兰）",
+    "text_expression": "\"你们认识他吗？（指向屋外的伽兰）\"",
+    "action": "HouseDecision(answer)",
+    "enabled": "true",
+    "unlocked": "HouseDialogueStep == 2 && GalanAtHouse()"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseDecision",
+    "line": 276,
+    "text": "你们认不认识一个叫伽兰的古裔？",
+    "text_expression": "\"你们认不认识一个叫伽兰的古裔？\"",
+    "action": "HouseDecision(answer)",
+    "enabled": "true",
+    "unlocked": "HouseDialogueStep == 2 && !GalanAtHouse()"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "HouseDecision",
+    "line": 280,
+    "text": "我信不过你们，受死吧。",
+    "text_expression": "\"我信不过你们，受死吧。\"",
+    "action": "ResolveHouse",
+    "enabled": "true",
+    "unlocked": "HouseDialogueStep == 2"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenFirstRaidIntel",
+    "line": 73,
+    "text": "领取免费首防消息",
+    "text_expression": "\"领取免费首防消息\"",
+    "action": "()=>{\n                    if(!owner.Change(next=>{if(!BaseRaidIntel.ClaimFirst(next))throw new InvalidOperationException(\"首防消息不可用\");},\"已记录首防日期\"))return;\n                    string text=StoryText.Get(\"story.ui.intel.first_claimed\",\"黑鸦寨第{day}天就到。这几天赶紧备些粮和军需。\")\n                        .Replace(\"{day}\",owner.State.Demo.Flow.FreeFirstRaidDay.ToString());\n                    NpcDialogue(new[]{new NpcLine(BaseScriptNames.Merchant,BaseScriptNames.Portrait(\"merchant\"),text)},new[]{new NpcReply(\"知道了\",ClosePanel)});\n                }",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenFirstRaidIntel",
+    "line": 77,
+    "text": "知道了",
+    "text_expression": "\"知道了\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenFirstRaidIntel",
+    "line": 78,
+    "text": "离开",
+    "text_expression": "\"离开\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenDemoMerchant",
+    "line": 134,
+    "text": "记下敌营位置",
+    "text_expression": "\"记下敌营位置\"",
+    "action": "()=>{if(owner.Change(next=>{next.Demo.Defense.MerchantDone=true;next.Campaign.Layouts.Single(map=>map.Region==\"base\").Objects.RemoveAll(obj=>obj.Id==\"demo_merchant\");},\"已记录敌营位置与道路\")){ClosePanel();owner.RefreshDemoRegion();}}",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenRecruitmentComplete",
+    "line": 140,
+    "text": "回营地安排生产",
+    "text_expression": "\"回营地安排生产\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenSmithGoods",
+    "line": 141,
+    "text": "去看看新装备",
+    "text_expression": "\"去看看新装备\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenAheFarmOffer",
+    "line": 156,
+    "text": null,
+    "text_expression": "recruited?\"我会查看你的特性\":\"邀请阿禾加入\"",
+    "action": "()=>{if(recruited)ClosePanel();else owner.JoinDemoPartner(\"partner_farm\", false);}",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoFlowController.cs",
+    "method": "OpenAheFarmOffer",
+    "line": 151,
+    "text": "这次先不安排",
+    "text_expression": "\"这次先不安排\"",
+    "action": "()=>OpenAheResponse(\"成，先照旧安排。往后田里缺人，再来叫我。\")",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoScoutWarning",
+    "line": 26,
+    "text": "这就去迎敌",
+    "text_expression": "\"这就去迎敌\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoStory",
+    "line": 50,
+    "text": "起身，拜访领主",
+    "text_expression": "\"起身，拜访领主\"",
+    "action": "()=>{if(owner.Change(next=>{if(!BaseDemo.AcknowledgeWaking(next))throw new InvalidOperationException(\"醒来流程未完成，请重试\");},\"\"))ClosePanel();}",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenPrologueStory",
+    "line": 70,
+    "text": "乡亲们，跟紧我，我们往东撤！",
+    "text_expression": "\"乡亲们，跟紧我，我们往东撤！\"",
+    "action": "owner.BeginDemoEscape",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenTownChat",
+    "line": 93,
+    "text": "点点头走开",
+    "text_expression": "\"点点头走开\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenTownChat",
+    "line": 102,
+    "text": null,
+    "text_expression": "StoryText.Get(\"story.ui.intel.first_reopen\",\"免费首防消息\")",
+    "action": "OpenFirstRaidIntel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 142,
+    "text": "领取建设许可",
+    "text_expression": "\"领取建设许可\"",
+    "action": "() => owner.OrderCampConstruction(true)",
+    "enabled": "true",
+    "unlocked": "gift"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 143,
+    "text": "领赏，接下手令",
+    "text_expression": "\"领赏，接下手令\"",
+    "action": "owner.DeliverDemoRuins",
+    "enabled": "true",
+    "unlocked": "deliver"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 144,
+    "text": "营地建设",
+    "text_expression": "\"营地建设\"",
+    "action": "() => owner.OrderCampConstruction()",
+    "enabled": "true",
+    "unlocked": "!deliver && !gift && BaseFacilityLayout.CanOrder(state)"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 145,
+    "text": "告辞",
+    "text_expression": "\"告辞\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 162,
+    "text": null,
+    "text_expression": "\"接受\"+BaseScriptNames.Ruins+\"调查\"",
+    "action": "()=>{if(owner.Change(next=>{if(!BaseDemo.AcceptLordQuest(next))throw new InvalidOperationException(\"请先了解营地现状，并在领主同层一格以内接取\");},BaseScriptNames.Ruins+\"调查已接取并保存节点\"))ClosePanel();}",
+    "enabled": "true",
+    "unlocked": "available"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoLord",
+    "line": 162,
+    "text": "暂且告辞",
+    "text_expression": "\"暂且告辞\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAzhuInvitation",
+    "line": 167,
+    "text": "好，请赐教",
+    "text_expression": "\"好，请赐教\"",
+    "action": "owner.BeginAzhuDuel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAzhuInvitation",
+    "line": 168,
+    "text": "眼下有要事，改日再比",
+    "text_expression": "\"眼下有要事，改日再比\"",
+    "action": "()=>NpcDialogue(\n                    new[]{new NpcLine(\"阿铸\",\"azhu\",\"成。我就在铺里拉风箱，想比了来叫我。\")},\n                    Array.Empty<NpcReply>(),onCompleted:ClosePanel)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoPartner",
+    "line": 182,
+    "text": "稍后再谈",
+    "text_expression": "\"稍后再谈\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoPartner",
+    "line": 187,
+    "text": null,
+    "text_expression": "met?\"邀请加入小队\":\"原地切磋\"",
+    "action": "()=>{if(met)owner.JoinDemoPartner(id);else if(BaseSceneRules.Active(state))owner.BeginAzhuDuel();else owner.MeetDemoPartner(id);}",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenDemoPartner",
+    "line": 187,
+    "text": "暂不邀请",
+    "text_expression": "\"暂不邀请\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAheInvitation",
+    "line": 204,
+    "text": "好，一起走",
+    "text_expression": "\"好，一起走\"",
+    "action": "()=>owner.JoinDemoPartner(id)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAheInvitation",
+    "line": 205,
+    "text": "先在营地照看父母",
+    "text_expression": "\"先在营地照看父母\"",
+    "action": "()=>owner.JoinDemoPartner(id, false)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoHud.cs",
+    "method": "OpenAheInvitation",
+    "line": 206,
+    "text": "暂不邀请",
+    "text_expression": "\"暂不邀请\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenPursuitArrival",
+    "line": 32,
+    "text": "阿禾，带乡亲们往东走！这两个交给我！",
+    "text_expression": "\"阿禾，带乡亲们往东走！这两个交给我！\"",
+    "action": "begin",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 118,
+    "text": "看看别处",
+    "text_expression": "\"看看别处\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 130,
+    "text": "我们去粮田安排",
+    "text_expression": "\"我们去粮田安排\"",
+    "action": "()=>owner.AdvanceDemoIntro(BaseDemoIntro.Patrol)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 137,
+    "text": "一起去，先向阿禾打个招呼",
+    "text_expression": "\"一起去，先向阿禾打个招呼\"",
+    "action": "()=>owner.AdvanceDemoIntro(BaseDemoIntro.Meet)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 144,
+    "text": "聊聊从前在王都值夜",
+    "text_expression": "\"聊聊从前在王都值夜\"",
+    "action": "()=>NpcDialogue(new[]{\n                            new NpcLine(\"搭档\",portrait,\"记得那年在宫门外站了一夜吗？冻得连剑都拔不出鞘。那时候哪想过还能睡到天亮。走吧，别让阿禾等急了。\")\n                        },new[]{meet},guide:true)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 151,
+    "text": "接过短剑，准备演练",
+    "text_expression": "\"接过短剑，准备演练\"",
+    "action": "()=>owner.AdvanceDemoIntro(BaseDemoIntro.ReceiveSword)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 155,
+    "text": "开始演练",
+    "text_expression": "\"开始演练\"",
+    "action": "owner.BeginDemoPractice",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 155,
+    "text": "再看看装备",
+    "text_expression": "\"再看看装备\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 157,
+    "text": "继续",
+    "text_expression": "\"继续\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 169,
+    "text": "回头见",
+    "text_expression": "\"回头见\"",
+    "action": "()=>{\n                    owner.Change(next=>{var st=next.Demo.Intro;if(st.Talked==null)st.Talked=new List<string>();if(!st.Talked.Contains(id))st.Talked.Add(id);},\"\");\n                    ClosePanel();}",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroInteraction",
+    "line": 174,
+    "text": "辛苦了",
+    "text_expression": "\"辛苦了\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "IntroReminder",
+    "line": 222,
+    "text": "明白了",
+    "text_expression": "\"明白了\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoIntroHud.cs",
+    "method": "OpenIntroStory",
+    "line": 294,
+    "text": "带乡亲们往东撤",
+    "text_expression": "\"带乡亲们往东撤\"",
+    "action": "()=>owner.AdvanceDemoIntro(BaseDemoIntro.Depart)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoSideQuestHud.cs",
+    "method": "OpenZhouTraining",
+    "line": 113,
+    "text": "收下兵书",
+    "text_expression": "\"收下兵书\"",
+    "action": "() => CollectSideQuestReward(accepted ? BaseDemoSideQuests.ClaimZhouBooks : BaseDemoSideQuests.AcceptZhou, BaseDemoSideQuests.ZhouBooksId)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "OpenSmithFather",
+    "line": 26,
+    "text": "稍后再来",
+    "text_expression": "\"稍后再来\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanQuestions",
+    "line": 72,
+    "text": "你确实控制了他们",
+    "text_expression": "\"你确实控制了他们\"",
+    "action": "GalanAdmission",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "初问"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanQuestions",
+    "line": 73,
+    "text": "遗迹里有什么？",
+    "text_expression": "\"遗迹里有什么？\"",
+    "action": "GalanQuestions",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "初问"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanQuestions",
+    "line": 74,
+    "text": "关于村子，你长得有点像……",
+    "text_expression": "\"关于村子，你长得有点像……\"",
+    "action": "GalanQuestions",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "初问"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanExecutionChoice",
+    "line": 112,
+    "text": "不论如何，操控百姓当斩",
+    "text_expression": "\"不论如何，操控百姓当斩\"",
+    "action": "GalanExecutionChoice",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "初问或誓言末页"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanQuestions",
+    "line": 76,
+    "text": "你先待在这",
+    "text_expression": "\"你先待在这\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "初问"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanAdmission",
+    "line": 83,
+    "text": "我看你刚才倒挺想杀我的",
+    "text_expression": "\"我看你刚才倒挺想杀我的\"",
+    "action": "GalanPledge",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "承认控制后"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanAdmission",
+    "line": 84,
+    "text": "我怎么相信你？",
+    "text_expression": "\"我怎么相信你？\"",
+    "action": "GalanPledge",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "承认控制后"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanAdmission",
+    "line": 85,
+    "text": "我还想了解一些事",
+    "text_expression": "\"我还想了解一些事\"",
+    "action": "GalanQuestions(\"admission\", admission, resume: true)",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "承认控制后"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanPledge",
+    "line": 91,
+    "text": "我会盯紧你的",
+    "text_expression": "\"我会盯紧你的\"",
+    "action": "RecruitWaitingGalan",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "誓言末页"
+  },
+  {
+    "file": "BaseDemoStoryHud.cs",
+    "method": "GalanPledge",
+    "line": 92,
+    "text": "我要再想想",
+    "text_expression": "\"我要再想想\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "誓言末页"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenChenanRoadChat",
+    "line": 350,
+    "text": "为什么？",
+    "text_expression": "\"为什么？\"",
+    "action": "OpenChenanRoadChat → bandits / lookouts → ClosePanel",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "陈安封路闲聊"
+  },
+  {
+    "file": "BaseDemoFinaleController.cs",
+    "method": "OpenChenanRoadChat",
+    "line": 355,
+    "text": "回头见",
+    "text_expression": "\"回头见\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "陈安封路闲聊"
+  },
+  {
+    "file": "BaseHud.cs",
+    "method": "OpenObject",
+    "line": 459,
+    "text": "回头见",
+    "text_expression": "\"回头见\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseHud.cs",
+    "method": "ConfirmManager",
+    "line": 814,
+    "text": "确认方案",
+    "text_expression": "\"确认方案\"",
+    "action": "()=>{\n                    bool aheNewFarmPost=BaseDemo.Active(owner.State)&&leaderId==\"partner_farm\"&&facility==\"farm\"&&leader.FacilityId!=\"farm\";\n                    bool assigned=owner.Change(next=>{\n                        if(!BaseEconomy.AssignLeader(next,leaderId,facility))throw new InvalidOperationException(\"设施或人员状态已变化，请重新安排\");\n                    },\"已确认管理员安排\"+extra);\n                    if(assigned&&aheNewFarmPost)\n                        OpenAheResponse(\"这片田就交给我。明早我先去看看地里缺不缺水。\",refresh);\n                    else refresh();\n                }",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseHud.cs",
+    "method": "ConfirmManager",
+    "line": 823,
+    "text": "取消",
+    "text_expression": "\"取消\"",
+    "action": "refresh",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "OpenAzhuAfterDuel",
+    "line": 16,
+    "text": null,
+    "text_expression": "won?\"欢迎加入\":\"再切磋一次\"",
+    "action": "()=>{if(won)owner.JoinDemoPartner(\"partner_craft\");else owner.BeginAzhuDuel();}",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "OpenAzhuAfterDuel",
+    "line": 16,
+    "text": "暂缓邀请",
+    "text_expression": "\"暂缓邀请\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "RenderPartner",
+    "line": 31,
+    "text": "聊天对话",
+    "text_expression": "\"聊天对话\"",
+    "action": "()=>RenderPartner(id,dialogue.Chat(owner.State, leader))",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "RenderPartner",
+    "line": 34,
+    "text": null,
+    "text_expression": "paused?\"恢复随行\":\"在这里等候\"",
+    "action": "()=>SetPartnerWaiting(id,paused)",
+    "enabled": "nearby&&problem==\"\"",
+    "unlocked": "joined"
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "RenderPartner",
+    "line": 36,
+    "text": "留在营地",
+    "text_expression": "\"留在营地\"",
+    "action": "()=>SetPartnerFollowing(id,false)",
+    "enabled": "nearby",
+    "unlocked": "joined && s.Campaign.Location==\"base\" && BaseAdventure.ChangeProblem(s,id,false)==\"\""
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "RenderPartner",
+    "line": 38,
+    "text": "邀请随行",
+    "text_expression": "\"邀请随行\"",
+    "action": "()=>SetPartnerFollowing(id,true)",
+    "enabled": "nearby&&(BaseAdventure.Full(s)||BaseAdventure.WaitingHere(s,leader)||problem==\"\")",
+    "unlocked": "!joined"
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "RenderPartner",
+    "line": 40,
+    "text": "回到营地",
+    "text_expression": "\"回到营地\"",
+    "action": "()=>SendPartnerHome(id)",
+    "enabled": "nearby",
+    "unlocked": "BaseAdventure.WaitingHere(s,leader) || joined && (s.Campaign.Location!=\"base\" || s.Muster.Parties.Count!=0) && problem==\"\""
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "RenderPartner",
+    "line": 41,
+    "text": "退出对话",
+    "text_expression": "\"退出对话\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "OpenFullPartyReply",
+    "line": 72,
+    "text": "知道了",
+    "text_expression": "\"知道了\"",
+    "action": "done",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "OpenRecruitDestination",
+    "line": 81,
+    "text": "先回营地",
+    "text_expression": "\"先回营地\"",
+    "action": "()=>SendPartnerHome(id,finish)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BasePartnerDialogueHud.cs",
+    "method": "OpenRecruitDestination",
+    "line": 81,
+    "text": "先在这里等",
+    "text_expression": "\"先在这里等\"",
+    "action": "finish",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsWarning",
+    "line": 16,
+    "text": "知晓危险，仍让当前队伍进入",
+    "text_expression": "\"知晓危险，仍让当前队伍进入\"",
+    "action": "proceed",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsWarning",
+    "line": 16,
+    "text": "暂不进入，先调整随行",
+    "text_expression": "\"暂不进入，先调整随行\"",
+    "action": "owner.CancelRuinsEntry",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsConfrontation",
+    "line": 20,
+    "text": "先退出去准备一下",
+    "text_expression": "\"先退出去准备一下\"",
+    "action": "EndDeploymentWorld / ExitBattleDeployment",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsConfrontation",
+    "line": 26,
+    "text": "继续推进",
+    "text_expression": "\"继续推进\"",
+    "action": "NpcDialogue / proceed",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRuinsRescue",
+    "line": 46,
+    "text": "去撤离点",
+    "text_expression": "\"去撤离点\"",
+    "action": "resume",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "胜利后留在洞内，任一可操控角色抵达撤离格才回入口"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRescuedCivilian",
+    "line": 56,
+    "text": "路上小心，我们城里见",
+    "text_expression": "\"路上小心，我们城里见\"",
+    "action": "()=>owner.ReturnRescuedVillagers(afterExtraction)",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "洞外自动对话或稍后主动交谈，村民仍未动身"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRescuedCivilian",
+    "line": 56,
+    "text": "稍后再谈",
+    "text_expression": "\"稍后再谈\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "洞外自动对话或稍后主动交谈，村民仍未动身"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRescuedCivilian",
+    "line": 68,
+    "text": null,
+    "text_expression": "\"查看\"+BaseScriptNames.Ruins+\"副本奖励\"",
+    "action": "OpenRuinsReward",
+    "enabled": "true",
+    "unlocked": "!string.IsNullOrEmpty(state.Demo.RuinsRewards?.PendingBattleId)",
+    "branch": "重打后仍有待领副本奖励"
+  },
+  {
+    "file": "BaseRuinsHud.cs",
+    "method": "OpenRescuedCivilian",
+    "line": 69,
+    "text": null,
+    "text_expression": "inTown?\"回头见\":\"保重，尽快离开\"+BaseScriptNames.Ruins",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true",
+    "branch": "救援完成后的再次交谈"
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "TradeEntry",
+    "line": 47,
+    "text": null,
+    "text_expression": "label",
+    "action": "()=>StartTrade(vendor,shelf)",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "ReturnToTradeDialogue",
+    "line": 218,
+    "text": "开始招募",
+    "text_expression": "\"开始招募\"",
+    "action": "OpenTownRecruit",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "ReturnToTradeDialogue",
+    "line": 218,
+    "text": "离开",
+    "text_expression": "\"离开\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "OpenTownRecruit",
+    "line": 302,
+    "text": "先去拜访领主",
+    "text_expression": "\"先去拜访领主\"",
+    "action": "ClosePanel",
+    "enabled": "true",
+    "unlocked": "true"
+  },
+  {
+    "file": "BaseTownHud.cs",
+    "method": "OpenTownRecruit",
+    "line": 313,
+    "text": "开始招募",
+    "text_expression": "\"开始招募\"",
+    "action": "()=>{ClosePanel();OpenTownRecruit();}",
+    "enabled": "true",
+    "unlocked": "true"
+  }
+]

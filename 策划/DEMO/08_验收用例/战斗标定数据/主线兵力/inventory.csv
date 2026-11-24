@@ -1,0 +1,16 @@
+﻿id,file,route,day,batu,leaders,sword,bow,cavalry,mage,eligible_soldiers,l1,l2,food,materials,coins,notes
+cave-solo,cave-solo.json,Ruins,1,,1,0,0,0,0,0,6,2,240,80,1000,队长：白露 240/240
+cave-two,cave-two.json,Ruins,1,,2,0,0,0,0,0,6,2,240,60,860,队长：白露 240/240、阿铸 223/223
+cave-three,cave-three.json,Ruins,1,,3,0,0,0,0,0,6,2,240,60,860,队长：白露 240/240、阿铸 223/223、阿禾 150/150
+hideout,hideout.json,Hideout,3,,3,4,3,4,0,11,13,2,291,38,593,队长：白露 240/240、阿铸 182/223、迦兰 174/216
+defense,defense.json,Defense,6,,3,4,3,4,0,11,29,2,337,6,593,队长：白露 240/240、阿铸 223/223、迦兰 216/216
+blackcrow-early,blackcrow-early.json,BlackCrow,7,escaped,3,2,3,4,0,9,18,2,334,16,608,队长：白露 240/240、阿铸 223/223、迦兰 216/216
+blackcrow-restocked,blackcrow-restocked.json,BlackCrow,8,escaped,3,5,5,4,0,14,18,2,319,16,524,队长：白露 240/240、阿铸 223/223、迦兰 216/216
+second-early-escaped,second-early-escaped.json,Second,11,escaped,3,4,3,4,0,11,26,2,404,0,608,队长：白露 240/240、阿铸 223/223、迦兰 216/216
+second-restocked-escaped,second-restocked-escaped.json,Second,11,escaped,3,6,7,7,0,20,28,2,380,0,168,队长：白露 240/240、阿铸 223/223、迦兰 216/216
+second-early-dead,second-early-dead.json,Second,11,dead,3,4,3,4,0,11,26,2,404,0,608,队长：白露 240/240、阿铸 223/223、迦兰 216/216
+second-restocked-dead,second-restocked-dead.json,Second,11,dead,3,6,7,7,0,20,28,2,380,0,168,队长：白露 240/240、阿铸 223/223、迦兰 216/216
+blackcrow-restocked-12,blackcrow-restocked-12.json,BlackCrow,8,escaped,3,5,4,3,0,12,19,2,321,14,524,队长：白露 240/240、阿铸 223/223、迦兰 216/216
+blackcrow-restocked-13,blackcrow-restocked-13.json,BlackCrow,8,escaped,3,5,5,3,0,13,19,2,320,14,524,队长：白露 240/240、阿铸 223/223、迦兰 216/216
+blackcrow-mage,blackcrow-mage.json,BlackCrow,8,escaped,3,5,3,4,2,14,15,2,312,15,548,队长：白露 240/240、阿铸 221/223、迦兰 216/216
+second-restocked-mage-escaped,second-restocked-mage-escaped.json,Second,11,escaped,3,6,7,6,2,21,28,2,373,1,90,队长：白露 240/240、阿铸 223/223、迦兰 216/216
